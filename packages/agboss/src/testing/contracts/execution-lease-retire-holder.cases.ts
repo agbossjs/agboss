@@ -1,15 +1,15 @@
 import { expect } from "vitest";
 import {
   executionLeasesOf,
-  type LeaseEventLog,
+  type AuditLogWriter,
   type LeaseTake,
 } from "../../app/execution-leases.js";
 import { ExecutionObserverManager } from "../../core/observer-manager.js";
 import {
-  InMemoryExecutionLeaseEventRepository,
+  InMemoryExecutionAuditLogRepository,
   LeaseTakeoverReason,
-  type ExecutionLeaseEventRecord,
-} from "../../infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditEventRecord,
+} from "../../infrastructure/execution-audit-log.repository.js";
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import type { ExecutionTree } from "../../infrastructure/execution-tree.repository.js";
 import { InMemoryDatabase } from "../../infrastructure/in-memory-database.js";
@@ -39,19 +39,19 @@ const SILENT: FrameworkLog = {
   error: () => undefined,
 };
 
-/** A lease log in memory (the store under test is the lease store): its rows as written. */
+/** A audit log in memory (the store under test is the lease store): its rows as written. */
 function leaseLogOn(clock: VirtualClock): {
-  readonly events: LeaseEventLog;
-  readonly rows: () => Promise<readonly ExecutionLeaseEventRecord[]>;
+  readonly events: AuditLogWriter;
+  readonly rows: () => Promise<readonly ExecutionAuditEventRecord[]>;
 } {
-  const repository = new InMemoryExecutionLeaseEventRepository(new InMemoryDatabase());
-  const events: LeaseEventLog = {
+  const repository = new InMemoryExecutionAuditLogRepository(new InMemoryDatabase());
+  const events: AuditLogWriter = {
     repository,
     observer: new ExecutionObserverManager([]),
     mask: (event) => Promise.resolve(event),
     log: SILENT,
     clock,
-    recording: lazyLoad(import("../../app/lease-events.js")),
+    recording: lazyLoad(import("../../app/audit-log.js")),
   };
   const rows = () =>
     repository.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-1");
@@ -60,7 +60,7 @@ function leaseLogOn(clock: VirtualClock): {
 
 /**
  * The framework's take of finished work (#520) over the store: a lease its holder retired is not
- * taken over — no lease, no `Takeover` row in the lease log —, and a take whose work ended while
+ * taken over — no lease, no `Takeover` row in the audit log —, and a take whose work ended while
  * the store was asked gives the lease back at once, recording nothing.
  */
 export const LEASE_RETIRE_HOLDER_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [

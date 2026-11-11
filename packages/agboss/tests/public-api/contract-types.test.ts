@@ -105,7 +105,7 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
         "ExecutionRecordRepository",
         "ExecutionLeaseRepository",
         "FencedEffectRepository",
-        "ExecutionLeaseEventRepository",
+        "ExecutionAuditLogRepository",
       ]),
     );
   });

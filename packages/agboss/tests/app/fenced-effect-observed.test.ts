@@ -6,11 +6,11 @@
  */
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
-import type { FencedEffectReport } from "../../src/app/lease-events.js";
+import type { FencedEffectReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
-import { FencedEffectEventOutcome } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { FencedEffectEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import {

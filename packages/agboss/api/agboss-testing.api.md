@@ -862,7 +862,7 @@ export function testAction<TAction extends Class<ExecuteMethod>, TExecution exte
 // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
 //
 // @public
-export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "leaseEventsOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "resolve"> {
+export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "resolve"> {
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)

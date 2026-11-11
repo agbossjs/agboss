@@ -131,6 +131,7 @@ export interface AssembledApplication extends AssembledKeyFields {
     readonly a2aTaskRetention: Milliseconds;
     // (undocumented)
     readonly application: Class;
+    readonly auditLogRetention: Milliseconds;
     // (undocumented)
     readonly budgets: readonly Class[];
     readonly compensationTimeout: Milliseconds;
@@ -144,7 +145,6 @@ export interface AssembledApplication extends AssembledKeyFields {
     // Warning: (ae-forgotten-export) The symbol "FencedEffectSettings" needs to be exported by the entry point internal.d.ts
     readonly fencedEffects: FencedEffectSettings;
     readonly healthChecks: readonly Class[];
-    readonly leaseEventRetention: Milliseconds;
     readonly ledgerEntryRetention: Milliseconds;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
@@ -1552,6 +1552,8 @@ export function withReservedExecutionId<TOptions extends object>(options: TOptio
 
 // @public
 export interface WorkflowDepsParts {
+    // Warning: (ae-forgotten-export) The symbol "AuditLogWriter" needs to be exported by the entry point internal.d.ts
+    readonly auditLog?: AuditLogWriter;
     readonly budgets?: BudgetListing;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     readonly compensation?: CompensationParts;
@@ -1561,8 +1563,6 @@ export interface WorkflowDepsParts {
     readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
     // (undocumented)
     readonly infrastructure: Infrastructure;
-    // Warning: (ae-forgotten-export) The symbol "LeaseEventLog" needs to be exported by the entry point internal.d.ts
-    readonly leaseEvents?: LeaseEventLog;
     readonly observer?: ExecutionObserverManager;
     // Warning: (ae-forgotten-export) The symbol "ApplicationPiiKey" needs to be exported by the entry point internal.d.ts
     readonly piiKey?: ApplicationPiiKey;

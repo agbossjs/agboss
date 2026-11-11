@@ -1,5 +1,5 @@
 import type { ExecutionHistoryRecord } from "../../infrastructure/execution-history.repository.js";
-import type { ExecutionLeaseEventRecord } from "../../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionAuditEventRecord } from "../../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "../../infrastructure/outbound-call.repository.js";
 import type { OperationHistory } from "./operation-history.js";
 import type { PodEvent } from "./pod-protocol.js";
@@ -7,16 +7,16 @@ import type { PodEvent } from "./pod-protocol.js";
 /**
  * What the invariants of a fault run are checked on (#484): read only through the public API, by
  * a live pod at the end of the run — every root execution's kept record (`ExecutionHistoryRecord`:
- * its status, finish, output, children and undo actions), every tree's lease log
- * (`app.leaseEventsOf`) and calls that left the system (`app.outboundCallsOf`), the business rows
+ * its status, finish, output, children and undo actions), every tree's audit log
+ * (`app.auditLogOf`) and calls that left the system (`app.outboundCallsOf`), the business rows
  * committed — and, kept by the test, the gateway's payments and requests, every pod's events and
  * the history of every store operation.
  */
 
-/** One tree's lease log and outbound calls. */
+/** One tree's audit log and outbound calls. */
 export interface FaultTreeFacts {
   readonly rootExecutionId: string;
-  readonly leaseEvents: readonly ExecutionLeaseEventRecord[];
+  readonly auditLog: readonly ExecutionAuditEventRecord[];
   readonly outboundCalls: readonly OutboundCallRecord[];
 }
 

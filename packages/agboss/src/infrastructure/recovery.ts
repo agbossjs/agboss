@@ -2,7 +2,7 @@ import type { Expiry } from "./expiry.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { FencedEffectRepository } from "./fenced-effect.repository.js";
-import type { ExecutionLeaseEventRepository } from "./execution-lease-event.repository.js";
+import type { ExecutionAuditLogRepository } from "./execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { CostLedgerRepository } from "./cost-ledger.repository.js";
@@ -26,7 +26,7 @@ import type { StepCapacity } from "../app/step-slots.js";
  * survives a restart, so there is nothing to recover; recovery works with persistent stores.
  * Each look also removes what the stores keep past its retention: the resolved
  * pause records (#267 S107), the mesh requests' answers (#398), the kept executions (#401), the
- * fenced effects' results and marks (#500), the lease log's rows (#501) and the ledger's entries
+ * fenced effects' results and marks (#500), the audit log's rows (#501) and the ledger's entries
  * (#771). An instance that caps its steps (#332, `@Application({ maxConcurrentSteps })`) starts at most as
  * many recoveries per look as it has free step slots, none when it is full — the orphans are left to
  * an idle instance; a look cut short by that goes on from where it stopped next time, so every
@@ -210,9 +210,9 @@ export interface RetentionSources {
   /** The fenced effects' results and marks (#500), removed after `retention.fencedEffects`. */
   readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
   readonly fencedEffectRetention?: Milliseconds | undefined;
-  /** The lease log (#501) and `@Application({ retention: { leaseEvents } })`: older rows are removed. */
-  readonly leaseEvents?: ExecutionLeaseEventRepository | undefined;
-  readonly leaseEventRetention?: Milliseconds | undefined;
+  /** The audit log (#501) and `@Application({ retention: { auditLog } })`: older rows are removed. */
+  readonly auditLog?: ExecutionAuditLogRepository | undefined;
+  readonly auditLogRetention?: Milliseconds | undefined;
   /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
   readonly expiries?: readonly Expiry[] | undefined;
   /** The ended outbound calls (#505), removed after `retention.outboundCalls`; never a pending one. */
@@ -224,7 +224,7 @@ export interface RetentionSources {
 }
 
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
-  const { pauses, meshRequests, executionHistory, fencedEffects, leaseEvents, outboundCalls } =
+  const { pauses, meshRequests, executionHistory, fencedEffects, auditLog, outboundCalls } =
     sources;
   return [
     {
@@ -248,9 +248,9 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       retention: sources.fencedEffectRetention,
     },
     {
-      what: "the lease log's old rows",
-      remove: leaseEvents && ((cutoff) => leaseEvents.deleteByOccurredAtBefore(cutoff)),
-      retention: sources.leaseEventRetention,
+      what: "the audit log's old rows",
+      remove: auditLog && ((cutoff) => auditLog.deleteByOccurredAtBefore(cutoff)),
+      retention: sources.auditLogRetention,
     },
     {
       what: "the ended outbound calls",

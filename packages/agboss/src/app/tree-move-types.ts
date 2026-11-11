@@ -5,7 +5,7 @@ import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import type { AgentExecutionOutput, AgentExecutionDeps } from "../run/types.js";
 import type { AppDeps } from "./app-deps.js";
-import type { LeaseEventsReader } from "./app-deps-parts.js";
+import type { AuditLogReader } from "./app-deps-parts.js";
 import type { CancelWatch } from "./cancel-requests.js";
 import type { ExecutionLeases, HeldExecutionLease } from "./execution-leases.js";
 import type { LiveRuns, TreeCall } from "./live-runs.js";
@@ -33,8 +33,8 @@ export interface TreeMoveParts {
   readonly trees: ExecutionTreeRepository;
   /** The application's clock: when a tree's pauses were cancelled. */
   readonly clock: Clock;
-  /** The lease log, read by a pass that takes a tree over for the passes lost before it (#853). */
-  readonly leaseEvents?: LeaseEventsReader | undefined;
+  /** The audit log, read by a pass that takes a tree over for the passes lost before it (#853). */
+  readonly auditLog?: AuditLogReader | undefined;
 }
 
 /** A pass and the answers it takes (none for a tree's first pass or a recovery from its checkpoint). */

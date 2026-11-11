@@ -9,7 +9,7 @@ import {
  * `[application.store-backend-undeclared]` (none, or an empty one) names the classes. Every pairing
  * of nine lease stores with nine stores of each fencing contract; the explicit opt-out
  * `LeaseCheck.WithoutDoubleChargeProtection` (not checked, a warning instead); the built-in stores'
- * declarations; the stores no backend binds (the lease log, rate limits, the queue).
+ * declarations; the stores no backend binds (the audit log, rate limits, the queue).
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";

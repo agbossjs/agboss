@@ -109,11 +109,11 @@ export async function buildApp(
   const live = new LiveRuns();
   const leasing = leasingOf(parts.infrastructure);
   const leases = executionLeasesOf(leasing.repository, leasing.clock, {
-    events: parts.leaseEvents,
+    events: parts.auditLog,
     stopping: live.interruption,
   });
-  const { leaseEvents } = parts.infrastructure;
-  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, leaseEvents });
+  const { auditLog } = parts.infrastructure;
+  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);

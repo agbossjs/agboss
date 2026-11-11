@@ -7,7 +7,7 @@ import type { ContractInstances } from "./instance-context.js";
 /**
  * An execution's identity (#591): `claimExecutionId` keeps every id handed out — a root, a
  * child, a recursion level — once, by the id alone, so two trees never share a lease, a fencing
- * token, a lease log or a step key, whatever the application's `IdGenerator` mints. One atomic
+ * token, a audit log or a step key, whatever the application's `IdGenerator` mints. One atomic
  * insert-if-absent across instances; never removed, whatever the id's lease does.
  */
 

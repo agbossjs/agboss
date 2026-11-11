@@ -1,5 +1,5 @@
 // #543 acceptance: the opt-out accepted on a set that leaves the fenced-effect contract out (without).
-import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { InMemoryExecutionAuditLogRepository } from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
@@ -16,8 +16,8 @@ storeConformance({
       ({ storeClock, application, database }) =>
         new InMemoryExecutionLeaseRepository(storeClock, application, database),
     ),
-    executionLeaseEvent: inMemoryTarget(
-      ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
+    executionAuditLog: inMemoryTarget(
+      ({ database }) => new InMemoryExecutionAuditLogRepository(database),
     ),
     outboundCall: inMemoryTarget((seam) => {
       const leases = new InMemoryExecutionLeaseRepository(

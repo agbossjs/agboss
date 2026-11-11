@@ -12,13 +12,13 @@ import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 import { NotifyingQueueRepository } from "./broken-stores.js";
 import { FIXTURE_INTERLEAVINGS } from "./fixture-budget.js";
 
-const { executionLease, executionLeaseEvent, fencedEffect, outboundCall } = inMemoryStores();
-const FENCING = { executionLease, executionLeaseEvent, fencedEffect, outboundCall };
+const { executionLease, executionAuditLog, fencedEffect, outboundCall } = inMemoryStores();
+const FENCING = { executionLease, executionAuditLog, fencedEffect, outboundCall };
 
 storeConformance({
   name: "leases alone, explorer off",
   stores: { executionLease },
-  without: ["fencedEffect", "outboundCall", "executionLeaseEvent"],
+  without: ["fencedEffect", "outboundCall", "executionAuditLog"],
   interleavings: false,
 });
 storeConformance({ name: "fencing, explorer off", stores: FENCING, interleavings: false });

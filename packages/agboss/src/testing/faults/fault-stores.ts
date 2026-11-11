@@ -53,7 +53,7 @@ export enum FaultStoreTime {
 export interface FaultStoreSet<TTransaction = unknown> {
   /**
    * Every store class, as `@Application({ providers })` lists them: the lease, fenced-effect,
-   * outbound-call, lease-log, record, tree, history, child-queue and paused stores and the
+   * outbound-call, audit-log, record, tree, history, child-queue and paused stores and the
    * checkpoint saver, all on the one shared database (an in-memory default is not shared between
    * processes, so each must be listed).
    */

@@ -1,11 +1,11 @@
 /**
  * #501 PR 1 — the takeover of a tree's lease, told: `onExecutionLeaseTakeover` and a `Takeover` row
- * of the lease log (`app.leaseEventsOf`), naming who took the lease at which token, from whom when
+ * of the audit log (`app.auditLogOf`), naming who took the lease at which token, from whom when
  * the lease store says, and why. A lease released and taken again is no takeover; an observer that
- * throws or a lease log that is down never reaches the takeover.
+ * throws or a audit log that is down never reaches the takeover.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseEventKind, LeaseTakeoverReason, ResumeReason } from "../../src/index.js";
+import { ExecutionAuditEventKind, LeaseTakeoverReason, ResumeReason } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { hours, seconds } from "../../src/units/index.js";
@@ -25,16 +25,16 @@ import {
 } from "./fixtures/fence.workflow.js";
 import {
   DownLeaseLogApplication,
-  LeaseEventsApplication,
+  AuditLogApplication,
   leaseSeen,
-  resetLeaseEvents,
+  resetAuditLog,
   SilentTakeoverApplication,
   ThrowingLeaseObserverApplication,
-} from "./fixtures/lease-events.application.js";
+} from "./fixtures/audit-log.application.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 
-const test = testWith(LeaseEventsApplication);
-const two = testWith(LeaseEventsApplication, { instances: 2 });
+const test = testWith(AuditLogApplication);
+const two = testWith(AuditLogApplication, { instances: 2 });
 const throwing = testWith(ThrowingLeaseObserverApplication, { instances: 2 });
 const silent = testWith(SilentTakeoverApplication, { instances: 2 });
 const down = testWith(DownLeaseLogApplication, { instances: 2 });
@@ -43,7 +43,7 @@ beforeEach(() => {
   resetFence();
   resetRecovery();
   resetScopes();
-  resetLeaseEvents();
+  resetAuditLog();
   resetLogged();
 });
 
@@ -63,13 +63,13 @@ async function letZombieGo(apps: readonly TestApp[], call: Promise<unknown>): Pr
 
 describe("#501 AC1: a takeover is told and kept", () => {
   two(
-    "AC1: recovery after expiry emits one takeover event naming both holders and the new token, and it is in leaseEventsOf",
+    "AC1: recovery after expiry emits one takeover event naming both holders and the new token, and it is in auditLogOf",
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
       const rootExecutionId = zombieRoot();
 
-      const rows = await instance(apps, 1).leaseEventsOf({ tenantId: "default", rootExecutionId });
-      const fromZombie = await instance(apps, 0).leaseEventsOf({
+      const rows = await instance(apps, 1).auditLogOf({ tenantId: "default", rootExecutionId });
+      const fromZombie = await instance(apps, 0).auditLogOf({
         tenantId: "default",
         rootExecutionId,
       });
@@ -88,7 +88,7 @@ describe("#501 AC1: a takeover is told and kept", () => {
       expect(leaseSeen.takeovers).toEqual([{ ...expected, checkpointId: expect.any(String) }]);
       expect(rows).toEqual([
         {
-          kind: ExecutionLeaseEventKind.Takeover,
+          kind: ExecutionAuditEventKind.Takeover,
           occurredAt: expect.any(String),
           tenantId: "default",
           rootExecutionId,
@@ -116,10 +116,8 @@ describe("#501 AC1: a takeover is told and kept", () => {
       const { call } = await takenOver(apps, clock, leases);
       const b = instance(apps, 1);
 
-      expect(await b.leaseEventsOf({ tenantId: "acme", rootExecutionId: zombieRoot() })).toEqual(
-        [],
-      );
-      expect(await b.leaseEventsOf({ tenantId: "default", rootExecutionId: "nope" })).toEqual([]);
+      expect(await b.auditLogOf({ tenantId: "acme", rootExecutionId: zombieRoot() })).toEqual([]);
+      expect(await b.auditLogOf({ tenantId: "default", rootExecutionId: "nope" })).toEqual([]);
       leases.thaw(instance(apps, 0));
       await letZombieGo(apps, call);
     },
@@ -141,18 +139,18 @@ describe("#501 AC1: a takeover is told and kept", () => {
       expect(seen.fences.map((each) => each.token)).toEqual([2]);
       expect(leaseSeen.takeovers).toEqual([]);
       expect(
-        await b.leaseEventsOf({ tenantId: "default", rootExecutionId: result.executionId }),
+        await b.auditLogOf({ tenantId: "default", rootExecutionId: result.executionId }),
       ).toEqual([]);
     },
   );
 
-  test("a re-acquire after a yield (an AnyInstance child) is a Reacquired takeover at a new token, with no previous holder", async ({
+  test("a reclaim after a yield (an AnyInstance child) is a Reclaimed takeover at a new token, with no previous holder", async ({
     app,
   }) => {
     const result = await execute(app, FarParentWorkflowStart, { text: "go" });
     const { executionId: rootExecutionId } = result;
 
-    const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId });
+    const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId });
 
     expect(leaseSeen.takeovers).toEqual([
       {
@@ -162,19 +160,19 @@ describe("#501 AC1: a takeover is told and kept", () => {
         scopeKey: `default:${rootExecutionId}`,
         token: 2,
         holderInstanceId: "instance-1",
-        reason: LeaseTakeoverReason.Reacquired,
+        reason: LeaseTakeoverReason.Reclaimed,
       },
     ]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      kind: ExecutionLeaseEventKind.Takeover,
-      reason: LeaseTakeoverReason.Reacquired,
+      kind: ExecutionAuditEventKind.Takeover,
+      reason: LeaseTakeoverReason.Reclaimed,
       token: 2,
     });
     expect(rows[0]).not.toHaveProperty("previousHolderInstanceId");
   });
 
-  test("the recovery sweep removes rows older than retention.leaseEvents (default 24 h)", async ({
+  test("the recovery sweep removes rows older than retention.auditLog (default 24 h)", async ({
     app,
     clock,
   }) => {
@@ -184,12 +182,12 @@ describe("#501 AC1: a takeover is told and kept", () => {
     const tree = { tenantId: "default", rootExecutionId };
 
     await clock.advance(hours(23));
-    const kept = await app.leaseEventsOf(tree);
+    const kept = await app.auditLogOf(tree);
     await clock.advance(hours(1));
     await clock.advance(seconds(31));
 
     expect(kept).toHaveLength(1);
-    expect(await app.leaseEventsOf(tree)).toEqual([]);
+    expect(await app.auditLogOf(tree)).toEqual([]);
   });
 });
 
@@ -199,7 +197,7 @@ describe("#501: what never reaches the takeover", () => {
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
 
-      const rows = await instance(apps, 1).leaseEventsOf({
+      const rows = await instance(apps, 1).auditLogOf({
         tenantId: "default",
         rootExecutionId: zombieRoot(),
       });
@@ -214,15 +212,15 @@ describe("#501: what never reaches the takeover", () => {
   );
 
   down(
-    "a lease log that is down: a warning, the observers still hear it and the recovery goes on",
+    "a audit log that is down: a warning, the observers still hear it and the recovery goes on",
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
 
       expect(leaseSeen.takeovers).toHaveLength(1);
       expect(recovery.ends).toHaveLength(1);
-      expect(logged.filter((entry) => entry.code === "lease-event.failed")).toHaveLength(1);
+      expect(logged.filter((entry) => entry.code === "audit-log.failed")).toHaveLength(1);
       expect(
-        await instance(apps, 1).leaseEventsOf({
+        await instance(apps, 1).auditLogOf({
           tenantId: "default",
           rootExecutionId: zombieRoot(),
         }),

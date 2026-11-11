@@ -5,28 +5,28 @@
  */
 import { describe, expect, it } from "vitest";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
-import { recordTakeover } from "../../src/app/lease-events.js";
+import { recordTakeover } from "../../src/app/audit-log.js";
 import {
-  reacquiredOf,
+  reclaimedOf,
   reportTake,
   rootTakeOf,
-  type LeaseEventLog,
+  type AuditLogWriter,
   type LeaseTake,
   type RootThreadConfig,
 } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import type { ExecutionLeaseTakeoverEvent } from "../../src/flow/observers/lease-events.js";
+import type { ExecutionLeaseTakeoverEvent } from "../../src/flow/observers/audit-log.js";
 import {
   InMemoryExecutionLeaseRepository,
   type ExecutionLease,
 } from "../../src/infrastructure/execution-lease.repository.js";
 import {
-  ExecutionLeaseEventKind,
-  InMemoryExecutionLeaseEventRepository,
+  ExecutionAuditEventKind,
+  InMemoryExecutionAuditLogRepository,
   LeaseTakeoverReason,
-} from "../../src/infrastructure/execution-lease-event.repository.js";
+} from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
@@ -47,13 +47,13 @@ const TAKEN_OVER: ExecutionLease = {
   takenOverFrom: { holderInstanceId: "instance-1", token: 1 },
 };
 
-/** A lease log in memory: its rows, what its observer heard, its warnings. */
-function leaseLog(overrides: Partial<LeaseEventLog> = {}) {
+/** A audit log in memory: its rows, what its observer heard, its warnings. */
+function leaseLog(overrides: Partial<AuditLogWriter> = {}) {
   const database = new InMemoryDatabase();
   const heard: ExecutionLeaseTakeoverEvent[] = [];
   const { log, entries } = recordingLog();
-  const events: LeaseEventLog = {
-    repository: new InMemoryExecutionLeaseEventRepository(database),
+  const events: AuditLogWriter = {
+    repository: new InMemoryExecutionAuditLogRepository(database),
     observer: new ExecutionObserverManager([
       {
         onExecutionLeaseTakeover: (event: ExecutionLeaseTakeoverEvent) => {
@@ -64,10 +64,10 @@ function leaseLog(overrides: Partial<LeaseEventLog> = {}) {
     mask: (event) => Promise.resolve(event),
     log,
     clock: new VirtualClock(),
-    recording: import("../../src/app/lease-events.js"),
+    recording: import("../../src/app/audit-log.js"),
     ...overrides,
   };
-  return { events, heard, entries, rows: database.executionLeaseEvents };
+  return { events, heard, entries, rows: database.executionAuditLog };
 }
 
 describe("#501: which takes are takeovers", () => {
@@ -91,7 +91,7 @@ describe("#501: which takes are takeovers", () => {
     ]);
     expect(rows).toEqual([
       {
-        kind: ExecutionLeaseEventKind.Takeover,
+        kind: ExecutionAuditEventKind.Takeover,
         occurredAt: "2026-01-05T09:00:00.000Z",
         tenantId: "acme",
         rootExecutionId: "root-1",
@@ -132,7 +132,7 @@ describe("#501: which takes are takeovers", () => {
     expect(heard).toEqual([]);
   });
 
-  it("a holder without a lease log reports nothing", async () => {
+  it("a holder without a audit log reports nothing", async () => {
     await expect(
       reportTake(undefined, TAKEN_OVER, { reason: LeaseTakeoverReason.Recovered }),
     ).resolves.toBeUndefined();
@@ -177,15 +177,15 @@ describe("#501: which takes are takeovers", () => {
     expect(heard[1]).not.toHaveProperty("checkpointId");
   });
 
-  it("a re-acquire is a takeover of the same tree as the first take", () => {
+  it("a reclaim is a takeover of the same tree as the first take", () => {
     const first: LeaseTake = { reason: LeaseTakeoverReason.RemoteChild, rootExecutionId: "root-0" };
 
-    expect(reacquiredOf(undefined)).toEqual({
-      reason: LeaseTakeoverReason.Reacquired,
+    expect(reclaimedOf(undefined)).toEqual({
+      reason: LeaseTakeoverReason.Reclaimed,
       isTakeover: true,
     });
-    expect(reacquiredOf(first)).toEqual({
-      reason: LeaseTakeoverReason.Reacquired,
+    expect(reclaimedOf(first)).toEqual({
+      reason: LeaseTakeoverReason.Reclaimed,
       isTakeover: true,
       rootExecutionId: "root-0",
     });
@@ -240,7 +240,7 @@ describe("#501: recording a takeover never throws", () => {
     expect(entries).toEqual([
       {
         level: "warn",
-        code: "lease-event.failed",
+        code: "audit-log.failed",
         message: "the takeover of execution root-1 could not be recorded: Error: the mask failed",
       },
     ]);

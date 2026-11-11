@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { handedOverOf, recordedHandOver } from "../../../app/handed-over.js";
-import { HandOverSite } from "../../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../../infrastructure/execution-audit-log.repository.js";
 import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { StepFailedError } from "../../../graph/errors.js";

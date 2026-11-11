@@ -17,7 +17,7 @@ import type {
   FencedEffectReport,
   HandOverReport,
   OutboundCallReport,
-} from "../../app/lease-events.js";
+} from "../../app/audit-log.js";
 import type { ObservabilityMask } from "../../pii/observability-mask.js";
 
 /**
@@ -96,8 +96,8 @@ export interface FrameLease {
   /** A step of the tree runs (#471): the lease is not yielded under it; the function leaves. */
   enterStep(): Promise<() => void>;
   /**
-   * A step under it was handed over (#501): its row of the lease log and `onStepHandedOver`,
-   * recorded before the lease is released; absent where no lease log is kept (a unit runner).
+   * A step under it was handed over (#501): its row of the audit log and `onStepHandedOver`,
+   * recorded before the lease is released; absent where no audit log is kept (a unit runner).
    */
   recordHandOver?(report: HandOverReport): void;
   /** A step under it called a fenced effect (#501): its row and `onFencedEffect`, in order. */

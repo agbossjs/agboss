@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ExecutionHistoryRecord } from "../../../src/infrastructure/execution-history.repository.js";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   OutboundCallEventOutcome,
-  type ExecutionLeaseEventRecord,
-} from "../../../src/infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditEventRecord,
+} from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../../src/infrastructure/outbound-call.repository.js";
 import type { OutboundCallRecord } from "../../../src/infrastructure/outbound-call-record.js";
 import type { FaultRun, PodEventFact } from "../../../src/testing/faults/facts.js";
@@ -23,7 +23,7 @@ import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";
 /**
  * #484 AC1 — the invariant checker fails on a broken run: each invariant on a run that breaks it,
  * and a healthy run passes. The runs are written by hand: the history of store operations, the
- * kept records, the lease logs, the business rows, the gateway and the pods' events.
+ * kept records, the audit logs, the business rows, the gateway and the pods' events.
  */
 
 let at = 0n;
@@ -134,23 +134,23 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
     input: key(1),
     output: { status: "ran", token: 1 },
   });
-  const leaseEvents: ExecutionLeaseEventRecord[] = [
+  const auditLog: ExecutionAuditEventRecord[] = [
     {
-      kind: ExecutionLeaseEventKind.FencedEffect,
+      kind: ExecutionAuditEventKind.FencedEffect,
       executionId: "root-1",
       name: "charge",
       outcome: FencedEffectEventOutcome.Ran,
-    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord,
+    } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord,
     {
-      kind: ExecutionLeaseEventKind.OutboundCall,
+      kind: ExecutionAuditEventKind.OutboundCall,
       executionId: "root-1",
       name: "pay",
       outcome: OutboundCallEventOutcome.Sent,
-    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord,
+    } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord,
   ];
   const run: FaultRun = {
     records: [orderRecord("o-1", "root-1")],
-    trees: [{ rootExecutionId: "root-1", leaseEvents, outboundCalls: [] }],
+    trees: [{ rootExecutionId: "root-1", auditLog, outboundCalls: [] }],
     businessRows: ["charge:root-1"],
     orders: [{ orderId: "o-1", decline: false, fails: false }],
     requests: [{ pod: "a", idempotencyKey: "default:order%3Ao-1:pay", orderId: "o-1" }],
@@ -341,26 +341,26 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     });
     const effect = (name: string, writtenToken: number) =>
       ({
-        kind: ExecutionLeaseEventKind.FencedEffect,
+        kind: ExecutionAuditEventKind.FencedEffect,
         executionId: "root-1",
         scopeKey: "root-1",
         name,
         outcome: FencedEffectEventOutcome.Replayed,
         step: { nodeId: "n", visitNumber: 1, idempotencyKey: `root-1:${name}` },
         writtenToken,
-      }) as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
+      }) as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
     const [tree] = run.trees;
     const trees = [
       {
         rootExecutionId: "root-1",
         // the charge's row at 1 is the answered write's; a business key's replay names another step
-        leaseEvents: [
-          ...(tree?.leaseEvents ?? []),
+        auditLog: [
+          ...(tree?.auditLog ?? []),
           effect("charge", 1),
           effect("refund", 1),
           effect("ship", 2),
           { ...effect("ship", 1), replayedFrom: { executionId: "other" } },
-        ] as ExecutionLeaseEventRecord[],
+        ] as ExecutionAuditEventRecord[],
         outboundCalls: [
           {
             leaseExecutionId: "root-1",
@@ -485,25 +485,25 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       input: refund,
     });
     const row = {
-      kind: ExecutionLeaseEventKind.FencedEffect,
+      kind: ExecutionAuditEventKind.FencedEffect,
       scopeKey: "root-1",
       name: "refund",
       step: { nodeId: "n", visitNumber: 1, idempotencyKey: "root-1:refund" },
       writtenToken: 1,
-    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
-    const trees = [{ rootExecutionId: "root-1", leaseEvents: [row], outboundCalls: [] }];
+    } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
+    const trees = [{ rootExecutionId: "root-1", auditLog: [row], outboundCalls: [] }];
     expect(violationsOf({ ...run, trees })).toEqual([]);
   });
 
-  it("two takeovers of one token in the lease log", () => {
+  it("two takeovers of one token in the audit log", () => {
     const { run } = healthy();
     const takeover = {
-      kind: ExecutionLeaseEventKind.Takeover,
+      kind: ExecutionAuditEventKind.Takeover,
       executionId: "root-1",
       token: 2,
-    } as Partial<ExecutionLeaseEventRecord> as ExecutionLeaseEventRecord;
+    } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
     const trees = [
-      { rootExecutionId: "root-1", leaseEvents: [takeover, takeover], outboundCalls: [] },
+      { rootExecutionId: "root-1", auditLog: [takeover, takeover], outboundCalls: [] },
     ];
     expect(invariantsOf({ ...run, trees })).toEqual([FaultInvariant.OneOwner]);
   });
@@ -533,11 +533,11 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
 
   it("a duplicate charge: two business rows, two Ran rows", () => {
     const { run } = healthy();
-    const ran = run.trees[0]?.leaseEvents[0];
+    const ran = run.trees[0]?.auditLog[0];
     const trees = [
       {
         rootExecutionId: "root-1",
-        leaseEvents: [ran, ran].filter((row) => row !== undefined),
+        auditLog: [ran, ran].filter((row) => row !== undefined),
         outboundCalls: [],
       },
     ];
@@ -550,11 +550,11 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
 
   it("a duplicate payment: two keys, two requests, two payments, two Sent rows", () => {
     const { run } = healthy();
-    const sent = run.trees[0]?.leaseEvents[1];
+    const sent = run.trees[0]?.auditLog[1];
     const trees = [
       {
         rootExecutionId: "root-1",
-        leaseEvents: [sent, sent].filter((row) => row !== undefined),
+        auditLog: [sent, sent].filter((row) => row !== undefined),
         outboundCalls: [],
       },
     ];

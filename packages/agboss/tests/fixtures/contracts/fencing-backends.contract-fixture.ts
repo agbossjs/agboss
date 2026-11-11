@@ -30,5 +30,5 @@ storeConformance({
       return { calls: new UndeclaredCalls(seam.storeClock, seam.database, leases), leases };
     }),
   },
-  without: ["executionLeaseEvent"],
+  without: ["executionAuditLog"],
 });

@@ -1,6 +1,6 @@
 /**
  * #552 acceptance — a tenant id is a key's text at every API that takes one, the operator's reads
- * too: `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCalls`. On SQLite (and
+ * too: `app.auditLogOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`. On SQLite (and
  * PostgreSQL) `t\uD800` is stored as `t�`, so a read under a lone surrogate would be another
  * tenant's rows; any other refused text names no tenant that could exist. Each read refuses it with
  * `dto.invalid` naming `tenantId` and the rule, never the id, before the store is asked. And the
@@ -42,7 +42,7 @@ const REPLACED = "t�";
 /** Every read of an operator that takes a tenant id. */
 const reads = (app: TestApp, tenantId: string) =>
   [
-    ["leaseEventsOf", () => app.leaseEventsOf({ tenantId, rootExecutionId: "execution-1" })],
+    ["auditLogOf", () => app.auditLogOf({ tenantId, rootExecutionId: "execution-1" })],
     ["outboundCallsOf", () => app.outboundCallsOf({ tenantId, rootExecutionId: "execution-1" })],
     ["pendingOutboundCallsOf", async () => (await app.pendingOutboundCallsOf({ tenantId })).calls],
   ] as const;
@@ -55,7 +55,7 @@ const rejectionOf = (call: () => Promise<unknown>): Promise<unknown> =>
 
 describe("#552 acceptance: a tenant id at the operator's reads", () => {
   sqlite(
-    "a lone surrogate never reads t\\uFFFD's lease log, calls or pending calls: refused, the id not named",
+    "a lone surrogate never reads t\\uFFFD's audit log, calls or pending calls: refused, the id not named",
     async ({ app }) => {
       gateway.gates.after = 1;
       const call = execute(

@@ -12,7 +12,7 @@ import type { Clock } from "../../infrastructure/clock.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
-import { LeaseTakeoverReason } from "../../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../../infrastructure/execution-audit-log.repository.js";
 import type { LeaseTake } from "../execution-leases.js";
 import type { BuiltApp } from "../create-app.js";
 

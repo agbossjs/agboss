@@ -7,7 +7,7 @@
  * owner at a time, no work lost, no second charge.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseEventKind, ExecutionLeaseLostError } from "../../src/index.js";
+import { ExecutionAuditEventKind, ExecutionLeaseLostError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -25,17 +25,14 @@ import {
   letAllGo,
   resetFencedEffect,
 } from "./fixtures/fenced-effect.workflow.js";
-import {
-  FencedEffectEventsApplication,
-  resetLeaseEvents,
-} from "./fixtures/lease-events.application.js";
+import { FencedEffectEventsApplication, resetAuditLog } from "./fixtures/audit-log.application.js";
 
 const test = testWith(FencedEffectEventsApplication);
 
 beforeEach(() => {
   resetFencedEffect();
   resetRecovery();
-  resetLeaseEvents();
+  resetAuditLog();
 });
 
 afterEach(() => {
@@ -69,10 +66,10 @@ describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly"
     await settle();
     letAllGo();
     await call;
-    const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId: ROOT });
+    const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: ROOT });
 
     expect(book.charges.map((charge) => charge.token)).toEqual([1]);
-    expect(rows.filter((row) => row.kind === ExecutionLeaseEventKind.Takeover)).toEqual([]);
+    expect(rows.filter((row) => row.kind === ExecutionAuditEventKind.Takeover)).toEqual([]);
   });
 
   test.for(HANDED_OVER)(
@@ -92,12 +89,12 @@ describe("#534 AC3: a holder stalled past its lease's expiry hands over cleanly"
       const error = await rejectionOf(call);
       await clock.advance(seconds(31));
       await ends(1);
-      const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId: ROOT });
+      const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: ROOT });
 
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
       expect(book.charges.map((charge) => charge.token)).toEqual([2]);
       expect(book.runs.filter((run) => run.status !== "refused")).toHaveLength(1);
-      expect(rows.filter((row) => row.kind === ExecutionLeaseEventKind.Takeover)).toEqual([
+      expect(rows.filter((row) => row.kind === ExecutionAuditEventKind.Takeover)).toEqual([
         expect.objectContaining({
           holderInstanceId: "instance-1",
           token: 2,

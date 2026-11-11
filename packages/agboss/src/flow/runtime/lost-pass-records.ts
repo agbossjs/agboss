@@ -11,7 +11,7 @@ import { countedServiceSpend } from "./limits.js";
 /**
  * Lost passes of a step (#853): a model call sent by a pass that died before its answer leaves no
  * trace in the ledger. The recovery that runs the step again knows its previous holders did not
- * finish it — the tree's lease log has a takeover from each, at the checkpoint the step is pending
+ * finish it — the tree's audit log has a takeover from each, at the checkpoint the step is pending
  * at, and the checkpoint has no write of the step's task — and records one entry per lost pass:
  * cost source `Unknown`, no amount, under an id derived from (execution, step, pass), so whoever
  * records it, and however often, the ledger adds it once. Nothing is written on a pass that took no
@@ -33,7 +33,7 @@ export interface LostPasses {
   readonly settledTaskIds: readonly string[];
 }
 
-/** A takeover row of the lease log, as far as lost passes read it. */
+/** A takeover row of the audit log, as far as lost passes read it. */
 export interface TakeoverRow {
   readonly kind: string;
   readonly checkpointId?: string | undefined;

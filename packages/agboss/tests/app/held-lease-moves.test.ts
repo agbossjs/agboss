@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   executionLeasesOf,
   type HeldExecutionLease,
-  type LeaseEventLog,
+  type AuditLogWriter,
 } from "../../src/app/execution-leases.js";
 import { handedOverOf } from "../../src/app/handed-over.js";
 import type { HeldLease } from "../../src/app/held-lease.js";
@@ -24,10 +24,10 @@ import {
   type ExecutionLease,
 } from "../../src/index.js";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   HandOverSite,
-  InMemoryExecutionLeaseEventRepository,
-} from "../../src/infrastructure/execution-lease-event.repository.js";
+  InMemoryExecutionAuditLogRepository,
+} from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -103,7 +103,7 @@ function scriptedStore() {
   return { clock, database, store, script: store.script };
 }
 
-/** A lease the test holds, its timers at a closed gate; `events` when it keeps a lease log. */
+/** A lease the test holds, its timers at a closed gate; `events` when it keeps a audit log. */
 async function heldBy(
   { clock, store }: ReturnType<typeof scriptedStore>,
   events?: Parameters<typeof executionLeasesOf>[2],
@@ -416,13 +416,13 @@ describe("#533: a yield, its store's answers, and the reclaim", () => {
   it("after the reclaim a hand-over names the new token", async () => {
     const leases = scriptedStore();
     const { log } = recordingLog();
-    const events: LeaseEventLog = {
-      repository: new InMemoryExecutionLeaseEventRepository(leases.database),
+    const events: AuditLogWriter = {
+      repository: new InMemoryExecutionAuditLogRepository(leases.database),
       observer: new ExecutionObserverManager([]),
       mask: (event) => Promise.resolve(event),
       log,
       clock: leases.clock,
-      recording: import("../../src/app/lease-events.js"),
+      recording: import("../../src/app/audit-log.js"),
     };
     const lease = await heldBy(leases, { events });
     const { wait, end } = heldWait();
@@ -435,8 +435,8 @@ describe("#533: a yield, its store's answers, and the reclaim", () => {
     lease.recordHandOver?.({ event: nodeEventOf(testFrame()), error, site: HandOverSite.Step });
     await lease.release();
 
-    const handedOver = leases.database.executionLeaseEvents.filter(
-      (row) => row.kind === ExecutionLeaseEventKind.HandedOver,
+    const handedOver = leases.database.executionAuditLog.filter(
+      (row) => row.kind === ExecutionAuditEventKind.HandedOver,
     );
     expect(handedOver.map((row) => row.token)).toEqual([2]);
   });

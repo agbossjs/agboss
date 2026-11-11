@@ -1,6 +1,6 @@
 import { effectKeyForTesting } from "../effect-key.js";
 import { scopeKeyOf } from "../../../app/lease-lost.js";
-import { OutboundCallLeaseState } from "../../../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,

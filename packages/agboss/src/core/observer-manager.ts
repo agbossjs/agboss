@@ -10,7 +10,7 @@ import type {
   FencedEffectEvent,
   OutboundCallEvent,
   StepHandedOverEvent,
-} from "../flow/observers/lease-events.js";
+} from "../flow/observers/audit-log.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,

@@ -1,20 +1,20 @@
 import type { NodeEvent } from "../flow/observers/execution-event.js";
-import type { OutboundCallEvent } from "../flow/observers/lease-events.js";
+import type { OutboundCallEvent } from "../flow/observers/audit-log.js";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   type OutboundCallEventOutcome,
   type OutboundCallEventRecord,
   type OutboundCallClosedLease,
-} from "../infrastructure/execution-lease-event.repository.js";
+} from "../infrastructure/execution-audit-log.repository.js";
 import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
-import type { LeaseEventLog } from "./execution-leases.js";
-import { saved } from "./lease-events.js";
+import type { AuditLogWriter } from "./execution-leases.js";
+import { saved } from "./audit-log.js";
 
 /**
  * The moves of a call that leaves the system (#505), told to the lease it runs under: each one
- * masked like an observer event, written as an `OutboundCall` row of the lease log, then told to
- * `onOutboundCall` — never its request or its result. Loaded with the lease log's recording.
+ * masked like an observer event, written as an `OutboundCall` row of the audit log, then told to
+ * `onOutboundCall` — never its request or its result. Loaded with the audit log's recording.
  */
 
 /** What the protocol saw of one move of a call: the step's event, the call, how it moved. */
@@ -35,7 +35,7 @@ export interface OutboundCallReport {
 
 /** The row of a move: identities, the intent's state and tokens only. */
 const outboundCallRowOf = (event: OutboundCallEvent, at: Date): OutboundCallEventRecord => ({
-  kind: ExecutionLeaseEventKind.OutboundCall,
+  kind: ExecutionAuditEventKind.OutboundCall,
   occurredAt: at.toISOString(),
   tenantId: event.tenantId,
   rootExecutionId: event.rootExecutionId,
@@ -61,7 +61,7 @@ const outboundCallRowOf = (event: OutboundCallEvent, at: Date): OutboundCallEven
 
 /** A move of a call: its row first, then `onOutboundCall`; never throws. */
 export async function recordOutboundCall(
-  events: LeaseEventLog,
+  events: AuditLogWriter,
   report: OutboundCallReport,
   holderInstanceId: string,
 ): Promise<void> {
@@ -74,7 +74,7 @@ export async function recordOutboundCall(
     await events.observer.onOutboundCall(shown);
   } catch (error) {
     const text = `the outbound call "${report.name}" of execution ${event.executionId} could not be recorded: ${String(error)}`;
-    events.log.warn("lease-event.failed", text, {
+    events.log.warn("audit-log.failed", text, {
       executionId: event.executionId,
       tenantId: event.tenantId,
     });

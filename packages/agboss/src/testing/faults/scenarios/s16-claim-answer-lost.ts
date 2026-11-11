@@ -1,4 +1,4 @@
-import { LeaseTakeoverReason } from "../../../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../../../infrastructure/execution-audit-log.repository.js";
 import { HoldPhase } from "../hold-points.js";
 import { OperationPhase } from "../operation-history.js";
 import type { RunnableFaultScenario } from "../scenario.js";

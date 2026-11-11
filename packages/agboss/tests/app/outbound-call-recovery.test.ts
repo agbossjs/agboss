@@ -128,7 +128,7 @@ describe("#505 AC2: the provider never got it — sent once more", () => {
 
 describe("#505 AC3: nobody can say — a defined error, the intent pending", () => {
   two(
-    "AC3: unknown → OutboundCallUnreconciledError, intent pending, listed by pendingOutboundCalls",
+    "AC3: unknown → OutboundCallUnreconciledError, intent pending, listed by pendingOutboundCallsOf",
     async ({ apps, clock, leases }) => {
       gateway.gates.after = 1;
       gateway.lookup = LookupMode.Unknown;

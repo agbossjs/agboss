@@ -8,26 +8,26 @@ import {
   type OutboundCallPage,
   type OutboundCallRepository,
 } from "../infrastructure/outbound-call.repository.js";
-import type { LeaseEventsQuery, PendingOutboundCallsQuery } from "../app/types.js";
+import type { ExecutionTreeQuery, PendingOutboundCallsQuery } from "../app/types.js";
 import {
-  currentLeaseEventOf,
-  type ExecutionLeaseEventRecord,
-  type ExecutionLeaseEventRepository,
-} from "../infrastructure/execution-lease-event.repository.js";
+  currentAuditEventOf,
+  type ExecutionAuditEventRecord,
+  type ExecutionAuditLogRepository,
+} from "../infrastructure/execution-audit-log.repository.js";
 
 /**
- * `app.leaseEventsOf({ tenantId, rootExecutionId })` (#501): the tree's rows of the lease log,
- * oldest first — a row written before #825 under this version's names (`currentLeaseEventOf`).
+ * `app.auditLogOf({ tenantId, rootExecutionId })` (#501): the tree's rows of the audit log,
+ * oldest first — a row written before #825 under this version's names (`currentAuditEventOf`).
  */
-export async function leaseEventsIn(
-  leaseEvents: ExecutionLeaseEventRepository,
-  { tenantId, rootExecutionId }: LeaseEventsQuery,
-): Promise<readonly ExecutionLeaseEventRecord[]> {
-  const rows = await leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+export async function auditLogIn(
+  auditLog: ExecutionAuditLogRepository,
+  { tenantId, rootExecutionId }: ExecutionTreeQuery,
+): Promise<readonly ExecutionAuditEventRecord[]> {
+  const rows = await auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
     tenantId,
     rootExecutionId,
   );
-  return rows.map(currentLeaseEventOf);
+  return rows.map(currentAuditEventOf);
 }
 
 /**

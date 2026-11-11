@@ -18,7 +18,7 @@ const unbuilt = (): never => {
   throw new Error("never built: the set is refused before any case");
 };
 
-const FENCING = ["executionLease", "fencedEffect", "outboundCall", "executionLeaseEvent"] as const;
+const FENCING = ["executionLease", "fencedEffect", "outboundCall", "executionAuditLog"] as const;
 
 /** A set of `keys` (as a JavaScript project may give them: no type checks the keys), unbuilt. */
 const setOf = (keys: readonly string[], extra: Record<string, unknown> = {}): StoreSet => ({
@@ -61,7 +61,7 @@ describe("#542: a store under a key that names no contract", () => {
 describe("#526 acceptance: what counts as a store, and without", () => {
   it("a fencing key given as undefined is no store: the set is missing that contract", () => {
     const problems = problemsOf(
-      setOf(["executionLease", "fencedEffect", "executionLeaseEvent"], { outboundCall: undefined }),
+      setOf(["executionLease", "fencedEffect", "executionAuditLog"], { outboundCall: undefined }),
     );
 
     expect(codesOf(problems)).toEqual(["store-conformance.missing-fencing-contract"]);
@@ -72,7 +72,7 @@ describe("#526 acceptance: what counts as a store, and without", () => {
     expect(() => {
       checkStoreSet({
         name: "PostgreSQL",
-        claimed: ["executionLease", "outboundCall", "executionLeaseEvent"],
+        claimed: ["executionLease", "outboundCall", "executionAuditLog"],
         without: ["fencedEffect", "fencedEffect"],
       });
     }).not.toThrow();

@@ -462,17 +462,17 @@ export type AnyPiiAction = MaskingPiiAction | BlockWithRefusalAction;
 
 // @public
 export interface App {
+    auditLogOf(tree: ExecutionTreeQuery): Promise<readonly ExecutionAuditEventRecord[]>;
     cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
     checkLiveness(): Promise<HealthReport>;
     checkReadiness(): Promise<HealthReport>;
     close(options?: CloseOptions): Promise<void>;
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, ...options: ExecutionOptionsArgs<InstanceType<TStart>>): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
     hasTool(name: string): boolean;
-    leaseEventsOf(tree: LeaseEventsQuery): Promise<readonly ExecutionLeaseEventRecord[]>;
     readonly models: readonly string[];
     // (undocumented)
     readonly name: string;
-    outboundCallsOf(tree: LeaseEventsQuery): Promise<readonly OutboundCallRecord[]>;
+    outboundCallsOf(tree: ExecutionTreeQuery): Promise<readonly OutboundCallRecord[]>;
     pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
     resolve<T>(token: Class<T>): T;
     resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
@@ -676,6 +676,19 @@ export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date;
 
 // @public
 export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
+
+// @public
+export interface AuditEventStep {
+    // (undocumented)
+    readonly idempotencyKey: string;
+    // (undocumented)
+    readonly nodeId: string;
+    // (undocumented)
+    readonly visitNumber: number;
+}
+
+// @public
+export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
 
 // @public
 export class AutoApproveChannel {
@@ -1936,6 +1949,39 @@ export interface EvalCaseIssue {
 // @public
 export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
 
+// @public
+export interface ExecutionAuditEventBase {
+    readonly executionId: string;
+    readonly holderInstanceId: string;
+    // (undocumented)
+    readonly kind: ExecutionAuditEventKind;
+    readonly occurredAt: string;
+    readonly rootExecutionId: string;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+}
+
+// @public
+export enum ExecutionAuditEventKind {
+    FencedEffect = "fenced-effect",
+    HandedOver = "handed-over",
+    OutboundCall = "outbound-call",
+    Takeover = "takeover"
+}
+
+// @public
+export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+
+// @public (undocumented)
+export abstract class ExecutionAuditLogRepository {
+    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
+    abstract ping(): Promise<void>;
+    abstract save(record: ExecutionAuditEventRecord): Promise<void>;
+}
+
 // Warning: (ae-forgotten-export) The symbol "BudgetCommonOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -2098,6 +2144,7 @@ export interface ExecutionHistoryPage {
 export interface ExecutionHistoryRecord extends ExecutionRecord {
     // (undocumented)
     readonly application: ApplicationRecord;
+    readonly auditLog?: readonly ExecutionAuditEventRecord[];
     readonly contexts: ExecutionContextRecord;
     // (undocumented)
     readonly endedAt?: string;
@@ -2107,7 +2154,6 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
     readonly finish?: ComponentRecord;
     // (undocumented)
     readonly input: unknown;
-    readonly leaseEvents?: readonly ExecutionLeaseEventRecord[];
     readonly outboundCalls?: readonly OutboundCallRecord[];
     // (undocumented)
     readonly output?: unknown;
@@ -2184,39 +2230,6 @@ export interface ExecutionLease {
 }
 
 // @public
-export interface ExecutionLeaseEventBase {
-    readonly executionId: string;
-    readonly holderInstanceId: string;
-    // (undocumented)
-    readonly kind: ExecutionLeaseEventKind;
-    readonly occurredAt: string;
-    readonly rootExecutionId: string;
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    readonly token: number;
-}
-
-// @public
-export enum ExecutionLeaseEventKind {
-    FencedEffect = "fenced-effect",
-    HandedOver = "handed-over",
-    OutboundCall = "outbound-call",
-    Takeover = "takeover"
-}
-
-// @public
-export type ExecutionLeaseEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
-
-// @public (undocumented)
-export abstract class ExecutionLeaseEventRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
-    abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionLeaseEventRecord[]>;
-    abstract ping(): Promise<void>;
-    abstract save(record: ExecutionLeaseEventRecord): Promise<void>;
-}
-
-// @public
 export class ExecutionLeaseLostError extends AGBossError {
     constructor(rootExecutionId: string);
     // (undocumented)
@@ -2256,10 +2269,8 @@ export interface ExecutionLeaseTakeoverEvent {
     readonly token: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "LeaseEventHooks" needs to be exported by the entry point index.d.ts
-//
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & LeaseEventHooks>;
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
 
 // @public
 export enum ExecutionOperation {
@@ -2455,6 +2466,14 @@ export interface ExecutionTree {
 }
 
 // @public
+export interface ExecutionTreeQuery {
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
     findById(key: string): Promise<ExecutionTreeValue | undefined>;
@@ -2583,16 +2602,16 @@ export interface FencedEffectOutcome<TResult> {
 }
 
 // @public
-export interface FencedEffectRecord extends ExecutionLeaseEventBase {
+export interface FencedEffectRecord extends ExecutionAuditEventBase {
     // (undocumented)
-    readonly kind: ExecutionLeaseEventKind.FencedEffect;
+    readonly kind: ExecutionAuditEventKind.FencedEffect;
     readonly name: string;
     readonly observedToken?: number;
     // (undocumented)
     readonly outcome: FencedEffectEventOutcome;
     readonly replayedFrom?: FencedEffectOrigin;
     // (undocumented)
-    readonly step: LeaseEventStep;
+    readonly step: AuditEventStep;
     readonly writtenToken?: number;
 }
 
@@ -3067,6 +3086,9 @@ export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
     // (undocumented)
     readonly limit?: number;
 }
+
+// @public
+export type HookResult = Promise<void> | void;
 
 // @public
 export class HopsLimitExceededError extends LimitExceededError {
@@ -3644,27 +3666,9 @@ export enum LeaseCheck {
 }
 
 // @public
-export interface LeaseEventsQuery {
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface LeaseEventStep {
-    // (undocumented)
-    readonly idempotencyKey: string;
-    // (undocumented)
-    readonly nodeId: string;
-    // (undocumented)
-    readonly visitNumber: number;
-}
-
-// @public
 export enum LeaseTakeoverReason {
     Cancelled = "cancelled",
-    Reacquired = "reacquired",
+    Reclaimed = "reclaimed",
     Recovered = "recovered",
     RemoteChild = "remote-child",
     Resumed = "resumed",
@@ -3672,10 +3676,10 @@ export enum LeaseTakeoverReason {
 }
 
 // @public
-export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
+export interface LeaseTakeoverRecord extends ExecutionAuditEventBase {
     readonly checkpointId?: string;
     // (undocumented)
-    readonly kind: ExecutionLeaseEventKind.Takeover;
+    readonly kind: ExecutionAuditEventKind.Takeover;
     readonly previousHolderInstanceId?: string;
     // (undocumented)
     readonly previousToken?: number;
@@ -4213,8 +4217,6 @@ export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
 export interface OnActionEnd {
-    // Warning: (ae-forgotten-export) The symbol "HookResult" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onActionEnd(event: ActionEndEvent): HookResult;
 }
@@ -4309,7 +4311,7 @@ export interface OnExecutionError {
 
 // @public
 export interface OnExecutionLeaseTakeover {
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> | void;
+    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
 }
 
 // @public
@@ -4338,7 +4340,7 @@ export interface OnExecutionStart {
 
 // @public
 export interface OnFencedEffect {
-    onFencedEffect(event: FencedEffectEvent): Promise<void> | void;
+    onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 
 // @public (undocumented)
@@ -4389,7 +4391,7 @@ export interface OnModelStart {
 
 // @public
 export interface OnOutboundCall {
-    onOutboundCall(event: OutboundCallEvent): Promise<void> | void;
+    onOutboundCall(event: OutboundCallEvent): HookResult;
 }
 
 // @public
@@ -4428,7 +4430,7 @@ export interface OnStart {
 
 // @public
 export interface OnStepHandedOver {
-    onStepHandedOver(event: StepHandedOverEvent): Promise<void> | void;
+    onStepHandedOver(event: StepHandedOverEvent): HookResult;
 }
 
 // @public
@@ -4536,12 +4538,12 @@ export enum OutboundCallEventOutcome {
 }
 
 // @public
-export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
+export interface OutboundCallEventRecord extends ExecutionAuditEventBase {
     // (undocumented)
     readonly attempt: number;
     readonly closedLease?: OutboundCallClosedLease;
     // (undocumented)
-    readonly kind: ExecutionLeaseEventKind.OutboundCall;
+    readonly kind: ExecutionAuditEventKind.OutboundCall;
     readonly name: string;
     // (undocumented)
     readonly operation: string;
@@ -4550,7 +4552,7 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
     readonly replayedFrom?: FencedEffectOrigin;
     readonly status: OutboundCallStatus;
     // (undocumented)
-    readonly step: LeaseEventStep;
+    readonly step: AuditEventStep;
     readonly supersededBy?: number;
     // (undocumented)
     readonly target: string;
@@ -5798,10 +5800,10 @@ export interface ResumeVersions {
 // @public
 export interface RetentionOptions {
     readonly a2aTasks?: Milliseconds;
+    readonly auditLog?: Milliseconds;
     readonly costLedgerEntries?: Milliseconds;
     readonly executionRecords?: Milliseconds;
     readonly fencedEffects?: Milliseconds;
-    readonly leaseEvents?: Milliseconds;
     readonly meshAnswers?: Milliseconds;
     readonly outboundCalls?: Milliseconds;
     readonly pauseRecords?: Milliseconds;
@@ -6195,6 +6197,19 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
 }
 
 // @public
+export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(record: ExecutionAuditEventRecord): Promise<void>;
+}
+
+// @public
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
@@ -6213,19 +6228,6 @@ export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository
     ping(): Promise<void>;
     // (undocumented)
     save(record: ExecutionHistoryRecord): Promise<void>;
-}
-
-// @public
-export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepository {
-    constructor(connection: SqliteConnection);
-    // (undocumented)
-    deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
-    // (undocumented)
-    findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionLeaseEventRecord[]>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    save(record: ExecutionLeaseEventRecord): Promise<void>;
 }
 
 // @public
@@ -6426,16 +6428,16 @@ export interface StepHandedOverEvent extends NodeEvent {
 }
 
 // @public
-export interface StepHandedOverRecord extends ExecutionLeaseEventBase {
+export interface StepHandedOverRecord extends ExecutionAuditEventBase {
     // (undocumented)
-    readonly kind: ExecutionLeaseEventKind.HandedOver;
+    readonly kind: ExecutionAuditEventKind.HandedOver;
     readonly observedToken?: number;
     // (undocumented)
     readonly reason: HandOverReason;
     // (undocumented)
     readonly site: HandOverSite;
     // (undocumented)
-    readonly step: LeaseEventStep;
+    readonly step: AuditEventStep;
 }
 
 // @public
@@ -7880,22 +7882,22 @@ export interface WrittenLedgerMark {
 // src/flow/launch-types.ts:157:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts:164:3 - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts:179:3 - (ae-undocumented) Missing documentation for "toParallelAgents".
+// src/flow/observers/audit-log.ts:22:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/flow/observers/audit-log.ts:35:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/flow/observers/audit-log.ts:38:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/observers/audit-log.ts:50:3 - (ae-undocumented) Missing documentation for "reason".
+// src/flow/observers/audit-log.ts:51:3 - (ae-undocumented) Missing documentation for "site".
+// src/flow/observers/audit-log.ts:89:3 - (ae-undocumented) Missing documentation for "name".
+// src/flow/observers/audit-log.ts:90:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/flow/observers/audit-log.ts:93:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/flow/observers/audit-log.ts:121:3 - (ae-undocumented) Missing documentation for "name".
+// src/flow/observers/audit-log.ts:122:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/observers/audit-log.ts:123:3 - (ae-undocumented) Missing documentation for "operation".
+// src/flow/observers/audit-log.ts:124:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/observers/audit-log.ts:125:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/flow/observers/audit-log.ts:126:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/flow/observers/audit-log.ts:127:3 - (ae-undocumented) Missing documentation for "scopeKey".
 // src/flow/observers/execution-event.ts:25:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/flow/observers/lease-events.ts:21:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/flow/observers/lease-events.ts:34:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/flow/observers/lease-events.ts:37:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/observers/lease-events.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/observers/lease-events.ts:50:3 - (ae-undocumented) Missing documentation for "site".
-// src/flow/observers/lease-events.ts:88:3 - (ae-undocumented) Missing documentation for "name".
-// src/flow/observers/lease-events.ts:89:3 - (ae-undocumented) Missing documentation for "scopeKey".
-// src/flow/observers/lease-events.ts:92:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/flow/observers/lease-events.ts:120:3 - (ae-undocumented) Missing documentation for "name".
-// src/flow/observers/lease-events.ts:121:3 - (ae-undocumented) Missing documentation for "target".
-// src/flow/observers/lease-events.ts:122:3 - (ae-undocumented) Missing documentation for "operation".
-// src/flow/observers/lease-events.ts:123:3 - (ae-undocumented) Missing documentation for "status".
-// src/flow/observers/lease-events.ts:124:3 - (ae-undocumented) Missing documentation for "attempt".
-// src/flow/observers/lease-events.ts:125:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/flow/observers/lease-events.ts:126:3 - (ae-undocumented) Missing documentation for "scopeKey".
 // src/flow/quorum-step.ts:29:3 - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts:30:3 - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts:48:3 - (ae-undocumented) Missing documentation for "deadline".
@@ -8072,6 +8074,31 @@ export interface WrittenLedgerMark {
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
 // src/infrastructure/effect-key.ts:89:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:131:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/execution-audit-log.repository.ts:132:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:133:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/infrastructure/execution-audit-log.repository.ts:138:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:141:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-audit-log.repository.ts:156:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:157:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:160:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/infrastructure/execution-audit-log.repository.ts:167:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:168:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:169:3 - (ae-undocumented) Missing documentation for "site".
+// src/infrastructure/execution-audit-log.repository.ts:170:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:177:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:180:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:181:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:195:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:198:3 - (ae-undocumented) Missing documentation for "target".
+// src/infrastructure/execution-audit-log.repository.ts:199:3 - (ae-undocumented) Missing documentation for "operation".
+// src/infrastructure/execution-audit-log.repository.ts:202:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/infrastructure/execution-audit-log.repository.ts:203:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:204:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:221:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-audit-log.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -8093,31 +8120,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease-event.repository.ts:131:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/execution-lease-event.repository.ts:132:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-lease-event.repository.ts:133:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/infrastructure/execution-lease-event.repository.ts:138:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:141:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-lease-event.repository.ts:156:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:157:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-lease-event.repository.ts:160:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/infrastructure/execution-lease-event.repository.ts:167:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:168:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-lease-event.repository.ts:169:3 - (ae-undocumented) Missing documentation for "site".
-// src/infrastructure/execution-lease-event.repository.ts:170:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-lease-event.repository.ts:177:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:180:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-lease-event.repository.ts:181:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-lease-event.repository.ts:195:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-lease-event.repository.ts:198:3 - (ae-undocumented) Missing documentation for "target".
-// src/infrastructure/execution-lease-event.repository.ts:199:3 - (ae-undocumented) Missing documentation for "operation".
-// src/infrastructure/execution-lease-event.repository.ts:202:3 - (ae-undocumented) Missing documentation for "attempt".
-// src/infrastructure/execution-lease-event.repository.ts:203:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-lease-event.repository.ts:204:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-lease-event.repository.ts:221:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/infrastructure/execution-lease-event.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/infrastructure/execution-lease-event.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-lease-event.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionLeaseEventRepository".
 // src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
@@ -8251,6 +8253,10 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:156:3 - (ae-undocumented) Missing documentation for "deleteByMadeAtBefore".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:176:3 - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts:188:3 - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:35:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:39:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:54:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
@@ -8259,10 +8265,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:35:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:39:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:54:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-lease-event.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:74:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:96:3 - (ae-undocumented) Missing documentation for "acquire".

@@ -1,6 +1,6 @@
 import { Application } from "../../../../src/application/application.js";
 import {
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
   SqliteOutboundCallRepository,
@@ -27,7 +27,7 @@ import { SqliteChargeWorkflow } from "./sqlite-fenced-effect.workflow.js";
   providers: [
     SqliteExecutionLeaseRepository,
     SqliteOutboundCallRepository,
-    SqliteExecutionLeaseEventRepository,
+    SqliteExecutionAuditLogRepository,
   ],
 })
 export class ConnectionlessOutboundApplication {}

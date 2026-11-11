@@ -77,8 +77,8 @@ export interface AssembledApplication extends AssembledKeyFields {
   readonly pauseRecordRetention: Milliseconds;
   /** How long a root execution's history is kept (`retention.executionRecords`, #401); unset = not kept. */
   readonly executionRecordRetention?: Milliseconds;
-  /** How long a row of the lease log is kept (`retention.leaseEvents`, #501). */
-  readonly leaseEventRetention: Milliseconds;
+  /** How long a row of the audit log is kept (`retention.auditLog`, #501). */
+  readonly auditLogRetention: Milliseconds;
   /** How long a finished A2A task is kept (`retention.a2aTasks`, #807). */
   readonly a2aTaskRetention: Milliseconds;
   /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */

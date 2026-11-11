@@ -3,27 +3,27 @@ import type {
   ExecutionLeaseTakeoverEvent,
   FencedEffectEvent,
   StepHandedOverEvent,
-} from "../flow/observers/lease-events.js";
+} from "../flow/observers/audit-log.js";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   HandOverReason,
   type FencedEffectEventOutcome,
   type FencedEffectRecord,
-  type ExecutionLeaseEventRecord,
+  type ExecutionAuditEventRecord,
   type HandOverSite,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
-} from "../infrastructure/execution-lease-event.repository.js";
+} from "../infrastructure/execution-audit-log.repository.js";
 import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import type { HandedOver } from "./handed-over.js";
 import { ExecutionFencedError } from "./lease-lost.js";
-import type { LeaseEventLog } from "./execution-leases.js";
+import type { AuditLogWriter } from "./execution-leases.js";
 
 /**
- * The lease log of an application instance (#501): each takeover and hand-over is masked like an
- * observer event, written as a row of the `ExecutionLeaseEventRepository` and then told to the
- * observers. Neither a store that fails (a warning, `lease-event.failed`) nor an observer that throws
+ * The audit log of an application instance (#501): each takeover and hand-over is masked like an
+ * observer event, written as a row of the `ExecutionAuditLogRepository` and then told to the
+ * observers. Neither a store that fails (a warning, `audit-log.failed`) nor an observer that throws
  * (`observer.failed`) ever reaches the takeover or the hand-over it records. Loaded on the first
  * takeover or hand-over (`execution-leases.ts`).
  */
@@ -36,12 +36,12 @@ function definedOf<T extends object>(event: T): T {
 export { recordOutboundCall, type OutboundCallReport } from "./outbound-call-events.js";
 
 /** Writes `row`; a store that fails is a warning, never the caller's failure. */
-export async function saved(events: LeaseEventLog, row: ExecutionLeaseEventRecord): Promise<void> {
+export async function saved(events: AuditLogWriter, row: ExecutionAuditEventRecord): Promise<void> {
   try {
     await events.repository.save(row);
   } catch (error) {
-    const text = `the lease log could not keep a ${row.kind} of execution ${row.executionId}: ${String(error)}`;
-    events.log.warn("lease-event.failed", text, {
+    const text = `the audit log could not keep a ${row.kind} of execution ${row.executionId}: ${String(error)}`;
+    events.log.warn("audit-log.failed", text, {
       executionId: row.executionId,
       tenantId: row.tenantId,
     });
@@ -51,7 +51,7 @@ export async function saved(events: LeaseEventLog, row: ExecutionLeaseEventRecor
 /** The row of a takeover. */
 const takeoverRowOf = (event: ExecutionLeaseTakeoverEvent, at: Date): LeaseTakeoverRecord =>
   definedOf({
-    kind: ExecutionLeaseEventKind.Takeover,
+    kind: ExecutionAuditEventKind.Takeover,
     occurredAt: at.toISOString(),
     tenantId: event.tenantId,
     rootExecutionId: event.rootExecutionId,
@@ -67,7 +67,7 @@ const takeoverRowOf = (event: ExecutionLeaseTakeoverEvent, at: Date): LeaseTakeo
 
 /** A takeover: its row first, then `onExecutionLeaseTakeover`; never throws. */
 export async function recordTakeover(
-  events: LeaseEventLog,
+  events: AuditLogWriter,
   event: ExecutionLeaseTakeoverEvent,
 ): Promise<void> {
   try {
@@ -77,7 +77,7 @@ export async function recordTakeover(
     await events.observer.onExecutionLeaseTakeover(shown);
   } catch (error) {
     const text = `the takeover of execution ${event.leaseExecutionId} could not be recorded: ${String(error)}`;
-    events.log.warn("lease-event.failed", text, {
+    events.log.warn("audit-log.failed", text, {
       executionId: event.leaseExecutionId,
       tenantId: event.tenantId,
     });
@@ -127,7 +127,7 @@ export const handOverEventOf = (
 /** The row of a hand-over. */
 const handOverRowOf = (event: StepHandedOverEvent, at: Date): StepHandedOverRecord =>
   definedOf({
-    kind: ExecutionLeaseEventKind.HandedOver,
+    kind: ExecutionAuditEventKind.HandedOver,
     occurredAt: at.toISOString(),
     tenantId: event.tenantId,
     rootExecutionId: event.rootExecutionId,
@@ -147,7 +147,7 @@ const handOverRowOf = (event: StepHandedOverEvent, at: Date): StepHandedOverReco
 
 /** A hand-over: its row first, then `onStepHandedOver`; never throws. */
 export async function recordHandOver(
-  events: LeaseEventLog,
+  events: AuditLogWriter,
   report: HandOverReport,
   lease: HandedOverLease,
 ): Promise<void> {
@@ -159,7 +159,7 @@ export async function recordHandOver(
     await events.observer.onStepHandedOver(shown);
   } catch (error) {
     const text = `the hand-over of execution ${event.executionId} could not be recorded: ${String(error)}`;
-    events.log.warn("lease-event.failed", text, {
+    events.log.warn("audit-log.failed", text, {
       executionId: event.executionId,
       tenantId: event.tenantId,
     });
@@ -196,7 +196,7 @@ export const fencedEffectEventOf = (
 /** The row of a fenced effect's call: never its result. */
 const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectRecord =>
   definedOf({
-    kind: ExecutionLeaseEventKind.FencedEffect,
+    kind: ExecutionAuditEventKind.FencedEffect,
     occurredAt: at.toISOString(),
     tenantId: event.tenantId,
     rootExecutionId: event.rootExecutionId,
@@ -218,7 +218,7 @@ const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectReco
 
 /** A fenced effect's call: its row first, then `onFencedEffect`; never throws. */
 export async function recordFencedEffect(
-  events: LeaseEventLog,
+  events: AuditLogWriter,
   report: FencedEffectReport,
   holderInstanceId: string,
 ): Promise<void> {
@@ -230,7 +230,7 @@ export async function recordFencedEffect(
     await events.observer.onFencedEffect(shown);
   } catch (error) {
     const text = `the fenced effect "${report.name}" of execution ${event.executionId} could not be recorded: ${String(error)}`;
-    events.log.warn("lease-event.failed", text, {
+    events.log.warn("audit-log.failed", text, {
       executionId: event.executionId,
       tenantId: event.tenantId,
     });

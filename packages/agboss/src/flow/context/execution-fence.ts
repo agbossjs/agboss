@@ -23,7 +23,7 @@ export interface ExecutionFence {
   readonly leaseExecutionId: string;
   /**
    * The lease's `token`: a counter of this one lease key (1, 2, …), not a cluster-wide
-   * sequence — it rises with every take (a recovery, a resume, the re-acquire after remote children).
+   * sequence — it rises with every take (a recovery, a resume, the reclaim after remote children).
    */
   readonly token: number;
   /**

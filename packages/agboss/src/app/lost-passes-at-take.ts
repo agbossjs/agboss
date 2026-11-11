@@ -3,7 +3,7 @@ import {
   lostPassesOf,
   type LostPasses,
 } from "../flow/runtime/lost-pass-records.js";
-import type { LeaseEventsReader } from "./app-deps-parts.js";
+import type { AuditLogReader } from "./app-deps-parts.js";
 import type { RootCheckpoints } from "./execution-leases.js";
 import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
@@ -12,12 +12,12 @@ import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
  * What a pass that takes a tree over reads to find the passes its previous holders lost (#853): the
- * tree's head checkpoint (with its tasks' writes) and its lease log. Read on the recovery path only
+ * tree's head checkpoint (with its tasks' writes) and its audit log. Read on the recovery path only
  * — a recovery, a resume — never on a tree's first pass.
  */
 export interface LostPassSources {
   readonly checkpoints?: RootCheckpoints | undefined;
-  readonly leaseEvents?: LeaseEventsReader | undefined;
+  readonly auditLog?: AuditLogReader | undefined;
   readonly log: FrameworkLog;
   /** The instance's tally of Unknown-cost entries (#875): a failed read is counted there. */
   readonly tally?: UnknownCostTally | undefined;
@@ -38,14 +38,14 @@ export async function lostPassesAtTake(
   sources: LostPassSources,
   state: TreeState,
 ): Promise<LostPasses | undefined> {
-  const { checkpoints, leaseEvents } = sources;
-  if (checkpoints === undefined || leaseEvents === undefined) return undefined;
+  const { checkpoints, auditLog } = sources;
+  if (checkpoints === undefined || auditLog === undefined) return undefined;
   try {
     const head = await checkpoints.checkpointer.getTuple({
       configurable: { thread_id: state.runId },
     });
     if (head === undefined) return undefined;
-    const rows = await leaseEvents.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+    const rows = await auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
       state.tenantId,
       state.runId,
     );
@@ -76,13 +76,13 @@ export const withLostPasses = (call: TreeCall, lost: LostPasses | undefined): Tr
  * the lease is held: its steps pending there record one Unknown-cost entry per lost pass.
  */
 export async function callWithLostPasses(
-  parts: Pick<TreeMoveParts, "deps" | "leaseEvents">,
+  parts: Pick<TreeMoveParts, "deps" | "auditLog">,
   state: TreeState,
   call: TreeCall,
 ): Promise<TreeCall> {
   const sources = {
     checkpoints: parts.deps.pause,
-    leaseEvents: parts.leaseEvents,
+    auditLog: parts.auditLog,
     log: parts.deps.log,
     tally: parts.deps.observer.unknownCosts,
     workflow: parts.deps.config.name,

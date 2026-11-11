@@ -14,7 +14,7 @@ describe("#834 AC1: one retention group", () => {
   it("the old retention options do not compile", () => {
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("pauseRecordRetention");
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("executionRecordRetention");
-    expectTypeOf<ApplicationOptions>().not.toHaveProperty("leaseEventRetention");
+    expectTypeOf<ApplicationOptions>().not.toHaveProperty("auditLogRetention");
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("ledgerEntryRetention");
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("a2a");
     expectTypeOf<NonNullable<ApplicationOptions["fencedEffects"]>>().not.toHaveProperty(
@@ -33,7 +33,7 @@ describe("#834 AC1: one retention group", () => {
     expectTypeOf<keyof RetentionOptions>().toEqualTypeOf<
       | "pauseRecords"
       | "executionRecords"
-      | "leaseEvents"
+      | "auditLog"
       | "costLedgerEntries"
       | "fencedEffects"
       | "outboundCalls"

@@ -104,7 +104,7 @@ export class InvalidNotSentTrustError extends AGBossError {
 /**
  * An attempt of a call was answered after a newer attempt took its intent over (#508, #795): both
  * reached the other system — one charge when it honours `call.idempotencyKey`, two when it does
- * not. The answer is not stored; the lease log and the instance's log name both attempts. A
+ * not. The answer is not stored; the audit log and the instance's log name both attempts. A
  * `StepFailedError`, never a normal outcome: `.onError(OutboundCallSupersededError, …)` is the
  * explicit choice to go on — check the other system first.
  */

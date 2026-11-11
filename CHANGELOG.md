@@ -20,6 +20,32 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking
 
+- **The execution audit log and the metric names** (#889, API review G6):
+  - **The lease log is the execution audit log** — it keeps takeovers, hand-overs, fenced effects and
+    outbound calls, not only leases. `ExecutionLeaseEventRepository` → `ExecutionAuditLogRepository`
+    (`SqliteExecutionAuditLogRepository`; `@agboss/postgres` and `@agboss/mongodb` rename theirs the
+    same way), `ExecutionLeaseEventRecord` / `ExecutionLeaseEventBase` / `ExecutionLeaseEventKind` /
+    `LeaseEventStep` → `ExecutionAuditEventRecord` / `ExecutionAuditEventBase` /
+    `ExecutionAuditEventKind` / `AuditEventStep`, `app.leaseEventsOf(tree)` →
+    `app.auditLogOf(tree: ExecutionTreeQuery)` (`LeaseEventsQuery` → `ExecutionTreeQuery`, also
+    `outboundCallsOf`'s), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (and in `agboss records
+export`), `@Application({ retention: { leaseEvents } })` → `retention.auditLog` (the old key is
+    refused by `[application.retention-invalid]` naming the new one), the contract suite
+    `executionLeaseEventContract` → `executionAuditLogContract` and
+    `storeConformance({ stores: { executionLeaseEvent } })` → `stores.executionAuditLog`, the log
+    code `lease-event.failed` → `audit-log.failed`. The stored tables and collections keep their
+    names (`execution_lease_events`, `agboss_execution_lease_events`): no migration.
+  - `LeaseTakeoverReason.Reacquired` (`"reacquired"`) → `LeaseTakeoverReason.Reclaimed`
+    (`"reclaimed"`), the verb of `ExecutionLeaseRepository.reclaim`; the `reason` label of the
+    takeover counter says `reclaimed` too.
+  - The four hooks of the audit log are one exported type, `AuditLogHooks`, and every hook returns
+    the exported `HookResult` — `ExecutionObserver` names no unexported type.
+  - **Metrics:** `agboss.cluster.children.oldest_queued_seconds` → `agboss.cluster.children.oldest_queued.age`
+    (unit `s`; no unit in the name), `agboss.instance.lease.takeovers` →
+    `agboss.instance.leases.takeovers`, and `agboss.instance.compensations` labels its
+    `CompensationStatus` as `outcome` (was `status`), as `executions.ended` does. Update scrape
+    configs, alerts and scale rules that name them.
+
 - **The application's configuration has one shape** (#834, API review G2):
   - **One `@Application({ retention })` group** — `{ pauseRecords, executionRecords, leaseEvents,
 costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks }`, each a `Milliseconds`,

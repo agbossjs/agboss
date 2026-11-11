@@ -1,26 +1,26 @@
 /**
  * The ready SQLite implementations of the infrastructure contracts (#265), each enabled only by
  * listing it in `@Application({ providers })`, and the queue of children on any instance
- * (#333 PR 2), and the lease log (#501). `node:sqlite` is loaded only when a connection opens.
+ * (#333 PR 2), and the audit log (#501). `node:sqlite` is loaded only when a connection opens.
  */
 export {
-  ExecutionLeaseEventKind,
-  ExecutionLeaseEventRepository,
+  ExecutionAuditEventKind,
+  ExecutionAuditLogRepository,
   FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
-  type ExecutionLeaseEventBase,
-  type ExecutionLeaseEventRecord,
+  type ExecutionAuditEventBase,
+  type ExecutionAuditEventRecord,
   type FencedEffectRecord,
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
   type OutboundCallEventRecord,
   type OutboundCallClosedLease,
-  type LeaseEventStep,
+  type AuditEventStep,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
-} from "../infrastructure/execution-lease-event.repository.js";
+} from "../infrastructure/execution-audit-log.repository.js";
 export {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,
@@ -43,7 +43,7 @@ export {
 } from "../infrastructure/cost-ledger.repository.js";
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";
-export { SqliteExecutionLeaseEventRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
+export { SqliteExecutionAuditLogRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionHistoryRepository } from "../infrastructure/sqlite/sqlite-execution-history.repository.js";
 export { SqliteExecutionTreeRepository } from "../infrastructure/sqlite/sqlite-execution-tree.repository.js";
 export { SqlitePausedExecutionRepository } from "../infrastructure/sqlite/sqlite-paused-execution.repository.js";

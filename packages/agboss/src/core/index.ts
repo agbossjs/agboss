@@ -189,5 +189,9 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type ExecutionObserver,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type AuditLogHooks,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type HookResult,
+  /** @deprecated Import from "@agboss/core" (#195). */
   WorkflowSettings,
 } from "../index.js";

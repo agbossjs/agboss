@@ -1,4 +1,4 @@
-import { ChildExecutionQueueRepository, ExecutionLeaseEventKind } from "../../../src/index.js";
+import { ChildExecutionQueueRepository, ExecutionAuditEventKind } from "../../../src/index.js";
 import type { QueuedChildExecution } from "../../../src/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
 import {
@@ -10,7 +10,7 @@ import type { ItemDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
  * #520 — what the tests of finished work read: the instances, the stores they share, a child's
- * row and lease, and the takeovers the lease log records of one execution.
+ * row and lease, and the takeovers the audit log records of one execution.
  */
 
 export const item = (name: string, outcome: ItemDto["outcome"] = "ok"): ItemDto => ({
@@ -50,14 +50,14 @@ export const statusOf = (app: TestApp, child: QueuedChildExecution): string | un
 export const leaseRowOf = (app: TestApp, executionId: string): ExecutionLeaseRow | undefined =>
   databaseOf(app).executionLeases.get(treeKeyOf("default", executionId));
 
-/** The takeovers of `executionId`'s own lease in the lease log of the tree `rootExecutionId`. */
+/** The takeovers of `executionId`'s own lease in the audit log of the tree `rootExecutionId`. */
 export async function takeoversOf(
   app: TestApp,
   rootExecutionId: string,
   executionId: string,
 ): Promise<readonly unknown[]> {
-  const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId });
+  const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId });
   return rows.filter(
-    (row) => row.kind === ExecutionLeaseEventKind.Takeover && row.executionId === executionId,
+    (row) => row.kind === ExecutionAuditEventKind.Takeover && row.executionId === executionId,
   );
 }

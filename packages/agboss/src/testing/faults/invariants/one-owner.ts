@@ -1,4 +1,4 @@
-import { ExecutionLeaseEventKind } from "../../../infrastructure/execution-lease-event.repository.js";
+import { ExecutionAuditEventKind } from "../../../infrastructure/execution-audit-log.repository.js";
 import type { FaultRun } from "../facts.js";
 import { compareAt } from "../operation-history.js";
 import { OutboundCallStatus } from "../../../infrastructure/outbound-call.repository.js";
@@ -14,7 +14,7 @@ import {
 import { FaultInvariant, violation, type FaultViolation } from "./violations.js";
 
 /**
- * One owner per tree (#484 invariant 1), from the store history and the lease log:
+ * One owner per tree (#484 invariant 1), from the store history and the audit log:
  * - every epoch of a lease key is granted once, and a key's epochs grow in the order granted;
  * - a write the store's lease check let through at token N (#840: any answer but an error) came from the instance that was granted epoch N — and a
  *   write at a token no grant of its key gave is a violation too (#840: a forged or unrecorded
@@ -22,9 +22,9 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
  * - no write is accepted at token N once epoch N + k was granted (its grant answered before the
  *   write was asked): the zombie's write is refused;
  * - a write never answered (#876: its pod died before the answer) that the store's rows hold — the
- *   fenced effects' stored tokens in the lease log, the outbound calls' rows — is checked as one
+ *   fenced effects' stored tokens in the audit log, the outbound calls' rows — is checked as one
  *   accepted;
- * - the lease log has one takeover per token of an execution;
+ * - the audit log has one takeover per token of an execution;
  * - no lease of finished work is granted again (#520).
  */
 
@@ -112,7 +112,7 @@ interface WrittenRow {
 /**
  * The store's own record of its fenced writes, as the run's end read it, through the public API:
  * - each fenced effect's stored token, as the store answered it to a later call of the key (a
- *   lease-log row's `writtenToken`; a business key's replay of another step's write left out) — a
+ *   audit-log row's `writtenToken`; a business key's replay of another step's write left out) — a
  *   write whose pod died is never checkpointed, so its step runs again on the next holder and the
  *   tree must finish (`trees-finish`): that call reads the row back;
  * - each outbound call's row: its token, its state and its attempt's owner are its last write's —
@@ -123,8 +123,8 @@ interface WrittenRow {
  */
 function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
   return run.trees.flatMap((tree) => [
-    ...tree.leaseEvents.flatMap((row): WrittenRow[] =>
-      row.kind === ExecutionLeaseEventKind.FencedEffect &&
+    ...tree.auditLog.flatMap((row): WrittenRow[] =>
+      row.kind === ExecutionAuditEventKind.FencedEffect &&
       row.writtenToken !== undefined &&
       row.replayedFrom === undefined
         ? [
@@ -190,8 +190,8 @@ function unansweredViolations(
 function takeoverViolations(run: FaultRun): FaultViolation[] {
   return run.trees.flatMap((tree) => {
     const seen = new Set<string>();
-    return tree.leaseEvents.flatMap((row) => {
-      if (row.kind !== ExecutionLeaseEventKind.Takeover) return [];
+    return tree.auditLog.flatMap((row) => {
+      if (row.kind !== ExecutionAuditEventKind.Takeover) return [];
       const id = `${row.executionId}#${String(row.token)}`;
       if (!seen.has(id)) {
         seen.add(id);
@@ -200,7 +200,7 @@ function takeoverViolations(run: FaultRun): FaultViolation[] {
       return [
         violation(
           FaultInvariant.OneOwner,
-          `two takeovers of ${row.executionId} at token ${String(row.token)} in the lease log`,
+          `two takeovers of ${row.executionId} at token ${String(row.token)} in the audit log`,
         ),
       ];
     });

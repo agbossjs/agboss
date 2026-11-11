@@ -1,26 +1,26 @@
 import { expect } from "vitest";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
   OutboundCallEventOutcome,
-  type ExecutionLeaseEventRecord,
+  type ExecutionAuditEventRecord,
   type OutboundCallEventRecord,
-  type ExecutionLeaseEventRepository,
+  type ExecutionAuditLogRepository,
   type LeaseTakeoverRecord,
   type StepHandedOverRecord,
-} from "../../infrastructure/execution-lease-event.repository.js";
+} from "../../infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
-import { leaseEventKindCases } from "./execution-lease-event-kinds.cases.js";
+import { auditEventKindCases } from "./execution-audit-log-kinds.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./instance-context.js";
 
 /** A takeover of `root-1` at `at` (ISO 8601). */
 const takeover = (at: string, of: Partial<LeaseTakeoverRecord> = {}): LeaseTakeoverRecord => ({
-  kind: ExecutionLeaseEventKind.Takeover,
+  kind: ExecutionAuditEventKind.Takeover,
   occurredAt: at,
   tenantId: "default",
   rootExecutionId: "root-1",
@@ -37,7 +37,7 @@ const takeover = (at: string, of: Partial<LeaseTakeoverRecord> = {}): LeaseTakeo
 
 /** A hand-over of `root-1`'s step at `at`. */
 const handedOver = (at: string): StepHandedOverRecord => ({
-  kind: ExecutionLeaseEventKind.HandedOver,
+  kind: ExecutionAuditEventKind.HandedOver,
   occurredAt: at,
   tenantId: "default",
   rootExecutionId: "root-1",
@@ -53,7 +53,7 @@ const handedOver = (at: string): StepHandedOverRecord => ({
 
 /** A call of `root-1`'s step that left the system, reconciled at `at` (#505). */
 const outboundCall = (at: string): OutboundCallEventRecord => ({
-  kind: ExecutionLeaseEventKind.OutboundCall,
+  kind: ExecutionAuditEventKind.OutboundCall,
   occurredAt: at,
   tenantId: "default",
   rootExecutionId: "root-1",
@@ -72,8 +72,8 @@ const outboundCall = (at: string): OutboundCallEventRecord => ({
 
 /** Saves `rows` one after the other on `store`. */
 async function saveAll(
-  store: ExecutionLeaseEventRepository,
-  rows: readonly ExecutionLeaseEventRecord[],
+  store: ExecutionAuditLogRepository,
+  rows: readonly ExecutionAuditEventRecord[],
 ): Promise<void> {
   for (const row of rows) await store.save(row);
 }
@@ -81,7 +81,7 @@ async function saveAll(
 const NINE = "2026-01-05T09:00:00.000Z";
 const NINE_ONE = "2026-01-05T09:01:00.000Z";
 
-const LEASE_EVENT_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] = [
+const AUDIT_EVENT_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = [
   {
     name: "a saved row is read back as it was, on the other instance",
     run: async ({ first, second }) => {
@@ -183,18 +183,18 @@ const LEASE_EVENT_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] 
 ];
 
 /**
- * `ExecutionLeaseEventRepository` (#501): the append-only lease log — a saved row is read back as
+ * `ExecutionAuditLogRepository` (#501): the append-only audit log — a saved row is read back as
  * it was on any instance, a tree's rows oldest first (one moment's in the order saved), scoped by
  * tenant and root; the sweep removes what happened before its cutoff on the `Clock`; every row
  * kind, reason, site, outcome and optional field the core writes comes back as it was (#526).
  */
-export function executionLeaseEventContract(
-  target: ContractTarget<ExecutionLeaseEventRepository>,
+export function executionAuditLogContract(
+  target: ContractTarget<ExecutionAuditLogRepository>,
 ): void {
   registerContract(
-    "lease event contract",
+    "audit log contract",
     target,
-    [{ cases: LEASE_EVENT_CASES }, leaseEventKindCases()],
+    [{ cases: AUDIT_EVENT_CASES }, auditEventKindCases()],
     pingOf,
   );
 }

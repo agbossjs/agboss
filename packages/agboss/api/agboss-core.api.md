@@ -41,6 +41,14 @@ export type AnswersOf<Q extends DecisionQuestions> = {
     readonly [K in keyof Q]: AnswerOf<Q[K]>;
 };
 
+// Warning: (ae-forgotten-export) The symbol "OnExecutionLeaseTakeover" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnStepHandedOver" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnFencedEffect" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "OnOutboundCall" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
+
 // Warning: (ae-forgotten-export) The symbol "BindToolOptions" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
@@ -154,10 +162,9 @@ export type DecisionState = string | Readonly<Record<string, unknown>> | readonl
 // Warning: (ae-forgotten-export) The symbol "OnQuorumDecided" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "OnCompensationStart" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "OnCompensationEnd" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "LeaseEventHooks" needs to be exported by the entry point index.d.ts
 //
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & LeaseEventHooks>;
+export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
 
 // @public
 export function file(filePath: string): string;
@@ -181,6 +188,9 @@ export interface GuardrailInput {
 
 // @public (undocumented)
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
+
+// @public
+export type HookResult = Promise<void> | void;
 
 // @public
 export enum ImageDetail {
@@ -326,8 +336,6 @@ export type ObserverHook = keyof ExecutionObserver;
 
 // @public (undocumented)
 export interface OnActionEnd {
-    // Warning: (ae-forgotten-export) The symbol "HookResult" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onActionEnd(event: ActionEndEvent): HookResult;
 }

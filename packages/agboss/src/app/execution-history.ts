@@ -1,6 +1,6 @@
 import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
-import { currentLeaseEventOf } from "../infrastructure/execution-lease-event.repository.js";
+import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { buildCostReport } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
@@ -201,16 +201,15 @@ async function maskedRecordOf(
   };
   // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden
   const masked = (await keeper.mask.traceData(answered)) as typeof answered;
-  // the lease log's rows were masked when they were written (#501)
-  const leaseEvents =
-    await keeper.leaseEvents?.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
-      record.tenantId,
-      record.executionId,
-    );
+  // the audit log's rows were masked when they were written (#501)
+  const auditLog = await keeper.auditLog?.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
+    record.tenantId,
+    record.executionId,
+  );
   // rows written before #825 kept with this version's names
-  return leaseEvents === undefined
+  return auditLog === undefined
     ? masked
-    : { ...masked, leaseEvents: leaseEvents.map(currentLeaseEventOf) };
+    : { ...masked, auditLog: auditLog.map(currentAuditEventOf) };
 }
 
 /** Saves the tree's record as it stands now, when the application keeps its history. */

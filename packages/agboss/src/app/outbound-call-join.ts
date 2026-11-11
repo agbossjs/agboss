@@ -2,7 +2,7 @@ import {
   IdempotencyKeyConflictError,
   effectKeyIdentityOf,
 } from "../infrastructure/fenced-effect-key.js";
-import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { outcomeOf, told, type CallRun, type LiveCall } from "./outbound-call-parts.js";

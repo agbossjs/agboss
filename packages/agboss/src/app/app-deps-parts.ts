@@ -20,7 +20,7 @@ import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
-import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionAuditLogRepository } from "../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { PiiRuntime } from "../pii/runtime.js";
@@ -175,8 +175,8 @@ export interface ExecutionHistoryKeeper {
   readonly mask: ObservabilityMask;
   /** Who answered each pause of a tree (#267 S107). */
   readonly answers: Pick<ExecutionRecordRepository, "findPauseAnswersByTenantIdAndRootExecutionId">;
-  /** The lease log (#501): a record carries its tree's rows as they stand when it is saved. */
-  readonly leaseEvents?: LeaseEventsReader | undefined;
+  /** The audit log (#501): a record carries its tree's rows as they stand when it is saved. */
+  readonly auditLog?: AuditLogReader | undefined;
   /** The calls that left the system (#505): a record carries its tree's as they stand when saved. */
   readonly outboundCalls?: OutboundCallsReader | undefined;
 }
@@ -187,9 +187,9 @@ export type OutboundCallsReader = Pick<
   "findAllByTenantIdAndRootExecutionId"
 >;
 
-/** What a record reads of the lease log: its tree's rows. */
-export type LeaseEventsReader = Pick<
-  ExecutionLeaseEventRepository,
+/** What a record reads of the audit log: its tree's rows. */
+export type AuditLogReader = Pick<
+  ExecutionAuditLogRepository,
   "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt"
 >;
 
@@ -201,11 +201,11 @@ export interface ExecutionHistoryParts {
   readonly answers: ExecutionHistoryKeeper["answers"];
 }
 
-/** Where a workflow's history goes (#401) and what it reads of the lease log (#501). */
+/** Where a workflow's history goes (#401) and what it reads of the audit log (#501). */
 export interface HistorySources {
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
   readonly infrastructure: {
-    readonly leaseEvents?: LeaseEventsReader | undefined;
+    readonly auditLog?: AuditLogReader | undefined;
     readonly outboundCalls?: OutboundCallsReader | undefined;
   };
 }
@@ -224,7 +224,7 @@ export const historyKeeperOf = (
           application: parts.contexts.application,
           mask: parts.pii.observability,
           answers: parts.answers,
-          leaseEvents: sources.infrastructure.leaseEvents,
+          auditLog: sources.infrastructure.auditLog,
           outboundCalls: sources.infrastructure.outboundCalls,
         },
       };

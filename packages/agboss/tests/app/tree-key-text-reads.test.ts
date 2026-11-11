@@ -1,6 +1,6 @@
 /**
  * #580 — a root execution id is a key's text at the operator's reads of a tree, as its tenant id is
- * (#552): `app.leaseEventsOf` and `app.outboundCallsOf`. On SQLite (and PostgreSQL) `r\uD800` is
+ * (#552): `app.auditLogOf` and `app.outboundCallsOf`. On SQLite (and PostgreSQL) `r\uD800` is
  * stored and compared as `r�`, so the store would hand a read under a lone surrogate root
  * `r�`'s rows; every other refused text names no tree. Each read refuses it with `dto.invalid`
  * naming `rootExecutionId` and the rule, never the id, before the store is asked — and checks the
@@ -9,8 +9,8 @@
 import { beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import {
-  ExecutionLeaseEventKind,
-  ExecutionLeaseEventRepository,
+  ExecutionAuditEventKind,
+  ExecutionAuditLogRepository,
   LeaseTakeoverReason,
   type LeaseTakeoverRecord,
 } from "../../src/index.js";
@@ -35,9 +35,9 @@ beforeEach(() => {
 /** The root whose rows a lone surrogate would read on a UTF-8 database. */
 const REPLACED = "r�";
 
-/** A takeover row of `rootExecutionId`, kept in the lease log. */
+/** A takeover row of `rootExecutionId`, kept in the audit log. */
 const takeoverOf = (rootExecutionId: string): LeaseTakeoverRecord => ({
-  kind: ExecutionLeaseEventKind.Takeover,
+  kind: ExecutionAuditEventKind.Takeover,
   occurredAt: "2026-01-05T09:00:00.000Z",
   tenantId: "default",
   rootExecutionId,
@@ -53,7 +53,7 @@ const takeoverOf = (rootExecutionId: string): LeaseTakeoverRecord => ({
 /** Every read of an operator that takes a tree. */
 const reads = (app: TestApp, tenantId: string, rootExecutionId: string) =>
   [
-    ["leaseEventsOf", () => app.leaseEventsOf({ tenantId, rootExecutionId })],
+    ["auditLogOf", () => app.auditLogOf({ tenantId, rootExecutionId })],
     ["outboundCallsOf", () => app.outboundCallsOf({ tenantId, rootExecutionId })],
   ] as const;
 
@@ -65,12 +65,12 @@ const rejectionOf = (call: () => Promise<unknown>): Promise<unknown> =>
 
 describe("#580: a root execution id at the operator's reads of a tree", () => {
   sqlite(
-    "a lone surrogate never reads root r\\uFFFD's lease log — which the store alone would hand it: refused, the id not named",
+    "a lone surrogate never reads root r\\uFFFD's audit log — which the store alone would hand it: refused, the id not named",
     async ({ app }) => {
       await app.ready();
-      const leaseLog = app.resolve(ExecutionLeaseEventRepository);
+      const leaseLog = app.resolve(ExecutionAuditLogRepository);
       await leaseLog.save(takeoverOf(REPLACED));
-      expect(await app.leaseEventsOf({ tenantId: "default", rootExecutionId: REPLACED })).toEqual([
+      expect(await app.auditLogOf({ tenantId: "default", rootExecutionId: REPLACED })).toEqual([
         expect.objectContaining({ rootExecutionId: REPLACED }),
       ]);
       // the store merges them: what the check keeps the read from

@@ -3,7 +3,7 @@ import type { ErrorRecord } from "../core/error-record.js";
 import type { WorkflowRecord } from "../flow/context/execution-context.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
-import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
+import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
@@ -65,10 +65,10 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
   /** What failed or cancelled it; none otherwise. */
   readonly error?: ErrorRecord;
   /**
-   * Its tree's rows of the lease log (#501) when the record was saved, oldest first: who took its
+   * Its tree's rows of the audit log (#501) when the record was saved, oldest first: who took its
    * lease over and which of its steps were handed over. None in a record saved before #501.
    */
-  readonly leaseEvents?: readonly ExecutionLeaseEventRecord[];
+  readonly auditLog?: readonly ExecutionAuditEventRecord[];
   /**
    * Every call its tree made that left the system (#505), in the order recorded, masked like the
    * record — so `agboss records export` carries them. None in a record saved before #505.

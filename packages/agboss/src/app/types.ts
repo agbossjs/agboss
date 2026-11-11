@@ -17,7 +17,7 @@ import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
-import type { ExecutionLeaseEventRecord } from "../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
   OutboundCallPage,
   OutboundCallRecord,
@@ -279,18 +279,18 @@ export interface App {
    */
   checkReadiness(): Promise<HealthReport>;
   /**
-   * The lease log of one execution tree (#501), oldest first: who took its lease over and which of
-   * its steps stopped because it lost it — the rows of `ExecutionLeaseEventRepository`, masked like
-   * observer events, readable while the tree runs and kept `retention.leaseEvents`. Another tenant's
+   * The audit log of one execution tree (#501), oldest first: who took its lease over and which of
+   * its steps stopped because it lost it — the rows of `ExecutionAuditLogRepository`, masked like
+   * observer events, readable while the tree runs and kept `retention.auditLog`. Another tenant's
    * tree has none.
    */
-  leaseEventsOf(tree: LeaseEventsQuery): Promise<readonly ExecutionLeaseEventRecord[]>;
+  auditLogOf(tree: ExecutionTreeQuery): Promise<readonly ExecutionAuditEventRecord[]>;
   /**
    * Every call that left the system from one execution tree (#505), in the order recorded, with
    * its state — the intents of `OutboundCallRepository`, requests masked. Another tenant's tree has
    * none.
    */
-  outboundCallsOf(tree: LeaseEventsQuery): Promise<readonly OutboundCallRecord[]>;
+  outboundCallsOf(tree: ExecutionTreeQuery): Promise<readonly OutboundCallRecord[]>;
   /**
    * A page of a tenant's calls left pending (#505, #825): what waits for reconciliation, or for an
    * operator — at most `limit` (default 100, at most 1000), from the cursor `after` (a page's
@@ -312,21 +312,17 @@ export interface PendingOutboundCallsQuery {
   readonly after?: string;
 }
 
-/** Which tree `app.leaseEventsOf` and `app.outboundCallsOf` read: the tenant's root execution. */
-export interface LeaseEventsQuery {
+/** Which tree `app.auditLogOf` and `app.outboundCallsOf` read: the tenant's root execution. */
+export interface ExecutionTreeQuery {
   readonly tenantId: string;
   readonly rootExecutionId: string;
 }
 
 /**
  * One workflow of an application at run time (internal): the app without the instance's probes and
- * lease log.
+ * audit log.
  */
 export type WorkflowApp = Omit<
   App,
-  | "checkLiveness"
-  | "checkReadiness"
-  | "leaseEventsOf"
-  | "outboundCallsOf"
-  | "pendingOutboundCallsOf"
+  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
 >;

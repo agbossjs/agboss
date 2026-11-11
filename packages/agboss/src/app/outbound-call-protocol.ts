@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
 import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
-import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey, OutboundCallKey } from "../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,

@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { sqliteLeaseStateOf } from "../../src/infrastructure/live-lease.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { VirtualClock } from "../../src/testing/clock.js";

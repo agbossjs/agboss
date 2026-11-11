@@ -1,6 +1,6 @@
 /**
  * #526 AC1 — the layouts the backend check is for, and its opt-out. Coordination stores of a
- * Redis layout (leases, rate limits, the child queue) on "redis", the lease log anywhere: it
+ * Redis layout (leases, rate limits, the child queue) on "redis", the audit log anywhere: it
  * assembles; a fenced-effect or outbound-call store is refused there unless it is on "redis" too or
  * declares `LeaseCheck.WithoutDoubleChargeProtection` — which is not checked, and warns
  * `[application.lease-check-not-atomic]` at the start (`app.warnings`, `agboss check`, an error
@@ -21,7 +21,7 @@ import {
   EmptyEnvironment,
   Injectable,
   LogLevel,
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
 } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -49,12 +49,12 @@ class RedisRateLimits extends InMemoryRateLimitRepository {}
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 class RedisChildQueue extends InMemoryChildExecutionQueueRepository {}
 
-/** The coordination stores of a Redis layout; the lease log on another backend. */
+/** The coordination stores of a Redis layout; the audit log on another backend. */
 const REDIS_LAYOUT: readonly Provider[] = [
   RedisLeases,
   RedisRateLimits,
   RedisChildQueue,
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
 ];
 
 async function codesOf(providers: readonly Provider[]): Promise<readonly string[]> {
@@ -73,7 +73,7 @@ const notAtomicText = (store: string): string =>
   `[${NOT_ATOMIC}] ${store} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`;
 
 describe("#526 AC1: a Redis layout — coordination stores on Redis", () => {
-  it("leases, rate limits and the queue on Redis, the lease log on SQLite: it assembles", async () => {
+  it("leases, rate limits and the queue on Redis, the audit log on SQLite: it assembles", async () => {
     expect(await codesOf(REDIS_LAYOUT)).toEqual([]);
   });
 
@@ -112,13 +112,13 @@ describe("#526 AC1: a Redis layout — coordination stores on Redis", () => {
     ]);
   });
 
-  it("the same stores on PostgreSQL, the lease log anywhere: it assembles", async () => {
+  it("the same stores on PostgreSQL, the audit log anywhere: it assembles", async () => {
     expect(
       await codesOf([
         PostgresLeases,
         PostgresEffects,
         PostgresCalls,
-        SqliteExecutionLeaseEventRepository,
+        SqliteExecutionAuditLogRepository,
       ]),
     ).toEqual([]);
   });

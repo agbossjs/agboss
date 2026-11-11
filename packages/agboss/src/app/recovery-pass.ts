@@ -19,7 +19,7 @@ export interface RecoveryPass {
  * `undefined` when its record is no longer `running` (it ended between the listing and the lease).
  */
 export async function recoveryPassOf(
-  parts: Pick<TreeMoveParts, "deps" | "paused" | "leaseEvents">,
+  parts: Pick<TreeMoveParts, "deps" | "paused" | "auditLog">,
   interrupted: InterruptedRun,
   given: TreeCall,
 ): Promise<RecoveryPass | undefined> {

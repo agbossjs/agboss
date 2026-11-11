@@ -2,7 +2,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { ChildExecutionQueueRepository } from "../../infrastructure/child-execution-queue.repository.js";
 import type { CostLedgerRepository } from "../../infrastructure/cost-ledger.repository.js";
 import type { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
-import type { ExecutionLeaseEventRepository } from "../../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionAuditLogRepository } from "../../infrastructure/execution-audit-log.repository.js";
 import type { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
@@ -14,7 +14,7 @@ import { checkpointSaverContract } from "./checkpoint-saver.contract.js";
 import { childExecutionQueueContract } from "./child-execution-queue.contract.js";
 import { costLedgerContract } from "./cost-ledger.contract.js";
 import { executionHistoryContract } from "./execution-history.contract.js";
-import { executionLeaseEventContract } from "./execution-lease-event.contract.js";
+import { executionAuditLogContract } from "./execution-audit-log.contract.js";
 import { executionLeaseContract } from "./execution-lease.contract.js";
 import { executionRecordContract } from "./execution-record.contract.js";
 import { executionTreeContract } from "./execution-tree.contract.js";
@@ -38,7 +38,7 @@ import type { StoreCapability } from "./store-capability.js";
  * `storeConformance` (#526): one call that runs every contract a store set claims — the same
  * suites the core's in-memory and SQLite stores run, each as `<contract> (<name>)` — and the
  * `store set (<name>)` cases (each fencing store declares its backend, one with its lease store's).
- * A set with a lease store must give its fenced-effect, outbound-call and lease-log stores too, or
+ * A set with a lease store must give its fenced-effect, outbound-call and audit-log stores too, or
  * say it has none (`without`): a missing fencing contract fails the file, named
  * (`StoreConformanceError`), before any case runs.
  */
@@ -55,7 +55,7 @@ export interface StoreSet<TTransaction = unknown> {
   readonly costLedger?: StoreEntry<CostLedgerRepository>;
   readonly executionHistory?: StoreEntry<ExecutionHistoryRepository>;
   readonly executionLease?: StoreEntry<ExecutionLeaseRepository>;
-  readonly executionLeaseEvent?: StoreEntry<ExecutionLeaseEventRepository>;
+  readonly executionAuditLog?: StoreEntry<ExecutionAuditLogRepository>;
   readonly executionRecord?: StoreEntry<ExecutionRecordRepository>;
   readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
   readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
@@ -154,7 +154,7 @@ export function storeConformance<TTransaction>(
   each(set, stores.costLedger, costLedgerContract);
   each(set, stores.executionHistory, executionHistoryContract);
   const executionLease = each(set, stores.executionLease, executionLeaseContract);
-  each(set, stores.executionLeaseEvent, executionLeaseEventContract);
+  each(set, stores.executionAuditLog, executionAuditLogContract);
   each(set, stores.executionRecord, executionRecordContract);
   each(set, stores.executionTree, executionTreeContract);
   // the set's own suite shows an opt-out (#543): its contracts do not show it again

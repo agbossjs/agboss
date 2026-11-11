@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectStatus,
   IdempotencyKeyConflictError,
   InvalidBusinessKeyError,
@@ -129,11 +129,11 @@ describe("#508 AC2: two executions on two threads", () => {
     expect(ledger.charges).toHaveLength(1);
     expect(second.output).toEqual(first.output);
     expect(ledger.effects).toEqual([FencedEffectStatus.Ran, FencedEffectStatus.Replayed]);
-    const rows = await app.leaseEventsOf({
+    const rows = await app.auditLogOf({
       tenantId: "default",
       rootExecutionId: second.executionId,
     });
-    expect(rows.filter((row) => row.kind === ExecutionLeaseEventKind.FencedEffect)).toEqual([
+    expect(rows.filter((row) => row.kind === ExecutionAuditEventKind.FencedEffect)).toEqual([
       expect.objectContaining({
         replayedFrom: {
           executionId: first.executionId,

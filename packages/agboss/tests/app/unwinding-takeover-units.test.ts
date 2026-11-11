@@ -16,7 +16,7 @@ import {
   markUnwinding,
   UNWINDING_KEY,
 } from "../../src/flow/runtime/compensation/unwinding-marks.js";
-import { LeaseTakeoverReason } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 

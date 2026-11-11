@@ -113,7 +113,7 @@ export {
   type CloseOptions,
   type ExecutionOptions,
   type ExecutionOutput,
-  type LeaseEventsQuery,
+  type ExecutionTreeQuery,
   type PendingOutboundCallsQuery,
   type ChannelResumeOptions,
   type DecisionResumeRequest,

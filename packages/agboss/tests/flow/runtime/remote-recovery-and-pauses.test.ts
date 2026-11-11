@@ -1,7 +1,7 @@
 /**
  * #333 PR 4 (AC2, AC3, AC4, S7, S9):
  * - AC2: while a parent awaits remote children, it yields its root lease in
- *   `ExecutionLeaseRepository` and re-acquires it before `.join()` / `.onJoinError()`.
+ *   `ExecutionLeaseRepository` and reclaims it before `.join()` / `.onJoinError()`.
  * - AC3: a remote child (`ChildPlacement.AnyInstance`) that pauses interrupts its parent's node
  *   with `{ waitingForChild: { …, remote: true } }`, surfaces in `result.pending` with its
  *   `childExecutionId` and `itemIndex`, resumes on any instance via `app.resume`, and populates
@@ -101,7 +101,7 @@ beforeEach(() => {
 });
 
 describe("#333 PR 4 AC2: yielding the root lease while waiting for remote children", () => {
-  test("the parent releases its root lease while remote children run, and re-acquires it before joining or handling a FailFast error", async ({
+  test("the parent releases its root lease while remote children run, and reclaims it before joining or handling a FailFast error", async ({
     apps,
   }) => {
     await readyWorkerFirst(apps);
@@ -112,7 +112,7 @@ describe("#333 PR 4 AC2: yielding the root lease while waiting for remote childr
     const rootLeases = leaseSeen.leases.filter(
       (lease) => lease.rootExecutionId === done.executionId,
     );
-    // initial acquire on start (epoch 1), then re-acquired after yielding for remote children (epoch >= 2)
+    // initial acquire on start (epoch 1), then reclaimed after yielding for remote children (epoch >= 2)
     expect(rootLeases[0]?.token).toBe(1);
     expect(rootLeases.at(-1)?.token).toBeGreaterThanOrEqual(2);
 

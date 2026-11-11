@@ -82,7 +82,7 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * under the line limits). #834: the application's retention group, the environment fields'
  * helpers, createApp's own options and how a refused value is shown (each its own module under the
  * line limits); 1,532 at #817: a usage record's ledger state, the cost categories and a restored
- * state's usage, modules of their own; 1,533 at #847: the SQLite lease log in
+ * state's usage, modules of their own; 1,533 at #847: the SQLite audit log in
  * its own module, beside its lease store (the line limits); 1,534 at #853: a lost pass's records on
  * the visit path and the cost sources, modules of their own (its recovery-side reader loads on
  * first use).

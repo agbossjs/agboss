@@ -7,7 +7,8 @@ import type {
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
-} from "../../infrastructure/execution-lease-event.repository.js";
+} from "../../infrastructure/execution-audit-log.repository.js";
+import type { HookResult } from "../../core/hook-result.js";
 import type { NodeEvent } from "./execution-event.js";
 
 /**
@@ -15,7 +16,7 @@ import type { NodeEvent } from "./execution-event.js";
  * token, from whom when the lease store names the holder whose lease expired, and why. Like
  * `ExecutionRejectedEvent` it names no workflow or thread — a lease belongs to a tree, not to one
  * execution's step. Identities and tokens only; the same facts are a `Takeover` row of the lease
- * log (`app.leaseEventsOf`), written before the observers hear of it.
+ * log (`app.auditLogOf`), written before the observers hear of it.
  */
 export interface ExecutionLeaseTakeoverEvent {
   readonly tenantId: string;
@@ -42,7 +43,7 @@ export interface ExecutionLeaseTakeoverEvent {
  * was lost or fenced, or the instance stopped — no `.onError`, no undo, its record stays `running`,
  * another instance goes on. A node event: `step` is the step that stopped (its `nodeId`,
  * `visitNumber`, `idempotencyKey`); once per error, at the innermost part of the step that found it
- * (`site`). Identities and tokens only; the same facts are a `HandedOver` row of the lease log,
+ * (`site`). Identities and tokens only; the same facts are a `HandedOver` row of the audit log,
  * written first.
  */
 export interface StepHandedOverEvent extends NodeEvent {
@@ -60,29 +61,29 @@ export interface StepHandedOverEvent extends NodeEvent {
 
 /**
  * An instance took a tree's lease over (#501): the recovery sweep, an undo's takeover, a remote
- * child's reclaim or a re-acquire after a yield — and any take whose store names the holder whose
- * lease expired. Its `Takeover` row of the lease log is written first; a throw is only a warning.
+ * child's reclaim or its holder's reclaim after a yield — and any take whose store names the holder whose
+ * lease expired. Its `Takeover` row of the audit log is written first; a throw is only a warning.
  */
 export interface OnExecutionLeaseTakeover {
   /** Called once per takeover, after its row is written, before the tree moves on. */
-  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> | void;
+  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
 }
 
 /**
  * A step stopped without failing (#501): its lease was lost or an external system fenced its write
  * (`ExecutionFencedError`), or the instance stopped. Once per error, its `HandedOver` row of the
- * lease log written first; a throw is only a warning and never reaches the hand-over.
+ * audit log written first; a throw is only a warning and never reaches the hand-over.
  */
 export interface OnStepHandedOver {
   /** Called once per hand-over, before the moving call rejects. */
-  onStepHandedOver(event: StepHandedOverEvent): Promise<void> | void;
+  onStepHandedOver(event: StepHandedOverEvent): HookResult;
 }
 
 /**
  * One call of a step's fenced effect (#500, #501 `onFencedEffect`): it ran, its stored result was
  * replayed, it joined a call in flight, or the lease refused it — the step's `step`, the effect's
  * `name`, the lease scope and the call's `token`, never the result. Its `FencedEffect` row of the
- * lease log is written first.
+ * audit log is written first.
  */
 export interface FencedEffectEvent extends NodeEvent {
   readonly name: string;
@@ -106,7 +107,7 @@ export interface FencedEffectEvent extends NodeEvent {
  */
 export interface OnFencedEffect {
   /** Called once per call of `saveResultIfAbsent`, after its outcome is known. */
-  onFencedEffect(event: FencedEffectEvent): Promise<void> | void;
+  onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 
 /**
@@ -114,7 +115,7 @@ export interface OnFencedEffect {
  * call sent and answered, replayed, reconciled — completed, not sent or unknown — or failed. A node
  * event: the step's `step`, the call's `name`, `target`, `operation`, the intent's `status` and
  * `attempt`, the lease scope and token, never the request or the result. Its `OutboundCall` row of
- * the lease log is written first.
+ * the audit log is written first.
  */
 export interface OutboundCallEvent extends NodeEvent {
   readonly name: string;
@@ -143,16 +144,16 @@ export interface OutboundCallEvent extends NodeEvent {
 }
 
 /**
- * A step's call that leaves the system moved (#505). Its row of the lease log is written first; a
+ * A step's call that leaves the system moved (#505). Its row of the audit log is written first; a
  * throw is only a warning and never reaches the call or its step.
  */
 export interface OnOutboundCall {
   /** Called once per move of the call, in the order of the moves. */
-  onOutboundCall(event: OutboundCallEvent): Promise<void> | void;
+  onOutboundCall(event: OutboundCallEvent): HookResult;
 }
 
-/** The hooks of the lease log (#501, #505): what happened to a tree's leases and its steps' calls. */
-export type LeaseEventHooks = OnExecutionLeaseTakeover &
+/** The hooks of the audit log (#501, #505): what happened to a tree's leases and its steps' calls. */
+export type AuditLogHooks = OnExecutionLeaseTakeover &
   OnStepHandedOver &
   OnFencedEffect &
   OnOutboundCall;

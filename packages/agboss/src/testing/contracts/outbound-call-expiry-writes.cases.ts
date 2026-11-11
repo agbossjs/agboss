@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
-import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { seconds } from "../../units/index.js";

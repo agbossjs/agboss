@@ -18,7 +18,7 @@ import {
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { LeaseGate } from "../../src/testing/leases.js";
-import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import {
   InMemoryOutboundCallRepository,
   type OutboundCallRepository,

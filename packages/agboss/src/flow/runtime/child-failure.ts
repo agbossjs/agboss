@@ -24,7 +24,7 @@ import {
 } from "./child-exit.js";
 import type { ExecutionStateType } from "./state.js";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import { isFailureClaimed } from "./child-reentry.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 

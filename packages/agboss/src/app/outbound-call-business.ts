@@ -4,7 +4,7 @@ import {
   IdempotencyKeyConflictError,
   isKeyFingerprint,
 } from "../infrastructure/fenced-effect-key.js";
-import { OutboundCallLeaseState } from "../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 import type {
   EffectKey,
   EffectKeyFields,

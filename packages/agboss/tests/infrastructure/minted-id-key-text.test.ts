@@ -1,7 +1,7 @@
 /**
  * #578 — an id the application's own `IdGenerator` mints is held to the key-text rules (#538, #547,
  * #556) at the mint, like every id that comes in: `x\uD800` and `x\uDFFF` are both `x�` in UTF-8, so
- * two trees would share one lease, one lease log, one queue row and one fenced-effect scope. A
+ * two trees would share one lease, one audit log, one queue row and one fenced-effect scope. A
  * minted id breaking a rule is `InvalidMintedIdError` — the generator's class, the method and the
  * rule named, never the id — and is never used nor stored.
  */

@@ -1,7 +1,7 @@
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { errorRecordOf } from "../../core/error-record.js";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import { errorHandlerOf, type RuntimeNode } from "./graph-model.js";
 import { unrecordedSpendOf, type Reported } from "./node-runner.js";
 import type { ExecutionStateUpdate } from "./state.js";

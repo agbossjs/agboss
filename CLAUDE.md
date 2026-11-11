@@ -1304,15 +1304,15 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   in-memory store `[application.in-memory-execution-history]`), removed by the recovery sweep once it
   ended longer ago; `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl>
 [--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
-  only — `records.tenant-required`, `records.not-kept`), `ExecutionLeaseEventRepository` (#501: the
-  lease log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
-  `deleteByOccurredAtBefore`; `ExecutionLeaseEventRecord` = `LeaseTakeoverRecord` |
+  only — `records.tenant-required`, `records.not-kept`), `ExecutionAuditLogRepository` (#501: the
+  audit log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
+  `deleteByOccurredAtBefore`; `ExecutionAuditEventRecord` = `LeaseTakeoverRecord` |
   `StepHandedOverRecord` (the step's `nodeId`, `visitNumber`, `idempotencyKey`) |
   `FencedEffectRecord` (`name`, `outcome`, the step, `writtenToken?`, `observedToken?`), identities and
   tokens only, masked like observer events; always written, whatever `retention.executionRecords` says,
-  readable mid-run with `app.leaseEventsOf({ tenantId, rootExecutionId })`, removed by the recovery
-  sweep after `@Application({ retention: { leaseEvents } })`, default `hours(24)`; a kept
-  `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents`, so `agboss records export` does)
+  readable mid-run with `app.auditLogOf({ tenantId, rootExecutionId })`, removed by the recovery
+  sweep after `@Application({ retention: { auditLog } })`, default `hours(24)`; a kept
+  `ExecutionHistoryRecord` carries its tree's rows as `auditLog`, so `agboss records export` does)
   — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
@@ -1326,7 +1326,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
   `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
-  `SqliteChildExecutionQueueRepository`, `SqliteExecutionLeaseEventRepository`,
+  `SqliteChildExecutionQueueRepository`, `SqliteExecutionAuditLogRepository`,
   `SqliteFencedEffectRepository`, `SqliteOutboundCallRepository`) —
   one `node:sqlite` connection per instance on the environment's `sqlitePath` (required only then,
   `[environment.missing-field]`; `:memory:` in tests), WAL + `busy_timeout`, atomic operations in
@@ -1343,11 +1343,11 @@ StoreClock, ApplicationContext]` (#847: `StoreClock.now()` is a branded `StoreTi
   the published contract suites (#481, `@agboss/core/testing/contracts`: `executionLeaseContract({
 name, instance(seam), reset?, close? })`, one function per contract and the checkpoint saver),
   the same cases the in-memory and SQLite stores run — in one call, `storeConformance({ name,
-reset?, stores: { executionLease, fencedEffect, outboundCall, executionLeaseEvent, rateLimit, … },
+reset?, stores: { executionLease, fencedEffect, outboundCall, executionAuditLog, rateLimit, … },
 without? })` (#526 AC2: each claimed contract as `<contract> (<name>)` plus `store set (<name>)` —
   each fencing store's `static store` backend declared (#825: `{ backend, leaseCheck? }`), one with the set's lease store's — #542: and the
   leases its own contract ran on too —; a set with a lease
-  store that leaves the fenced-effect, outbound-call or lease-log contract out, unless `without`
+  store that leaves the fenced-effect, outbound-call or audit-log contract out, unless `without`
   says so, throws `StoreConformanceError` — `[store-conformance.missing-fencing-contract]`,
   `opted-out-store` (#543: a fencing store that declares `LeaseCheck.WithoutDoubleChargeProtection`
   fails every fencing case — a stale or expired lease refused, the zombie and lease races — and its
@@ -1361,7 +1361,7 @@ double-charge protection for …` — a fencing contract run on its own with the
   sets run (`tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts`, their targets in
   `tests/infrastructure/contracts/core-store-sets.ts`, `store-kinds.ts`); broken sets fail it
   (`tests/testing/contracts/broken-store-set.test.ts`: check-then-write, rows outside the
-  transaction, a read-then-close `leaseStateOf`, a pre-#508 lease log, stores of no backend or
+  transaction, a read-then-close `leaseStateOf`, a pre-#508 audit log, stores of no backend or
   another); and `interleavings (<name>)` (#533, `src/testing/contracts/explorer/`): a deterministic
   scheduler of simulated instances over the set's fencing stores (#694: its lease store alone, no
   `leaseStateOf` step, in a set without an outbound-call store) — every schedule of two up to
@@ -1672,7 +1672,7 @@ ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input va
   `group`) once per quorum (#279). `onExecutionLeaseTakeover` (#501, `ExecutionLeaseTakeoverEvent`:
   `tenantId`, `rootExecutionId`, `leaseExecutionId`, `scopeKey`, `token`, `holderInstanceId`,
   `previousHolderInstanceId?` / `previousToken?`, `checkpointId?`, `reason: LeaseTakeoverReason` —
-  no workflow, like a rejection) once per takeover of a tree's lease, its row of the lease log written
+  no workflow, like a rejection) once per takeover of a tree's lease, its row of the audit log written
   first; `onStepHandedOver` (#501, `StepHandedOverEvent`, a node event: `reason: HandOverReason` —
   `LeaseLost` / `Fenced` / `ApplicationStopping` —, `site: HandOverSite` — `Step`, `Tool`,
   `ToolInterceptor`, `Compensation`, `Branch`, `Child` —, `scopeKey`, `holderInstanceId`, `token`,
@@ -2175,7 +2175,7 @@ passed (a skipped one fails it, S2 Q6).
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-leaseEvents, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks } })` (#834,
+auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks } })` (#834,
   `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
   refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,
@@ -2231,7 +2231,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   rules, #538 —, else `InvalidThreadIdError` naming its `rule`, never the id, and kept out of
   `onExecutionRejected`; `cancel`'s thread id the same, #552), `cancel` of it is `UnknownThreadError`;
   a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel` — #568: and at
-  `leaseEventsOf`, `outboundCallsOf`, `pendingOutboundCallsOf`, whose tree reads check `rootExecutionId` (#580)
+  `auditLogOf`, `outboundCallsOf`, `pendingOutboundCallsOf`, whose tree reads check `rootExecutionId` (#580)
   so too; `agboss records export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
   trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
   `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
@@ -2307,8 +2307,8 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   for remote children").
   A take of an expired lease names its holder (`ExecutionLease.takenOverFrom`, #501, optional for an
   external store); a takeover — that, or any take of the recovery sweep, an undo's takeover, a remote
-  child's reclaim or a re-acquire after a yield (`LeaseTakeoverReason`) — is a `Takeover` row of the
-  lease log and an `onExecutionLeaseTakeover`; a lease released and taken again is none. A take of
+  child's reclaim or its holder's reclaim after a yield (`LeaseTakeoverReason`) — is a `Takeover` row of the
+  audit log and an `onExecutionLeaseTakeover`; a lease released and taken again is none. A take of
   work already over is none either (#520, `LeaseTake.isOver`): a remote child's claim whose queue row
   is no longer that claim, a sweep's take of a root whose record no longer runs — looked at before
   the store is asked and again once it gave the lease, which then goes back at once.
@@ -2326,7 +2326,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   found anywhere in a cause chain or an `AggregateError` and a hand-over at every site — no
   `.onError`, no undo, no `onToolEnd`, nothing to the model, the record stays `running`, no
   `onExecutionError`; the moving call rejects with the fenced error itself (`fencedErrorOf` before
-  the signal's reason) — and a `HandedOver` row of the lease log with `onStepHandedOver` (#501): a
+  the signal's reason) — and a `HandedOver` row of the audit log with `onStepHandedOver` (#501): a
   zombie refused at a write leaves one, a zombie that never wrote again none. Exactly-once only when
   the external system checks both atomically; a mark
   keyed by a shared aggregate fences parallel `AnyInstance` children wrongly. Frames with no lease
@@ -2341,7 +2341,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   the fencing store's backend, the core's when it has one) / `[application.store-backend-undeclared]`; two listed
   stores of one fencing contract, or two lease stores, are `[di.ambiguous-implementation]` at assembly (#539);
   the explicit opt-out `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection` in it is not checked and
-  warns `[application.lease-check-not-atomic]`; rate limits, the queue and the lease log are on any
+  warns `[application.lease-check-not-atomic]`; rate limits, the queue and the audit log are on any
   backend; a unit runner holds its lease in the lease store of the store's backend (its own, a listed one, the core's SQLite one); the
   unlisted default beside SQLite leases fails its first call, `FencedEffectStoreMismatchError`) makes one protected write exactly once per step:
   `saveResultIfAbsent(effectKeyOf(executionContext, name), work)` (the key marked by a private member, #825: `effectKeyOf` its only maker for an application — a literal or a spread copy does not compile, a key the framework did not make is refused at run time —, `effectKeyForTesting(fields, changes?)` in `/testing/contracts` for a store's tests) → `FencedEffectOutcome {
@@ -2396,7 +2396,7 @@ NotSentTrust.KeyReplay, keyRetention: hours(24) }` when its `notSent()` relies o
   after a newer one took its intent over (both reached the other system) is
   `OutboundCallSupersededError` (#795: `outbound-call.superseded`, a `StepFailedError` — `call`,
   `target`, `operation`, `idempotencyKey`, `attempt`, `supersededBy` —, never an outcome: the
-  answer is not stored, the lease log and the log name both attempts); the same call this
+  answer is not stored, the audit log and the log name both attempts); the same call this
   instance is making meanwhile is joined (`Joined`), never reconciled or resent. Masked **when
   written** by the calling frame's mask (the application's and that workflow's PII policies; a
   child's own): the request, the result and a failure's text — every read shows what is stored; `send`
@@ -2410,7 +2410,7 @@ NotSentTrust.KeyReplay, keyRetention: hours(24) }` when its `notSent()` relies o
   `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (#825: `OutboundCallPage { calls, next? }`, default 100, at most
   1000, keyset-paged — the store's `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })`,
   a call pending for the whole read listed exactly once), `ExecutionHistoryRecord.outboundCalls`, each move an
-  `OutboundCall` row of the lease log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
+  `OutboundCall` row of the audit log and an `onOutboundCall` (`OutboundCallEventOutcome`: `Recorded`,
   `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Ambiguous`, `Joined`; never a payload);
   `outboundCallContract` for a store of your own. flow-patterns' travel desk books its flight with it.
 - **Business idempotency keys (#508):** `effectKeyOf(executionContext, name, { businessKey,
@@ -2466,7 +2466,7 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   caller reconciles it, by the compare-and-set. An answer that comes after its lease was handed over is fenced, not stored,
   and logged (`outbound-call.answered-after-hand-over`). An attempt answered after a newer one took
   the intent over — answered or a definite failure — fails with `OutboundCallSupersededError` (#795:
-  both reached the other system; a joined call shares it; the lease log's row `AttemptSuperseded` and an
+  both reached the other system; a joined call shares it; the audit log's row `AttemptSuperseded` and an
   error `outbound-call.superseded` on the instance's log, the newer attempt named — "unknown" when
   the intent cannot be read, the read's code on the log). An
   answered call ends `Completed` even when its result cannot be stored (a marker in its place, a
@@ -2498,11 +2498,11 @@ FingerprintPolicy.None` (on purpose: the business key fixes the work) — `{ bus
   queue (`ChildExecutionQueueRepository.countByStatus()` → `ChildExecutionQueueCounts { queued,
 running, oldestQueuedAt? }`, one read per collection, a batch callback; a failed read reports
   none and warns `metrics.child-queue-unreadable` once per streak): `agboss.cluster.children.queued`
-  / `.running` / `.oldest_queued_seconds` — the same on every instance, aggregated with `max`;
+  / `.running` / `.oldest_queued.age` — the same on every instance, aggregated with `max`;
   per instance (`sum`): `agboss.instance.step_slots.limit` / `.busy` / `.free`,
   `agboss.instance.steps.waiting` (only with `maxConcurrentSteps`), `agboss.instance.leases.held`
-  (the held leases' tally, `HeldLeases` on the lease log), counters `agboss.instance.lease.takeovers{reason}`,
-  `.steps.handed_over{reason}`, `.executions.ended{workflow,outcome}`, `.compensations{workflow,status}`
+  (the held leases' tally, `HeldLeases` on the audit log), counters `agboss.instance.leases.takeovers{reason}`,
+  `.steps.handed_over{reason}`, `.executions.ended{workflow,outcome}`, `.compensations{workflow,outcome}`
   from a built-in observer the manager calls unmasked before the project's. Names, kinds, units and
   labels: `src/metrics/metric-catalog.ts`, Wiki → Metrics; the callbacks end at `onDestroy`. No gauge
   sees a root handed over by a stop or left by a crash until another instance's sweep takes it (#751:
@@ -2635,7 +2635,7 @@ const readiness: HealthReport = await app.checkReadiness();
   `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`), `VisitsLimitExceededError`,
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
 today; tenant-daily-budget allows $40`).
-  **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's lease log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
+  **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's audit log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
   `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /

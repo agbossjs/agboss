@@ -7,13 +7,13 @@ import type { ExecutionTree } from "../infrastructure/execution-tree.repository.
 import type { Clock } from "../infrastructure/clock.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
 import {
-  LeaseEventReports,
-  reacquiredOf,
+  AuditLogReports,
+  reclaimedOf,
   reportTake,
   type LeaseTake,
   type LeaseTaking,
 } from "./execution-leases.js";
-import type { FencedEffectReport, HandOverReport, OutboundCallReport } from "./lease-events.js";
+import type { FencedEffectReport, HandOverReport, OutboundCallReport } from "./audit-log.js";
 import { FencedHolders, isHandedOver } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
@@ -69,14 +69,14 @@ export class HeldLease implements HeldExecutionLease {
   readonly #yields = new LeaseYields(async (shouldYield) => {
     if (this.#stopped.signal.aborted || this.#lost.signal.aborted) return;
     const held = heldWhileYieldsRun(this.#current);
-    await (shouldYield ? this.#yieldLease(held) : this.#reacquireLease(held));
+    await (shouldYield ? this.#yieldLease(held) : this.#reclaimLease(held));
   });
   /** Who a fenced write of the current token stops: this holder (#471). */
   readonly #holder: FencedHolders;
-  /** Why it was taken (#501): a re-acquire is recorded for the same tree. */
+  /** Why it was taken (#501): a reclaim is recorded for the same tree. */
   readonly #take: LeaseTake | undefined;
   /** The hand-overs being recorded (#501): the lease is released only after them. */
-  readonly #reports = new LeaseEventReports();
+  readonly #reports = new AuditLogReports();
   /** The outbound calls' attempts in flight under it (#508): released only once they settled. */
   readonly #attempts: LeaseAttempts;
 
@@ -196,8 +196,8 @@ export class HeldLease implements HeldExecutionLease {
     this.#stepCall((record, log, holder) => record.recordOutboundCall(log, report, holder));
   }
 
-  /** A step's call under the lease, written to the lease log in the lease's order. */
-  #stepCall(write: Parameters<LeaseEventReports["stepCall"]>[1]): void {
+  /** A step's call under the lease, written to the audit log in the lease's order. */
+  #stepCall(write: Parameters<AuditLogReports["stepCall"]>[1]): void {
     this.#reports.stepCall(this.taking.events, write);
   }
 
@@ -236,7 +236,7 @@ export class HeldLease implements HeldExecutionLease {
   }
 
   /** Takes the yielded lease back before a step runs (#516): the next token, or the holder stops. */
-  async #reacquireLease(held: ExecutionLease): Promise<void> {
+  async #reclaimLease(held: ExecutionLease): Promise<void> {
     if (!this.#isYieldedNow) return;
     const sentAt = sentAtOf(this.clock);
     const next = await this.#turns.run(async () => {
@@ -249,7 +249,7 @@ export class HeldLease implements HeldExecutionLease {
     this.#isYieldedNow = false;
     this.#reports.held(next);
     this.#holder.hold(next.token);
-    this.#fence.reacquired(sentAt, next.remaining);
-    await reportTake(this.taking.events, next, reacquiredOf(this.#take));
+    this.#fence.reclaimed(sentAt, next.remaining);
+    await reportTake(this.taking.events, next, reclaimedOf(this.#take));
   }
 }

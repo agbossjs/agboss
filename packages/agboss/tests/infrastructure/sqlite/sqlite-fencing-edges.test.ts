@@ -19,7 +19,7 @@ import {
   type SqliteConnection,
 } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 import {
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
@@ -41,7 +41,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
   return {
     connection,
     leases: new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application),
-    events: new SqliteExecutionLeaseEventRepository(connection),
+    events: new SqliteExecutionAuditLogRepository(connection),
     effects: new SqliteFencedEffectRepository(
       connection,
       storeClockOf(clock),
@@ -70,7 +70,7 @@ const TABLES: readonly (readonly [string, (connection: SqliteConnection) => unkn
         storesOnContext(),
       ),
   ],
-  ["execution_lease_events", (connection) => new SqliteExecutionLeaseEventRepository(connection)],
+  ["execution_lease_events", (connection) => new SqliteExecutionAuditLogRepository(connection)],
   [
     "execution_leases",
     (connection) =>
@@ -116,7 +116,7 @@ function storesOnContext() {
 
 const PINGED: readonly (readonly [string, (stores: Stores) => Promise<void>])[] = [
   ["leases", (stores) => stores.leases.ping()],
-  ["lease events", (stores) => stores.events.ping()],
+  ["audit events", (stores) => stores.events.ping()],
   ["fenced effects", (stores) => stores.effects.ping()],
   ["outbound calls", (stores) => stores.calls.ping()],
 ];

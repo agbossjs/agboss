@@ -721,30 +721,30 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 
 ## Errors and fixes
 
-| You see                                                        | Fix                                                                                                |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                               |
-| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                            |
-| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                      |
-| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                              |
-| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)              |
-| `A2ATaskInterruptedError` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely          |
-| `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                            |
-| `A2AOriginError` (`a2a.origin-refused`)                        | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's    |
-| `A2AMeshUnsupportedError`                                      | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card          |
-| `OutboundCallUnreconciledError` (`foreign A2A peer`)           | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCalls`) |
-| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                        |
-| `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`          |
-| `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                               |
-| `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                        |
-| `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                              |
-| `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)          |
-| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`                 |
-| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`                        |
-| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish               |
-| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                 |
-| `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s              |
-| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`             |
+| You see                                                        | Fix                                                                                                  |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                                 |
+| the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                              |
+| `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                        |
+| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                                |
+| `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)                |
+| `A2ATaskInterruptedError` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely            |
+| `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |
+| `A2AOriginError` (`a2a.origin-refused`)                        | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's      |
+| `A2AMeshUnsupportedError`                                      | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card            |
+| `OutboundCallUnreconciledError` (`foreign A2A peer`)           | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
+| `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                          |
+| `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`            |
+| `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                                 |
+| `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                          |
+| `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                                |
+| `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)            |
+| `[a2a.caller-resolver-not-listed] … is not listed`             | list the resolver in `@Application({ providers })` or a `@Workflow({ providers })`                   |
+| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's resolver refused the client's credentials: check its `headers`                          |
+| `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish                 |
+| `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                   |
+| `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s                |
+| `DeadlineExceededError` (`limit.deadline`)                     | the execution (or its trusted caller) ran out of time: raise `deadline`, or `.onError`               |
 
 ## Pitfalls
 

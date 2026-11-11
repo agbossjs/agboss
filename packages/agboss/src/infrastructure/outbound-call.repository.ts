@@ -18,7 +18,7 @@ import {
 } from "./outbound-call-pages.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
-import type { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
+import type { OutboundCallLeaseState } from "./execution-audit-log.repository.js";
 import type {
   OutboundCallClaim,
   OutboundCallLease,

@@ -81,8 +81,8 @@
           "reason": "default"
         },
         {
-          "contract": "ExecutionLeaseEventRepository",
-          "implementation": "InMemoryExecutionLeaseEventRepository",
+          "contract": "ExecutionAuditLogRepository",
+          "implementation": "InMemoryExecutionAuditLogRepository",
           "reason": "default"
         },
         {

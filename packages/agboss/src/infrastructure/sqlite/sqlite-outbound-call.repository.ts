@@ -1,6 +1,6 @@
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { z } from "zod";
-import type { OutboundCallLeaseState } from "../execution-lease-event.repository.js";
+import type { OutboundCallLeaseState } from "../execution-audit-log.repository.js";
 import { Injectable } from "../../components/decorators.js";
 import { StoreClock, lazyLoad } from "../clock.js";
 import type { EffectKey } from "../fenced-effect.repository.js";

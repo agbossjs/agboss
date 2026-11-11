@@ -182,8 +182,8 @@ export async function buildApplication(
   const instance = await instancePartsOf(assembled, clock, log, infrastructure);
   const workflows: BuiltApp[] = [];
   const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
-  const { observer, leaseEvents } = await observersOf(seen, { ...container, onCreate }, options);
-  const common = { infrastructure, created, leaseEvents, ...instance };
+  const { observer, auditLog } = await observersOf(seen, { ...container, onCreate }, options);
+  const common = { infrastructure, created, auditLog, ...instance };
   try {
     // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
     const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);

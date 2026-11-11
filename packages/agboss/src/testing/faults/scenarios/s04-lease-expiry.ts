@@ -1,4 +1,4 @@
-import { HandOverReason } from "../../../infrastructure/execution-lease-event.repository.js";
+import { HandOverReason } from "../../../infrastructure/execution-audit-log.repository.js";
 import { FaultStepPoint } from "../fixture/pod-link.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";

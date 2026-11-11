@@ -78,7 +78,7 @@ async function resumed(
   return { done, error };
 }
 
-/** No lease of the child is A's, and no takeover of it is in the lease log. */
+/** No lease of the child is A's, and no takeover of it is in the audit log. */
 async function expectNoStaleClaim({ b, child }: FrozenReclaim): Promise<void> {
   // the child's lease is still B's, finished: A took none
   expect(leaseRowOf(b, child.executionId)).toMatchObject({

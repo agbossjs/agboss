@@ -306,7 +306,7 @@ export const durableStores = [
 share one PostgreSQL database through [`@agboss/postgres`](https://github.com/agbossjs/postgres), a
 package of its own released with the core (its version is the core's, its peer dependency
 `@agboss/core` of that version). It has a store for every contract above — leases, records, trees,
-pauses, the child queue, checkpoints, the fenced effect, the outbound calls, the lease log, the
+pauses, the child queue, checkpoints, the fenced effect, the outbound calls, the audit log, the
 ledger, the history, rate limits and mesh requests — listed in `providers` like the SQLite ones,
 on one `pg` pool per instance:
 
@@ -321,7 +321,7 @@ import {
   PostgresChildExecutionQueueRepository,
   PostgresCostLedgerRepository,
   PostgresExecutionHistoryRepository,
-  PostgresExecutionLeaseEventRepository,
+  PostgresExecutionAuditLogRepository,
   PostgresExecutionLeaseRepository,
   PostgresExecutionRecordRepository,
   PostgresExecutionTreeRepository,
@@ -348,7 +348,7 @@ export const postgresStores = [
   PostgresChildExecutionQueueRepository,
   PostgresCostLedgerRepository,
   PostgresExecutionHistoryRepository,
-  PostgresExecutionLeaseEventRepository,
+  PostgresExecutionAuditLogRepository,
   PostgresExecutionLeaseRepository, // the three fencing stores: one backend, "postgres"
   PostgresFencedEffectRepository,
   PostgresOutboundCallRepository,
@@ -1459,8 +1459,8 @@ export class StageReleaseAction {
 
 A refused write throws `ExecutionFencedError` (`extends ExecutionLeaseLostError`) — found in any
 cause chain, it is a hand-over: no `.onError`, no undo, the record stays `running` and the call
-rejects with it — and it is kept (#501): a `HandedOver` row of the lease log
-(`app.leaseEventsOf`) and an `onStepHandedOver` (`reason`, `site`, the step, `token`,
+rejects with it — and it is kept (#501): a `HandedOver` row of the audit log
+(`app.auditLogOf`) and an `onStepHandedOver` (`reason`, `site`, the step, `token`,
 `observedToken`), so a zombie refused at a write is told apart from one that never wrote again,
 from the public API alone; a fenced effect's call (#500) is a `FencedEffect` row and an
 `onFencedEffect` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
@@ -1538,10 +1538,10 @@ started under another config is left to a compatible instance (logged once), unl
 `reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`), and the takeover of
 the lease is told and kept (#501): `onExecutionLeaseTakeover` names the new holder and token, the
 expired holder when the lease store says (`ExecutionLease.takenOverFrom`) and why
-(`LeaseTakeoverReason`); the same facts are a row of the lease log, `ExecutionLeaseEventRepository`
-(listed like the other stores; `SqliteExecutionLeaseEventRepository`), read through the public API
-with `app.leaseEventsOf({ tenantId, rootExecutionId })` while the tree runs and removed after
-`@Application({ retention: { leaseEvents } })` (default `hours(24)`). With the in-memory
+(`LeaseTakeoverReason`); the same facts are a row of the audit log, `ExecutionAuditLogRepository`
+(listed like the other stores; `SqliteExecutionAuditLogRepository`), read through the public API
+with `app.auditLogOf({ tenantId, rootExecutionId })` while the tree runs and removed after
+`@Application({ retention: { auditLog } })` (default `hours(24)`). With the in-memory
 defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
 machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —

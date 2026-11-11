@@ -271,7 +271,7 @@ describe("#596/#597 acceptance: the holder freezes around a write that makes an 
         const call = rejectionOf(execute(a, window.start, window.input, { threadId: "thread-d" }));
         openGate();
         await until(() => frozen !== undefined, `frozen at ${window.at}`);
-        // another instance took the frozen one's lease over (a re-acquire of its own is no takeover here)
+        // another instance took the frozen one's lease over (a reclaim of its own is no takeover here)
         const isTakenOver = (): boolean =>
           takeoversSeen.some((each) => each.previous === frozen && each.holder !== frozen);
         await liveUntil(clock, isTakenOver, 12);

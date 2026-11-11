@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import {
   ExecutionCancelledError,
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   ExecutionLeaseLostError,
   ExecutionLeaseRepository,
   ExecutionStatus,
@@ -52,14 +52,14 @@ async function bothReady(apps: readonly TestApp[]): Promise<readonly [TestApp, T
   return [a, b];
 }
 
-/** The takeovers of the root's own lease in its tree's lease log, but its holders' reclaims. */
+/** The takeovers of the root's own lease in its tree's audit log, but its holders' reclaims. */
 async function takeoversOf(app: TestApp, rootExecutionId: string): Promise<readonly unknown[]> {
-  const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId });
+  const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId });
   return rows.filter(
     (row) =>
-      row.kind === ExecutionLeaseEventKind.Takeover &&
+      row.kind === ExecutionAuditEventKind.Takeover &&
       row.executionId === rootExecutionId &&
-      row.reason !== LeaseTakeoverReason.Reacquired,
+      row.reason !== LeaseTakeoverReason.Reclaimed,
   );
 }
 

@@ -8,7 +8,7 @@ import type { MeshRequestRecord } from "./mesh-request.repository.js";
 import type { A2AMessageRecord, A2ATaskRecord } from "./a2a-task.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
 import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
-import type { ExecutionLeaseEventRecord } from "./execution-lease-event.repository.js";
+import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
 
 /**
@@ -46,8 +46,8 @@ export class InMemoryDatabase {
   readonly fencedEffectResults = new Map<string, FencedEffectResultRow>();
   /** The tail of each scope's fenced-effect transactions (#500): one at a time per scope. */
   readonly fencedEffectLocks = new Map<string, Promise<void>>();
-  /** The lease log (#501), in the order saved. */
-  readonly executionLeaseEvents: ExecutionLeaseEventRecord[] = [];
+  /** The audit log (#501), in the order saved. */
+  readonly executionAuditLog: ExecutionAuditEventRecord[] = [];
   /** The intents of calls that leave the system (#505), by scope, idempotency key and name, in the order recorded. */
   readonly outboundCalls = new Map<string, OutboundCallRecord>();
   /**

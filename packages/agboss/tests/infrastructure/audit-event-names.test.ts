@@ -1,20 +1,20 @@
 /**
- * #825 AC5 — the lease log's outcomes of a call that leaves the system are named apart: an attempt
+ * #825 AC5 — the audit log's outcomes of a call that leaves the system are named apart: an attempt
  * overtaken by a newer one is `AttemptSuperseded` (`attempt-superseded`), a lease an outbound call's
  * check closed is `LeaseClosed` (`lease-closed`) with the `closedLease` — and `OutboundCallLeaseState`
  * says `LeaseClosed` for the same close. A row written before (`superseded`, `lease-superseded`,
- * `supersededLease`) reads with this version's names, through `app.leaseEventsOf` too: the migration
+ * `supersededLease`) reads with this version's names, through `app.auditLogOf` too: the migration
  * of what is stored, every store at once.
  */
 import { describe, expect } from "vitest";
 import {
-  currentLeaseEventOf,
-  ExecutionLeaseEventKind,
-  ExecutionLeaseEventRepository,
+  currentAuditEventOf,
+  ExecutionAuditEventKind,
+  ExecutionAuditLogRepository,
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
-  type ExecutionLeaseEventRecord,
-} from "../../src/infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditEventRecord,
+} from "../../src/infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
 import { testWith } from "../../src/testing/index.js";
 import { InMemoryChargesApplication } from "../app/fixtures/rotation/rotation.application.js";
@@ -22,7 +22,7 @@ import { InMemoryChargesApplication } from "../app/fixtures/rotation/rotation.ap
 const test = testWith(InMemoryChargesApplication);
 
 const CALL = {
-  kind: ExecutionLeaseEventKind.OutboundCall,
+  kind: ExecutionAuditEventKind.OutboundCall,
   occurredAt: "2026-11-06T10:00:00.000Z",
   tenantId: "default",
   rootExecutionId: "root-1",
@@ -39,9 +39,9 @@ const CALL = {
 } as const;
 
 /** A row as a version before #825 wrote it: the outcome's old value, the lease under its old name. */
-function written(outcome: string, extra: object = {}): ExecutionLeaseEventRecord {
+function written(outcome: string, extra: object = {}): ExecutionAuditEventRecord {
   // as a store hands back what an earlier version wrote: JSON, never checked against this version
-  const row: ExecutionLeaseEventRecord = JSON.parse(JSON.stringify({ ...CALL, outcome, ...extra }));
+  const row: ExecutionAuditEventRecord = JSON.parse(JSON.stringify({ ...CALL, outcome, ...extra }));
   return row;
 }
 
@@ -57,29 +57,29 @@ describe("#825 AC5: the names", () => {
   });
 
   test("a row written before reads with this version's names; a current one as it is", () => {
-    expect(currentLeaseEventOf(written("superseded", { supersededBy: 3 }))).toEqual({
+    expect(currentAuditEventOf(written("superseded", { supersededBy: 3 }))).toEqual({
       ...CALL,
       outcome: OutboundCallEventOutcome.AttemptSuperseded,
       supersededBy: 3,
     });
-    expect(currentLeaseEventOf(written("lease-superseded", { supersededLease: CLOSED }))).toEqual({
+    expect(currentAuditEventOf(written("lease-superseded", { supersededLease: CLOSED }))).toEqual({
       ...CALL,
       outcome: OutboundCallEventOutcome.LeaseClosed,
       closedLease: CLOSED,
     });
     const current = written(OutboundCallEventOutcome.Sent);
-    expect(currentLeaseEventOf(current)).toBe(current);
+    expect(currentAuditEventOf(current)).toBe(current);
   });
 
-  test("through app.leaseEventsOf: a row the store kept from before is read under the new names", async ({
+  test("through app.auditLogOf: a row the store kept from before is read under the new names", async ({
     app,
   }) => {
     await app.ready();
     await app
-      .resolve(ExecutionLeaseEventRepository)
+      .resolve(ExecutionAuditLogRepository)
       .save(written("lease-superseded", { supersededLease: CLOSED }));
 
-    const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId: "root-1" });
+    const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: "root-1" });
 
     expect(rows).toEqual([
       { ...CALL, outcome: OutboundCallEventOutcome.LeaseClosed, closedLease: CLOSED },

@@ -102,7 +102,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   readonly compensationTimeout?: Milliseconds;
   /**
    * How long each kind of row the application keeps stays (#834): pause records, execution
-   * records, the lease log, cost ledger entries, fenced effects, outbound calls, mesh answers and
+   * records, the audit log, cost ledger entries, fenced effects, outbound calls, mesh answers and
    * A2A tasks — the one place a retention is set, `[application.retention-invalid]`. See
    * `RetentionOptions`.
    */

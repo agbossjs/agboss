@@ -3,7 +3,7 @@ import { fencedErrorOf } from "../app/handed-over.js";
 import { scopeKeyOf } from "../app/lease-lost.js";
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
-import { FencedEffectEventOutcome } from "./execution-lease-event.repository.js";
+import { FencedEffectEventOutcome } from "./execution-audit-log.repository.js";
 import type { EffectKey, FencedEffectOrigin } from "./effect-key.js";
 import { LeaseCheck, type StoreDescriptor } from "./execution-lease.repository.js";
 import { isIssuedKey } from "./issued-keys.js";
@@ -217,7 +217,7 @@ export abstract class FencedEffectRepository<TTransaction> {
 // #825: a component that reaches any fenced-effect store can write under a business key
 markBusinessKeyWriter(FencedEffectRepository);
 
-/** How the lease log names each outcome of a call. */
+/** How the audit log names each outcome of a call. */
 const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutcome>> = {
   [FencedEffectStatus.Ran]: FencedEffectEventOutcome.Ran,
   [FencedEffectStatus.Replayed]: FencedEffectEventOutcome.Replayed,
@@ -226,7 +226,7 @@ const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutco
 
 /**
  * The call, told to the lease the step runs under (#501): how it went — ran, replayed, joined, or
- * refused (`ExecutionFencedError`) — as a row of the lease log and `onFencedEffect`, never its
+ * refused (`ExecutionFencedError`) — as a row of the audit log and `onFencedEffect`, never its
  * result; a failure of the write itself is no outcome. Nothing outside a step or under a lease that
  * does not record (a unit runner's).
  */

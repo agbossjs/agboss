@@ -1,5 +1,5 @@
 import { errorRecordOf } from "../core/error-record.js";
-import { OutboundCallEventOutcome } from "../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import {
   OutboundCallStatus,
   type OutboundCallRecord,

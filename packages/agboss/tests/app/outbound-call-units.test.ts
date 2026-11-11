@@ -23,7 +23,7 @@ import { ExecutionFencedError } from "../../src/app/lease-lost.js";
 import {
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
-} from "../../src/infrastructure/execution-lease-event.repository.js";
+} from "../../src/infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
 import { testFrame } from "../helpers/frame.js";
 import { recordingLog } from "../helpers/log.js";
