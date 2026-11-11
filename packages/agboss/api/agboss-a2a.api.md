@@ -274,6 +274,83 @@ export enum A2AContractRule {
 }
 
 // @public
+export interface A2ADirectMessageAttempt {
+    readonly attemptId: string;
+    readonly expiresAt: Date;
+    // (undocumented)
+    readonly startedAt: Date;
+}
+
+// @public
+export interface A2ADirectMessageKey {
+    // (undocumented)
+    readonly messageId: string;
+    readonly ownerId: string | undefined;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+    readonly callerPeer?: string;
+    readonly callsModel: boolean;
+    readonly completedAt?: Date;
+    readonly contextId: string;
+    readonly createdAt: Date;
+    readonly meshBodyHash?: string;
+    readonly reply?: A2ADirectMessageReply;
+    readonly requestHash: string;
+    readonly skill: string;
+    // (undocumented)
+    readonly state: A2ADirectMessageState;
+}
+
+// @public
+export interface A2ADirectMessageReply {
+    // (undocumented)
+    readonly finish: string;
+    // (undocumented)
+    readonly output: unknown;
+    readonly spentUsd: number;
+}
+
+// @public (undocumented)
+export abstract class A2ADirectMessageRepository {
+    abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    abstract findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    abstract ping(): Promise<void>;
+    abstract retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    abstract saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
+    static readonly store: StoreDescriptor;
+}
+
+// @public (undocumented)
+export type A2ADirectMessageSave = {
+    readonly status: A2ADirectMessageSaveStatus.Saved | A2ADirectMessageSaveStatus.Kept;
+    readonly message: A2ADirectMessageRecord;
+} | {
+    readonly status: A2ADirectMessageSaveStatus.Taken;
+};
+
+// @public
+export enum A2ADirectMessageSaveStatus {
+    Kept = "kept",
+    Saved = "saved",
+    Taken = "taken"
+}
+
+// @public
+export enum A2ADirectMessageState {
+    Completed = "completed",
+    InFlight = "in-flight"
+}
+
+// @public
 export interface A2ADownloadOptions {
     // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxSize?: Bytes;
@@ -331,11 +408,13 @@ export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: 
 export interface A2AExposedSkillOptions {
     readonly examples?: readonly string[];
     readonly files?: A2AFileOptions;
+    readonly reply?: A2AReply;
     readonly tags?: readonly string[];
 }
 
 // @public
 export interface A2AExposeOptions {
+    readonly defaultSkill?: Class;
     readonly description: string;
     readonly exports: readonly Class[];
     readonly name: string;
@@ -480,7 +559,6 @@ export abstract class A2AFileRepository {
     abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
     abstract ping(): Promise<void>;
     abstract save(file: NewA2AFile): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
     static readonly store: StoreDescriptor;
 }
 
@@ -698,6 +776,12 @@ export type A2ARemotePeer = {
 };
 
 // @public
+export enum A2AReply {
+    Message = "message",
+    Task = "task"
+}
+
+// @public
 export const A2ASecurity: {
     readonly bearer: (options?: {
         readonly name?: string;
@@ -888,8 +972,39 @@ export { Artifact }
 export const DEFAULT_A2A_FILE_MEDIA_TYPES: readonly string[];
 
 // @public
-export class InMemoryA2AFileRepository extends A2AFileRepository {
+export const DIRECT_MESSAGE_CLAIM = "";
+
+// Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
+//
+// @public
+export const directMessageClaimOf: (message: NewA2ADirectMessage) => A2AMessageRecord;
+
+// @public
+export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
     // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
+    constructor(database: InMemoryDatabase);
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class InMemoryA2AFileRepository extends A2AFileRepository {
     constructor(database: InMemoryDatabase);
     // (undocumented)
     deleteByOwner(owner: A2AFileOwner): Promise<void>;
@@ -929,6 +1044,9 @@ export class LocalDiskA2AFileRepository extends A2AFileRepository {
 }
 
 export { Message }
+
+// @public
+export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
 export interface NewA2AFile extends A2AFileMetadata {
@@ -973,11 +1091,34 @@ export class S3A2AFileRepository extends A2AFileRepository {
     static readonly store: StoreDescriptor;
 }
 
+// @public
+export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
+    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
 // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
 //
 // @public
 export class SqliteA2ATaskRepository extends A2ATaskRepository {
-    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
     constructor(connection: SqliteConnection);
     // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point index.d.ts
     //
@@ -1004,8 +1145,6 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     //
     // (undocumented)
     saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
-    // Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
     // Warning: (ae-forgotten-export) The symbol "A2AMessageKey" needs to be exported by the entry point index.d.ts
@@ -1087,7 +1226,7 @@ export class WorkflowFinishFilesDto {
 // src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "text".
 // src/a2a/client/a2a-client-options.ts:85:3 - (ae-undocumented) Missing documentation for "data".
 // src/a2a/client/a2a-client-options.ts:88:3 - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/client/a2a-client.ts:60:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-client.ts:61:3 - (ae-undocumented) Missing documentation for "url".
 // src/a2a/client/a2a-download.ts:15:3 - (ae-undocumented) Missing documentation for "signal".
 // src/a2a/client/a2a-guard-errors.ts:20:3 - (ae-undocumented) Missing documentation for "agent".
 // src/a2a/client/a2a-guard-errors.ts:21:3 - (ae-undocumented) Missing documentation for "origin".
@@ -1177,6 +1316,15 @@ export class WorkflowFinishFilesDto {
 // src/a2a/types.ts:36:3 - (ae-undocumented) Missing documentation for "status".
 // src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "finish".
 // src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/a2a-direct-message.repository.ts:30:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-direct-message.repository.ts:33:3 - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-direct-message.repository.ts:38:3 - (ae-undocumented) Missing documentation for "finish".
+// src/infrastructure/a2a-direct-message.repository.ts:39:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/a2a-direct-message.repository.ts:48:3 - (ae-undocumented) Missing documentation for "startedAt".
+// src/infrastructure/a2a-direct-message.repository.ts:61:3 - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/a2a-direct-message.repository.ts:92:1 - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
+// src/infrastructure/a2a-direct-message.repository.ts:99:1 - (ae-undocumented) Missing documentation for "A2ADirectMessageRepository".
+// src/infrastructure/a2a-direct-message.repository.ts:115:3 - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/a2a-file.repository.ts:28:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-file.repository.ts:29:3 - (ae-undocumented) Missing documentation for "fileId".
 // src/infrastructure/a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -1189,6 +1337,15 @@ export class WorkflowFinishFilesDto {
 // src/infrastructure/a2a-file.repository.ts:57:3 - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/a2a-file.repository.ts:59:15 - (ae-undocumented) Missing documentation for "fileId".
 // src/infrastructure/a2a-file.repository.ts:64:1 - (ae-undocumented) Missing documentation for "A2AFileRepository".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:112:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:118:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:122:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:140:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:154:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:166:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:174:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:189:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
 // src/infrastructure/in-memory-a2a-file.repository.ts:24:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-file.repository.ts:30:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "save".
@@ -1209,6 +1366,15 @@ export class WorkflowFinishFilesDto {
 // src/infrastructure/s3/s3-a2a-file.repository.ts:108:3 - (ae-undocumented) Missing documentation for "findBytes".
 // src/infrastructure/s3/s3-a2a-file.repository.ts:112:9 - (ae-undocumented) Missing documentation for "findMetadata".
 // src/infrastructure/s3/s3-a2a-file.repository.ts:143:9 - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:41:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:51:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:55:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:75:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:79:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:105:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:131:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:142:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts:157:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:41:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:50:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts:54:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".

@@ -718,8 +718,8 @@ export class WorkflowSettings {
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts:166:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:171:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/metadata.ts:120:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:121:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:122:1 - (ae-undocumented) Missing documentation for "ComponentError".
+// src/components/metadata.ts:123:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".

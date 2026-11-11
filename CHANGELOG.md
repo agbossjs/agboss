@@ -638,6 +638,12 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
 
 ### Fixed — guarantees and safety
 
+- **A pause's decision carries no file descriptor** (#900, after #859) — a follow-up message that
+  resumes an `INPUT_REQUIRED` task with `{ pauseId?, decision }` holding an object shaped as an
+  `A2AFileDto` (a `mediaType` with a `fileId`, `sha256`, `inline` or `url`) at any depth is refused
+  `-32602 a2a.file-field-in-data`, nothing resumed, as a start's data part naming a file field is:
+  a file's descriptor is the server's, made when a file part is admitted. The scan is iterative and
+  bounded (64 levels, 10 000 values, else `-32602 a2a.answer-shape`).
 - **A business key's fingerprint is required, and keyed by an idempotency secret of its own** (#825,
   from the 0.1.1 API review, G1b and G5) — under a business key a fenced effect without a
   `fingerprint` had none, so two effects with the same business key and other work (a charge and a
@@ -1122,6 +1128,35 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **A2A skills that answer with a direct `Message`** (#860, epic #805) — an exported start declared
+  `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } } })` (default `A2AReply.Task`)
+  answers `SendMessage` with a `Message` and no task: its finish's output as text, data or file
+  parts (#859), `returnImmediately` ignored, `SendStreamingMessage` one frame — the message — then the
+  end, `GetTask` or a follow-up naming it `-32001`. Its workflow is stateless, checked at assembly on
+  every node: no pause, no fenced effect, outbound call or A2A call through any service a node or a
+  tool injects, only `@Tool({ readOnly: true })` tools and no `@McpTool`, no undo, no child workflow
+  (`[a2a.message-skill-pause]`, `-effect`, `-tool`, `-compensation`, `-child`; a reply for no export
+  or a `defaultSkill` that is none `[a2a.unknown-skill-option]`). `@A2AExpose({ defaultSkill })`
+  runs a message that names no skill. The replies live in the new `A2ADirectMessageRepository`
+  (`InMemoryA2ADirectMessageRepository`, the default; `SqliteA2ADirectMessageRepository`;
+  `@agboss/postgres` and `@agboss/mongodb` ship theirs; `a2aDirectMessageContract`,
+  `storeConformance({ stores: { a2aDirectMessage } })`), on the A2A task store's backend
+  (`[a2a.message-store-not-shared]`): one `messageId` is one message across both reply modes — its
+  id claimed among the task store's messages in the same atomic write, another message under it
+  `-32602 a2a.message-id-reused`. A resend within `@Application({ retention: { a2aMessages } })`
+  (default `minutes(15)`, above the lease) gets the same message, a concurrent duplicate waits for
+  it — the model called and charged once; an attempt is bounded (its run aborted at 25 s and on the
+  caller's disconnect, its row in flight 30 s), never continued by a recovery
+  (`withoutRecovery`: an instance taking its lease over ends it as cancelled), and one lost — a
+  crash — is taken over once by a resend or the sweep, which records one `CostSource.Unknown`
+  entry (`unknown:a2a-msg:<tenantId>:<attemptId>`, counted in `agboss.instance.costs.unknown`) for a
+  skill that can call a model and removes its files. The card publishes each skill's `reply` and
+  the mesh extension's `messageIdempotencyRetention`; a trusted caller's reply carries the signed
+  run report in `message.metadata[mesh-uri].report`. The client takes a `Message` answer without
+  waiting for a task, settles its report, and trusts a resend to a direct-reply skill only within
+  its `messageIdempotencyRetention` (15 min by default) — past it `OutboundCallUnreconciledError`;
+  a message with no readable output is `A2ARemoteCallError` `no-task`. `@Tool({ readOnly })` is new.
+  The official TCK's `DM-MSG-001` passes: 67 of 67 `MUST` requirements.
 - **File parts in A2A messages and artifacts** (#859, epic #805) — a skill whose input DTO holds
   `A2AFileDto` fields (`@Nested(A2AFileDto)`, `@ListOf(A2AFileDto)`) takes `raw` and `url` file
   parts: each into the field its `metadata["https://agboss.dev/a2a/skills/v1"].field` names, else
