@@ -348,6 +348,16 @@ the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follo
   (the skills extension `https://agboss.dev/a2a/skills/v1`), the skill's input must accept the input
   DTO and the output DTO every finish output (`[a2a.schema-mismatch]`, compared like
   [§8](#8-the-federation-check-398-pr-4)) — both `A2AContractError`.
+- **Some finishes only (#916).** By default a typed client's `output` covers every finish of its
+  skill. `@A2AAgent({ target: { finishes: ["answer-workflow-finish"] } })` names the ones it takes:
+  the card check compares only those, each a finish the card lists (`[a2a.unknown-finish]`,
+  `A2AContractError` with `rule: A2AContractRule.UnknownFinish`; at assembly already for a name no
+  `@WorkflowFinish` could have, an empty list, a name twice or an agent with no `output`). A task
+  that ends at another finish (its artifact's `metadata[skills-uri].finish`) fails the call with
+  `A2AUnexpectedFinishError` (`a2a.unexpected-finish`: `agent`, `finish`, `finishes`, `taskId`)
+  before its output is read — a step's side path takes it, `.onError(A2AUnexpectedFinishError, …)`;
+  an answer that names no finish (a foreign agent's) is read as before. `agboss describe` prints
+  `· finishes: …` on the agent's line, `--json` the import's `target.finishes`.
 - **Origins.** Every interface the card names must be on the `url`'s origin or one of
   `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AOriginError`
   (`a2a.origin-refused`): no request goes elsewhere — so the client's headers (`headers`,
@@ -871,7 +881,8 @@ is checked against that application's exports — an `@A2AAgent`'s `target.appli
 | Code | When |
 | --- | --- |
 | `[federation.missing-target]` | the target application exports no such start (or no such tool under that expose) |
-| `[federation.incompatible-schema]` | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give |
+| `[federation.incompatible-schema]` | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
+| `[federation.unknown-finish]` | the consumer's `target.finishes` names a finish the export's start does not have (#916) |
 | `[federation.snapshot-schema]` | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist) |
 | `[federation.duplicate-application]` | two snapshots of one application |
 | `[federation.version-not-bumped]` | the project's own earlier snapshot is among them, an `@A2AExpose` start's schema changed and its `version` did not — a warning, an error under `--strict` |

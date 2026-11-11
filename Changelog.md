@@ -3,6 +3,15 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a typed A2A client takes some of its skill's finishes (#916)
+
+- **Added**: `@A2AAgent({ target: { finishes } })` — the card check compares the output with those
+  finishes only (each one the skill's, `[a2a.unknown-finish]`, at assembly too for malformed lists);
+  a task ending at another is `A2AUnexpectedFinishError` (`a2a.unexpected-finish`) for `.onError`.
+  Unset, the output must accept every finish, as before. `describe` / `--json` show the list,
+  `check --federation` compares only the listed finishes (`[federation.unknown-finish]`)
+  ([A2A → the client side](A2A#4-the-client-side--a2a-v10-809)).
+
 ## Unreleased — 0.1.1: A2A file fetch never through a proxy, file fields of outputs on the card (#916)
 
 - **Fixed — SSRF**: a file by url is fetched on its own `https.Agent` (its own pool, the guarded
