@@ -131,6 +131,25 @@ const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
     },
   },
   {
+    name: "#904: a tenant id of 200 characters, three-byte ones too: its file is saved, read, found by the sweep and removed",
+    run: async ({ first, second }) => {
+      const tenants = ["t".repeat(200), "€".repeat(200)];
+      for (const tenantId of tenants) await first.save(fileOf({ tenantId }));
+
+      const owners = await second.findOwnersByCreatedAtBefore(TEN, 10);
+      const read = await Promise.all(
+        tenants.map((tenantId) => second.findMetadata({ tenantId, fileId: "task-1.0" })),
+      );
+      for (const tenantId of tenants) await second.deleteByOwner({ tenantId, ownerId: "task-1" });
+
+      expect(owners).toEqual(
+        expect.arrayContaining(tenants.map((tenantId) => ({ tenantId, ownerId: "task-1" }))),
+      );
+      expect(read).toEqual(tenants.map((tenantId) => metaOf(fileOf({ tenantId }))));
+      expect(await first.findOwnersByCreatedAtBefore(TEN, 10)).toEqual([]);
+    },
+  },
+  {
     name: "a page holds a whole number of owners from 1: another limit is a RangeError",
     run: async ({ first }) => {
       await expect(first.findOwnersByCreatedAtBefore(TEN, 0)).rejects.toBeInstanceOf(RangeError);

@@ -55,6 +55,10 @@ export class FakeS3 {
   }
 
   #object(method: string, key: string, headers: Headers, body: Uint8Array): Response {
+    // #904: as MinIO and S3 refuse it — a segment above 255 bytes, a key above 1024
+    const bytesOf = (text: string): number => Buffer.byteLength(text, "utf8");
+    if (bytesOf(key) > 1024 || key.split("/").some((segment) => bytesOf(segment) > 255))
+      return new Response("<Error><Code>XMinioInvalidObjectName</Code></Error>", { status: 400 });
     const found = this.objects.get(key);
     switch (method) {
       case "PUT": {
