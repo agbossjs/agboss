@@ -209,9 +209,19 @@ describe("#860: what a direct message is checked for, in order", () => {
 
   it("a chain through the skill is refused with its mesh code before anything is kept", async () => {
     const rig = directRig();
-    const envelope = {
-      callChain: [{ application: "unit-application", start: DIRECT_SKILL.id }],
-    } as unknown as MeshEnvelope;
+    const envelope: MeshEnvelope = {
+      schema: 1,
+      issuer: "caller-application",
+      origin: {
+        rootExecutionId: "caller-root",
+        executionId: "caller-root",
+        workflow: { name: "caller-workflow", version: "1.0.0" },
+        step: { component: "caller-agent", idempotencyKey: "caller-root:caller-agent:1" },
+      },
+      callChain: [
+        { application: "unit-application", executionId: "unit-root", start: DIRECT_SKILL.id },
+      ],
+    };
     const caller = callerOf({ mesh: { ...NO_MESH, envelope } });
 
     const refusal = await refusalOf(directReply(rig.parts, caller, hello(), DIRECT_SKILL));

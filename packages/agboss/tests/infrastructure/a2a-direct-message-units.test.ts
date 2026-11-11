@@ -12,7 +12,10 @@ import {
 } from "../../src/infrastructure/a2a-direct-message.repository.js";
 import { a2aDirectMessageExpiryOf } from "../../src/infrastructure/a2a-direct-message-expiry.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
-import { checkedDirectMessageLimit } from "../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
+import {
+  checkedDirectMessageLimit,
+  InMemoryA2ADirectMessageRepository,
+} from "../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { directMessageOf } from "../../src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.js";
@@ -130,11 +133,14 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
       ...directMessageOf(row({ message_id: `m-${String(n)}` })),
     }));
   };
-  const messages = {
-    findAllInFlightByExpiresAtBefore: () => Promise.resolve(kind === "lost" ? page() : []),
-    deleteIfInFlight: () => Promise.resolve(false),
-    deleteByCreatedAtBefore: () => Promise.resolve(kind === "old" ? page() : []),
-  } as unknown as A2ADirectMessageRepository;
+  const messages = new InMemoryA2ADirectMessageRepository(new InMemoryDatabase());
+  vi.spyOn(messages, "findAllInFlightByExpiresAtBefore").mockImplementation(() =>
+    Promise.resolve(kind === "lost" ? page() : []),
+  );
+  vi.spyOn(messages, "deleteIfInFlight").mockResolvedValue(false);
+  vi.spyOn(messages, "deleteByCreatedAtBefore").mockImplementation(() =>
+    Promise.resolve(kind === "old" ? page() : []),
+  );
   const files = new InMemoryA2AFileRepository(new InMemoryDatabase());
   vi.spyOn(files, "deleteByOwner").mockResolvedValue(undefined);
   const expiry = a2aDirectMessageExpiryOf({

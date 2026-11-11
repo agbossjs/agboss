@@ -5,7 +5,8 @@ import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import type { A2AServerParts } from "../../../../src/a2a/server/a2a-server-parts.js";
 import type { ServedSkill } from "../../../../src/a2a/server/a2a-skills.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../../../src/app/types.js";
-import type { ComponentRecord } from "../../../../src/flow/runtime/records.js";
+import { buildCostReport } from "../../../../src/finops/usage.js";
+import { bareRecordOf, ComponentKind } from "../../../../src/flow/runtime/records.js";
 import {
   A2ADirectMessageState,
   type A2ADirectMessageRecord,
@@ -29,18 +30,22 @@ export const KEY = { tenantId: "acme", ownerId: "dana", messageId: "m-1" } as co
 /** What every finished run returns: the unit finish, its output, what it spent. */
 export const OUTPUT = { total: 3 };
 
-export const finished = (): ExecutionOutput =>
-  ({
-    status: ExecutionStatus.Finished,
-    threadId: "thread",
-    tenantId: "acme",
-    executionId: "run",
-    finish: { name: "unit-workflow-finish" } as ComponentRecord,
-    output: OUTPUT,
-    pending: [],
-    path: [],
-    spend: { totalUsd: 0.25 },
-  }) as unknown as ExecutionOutput;
+export const finished = (): ExecutionOutput => ({
+  status: ExecutionStatus.Finished,
+  threadId: "thread",
+  tenantId: "acme",
+  executionId: "run",
+  finish: bareRecordOf("unit-workflow-finish", ComponentKind.WorkflowFinish),
+  output: OUTPUT,
+  pending: [],
+  path: [],
+  spend: { ...buildCostReport([]), totalUsd: 0.25 },
+  launches: [],
+  children: [],
+  handledErrors: [],
+  compensations: [],
+  toolCalls: [],
+});
 
 /** One run the app was asked for. */
 export interface RecordedRun {
@@ -64,10 +69,7 @@ export interface DirectRig {
 export function directRig(extra: Partial<A2AServerParts> = {}): DirectRig {
   let made = 0;
   const runs: RecordedRun[] = [];
-  const rig: { -readonly [K in keyof DirectRig]: DirectRig[K] } = {
-    runs,
-    script: () => Promise.resolve(finished()),
-  } as unknown as DirectRig;
+  let script: RunScript = () => Promise.resolve(finished());
   const base = unitParts(scriptOf());
   const parts = unitParts(scriptOf(), undefined, {
     skills: [DIRECT_SKILL],
@@ -80,15 +82,23 @@ export function directRig(extra: Partial<A2AServerParts> = {}): DirectRig {
       execute: ((_start: unknown, input: unknown, options: RecordedRun["options"]) => {
         const run = { input, options };
         runs.push(run);
-        return rig.script(run);
+        return script(run);
       }) as never,
     },
     ...extra,
   });
-  rig.parts = parts;
-  rig.messages = parts.direct.messages as InMemoryA2ADirectMessageRepository;
-  rig.clock = parts.clock as VirtualClock;
-  return rig;
+  return {
+    parts,
+    messages: parts.direct.messages as InMemoryA2ADirectMessageRepository,
+    clock: parts.clock as VirtualClock,
+    runs,
+    get script() {
+      return script;
+    },
+    set script(next: RunScript) {
+      script = next;
+    },
+  };
 }
 
 /** A message as another call accepted it: in flight under `run-lost` until 30 s past nine. */

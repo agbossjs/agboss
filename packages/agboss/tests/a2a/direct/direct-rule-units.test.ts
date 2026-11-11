@@ -83,7 +83,7 @@ const violationsOf = (workflows: readonly Class[], exposes: readonly Class[]) =>
     name: "unit-rule-application",
     workflows,
     exposes,
-  } as unknown as ApplicationOptions);
+  } as ApplicationOptions);
 
 /** The problems of a skill running `nodes`: each `[code] text`, the skill's prefix cut. */
 function problemsOf(nodes: readonly Class[]): string[] {

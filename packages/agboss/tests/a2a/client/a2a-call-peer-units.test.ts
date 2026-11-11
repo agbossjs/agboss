@@ -35,7 +35,7 @@ const cardOf = (options: {
   return {
     skills: (options.skills ?? ["ask"]).map((id) => ({ id })),
     ...(options.capabilities === false ? {} : { capabilities: { extensions } }),
-  } as unknown as AgentCard;
+  } as AgentCard;
 };
 
 const MESSAGE = { skills: { ask: { reply: "message" } } };
