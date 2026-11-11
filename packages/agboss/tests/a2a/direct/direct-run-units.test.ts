@@ -6,7 +6,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { directReply } from "../../../src/a2a/server/a2a-direct-reply.js";
-import { isWithoutRecovery, reservedExecutionIdOf } from "../../../src/app/tree-control.js";
+import { reservedExecutionIdOf, withoutRecoveryOf } from "../../../src/app/tree-control.js";
 import { seconds } from "../../../src/units/index.js";
 import { callerOf, messageOf, refusalOf, settle } from "../server/support/unit-parts.js";
 import { DIRECT_SKILL, directRig, KEY, watched, type RecordedRun } from "./support/direct-parts.js";
@@ -42,7 +42,15 @@ describe("#860: an attempt's run", () => {
       deadline: seconds(25),
     });
     expect(reservedExecutionIdOf(run?.options ?? {})).toBe("attempt-1");
-    expect(isWithoutRecovery(run?.options ?? {})).toBe(true);
+    expect(withoutRecoveryOf(run?.options ?? {})).toEqual({ callsModel: true });
+  });
+
+  it("#860 D1: a skill that calls no model says so to the run no recovery continues", async () => {
+    const rig = directRig();
+
+    await directReply(rig.parts, callerOf(), hello(), { ...DIRECT_SKILL, callsModel: false });
+
+    expect(withoutRecoveryOf(rig.runs[0]?.options ?? {})).toEqual({ callsModel: false });
   });
 
   it("of a caller with nothing but itself: no tenant, owner or values", async () => {

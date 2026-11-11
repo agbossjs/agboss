@@ -2,7 +2,7 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
-import { buildCostReport } from "../finops/usage.js";
+import { buildCostReport, type UsageRecord } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
@@ -42,6 +42,8 @@ export interface HistoryEnd {
    * takeover finished without a pass (#340 PR 4) — what its `onExecutionError` lists (#484).
    */
   readonly compensations?: readonly CompensationRecord[];
+  /** Calls the checkpoint does not hold: a lost run's of unknown cost, ended without a pass (#860). */
+  readonly lostUsage?: readonly UsageRecord[];
 }
 
 /** How a tree whose pass returned stands: finished, or resting paused. */
@@ -59,6 +61,7 @@ export const historyRestOf = (status: ExecutionStatus): HistoryEnd => ({
 export const historyEndOf = (
   error: unknown,
   compensations?: readonly CompensationRecord[],
+  lostUsage: readonly UsageRecord[] = [],
 ): HistoryEnd => ({
   status:
     error instanceof ExecutionCancelledError
@@ -66,6 +69,7 @@ export const historyEndOf = (
       : ExecutionHistoryStatus.Failed,
   error,
   ...(compensations === undefined ? {} : { compensations }),
+  ...(lostUsage.length === 0 ? {} : { lostUsage }),
 });
 
 /** The channels a record reads. */
@@ -119,12 +123,12 @@ const originOf = (trusted: TrustedMesh | undefined) =>
   trusted === undefined ? {} : { origin: trusted.origin };
 
 /** What the flow kept, as `{ record: true }` gives it, and where a trusted mesh request came from. */
-const recordPartOf = (values: RecordedState) => ({
+const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   path: values.path,
   scope: Object.values(values.scope),
   outdatedValues: values.outdatedValues,
   ...(values.lastError === null ? {} : { lastError: values.lastError }),
-  spend: buildCostReport(values.usage),
+  spend: buildCostReport([...values.usage, ...(end.lostUsage ?? [])]),
   children: withChildPauses(values.children, []),
   pauses: [],
   compensations: compensationRecordsOf(values.compensations),
@@ -166,7 +170,7 @@ function historyRecordOf(
   end: HistoryEnd,
 ): ExecutionHistoryRecord {
   return {
-    ...recordPartOf(values),
+    ...recordPartOf(values, end),
     ...(end.compensations === undefined ? {} : { compensations: end.compensations }),
     ...identityOf(deps, keeper, state),
     status: end.status,

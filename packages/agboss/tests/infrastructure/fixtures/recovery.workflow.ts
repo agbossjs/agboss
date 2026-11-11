@@ -27,7 +27,7 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { createSqliteTernStore, type Turn } from "../../../src/terns/index.js";
-import { seconds, type Milliseconds } from "../../../src/units/index.js";
+import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -315,6 +315,19 @@ const providers = [
   budgets: TEST_BUDGETS,
 })
 export class RecoveryApplication {}
+
+/** The same application keeping its executions' records (#401): what `records export` reads. */
+@Application({
+  name: "kept-recovery-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [RecoveryWorkflow],
+  observers: [RecoveryLog],
+  providers,
+  budgets: TEST_BUDGETS,
+  retention: { executionRecords: hours(24) },
+})
+export class KeptRecoveryApplication {}
 
 /** The same application with its own shutdown timeout. */
 @Application({

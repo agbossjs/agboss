@@ -3,7 +3,7 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
-import { isWithoutRecovery } from "./tree-control.js";
+import { withoutRecoveryOf } from "./tree-control.js";
 import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
@@ -101,5 +101,9 @@ export async function markedIfWithoutRecovery(
   trees: Pick<ExecutionTreeRepository, "saveIfAbsentInTree">,
   tree: ExecutionTree,
 ): Promise<void> {
-  if (isWithoutRecovery(call)) await trees.saveIfAbsentInTree(tree, WITHOUT_RECOVERY_KEY, true);
+  const mark = withoutRecoveryOf(call);
+  if (mark !== undefined)
+    await trees.saveIfAbsentInTree(tree, WITHOUT_RECOVERY_KEY, {
+      callsModel: mark.callsModel,
+    });
 }

@@ -16,7 +16,6 @@ import type { A2ADirectParts } from "./server/a2a-server-parts.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
-import { CostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "./files/a2a-file-options.js";
 import { fileFetchesOf, fileTransportOf } from "./files/a2a-file-seam.js";
 
@@ -134,14 +133,13 @@ function exposeOptionsOf(expose: Class): A2AExposeOptions {
   return meta.meta;
 }
 
-/** What the listener's direct-reply skills work with (#860): the replies, the ledger, the default. */
+/** What the listener's direct-reply skills work with (#860): the replies and the default skill. */
 const directPartsOf = (
   app: A2AApp,
   skills: readonly ServedSkill[],
   defaultSkill: Class | undefined,
 ): A2ADirectParts => ({
   messages: app.resolve(A2ADirectMessageRepository),
-  ledger: app.resolve(CostLedgerRepository),
   defaultSkill: skills.find((skill) => skill.start === defaultSkill),
 });
 

@@ -66,7 +66,9 @@ function optionsOf(
     },
     inboundMeshOfA2A(caller.mesh),
   );
-  return withoutRecovery(withReservedExecutionId(options, attempt.attemptId));
+  return withoutRecovery(withReservedExecutionId(options, attempt.attemptId), {
+    callsModel: attempt.callsModel,
+  });
 }
 
 /** The reply of a run that reached a finish; a run that rests paused is no reply (a bug: refused). */

@@ -129,7 +129,8 @@ export abstract class A2ADirectMessageRepository {
   /**
    * Starts attempt `next` in place of `expiredAttemptId` only while the message is `InFlight` under
    * it with `expiresAt <= now` (the caller's clock), atomically: the message as written, else
-   * `undefined`. Of two instances taking one lost attempt over, exactly one gets it.
+   * `undefined`. Of two instances taking one lost attempt over, exactly one gets it. The message is
+   * accepted anew: its `createdAt` is `next.startedAt`, its retention counted from it (#860 D2).
    */
   abstract retakeIfExpired(
     key: A2ADirectMessageKey,
@@ -152,7 +153,8 @@ export abstract class A2ADirectMessageRepository {
   ): Promise<readonly A2ADirectMessageRecord[]>;
 
   /**
-   * Removes at most `limit` messages accepted before `cutoff` — the oldest first, with the claims
+   * Removes at most `limit` completed messages accepted before `cutoff` — never one in flight, however
+   * old: a live attempt keeps its row, its id's claim and its reply to come (#860 D2) —, the oldest first, with the claims
    * of their ids — and at most `limit` claims more left by messages removed before (a failed
    * attempt's), and gives back the messages it removed (their attempts' files go next). Atomic
    * against a resend of a failed message: a message kept keeps its claim.

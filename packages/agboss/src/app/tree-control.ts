@@ -54,15 +54,24 @@ export const reservedExecutionIdOf = (options: object): string | undefined =>
  */
 const WITHOUT_RECOVERY: unique symbol = Symbol("agboss.without-recovery");
 
-/** The execution options of a run no recovery continues. */
-export const withoutRecovery = <TOptions extends object>(options: TOptions): TOptions => ({
-  ...options,
-  [WITHOUT_RECOVERY]: true,
-});
+/**
+ * What a run no recovery continues says of itself: whether it can call a model — a lost pass of one
+ * that can is a call of unknown cost (#853's Unknown entry), recorded by the instance that ends it.
+ */
+export interface WithoutRecoveryMark {
+  readonly callsModel: boolean;
+}
 
-/** Whether a transport asked that no recovery continue this run. */
-export const isWithoutRecovery = (options: object): boolean =>
-  Reflect.get(options, WITHOUT_RECOVERY) === true;
+/** The execution options of a run no recovery continues. */
+export const withoutRecovery = <TOptions extends object>(
+  options: TOptions,
+  mark: WithoutRecoveryMark,
+): TOptions => ({ ...options, [WITHOUT_RECOVERY]: { callsModel: mark.callsModel } });
+
+/** What a transport said of a run no recovery continues; `undefined` for any other run. */
+export const withoutRecoveryOf = (options: object): WithoutRecoveryMark | undefined =>
+  // only `withoutRecovery` sets it, to a mark
+  Reflect.get(options, WITHOUT_RECOVERY) as WithoutRecoveryMark | undefined;
 
 /** One tree of a workflow by its id (#807), loaded on first use. */
 const executionTrees = () => lazyLoad(import("./execution-trees.js"));

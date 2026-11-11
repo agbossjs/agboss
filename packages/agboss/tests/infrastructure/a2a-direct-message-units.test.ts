@@ -11,7 +11,6 @@ import {
   type A2ADirectMessageRecord,
 } from "../../src/infrastructure/a2a-direct-message.repository.js";
 import { a2aDirectMessageExpiryOf } from "../../src/infrastructure/a2a-direct-message-expiry.js";
-import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import {
   checkedDirectMessageLimit,
   InMemoryA2ADirectMessageRepository,
@@ -146,7 +145,6 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
   const expiry = a2aDirectMessageExpiryOf({
     messages,
     files,
-    ledger: new InMemoryCostLedgerRepository(),
     clock: new VirtualClock(NINE),
     retention: minutes(15),
   });
@@ -159,7 +157,6 @@ describe("#860: the sweep's pages", () => {
     const expiry = a2aDirectMessageExpiryOf({
       messages: {} as A2ADirectMessageRepository,
       files: new InMemoryA2AFileRepository(new InMemoryDatabase()),
-      ledger: new InMemoryCostLedgerRepository(),
       clock: new VirtualClock(NINE),
       retention: minutes(15),
     });

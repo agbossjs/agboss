@@ -11,6 +11,7 @@ import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { undoneTreeEnd, type EndedTreeUndo } from "./tree-unwind.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { lostRunUsageOf, tallyLostRun } from "./lost-attempt.js";
 
 /**
  * Ending a tree without a pass, under its lease (#360's cancel request, `app.cancel` of a paused
@@ -74,6 +75,8 @@ export async function endedWithoutPass(
 ): Promise<EndedTree> {
   const { deps, paused } = parts;
   const record = await rootRecordOf(deps, state);
+  // a run no recovery continues lost its pass (#860 D1): read before its tree's keys go
+  const lost = await lostRunUsageOf(parts, state);
   const { markTreeUnwinding } = await lazyLoad(import("./compensation/root-unwind.js"));
   await markTreeUnwinding(deps, state, end.cause);
   if (record !== undefined) {
@@ -90,7 +93,8 @@ export async function endedWithoutPass(
   // its undo ran here without a pass: the record lists what ran, as the event does (#484); kept
   // before the tree is forgotten (#699): a pod killed in the cleanup's round trips keeps it
   const { compensations } = undo;
-  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations));
+  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
+  if (isEnded) tallyLostRun(deps, state, lost);
   await forgetTree(parts, state);
   if (isEnded) {
     const event = executionEventAt(state, deps);

@@ -56,9 +56,10 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
     },
   },
   {
-    name: "the sweep removes messages accepted before its cutoff, oldest first and at most the limit, with their ids' claims",
+    name: "the sweep removes completed messages accepted before its cutoff, oldest first and at most the limit, with their ids' claims",
     run: async ({ first, second }: Instances): Promise<void> => {
       await three(first);
+      await first.messages.completeIfInFlight(keyOf(newMessage("m-2")), "run-m-2", REPLY, at(12));
 
       const page = await second.messages.deleteByCreatedAtBefore(at(15), 1);
       const rest = await second.messages.deleteByCreatedAtBefore(at(15), 10);
@@ -123,8 +124,15 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
         newMessage("m-late", { createdAt: at(10), expiresAt: at(50) }),
       );
       await savedMessage(first.messages, newMessage("m-early", { expiresAt: at(40) }));
-
       const lost = await second.messages.findAllInFlightByExpiresAtBefore(at(99), 10);
+      for (const message of ["m-late", "m-early"])
+        await first.messages.completeIfInFlight(
+          keyOf(newMessage(message)),
+          `run-${message}`,
+          REPLY,
+          at(55),
+        );
+
       const gone = await second.messages.deleteByCreatedAtBefore(at(60), 1);
 
       expect([ids(lost), ids(gone)]).toEqual([["m-early", "m-late"], ["m-early"]]);
@@ -138,6 +146,7 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
         await first.messages.deleteIfInFlight(keyOf(newMessage(failed)), `run-${failed}`);
       }
       await savedMessage(first.messages, newMessage("m-3", { createdAt: at(5) }));
+      await first.messages.completeIfInFlight(keyOf(newMessage("m-3")), "run-m-3", REPLY, at(9));
 
       await second.messages.deleteByCreatedAtBefore(at(60), 1);
 

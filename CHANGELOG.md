@@ -1196,10 +1196,14 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   (default `minutes(15)`, above the lease) gets the same message, a concurrent duplicate waits for
   it — the model called and charged once; an attempt is bounded (its run aborted at 25 s and on the
   caller's disconnect, its row in flight 30 s), never continued by a recovery
-  (`withoutRecovery`: an instance taking its lease over ends it as cancelled), and one lost — a
-  crash — is taken over once by a resend or the sweep, which records one `CostSource.Unknown`
-  entry (`unknown:a2a-msg:<tenantId>:<attemptId>`, counted in `agboss.instance.costs.unknown`) for a
-  skill that can call a model and removes its files. The card publishes each skill's `reply` and
+  (`withoutRecovery`: an instance taking its lease over ends it as cancelled — and, for a skill
+  that can call a model, keeps one call of unknown cost in its record, `spend.unknownCalls`, what
+  `agboss records export` writes, under the run's ledger key `unknown:lost-run:<tenantId>:<runId>`,
+  counted in `agboss.instance.costs.unknown`, as #853's lost passes), and one lost — a crash — is
+  taken over once by a resend or the sweep, which removes its files. The sweep removes completed
+  replies only: an attempt in flight keeps its row and its id's claim however old its message, and a
+  message taken over is accepted anew (its retention counted from the takeover), so a reply a
+  takeover keeps is never thrown away under a waiting resend. The card publishes each skill's `reply` and
   the mesh extension's `messageIdempotencyRetention`; a trusted caller's reply carries the signed
   run report in `message.metadata[mesh-uri].report`. The client takes a `Message` answer without
   waiting for a task, settles its report, and trusts a resend to a direct-reply skill only within

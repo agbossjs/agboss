@@ -129,7 +129,7 @@ const SHARDS = {
       "src/app/recovery-pass.ts",
       "src/app/ended-tree.ts",
       "src/app/tree-ends.ts",
-      "src/app/tree-moves.ts",
+      "src/app/{tree-moves,lost-attempt}.ts",
     ],
   },
   // undo (#633): each undoable action's entry, its undo once and newest first, the marks a

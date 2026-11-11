@@ -1,7 +1,8 @@
 /**
  * #633 (recovery shard) — a tree ended without a pass (`ended-tree.ts`) on its own: the call that
  * fails its record observes `onExecutionError` once, with what the undo ran — an empty list when it
- * ran nothing —, and a call that did not fail the record observes nothing.
+ * ran nothing —, and a call that did not fail the record observes nothing; a lost run's call of
+ * unknown cost (#860 D1) is kept with its record and tallied only by the call that failed it.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
@@ -15,9 +16,23 @@ vi.mock("../../src/app/tree-unwind.js", () => ({
     Promise.resolve(failure.error),
 }));
 vi.mock("../../src/app/tree-ends.js", () => ({ forgetTree: () => Promise.resolve() }));
+const kept = vi.hoisted(() => ({
+  ends: [] as unknown[][],
+  tallied: [] as unknown[][],
+  lost: [] as unknown[],
+}));
 vi.mock("../../src/app/execution-history.js", () => ({
   keepExecutionRecord: () => Promise.resolve(),
-  historyEndOf: () => ({}),
+  historyEndOf: (...args: unknown[]) => {
+    kept.ends.push(args);
+    return {};
+  },
+}));
+vi.mock("../../src/app/lost-attempt.js", () => ({
+  lostRunUsageOf: () => Promise.resolve(kept.lost),
+  tallyLostRun: (...args: unknown[]) => {
+    kept.tallied.push(args);
+  },
 }));
 vi.mock("../../src/app/run-events.js", () => ({
   executionEventAt: () => ({ executionId: "root-1" }),
@@ -88,5 +103,19 @@ describe("#633: endedWithoutPass", () => {
 
     expect((await endedWithoutPass(parts, STATE, end())).isEnded).toBe(false);
     expect(onExecutionError).not.toHaveBeenCalled();
+  });
+
+  it("#860 D1: a lost run's call of unknown cost goes with the record this call ended, tallied once", async () => {
+    const lost = [{ caller: "lost-pass:w", costUsd: 0 }];
+    kept.lost.splice(0, kept.lost.length, ...lost);
+    kept.ends.length = 0;
+    kept.tallied.length = 0;
+
+    await endedWithoutPass(partsOf(true).parts, STATE, end());
+    await endedWithoutPass(partsOf(false).parts, STATE, end());
+
+    expect(kept.ends.map(([, , usage]) => usage)).toEqual([lost]);
+    expect(kept.tallied.map(([, state, usage]) => [state, usage])).toEqual([[STATE, lost]]);
+    kept.lost.length = 0;
   });
 });

@@ -114,13 +114,15 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
         if (kept === undefined || !isExpiredAttempt(kept, expiredAttemptId, now)) return undefined;
         this.connection.database
           .prepare(
-            `UPDATE a2a_direct_messages SET attempt_id = ?, started_at = ?, expires_at = ?
+            `UPDATE a2a_direct_messages
+             SET attempt_id = ?, started_at = ?, expires_at = ?, created_at = ?
              WHERE ${MESSAGE_KEY}`,
           )
           .run(
             next.attemptId,
             next.startedAt.toISOString(),
             next.expiresAt.toISOString(),
+            next.startedAt.toISOString(),
             ...messageKeyOf(key),
           );
         return this.#message(key);
@@ -160,9 +162,14 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
         const { database } = this.connection;
         const gone = database
           .prepare(
-            `SELECT * FROM a2a_direct_messages WHERE created_at < ? ORDER BY created_at LIMIT ?`,
+            `SELECT * FROM a2a_direct_messages WHERE state = ? AND created_at < ?
+             ORDER BY created_at LIMIT ?`,
           )
-          .all(cutoff.toISOString(), checkedDirectMessageLimit(limit))
+          .all(
+            A2ADirectMessageState.Completed,
+            cutoff.toISOString(),
+            checkedDirectMessageLimit(limit),
+          )
           .map(directMessageOf);
         const remove = database.prepare(`DELETE FROM a2a_direct_messages WHERE ${MESSAGE_KEY}`);
         const unclaim = database.prepare(
