@@ -20,6 +20,17 @@ const urlOfInput = (input: Parameters<typeof fetch>[0]): URL =>
   new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
 
 /** One bucket's objects, shared by every store built on its `fetcher`. */
+const bytesOf = (text: string): number => Buffer.byteLength(text, "utf8");
+
+/** A GET: the object, or its first bytes for a `Range: bytes=0-N`. */
+function getOf(found: StoredObject | undefined, headers: Headers): Response {
+  if (found === undefined) return new Response("", { status: 404 });
+  const range = /^bytes=0-(\d+)$/.exec(headers.get("range") ?? "");
+  if (range === null) return new Response(Buffer.from(found.body), { status: 200 });
+  const end = Math.min(Number(range[1]) + 1, found.body.byteLength);
+  return new Response(Buffer.from(found.body.subarray(0, end)), { status: 206 });
+}
+
 export class FakeS3 {
   readonly objects = new Map<string, StoredObject>();
   readonly requests: string[] = [];
@@ -56,44 +67,36 @@ export class FakeS3 {
 
   #object(method: string, key: string, headers: Headers, body: Uint8Array): Response {
     // #904: as MinIO and S3 refuse it — a segment above 255 bytes, a key above 1024
-    const bytesOf = (text: string): number => Buffer.byteLength(text, "utf8");
     if (bytesOf(key) > 1024 || key.split("/").some((segment) => bytesOf(segment) > 255))
       return new Response("<Error><Code>XMinioInvalidObjectName</Code></Error>", { status: 400 });
     const found = this.objects.get(key);
     switch (method) {
-      case "PUT": {
-        if (headers.get("if-none-match") === "*" && found !== undefined)
-          return new Response("", { status: 412 });
-        const metadata: Record<string, string> = {};
-        headers.forEach((value, name) => {
-          if (name.startsWith("x-amz-meta-")) metadata[name] = value;
-        });
-        // as S3 and MinIO refuse them: user metadata above 2 KB
-        const metadataSize = Object.entries(metadata).reduce(
-          (total, [name, value]) =>
-            total + bytesOf(name.slice("x-amz-meta-".length)) + bytesOf(value),
-          0,
-        );
-        if (metadataSize > 2048)
-          return new Response("<Error><Code>MetadataTooLarge</Code></Error>", { status: 400 });
-        this.objects.set(key, { body, metadata });
-        return new Response("", { status: 200 });
-      }
+      case "PUT":
+        return this.#put(key, headers, body, found);
       case "DELETE":
         this.objects.delete(key);
         return new Response(null, { status: 204 });
-      case "HEAD":
-        return found === undefined
-          ? new Response(null, { status: 404 })
-          : new Response(null, { status: 200, headers: found.metadata });
-      default: {
-        if (found === undefined) return new Response("", { status: 404 });
-        const range = /^bytes=0-(\d+)$/.exec(headers.get("range") ?? "");
-        if (range === null) return new Response(Buffer.from(found.body), { status: 200 });
-        const end = Math.min(Number(range[1]) + 1, found.body.byteLength);
-        return new Response(Buffer.from(found.body.subarray(0, end)), { status: 206 });
-      }
+      default:
+        return getOf(found, headers);
     }
+  }
+
+  #put(key: string, headers: Headers, body: Uint8Array, found: StoredObject | undefined): Response {
+    if (headers.get("if-none-match") === "*" && found !== undefined)
+      return new Response("", { status: 412 });
+    const metadata: Record<string, string> = {};
+    headers.forEach((value, name) => {
+      if (name.startsWith("x-amz-meta-")) metadata[name] = value;
+    });
+    // as S3 and MinIO refuse them: user metadata above 2 KB
+    const size = Object.entries(metadata).reduce(
+      (total, [name, value]) => total + bytesOf(name.slice("x-amz-meta-".length)) + bytesOf(value),
+      0,
+    );
+    if (size > 2048)
+      return new Response("<Error><Code>MetadataTooLarge</Code></Error>", { status: 400 });
+    this.objects.set(key, { body, metadata });
+    return new Response("", { status: 200 });
   }
 
   #list(url: URL): Response {
