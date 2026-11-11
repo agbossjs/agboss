@@ -1,7 +1,7 @@
 import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations } from "../budgets/budget-rules.js";
-import type { Class, Provider } from "../components/injection.js";
+import { createdClassesOf, type Class } from "../components/injection.js";
 import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
@@ -107,14 +107,15 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
   });
 }
 
-const isClass = (provider: Provider): provider is Class => !("provide" in provider);
-
-/** The classes the application and its workflows list in `providers` (#511: what reads the environment). */
+/**
+ * The classes the application and its workflows list in `providers` (#511: what reads the
+ * environment) — a class given for a token too (#891: `provide(EXECUTION_ID_STORE, Class)`).
+ */
 export const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
-  ...(options.providers ?? []).filter(isClass),
+  ...createdClassesOf(options.providers ?? []),
   ...withChildWorkflows(options.workflows)
     .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
-    .flatMap((workflow) => (moduleOf(workflow).providers ?? []).filter(isClass)),
+    .flatMap((workflow) => createdClassesOf(moduleOf(workflow).providers ?? [])),
 ];
 
 /** A listed `@ModelProvider`'s `name` ends with `-model-provider` (#266 S73 c). */
@@ -140,7 +141,7 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   return withChildWorkflows(options.workflows).flatMap((workflow) => {
     if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
     const module = moduleOf(workflow);
-    return (module.providers ?? []).filter(isClass).flatMap((cls) => {
+    return createdClassesOf(module.providers ?? []).flatMap((cls) => {
       const kind = infrastructureKindOf(cls);
       if (kind === undefined) return [];
       return [

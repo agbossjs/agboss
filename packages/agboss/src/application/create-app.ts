@@ -3,7 +3,7 @@ import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { startComponents } from "../components/container/lifecycle.js";
-import type { Class } from "../components/injection.js";
+import { isClassProvider, type Class } from "../components/injection.js";
 import {
   APP_DEFAULT_ENVIRONMENT,
   namedEnvironmentFor,
@@ -80,7 +80,9 @@ function createListed(assembled: AssembledApplication, workflows: readonly Built
   if (first === undefined) return;
   for (const module of assembled.modules) {
     for (const provider of module.providers) {
-      if (!("provide" in provider)) first.app.resolve(provider);
+      if (typeof provider === "function") first.app.resolve(provider);
+      // a class for a token (#891): created now too, under its token, its hooks with the rest
+      else if (isClassProvider(provider)) first.app.resolve(provider.useClass);
     }
   }
 }

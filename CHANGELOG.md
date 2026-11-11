@@ -1128,6 +1128,15 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **`provide(TOKEN, Class)`, `EXECUTION_ID_STORE`, `SchemaSetup`** (#891, API review G11): a class
+  the container creates for an `InjectionToken` (`ClassProvider`), registered under the token only —
+  no `new`, no second implementation of a contract it extends; `EXECUTION_ID_STORE` /
+  `ExecutionIdStore`, where a coordination lease store (`@agboss/redis`) keeps the execution ids it
+  hands out — `provide(EXECUTION_ID_STORE, PostgresExecutionLeaseRepository)` (or Mongo's); the
+  enum `SchemaSetup { Check, MigrateOnStart }` the database store packages share
+  (`postgresSchemaSetup`, `mongodbSchemaSetup`). `agbossVitest()` inlines every `@agboss` package
+  (`/@agboss\//`), so a store package shares the test's core (it loaded a second, undecorated copy).
+
 - **A2A skills that answer with a direct `Message`** (#860, epic #805) — an exported start declared
   `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } } })` (default `A2AReply.Task`)
   answers `SendMessage` with a `Message` and no task: its finish's output as text, data or file

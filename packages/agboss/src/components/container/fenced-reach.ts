@@ -32,7 +32,7 @@ export interface BusinessKeyWriterUse {
  */
 export type TokenClasses = (token: Token) => readonly Class[];
 
-/** `TokenClasses` over the listed providers: classes, and `provide(token, value)` values. */
+/** `TokenClasses` over the listed providers: classes, `provide(token, value)` values and `provide(TOKEN, Class)`. */
 export function tokenClassesOf(providers: readonly unknown[]): TokenClasses {
   const listed = providers.filter((provider): provider is Class => typeof provider === "function");
   const valued = new Map<unknown, Class[]>();
@@ -40,8 +40,14 @@ export function tokenClassesOf(providers: readonly unknown[]): TokenClasses {
     if (typeof provider !== "object" || provider === null) continue;
     const token: unknown = Reflect.get(provider, "provide");
     const value: unknown = Reflect.get(provider, "useValue");
+    // a class for a token (#891: `provide(TOKEN, Class)`) is that class
+    const given: unknown = Reflect.get(provider, "useClass");
     const cls: unknown =
-      typeof value === "object" && value !== null ? value.constructor : undefined;
+      typeof given === "function"
+        ? given
+        : typeof value === "object" && value !== null
+          ? value.constructor
+          : undefined;
     if (typeof cls === "function") valued.set(token, [...(valued.get(token) ?? []), cls as Class]);
   }
   return (token) => {

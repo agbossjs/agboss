@@ -73,9 +73,12 @@ export {
 export type { PauseAsk, PauseSite, QuestionAsk } from "../infrastructure/pause-record.js";
 export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";
 export {
+  // a coordination lease store's durable ids (#891): provide(EXECUTION_ID_STORE, <a durable lease store>)
+  EXECUTION_ID_STORE,
   ExecutionLeaseRepository,
   LeaseCheck,
   type ExecutionIdentity,
+  type ExecutionIdStore,
   type ExecutionLease,
   type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";

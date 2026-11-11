@@ -1,4 +1,5 @@
 import { Injectable } from "../components/decorators.js";
+import { InjectionToken } from "../components/injection.js";
 import type { Milliseconds } from "../units/index.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock, waitOf } from "./clock.js";
@@ -364,3 +365,19 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return isHeld ? stored : undefined;
   }
 }
+
+/**
+ * Where a lease store that keeps no ids of its own claims them (#591, #891): an execution id is
+ * kept forever with the application's durable rows, never in a coordination store (Redis). Any
+ * lease store of a durable backend is one — `PostgresExecutionLeaseRepository`,
+ * `MongoExecutionLeaseRepository`, `SqliteExecutionLeaseRepository`.
+ */
+export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId">;
+
+/**
+ * The token of the application's `ExecutionIdStore` (#891): a coordination lease store
+ * (`RedisExecutionLeaseRepository`) injects it, and the application gives it a durable lease store
+ * by class — `provide(EXECUTION_ID_STORE, PostgresExecutionLeaseRepository)` — created by the
+ * container under this token only: no second lease store, no `new`.
+ */
+export const EXECUTION_ID_STORE = new InjectionToken<ExecutionIdStore>("EXECUTION_ID_STORE");

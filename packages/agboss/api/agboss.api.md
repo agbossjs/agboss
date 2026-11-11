@@ -1277,6 +1277,13 @@ export interface ChooseOneStep {
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
 // @public
+export interface ClassProvider<T = unknown> {
+    readonly [classProviderBrand]: true;
+    readonly provide: InjectionToken<T>;
+    readonly useClass: Class<T>;
+}
+
+// @public
 export abstract class Clock {
     monotonicNow(): number;
     abstract now(): Date;
@@ -2082,6 +2089,9 @@ export interface EvalCaseIssue {
 export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
 
 // @public
+export const EXECUTION_ID_STORE: InjectionToken<ExecutionIdStore>;
+
+// @public
 export interface ExecutionAuditEventBase {
     readonly executionId: string;
     readonly holderInstanceId: string;
@@ -2342,6 +2352,9 @@ export interface ExecutionIdentity {
 export interface ExecutionIds {
     newExecutionId(tenantId: string): Promise<string>;
 }
+
+// @public
+export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId">;
 
 // Warning: (ae-forgotten-export) The symbol "WorkflowStartEntry" needs to be exported by the entry point index.d.ts
 //
@@ -5618,10 +5631,13 @@ export interface PromptProblem {
 export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
 
 // @public
-export function provide<T>(token: InjectionToken<T> | Class<T>, value: T): ValueProvider<T>;
+export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;
 
 // @public
-export type Provider = Class | ValueProvider;
+export function provide<T>(token: InjectionToken<T> | Class<T>, value: T extends abstract new (...args: never[]) => unknown ? never : T): ValueProvider<T>;
+
+// @public
+export type Provider = Class | ValueProvider | ClassProvider;
 
 // @public
 export class QualityGateError extends AgentFailedError {
@@ -7632,9 +7648,9 @@ export interface WrittenLedgerMark {
 // src/components/injection.ts:3:3 - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts:4:15 - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts:10:1 - (ae-undocumented) Missing documentation for "Token".
-// src/components/injection.ts:31:3 - (ae-undocumented) Missing documentation for "provide".
-// src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "useValue".
-// src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
+// src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "provide".
+// src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "useValue".
+// src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts:49:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/components/judge-decorators.ts:50:3 - (ae-undocumented) Missing documentation for "model".
 // src/components/judge-decorators.ts:129:3 - (ae-undocumented) Missing documentation for "passed".
@@ -8286,8 +8302,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts:66:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".

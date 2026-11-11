@@ -35,6 +35,8 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type Class,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type ClassProvider,
+  /** @deprecated Import from "@agboss/core" (#195). */
   ComponentError,
   /** @deprecated Import from "@agboss/core" (#195). */
   Decision,

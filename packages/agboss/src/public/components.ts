@@ -126,6 +126,7 @@ export {
   provide,
   type Class,
   type Provider,
+  type ClassProvider,
   type ValueProvider,
   type Token,
 } from "../components/injection.js";

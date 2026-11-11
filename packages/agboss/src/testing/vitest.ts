@@ -25,8 +25,13 @@ type InlinedDependencies = NonNullable<NonNullable<ServerOptions["deps"]>["inlin
 /** The workflow matchers, `mockLlm`'s call matchers and the trajectory matchers. */
 const SETUP_FILE = "@agboss/core/testing/setup";
 
-/** The core's modules, wherever they are installed: vite processes them (`server.deps.inline`). */
-const CORE_MODULES = /@agboss\/core/;
+/**
+ * The modules of every `@agboss` package, wherever they are installed: vite processes them
+ * (`server.deps.inline`). A store package too (#891: `@agboss/mongodb`, `@agboss/redis`,
+ * `@agboss/postgres`) — external, it would load its own copy of the core, whose decorators the
+ * test's core does not see.
+ */
+const CORE_MODULES = /@agboss\//;
 
 const isCorePattern = (entry: string | RegExp): boolean =>
   entry instanceof RegExp &&
