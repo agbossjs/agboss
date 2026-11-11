@@ -590,7 +590,7 @@ export interface PromptProblem {
 export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
 
 // @public
-export function provide<T>(token: InjectionToken<T>, cls: Class<T>): ClassProvider<T>;
+export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;
 
 // @public
 export function provide<T>(token: InjectionToken<T> | Class<T>, value: T extends abstract new (...args: never[]) => unknown ? never : T): ValueProvider<T>;
