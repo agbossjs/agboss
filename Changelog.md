@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A file fetch never through a proxy, file fields of outputs on the card (#916)
+
+- **Fixed — SSRF**: a file by url is fetched on its own `https.Agent` (its own pool, the guarded
+  lookup, no proxy): behind `NODE_USE_ENV_PROXY` / `--use-env-proxy` + `HTTPS_PROXY`, or a replaced
+  `https.globalAgent`, a name resolving to a private address was tunnelled through the proxy (the
+  lookup checked the proxy only); now `-32602 a2a.file-address-denied`, nothing tunnelled. A file by
+  url never goes through a proxy ([A2A → files](A2A#files--raw-and-url-parts-859)).
+- **Changed**: a `Marker` is `{ "x-agboss-file-part": { list, optional, mediaTypes }, description }`
+  (was `true`); `cardFileFields` applies to each finish's output schema too — out of it and declared
+  in the skills extension's `outputFiles` (`Extension`), or marked (`Marker`)
+  ([Skills extension](A2A-Skills-Extension)). The AGBoss client's card check reads `Marker` as it
+  reads `Extension` and checks its output DTO's file fields per finish.
+
 ## Unreleased — 0.1.1: A2A files hardened after #859's acceptance (#904)
 
 - **Added**: `@A2AExpose({ cardFileFields: A2ACardFileFields.Extension | A2ACardFileFields.Marker })`,
