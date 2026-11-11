@@ -25,7 +25,8 @@ export function inputForOf(
   message: Message,
   skill: ServedSkill,
 ): (taskId: string) => Promise<StartInput> {
-  const admission = fileAdmissionOf(parts, caller, skill, filesOfMessage(message, skill));
+  const sent = { skill, messageId: message.messageId };
+  const admission = fileAdmissionOf(parts, caller, sent, filesOfMessage(message, skill));
   return async (taskId) => {
     const { files, toSave } = await admission(taskId);
     return { input: inputOfMessage(message, skill, files), toSave };

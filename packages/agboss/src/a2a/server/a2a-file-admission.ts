@@ -51,26 +51,39 @@ const describedOf = (meta: A2AFileMetadata): A2AFileDto => ({
 const tooLarge = () =>
   invalidParams("a2a.files-too-large", "the message's files are larger than this agent takes");
 
-/** Each file's bytes: sent `raw`, or fetched by `url` at most once for the whole admission. */
+/** A request that ended while its file was being fetched: as its own fetch's end would say. */
+const leftEarly = () =>
+  invalidParams("a2a.file-fetch-failed", "the file could not be fetched in time");
+
+/**
+ * Each file's bytes: sent `raw`, or fetched by `url` at most once for the whole admission — and,
+ * #904, once for the concurrent duplicates of one message on this listener (`FileFetches`).
+ */
 function bytesReaderOf(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
-  skill: ServedSkill,
+  sent: { readonly skill: ServedSkill; readonly messageId: string },
 ): (file: IncomingFile) => Promise<Uint8Array> {
+  const { skill, messageId } = sent;
   const fetched = new Map<number, Promise<Uint8Array>>();
   return (file) => {
     if (file.source.kind === "raw") return Promise.resolve(file.source.bytes);
-    const found =
-      fetched.get(file.index) ??
+    const url = file.source.url;
+    const { tenantId, ownerId } = caller;
+    const key = { tenantId, ownerId, messageId, skill: skill.id, index: file.index, url };
+    const fetchOf = (signal: AbortSignal) =>
       fetchedFile({
-        url: file.source.url,
+        url,
         allowedOrigins: skill.fileLimits.allowedFileOrigins,
         maxBytes: skill.fileLimits.maxFileSize,
         transport: parts.files.transport ?? httpsFileTransport,
         clock: parts.clock,
         timeout: parts.files.timeout,
-        signal: caller.signal,
+        signal,
       });
+    const found =
+      fetched.get(file.index) ??
+      parts.files.fetches.bytesOf(key, caller.signal, fetchOf, leftEarly);
     fetched.set(file.index, found);
     return found;
   };
@@ -162,14 +175,15 @@ async function admittedOne(
 export function fileAdmissionOf(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
-  skill: ServedSkill,
+  sent: { readonly skill: ServedSkill; readonly messageId: string },
   incoming: readonly IncomingFile[],
 ): FileAdmission {
+  const { skill } = sent;
   if (incoming.length === 0) return () => Promise.resolve(NO_FILES);
   const admission = {
     parts,
     tenantId: caller.tenantId,
-    bytesOf: bytesReaderOf(parts, caller, skill),
+    bytesOf: bytesReaderOf(parts, caller, sent),
   };
   return async (taskId) => {
     const files: AdmittedFile[] = [];
