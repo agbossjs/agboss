@@ -292,12 +292,12 @@ child's own lease), `scopeKey` and `token` (the new holder's `executionContext.f
 `holderInstanceId`, `previousHolderInstanceId` / `previousToken` when the lease store names the
 holder whose lease expired (`ExecutionLease.takenOverFrom`), `checkpointId` (the tree's head
 checkpoint, where the take reads it) and `reason`, a `LeaseTakeoverReason`: `Recovered`, `Resumed`,
-`Cancelled`, `Unwinding`, `RemoteChild` or `Reacquired`. A take is a takeover when the store names
+`Cancelled`, `Unwinding`, `RemoteChild` or `Reclaimed`. A take is a takeover when the store names
 an expired holder, and at every take of the recovery sweep, an undo's takeover, a remote child's
-reclaim and a re-acquire after a yield; a lease released and taken again is none, and so is a take
+reclaim and a reclaim after a yield; a lease released and taken again is none, and so is a take
 of work already over — a finished child, a root whose record no longer runs
 ([#520](Several-instances#finished-work-is-never-taken-over-520)). The same facts
-are a row of the lease log, written first ([Several instances → The lease log](Several-instances#the-lease-log-501));
+are a row of the audit log, written first ([Several instances → The audit log](Several-instances#the-audit-log-501));
 an observer that throws is a warning (`observer.failed`) and never reaches the takeover.
 
 ```ts
@@ -329,7 +329,7 @@ it: `StepHandedOverEvent` is a node event — the common fields and the `step` t
 `ToolInterceptor`, `Compensation`, `Branch`, `Child`: the innermost part of the step that found
 it), `scopeKey` and `token` (a refused write's own), `observedToken` (the token the external system
 saw, when it said) and `holderInstanceId`. One event per error and lease scope: a fenced tool call
-rethrown through the agent's loop and its step is one `Tool` event. Its row of the lease log is
+rethrown through the agent's loop and its step is one `Tool` event. Its row of the audit log is
 written first, and the lease is released — the moving call rejects — only after it.
 
 ```ts
@@ -358,7 +358,7 @@ call's `scopeKey` and `token`, `outcome` (`FencedEffectEventOutcome.Ran`, `Repla
 result came back, nothing written again —, `Joined`, `Refused` — the lease or the scope's mark
 refused it), `writtenToken` (the token the result was first written under) and `observedToken`
 (the newer token behind a refusal), and `holderInstanceId`. Never the result. A write that fails
-for itself (a result too large, a business error) is no outcome. Its row of the lease log comes
+for itself (a result too large, a business error) is no outcome. Its row of the audit log comes
 first, in the lease's order: a refused call before the hand-over it causes.
 
 ## Outbound calls (#505)
@@ -375,7 +375,7 @@ a `KeyReplay`'s `keyRetention`, #658) —, `Failed` — a definite failure (`isD
 reconciles it (#657) —, `Joined` — the same
 call of this instance was made meanwhile, its outcome shared), the lease's
 `scopeKey` and `token`, and `holderInstanceId`. Never the request or the result. Its
-`OutboundCall` row of the lease log is written first; an observer that throws is a warning.
+`OutboundCall` row of the audit log is written first; an observer that throws is a warning.
 
 <!-- snippet-context
 import {

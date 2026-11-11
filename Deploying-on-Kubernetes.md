@@ -162,7 +162,7 @@ the run step by step.
 | `piiKeyField`, `idempotencyKeyField` | one `Secret` each, the same for every pod (#825: never one another, nor a provider's key) | [Guarantees](Guarantees) A8 |
 | `retention.fencedEffects` | 24 h (the default); longer than any retry of a step | [Guarantees](Guarantees) A12 |
 | `outboundCalls.attemptTimeout` | 2 min (the default); above the other system's own timeout | [Guarantees](Guarantees) A6 |
-| `retention.leaseEvents` | 24 h (the default) | the lease log an operator and a verification read |
+| `retention.auditLog` | 24 h (the default) | the audit log an operator and a verification read |
 | `retention.executionRecords` | set, when anyone reads the history | `agboss records export` |
 | Scale-in | stabilization 300 s, one pod per minute | a lull does not kill pods about to get work |
 

@@ -414,7 +414,7 @@ over and runs the step again records one ledger entry for each lost pass before 
   second lost pass — the re-run died too — has its own token, so its own entry. The re-run's own
   calls are billed and counted as usual: both passes are paid, the lost one shows as Unknown.
 - **No write on the happy path**: the lost passes are read only by a pass that takes a tree over —
-  the takeovers of the tree's lease log at its head checkpoint from a lease that expired, and the
+  the takeovers of the tree's audit log at its head checkpoint from a lease that expired, and the
   checkpoint's writes (a task with a write there finished: not lost — a pause's, its resume's or a
   failure's write runs it again, so a resumed step lost mid call is lost too).
 - **Budgets add zero**; `result.spend.unknownCalls` counts the entries next to `totalUsd` and
@@ -422,7 +422,7 @@ over and runs the step again records one ledger entry for each lost pass before 
   `unknown: a lost pass (#853)` by the CLI, whose total says `… of unknown cost`), and the metric
   [`agboss.instance.costs.unknown`](Metrics) adds them as the pass records them — whether the
   execution then finishes, fails or is cancelled (#875).
-- **A read that fails records none**: when the takeover cannot read the lease log or the
+- **A read that fails records none**: when the takeover cannot read the audit log or the
   checkpoint, the pass goes on without the entries; the log says `cost.unknown-unrecorded` and
   [`agboss.instance.costs.unknown_unrecorded`](Metrics) adds one (#875).
 

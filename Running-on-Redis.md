@@ -3,7 +3,7 @@
 [`@agboss/redis`](https://github.com/agbossjs/redis) keeps the **coordination stores** of several
 instances on one Redis (#527, #693): execution leases, the `AnyInstance` child queue and provider
 rate limits. Everything else — threads, checkpoints, fenced effects, outbound calls, pauses,
-records, the lease log and the kept execution ids — stays in PostgreSQL
+records, the audit log and the kept execution ids — stays in PostgreSQL
 ([Running-on-PostgreSQL](Running-on-PostgreSQL)) or MongoDB. This page is the core's view: what it
 provides, which layouts are safe, what it assumes of the server, and how it is proved. Every
 guarantee with its assumptions is on [Guarantees](Guarantees).
@@ -17,8 +17,8 @@ guarantee with its assumptions is on [Guarantees](Guarantees).
 | `RateLimitRepository` | `RedisRateLimitRepository` | slots, sliding windows and pauses, each operation one script, on the framework's `Clock` (A10) |
 
 Why only these: the one-backend rule (#526) binds the fenced-effect and outbound-call stores to the
-lease store; rate limits, the queue and the lease log are on any backend. Rate limits and the queue
-are pure coordination. The lease log is a record (it goes into exported history), the tree store
+lease store; rate limits, the queue and the audit log are on any backend. Rate limits and the queue
+are pure coordination. The audit log is a record (it goes into exported history), the tree store
 keeps undo marks (P5) and the mesh store keeps answers: they stay with the durable rows.
 
 The kept execution ids (#591) are never kept in Redis: the lease store is abstract, and a subclass
@@ -53,7 +53,7 @@ The layouts that hold:
   The layout for payments: no atomic step spans the two databases.
 - **Redis leases, queue and rate limits, no fenced-effect or outbound-call store** — for applications
   that make no fenced write and no outbound call (`storeConformance`'s coordination set, `without:
-  ["executionLeaseEvent", "fencedEffect", "outboundCall"]`).
+  ["executionAuditLog", "fencedEffect", "outboundCall"]`).
 
 ## What it assumes of the server
 

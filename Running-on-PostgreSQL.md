@@ -33,7 +33,7 @@ import {
   PostgresChildExecutionQueueRepository,
   PostgresCostLedgerRepository,
   PostgresExecutionHistoryRepository,
-  PostgresExecutionLeaseEventRepository,
+  PostgresExecutionAuditLogRepository,
   PostgresExecutionLeaseRepository,
   PostgresExecutionRecordRepository,
   PostgresExecutionTreeRepository,
@@ -70,7 +70,7 @@ export const environment: AppEnvironment = {
     PostgresChildExecutionQueueRepository, // ChildPlacement.AnyInstance children
     PostgresCostLedgerRepository, // budgets count every pod's spend
     PostgresExecutionHistoryRepository, // agboss records export on any pod
-    PostgresExecutionLeaseEventRepository, // the lease log: app.leaseEventsOf
+    PostgresExecutionAuditLogRepository, // the audit log: app.auditLogOf
     PostgresExecutionLeaseRepository, // one holder per tree, fenced by epoch
     PostgresExecutionRecordRepository, // threads, records, scores, summaries
     PostgresExecutionTreeRepository, // the shared state of one request
@@ -122,7 +122,7 @@ compares each listed fencing store's backend with the lease store's:
 | two lease stores, or two stores of one fencing contract             | `[di.ambiguous-implementation]` (#539)                          |
 
 A subclass inherits `"postgres"`. Fencing stores on a second database declare `"postgres:<database>"`
-— all three, the same text. The child queue, the lease log, rate limits and the other stores are not
+— all three, the same text. The child queue, the audit log, rate limits and the other stores are not
 constrained, though nothing is gained by splitting them.
 
 ## Migrations

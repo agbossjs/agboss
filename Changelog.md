@@ -3,6 +3,36 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the execution audit log and the metric names (#889, API review G6)
+
+- **Changed — breaking**: the lease log is the **execution audit log** — it keeps takeovers,
+  hand-overs, fenced effects and outbound calls. `ExecutionLeaseEventRepository` →
+  `ExecutionAuditLogRepository` (`SqliteExecutionAuditLogRepository`,
+  `PostgresExecutionAuditLogRepository`, `MongoExecutionAuditLogRepository`),
+  `ExecutionLeaseEventRecord` / `ExecutionLeaseEventBase` / `ExecutionLeaseEventKind` /
+  `LeaseEventStep` → `ExecutionAuditEventRecord` / `ExecutionAuditEventBase` /
+  `ExecutionAuditEventKind` / `AuditEventStep`, `app.leaseEventsOf(tree)` →
+  `app.auditLogOf(tree: ExecutionTreeQuery)` (`LeaseEventsQuery` → `ExecutionTreeQuery`, also on
+  `outboundCallsOf`), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (so in `agboss records
+  export` too), `retention.leaseEvents` → `retention.auditLog` (the old key refused by
+  `[application.retention-invalid]`, naming the new one), `executionLeaseEventContract` →
+  `executionAuditLogContract`, `storeConformance({ stores: { executionLeaseEvent } })` →
+  `stores.executionAuditLog`, the log code `lease-event.failed` → `audit-log.failed`.
+  `LeaseTakeoverReason.Reacquired` → `Reclaimed` (`"reclaimed"`, the verb of
+  `ExecutionLeaseRepository.reclaim`). **Stored names are kept**: the SQLite table
+  `execution_lease_events`, PostgreSQL's `agboss_execution_lease_events` and MongoDB's collection
+  keep their names behind the repositories — no migration, no data moved (0.1.0 has no audit log: only
+  pre-release data is affected, and a history record kept before #889 keeps its copy as `leaseEvents`).
+- **Changed — breaking (metrics)**: `agboss.cluster.children.oldest_queued_seconds` →
+  `agboss.cluster.children.oldest_queued.age` (unit `s`, scraped as
+  `agboss_cluster_children_oldest_queued_age`), `agboss.instance.lease.takeovers` →
+  `agboss.instance.leases.takeovers`, and `agboss.instance.compensations` labels its status as
+  `outcome` (was `status`). **Migration:** rename them in scrape configs, alerts and scale rules
+  ([Metrics](Metrics)).
+- **Added**: `AuditLogHooks` (the four hooks `onExecutionLeaseTakeover`, `onStepHandedOver`,
+  `onFencedEffect`, `onOutboundCall`) and `HookResult` are exported: `ExecutionObserver` names no
+  unexported type. `11-safe-payments` in agbossjs/agboss-examples registers and tests all four.
+
 ## Unreleased — 0.1.1: A2A interop, the official TCK in CI, fault scenarios (#811)
 
 - **Added**: the official A2A TCK runs in CI (`a2a-tck`) against an AGBoss conformance agent, pinned
@@ -1495,7 +1525,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Added — `onOutboundCall`** (`OnOutboundCall`, `OutboundCallEvent`, `OutboundCallEventOutcome`:
   `Recorded`, `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`, `Failed`, `Joined`)
   ([Observability](Observability#outbound-calls-505)), and **`OutboundCallEventRecord`**, the lease
-  log's `OutboundCall` row ([Several instances](Several-instances#the-lease-log-501)) — never a payload.
+  log's `OutboundCall` row ([Several instances](Several-instances#the-audit-log-501)) — never a payload.
 - **Added — `ExecutionHistoryRecord.outboundCalls`** ([Execution history](Execution-history)):
   a kept execution carries its tree's intents, and so does `agboss records export`.
 - **Changed — `OutboundCallRepository.markPending(key, expected, claim)`** is a compare-and-set
@@ -1555,7 +1585,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `Ran`, `Replayed`, `Joined`, `Refused`) ([Observability](Observability#fenced-effects-501)): every
   call of `FencedEffectRepository.saveResultIfAbsent` from a step, never its result.
 - **Added — `FencedEffectRecord`**, the lease log's `FencedEffect` row
-  ([Several instances](Several-instances#the-lease-log-501)): with the takeover and the hand-over,
+  ([Several instances](Several-instances#the-audit-log-501)): with the takeover and the hand-over,
   a refused zombie, one that never wrote and a replay are told apart from `app.leaseEventsOf` alone.
 - **Moved — `FencedEffectAsyncWorkError`** to the SQLite store's module; still exported from the
   root entry.
@@ -1567,7 +1597,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   fenced write or the app's stop is told once per error, at the innermost site — a step, a tool call,
   a tool interceptor, an undo, a branch, a child.
 - **Added — `StepHandedOverRecord`**, the lease log's `HandedOver` row
-  ([Several instances](Several-instances#the-lease-log-501)), written before the moving call rejects;
+  ([Several instances](Several-instances#the-audit-log-501)), written before the moving call rejects;
   `ExecutionLeaseEventRecord` is now `LeaseTakeoverRecord | StepHandedOverRecord` and `checkpointId`
   is the takeover's own field.
 - **Added — `ExecutionHistoryRecord.leaseEvents`**: a kept execution carries its tree's rows of the
@@ -1581,7 +1611,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `executionLeaseContract` has two more cases, so a store that runs it reports it.
 - **Added — `onExecutionLeaseTakeover`** (`OnExecutionLeaseTakeover`, `ExecutionLeaseTakeoverEvent`,
   `LeaseTakeoverReason`) ([Observability](Observability#lease-takeovers-501)).
-- **Added — the lease log** ([Several instances](Several-instances#the-lease-log-501)): the
+- **Added — the lease log** ([Several instances](Several-instances#the-audit-log-501)): the
   infrastructure contract `ExecutionLeaseEventRepository` (`ExecutionLeaseEventRecord` =
   `LeaseTakeoverRecord`, `ExecutionLeaseEventKind`), its in-memory default,
   `SqliteExecutionLeaseEventRepository` (table `execution_lease_events`), the contract suite

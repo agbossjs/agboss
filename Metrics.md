@@ -38,7 +38,8 @@ of a stopping pod never reads a closed store. (The SDK may repeat a gauge's last
 The names, kinds, units and label keys are a contract (`src/metrics/metric-catalog.ts`, checked by
 `tests/metrics/metric-catalog.test.ts`); a change is announced in the [Changelog](Changelog). The
 Prometheus name is the official exporter's: `.` → `_`, a counter gets `_total`, a `{…}` unit is
-dropped.
+dropped. No name carries its unit (OpenTelemetry's naming; #889): a collector that appends unit
+suffixes scrapes `agboss_cluster_children_oldest_queued_age_seconds`, never a doubled suffix.
 
 ### Cluster — read from the shared store, the same on every instance
 
@@ -46,7 +47,7 @@ dropped.
 | --- | --- | --- | --- |
 | `agboss.cluster.children.queued` (`agboss_cluster_children_queued`) | gauge | `{execution}` | children launched with `ChildPlacement.AnyInstance` waiting to be claimed, every tenant and tree |
 | `agboss.cluster.children.running` (`agboss_cluster_children_running`) | gauge | `{execution}` | those claimed by an instance |
-| `agboss.cluster.children.oldest_queued_seconds` (`agboss_cluster_children_oldest_queued_seconds`) | gauge | `s` | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none |
+| `agboss.cluster.children.oldest_queued.age` (`agboss_cluster_children_oldest_queued_age`) | gauge | `s` | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none |
 
 All three come from **one** call of `ChildExecutionQueueRepository.countByStatus()` per
 collection — an aggregate, never a read per tree (the SQLite store: one statement over its claims
@@ -62,10 +63,10 @@ value — and the log warns `metrics.child-queue-unreadable` once per failure st
 | `agboss.instance.step_slots.free` | gauge | `{slot}` | — | `limit − busy` |
 | `agboss.instance.steps.waiting` | gauge | `{step}` | — | steps waiting for a slot now |
 | `agboss.instance.leases.held` | gauge | `{lease}` | — | tree leases it holds: roots it moves, children it claimed, a parent waiting for children (its lease yielded, still its own); a released or lost lease is not held |
-| `agboss.instance.lease.takeovers` (`…_total`) | counter | `{takeover}` | `reason` | [takeovers](Observability#lease-takeovers-501) it made — recoveries are `reason="recovered"` (and `"unwinding"`) |
+| `agboss.instance.leases.takeovers` (`…_total`) | counter | `{takeover}` | `reason` | [takeovers](Observability#lease-takeovers-501) it made — recoveries are `reason="recovered"` (and `"unwinding"`) |
 | `agboss.instance.steps.handed_over` (`…_total`) | counter | `{step}` | `reason` | [hand-overs](Observability#hand-overs-501) of its steps |
 | `agboss.instance.executions.ended` (`…_total`) | counter | `{execution}` | `workflow`, `outcome` | executions that ended on it, children included: `finished` (`onExecutionEnd`), `failed` or `cancelled` (`onExecutionError`) |
-| `agboss.instance.compensations` (`…_total`) | counter | `{action}` | `workflow`, `status` | [automatic undo actions](Observability#automatic-undo) that ended on it: `compensated` or `failed` |
+| `agboss.instance.compensations` (`…_total`) | counter | `{action}` | `workflow`, `outcome` | [automatic undo actions](Observability#automatic-undo) that ended on it: `compensated` or `failed` |
 | `agboss.instance.costs.unknown` (`…_total`) | counter | `{pass}` | `workflow` | [lost passes of unknown cost](FinOps#a-lost-pass-unknown-cost-853) its passes recorded, whether the execution then finished, failed or was cancelled (#853, #875) |
 | `agboss.instance.costs.unknown_unrecorded` (`…_total`) | counter | `{read}` | `workflow` | its takeovers whose read of the lost passes failed: no Unknown entry recorded for them, logged `cost.unknown-unrecorded` (#875) |
 
@@ -73,7 +74,7 @@ The four slot gauges exist only when the application sets `maxConcurrentSteps`. 
 since the instance started.
 
 **Labels are bounded by the code**: `reason` is a `LeaseTakeoverReason` or a `HandOverReason`,
-`outcome` one of three, `status` a `CompensationStatus`, `workflow` one of the application's
+`outcome` one of three on `executions.ended` and a `CompensationStatus` on `compensations`, `workflow` one of the application's
 workflow names. Never a tenant, an execution, a thread, an instance id or an error message — the pod
 is the scrape target's own label (`pod`, `instance`) or the OTel resource's `service.instance.id`.
 The counters come from a built-in observer the instance calls before the project's

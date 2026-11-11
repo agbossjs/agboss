@@ -46,7 +46,7 @@ assumptions it rests on and the checker that proves it are on [Guarantees](Guara
 
 After every scenario, the checker reads the facts **through the public API only**:
 - every root's kept record (`ExecutionHistoryRecord`);
-- every tree's lease log (`app.leaseEventsOf`) and outbound calls (`app.outboundCallsOf`);
+- every tree's audit log (`app.auditLogOf`) and outbound calls (`app.outboundCallsOf`);
 - the business rows;
 - the gateway's requests and payments;
 - every pod's observer events;

@@ -24,7 +24,7 @@ shared implementation of each:
 | `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
 | `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
 | `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
-| `ExecutionLeaseEventRepository` | the lease log is read through the public API whichever instance took a lease over (#501, [below](#the-lease-log-501)) |
+| `ExecutionAuditLogRepository` | the audit log is read through the public API whichever instance took a lease over (#501, [below](#the-audit-log-501)) |
 
 Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreSQL** one
 ([below](#postgresql--several-instances-on-several-machines)), or a project lists its own
@@ -235,7 +235,7 @@ listed in `@Application({ providers })` like a SQLite one; they share one `pg` p
 | `ExecutionTreeRepository`       | `PostgresExecutionTreeRepository`       | the shared state of one request                                       |
 | `ChildExecutionQueueRepository` | `PostgresChildExecutionQueueRepository` | an `AnyInstance` child is claimed by one pod (`FOR UPDATE SKIP LOCKED`) |
 | `FencedEffectRepository`        | `PostgresFencedEffectRepository`        | an effect's write fenced by the tree's lease, in one transaction      |
-| `ExecutionLeaseEventRepository` | `PostgresExecutionLeaseEventRepository` | the lease log, read by `app.leaseEventsOf` on any pod                 |
+| `ExecutionAuditLogRepository` | `PostgresExecutionAuditLogRepository` | the audit log, read by `app.auditLogOf` on any pod                 |
 | `CostLedgerRepository`          | `PostgresCostLedgerRepository`          | budgets count every pod's spend: a tenant's $10 day is $10 in all     |
 | `ExecutionHistoryRepository`    | `PostgresExecutionHistoryRepository`    | `agboss records export` on any pod lists every pod's executions       |
 | `RateLimitRepository`           | `PostgresRateLimitRepository`           | `maxConcurrentCalls`, per-minute windows, a 429 pause, an open breaker |
@@ -352,7 +352,7 @@ idempotency key and the lease's fencing token — and the framework gives both:
 | --- | --- |
 | `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
 | `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and `ThisWorkflow` levels; a `ChildPlacement.AnyInstance` child itself. |
-| `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the re-acquire after remote children); never a sequence across keys. |
+| `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the reclaim after remote children); never a sequence across keys. |
 | `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
 | `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
 | `renewNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
@@ -427,7 +427,7 @@ renewed every 10 s like a held one. What every instance sees of a tree whose par
 | Another instance's recovery sweep | `acquire` is refused — the tree is live and owned; nothing is taken over, no `Takeover` row |
 | `app.resume` of a pause in the tree, on any instance | the decision is recorded, then the call waits for the lease; the holder takes the decision before the tree rests (the drain), and the call returns the tree's current output |
 | `app.cancel` on any instance | a cancel request; the holder reads it after its next renewal — renewals go on while it waits — and stops |
-| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `token + 1` (a `Reacquired` row of the [lease log](#the-lease-log-501)); `fence.token` rises |
+| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `token + 1` (a `Reclaimed` row of the [audit log](#the-audit-log-501)); `fence.token` rises |
 
 If the holder **dies** while it waits, its renewals stop and the lease expires 30 s later; the next
 sweep takes it over (`takenOverFrom` names the dead holder), re-enters the parent's node, finds
@@ -507,7 +507,7 @@ const { status, result } = await this.sqliteFencedEffectRepository.saveResultIfA
   is read outside the write's transaction, so a holder whose lease was taken over can still write —
   and is not checked; it passes no fencing case of `storeConformance` and must never back payments
   ([Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543), #543); the start warns `[application.lease-check-not-atomic]` (an error under
-  `agboss check --strict`). Rate limits, the child queue and the [lease log](#the-lease-log-501) are
+  `agboss check --strict`). Rate limits, the child queue and the [audit log](#the-audit-log-501) are
   on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
   effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
   leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
@@ -682,7 +682,7 @@ same on every attempt, replay and holder.
   `[application.store-backend-mismatch]`, as `SqliteFencedEffectRepository` does (#526); the
   in-memory default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
   `SqliteConnection` need not be listed for it (#526).
-- **Told:** every move of a call is an `OutboundCall` row of the [lease log](#the-lease-log-501) and
+- **Told:** every move of a call is an `OutboundCall` row of the [audit log](#the-audit-log-501) and
   an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
   intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
 
@@ -820,12 +820,12 @@ export class ChargeOrderAction {
   (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
   the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
   database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
-  operator's reads (#568): `app.leaseEventsOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
+  operator's reads (#568): `app.auditLogOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
   refuse such a tenant id before the store is asked (on SQLite `t\uD800` would read `t\uFFFD`'s
-  pending charges and lease log); a trusted A2A request or MCP call under one is never deduplicated
+  pending charges and audit log); a trusted A2A request or MCP call under one is never deduplicated
   (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
   `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
-  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s lease log), and
+  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
   `agboss records export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
   (exit 2, `usage.option-value`, the rule named) instead of reading nothing. Who calls is held to
   the same rules (#589): `ownerId` at `app.execute`, `app.resume` and `app.cancel`, and a `Channel`
@@ -838,7 +838,7 @@ export class ChargeOrderAction {
   it is part of the keys that go out.
 - **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:
   `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
-  the `onFencedEffect` / `onOutboundCall` events and their lease-log rows. The fingerprint is an
+  the `onFencedEffect` / `onOutboundCall` events and their audit-log rows. The fingerprint is an
   HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the
   request's — under `HMAC(idempotencyKey, "agboss/fingerprint/v1")`: the **application's idempotency
   key** (#825), `@Application({ idempotencyKeyField })`, a `Secret` field used for nothing else — so
@@ -848,7 +848,7 @@ export class ChargeOrderAction {
   another key (`[application.idempotency-key-shared]`), and a key made without it is
   `IdempotencyKeyMissingError` — never an unkeyed SHA-256. The handle below is keyed by the PII
   key — stable across executions with `piiKeyField`; with per-execution keys (#334) within one tree
-  only. The fingerprint stays in the store's row: no read, kept record, export, event or lease-log
+  only. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
   row shows it. **Rotating the idempotency key** (#825): name the new field `idempotencyKeyField` and
   the old one `previousIdempotencyKeyField` — a fingerprint is then compared under both
   (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
@@ -886,7 +886,7 @@ export class ChargeOrderAction {
   and a reclaim moves its token on. `leaseStateOf` then closes the expired lease in the same atomic
   step (`LeaseClosed`: released at the token it was held at), so its holder can neither renew it nor
   write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
-  caller's lease log, `LeaseClosed` with `closedLease` (the tree, the execution, the token), and a
+  caller's audit log, `LeaseClosed` with `closedLease` (the tree, the execution, the token), and a
   warning `outbound-call.lease-closed` (#825: rows written before, `lease-superseded` with
   `supersededLease`, are read under these names). The tree itself is then taken over as after any
   expiry — the next token, a `Takeover` row naming the holder and the token it held (the lease row
@@ -901,9 +901,9 @@ export class ChargeOrderAction {
   — both reached the other system; an answer or a definite failure (its `cause`) alike, and a call
   of this instance joined to it shares the error — fails the step with `OutboundCallSupersededError` (#795,
   `outbound-call.superseded`, a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`,
-  `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The lease log's row
+  `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The audit log's row
   (`AttemptSuperseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
-  the instance's log are written first, lease log or none (a unit runner); when the intent can no
+  the instance's log are written first, audit log or none (a unit runner); when the intent can no
   longer be read the newer attempt is "unknown" (`supersededBy: undefined`), never guessed. A step
   that must go on says so: `.onError(OutboundCallSupersededError, …)` — check the other system first.
 - **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
@@ -1015,13 +1015,13 @@ ends within its shutdown timeout (`app.step-still-running` names a body still ru
 `close({ timeout: 0 })` stops waiting at once). Another instance therefore never reruns a step — the same action, the same
 idempotency key — while its first run is still going here.
 
-## The lease log (#501)
+## The audit log (#501)
 
 A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint
-— but not for its operators: each one is a `Takeover` row of the **lease log**, an append-only
-infrastructure contract, `ExecutionLeaseEventRepository` (the in-memory default,
-`SqliteExecutionLeaseEventRepository` on the application's file, a project's own one proven by
-`executionLeaseEventContract` of [`@agboss/core/testing/contracts`](#writing-your-own-store-the-published-contract-suites-481)),
+— but not for its operators: each one is a `Takeover` row of the **audit log**, an append-only
+infrastructure contract, `ExecutionAuditLogRepository` (the in-memory default,
+`SqliteExecutionAuditLogRepository` on the application's file, a project's own one proven by
+`executionAuditLogContract` of [`@agboss/core/testing/contracts`](#writing-your-own-store-the-published-contract-suites-481)),
 and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
 
 - **who and at which token** — `holderInstanceId` and `token` (the new `executionContext.fence.token`),
@@ -1031,9 +1031,9 @@ and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
   previous holder;
 - **why** — `LeaseTakeoverReason.Recovered` (the sweep continues it), `Unwinding` (the sweep
   finishes its undo), `Cancelled`, `Resumed`, `RemoteChild` (a worker reclaims an `AnyInstance`
-  child), `Reacquired` (a parent took its lease back after waiting for remote children, at a new
+  child), `Reclaimed` (a parent took its lease back after waiting for remote children, at a new
   token, no previous holder). A takeover is a take whose store names an expired holder, and every
-  take of the recovery sweep, an undo's takeover, a reclaim and a re-acquire; a lease released at a
+  take of the recovery sweep, an undo's takeover, a reclaim and a reclaim; a lease released at a
   pause and taken by the resume is none, and so is a take of work already over — a finished child, a
   root whose record no longer runs ([#520](#finished-work-is-never-taken-over-520));
 - **the head checkpoint** (`checkpointId`) the taking instance continues from, where it reads it.
@@ -1054,7 +1054,7 @@ before the moving call rejects. So the public log alone tells two zombies apart:
 
 <!-- snippet-context
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   HandOverReason,
   type App,
@@ -1064,13 +1064,13 @@ declare const rootExecutionId: string;
 -->
 
 ```ts
-const rows = await app.leaseEventsOf({ tenantId: "acme", rootExecutionId });
+const rows = await app.auditLogOf({ tenantId: "acme", rootExecutionId });
 const refused = rows.some(
-  (row) => row.kind === ExecutionLeaseEventKind.HandedOver && row.reason === HandOverReason.Fenced,
+  (row) => row.kind === ExecutionAuditEventKind.HandedOver && row.reason === HandOverReason.Fenced,
 );
 const replayed = rows.some(
   (row) =>
-    row.kind === ExecutionLeaseEventKind.FencedEffect &&
+    row.kind === ExecutionAuditEventKind.FencedEffect &&
     row.outcome === FencedEffectEventOutcome.Replayed,
 );
 ```
@@ -1083,7 +1083,7 @@ const replayed = rows.some(
 `takeover`, then the new holder's `reconciled` (or `not-sent` and `sent`): the call went out once.
 
 A kept execution ([Execution history](Execution-history)) carries its tree's rows as they stood when
-it was saved, `ExecutionHistoryRecord.leaseEvents`, and so does its line of `agboss records export`.
+it was saved, `ExecutionHistoryRecord.auditLog`, and so does its line of `agboss records export`.
 
 The rows carry identities and tokens only — never a payload — masked like observer events. They are
 **always written**, whatever `retention.executionRecords` says, before the observers hear of them, and
@@ -1096,13 +1096,13 @@ declare const rootExecutionId: string;
 -->
 
 ```ts
-const rows = await app.leaseEventsOf({ tenantId: "acme", rootExecutionId });
+const rows = await app.auditLogOf({ tenantId: "acme", rootExecutionId });
 const takeovers = rows.filter((row) => row.kind === "takeover");
 ```
 
 Another tenant's tree has none. The recovery sweep removes the rows older than
-`@Application({ retention: { leaseEvents } })` (default `hours(24)`, on the `Clock`). A lease log that
-cannot write is a warning (`lease-event.failed`) and never reaches the takeover.
+`@Application({ retention: { auditLog } })` (default `hours(24)`, on the `Clock`). A audit log that
+cannot write is a warning (`audit-log.failed`) and never reaches the takeover.
 
 ## Cancelling from any instance
 
@@ -1428,7 +1428,7 @@ What `@agboss/postgres` needed and the core now gives every store outside it:
   it does not hold (#771).
 - **Any text comes back as it was handed over (#521)** — a NUL character (U+0000) included, which a
   model's or a tool's answer may hold: each suite of a contract that keeps text or JSON (records and
-  summaries, history, paused executions, the tree, the child queue, the lease log, mesh requests,
+  summaries, history, paused executions, the tree, the child queue, the audit log, mesh requests,
   fenced effects, outbound calls, checkpoints) has a case `#521 AC4: … with a NUL character (U+0000)
   reads back unchanged`. PostgreSQL's `jsonb` and `text` reject U+0000: keep framework JSON as
   `text` holding JSON (where U+0000 is the escape `\u0000`), and free text as JSON text too. The
@@ -1697,7 +1697,7 @@ An instance that froze (a GC pause, `SIGSTOP`, a stalled network) may wake up ho
 made before: a worker that read a child's queue row `Running` and asked for its lease, a recovery
 sweep that listed a root still `running`. By then another instance may have finished that work.
 Before #520 the waking instance took the lease that had meanwhile been released — a `RemoteChild`
-or `Recovered` row in the [lease log](#the-lease-log-501) for work that was over — and a child's
+or `Recovered` row in the [audit log](#the-audit-log-501) for work that was over — and a child's
 worker even kept that lease, renewed, until its instance stopped. Now:
 
 - **A finished child's lease is never given again.** The worker that ends a child `Answered` or

@@ -2,7 +2,7 @@
 
 `@agboss/mongodb` ([agbossjs/mongodb](https://github.com/agbossjs/mongodb), #527) keeps every store
 of an application on one MongoDB **replica set**: leases and execution ids, records and threads,
-trees, pauses, the child queue, checkpoints, the fenced effect with business keys, the lease log,
+trees, pauses, the child queue, checkpoints, the fenced effect with business keys, the audit log,
 the cost ledger, the execution history, rate limits, mesh requests and the calls that leave the
 system. It is the second full store set after PostgreSQL, and the first on a database without SQL
 transactions — so it is also the proof that the store contracts are not shaped around SQL
@@ -22,7 +22,7 @@ three together ([Your own store → One transactional backend](Your-own-store#on
     MongoChildExecutionQueueRepository,
     MongoCostLedgerRepository,
     MongoExecutionHistoryRepository,
-    MongoExecutionLeaseEventRepository,
+    MongoExecutionAuditLogRepository,
     MongoExecutionLeaseRepository,
     MongoExecutionRecordRepository,
     MongoExecutionTreeRepository,

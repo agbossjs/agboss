@@ -522,7 +522,7 @@ export const anyInstancePaths = [
   application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
   waits again, no second row) and waits on that row — woken at once when the child ends in the same
   process, else reading it every second on the framework's `Clock`. While waiting, the parent yields
-  its lease in `ExecutionLeaseRepository` and re-acquires it before continuing. The wait is under
+  its lease in `ExecutionLeaseRepository` and reclaims it before continuing. The wait is under
   the step's own signal, so a `FailFast` sibling, `app.cancel`, a lost lease, an exhausted budget
   and the failure records take the same paths as for a child on the parent's instance.
 - **Who runs it**: an instance with a free step slot ([#332](Several-instances#an-instances-cap-on-steps-332);

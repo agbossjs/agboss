@@ -48,9 +48,9 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | `A2ATaskRepository` (#824) | `list`, `static store` (#825) | `totalSize` counts every task the query's filters match (`statusAtAfter` too), whatever the page token; the backend declared | `ListTasks.totalSize` is a page's count; beside shared leases the application does not assemble (`[a2a.task-store-not-shared]`) |
 | | `compareAndSetStatus` | write only at the expected `version` and never over a terminal status, in the write's own statement | a stale writer's late `WORKING` overwrites `COMPLETED`; a task reads as running after it ended |
 | `RateLimitRepository` | slots, windows, pauses | count and take under one lock | the limit is exceeded under load |
-| `ExecutionLeaseEventRepository` | `save` | an append, read back as it was | an operator cannot tell a zombie from a takeover — no atomicity with the lease is needed |
+| `ExecutionAuditLogRepository` | `save` | an append, read back as it was | an operator cannot tell a zombie from a takeover — no atomicity with the lease is needed |
 
-The lease log is never written inside a lease's transaction: the framework writes the row after the
+The audit log is never written inside a lease's transaction: the framework writes the row after the
 move it records. So it may live on any backend. So may rate limits and the child queue.
 
 ## One transactional backend (#526)
@@ -100,7 +100,7 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
   store is **not conformant for fencing**: it gives no double-charge protection and must never back
   payments. `storeConformance` proves only what it does not give up
   ([An opted-out store and `storeConformance`](#an-opted-out-store-and-storeconformance-543)).
-- **Not bound:** rate limits, the child queue and the lease log. `@agboss/redis` keeps
+- **Not bound:** rate limits, the child queue and the audit log. `@agboss/redis` keeps
   **coordination** stores: leases, rate limits, the queue ([Running-on-Redis](Running-on-Redis)). An
   application on Redis leases lists no fenced-effect or outbound-call store (none is on Redis); one
   on PostgreSQL beside Redis leases is refused.
@@ -373,7 +373,7 @@ proven on them.
 <!-- snippet-context
 declare class PoolClient { query(sql: string): Promise<void>; }
 import {
-  ExecutionLeaseEventRepository,
+  ExecutionAuditLogRepository,
   ExecutionLeaseRepository,
   OutboundCallRepository,
   RateLimitRepository,
@@ -385,7 +385,7 @@ import type { FencedEffectTarget } from "@agboss/core/testing/contracts";
 declare class Pool { query(sql: string): Promise<void>; }
 declare const pool: Pool;
 declare const PgLeases: new (pool: Pool, clock: StoreClock, application: ApplicationContext) => ExecutionLeaseRepository;
-declare const PgLeaseLog: new (pool: Pool) => ExecutionLeaseEventRepository;
+declare const PgLeaseLog: new (pool: Pool) => ExecutionAuditLogRepository;
 declare const PgCalls: new (pool: Pool, clock: StoreClock) => OutboundCallRepository;
 declare const PgRateLimits: new (pool: Pool, clock: Clock, application: ApplicationContext) => RateLimitRepository;
 declare function pgFencedEffects(pool: Pool, clock: StoreClock, application: ApplicationContext): FencedEffectTarget<PoolClient>;
@@ -400,7 +400,7 @@ storeConformance({
   reset: () => pool.query("TRUNCATE agboss_execution_leases, agboss_fenced_effect_results"),
   stores: {
     executionLease: (context) => new PgLeases(pool, context.storeClock, context.application),
-    executionLeaseEvent: () => new PgLeaseLog(pool),
+    executionAuditLog: () => new PgLeaseLog(pool),
     fencedEffect: (context) => pgFencedEffects(pool, context.storeClock, context.application),
     outboundCall: (context) => ({
       calls: new PgCalls(pool, context.storeClock),
@@ -416,7 +416,7 @@ storeConformance({
   reset?, close?, capabilities? }` when it needs a reset, a close or a capability of its own. The set's `reset` runs before each case of a store without its own.
   Every case builds two instances on one backing store, on the case's `VirtualClock`.
 - **A set with a lease store must claim the other fencing contracts**: the fenced effect, the
-  outbound call and the lease log. Otherwise it lists them in `without`. A set of coordination
+  outbound call and the audit log. Otherwise it lists them in `without`. A set of coordination
   stores (leases, rate limits, the queue on Redis) says `without: ["fencedEffect",
   "outboundCall"]`, and an application on those leases then lists no such store either. A set that
   forgets one fails its test file before any case runs, with `StoreConformanceError`:
@@ -458,7 +458,7 @@ storeConformance({
 
   The core proves they bite: deliberately broken sets fail them, each on the rule it breaks
   (`tests/testing/contracts/broken-store-set.test.ts`, `contract-gaps.test.ts`): check-then-write,
-  business rows outside the transaction, a read-then-close `leaseStateOf`, a lease log on a pre-#508
+  business rows outside the transaction, a read-then-close `leaseStateOf`, a audit log on a pre-#508
   row schema, stores of no backend or another, a check-then-write `acquire`, and a fenced effect
   whose lease check is a read that locks nothing.
 - One function per contract (`fencedEffectContract`, …) is still there for a store run on its own.
@@ -565,19 +565,19 @@ overrides it: such a store passes **no** fencing case, even when it would pass t
   one`, so a sound set's report never reads as opted out.
 
 <!-- snippet-context
-import type { ExecutionLeaseEventRepository, ExecutionLeaseRepository } from "@agboss/core";
+import type { ExecutionAuditLogRepository, ExecutionLeaseRepository } from "@agboss/core";
 import { storeConformance, type FencedEffectTarget, type OutboundCallTarget } from "@agboss/core/testing/contracts";
 declare const redisLeases: () => ExecutionLeaseRepository;
 declare const redisEffects: () => FencedEffectTarget<unknown>;
 declare const redisCalls: () => OutboundCallTarget;
-declare const redisLog: () => ExecutionLeaseEventRepository;
+declare const redisLog: () => ExecutionAuditLogRepository;
 -->
 
 ```ts
 storeConformance({
   name: "Redis effects",
   acceptWithoutDoubleChargeProtection: true, // its fencing cases skipped: never back payments with it
-  stores: { executionLease: redisLeases, fencedEffect: redisEffects, outboundCall: redisCalls, executionLeaseEvent: redisLog },
+  stores: { executionLease: redisLeases, fencedEffect: redisEffects, outboundCall: redisCalls, executionAuditLog: redisLog },
 });
 ```
 
@@ -656,7 +656,7 @@ export const faultStores: FaultStoreSet<PoolClient> = {
 ```
 
 Every store must be on the shared database. An in-memory default is not shared between processes,
-so list each of: the lease, lease-log, fenced-effect, outbound-call, record, tree, history,
+so list each of: the lease, audit-log, fenced-effect, outbound-call, record, tree, history,
 child-queue and paused stores, and the checkpoint saver.
 
 **2. The suite**, in a vitest file of the store's own repository:

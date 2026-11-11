@@ -256,7 +256,7 @@ export class ClaimsWorkflow {} // a @Workflow of its own
   retention: {
     pauseRecords: hours(24), // a resolved pause record (default hours(24))
     executionRecords: hours(24 * 30), // each root execution's history (unset: nothing kept)
-    leaseEvents: hours(24), // the lease log (default hours(24))
+    auditLog: hours(24), // the audit log (default hours(24))
     costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
     fencedEffects: hours(24), // fenced effects' results and marks (default hours(24))
     outboundCalls: hours(168), // ended outbound calls (default hours(168))
