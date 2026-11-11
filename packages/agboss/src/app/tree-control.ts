@@ -73,10 +73,6 @@ export const withoutRecoveryOf = (options: object): WithoutRecoveryMark | undefi
   // only `withoutRecovery` sets it, to a mark
   Reflect.get(options, WITHOUT_RECOVERY) as WithoutRecoveryMark | undefined;
 
-/** Whether a transport asked that no recovery continue this run. */
-export const isWithoutRecovery = (options: object): boolean =>
-  withoutRecoveryOf(options) !== undefined;
-
 /** One tree of a workflow by its id (#807), loaded on first use. */
 const executionTrees = () => lazyLoad(import("./execution-trees.js"));
 
