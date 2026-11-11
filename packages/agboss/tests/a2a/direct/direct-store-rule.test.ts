@@ -116,7 +116,9 @@ describe("#860 AC3: [a2a.message-store-not-shared], each form", () => {
 
   it("AC3: no direct-reply skill — or a class that is no expose — is never checked", async () => {
     const tasksOnly = [exposeOf("quotes-a2a-expose", A2AReply.Task)];
-    class NotAnExpose {}
+    class NotAnExpose {
+      readonly role = "a class that is no expose";
+    }
 
     expect(await storeViolationsOf(applicationWith([MongoA2ATasks], tasksOnly))).toEqual([]);
     expect(await storeViolationsOf(applicationWith([MongoA2ATasks], [NotAnExpose]))).toEqual([]);

@@ -15,7 +15,7 @@ import { lazyLoad } from "../infrastructure/clock.js";
 export { WorkflowLoadError } from "./load-errors.js";
 
 const isWorkflowClass = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value as Class)?.kind === NodeKind.Workflow;
+  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
 
 /** The one exported `@Workflow` class of a module file (`--workflow ./src/x.workflow.ts`). */
 export async function loadWorkflowClass(

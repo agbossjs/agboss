@@ -73,7 +73,7 @@ async function fixtureModules(): Promise<readonly LoadedModule[]> {
 }
 
 const isFlowWorkflow = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value as Class)?.kind === NodeKind.Workflow;
+  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
 
 async function workflowsOf(files: readonly string[]): Promise<readonly Class[]> {
   const modules = await Promise.all(
