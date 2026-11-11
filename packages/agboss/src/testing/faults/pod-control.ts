@@ -50,11 +50,11 @@ export async function factsOf(
   const trees = await Promise.all(
     roots.map(async (rootExecutionId) => {
       const tree = { tenantId: "default", rootExecutionId };
-      const [leaseEvents, outboundCalls] = await Promise.all([
-        app.leaseEventsOf(tree),
+      const [auditLog, outboundCalls] = await Promise.all([
+        app.auditLogOf(tree),
         app.outboundCallsOf(tree),
       ]);
-      return { rootExecutionId, leaseEvents, outboundCalls };
+      return { rootExecutionId, auditLog, outboundCalls };
     }),
   );
   return { records, trees, businessRows: await parts.businessRows.committed(app) };

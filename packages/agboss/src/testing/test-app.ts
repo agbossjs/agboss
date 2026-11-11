@@ -39,7 +39,7 @@ export interface TestApp extends Pick<
   | "cancel"
   | "checkLiveness"
   | "checkReadiness"
-  | "leaseEventsOf"
+  | "auditLogOf"
   | "outboundCallsOf"
   | "pendingOutboundCallsOf"
   | "resolve"
@@ -127,7 +127,7 @@ const slicesOf = (
 
 /**
  * What answers during and after `close()` too: the probes (an orchestrator asks while the app
- * stops), the lease log (#501: a test reads a stopped zombie's) and the outbound calls (#505: an
+ * stops), the audit log (#501: a test reads a stopped zombie's) and the outbound calls (#505: an
  * operator reads them after the instance stopped).
  */
 const probesOf = (
@@ -135,16 +135,11 @@ const probesOf = (
   probed: () => Promise<BuiltApplication>,
 ): Pick<
   TestApp,
-  | "checkLiveness"
-  | "checkReadiness"
-  | "leaseEventsOf"
-  | "outboundCallsOf"
-  | "pendingOutboundCallsOf"
+  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
 > => ({
   checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
   checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
-  leaseEventsOf: (tree) =>
-    checked(environment, async () => (await probed()).app.leaseEventsOf(tree)),
+  auditLogOf: (tree) => checked(environment, async () => (await probed()).app.auditLogOf(tree)),
   outboundCallsOf: (tree) =>
     checked(environment, async () => (await probed()).app.outboundCallsOf(tree)),
   pendingOutboundCallsOf: (query) =>

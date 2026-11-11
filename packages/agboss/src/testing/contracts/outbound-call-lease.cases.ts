@@ -1,6 +1,6 @@
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../infrastructure/execution-audit-log.repository.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";

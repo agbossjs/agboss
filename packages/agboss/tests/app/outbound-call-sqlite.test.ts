@@ -1,7 +1,7 @@
 /**
  * #505 on SQLite — `SqliteOutboundCallRepository` on one file shared by two instances: a charge
  * killed before the answer is reconciled by the instance that recovers it, never sent again; the
- * intents and their lease-log rows are on the file. The store is listed with the SQLite leases
+ * intents and their audit-log rows are on the file. The store is listed with the SQLite leases
  * (`[application.store-backend-mismatch]` otherwise, #526); the unlisted in-memory default beside them
  * fails at its first call.
  */
@@ -11,7 +11,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
 import {
   ActionFailedError,
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   ExecutionLeaseLostError,
   FencedEffectStoreMismatchError,
   InMemoryOutboundCallRepository,
@@ -80,10 +80,10 @@ describe("#505 AC1 on SQLite: two instances, one file", () => {
           request: '{"orderId":"order-7","amountUsd":10,"email":"<email>"}',
         }),
       ]);
-      const rows = await b.leaseEventsOf(TREE);
+      const rows = await b.auditLogOf(TREE);
       expect(
         rows.flatMap((row) =>
-          row.kind === ExecutionLeaseEventKind.OutboundCall ? [row.outcome] : [],
+          row.kind === ExecutionAuditEventKind.OutboundCall ? [row.outcome] : [],
         ),
       ).toEqual([OutboundCallEventOutcome.Recorded, OutboundCallEventOutcome.Reconciled]);
 

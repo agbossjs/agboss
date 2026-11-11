@@ -35,9 +35,9 @@ import {
 import { FencedEffectRepository } from "./fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "./in-memory-fenced-effect.repository.js";
 import {
-  ExecutionLeaseEventRepository,
-  InMemoryExecutionLeaseEventRepository,
-} from "./execution-lease-event.repository.js";
+  ExecutionAuditLogRepository,
+  InMemoryExecutionAuditLogRepository,
+} from "./execution-audit-log.repository.js";
 import { OutboundCallRepository } from "./outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
@@ -76,7 +76,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
   [FencedEffectRepository, InMemoryFencedEffectRepository],
-  [ExecutionLeaseEventRepository, InMemoryExecutionLeaseEventRepository],
+  [ExecutionAuditLogRepository, InMemoryExecutionAuditLogRepository],
   [OutboundCallRepository, InMemoryOutboundCallRepository],
 ]);
 
@@ -139,8 +139,8 @@ export interface Infrastructure {
   readonly childQueue: ChildExecutionQueueRepository;
   /** The protected writes of steps (#500): their results and the scopes' marks. */
   readonly fencedEffects: FencedEffectRepository<unknown>;
-  /** The lease log (#501): takeovers and hand-overs, always written. */
-  readonly leaseEvents: ExecutionLeaseEventRepository;
+  /** The audit log (#501): takeovers and hand-overs, always written. */
+  readonly auditLog: ExecutionAuditLogRepository;
   /** The intents of calls that leave the system (#505): recorded before each is sent. */
   readonly outboundCalls: OutboundCallRepository;
   /**
@@ -183,7 +183,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
   fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
-  leaseEvents: resolve(ExecutionLeaseEventRepository) as ExecutionLeaseEventRepository,
+  auditLog: resolve(ExecutionAuditLogRepository) as ExecutionAuditLogRepository,
   outboundCalls: resolve(OutboundCallRepository) as OutboundCallRepository,
 });
 

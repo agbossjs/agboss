@@ -84,9 +84,9 @@ const applicationSpent = (clock: VirtualClock) =>
     ),
   );
 
-/** The instance (of `apps`) that took the tree over last, from the lease log. */
+/** The instance (of `apps`) that took the tree over last, from the audit log. */
 async function takerOf(apps: readonly TestApp[], rootExecutionId: string): Promise<TestApp> {
-  const rows = await instance(apps, 0).leaseEventsOf({ tenantId: "default", rootExecutionId });
+  const rows = await instance(apps, 0).auditLogOf({ tenantId: "default", rootExecutionId });
   const holder = rows.at(-1)?.holderInstanceId ?? "";
   const index = Number(holder.replace("instance-", "")) - 1;
   return instance(apps, index);

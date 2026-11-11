@@ -2,7 +2,7 @@
  * #501 PR 2 — the hand-over's record, unit by unit: `recordedHandOver` records once per error and
  * lease scope, at the first site with a frame and a lease that records (so the sites a hand-over is
  * rethrown through record nothing); `handOverEventOf` names why and with which tokens; the recording
- * never throws; a held lease's `LeaseEventReports` is settled only once its rows are written.
+ * never throws; a held lease's `AuditLogReports` is settled only once its rows are written.
  */
 import { describe, expect, it } from "vitest";
 import { ApplicationStoppingError } from "../../src/core/errors.js";
@@ -14,21 +14,21 @@ import {
   recordHandOver,
   type FencedEffectReport,
   type HandOverReport,
-} from "../../src/app/lease-events.js";
+} from "../../src/app/audit-log.js";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { LeaseEventReports, type LeaseEventLog } from "../../src/app/execution-leases.js";
+import { AuditLogReports, type AuditLogWriter } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
-import type { StepHandedOverEvent } from "../../src/flow/observers/lease-events.js";
+import type { StepHandedOverEvent } from "../../src/flow/observers/audit-log.js";
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
-  InMemoryExecutionLeaseEventRepository,
-} from "../../src/infrastructure/execution-lease-event.repository.js";
+  InMemoryExecutionAuditLogRepository,
+} from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testFrame } from "../helpers/frame.js";
@@ -193,13 +193,13 @@ describe("#501: why a step was handed over, and the tokens its event names", () 
   });
 });
 
-/** A lease log in memory: its rows, what its observer heard, its warnings. */
-function handOverLog(overrides: Partial<LeaseEventLog> = {}) {
+/** A audit log in memory: its rows, what its observer heard, its warnings. */
+function handOverLog(overrides: Partial<AuditLogWriter> = {}) {
   const database = new InMemoryDatabase();
   const heard: StepHandedOverEvent[] = [];
   const { log, entries } = recordingLog();
-  const events: LeaseEventLog = {
-    repository: new InMemoryExecutionLeaseEventRepository(database),
+  const events: AuditLogWriter = {
+    repository: new InMemoryExecutionAuditLogRepository(database),
     observer: new ExecutionObserverManager([
       {
         onStepHandedOver: (event: StepHandedOverEvent) => {
@@ -210,10 +210,10 @@ function handOverLog(overrides: Partial<LeaseEventLog> = {}) {
     mask: (event) => Promise.resolve(event),
     log,
     clock: new VirtualClock(),
-    recording: import("../../src/app/lease-events.js"),
+    recording: import("../../src/app/audit-log.js"),
     ...overrides,
   };
-  return { events, heard, entries, rows: database.executionLeaseEvents };
+  return { events, heard, entries, rows: database.executionAuditLog };
 }
 
 describe("#501: recording a hand-over", () => {
@@ -225,7 +225,7 @@ describe("#501: recording a hand-over", () => {
 
     expect(rows).toEqual([
       {
-        kind: ExecutionLeaseEventKind.HandedOver,
+        kind: ExecutionAuditEventKind.HandedOver,
         occurredAt: "2026-01-05T09:00:00.000Z",
         tenantId: report.event.tenantId,
         rootExecutionId: report.event.rootExecutionId,
@@ -253,7 +253,7 @@ describe("#501: recording a hand-over", () => {
     await expect(recordHandOver(events, reportOf(lost()), HELD)).resolves.toBeUndefined();
 
     expect([rows, heard]).toEqual([[], []]);
-    expect(entries.map((entry) => entry.code)).toEqual(["lease-event.failed"]);
+    expect(entries.map((entry) => entry.code)).toEqual(["audit-log.failed"]);
   });
 });
 
@@ -269,7 +269,7 @@ const LEASE: ExecutionLease = {
 describe("#501: a held lease's hand-overs", () => {
   it("are written under the token held then; settled() waits for them", async () => {
     const { events, rows } = handOverLog();
-    const reports = new LeaseEventReports();
+    const reports = new AuditLogReports();
     reports.held(LEASE);
     reports.held({ ...LEASE, token: 3 });
 
@@ -279,10 +279,10 @@ describe("#501: a held lease's hand-overs", () => {
     expect(rows.map((row) => row.token)).toEqual([3]);
   });
 
-  it("nothing without a lease log, or before any lease is held", async () => {
+  it("nothing without a audit log, or before any lease is held", async () => {
     const { events, rows } = handOverLog();
-    const unheld = new LeaseEventReports();
-    const unlogged = new LeaseEventReports();
+    const unheld = new AuditLogReports();
+    const unlogged = new AuditLogReports();
     unlogged.held(LEASE);
 
     unheld.handOver(events, reportOf(lost()), "default:execution-1");
@@ -303,7 +303,7 @@ const refusedCharge = (): FencedEffectReport => ({
   observedToken: 2,
 });
 
-describe("#501: a fenced effect's call in the lease log", () => {
+describe("#501: a fenced effect's call in the audit log", () => {
   it("its event is the step's node event with the call, the instance, and only the tokens it has", () => {
     const event = fencedEffectEventOf(
       {
@@ -335,12 +335,12 @@ describe("#501: a fenced effect's call in the lease log", () => {
     ).resolves.toBeUndefined();
 
     expect(rows).toEqual([]);
-    expect(entries.map((entry) => entry.code)).toEqual(["lease-event.failed"]);
+    expect(entries.map((entry) => entry.code)).toEqual(["audit-log.failed"]);
   });
 
   it("a held lease writes its events in the order recorded: the refusal before its hand-over", async () => {
     const { events, rows } = handOverLog();
-    const reports = new LeaseEventReports();
+    const reports = new AuditLogReports();
     reports.held(LEASE);
 
     reports.stepCall(events, (recording, log, holder) =>
@@ -350,15 +350,15 @@ describe("#501: a fenced effect's call in the lease log", () => {
     await reports.settled();
 
     expect(rows.map((row) => row.kind)).toEqual([
-      ExecutionLeaseEventKind.FencedEffect,
-      ExecutionLeaseEventKind.HandedOver,
+      ExecutionAuditEventKind.FencedEffect,
+      ExecutionAuditEventKind.HandedOver,
     ]);
   });
 
-  it("nothing before any lease is held, or without a lease log", async () => {
+  it("nothing before any lease is held, or without a audit log", async () => {
     const { events, rows } = handOverLog();
-    const unheld = new LeaseEventReports();
-    const unlogged = new LeaseEventReports();
+    const unheld = new AuditLogReports();
+    const unlogged = new AuditLogReports();
     unlogged.held(LEASE);
 
     const charged = refusedCharge();

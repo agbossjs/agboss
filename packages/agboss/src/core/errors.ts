@@ -174,7 +174,7 @@ export function keyTextRuleOf(text: string): KeyTextRule | undefined {
 
 /**
  * An id the application's `IdGenerator` minted that is no key's text (#578): a thread id or an
- * execution id keys threads, leases, the lease log and fenced effects like an id that comes in, so
+ * execution id keys threads, leases, the audit log and fenced effects like an id that comes in, so
  * it is held to the same rules at the mint — never used, never stored. Names the generator's class,
  * the method and the rule, never the id (a non-string is `length`).
  */
@@ -202,7 +202,7 @@ export class InvalidMintedIdError extends AGBossError {
 /**
  * An execution id the application's `IdGenerator` minted that an earlier execution already has
  * (#591) — a root, a child or a recursion level, of any tenant, running, finished, failed or
- * cancelled: the new execution would share that tree's lease, fencing token, lease log and step
+ * cancelled: the new execution would share that tree's lease, fencing token, audit log and step
  * keys, so a fenced effect or an outbound call would replay the other tree's result. Refused before
  * anything of it is written or run. Names the generator's class, never the id.
  */

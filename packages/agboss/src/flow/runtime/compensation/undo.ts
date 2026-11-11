@@ -1,5 +1,5 @@
 import { handedOverOf, handedOverReason, recordedHandOver } from "../../../app/handed-over.js";
-import { HandOverSite } from "../../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { ExecutionObserverManager } from "../../../core/observer-manager.js";
 import type { Class } from "../../../components/injection.js";

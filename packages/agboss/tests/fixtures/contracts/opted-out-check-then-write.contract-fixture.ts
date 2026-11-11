@@ -1,6 +1,6 @@
 // #543 AC1, AC2: storeConformance on a set whose fenced-effect store really checks the lease, then
 // writes, and says so (LeaseCheck.WithoutDoubleChargeProtection), the opt-out accepted.
-import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { InMemoryExecutionAuditLogRepository } from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
@@ -18,8 +18,8 @@ storeConformance({
       ({ storeClock, application, database }) =>
         new InMemoryExecutionLeaseRepository(storeClock, application, database),
     ),
-    executionLeaseEvent: inMemoryTarget(
-      ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
+    executionAuditLog: inMemoryTarget(
+      ({ database }) => new InMemoryExecutionAuditLogRepository(database),
     ),
     fencedEffect: inMemoryTarget(brokenEffects(OptedOutCheckThenWriteEffects)),
     outboundCall: inMemoryTarget((seam) => {

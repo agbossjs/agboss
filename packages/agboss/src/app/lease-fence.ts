@@ -103,7 +103,7 @@ export class LeaseFence {
   }
 
   /** The lease was reclaimed after a remote child wait (#333 PR 4, #516), sent at `sentAt`. */
-  reacquired(sentAt: SentAt, remaining: unknown): void {
+  reclaimed(sentAt: SentAt, remaining: unknown): void {
     this.lost.signal.throwIfAborted();
     this.#until = deadlinesOf(sentAt, remaining, this.margin);
   }

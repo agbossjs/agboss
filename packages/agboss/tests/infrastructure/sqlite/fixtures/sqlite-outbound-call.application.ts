@@ -2,7 +2,7 @@ import {
   SqliteCheckpointSaver,
   SqliteConnection,
   SqliteCostLedgerRepository,
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
@@ -35,7 +35,7 @@ import {
   providers: [
     SqliteExecutionLeaseRepository,
     SqliteOutboundCallRepository,
-    SqliteExecutionLeaseEventRepository,
+    SqliteExecutionAuditLogRepository,
     SqliteExecutionRecordRepository,
     SqlitePausedExecutionRepository,
     SqliteCheckpointSaver,

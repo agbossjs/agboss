@@ -10,6 +10,7 @@ export type {
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
 export type {
+  AuditLogHooks,
   ExecutionLeaseTakeoverEvent,
   FencedEffectEvent,
   OnExecutionLeaseTakeover,
@@ -18,4 +19,4 @@ export type {
   OnStepHandedOver,
   OutboundCallEvent,
   StepHandedOverEvent,
-} from "../flow/observers/lease-events.js";
+} from "../flow/observers/audit-log.js";

@@ -307,13 +307,13 @@ exporter to a Collector); none given → no metrics, nothing loaded. `testWith(A
 
 | Metric                                                                                  | Kind                                                        | Labels                | Aggregate                                |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------- | ---------------------------------------- |
-| `agboss.cluster.children.queued` / `.running` / `.oldest_queued_seconds`                | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
+| `agboss.cluster.children.queued` / `.running` / `.oldest_queued.age`                    | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
 | `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                      | —                     | `sum`                                    |
 | `agboss.instance.leases.held`                                                           | gauge                                                       | —                     | `sum`                                    |
-| `agboss.instance.lease.takeovers`                                                       | counter                                                     | `reason`              | `sum`                                    |
+| `agboss.instance.leases.takeovers`                                                      | counter                                                     | `reason`              | `sum`                                    |
 | `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`              | `sum`                                    |
 | `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome` | `sum`                                    |
-| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `status`  | `sum`                                    |
+| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `outcome` | `sum`                                    |
 | `agboss.instance.costs.unknown`                                                         | counter                                                     | `workflow`            | `sum`                                    |
 | `agboss.instance.costs.unknown_unrecorded`                                              | counter                                                     | `workflow`            | `sum`                                    |
 

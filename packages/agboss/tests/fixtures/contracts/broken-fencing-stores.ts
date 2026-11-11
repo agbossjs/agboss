@@ -3,17 +3,17 @@ import type { StoreDescriptor } from "../../../src/infrastructure/execution-leas
  * Deliberately broken fencing stores (#526 AC3, AC6): each gets one thing wrong the way a port to
  * another database does, and `storeConformance` must catch it — a fenced effect whose lease check
  * and write are two steps (check, then write), one whose business rows land outside its
- * transaction, a `leaseStateOf` that reads, then closes in a second step, a lease log on the row
+ * transaction, a `leaseStateOf` that reads, then closes in a second step, a audit log on the row
  * schema of before #508, and stores that declare no backend or another one than their leases'.
  * The `fencing-*.contract-fixture.ts` files run a store set with one of them.
  */
 import {
-  ExecutionLeaseEventKind,
-  InMemoryExecutionLeaseEventRepository,
+  ExecutionAuditEventKind,
+  InMemoryExecutionAuditLogRepository,
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
-  type ExecutionLeaseEventRecord,
-} from "../../../src/infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditEventRecord,
+} from "../../../src/infrastructure/execution-audit-log.repository.js";
 import {
   InMemoryExecutionLeaseRepository,
   LeaseCheck,
@@ -227,7 +227,7 @@ export const selectThenCloseCalls: StoreFactory<OutboundCallTarget> = (seam) => 
 /** The #508 fields the row schema before it has no column for. */
 const LOST = new Set(["supersededBy", "closedLease", "replayedFrom"]);
 
-/** The outcomes of the lease log's row schema before #508. */
+/** The outcomes of the audit log's row schema before #508. */
 const OLD_OUTCOMES = new Set<string>([
   OutboundCallEventOutcome.Recorded,
   OutboundCallEventOutcome.Sent,
@@ -240,12 +240,12 @@ const OLD_OUTCOMES = new Set<string>([
 ]);
 
 /**
- * A lease log on the row schema of before #508, as agbossjs/postgres's was: the #508 outcomes are
+ * A audit log on the row schema of before #508, as agbossjs/postgres's was: the #508 outcomes are
  * refused (a CHECK of its column), its fields have no column and are lost.
  */
-export class PreSupersedeLeaseLog extends InMemoryExecutionLeaseEventRepository {
-  override save(record: ExecutionLeaseEventRecord): Promise<void> {
-    if (record.kind === ExecutionLeaseEventKind.OutboundCall && !OLD_OUTCOMES.has(record.outcome))
+export class PreSupersedeLeaseLog extends InMemoryExecutionAuditLogRepository {
+  override save(record: ExecutionAuditEventRecord): Promise<void> {
+    if (record.kind === ExecutionAuditEventKind.OutboundCall && !OLD_OUTCOMES.has(record.outcome))
       return Promise.reject(
         new Error(`new row violates check constraint "outcome": ${record.outcome}`),
       );
@@ -253,7 +253,7 @@ export class PreSupersedeLeaseLog extends InMemoryExecutionLeaseEventRepository 
     const kept = JSON.stringify(record, (field, value: unknown) =>
       LOST.has(field) ? undefined : value,
     );
-    return super.save(JSON.parse(kept) as ExecutionLeaseEventRecord);
+    return super.save(JSON.parse(kept) as ExecutionAuditEventRecord);
   }
 }
 

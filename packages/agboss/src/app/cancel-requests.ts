@@ -9,7 +9,7 @@ import { CompensationFailedError } from "../flow/compensation.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
-import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { recordEndedOf } from "./recovery-pass.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";

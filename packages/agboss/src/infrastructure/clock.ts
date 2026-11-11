@@ -202,7 +202,7 @@ export const randomIdGenerator: IdGenerator = new RandomIdGenerator();
  * application's `IdGenerator` mints it (checked, #578) and the lease store keeps it
  * (`claimExecutionId`) before anything else of the execution is written — its budgets'
  * amounts, its thread, its lease, its marker, its checkpoint. An id another execution ever had is
- * `DuplicateExecutionIdError`: two trees never share a lease, a fencing token, a lease log or a step
+ * `DuplicateExecutionIdError`: two trees never share a lease, a fencing token, a audit log or a step
  * key, whatever the generator does. A resume and a recovery keep their id and never come here.
  */
 export interface ExecutionIds {

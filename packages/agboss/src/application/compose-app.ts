@@ -20,9 +20,9 @@ import type {
 } from "../health/health-sources.js";
 import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { ExecutionLeaseEventRepository } from "../infrastructure/execution-lease-event.repository.js";
+import type { ExecutionAuditLogRepository } from "../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-import { leaseEventsIn, pendingCallsOf } from "./instance-reads.js";
+import { auditLogIn, pendingCallsOf } from "./instance-reads.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
@@ -60,33 +60,25 @@ export interface InstanceSurface {
   readonly health: ApplicationHealth;
   /** The assembly warnings, then each workflow's (a config changed without a version bump). */
   readonly warnings: readonly string[];
-  /** `app.leaseEventsOf` (#501): the instance's lease log. */
-  readonly leaseEvents: ExecutionLeaseEventRepository;
+  /** `app.auditLogOf` (#501): the instance's audit log. */
+  readonly auditLog: ExecutionAuditLogRepository;
   /** `app.outboundCallsOf` / `app.pendingOutboundCallsOf` (#505): the instance's outbound calls. */
   readonly outboundCalls: OutboundCallRepository;
 }
 
-/** What an operator reads of the instance: its probes, its lease log, its outbound calls. */
+/** What an operator reads of the instance: its probes, its audit log, its outbound calls. */
 type InstanceReads = Pick<
   App,
-  | "checkLiveness"
-  | "checkReadiness"
-  | "leaseEventsOf"
-  | "outboundCallsOf"
-  | "pendingOutboundCallsOf"
+  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
 >;
 
-const instanceReadsOf = ({
-  health,
-  leaseEvents,
-  outboundCalls,
-}: InstanceSurface): InstanceReads => ({
+const instanceReadsOf = ({ health, auditLog, outboundCalls }: InstanceSurface): InstanceReads => ({
   checkLiveness: () => health.checkLiveness(),
   checkReadiness: () => health.checkReadiness(),
   // #568, #580: a tenant id and a root execution id are keys' text here too — on UTF-8 stores
   // t\uD800 would read t\uFFFD's rows
   // rows written before #825 read with this version's names
-  leaseEventsOf: (tree) => treeRead(tree, () => leaseEventsIn(leaseEvents, tree)),
+  auditLogOf: (tree) => treeRead(tree, () => auditLogIn(auditLog, tree)),
   // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
   outboundCallsOf: ({ tenantId, rootExecutionId }) =>
     treeRead({ tenantId, rootExecutionId }, async () =>

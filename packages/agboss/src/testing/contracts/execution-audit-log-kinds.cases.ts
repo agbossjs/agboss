@@ -1,22 +1,22 @@
 import { expect } from "vitest";
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
   OutboundCallEventOutcome,
-  type ExecutionLeaseEventBase,
-  type ExecutionLeaseEventRecord,
-  type ExecutionLeaseEventRepository,
+  type ExecutionAuditEventBase,
+  type ExecutionAuditEventRecord,
+  type ExecutionAuditLogRepository,
   type FencedEffectRecord,
   type OutboundCallEventRecord,
-} from "../../infrastructure/execution-lease-event.repository.js";
+} from "../../infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 
 /**
- * The lease log's rows, every kind the core writes (#526 AC6, found by agbossjs/postgres#8): each
+ * The audit log's rows, every kind the core writes (#526 AC6, found by agbossjs/postgres#8): each
  * takeover reason, hand-over reason and site, fenced-effect and outbound-call outcome and status,
  * with every optional field and without — the #508 ones above all (`lease-closed` and
  * `superseded`, `closedLease`, `supersededBy`, `replayedFrom`). A store on a row schema of
@@ -25,7 +25,7 @@ import type { ContractCase, ContractGroup } from "./define.js";
 
 const NINE = "2026-01-05T09:00:00.000Z";
 
-const base = (token: number): Omit<ExecutionLeaseEventBase, "kind"> => ({
+const base = (token: number): Omit<ExecutionAuditEventBase, "kind"> => ({
   occurredAt: NINE,
   tenantId: "default",
   rootExecutionId: "root-1",
@@ -39,10 +39,10 @@ const STEP = { nodeId: "charge-action", visitNumber: 2, idempotencyKey: "root-1:
 const OTHER_STEP = { executionId: "root-0", nodeId: "charge-action", visitNumber: 1 };
 
 /** Every takeover reason; the first with each optional field, the others with none. */
-const TAKEOVERS: readonly ExecutionLeaseEventRecord[] = Object.values(LeaseTakeoverReason).map(
+const TAKEOVERS: readonly ExecutionAuditEventRecord[] = Object.values(LeaseTakeoverReason).map(
   (reason, index) => ({
     ...base(index + 2),
-    kind: ExecutionLeaseEventKind.Takeover,
+    kind: ExecutionAuditEventKind.Takeover,
     reason,
     ...(index === 0
       ? { previousHolderInstanceId: "instance-1", previousToken: 1, checkpointId: "checkpoint-7" }
@@ -51,11 +51,11 @@ const TAKEOVERS: readonly ExecutionLeaseEventRecord[] = Object.values(LeaseTakeo
 );
 
 /** Every hand-over reason at every site, the odd ones with the token the system saw. */
-const HAND_OVERS: readonly ExecutionLeaseEventRecord[] = Object.values(HandOverReason).flatMap(
+const HAND_OVERS: readonly ExecutionAuditEventRecord[] = Object.values(HandOverReason).flatMap(
   (reason) =>
     Object.values(HandOverSite).map((site, index) => ({
       ...base(1),
-      kind: ExecutionLeaseEventKind.HandedOver,
+      kind: ExecutionAuditEventKind.HandedOver,
       reason,
       site,
       step: STEP,
@@ -66,7 +66,7 @@ const HAND_OVERS: readonly ExecutionLeaseEventRecord[] = Object.values(HandOverR
 /** A fenced-effect row of `outcome`, with the fields that outcome carries. */
 const effectRow = (outcome: FencedEffectEventOutcome): FencedEffectRecord => ({
   ...base(2),
-  kind: ExecutionLeaseEventKind.FencedEffect,
+  kind: ExecutionAuditEventKind.FencedEffect,
   name: "charge",
   outcome,
   step: STEP,
@@ -93,7 +93,7 @@ const STATUS_OF: Readonly<Record<OutboundCallEventOutcome, OutboundCallStatus>> 
 /** An outbound-call row of `outcome`, with the fields that outcome carries (#508). */
 const callRow = (outcome: OutboundCallEventOutcome): OutboundCallEventRecord => ({
   ...base(2),
-  kind: ExecutionLeaseEventKind.OutboundCall,
+  kind: ExecutionAuditEventKind.OutboundCall,
   name: "charge",
   target: "payments",
   operation: "charge",
@@ -113,15 +113,15 @@ const CALLS = Object.values(OutboundCallEventOutcome).map(callRow);
 
 /** Saves `rows` on `writer`, then reads the tree on `reader`: what came back. */
 async function roundTrip(
-  writer: ExecutionLeaseEventRepository,
-  reader: ExecutionLeaseEventRepository,
-  rows: readonly ExecutionLeaseEventRecord[],
-): Promise<readonly ExecutionLeaseEventRecord[]> {
+  writer: ExecutionAuditLogRepository,
+  reader: ExecutionAuditLogRepository,
+  rows: readonly ExecutionAuditEventRecord[],
+): Promise<readonly ExecutionAuditEventRecord[]> {
   for (const row of rows) await writer.save(row);
   return reader.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-1");
 }
 
-const KIND_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] = [
+const KIND_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = [
   {
     name: "#526 AC6: every row kind, reason, site, outcome and status the core writes is read back as it was, in the order saved",
     run: async ({ first, second }) => {
@@ -176,8 +176,8 @@ const KIND_CASES: readonly ContractCase<ExecutionLeaseEventRepository>[] = [
   },
 ];
 
-/** The cases of every row kind, as a group of the lease event contract. */
-export const leaseEventKindCases = (): ContractGroup<ExecutionLeaseEventRepository> => ({
+/** The cases of every row kind, as a group of the audit log contract. */
+export const auditEventKindCases = (): ContractGroup<ExecutionAuditLogRepository> => ({
   title: "every row the core writes",
   cases: KIND_CASES,
 });

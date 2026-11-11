@@ -70,7 +70,7 @@ describe("#300 AC2: readiness", () => {
         status: "healthy",
       },
       {
-        name: "InMemoryExecutionLeaseEventRepository", // #501
+        name: "InMemoryExecutionAuditLogRepository", // #501
         kind: HealthComponentKind.Store,
         status: "healthy",
       },

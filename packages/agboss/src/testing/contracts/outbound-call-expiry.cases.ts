@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { OutboundCallLeaseState } from "../../infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../infrastructure/execution-audit-log.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";

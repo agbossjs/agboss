@@ -13,7 +13,7 @@ import type { StepCapacity } from "../app/step-slots.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { InstanceMetrics } from "../metrics/instance-metrics.js";
-import { leaseEventLogOf, type LeaseEventLog } from "../app/execution-leases.js";
+import { auditLogWriterOf, type AuditLogWriter } from "../app/execution-leases.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import { executionControlOf } from "../app/execution-control.js";
 import { componentOf } from "../components/metadata.js";
@@ -45,7 +45,7 @@ export interface MeteredParts {
   readonly created: unknown[];
 }
 
-/** What an instance's observers and lease log are made of. */
+/** What an instance's observers and audit log are made of. */
 export interface ObservedParts extends MeteredParts {
   readonly assembled: AssembledApplication;
   readonly shared: ApplicationContainer;
@@ -56,13 +56,13 @@ export interface ObservedParts extends MeteredParts {
 
 /**
  * The instance's observer manager — its metrics' observer first when it is given a meter provider
- * (#485) — and its lease log (#501), where its held leases count themselves.
+ * (#485) — and its audit log (#501), where its held leases count themselves.
  */
 export async function observersOf(
   parts: ObservedParts,
   options: ContainerOptions,
   { meterProvider }: { readonly meterProvider?: MeterProvider | undefined },
-): Promise<{ readonly observer: ExecutionObserverManager; readonly leaseEvents: LeaseEventLog }> {
+): Promise<{ readonly observer: ExecutionObserverManager; readonly auditLog: AuditLogWriter }> {
   const { assembled, shared, log, seams, mask, infrastructure } = parts;
   const metrics = await instanceMetricsOf(meterProvider, parts);
   const projection = await a2aTaskProjectionOf(parts);
@@ -74,7 +74,7 @@ export async function observersOf(
   const heldLeases = metrics?.heldLeases;
   return {
     observer,
-    leaseEvents: leaseEventLogOf(infrastructure, { observer, mask, log, heldLeases }),
+    auditLog: auditLogWriterOf(infrastructure, { observer, mask, log, heldLeases }),
   };
 }
 

@@ -1,5 +1,5 @@
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import { DtoValidationError, pathOf } from "../../dto/errors.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import {

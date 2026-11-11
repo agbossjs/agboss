@@ -21,7 +21,7 @@ import type { RecordedAnswer } from "./resume.js";
 import { announceResume, callWithLostPasses, markTaken, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
-import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { withTreeOrigin } from "./tree-origin.js";

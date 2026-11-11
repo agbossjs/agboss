@@ -8,7 +8,7 @@
  * past the expiry, so an expired lease stays expired until a take, and it passes both races.
  */
 import { describe, expect, it } from "vitest";
-import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { effectKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";

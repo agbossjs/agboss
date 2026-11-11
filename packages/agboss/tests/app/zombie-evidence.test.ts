@@ -1,6 +1,6 @@
 /**
  * #501 PR 2 — a step handed over is told and kept: `onStepHandedOver` and a `HandedOver` row of the
- * lease log, once per error at the innermost site (a step, a tool call, a tool interceptor, an
+ * audit log, once per error at the innermost site (a step, a tool call, a tool interceptor, an
  * undo), written before the moving call rejects. A zombie handed over at its step leaves one; a
  * zombie that never reached a step again leaves none — the new holder's takeover is there in both.
  * The hand-over itself is unchanged (#471): no `.onError`, no `onExecutionError`.
@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionFencedError,
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -32,23 +32,23 @@ import {
 } from "./fixtures/fence.workflow.js";
 import {
   DownLeaseLogApplication,
-  KeptLeaseEventsApplication,
-  LeaseEventsApplication,
+  KeptAuditLogApplication,
+  AuditLogApplication,
   leaseSeen,
-  resetLeaseEvents,
+  resetAuditLog,
   ThrowingLeaseObserverApplication,
-} from "./fixtures/lease-events.application.js";
+} from "./fixtures/audit-log.application.js";
 
-const test = testWith(LeaseEventsApplication);
-const two = testWith(LeaseEventsApplication, { instances: 2 });
+const test = testWith(AuditLogApplication);
+const two = testWith(AuditLogApplication, { instances: 2 });
 const throwing = testWith(ThrowingLeaseObserverApplication);
 const down = testWith(DownLeaseLogApplication);
-const kept = testWith(KeptLeaseEventsApplication, { instances: 2 });
+const kept = testWith(KeptAuditLogApplication, { instances: 2 });
 
 beforeEach(() => {
   resetFence();
   resetRecovery();
-  resetLeaseEvents();
+  resetAuditLog();
   resetLogged();
 });
 
@@ -66,12 +66,12 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
       const { call } = await takenOver(apps, clock, leases);
       call.catch(() => undefined);
 
-      const rows = await instance(apps, 1).leaseEventsOf({
+      const rows = await instance(apps, 1).auditLogOf({
         tenantId: "default",
         rootExecutionId: firstRoot(),
       });
 
-      expect(rows.map((row) => row.kind)).toEqual([ExecutionLeaseEventKind.Takeover]);
+      expect(rows.map((row) => row.kind)).toEqual([ExecutionAuditEventKind.Takeover]);
       expect(leaseSeen.handOvers).toEqual([]);
     },
   );
@@ -86,15 +86,15 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
       await settle();
       leases.thaw(instance(apps, 0));
       const error = await rejectionOf(call);
-      const rows = await instance(apps, 1).leaseEventsOf({ tenantId: "default", rootExecutionId });
+      const rows = await instance(apps, 1).auditLogOf({ tenantId: "default", rootExecutionId });
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
       expect(rows.map((row) => row.kind)).toEqual([
-        ExecutionLeaseEventKind.Takeover,
-        ExecutionLeaseEventKind.HandedOver,
+        ExecutionAuditEventKind.Takeover,
+        ExecutionAuditEventKind.HandedOver,
       ]);
       expect(rows[1]).toEqual({
-        kind: ExecutionLeaseEventKind.HandedOver,
+        kind: ExecutionAuditEventKind.HandedOver,
         occurredAt: expect.any(String),
         tenantId: "default",
         rootExecutionId,
@@ -139,12 +139,12 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
       levers.letGo?.();
       await rejectionOf(call);
       await settle();
-      const rows = await instance(apps, 1).leaseEventsOf({
+      const rows = await instance(apps, 1).auditLogOf({
         tenantId: "default",
         rootExecutionId: firstRoot(),
       });
 
-      const handOvers = rows.filter((row) => row.kind === ExecutionLeaseEventKind.HandedOver);
+      const handOvers = rows.filter((row) => row.kind === ExecutionAuditEventKind.HandedOver);
       expect(handOvers).toHaveLength(1);
       expect(handOvers[0]).toMatchObject({ site: HandOverSite.Step, token: 1 });
       expect(leaseSeen.handOvers).toHaveLength(1);
@@ -159,12 +159,12 @@ describe("#501: one hand-over, at the innermost site", () => {
       levers.wrap = wrap;
 
       const error = await rejectionOf(execute(app, ReleaseWorkflowStart, { text: "v1" }));
-      const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId: firstRoot() });
+      const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() });
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
-        kind: ExecutionLeaseEventKind.HandedOver,
+        kind: ExecutionAuditEventKind.HandedOver,
         reason: HandOverReason.Fenced,
         site: HandOverSite.Step,
         token: 1,
@@ -181,7 +181,7 @@ describe("#501: one hand-over, at the innermost site", () => {
     mockLlm(ReleaseAgent).thenReturn(callTool(StageTool, { artifact: "v1" }));
 
     await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
-    const rows = await app.leaseEventsOf({ tenantId: "default", rootExecutionId: firstRoot() });
+    const rows = await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() });
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -190,7 +190,7 @@ describe("#501: one hand-over, at the innermost site", () => {
       step: { nodeId: "release-agent", visitNumber: 1 },
     });
     expect(
-      rows[0]?.kind === ExecutionLeaseEventKind.HandedOver && rows[0].step.idempotencyKey,
+      rows[0]?.kind === ExecutionAuditEventKind.HandedOver && rows[0].step.idempotencyKey,
     ).toBe(seen.fences[0]?.idempotencyKey);
     expect(leaseSeen.handOvers).toHaveLength(1);
     expect(leaseSeen.handOvers[0]?.step.callId).toBeDefined();
@@ -232,7 +232,7 @@ describe("#501: one hand-over, at the innermost site", () => {
 
     expect(result.finish).toMatchObject({ name: "not-released-workflow-finish" });
     expect(
-      await app.leaseEventsOf({ tenantId: "default", rootExecutionId: result.executionId }),
+      await app.auditLogOf({ tenantId: "default", rootExecutionId: result.executionId }),
     ).toEqual([]);
     expect(leaseSeen.handOvers).toEqual([]);
   });
@@ -248,7 +248,7 @@ describe("#501: what never reaches the hand-over", () => {
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
       expect(
-        await app.leaseEventsOf({ tenantId: "default", rootExecutionId: firstRoot() }),
+        await app.auditLogOf({ tenantId: "default", rootExecutionId: firstRoot() }),
       ).toHaveLength(1);
       expect(leaseSeen.handOvers).toHaveLength(1);
       expect(logged.map((entry) => entry.code)).toContain("observer.failed");
@@ -257,7 +257,7 @@ describe("#501: what never reaches the hand-over", () => {
   );
 
   down(
-    "a lease log that is down: a warning; the observers still hear it, the call still rejects with the fenced error",
+    "a audit log that is down: a warning; the observers still hear it, the call still rejects with the fenced error",
     async ({ app }) => {
       levers.wrap = "bare";
 
@@ -265,12 +265,12 @@ describe("#501: what never reaches the hand-over", () => {
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
       expect(leaseSeen.handOvers).toHaveLength(1);
-      expect(logged.filter((entry) => entry.code === "lease-event.failed")).toHaveLength(1);
+      expect(logged.filter((entry) => entry.code === "audit-log.failed")).toHaveLength(1);
     },
   );
 });
 
-describe("#501 AC1: the execution's history shows the lease log", () => {
+describe("#501 AC1: the execution's history shows the audit log", () => {
   kept(
     "AC1: the recovered root's kept record carries its takeover, and so does its exported line",
     async ({ apps, clock, leases }) => {
@@ -283,16 +283,16 @@ describe("#501 AC1: the execution's history shows the lease log", () => {
       if (record === undefined) throw new Error("the recovered root's record is kept");
       const line: unknown = JSON.parse(exportedRecordLine(record));
 
-      expect(record.leaseEvents).toEqual([
+      expect(record.auditLog).toEqual([
         expect.objectContaining({
-          kind: ExecutionLeaseEventKind.Takeover,
+          kind: ExecutionAuditEventKind.Takeover,
           reason: LeaseTakeoverReason.Recovered,
           token: 2,
           holderInstanceId: "instance-2",
           previousHolderInstanceId: "instance-1",
         }),
       ]);
-      expect(line).toMatchObject({ leaseEvents: record.leaseEvents });
+      expect(line).toMatchObject({ auditLog: record.auditLog });
     },
   );
 });

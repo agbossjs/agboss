@@ -35,18 +35,18 @@ import { collect, instanceMeter, type Collected } from "./support/metric-reader.
 const DOCUMENTED = {
   "agboss.cluster.children.queued": [MetricKind.ObservableGauge, "{execution}", []],
   "agboss.cluster.children.running": [MetricKind.ObservableGauge, "{execution}", []],
-  "agboss.cluster.children.oldest_queued_seconds": [MetricKind.ObservableGauge, "s", []],
+  "agboss.cluster.children.oldest_queued.age": [MetricKind.ObservableGauge, "s", []],
   "agboss.instance.step_slots.limit": [MetricKind.ObservableGauge, "{slot}", []],
   "agboss.instance.step_slots.busy": [MetricKind.ObservableGauge, "{slot}", []],
   "agboss.instance.step_slots.free": [MetricKind.ObservableGauge, "{slot}", []],
   "agboss.instance.steps.waiting": [MetricKind.ObservableGauge, "{step}", []],
   "agboss.instance.leases.held": [MetricKind.ObservableGauge, "{lease}", []],
-  "agboss.instance.lease.takeovers": [MetricKind.Counter, "{takeover}", ["reason"]],
+  "agboss.instance.leases.takeovers": [MetricKind.Counter, "{takeover}", ["reason"]],
   "agboss.instance.steps.handed_over": [MetricKind.Counter, "{step}", ["reason"]],
   "agboss.instance.executions.ended": [MetricKind.Counter, "{execution}", ["workflow", "outcome"]],
   "agboss.instance.costs.unknown": [MetricKind.Counter, "{pass}", ["workflow"]],
   "agboss.instance.costs.unknown_unrecorded": [MetricKind.Counter, "{read}", ["workflow"]],
-  "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "status"]],
+  "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "outcome"]],
 } as const;
 
 const KIND_OF_TYPE: Readonly<Record<string, MetricKind>> = {
@@ -57,8 +57,7 @@ const KIND_OF_TYPE: Readonly<Record<string, MetricKind>> = {
 /** Every label value the code can give, by key. */
 const BOUNDED: Readonly<Record<string, readonly string[]>> = {
   reason: [...Object.values(LeaseTakeoverReason), ...Object.values(HandOverReason)],
-  outcome: ["finished", "failed", "cancelled"],
-  status: Object.values(CompensationStatus),
+  outcome: ["finished", "failed", "cancelled", ...Object.values(CompensationStatus)],
   workflow: ["metrics-batch-workflow", "remote-item-workflow"],
 };
 
@@ -90,7 +89,7 @@ const shapesOf = (collected: Collected) =>
   );
 
 describe("#485 AC4: the catalog", () => {
-  it("AC4: the names, kinds, units and label keys are the documented ones", () => {
+  it("#889 AC1 / #485 AC4: the names, kinds, units and label keys are the documented ones — no unit in a name, leases.* plural, outcome on compensations", () => {
     const catalog = Object.fromEntries(
       Object.values(METRICS).map((spec) => [spec.name, [spec.kind, spec.unit, spec.labels]]),
     );
@@ -134,7 +133,7 @@ describe("#485 AC4: the catalog", () => {
       { reason: "fenced" },
       { workflow: "remote-item-workflow", outcome: "cancelled" },
       { workflow: "remote-item-workflow", outcome: "failed" },
-      { workflow: "remote-item-workflow", status: "failed" },
+      { workflow: "remote-item-workflow", outcome: "failed" },
     ]);
   });
 });

@@ -1,18 +1,18 @@
 /**
- * #501 PR 3 — the fenced effect (#500) in the lease log: every call of `saveResultIfAbsent` from a
+ * #501 PR 3 — the fenced effect (#500) in the audit log: every call of `saveResultIfAbsent` from a
  * step is a `FencedEffect` row and an `onFencedEffect` — ran, replayed, joined or refused, never its
  * result. With the takeover (PR 1) and the hand-over (PR 2) they let a verifier tell, from
- * `app.leaseEventsOf` alone, a zombie refused at its protected write from one that never reached it
+ * `app.auditLogOf` alone, a zombie refused at its protected write from one that never reached it
  * (AC2), and a replayed effect from a new write (AC3).
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionFencedError,
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   HandOverReason,
   HandOverSite,
-  type ExecutionLeaseEventRecord,
+  type ExecutionAuditEventRecord,
 } from "../../src/index.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -38,9 +38,9 @@ import {
 import {
   FencedEffectEventsApplication,
   leaseSeen,
-  resetLeaseEvents,
+  resetAuditLog,
   ThrowingFencedEffectObserverApplication,
-} from "./fixtures/lease-events.application.js";
+} from "./fixtures/audit-log.application.js";
 import type { VirtualClock, TestLeases } from "../../src/testing/index.js";
 
 const test = testWith(FencedEffectEventsApplication);
@@ -51,7 +51,7 @@ const throwing = testWith(ThrowingFencedEffectObserverApplication);
 beforeEach(() => {
   resetFencedEffect();
   resetRecovery();
-  resetLeaseEvents();
+  resetAuditLog();
   resetLogged();
 });
 
@@ -59,7 +59,7 @@ afterEach(() => {
   letAllGo();
 });
 
-/** What the public lease log of a tree says its old holder did, nothing else read. */
+/** What the public audit log of a tree says its old holder did, nothing else read. */
 enum ZombieVerdict {
   /** It reached its protected write and was refused there. */
   Refused = "refused",
@@ -69,13 +69,13 @@ enum ZombieVerdict {
   NoTakeover = "no-takeover",
 }
 
-/** The verifier of AC2: the rows of `app.leaseEventsOf` only. */
-function verdictOf(rows: readonly ExecutionLeaseEventRecord[]): ZombieVerdict {
-  const takeover = rows.find((row) => row.kind === ExecutionLeaseEventKind.Takeover);
+/** The verifier of AC2: the rows of `app.auditLogOf` only. */
+function verdictOf(rows: readonly ExecutionAuditEventRecord[]): ZombieVerdict {
+  const takeover = rows.find((row) => row.kind === ExecutionAuditEventKind.Takeover);
   if (takeover === undefined) return ZombieVerdict.NoTakeover;
   const isRefused = rows.some(
     (row) =>
-      row.kind === ExecutionLeaseEventKind.FencedEffect &&
+      row.kind === ExecutionAuditEventKind.FencedEffect &&
       row.outcome === FencedEffectEventOutcome.Refused &&
       row.holderInstanceId !== takeover.holderInstanceId,
   );
@@ -83,14 +83,14 @@ function verdictOf(rows: readonly ExecutionLeaseEventRecord[]): ZombieVerdict {
 }
 
 /** The kind (and outcome) of each row, in order. */
-const shapeOf = (rows: readonly ExecutionLeaseEventRecord[]): readonly string[] =>
+const shapeOf = (rows: readonly ExecutionAuditEventRecord[]): readonly string[] =>
   rows.map((row) =>
-    row.kind === ExecutionLeaseEventKind.FencedEffect ? `${row.kind}:${row.outcome}` : row.kind,
+    row.kind === ExecutionAuditEventKind.FencedEffect ? `${row.kind}:${row.outcome}` : row.kind,
   );
 
 /** The root of the first charge: the only tree of these tests. */
 const rootOf = (app: TestApp, executionId: string) =>
-  app.leaseEventsOf({ tenantId: "default", rootExecutionId: executionId });
+  app.auditLogOf({ tenantId: "default", rootExecutionId: executionId });
 
 /**
  * A charges an order, A freezes before its effect (`before`) or after it (`after`); its lease is
@@ -133,13 +133,13 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
       expect(error).toBeInstanceOf(ExecutionFencedError);
       expect(shapeOf(rows)).toEqual([
-        ExecutionLeaseEventKind.Takeover,
-        `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
-        `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Refused}`,
-        ExecutionLeaseEventKind.HandedOver,
+        ExecutionAuditEventKind.Takeover,
+        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Refused}`,
+        ExecutionAuditEventKind.HandedOver,
       ]);
       expect(rows[2]).toEqual({
-        kind: ExecutionLeaseEventKind.FencedEffect,
+        kind: ExecutionAuditEventKind.FencedEffect,
         occurredAt: expect.any(String),
         tenantId: "default",
         rootExecutionId: ROOT,
@@ -175,8 +175,8 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
       const rows = await rootOf(instance(apps, 1), ROOT);
 
       expect(shapeOf(rows)).toEqual([
-        ExecutionLeaseEventKind.Takeover,
-        `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+        ExecutionAuditEventKind.Takeover,
+        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
       ]);
       expect(rows[1]).toMatchObject({ holderInstanceId: "instance-2", token: 2, writtenToken: 2 });
       expect(leaseSeen.handOvers).toEqual([]);
@@ -184,7 +184,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
   );
 
   two(
-    "AC2: a verifier reading leaseEventsOf alone tells them apart",
+    "AC2: a verifier reading auditLogOf alone tells them apart",
     async ({ apps, clock, leases }) => {
       const { call } = await zombie(apps, clock, leases, "before");
       const beforeWaking = verdictOf(await rootOf(instance(apps, 1), ROOT));
@@ -207,7 +207,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
     expect(verdictOf(rows)).toBe(ZombieVerdict.NoTakeover);
     expect(shapeOf(rows)).toEqual([
-      `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
     ]);
   });
 });
@@ -221,9 +221,9 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
       const rows = await rootOf(instance(apps, 1), ROOT);
 
       expect(shapeOf(rows)).toEqual([
-        `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
-        ExecutionLeaseEventKind.Takeover,
-        `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Replayed}`,
+        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+        ExecutionAuditEventKind.Takeover,
+        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Replayed}`,
       ]);
       expect(rows[0]).toMatchObject({ holderInstanceId: "instance-1", token: 1, writtenToken: 1 });
       expect(rows[2]).toMatchObject({ holderInstanceId: "instance-2", token: 2, writtenToken: 1 });
@@ -241,8 +241,8 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
     const rows = await rootOf(app, result.executionId);
 
     expect(shapeOf(rows)).toEqual([
-      `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
-      `${ExecutionLeaseEventKind.FencedEffect}:${FencedEffectEventOutcome.Joined}`,
+      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Joined}`,
     ]);
     expect(leaseSeen.fencedEffects.map((event) => event.outcome)).toEqual([
       FencedEffectEventOutcome.Ran,

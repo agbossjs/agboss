@@ -1,5 +1,5 @@
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { streamedToolCall } from "../../run/stream-config.js";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";

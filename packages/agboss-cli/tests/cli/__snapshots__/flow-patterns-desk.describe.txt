@@ -18,7 +18,7 @@ implementations
   ExecutionHistoryRepository → SqliteExecutionHistoryRepository (listed in @Application providers)
   ChildExecutionQueueRepository → InMemoryChildExecutionQueueRepository (built-in default: none listed)
   FencedEffectRepository → InMemoryFencedEffectRepository (built-in default: none listed)
-  ExecutionLeaseEventRepository → InMemoryExecutionLeaseEventRepository (built-in default: none listed)
+  ExecutionAuditLogRepository → InMemoryExecutionAuditLogRepository (built-in default: none listed)
   OutboundCallRepository → InMemoryOutboundCallRepository (built-in default: none listed)
 model providers
   harness-model-provider → HarnessModelProvider (listed in @Application providers) · serves /^harness\// · transport: HarnessModelProvider.complete()

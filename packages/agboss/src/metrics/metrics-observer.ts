@@ -8,7 +8,7 @@ import type { CompensationEndEvent } from "../flow/observers/compensation-events
 import type {
   ExecutionLeaseTakeoverEvent,
   StepHandedOverEvent,
-} from "../flow/observers/lease-events.js";
+} from "../flow/observers/audit-log.js";
 import { ExecutionOutcome, METRICS, type MetricSpec } from "./metric-catalog.js";
 
 /**
@@ -43,7 +43,7 @@ export function metricsObserverOf(meter: Meter): ExecutionObserver {
       ended.add(1, { workflow: event.workflow.name, outcome: outcomeOf(event.error) });
     },
     onCompensationEnd: (event: CompensationEndEvent) => {
-      compensations.add(1, { workflow: event.workflow.name, status: event.status });
+      compensations.add(1, { workflow: event.workflow.name, outcome: event.status });
     },
   };
 }

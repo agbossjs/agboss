@@ -10,7 +10,7 @@ import { LeaseAttempts } from "../../src/app/lease-yields.js";
 import { DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
   ExecutionCancelledError,
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   LeaseTakeoverReason,
   OutboundCallEventOutcome,
   OutboundCallInFlightError,
@@ -224,8 +224,8 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
 
       expect(settledByB.output).toEqual({ chargeId: "ch-42-1" });
       expect(gateway.calls).toHaveLength(1);
-      // the close of the lease is in the caller's lease log: the execution, the token it was held at
-      const rows = await b.leaseEventsOf({
+      // the close of the lease is in the caller's audit log: the execution, the token it was held at
+      const rows = await b.auditLogOf({
         tenantId: "default",
         rootExecutionId: settledByB.executionId,
       });
@@ -320,7 +320,7 @@ describe("#508 re-review HIGH2: a result not stored is never replayed as one", (
 
 describe("#508 re-review MEDIUM4: a fingerprint is kept in the store's row only", () => {
   kept(
-    "no read, kept record, export, lease-log row or event carries the fingerprint — the store's row does",
+    "no read, kept record, export, audit-log row or event carries the fingerprint — the store's row does",
     async ({ app }) => {
       Object.assign(ledger, { freeze: 1 });
       const pending = execute(app, SendChargeStart, charge, { threadId: "thread-pending" });
@@ -345,7 +345,7 @@ describe("#508 re-review MEDIUM4: a fingerprint is kept in the store's row only"
       const shown = [
         whilePending,
         await app.outboundCallsOf(tree),
-        await app.leaseEventsOf(tree),
+        await app.auditLogOf(tree),
         keptRecord?.outboundCalls,
         heard.events,
       ];
@@ -379,7 +379,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
 }
 
 describe("#508 re-review LOW/MEDIUM6: a AttemptSuperseded attempt is logged on the instance's log", () => {
-  it("with no lease log (a unit runner): the error is logged all the same, naming the newer attempt", async () => {
+  it("with no audit log (a unit runner): the error is logged all the same, naming the newer attempt", async () => {
     const run = testAction(ChargeOrderAction, {
       overrides: [
         override(OutboundCallRepository, SupersedingOutboundCallRepository),
@@ -520,10 +520,10 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
         { chargeId: "ch-42-1" },
       ]);
       const treeA = { tenantId: "default", rootExecutionId: "execution-1" };
-      const rowsOfA = await b.leaseEventsOf(treeA);
+      const rowsOfA = await b.auditLogOf(treeA);
       expect(rowsOfA).toContainEqual(
         expect.objectContaining({
-          kind: ExecutionLeaseEventKind.Takeover,
+          kind: ExecutionAuditEventKind.Takeover,
           token: 2,
           holderInstanceId: "instance-2",
           previousHolderInstanceId: "instance-1",
@@ -531,7 +531,7 @@ describe("#508 final check: a lease closed by an outbound call, end to end", () 
           reason: LeaseTakeoverReason.Recovered,
         }),
       );
-      const rowsOfB = await b.leaseEventsOf({
+      const rowsOfB = await b.auditLogOf({
         tenantId: "default",
         rootExecutionId: byB.executionId,
       });

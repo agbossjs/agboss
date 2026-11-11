@@ -20,7 +20,7 @@ import {
   ExecutionLeaseLostError,
   scopeKeyOf,
 } from "../../src/app/lease-lost.js";
-import { HandOverSite } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { leaseReleases } from "../../src/app/lease-releases.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";

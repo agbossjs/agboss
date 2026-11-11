@@ -28,7 +28,7 @@ import { first, untilSettled } from "./support/runs.js";
 
 const QUEUED = "agboss.cluster.children.queued";
 const RUNNING = "agboss.cluster.children.running";
-const OLDEST = "agboss.cluster.children.oldest_queued_seconds";
+const OLDEST = "agboss.cluster.children.oldest_queued.age";
 
 const three = instanceMeters(3);
 const threeInstances = testWith(MetricsApplication, {

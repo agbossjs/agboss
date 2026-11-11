@@ -1,7 +1,7 @@
 import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf, RecordedError } from "../../core/error-record.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { buildCostReport, type UsageRecord } from "../../finops/usage.js";

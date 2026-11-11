@@ -34,11 +34,11 @@ export interface RetentionOptions {
    */
   readonly executionRecords?: Milliseconds;
   /**
-   * A row of the lease log after it happened (#501): every takeover of a tree's lease and every
-   * step handed over, written to the `ExecutionLeaseEventRepository` whatever `executionRecords`
-   * says, read by `app.leaseEventsOf`. Default `hours(24)`.
+   * A row of the audit log after it happened (#501): every takeover of a tree's lease and every
+   * step handed over, written to the `ExecutionAuditLogRepository` whatever `executionRecords`
+   * says, read by `app.auditLogOf`. Default `hours(24)`.
    */
-  readonly leaseEvents?: Milliseconds;
+  readonly auditLog?: Milliseconds;
   /**
    * An entry of the cost ledger after its spend was made (#771, `CostLedgerRepository`): every
    * tallied spend is an entry under its `ledgerId` so that a write retried after a lost answer
@@ -76,7 +76,7 @@ export interface ApplicationRetention {
   readonly pauseRecords: Milliseconds;
   /** Unset: no root execution is kept. */
   readonly executionRecords?: Milliseconds;
-  readonly leaseEvents: Milliseconds;
+  readonly auditLog: Milliseconds;
   readonly costLedgerEntries: Milliseconds;
   readonly fencedEffects: Milliseconds;
   readonly outboundCalls: Milliseconds;
@@ -88,7 +88,7 @@ export interface ApplicationRetention {
 export const DEFAULT_RETENTION: Readonly<Omit<ApplicationRetention, "executionRecords">> =
   Object.freeze({
     pauseRecords: hours(24),
-    leaseEvents: hours(24),
+    auditLog: hours(24),
     // a pass retries a lost write at its next read of the counters, seconds later: only a pass
     // asleep for a day meets the refusal
     costLedgerEntries: hours(24),
@@ -102,7 +102,7 @@ export const DEFAULT_RETENTION: Readonly<Omit<ApplicationRetention, "executionRe
 const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "pauseRecords",
   "executionRecords",
-  "leaseEvents",
+  "auditLog",
   "costLedgerEntries",
   "fencedEffects",
   "outboundCalls",
@@ -126,7 +126,7 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
   return {
     pauseRecords: given.pauseRecords ?? DEFAULT_RETENTION.pauseRecords,
     ...(given.executionRecords === undefined ? {} : { executionRecords: given.executionRecords }),
-    leaseEvents: given.leaseEvents ?? DEFAULT_RETENTION.leaseEvents,
+    auditLog: given.auditLog ?? DEFAULT_RETENTION.auditLog,
     costLedgerEntries: given.costLedgerEntries ?? DEFAULT_RETENTION.costLedgerEntries,
     fencedEffects: given.fencedEffects ?? DEFAULT_RETENTION.fencedEffects,
     outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
@@ -155,6 +155,17 @@ function retentionProblem(field: keyof RetentionOptions, value: unknown): string
 
 const HINT = "@Application({ retention: { fencedEffects: hours(24), meshAnswers: minutes(30) } })";
 
+/** A retention renamed before 0.1.1 (#889): refused naming its new name, never a silent default. */
+const RENAMED: Readonly<Record<string, string>> = {
+  leaseEvents: "the audit log's rows are kept for retention.auditLog",
+};
+
+/** Why a field `retentionViolations` does not know is refused: renamed, or a typo. */
+const unknownFieldProblem = (field: string): string =>
+  Object.hasOwn(RENAMED, field)
+    ? `.${field} is renamed: ${RENAMED[field] ?? ""}`
+    : `.${field} is not a retention (${RETENTION_FIELDS.join(", ")})`;
+
 /**
  * `@Application({ retention })` (#834): an object of the known fields only (a typo is not a silent
  * default), each a positive, finite duration — the fencing ones above the lease.
@@ -170,7 +181,7 @@ export function retentionViolations(application: string, options: unknown): Rule
   return [
     ...Object.keys(given)
       .filter((field) => !known.has(field))
-      .map((field) => fail(`.${field} is not a retention (${RETENTION_FIELDS.join(", ")})`)),
+      .map((field) => fail(unknownFieldProblem(field))),
     ...RETENTION_FIELDS.flatMap((field) => {
       const problem = retentionProblem(field, given[field]);
       return problem === undefined ? [] : [fail(`.${field} ${problem}`)];
@@ -195,7 +206,7 @@ interface MovedRetention {
 const MOVED: readonly MovedRetention[] = [
   { key: "pauseRecordRetention", now: "pauseRecords" },
   { key: "executionRecordRetention", now: "executionRecords" },
-  { key: "leaseEventRetention", now: "leaseEvents" },
+  { key: "leaseEventRetention", now: "auditLog" },
   { key: "ledgerEntryRetention", now: "costLedgerEntries" },
   { within: "fencedEffects", key: "retention", now: "fencedEffects" },
   { within: "outboundCalls", key: "retention", now: "outboundCalls" },
@@ -237,7 +248,7 @@ export function movedRetentionViolations(application: string, options: object): 
 export interface AssembledRetentions {
   readonly pauseRecordRetention: Milliseconds;
   readonly executionRecordRetention?: Milliseconds;
-  readonly leaseEventRetention: Milliseconds;
+  readonly auditLogRetention: Milliseconds;
   readonly a2aTaskRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
   readonly meshAnswerRetention: Milliseconds;
@@ -248,7 +259,7 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
   ...(retention.executionRecords === undefined
     ? {}
     : { executionRecordRetention: retention.executionRecords }),
-  leaseEventRetention: retention.leaseEvents,
+  auditLogRetention: retention.auditLog,
   a2aTaskRetention: retention.a2aTasks,
   ledgerEntryRetention: retention.costLedgerEntries,
   meshAnswerRetention: retention.meshAnswers,

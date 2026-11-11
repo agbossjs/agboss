@@ -5,7 +5,7 @@ import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type {
   OutboundCallEventOutcome,
   OutboundCallClosedLease,
-} from "../infrastructure/execution-lease-event.repository.js";
+} from "../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
@@ -216,7 +216,7 @@ export interface OutboundCallMoveFacts {
   readonly closedLease?: OutboundCallClosedLease | undefined;
 }
 
-/** Tells the lease log and `onOutboundCall` of a move of the call (#505): never its payload. */
+/** Tells the audit log and `onOutboundCall` of a move of the call (#505): never its payload. */
 export function told<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   outcome: OutboundCallEventOutcome,

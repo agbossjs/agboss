@@ -197,4 +197,4 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 
 sqliteImplementation(SqliteExecutionLeaseRepository);
 
-export { SqliteExecutionLeaseEventRepository } from "./sqlite-execution-lease-event.repository.js";
+export { SqliteExecutionAuditLogRepository } from "./sqlite-execution-audit-log.repository.js";

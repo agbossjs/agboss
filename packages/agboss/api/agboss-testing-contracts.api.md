@@ -59,6 +59,11 @@ export function costLedgerContract(target: ContractTarget<CostLedgerRepository>)
 // @public
 export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
 
+// Warning: (ae-forgotten-export) The symbol "ExecutionAuditLogRepository" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function executionAuditLogContract(target: ContractTarget<ExecutionAuditLogRepository>): void;
+
 // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -68,11 +73,6 @@ export function executionHistoryContract(target: ContractTarget<ExecutionHistory
 //
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;
-
-// Warning: (ae-forgotten-export) The symbol "ExecutionLeaseEventRepository" needs to be exported by the entry point index.d.ts
-//
-// @public
-export function executionLeaseEventContract(target: ContractTarget<ExecutionLeaseEventRepository>): void;
 
 // Warning: (ae-forgotten-export) The symbol "ExecutionRecordRepository" needs to be exported by the entry point index.d.ts
 //
@@ -117,7 +117,7 @@ export interface InterleavingOptions {
 }
 
 // @public
-export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
+export type LeftOutContract = "executionAuditLog" | "fencedEffect" | "outboundCall";
 
 // Warning: (ae-forgotten-export) The symbol "MeshRequestRepository" needs to be exported by the entry point index.d.ts
 //
@@ -247,11 +247,11 @@ export interface StoreSet<TTransaction = unknown> {
     // (undocumented)
     readonly costLedger?: StoreEntry<CostLedgerRepository>;
     // (undocumented)
+    readonly executionAuditLog?: StoreEntry<ExecutionAuditLogRepository>;
+    // (undocumented)
     readonly executionHistory?: StoreEntry<ExecutionHistoryRepository>;
     // (undocumented)
     readonly executionLease?: StoreEntry<ExecutionLeaseRepository>;
-    // (undocumented)
-    readonly executionLeaseEvent?: StoreEntry<ExecutionLeaseEventRepository>;
     // (undocumented)
     readonly executionRecord?: StoreEntry<ExecutionRecordRepository>;
     // (undocumented)
@@ -291,15 +291,15 @@ export interface VirtualClockOptions {
 // src/testing/contracts/sabotage-run.ts:23:3 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/sabotage-run.ts:24:3 - (ae-undocumented) Missing documentation for "state".
 // src/testing/contracts/sabotage-run.ts:33:3 - (ae-undocumented) Missing documentation for "cases".
-// src/testing/contracts/store-conformance-check.ts:42:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/contracts/store-conformance-check.ts:43:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/contracts/store-conformance-check.ts:44:3 - (ae-undocumented) Missing documentation for "problems".
+// src/testing/contracts/store-conformance-check.ts:38:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/contracts/store-conformance-check.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "problems".
 // src/testing/contracts/store-conformance.ts:53:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
 // src/testing/contracts/store-conformance.ts:54:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
 // src/testing/contracts/store-conformance.ts:55:3 - (ae-undocumented) Missing documentation for "costLedger".
 // src/testing/contracts/store-conformance.ts:56:3 - (ae-undocumented) Missing documentation for "executionHistory".
 // src/testing/contracts/store-conformance.ts:57:3 - (ae-undocumented) Missing documentation for "executionLease".
-// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "executionLeaseEvent".
+// src/testing/contracts/store-conformance.ts:58:3 - (ae-undocumented) Missing documentation for "executionAuditLog".
 // src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "executionRecord".
 // src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "executionTree".
 // src/testing/contracts/store-conformance.ts:61:3 - (ae-undocumented) Missing documentation for "fencedEffect".

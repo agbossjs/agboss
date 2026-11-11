@@ -1,6 +1,6 @@
 /**
  * #485 AC3 — a lease takeover counts on the instance that took the tree over, with its reason
- * (`agboss.instance.lease.takeovers`; a recovery is `reason="recovered"`), never on the holder it
+ * (`agboss.instance.leases.takeovers`; a recovery is `reason="recovered"`), never on the holder it
  * was taken from; the frozen holder's refused step is its hand-over.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
@@ -10,17 +10,14 @@ import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { instance, rejectionOf, settle, takenOver } from "../app/fixtures/fence-takeover.js";
 import { resetScopes } from "../app/fixtures/fence-children.workflow.js";
 import { levers, resetFence } from "../app/fixtures/fence.workflow.js";
-import {
-  LeaseEventsApplication,
-  resetLeaseEvents,
-} from "../app/fixtures/lease-events.application.js";
+import { AuditLogApplication, resetAuditLog } from "../app/fixtures/audit-log.application.js";
 import { collect, instanceMeters, valueOf } from "./support/metric-reader.js";
 
-const TAKEOVERS = "agboss.instance.lease.takeovers";
+const TAKEOVERS = "agboss.instance.leases.takeovers";
 const HANDED_OVER = "agboss.instance.steps.handed_over";
 
 const meters = instanceMeters(2);
-const two = testWith(LeaseEventsApplication, {
+const two = testWith(AuditLogApplication, {
   instances: meters.map((meter) => ({ meterProvider: meter.provider })),
 });
 
@@ -28,7 +25,7 @@ beforeEach(() => {
   resetFence();
   resetRecovery();
   resetScopes();
-  resetLeaseEvents();
+  resetAuditLog();
 });
 afterEach(() => {
   levers.letGo?.();

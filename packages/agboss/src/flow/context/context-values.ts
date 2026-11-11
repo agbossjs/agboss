@@ -153,8 +153,8 @@ export async function tenantRead<T>(tenantId: string, read: () => Promise<T>): P
   return read();
 }
 
-/** The query of a tree's reads (`app.leaseEventsOf`, `app.outboundCallsOf`): its error's DTO. */
-const TREE_QUERY = "LeaseEventsQuery";
+/** The query of a tree's reads (`app.auditLogOf`, `app.outboundCallsOf`): its error's DTO. */
+const TREE_QUERY = "ExecutionTreeQuery";
 
 /**
  * `read`, once a tree's ids are checked as keys' text (#580): its tenant id, then its root

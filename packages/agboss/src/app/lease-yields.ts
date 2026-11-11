@@ -1,13 +1,13 @@
 import type { Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
 import type { ExecutionLease } from "../infrastructure/execution-lease.repository.js";
-import type { LeaseEventLog } from "./execution-leases.js";
-import type * as LeaseEvents from "./lease-events.js";
-import type { HandOverReport } from "./lease-events.js";
+import type { AuditLogWriter } from "./execution-leases.js";
+import type * as AuditLog from "./audit-log.js";
+import type { HandOverReport } from "./audit-log.js";
 /**
  * When a held lease is yielded (#333 PR 4, #471): while every caller of the tree waits for remote
  * children (`yieldWhile`) and no step of the tree runs — a sibling branch's step keeps the lease, and
- * a step that starts while it is yielded takes it back first. The yields and re-acquires run one at a
+ * a step that starts while it is yielded takes it back first. The yields and reclaims run one at a
  * time, in order; `move(shouldYield)` does one.
  */
 export class LeaseYields {
@@ -141,12 +141,12 @@ export class LeaseAttempts {
 }
 
 /**
- * The lease events a held lease records (#501): its hand-overs and its steps' fenced effects, each
- * written through the instance's lease log in the order recorded — a refused effect before the
+ * The audit events a held lease records (#501): its hand-overs and its steps' fenced effects, each
+ * written through the instance's audit log in the order recorded — a refused effect before the
  * hand-over it causes — and the lease released only once they were, so the moving call rejects
  * after its rows exist.
  */
-export class LeaseEventReports {
+export class AuditLogReports {
   #tail: Promise<void> = Promise.resolve();
   #holder: Pick<ExecutionLease, "holderInstanceId" | "token"> | undefined;
 
@@ -155,7 +155,7 @@ export class LeaseEventReports {
     this.#holder = lease;
   }
 
-  handOver(events: LeaseEventLog | undefined, report: HandOverReport, scopeKey: string): void {
+  handOver(events: AuditLogWriter | undefined, report: HandOverReport, scopeKey: string): void {
     const holder = this.#holder;
     if (holder === undefined) return;
     const lease = { scopeKey, holderInstanceId: holder.holderInstanceId, token: holder.token };
@@ -167,8 +167,8 @@ export class LeaseEventReports {
    * (#505): `write` records it with the holder's instance, in the lease's order.
    */
   stepCall(
-    events: LeaseEventLog | undefined,
-    write: (recording: typeof LeaseEvents, log: LeaseEventLog, holder: string) => Promise<void>,
+    events: AuditLogWriter | undefined,
+    write: (recording: typeof AuditLog, log: AuditLogWriter, holder: string) => Promise<void>,
   ): void {
     const holderInstanceId = this.#holder?.holderInstanceId;
     if (holderInstanceId === undefined) return;
@@ -181,8 +181,8 @@ export class LeaseEventReports {
   }
 
   #append(
-    events: LeaseEventLog | undefined,
-    write: (recording: typeof LeaseEvents, log: LeaseEventLog) => Promise<void>,
+    events: AuditLogWriter | undefined,
+    write: (recording: typeof AuditLog, log: AuditLogWriter) => Promise<void>,
   ): void {
     if (events === undefined) return;
     this.#tail = this.#tail.then(async () => write(await events.recording, events));

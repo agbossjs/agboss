@@ -9,7 +9,7 @@
  *   write and the new holder's both land, a double charge;
  * - business rows outside the transaction (AC3): rolled back by nothing;
  * - `leaseStateOf` as a read, then a close (AC3): a late renewal and the close both win;
- * - a lease log on the row schema of before #508 (AC6), as agbossjs/postgres's was;
+ * - a audit log on the row schema of before #508 (AC6), as agbossjs/postgres's was;
  * - stores that declare no backend, or another than their leases' (AC1, the store set's cases);
  * - a store that opts out of the atomic lease check: nothing fails.
  */
@@ -20,7 +20,7 @@ import { namesOf, runContractFixtures, type FixtureRun } from "./fixture-runs.js
 const CHECK_THEN_WRITE = "fencing-check-then-write.contract-fixture.ts";
 const ROWS_OUTSIDE = "fencing-rows-outside.contract-fixture.ts";
 const LEASE_CLOSE = "fencing-lease-close.contract-fixture.ts";
-const OLD_LEASE_LOG = "fencing-old-lease-log.contract-fixture.ts";
+const OLD_LEASE_LOG = "fencing-old-audit-log.contract-fixture.ts";
 const BACKENDS = "fencing-backends.contract-fixture.ts";
 const OPTED_OUT = "fencing-opted-out.contract-fixture.ts";
 
@@ -76,7 +76,7 @@ describe("#526 AC3: a broken fencing store fails storeConformance", () => {
     expect(run.isFailed).toBe(true);
     expect(new Set(run.cases.map((found) => found.file))).toEqual(new Set(FIXTURES));
     // four contracts, the store set's suite and the explorer's (#533); the backends' set leaves its
-    // lease log out
+    // audit log out
     for (const file of FIXTURES)
       expect(
         new Set(run.cases.filter((found) => found.file === file).map((found) => found.suites[0]))
@@ -125,9 +125,9 @@ describe("#526 AC3: a broken fencing store fails storeConformance", () => {
   });
 });
 
-describe("#526 AC6: a lease log on the row schema of before #508 fails the lease event contract", () => {
+describe("#526 AC6: a audit log on the row schema of before #508 fails the audit log contract", () => {
   it("exactly the cases of every row kind fail; the older cases and ping pass", () => {
-    const suite = "lease event contract (a lease log of before #508)";
+    const suite = "audit log contract (a audit log of before #508)";
 
     expect(under(OLD_LEASE_LOG, suite, "fail")).toEqual(KIND_CASES);
     expect(under(OLD_LEASE_LOG, suite, "pass")).toEqual(
@@ -141,12 +141,12 @@ describe("#526 AC6: a lease log on the row schema of before #508 fails the lease
     expect(failingSuites(OLD_LEASE_LOG)).toEqual(new Set([suite]));
   });
 
-  it("the lease event contract of every other set passes them", () => {
+  it("the audit log contract of every other set passes them", () => {
     for (const [file, name] of [
       [CHECK_THEN_WRITE, "check-then-write effects"],
       [OPTED_OUT, "an opted-out outbound-call store"],
     ] as const)
-      expect(under(file, `lease event contract (${name})`, "pass")).toEqual(
+      expect(under(file, `audit log contract (${name})`, "pass")).toEqual(
         expect.arrayContaining(KIND_CASES),
       );
   });
@@ -192,7 +192,7 @@ describe("#526 AC1, AC2: the store set's cases", () => {
     for (const [file, name] of [
       [CHECK_THEN_WRITE, "check-then-write effects"],
       [LEASE_CLOSE, "check-then-write lease close"],
-      [OLD_LEASE_LOG, "a lease log of before #508"],
+      [OLD_LEASE_LOG, "a audit log of before #508"],
     ] as const)
       expect(under(file, `store set (${name})`, "pass")).toEqual(STORE_SET_CASES);
   });
@@ -202,7 +202,7 @@ describe("#526 AC3: the zombie's race on the core's stores", () => {
   it("is a case of every set's fenced effect contract, and the sound ones pass it", () => {
     for (const [file, name] of [
       [LEASE_CLOSE, "check-then-write lease close"],
-      [OLD_LEASE_LOG, "a lease log of before #508"],
+      [OLD_LEASE_LOG, "a audit log of before #508"],
       [OPTED_OUT, "an opted-out outbound-call store"],
     ] as const)
       expect(under(file, `fenced effect contract (${name})`, "pass")).toContain(ZOMBIE_RACE);

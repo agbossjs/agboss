@@ -27,12 +27,8 @@ const unbuilt = (): never => {
   throw new Error("never built: the set is refused before any case");
 };
 
-const FENCING = ["executionLease", "fencedEffect", "outboundCall", "executionLeaseEvent"] as const;
-const LEFT_OUT: readonly LeftOutContract[] = [
-  "fencedEffect",
-  "outboundCall",
-  "executionLeaseEvent",
-];
+const FENCING = ["executionLease", "fencedEffect", "outboundCall", "executionAuditLog"] as const;
+const LEFT_OUT: readonly LeftOutContract[] = ["fencedEffect", "outboundCall", "executionAuditLog"];
 const OTHERS = [
   "checkpointSaver",
   "childExecutionQueue",
@@ -133,12 +129,12 @@ describe("#526 AC2: a set with a lease store that leaves a fencing contract out 
     expect(lines[1]).toContain(
       "its intents fenced by these leases, leaseStateOf's races with a late renewal",
     );
-    expect(lines[2]).toContain("every row the core writes to the lease log, read back as it was");
+    expect(lines[2]).toContain("every row the core writes to the audit log, read back as it was");
   });
 
   it("the exact message of one", () => {
     expect(
-      refusalOf(setOf(["executionLease", "fencedEffect", "executionLeaseEvent"])).problems,
+      refusalOf(setOf(["executionLease", "fencedEffect", "executionAuditLog"])).problems,
     ).toEqual([
       '[store-conformance.missing-fencing-contract] "PostgreSQL" has fencing stores but no stores.outboundCall: its cases (its intents fenced by these leases, leaseStateOf\'s races with a late renewal) would not run — give stores.outboundCall, or list "outboundCall" in without when the set has none (an application on these leases then lists none either)',
     ]);
@@ -150,7 +146,7 @@ describe("#526 AC2: a fencing store without its lease store", () => {
     [["fencedEffect"], 3],
     [["outboundCall"], 3],
     [["fencedEffect", "outboundCall"], 2],
-    [["fencedEffect", "outboundCall", "executionLeaseEvent"], 1],
+    [["fencedEffect", "outboundCall", "executionAuditLog"], 1],
   ] as const)("%j: lease-store-required first, then what else is missing", (keys, problems) => {
     const error = refusalOf(setOf(keys));
 
@@ -161,8 +157,8 @@ describe("#526 AC2: a fencing store without its lease store", () => {
     );
   });
 
-  it("a lease log alone is not a fencing set: nothing more needed", () => {
-    expect(isAccepted(["executionLeaseEvent"])).toBe(true);
+  it("a audit log alone is not a fencing set: nothing more needed", () => {
+    expect(isAccepted(["executionAuditLog"])).toBe(true);
   });
 });
 
@@ -183,7 +179,7 @@ describe("#526 AC2: without", () => {
 
       expect(codesOf(error)).toEqual(["store-conformance.invalid-without"]);
       expect(error.problems[0]).toContain(
-        'only "fencedEffect", "outboundCall", "executionLeaseEvent" may be left out',
+        'only "fencedEffect", "outboundCall", "executionAuditLog" may be left out',
       );
     },
   );

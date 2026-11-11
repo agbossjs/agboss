@@ -1,9 +1,9 @@
 import {
-  ExecutionLeaseEventKind,
+  ExecutionAuditEventKind,
   FencedEffectEventOutcome,
   OutboundCallEventOutcome,
-  type ExecutionLeaseEventRecord,
-} from "../../../infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditEventRecord,
+} from "../../../infrastructure/execution-audit-log.repository.js";
 import type { FaultRun } from "../facts.js";
 import { orderExecutionsOf, type OrderExecution } from "./order-executions.js";
 import { FaultInvariant, violation, type FaultViolation } from "./violations.js";
@@ -12,16 +12,16 @@ import { FaultInvariant, violation, type FaultViolation } from "./violations.js"
  * Every charge exactly once (#484 invariant 3):
  * - an order execution that finished has one business row (`charge:<executionId>`), one that
  *   failed for real none, and none has two;
- * - its fenced effect `Ran` once in the lease log, every other call `Replayed`, `Joined` or
+ * - its fenced effect `Ran` once in the audit log, every other call `Replayed`, `Joined` or
  *   `Refused`;
  * - each order was paid at most once at the gateway — once when any of its executions finished —,
  *   reached it at most once (a call left pending is reconciled, never resent), always with one
- *   idempotency key, and the lease log has at most one `Sent` of it.
+ *   idempotency key, and the audit log has at most one `Sent` of it.
  */
 
-/** Every row of every tree's lease log. */
-const rowsOf = (run: FaultRun): readonly ExecutionLeaseEventRecord[] =>
-  run.trees.flatMap((tree) => tree.leaseEvents);
+/** Every row of every tree's audit log. */
+const rowsOf = (run: FaultRun): readonly ExecutionAuditEventRecord[] =>
+  run.trees.flatMap((tree) => tree.auditLog);
 
 /** The business rows and the effect's log rows of one execution. */
 function chargeViolations(run: FaultRun, execution: OrderExecution): FaultViolation[] {
@@ -37,7 +37,7 @@ function chargeViolations(run: FaultRun, execution: OrderExecution): FaultViolat
       ),
     );
   const outcomes = rowsOf(run).flatMap((row) =>
-    row.kind === ExecutionLeaseEventKind.FencedEffect &&
+    row.kind === ExecutionAuditEventKind.FencedEffect &&
     row.executionId === executionId &&
     row.name === "charge"
       ? [row.outcome]
@@ -48,7 +48,7 @@ function chargeViolations(run: FaultRun, execution: OrderExecution): FaultViolat
     found.push(
       violation(
         FaultInvariant.EffectsOnce,
-        `the charge of ${orderId} (${executionId}) ran ${String(ran)} times in the lease log: ${outcomes.join(", ")}`,
+        `the charge of ${orderId} (${executionId}) ran ${String(ran)} times in the audit log: ${outcomes.join(", ")}`,
       ),
     );
   return found;
@@ -67,7 +67,7 @@ function payViolations(
   const payments = run.payments.filter((payment) => keys.has(payment.idempotencyKey));
   const sent = rowsOf(run).filter(
     (row) =>
-      row.kind === ExecutionLeaseEventKind.OutboundCall &&
+      row.kind === ExecutionAuditEventKind.OutboundCall &&
       row.outcome === OutboundCallEventOutcome.Sent &&
       own.has(row.executionId),
   );
@@ -102,7 +102,7 @@ const sentViolations = (orderId: string, sent: number): FaultViolation[] =>
     ? [
         violation(
           FaultInvariant.EffectsOnce,
-          `${orderId} has ${String(sent)} Sent rows in the lease log`,
+          `${orderId} has ${String(sent)} Sent rows in the audit log`,
         ),
       ]
     : [];

@@ -11,7 +11,7 @@ import {
   A2ATaskRepository,
   CostLedgerRepository,
   ExecutionHistoryRepository,
-  ExecutionLeaseEventRepository,
+  ExecutionAuditLogRepository,
   FencedEffectRepository,
   InMemoryFencedEffectRepository,
   MeshRequestRepository,
@@ -51,7 +51,7 @@ describe("#834 AC1: one retention group", () => {
 
     expect(assembled).toMatchObject({
       pauseRecordRetention: hours(24),
-      leaseEventRetention: hours(24),
+      auditLogRetention: hours(24),
       ledgerEntryRetention: hours(24),
       a2aTaskRetention: hours(24),
       meshAnswerRetention: minutes(30),
@@ -96,7 +96,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
 
   it("a field it does not know is a typo, never a silent default", async () => {
     await expect(assembledWith({ ledgerEntries: hours(1) })).rejects.toThrow(
-      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, leaseEvents, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks)",
+      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks)",
     );
   });
 
@@ -107,9 +107,9 @@ describe("#834 AC2: [application.retention-invalid]", () => {
   });
 
   it("every problem at once, with the fix", async () => {
-    const assembly = assembledWith({ leaseEvents: 0, outboundCalls: seconds(1) });
+    const assembly = assembledWith({ auditLog: 0, outboundCalls: seconds(1) });
 
-    await expect(assembly).rejects.toThrow(/retention\.leaseEvents is 0, not a positive duration/);
+    await expect(assembly).rejects.toThrow(/retention\.auditLog is 0, not a positive duration/);
     await expect(assembly).rejects.toThrow(
       /retention\.outboundCalls is 1000 ms, not above the lease's 30000 ms — @Application\(\{ retention: \{/,
     );
@@ -120,7 +120,7 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
   it.each([
     [{ pauseRecordRetention: hours(1) }, "pauseRecordRetention", "pauseRecords"],
     [{ executionRecordRetention: hours(720) }, "executionRecordRetention", "executionRecords"],
-    [{ leaseEventRetention: hours(1) }, "leaseEventRetention", "leaseEvents"],
+    [{ leaseEventRetention: hours(1) }, "leaseEventRetention", "auditLog"],
     [{ ledgerEntryRetention: hours(72) }, "ledgerEntryRetention", "costLedgerEntries"],
     [{ fencedEffects: { retention: hours(48) } }, "fencedEffects.retention", "fencedEffects"],
     [{ outboundCalls: { retention: hours(720) } }, "outboundCalls.retention", "outboundCalls"],
@@ -130,6 +130,15 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
     await expect(assembledWith(undefined, others)).rejects.toThrow(
       `[application.retention-invalid] its ${where} is gone — @Application({ retention: { ${now} } }) sets it now`,
     );
+  });
+
+  it("#889 AC2: retention.leaseEvents is refused naming retention.auditLog, never a silent default", async () => {
+    const assembly = assembledWith({ leaseEvents: hours(1) });
+
+    await expect(assembly).rejects.toThrow(
+      "[application.retention-invalid] its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog —",
+    );
+    await expect(assembly).rejects.not.toThrow(/leaseEvents is not a retention/);
   });
 
   it("an a2a option without its retention is gone too", async () => {
@@ -168,7 +177,7 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
 const RETENTION = {
   pauseRecords: minutes(2),
   executionRecords: minutes(3),
-  leaseEvents: minutes(4),
+  auditLog: minutes(4),
   costLedgerEntries: minutes(5),
   fencedEffects: minutes(6),
   outboundCalls: minutes(7),
@@ -205,9 +214,9 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
         RETENTION.executionRecords,
       ],
       [
-        "leaseEvents",
-        vi.spyOn(app.resolve(ExecutionLeaseEventRepository), "deleteByOccurredAtBefore"),
-        RETENTION.leaseEvents,
+        "auditLog",
+        vi.spyOn(app.resolve(ExecutionAuditLogRepository), "deleteByOccurredAtBefore"),
+        RETENTION.auditLog,
       ],
       [
         "costLedgerEntries",

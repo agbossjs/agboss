@@ -1,6 +1,6 @@
 import { EXECUTION_LEASE } from "../../../app/lease-fence.js";
 import { systemClock, waitOf } from "../../../infrastructure/clock.js";
-import { LeaseTakeoverReason } from "../../../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../../../infrastructure/execution-audit-log.repository.js";
 import { HoldPhase } from "../hold-points.js";
 import { StoreHoldPoint } from "../store-points.js";
 import type { RunnableFaultScenario } from "../scenario.js";

@@ -92,7 +92,7 @@ describe("#799 AC5: what a set does not check is skipped, never passed", () => {
         "childExecutionQueue",
         "costLedger",
         "executionHistory",
-        "executionLeaseEvent",
+        "executionAuditLog",
         "executionRecord",
         "executionTree",
         "fencedEffect",

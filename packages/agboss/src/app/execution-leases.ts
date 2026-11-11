@@ -1,13 +1,13 @@
 import { scopeKeyOf } from "./lease-lost.js";
-import type * as LeaseEvents from "./lease-events.js";
+import type * as AuditLog from "./audit-log.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { EventMask, ExecutionObserverManager } from "../core/observer-manager.js";
 import {
   LeaseTakeoverReason,
-  type ExecutionLeaseEventRepository,
-} from "../infrastructure/execution-lease-event.repository.js";
+  type ExecutionAuditLogRepository,
+} from "../infrastructure/execution-audit-log.repository.js";
 import type {
   ExecutionLease,
   ExecutionLeaseRepository,
@@ -21,8 +21,8 @@ import { HeldLease } from "./held-lease.js";
 import { EXECUTION_LEASE, sentAtOf } from "./lease-fence.js";
 import { leaseReleases } from "./lease-releases.js";
 
-/** The lease events a held lease records (#501), in `lease-yields.ts` beside its other parts. */
-export { LeaseEventReports } from "./lease-yields.js";
+/** The audit events a held lease records (#501), in `lease-yields.ts` beside its other parts. */
+export { AuditLogReports } from "./lease-yields.js";
 
 /**
  * Who moves an execution tree (#265, Q58): `app.execute` / `app.resume` hold the tree's lease
@@ -83,7 +83,7 @@ export interface ExecutionLeases {
   tryHold(tree: ExecutionTree, take?: LeaseTake): Promise<HeldExecutionLease | undefined>;
 }
 
-/** What a holder records its takeovers with: the instance's lease log, absent = none. */
+/** What a holder records its takeovers with: the instance's audit log, absent = none. */
 export type LeaseTakeoverLog = Pick<
   LeaseTaking,
   "events" | "stopping" | "safetyMargin" | "heldLeases"
@@ -149,28 +149,28 @@ const isOver = async (take: LeaseTake | undefined): Promise<boolean> =>
   (await take?.isOver?.().catch((): boolean => false)) === true;
 
 /**
- * Which takes of a tree's lease are takeovers, and their record in the lease log (#501); the
- * recording itself (`lease-events.ts`) is not in the root import: an instance starts loading it
- * when it builds its lease log, so a takeover never waits for a module.
+ * Which takes of a tree's lease are takeovers, and their record in the audit log (#501); the
+ * recording itself (`audit-log.ts`) is not in the root import: an instance starts loading it
+ * when it builds its audit log, so a takeover never waits for a module.
  */
 
-/** What an instance records its lease events with. */
-export interface LeaseEventLog {
-  readonly repository: ExecutionLeaseEventRepository;
+/** What an instance records its audit events with. */
+export interface AuditLogWriter {
+  readonly repository: ExecutionAuditLogRepository;
   /** The application's observers, unmasked: they get the event as `mask` shows it. */
   readonly observer: ExecutionObserverManager;
   /** What an event and its row show (the application's PII observability mask). */
   readonly mask: EventMask;
   readonly log: FrameworkLog;
   readonly clock: Clock;
-  /** The recording (`lease-events.ts`), loading since the instance was built. */
-  readonly recording: Promise<typeof LeaseEvents>;
+  /** The recording (`audit-log.ts`), loading since the instance was built. */
+  readonly recording: Promise<typeof AuditLog>;
   /** The instance's count of the leases it holds (#485); absent = not counted. */
   readonly heldLeases?: HeldLeases | undefined;
 }
 
-/** What an instance's lease log is made of besides its infrastructure. */
-export interface LeaseEventParts {
+/** What an instance's audit log is made of besides its infrastructure. */
+export interface AuditLogParts {
   readonly observer: ExecutionObserverManager;
   /** The application's PII observability mask. */
   readonly mask: ObservabilityMask;
@@ -179,25 +179,25 @@ export interface LeaseEventParts {
   readonly heldLeases?: HeldLeases | undefined;
 }
 
-/** The instance's lease log: its store and clock, its observers, the application's mask. */
-export const leaseEventLogOf = (
-  infrastructure: Pick<Infrastructure, "leaseEvents" | "clock">,
-  { observer, mask, log, heldLeases }: LeaseEventParts,
-): LeaseEventLog => ({
+/** The instance's audit log: its store and clock, its observers, the application's mask. */
+export const auditLogWriterOf = (
+  infrastructure: Pick<Infrastructure, "auditLog" | "clock">,
+  { observer, mask, log, heldLeases }: AuditLogParts,
+): AuditLogWriter => ({
   heldLeases,
-  repository: infrastructure.leaseEvents,
+  repository: infrastructure.auditLog,
   observer,
   mask: (event) => mask.value(event),
   log,
   clock: infrastructure.clock,
-  recording: lazyLoad(import("./lease-events.js")),
+  recording: lazyLoad(import("./audit-log.js")),
 });
 
 /**
- * Why a site takes a tree's lease, for the lease log (#501): a take is reported as a takeover when
+ * Why a site takes a tree's lease, for the audit log (#501): a take is reported as a takeover when
  * the store names the holder whose lease expired (`takenOverFrom`), and at every take of a site
  * that continues a tree another pass was moving (`isTakeover`: the recovery sweep, a remote child's
- * reclaim, a re-acquire after a yield) — there `previousHolder…` only when the store names it.
+ * reclaim, its holder's after a yield) — there `previousHolder…` only when the store names it.
  */
 export interface LeaseTake {
   readonly reason: LeaseTakeoverReason;
@@ -215,11 +215,11 @@ export interface LeaseTake {
   readonly isOver?: () => Promise<boolean>;
 }
 
-/** What takes a tree's lease: the store, the clock and the instance's lease log. */
+/** What takes a tree's lease: the store, the clock and the instance's audit log. */
 export interface LeaseTaking {
   readonly repository: ExecutionLeaseRepository;
   readonly clock: Clock;
-  readonly events?: LeaseEventLog | undefined;
+  readonly events?: AuditLogWriter | undefined;
   /** Aborted when the instance's stop interrupts what still runs: no release waits past it (#508). */
   readonly stopping?: AbortSignal | undefined;
   /** What the holder takes off each answer's `remaining` (#533); absent: `LEASE_SAFETY_MARGIN`. */
@@ -228,13 +228,13 @@ export interface LeaseTaking {
   readonly heldLeases?: HeldLeases | undefined;
 }
 
-/** Whether a take of `lease` is a takeover the lease log records. */
+/** Whether a take of `lease` is a takeover the audit log records. */
 const isReported = (lease: ExecutionLease, take: LeaseTake | undefined): take is LeaseTake =>
   take !== undefined && (lease.takenOverFrom !== undefined || take.isTakeover === true);
 
 /** Records the take of `lease` when it is a takeover (#501); never throws. */
 export async function reportTake(
-  events: LeaseEventLog | undefined,
+  events: AuditLogWriter | undefined,
   lease: ExecutionLease,
   take: LeaseTake | undefined,
 ): Promise<void> {
@@ -256,11 +256,11 @@ export async function reportTake(
 }
 
 /**
- * The take of a re-acquire after a yield (#333 PR 4): always a takeover, at a new token, of the
+ * The take of a reclaim after a yield (#333 PR 4): always a takeover, at a new token, of the
  * tree `take` (the first take) named.
  */
-export const reacquiredOf = (take: LeaseTake | undefined): LeaseTake => ({
-  reason: LeaseTakeoverReason.Reacquired,
+export const reclaimedOf = (take: LeaseTake | undefined): LeaseTake => ({
+  reason: LeaseTakeoverReason.Reclaimed,
   isTakeover: true,
   ...(take?.rootExecutionId === undefined ? {} : { rootExecutionId: take.rootExecutionId }),
 });

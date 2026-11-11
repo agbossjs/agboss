@@ -53,7 +53,7 @@ export const METRICS = {
     "Children launched on any instance claimed by an instance, over the whole application (aggregate with max)",
   ),
   oldestQueued: gauge(
-    "agboss.cluster.children.oldest_queued_seconds",
+    "agboss.cluster.children.oldest_queued.age",
     "s",
     "How long the longest-waiting queued child has waited; 0 when none (aggregate with max)",
   ),
@@ -75,7 +75,7 @@ export const METRICS = {
     "Execution-tree leases the instance holds: roots it moves, children it claimed",
   ),
   takeovers: counter(
-    "agboss.instance.lease.takeovers",
+    "agboss.instance.leases.takeovers",
     "{takeover}",
     "Tree leases the instance took over, by reason (recoveries: recovered, unwinding)",
     ["reason"],
@@ -107,8 +107,8 @@ export const METRICS = {
   compensations: counter(
     "agboss.instance.compensations",
     "{action}",
-    "Automatic undo actions that ended on the instance, by workflow and status",
-    ["workflow", "status"],
+    "Automatic undo actions that ended on the instance, by workflow and outcome (its CompensationStatus)",
+    ["workflow", "outcome"],
   ),
 } as const satisfies Readonly<Record<string, MetricSpec>>;
 

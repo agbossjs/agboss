@@ -136,7 +136,7 @@ describe("#853: what a taker reads", () => {
         getTuple: () => Promise.resolve({ checkpoint: { id: "c2" }, pendingWrites }),
       },
     },
-    leaseEvents: {
+    auditLog: {
       findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: () =>
         Promise.resolve([{ ...takeover("c2", 1), occurredAt: "" }] as never),
     },
@@ -165,16 +165,16 @@ describe("#853: what a taker reads", () => {
     const sources = {
       ...sourcesOf([], log),
       tally,
-      leaseEvents: {
+      auditLog: {
         findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: () =>
-          Promise.reject(new Error("the lease log is down")),
+          Promise.reject(new Error("the audit log is down")),
       },
     };
 
     expect(await lostPassesAtTake(sources, state)).toBeUndefined();
     expect(log.warn).toHaveBeenCalledWith(
       "cost.unknown-unrecorded",
-      expect.stringContaining("the lease log is down"),
+      expect.stringContaining("the audit log is down"),
       { executionId: "root", tenantId: "default" },
     );
     expect(tally.unrecorded.mock.calls).toEqual([["lost-pass-workflow"]]);

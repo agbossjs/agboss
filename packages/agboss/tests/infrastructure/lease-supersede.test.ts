@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
-import { OutboundCallLeaseState } from "../../src/infrastructure/execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import type { FencedEffectRepository } from "../../src/infrastructure/fenced-effect.repository.js";
 import type { OutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";

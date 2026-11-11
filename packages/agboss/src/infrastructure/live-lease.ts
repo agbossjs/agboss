@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
-import { OutboundCallLeaseState } from "./execution-lease-event.repository.js";
+import { OutboundCallLeaseState } from "./execution-audit-log.repository.js";
 import type { OutboundCallLease } from "./outbound-call-record.js";
 
 /**

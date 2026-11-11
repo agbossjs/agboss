@@ -1,4 +1,4 @@
-import { LeaseTakeoverReason } from "../../../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../../../infrastructure/execution-audit-log.repository.js";
 import { FaultStepPoint } from "../fixture/pod-link.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { eventsOf, expectThat, heldStep, holdStep, startOrder, takenOverBy } from "./kit.js";

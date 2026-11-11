@@ -88,18 +88,18 @@ const runningRoots = (app: Pick<App, "resolve">) =>
   app.resolve(ExecutionRecordRepository).findByStatus(ExecutionRecordStatus.Running, 100);
 
 describe("#591: a repeated root id is refused before anything of the new tree is written", () => {
-  test("after the first tree finished: refused; its lease log is untouched; the next id runs", async ({
+  test("after the first tree finished: refused; its audit log is untouched; the next id runs", async ({
     app,
   }) => {
     await finishedRoot(app, "order-tree-7");
     const tree = { tenantId: "default", rootExecutionId: "order-tree-7" };
-    const logBefore = await app.leaseEventsOf(tree);
+    const logBefore = await app.auditLogOf(tree);
     minting.executions = ["order-tree-7"];
 
     const refused = await rejectionOf(execute(app, CountdownWorkflowStart, { left: 0 }));
 
     expectRefused(refused, "order-tree-7");
-    expect(await app.leaseEventsOf(tree)).toEqual(logBefore);
+    expect(await app.auditLogOf(tree)).toEqual(logBefore);
     const next = await execute(app, CountdownWorkflowStart, { left: 0 });
     expect(next.status).toBe(ExecutionStatus.Finished);
     expect(next.executionId).not.toBe("order-tree-7");

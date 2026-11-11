@@ -4,7 +4,7 @@ import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.j
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionHistoryRepository } from "../../../src/infrastructure/execution-history.repository.js";
-import { InMemoryExecutionLeaseEventRepository } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { InMemoryExecutionAuditLogRepository } from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryFencedEffectTransaction } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
@@ -18,7 +18,7 @@ import { SqliteChildExecutionQueueRepository } from "../../../src/infrastructure
 import { SqliteCostLedgerRepository } from "../../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 import { SqliteExecutionHistoryRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import {
-  SqliteExecutionLeaseEventRepository,
+  SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteExecutionRecordRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-record.repository.js";
@@ -58,8 +58,8 @@ export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => (
     ({ storeClock, application, database }) =>
       new InMemoryExecutionLeaseRepository(storeClock, application, database),
   ),
-  executionLeaseEvent: inMemoryTarget(
-    ({ database }) => new InMemoryExecutionLeaseEventRepository(database),
+  executionAuditLog: inMemoryTarget(
+    ({ database }) => new InMemoryExecutionAuditLogRepository(database),
   ),
   executionRecord: inMemoryTarget((seam) =>
     sharedInMemory(
@@ -97,8 +97,8 @@ export const sqliteStores = (): StoreSet<DatabaseSync> => ({
     ({ storeClock, application, connection }) =>
       new SqliteExecutionLeaseRepository(connection(), storeClock, application),
   ),
-  executionLeaseEvent: sqliteTarget(
-    ({ connection }) => new SqliteExecutionLeaseEventRepository(connection()),
+  executionAuditLog: sqliteTarget(
+    ({ connection }) => new SqliteExecutionAuditLogRepository(connection()),
   ),
   executionRecord: sqliteTarget(
     ({ clock, connection, application }) =>

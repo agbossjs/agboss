@@ -1,6 +1,6 @@
 /**
  * What `storeConformance` (#526) refuses before it registers anything: a store set whose fencing
- * contracts do not hold together — a lease store whose fenced-effect, outbound-call or lease-log
+ * contracts do not hold together — a lease store whose fenced-effect, outbound-call or audit-log
  * store is missing (its lease cases would never run: a double charge or a second owner nobody
  * tests), a fencing store without the lease store it checks, a contract both given and left out,
  * a store under a key that names no contract (#542: it would never be tested), no store at all, or
@@ -9,20 +9,16 @@
  */
 
 /** The fencing contracts a set with a lease store may leave out, by its `stores` key. */
-export type LeftOutContract = "executionLeaseEvent" | "fencedEffect" | "outboundCall";
+export type LeftOutContract = "executionAuditLog" | "fencedEffect" | "outboundCall";
 
 /** What each one's cases prove, for the message that says it is missing. */
 const PROVES: Readonly<Record<LeftOutContract, string>> = {
   fencedEffect: "its writes and the lease check in one transaction, a zombie's write refused",
   outboundCall: "its intents fenced by these leases, leaseStateOf's races with a late renewal",
-  executionLeaseEvent: "every row the core writes to the lease log, read back as it was",
+  executionAuditLog: "every row the core writes to the audit log, read back as it was",
 };
 
-const LEFT_OUT: readonly LeftOutContract[] = [
-  "fencedEffect",
-  "outboundCall",
-  "executionLeaseEvent",
-];
+const LEFT_OUT: readonly LeftOutContract[] = ["fencedEffect", "outboundCall", "executionAuditLog"];
 
 /** The keys a set gives, as `storeConformance` reads them. */
 export interface ClaimedSet {
@@ -145,7 +141,7 @@ export const CONTRACTS: readonly string[] = [
   "costLedger",
   "executionHistory",
   "executionLease",
-  "executionLeaseEvent",
+  "executionAuditLog",
   "executionRecord",
   "executionTree",
   "fencedEffect",

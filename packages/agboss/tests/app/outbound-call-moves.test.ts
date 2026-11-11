@@ -9,7 +9,7 @@ import { SilentLogger } from "../../src/infrastructure/logger.js";
  * send outside any frame.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { OutboundCallReport } from "../../src/app/lease-events.js";
+import type { OutboundCallReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";

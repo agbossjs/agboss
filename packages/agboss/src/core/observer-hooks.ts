@@ -6,7 +6,7 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type { LeaseEventHooks } from "../flow/observers/lease-events.js";
+import type { AuditLogHooks } from "../flow/observers/audit-log.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -33,9 +33,9 @@ import type {
   ToolEndEvent,
   ToolStartEvent,
 } from "./observability.js";
+import type { HookResult } from "./hook-result.js";
 
-/** What a hook may return: it is awaited, its value is ignored. */
-type HookResult = Promise<void> | void;
+export type { HookResult } from "./hook-result.js";
 
 /**
  * Observer hooks, one interface per hook (#261). An observer class implements any of them and is
@@ -198,7 +198,7 @@ export type ExecutionObserver = Partial<
     OnQuorumDecided &
     OnCompensationStart &
     OnCompensationEnd &
-    LeaseEventHooks
+    AuditLogHooks
 >;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */

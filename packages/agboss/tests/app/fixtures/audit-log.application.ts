@@ -15,9 +15,9 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import {
-  InMemoryExecutionLeaseEventRepository,
-  type ExecutionLeaseEventRecord,
-} from "../../../src/infrastructure/execution-lease-event.repository.js";
+  InMemoryExecutionAuditLogRepository,
+  type ExecutionAuditEventRecord,
+} from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { hours, type Milliseconds } from "../../../src/units/index.js";
 import {
@@ -43,19 +43,19 @@ import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environ
 
 /**
  * #501 — the fence's release (fence.workflow.ts) and a parent waiting for an `AnyInstance` child
- * (fence-children.workflow.ts), observed by the lease log's hooks: an observer that keeps every
+ * (fence-children.workflow.ts), observed by the audit log's hooks: an observer that keeps every
  * takeover event, one that throws, a lease store that names no previous holder (an external store
- * from before #501) and a lease log that cannot write.
+ * from before #501) and a audit log that cannot write.
  */
 
-/** What the lease hooks saw, in order (reset with `resetLeaseEvents`). */
+/** What the lease hooks saw, in order (reset with `resetAuditLog`). */
 export const leaseSeen = {
   takeovers: [] as ExecutionLeaseTakeoverEvent[],
   handOvers: [] as StepHandedOverEvent[],
   fencedEffects: [] as FencedEffectEvent[],
 };
 
-export function resetLeaseEvents(): void {
+export function resetAuditLog(): void {
   leaseSeen.takeovers.length = 0;
   leaseSeen.handOvers.length = 0;
   leaseSeen.fencedEffects.length = 0;
@@ -63,7 +63,7 @@ export function resetLeaseEvents(): void {
 
 /** Keeps every takeover and hand-over event. */
 @Injectable()
-export class LeaseEventObserver
+export class AuditLogObserver
   implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
 {
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
@@ -77,7 +77,7 @@ export class LeaseEventObserver
   }
 }
 
-/** Throws at every lease event: a broken observer. */
+/** Throws at every audit event: a broken observer. */
 @Injectable()
 export class ThrowingLeaseObserver
   implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
@@ -115,26 +115,26 @@ export class SilentTakeoverLeaseRepository extends InMemoryExecutionLeaseReposit
   }
 }
 
-/** A lease log whose store is down: every save rejects. */
+/** A audit log whose store is down: every save rejects. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-export class DownLeaseEventRepository extends InMemoryExecutionLeaseEventRepository {
-  override save(record: ExecutionLeaseEventRecord): Promise<void> {
-    return Promise.reject(new Error(`the lease log is down (${record.kind})`));
+export class DownAuditLogRepository extends InMemoryExecutionAuditLogRepository {
+  override save(record: ExecutionAuditEventRecord): Promise<void> {
+    return Promise.reject(new Error(`the audit log is down (${record.kind})`));
   }
 }
 
 const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow, FarParentWorkflow];
 
 @Application({
-  name: "lease-events-application",
+  name: "audit-log-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
-  observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
+  observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   budgets: TEST_BUDGETS,
 })
-export class LeaseEventsApplication {}
+export class AuditLogApplication {}
 
 @Application({
   name: "throwing-lease-observer-application",
@@ -142,7 +142,7 @@ export class LeaseEventsApplication {}
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
-  observers: [ThrowingLeaseObserver, RecoveryLog, ToolEndLog, LeaseEventObserver],
+  observers: [ThrowingLeaseObserver, RecoveryLog, ToolEndLog, AuditLogObserver],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
 })
@@ -154,44 +154,44 @@ export class ThrowingLeaseObserverApplication {}
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
-  observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
+  observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   providers: [SilentTakeoverLeaseRepository],
   budgets: TEST_BUDGETS,
 })
 export class SilentTakeoverApplication {}
 
 @Application({
-  name: "down-lease-log-application",
+  name: "down-audit-log-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
-  observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
-  providers: [DownLeaseEventRepository, RecordingLogger],
+  observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
+  providers: [DownAuditLogRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
 })
 export class DownLeaseLogApplication {}
 
 @Application({
-  name: "kept-lease-events-application",
+  name: "kept-audit-log-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: WORKFLOWS,
-  observers: [RecoveryLog, ToolEndLog, LeaseEventObserver],
+  observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   retention: { executionRecords: hours(24) },
   budgets: TEST_BUDGETS,
 })
-export class KeptLeaseEventsApplication {}
+export class KeptAuditLogApplication {}
 
-/** #501 PR 3 — the charge of fenced-effect.workflow.ts, its fenced effect told to the lease log. */
+/** #501 PR 3 — the charge of fenced-effect.workflow.ts, its fenced effect told to the audit log. */
 @Application({
   name: "fenced-effect-events-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
-  observers: [RecoveryLog, LeaseEventObserver],
+  observers: [RecoveryLog, AuditLogObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
   providers: [InMemoryFencedEffectRepository],
 })
@@ -203,7 +203,7 @@ export class FencedEffectEventsApplication {}
   environment: IdempotencyKeyEnvironment,
   idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
-  observers: [ThrowingLeaseObserver, RecoveryLog, LeaseEventObserver],
+  observers: [ThrowingLeaseObserver, RecoveryLog, AuditLogObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
 })

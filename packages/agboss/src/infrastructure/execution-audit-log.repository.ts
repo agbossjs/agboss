@@ -5,18 +5,18 @@ import type { FencedEffectOrigin } from "./fenced-effect.repository.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 
 /**
- * Infrastructure (#501): the lease log — an append-only record of what happened to the leases of an
+ * Infrastructure (#501): the audit log — an append-only record of what happened to the leases of an
  * application's execution trees: who took a tree's lease over (`Takeover`) and which step stopped
  * because it lost it (`HandedOver`). Identities and tokens only, never a payload; masked like
  * observer events. Always written, whatever `retention.executionRecords` says, before the observers
- * hear of it, and readable while the tree runs (`app.leaseEventsOf`); the recovery sweep removes the
- * rows older than `@Application({ retention: { leaseEvents } })` (default `hours(24)`). Listed only in
- * `@Application({ providers })`; the built-in default is in memory, `SqliteExecutionLeaseEventRepository`
+ * hear of it, and readable while the tree runs (`app.auditLogOf`); the recovery sweep removes the
+ * rows older than `@Application({ retention: { auditLog } })` (default `hours(24)`). Listed only in
+ * `@Application({ providers })`; the built-in default is in memory, `SqliteExecutionAuditLogRepository`
  * keeps it in the application's SQLite file.
  */
 
-/** What a row of the lease log records. */
-export enum ExecutionLeaseEventKind {
+/** What a row of the audit log records. */
+export enum ExecutionAuditEventKind {
   /** An instance took a tree's lease over (`onExecutionLeaseTakeover`). */
   Takeover = "takeover",
   /** A step stopped without failing: its lease was lost or fenced, or the app stopped (`onStepHandedOver`). */
@@ -27,7 +27,7 @@ export enum ExecutionLeaseEventKind {
   OutboundCall = "outbound-call",
 }
 
-/** What happened to a call that leaves the system (#505), as the lease log keeps it. */
+/** What happened to a call that leaves the system (#505), as the audit log keeps it. */
 export enum OutboundCallEventOutcome {
   /** Its intent was recorded, before anything was sent. */
   Recorded = "recorded",
@@ -72,7 +72,7 @@ export enum OutboundCallLeaseState {
   LeaseClosed = "lease-closed",
 }
 
-/** How one call of a fenced effect (#500) went, as the lease log keeps it. */
+/** How one call of a fenced effect (#500) went, as the audit log keeps it. */
 export enum FencedEffectEventOutcome {
   /** The write ran now (`FencedEffectStatus.Ran`). */
   Ran = "ran",
@@ -97,7 +97,7 @@ export enum LeaseTakeoverReason {
   /** A worker runs or reclaims a `ChildPlacement.AnyInstance` child under its own lease (#333). */
   RemoteChild = "remote-child",
   /** Its holder took its yielded lease back after waiting for remote children, at a new token. */
-  Reacquired = "reacquired",
+  Reclaimed = "reclaimed",
 }
 
 /** Why a step was handed over. */
@@ -127,19 +127,19 @@ export enum HandOverSite {
 }
 
 /** The step a row is about: its join keys. */
-export interface LeaseEventStep {
+export interface AuditEventStep {
   readonly nodeId: string;
   readonly visitNumber: number;
   readonly idempotencyKey: string;
 }
 
 /** What every row carries: when, which tree and execution, and the lease. */
-export interface ExecutionLeaseEventBase {
-  readonly kind: ExecutionLeaseEventKind;
+export interface ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind;
   /** When it happened (ISO 8601, the application's `Clock`). */
   readonly occurredAt: string;
   readonly tenantId: string;
-  /** The tree's root: what `app.leaseEventsOf` finds the row by. */
+  /** The tree's root: what `app.auditLogOf` finds the row by. */
   readonly rootExecutionId: string;
   /** The execution whose lease was taken over, or whose step was handed over. */
   readonly executionId: string;
@@ -151,9 +151,9 @@ export interface ExecutionLeaseEventBase {
   readonly holderInstanceId: string;
 }
 
-/** A takeover of a tree's lease (`ExecutionLeaseEventKind.Takeover`). */
-export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
-  readonly kind: ExecutionLeaseEventKind.Takeover;
+/** A takeover of a tree's lease (`ExecutionAuditEventKind.Takeover`). */
+export interface LeaseTakeoverRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.Takeover;
   readonly reason: LeaseTakeoverReason;
   /** The holder whose lease had expired (the store's `takenOverFrom`), when the store names it. */
   readonly previousHolderInstanceId?: string;
@@ -162,23 +162,23 @@ export interface LeaseTakeoverRecord extends ExecutionLeaseEventBase {
   readonly checkpointId?: string;
 }
 
-/** A step handed over (`ExecutionLeaseEventKind.HandedOver`). */
-export interface StepHandedOverRecord extends ExecutionLeaseEventBase {
-  readonly kind: ExecutionLeaseEventKind.HandedOver;
+/** A step handed over (`ExecutionAuditEventKind.HandedOver`). */
+export interface StepHandedOverRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.HandedOver;
   readonly reason: HandOverReason;
   readonly site: HandOverSite;
-  readonly step: LeaseEventStep;
+  readonly step: AuditEventStep;
   /** The newer token the external system saw, when it said (a fenced write). */
   readonly observedToken?: number;
 }
 
-/** One call of a step's fenced effect (`ExecutionLeaseEventKind.FencedEffect`), never its result. */
-export interface FencedEffectRecord extends ExecutionLeaseEventBase {
-  readonly kind: ExecutionLeaseEventKind.FencedEffect;
+/** One call of a step's fenced effect (`ExecutionAuditEventKind.FencedEffect`), never its result. */
+export interface FencedEffectRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.FencedEffect;
   /** The effect's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
   readonly outcome: FencedEffectEventOutcome;
-  readonly step: LeaseEventStep;
+  readonly step: AuditEventStep;
   /** The token the stored result was first written under (a replay on a newer lease: the older). */
   readonly writtenToken?: number;
   /** A business key's replay of what another step or execution wrote (#508): that step. */
@@ -188,11 +188,11 @@ export interface FencedEffectRecord extends ExecutionLeaseEventBase {
 }
 
 /**
- * One move of a step's call that leaves the system (`ExecutionLeaseEventKind.OutboundCall`, #505):
+ * One move of a step's call that leaves the system (`ExecutionAuditEventKind.OutboundCall`, #505):
  * never its request or its result.
  */
-export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
-  readonly kind: ExecutionLeaseEventKind.OutboundCall;
+export interface OutboundCallEventRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.OutboundCall;
   /** The call's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
   readonly target: string;
@@ -201,7 +201,7 @@ export interface OutboundCallEventRecord extends ExecutionLeaseEventBase {
   readonly status: OutboundCallStatus;
   readonly attempt: number;
   readonly outcome: OutboundCallEventOutcome;
-  readonly step: LeaseEventStep;
+  readonly step: AuditEventStep;
   /** A business key's replay of a call another step or execution made (#508): that step. */
   readonly replayedFrom?: FencedEffectOrigin;
   /**
@@ -223,8 +223,8 @@ export interface OutboundCallClosedLease {
   readonly token: number;
 }
 
-/** One row of the lease log. */
-export type ExecutionLeaseEventRecord =
+/** One row of the audit log. */
+export type ExecutionAuditEventRecord =
   LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
 
 /** The outcomes a row written before #825 names by their old values. */
@@ -234,12 +234,12 @@ const RENAMED_OUTCOMES: Readonly<Record<string, OutboundCallEventOutcome>> = {
 };
 
 /**
- * A row of the lease log as this version names it (#825, the migration of rows written before):
+ * A row of the audit log as this version names it (#825, the migration of rows written before):
  * an outbound call's `superseded` is `attempt-superseded`, its `lease-superseded` is `lease-closed`
  * and its `supersededLease` is `closedLease`. Every other row, and a row already current, as it is.
  */
-export function currentLeaseEventOf(record: ExecutionLeaseEventRecord): ExecutionLeaseEventRecord {
-  if (record.kind !== ExecutionLeaseEventKind.OutboundCall) return record;
+export function currentAuditEventOf(record: ExecutionAuditEventRecord): ExecutionAuditEventRecord {
+  if (record.kind !== ExecutionAuditEventKind.OutboundCall) return record;
   const { supersededLease, ...rest } = record as OutboundCallEventRecord & {
     readonly supersededLease?: OutboundCallClosedLease;
   };
@@ -252,18 +252,18 @@ export function currentLeaseEventOf(record: ExecutionLeaseEventRecord): Executio
   return { ...rest, outcome, ...closed };
 }
 
-export abstract class ExecutionLeaseEventRepository {
+export abstract class ExecutionAuditLogRepository {
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
 
   /** Appends a row; rows are never changed. */
-  abstract save(record: ExecutionLeaseEventRecord): Promise<void>;
+  abstract save(record: ExecutionAuditEventRecord): Promise<void>;
 
   /** The rows of one tree of a tenant, oldest first; rows of one moment in the order saved. */
   abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
     tenantId: string,
     rootExecutionId: string,
-  ): Promise<readonly ExecutionLeaseEventRecord[]>;
+  ): Promise<readonly ExecutionAuditEventRecord[]>;
 
   /** Removes every row that happened before `cutoff` (the recovery sweep, `now - retention`). */
   abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
@@ -271,7 +271,7 @@ export abstract class ExecutionLeaseEventRepository {
 
 /** The built-in default: the rows in this instance's memory (a test's instances share them). */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-export class InMemoryExecutionLeaseEventRepository extends ExecutionLeaseEventRepository {
+export class InMemoryExecutionAuditLogRepository extends ExecutionAuditLogRepository {
   constructor(private readonly database: InMemoryDatabase) {
     super();
   }
@@ -280,16 +280,16 @@ export class InMemoryExecutionLeaseEventRepository extends ExecutionLeaseEventRe
     return Promise.resolve();
   }
 
-  save(record: ExecutionLeaseEventRecord): Promise<void> {
-    this.database.executionLeaseEvents.push(structuredClone(record));
+  save(record: ExecutionAuditEventRecord): Promise<void> {
+    this.database.executionAuditLog.push(structuredClone(record));
     return Promise.resolve();
   }
 
   findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
     tenantId: string,
     rootExecutionId: string,
-  ): Promise<readonly ExecutionLeaseEventRecord[]> {
-    const found = this.database.executionLeaseEvents
+  ): Promise<readonly ExecutionAuditEventRecord[]> {
+    const found = this.database.executionAuditLog
       .filter((row) => row.tenantId === tenantId && row.rootExecutionId === rootExecutionId)
       // a stable sort: rows of one moment keep the order they were saved in
       .sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt));
@@ -297,10 +297,10 @@ export class InMemoryExecutionLeaseEventRepository extends ExecutionLeaseEventRe
   }
 
   deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
-    const kept = this.database.executionLeaseEvents.filter(
+    const kept = this.database.executionAuditLog.filter(
       (row) => Date.parse(row.occurredAt) >= cutoff.getTime(),
     );
-    this.database.executionLeaseEvents.splice(0, Infinity, ...kept);
+    this.database.executionAuditLog.splice(0, Infinity, ...kept);
     return Promise.resolve();
   }
 }

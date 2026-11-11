@@ -19,7 +19,7 @@ import {
 } from "../../../src/flow/compensation.js";
 import { undone, type UndoSite } from "../../../src/flow/runtime/compensation/undo.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
-import { HandOverSite } from "../../../src/infrastructure/execution-lease-event.repository.js";
+import { HandOverSite } from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { VirtualClock } from "../../../src/testing/index.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { entryOf } from "./fixtures/compensation-entries.js";

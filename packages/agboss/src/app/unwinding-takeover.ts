@@ -8,7 +8,7 @@ import { recordEndedOf } from "./recovery-pass.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { treeOf } from "./tree-ends.js";
-import { LeaseTakeoverReason } from "../infrastructure/execution-lease-event.repository.js";
+import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
 import type { TreeState } from "./tree-move-types.js";
 

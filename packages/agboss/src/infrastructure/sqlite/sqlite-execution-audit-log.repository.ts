@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
-  ExecutionLeaseEventRepository,
-  type ExecutionLeaseEventRecord,
-} from "../execution-lease-event.repository.js";
+  ExecutionAuditLogRepository,
+  type ExecutionAuditEventRecord,
+} from "../execution-audit-log.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 const EVENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lease_events (
@@ -16,17 +16,17 @@ CREATE INDEX IF NOT EXISTS execution_lease_events_occurred ON execution_lease_ev
 const EventRow = z.object({ record: z.string() });
 
 /** A row's record (written by `save`: the record as JSON). */
-const recordOf = (row: unknown): ExecutionLeaseEventRecord =>
+const recordOf = (row: unknown): ExecutionAuditEventRecord =>
   // the column holds exactly what `save` wrote
-  JSON.parse(EventRow.parse(row).record) as ExecutionLeaseEventRecord;
+  JSON.parse(EventRow.parse(row).record) as ExecutionAuditEventRecord;
 
 /**
- * `ExecutionLeaseEventRepository` on the application's SQLite file (#501): one row per event, its
+ * `ExecutionAuditLogRepository` on the application's SQLite file (#501): one row per event, its
  * record as JSON beside the columns it is found by, ordered by the time it happened and then by the
  * order it was saved. Listed in `@Application({ providers })`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection] })
-export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepository {
+export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
     connection.ensureSchema("execution_lease_events", EVENTS_SCHEMA);
@@ -36,7 +36,7 @@ export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepo
     return this.connection.ping();
   }
 
-  save(record: ExecutionLeaseEventRecord): Promise<void> {
+  save(record: ExecutionAuditEventRecord): Promise<void> {
     this.connection.database
       .prepare(
         `INSERT INTO execution_lease_events (tenant_id, root_execution_id, occurred_at, record)
@@ -54,7 +54,7 @@ export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepo
   findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
     tenantId: string,
     rootExecutionId: string,
-  ): Promise<readonly ExecutionLeaseEventRecord[]> {
+  ): Promise<readonly ExecutionAuditEventRecord[]> {
     const rows = this.connection.database
       .prepare(
         `SELECT record FROM execution_lease_events WHERE tenant_id = ? AND root_execution_id = ?
@@ -72,4 +72,4 @@ export class SqliteExecutionLeaseEventRepository extends ExecutionLeaseEventRepo
   }
 }
 
-sqliteImplementation(SqliteExecutionLeaseEventRepository);
+sqliteImplementation(SqliteExecutionAuditLogRepository);

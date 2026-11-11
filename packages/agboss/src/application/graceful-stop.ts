@@ -12,7 +12,7 @@ import { waitOf, lazyLoad } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
-import type { LeaseEventLog } from "../app/execution-leases.js";
+import type { AuditLogWriter } from "../app/execution-leases.js";
 
 import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
@@ -154,8 +154,8 @@ export interface InstanceParts {
   readonly stepSlots?: StepCapacity | undefined;
   /** The instance's running step bodies at its stop (#367). */
   readonly stepsAtStop: StepsAtStop;
-  /** The instance's lease log (#501): its remote children's takeovers and hand-overs. */
-  readonly leaseEvents?: LeaseEventLog;
+  /** The instance's audit log (#501): its remote children's takeovers and hand-overs. */
+  readonly auditLog?: AuditLogWriter;
 }
 
 /** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
@@ -179,7 +179,7 @@ function childWorkersOf(
   ]).then(([workers, registry]) =>
     workers.startChildWorkers({
       queue: infrastructure.childQueue,
-      leases: leasesOf(infrastructure, parts.leaseEvents),
+      leases: leasesOf(infrastructure, parts.auditLog),
       trees: infrastructure.executionTrees,
       clock: infrastructure.clock,
       log,
@@ -220,8 +220,8 @@ export function stopOf(
     executionRecordRetention: assembled.executionRecordRetention,
     fencedEffects: parts.infrastructure.fencedEffects,
     fencedEffectRetention: assembled.fencedEffects.retention,
-    leaseEvents: parts.infrastructure.leaseEvents,
-    leaseEventRetention: assembled.leaseEventRetention,
+    auditLog: parts.infrastructure.auditLog,
+    auditLogRetention: assembled.auditLogRetention,
     expiries: [a2aTaskExpiryOf(parts.infrastructure.a2aTasks, assembled.a2aTaskRetention)],
     outboundCalls: parts.infrastructure.outboundCalls,
     outboundCallRetention: assembled.outboundCalls.retention,
@@ -251,7 +251,7 @@ export function stopOf(
 }
 
 /** The leases of the instance's lease holders (its child workers), on its leasing (#471). */
-function leasesOf(infrastructure: Infrastructure, events?: LeaseEventLog): ExecutionLeases {
+function leasesOf(infrastructure: Infrastructure, events?: AuditLogWriter): ExecutionLeases {
   const { repository, clock } = leasingOf(infrastructure);
   return executionLeasesOf(repository, clock, { events });
 }
