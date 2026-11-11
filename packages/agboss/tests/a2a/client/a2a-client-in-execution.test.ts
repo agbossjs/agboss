@@ -63,7 +63,8 @@ describe("#809: the accept round trip through OutboundCalls", () => {
 
     expect(agent.count("SendMessage")).toBe(1); // nothing sent again
     expect(errors[0]).toBeInstanceOf(OutboundCallUnreconciledError);
-    expect((errors[0] as OutboundCallUnreconciledError).reason).toMatch(/foreign A2A peer/);
+    expect((errors[0] as OutboundCallUnreconciledError).reason).toBe("reconcile.unknown");
+    expect((errors[0] as OutboundCallUnreconciledError).detail).toMatch(/foreign A2A peer/);
   });
 
   it("the messageId is the call's: the same on every attempt, another for another step", async () => {

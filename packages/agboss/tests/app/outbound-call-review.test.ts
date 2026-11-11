@@ -210,7 +210,7 @@ describe("#508 review 6: what a business key derives is keyed", () => {
     expect(call?.status).toBe(OutboundCallStatus.Completed);
   });
 
-  it("an unreconciled call's reason is masked by the frame's mask", async () => {
+  it("an unreconciled call's detail is masked by the frame's mask", async () => {
     const masked = (text: string) => Promise.resolve(text.replace(/\S+@\S+/u, "<email>"));
     const run = {
       frame: { execution: { observability: { traceData: masked } } },

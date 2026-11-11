@@ -9,6 +9,7 @@
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
+import * as stores from "../../src/stores/index.js";
 import {
   BusinessKeyConflictError,
   InvalidFencedEffectNameError,
@@ -43,16 +44,19 @@ const BUSINESS: EffectKey = effectKeyForTesting(STEP, {
 
 const OTHER_STEP = { executionId: "root-2", nodeId: "charge-action", visitNumber: 3 };
 
-describe("#526 AC5: the helpers are on the root entry", () => {
+describe("#526 AC5, #890 AC1: the helpers are on the store entry, LeaseCheck on the root", () => {
   it.each([
     "assertEffectName",
     "effectKeyIdentityOf",
     "pendingOutboundCallOf",
     "replayedFromOf",
     "storedKeyFactsOf",
-    "LeaseCheck",
-  ])("%s is exported by @agboss/core", (name) => {
-    expect(name in root).toBe(true);
+  ])("%s is exported by @agboss/core/stores", (name) => {
+    expect(name in stores).toBe(true);
+  });
+
+  it("LeaseCheck is exported by @agboss/core", () => {
+    expect("LeaseCheck" in root).toBe(true);
   });
 });
 

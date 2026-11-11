@@ -146,11 +146,8 @@ async function reconciled<TRequest, TResult>(
   try {
     verdict = await run.options.reconcile(lookupOf(run, found, ages));
   } catch (error) {
-    throw await unreconciled(
-      "reconcile.threw",
-      `reconcile threw: ${errorRecordOf(error).message}`,
-      error,
-    );
+    const detail = `reconcile threw: ${errorRecordOf(error).message}`;
+    throw await unreconciled("reconcile.threw", detail, error);
   }
   if (!isReconciliation(verdict))
     throw await unreconciled(

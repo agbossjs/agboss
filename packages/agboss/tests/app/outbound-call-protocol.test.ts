@@ -140,11 +140,12 @@ describe("#505: an intent left pending, reconciled", () => {
       target: "payments",
       operation: "charge",
       idempotencyKey: KEY,
-      reason: "the bank has not settled it",
+      reason: "reconcile.unknown",
+      detail: "the bank has not settled it",
       nodeId: "charge-order-action",
     });
     expect(String(failure)).toMatch(
-      /left pending and could not be reconciled: the bank has not settled it/,
+      /left pending and could not be reconciled \(reconcile\.unknown\): the bank has not settled it/,
     );
     expect(again).toBeInstanceOf(OutboundCallUnreconciledError);
     expect(gateway.lookups).toHaveLength(2);
@@ -159,7 +160,8 @@ describe("#505: an intent left pending, reconciled", () => {
 
     expect(failure).toBeInstanceOf(OutboundCallUnreconciledError);
     expect(failure).toMatchObject({
-      reason: "reconcile threw: the provider's lookup is down",
+      reason: "reconcile.threw",
+      detail: "reconcile threw: the provider's lookup is down",
       cause: { message: "the provider's lookup is down" },
     });
   });
@@ -169,7 +171,8 @@ describe("#505: an intent left pending, reconciled", () => {
     gateway.lookup = LookupMode.NoVerdict;
 
     await expect(run(order)).rejects.toMatchObject({
-      reason: "reconcile gave no OutboundCallReconciliation verdict",
+      reason: "reconcile.no-verdict",
+      detail: "reconcile gave no OutboundCallReconciliation verdict",
     });
     expect(gateway.calls).toHaveLength(1);
   });
