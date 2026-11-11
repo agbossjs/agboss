@@ -31,8 +31,8 @@ own venv, `uv sync --frozen`).
 
 | Run | Tests passed | failed | skipped | MUST requirements passing |
 | --- | --- | --- | --- | --- |
-| as published | 67 | 9 | 189 | 49 |
-| with `tck-defects.patch` | 86 | 3 | 176 | 65 |
+| as published | 69 | 7 | 189 | 50 |
+| with `tck-defects.patch` | 88 | 1 | 176 | 66 of 67 |
 
 The tests skipped are the gRPC and HTTP+JSON variants (no such interface on the card), the push
 notification methods (`capabilities.pushNotifications: false`), and requirements this TCK does not
@@ -56,13 +56,17 @@ prints every requirement that does not pass with its reason.
 
 ### What AGBoss 0.1.1 does not do (expected failures)
 
-- **DM-ART-001 (MUST), its file variants**: the `tck-artifact-file` / `tck-artifact-file-url`
-  scenarios need an artifact with a file part; AGBoss 0.1.1 has no file parts (an output is text or
-  one `data` part). Its text and data variants pass. File parts: #859.
 - **DM-MSG-001 (MUST)**: the `tck-message-response` scenario needs a stateless `Message` answer;
   every AGBoss send is a durable task (one task = one execution). The spec allows either answer.
   A direct `Message` answer: #860.
 - **CORE-HIST-004 (MAY)**: no task history beyond the status message.
+
+## Passing since #859
+
+- **DM-ART-001 (MUST), its file variants**: the conformance agent answers `tck-artifact-file` with
+  a `raw` file part and `tck-artifact-file-url` with a `url` one (`output.txt`, `text/plain`), its
+  finish's output a `WorkflowFinishFileDto` made by the `A2AFiles` service — see
+  [A2A → files](A2A#files--raw-and-url-parts-859).
 
 ## Fixed by the TCK (#811)
 

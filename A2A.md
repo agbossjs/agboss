@@ -149,8 +149,8 @@ protocolVersion: "1.0" }`.
 - **A message** names its skill in `metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional
   with one export; else `-32602` listing the skill ids) and carries text parts (a text start) or one
   `data` part, checked against the start's input before anything is kept (`-32602`, `dto.invalid`,
-  the fields and the schema in the error's `metadata`); a file part is `-32005`. Its `contextId` is
-  the task's thread (the caller's own, or one minted).
+  the fields and the schema in the error's `metadata`); a file part is `-32005` unless the start's
+  input holds files (below). Its `contextId` is the task's thread (the caller's own, or one minted).
 - **One task is one root execution**, under the task's id, kept in `A2ATaskRepository`
   (`@Application({ retention: { a2aTasks } })`). The same `messageId` from the same tenant and owner
   gets the same task — never a second run, on any instance; with other content it is `-32602`. A
@@ -198,6 +198,52 @@ protocolVersion: "1.0" }`.
 - A refused request **runs nothing**: no task, no `onExecutionStart`, no thread, no record, no model
   call — and never as the default tenant. A streaming caller gets the real status too.
 - The host's `reason` goes on the wire (its own wording); an exception's text never does.
+
+### Files — `raw` and `url` parts (#859)
+
+A skill takes files when its start's input DTO has `A2AFileDto` fields — `@Nested(A2AFileDto)` for
+one, `@ListOf(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file as a descriptor
+(`mediaType`, `filename`, `sha256`, `sizeBytes`, and where its bytes are: `fileId` in the store,
+`inline` base64, or `url`) and reads its bytes with the `A2AFiles` service (`deps: [A2AFiles]`,
+`read(file)`); it makes one with `save({ bytes, mediaType, filename })` or names one by reference
+with `fromUrl(url, { mediaType, filename })`. A finish whose output holds files —
+`WorkflowFinishFileDto { file }`, `WorkflowFinishFilesDto { files }`, or any DTO with file fields —
+answers with one file part per file (`metadata[skills-uri].field` naming its field), then one
+`data` part of its other fields. The card lists the media types in `inputModes` / `outputModes`.
+
+| Rule | What happens |
+| --- | --- |
+| where a file goes | into the field its part names in `metadata["https://agboss.dev/a2a/skills/v1"].field`; unnamed ones in order — each one-file field not filled yet takes one, the first list the rest; one left over `-32602 a2a.too-many-files-for-field` |
+| a data part naming a file field | `-32602 a2a.file-field-in-data` — a descriptor is the server's, never the caller's, with file parts or without |
+| a file below the top level | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `A2AFileDto` in top-level fields only; a client built with such a contract refuses to call |
+| limits | `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`: `maxFileSize` (64 KB), `maxTotalFileSize` (64 KB), `maxFiles` (5) — `-32602 a2a.file-too-large` / `a2a.files-too-large` / `a2a.too-many-files`; `[a2a.file-options-invalid]` at assembly |
+| media types | `allowedMediaTypes` (PNG, JPEG, WebP, GIF, PDF, plain text, Markdown, CSV, JSON): another `-32005 a2a.file-media-type`; the bytes checked against the declared type (signatures, valid UTF-8, JSON) — `-32602 a2a.media-type-mismatch` |
+| a file by `url` | fetched once at the admission, before the task is kept: `https:` on an origin of `allowedFileOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of loopback, private, link-local, CGNAT or unique-local ranges (the lookup's answer checked, `a2a.file-address-denied`), the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`) |
+| a resend | the same `messageId` with the same bytes (their SHA-256) or url gets the same task, nothing fetched again; other bytes `-32602 a2a.message-id-reused` |
+| a follow-up | text or data only: a file `-32005` |
+| `maxBodySize` | unset: 1 MB, or room for the largest `maxTotalFileSize` as base64 and 256 KB more |
+
+**Where the bytes are.** With no `A2AFileRepository` listed, a file rides inline in its task's own
+records (the checkpoint, the task's output) — silently up to 64 KB, with the warning
+`[a2a.inline-files-without-store]` up to 256 KB (an error under `--strict`), above it
+`[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryA2AFileRepository`,
+`LocalDiskA2AFileRepository` on the environment's `a2aFilesPath`, `S3A2AFileRepository` — a bucket
+every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
+`a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
+`a2aS3SecretAccessKey` —, or your own, proved by
+`a2aFileContract`); on leases the instances share, one host's store with files above 256 KB is
+`[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
+artifact serves only its own. They are removed `@Application({ retention: { a2aFiles } })` after
+the task is over (default and at most `a2aTasks`) — never while it waits, however long an
+`INPUT_REQUIRED` task is paused.
+
+**The client.** `execute(input)` sends `A2AClientFile.fromBytes(bytes, { mediaType, filename })`
+(a `raw` part) or `A2AClientFile.fromUrl(url, …)` (a `url` part) in an input's file fields, a
+stored file of the calling task read first; an answer's file parts fill the output DTO's file
+fields (a foreign agent's unnamed parts into `WorkflowFinishFileDto` / `WorkflowFinishFilesDto`,
+or the DTO's only file field), never a descriptor from a data part; `send` gives
+`A2ATaskResult.files`; `client.downloadFile(file, { maxSize?, signal? })` gives the bytes — a
+`url` through the client's own fetch, on its origins only.
 
 ## 4. The client side — A2A v1.0 (#809)
 

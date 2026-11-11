@@ -3,6 +3,21 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A file parts in messages and artifacts (#859)
+
+- **Added**: `raw` and `url` file parts — a skill whose input DTO has `A2AFileDto` fields takes
+  them, bounded by `@A2AExpose({ skills: { [id]: { files } } })` / `@Application({ a2aFiles })`,
+  each checked against its media type, a url fetched SSRF-safe once at the admission; a finish with
+  file fields (`WorkflowFinishFileDto`, `WorkflowFinishFilesDto`) answers with file parts; the
+  `A2AFiles` service; `A2AFileRepository` (`InMemoryA2AFileRepository`,
+  `LocalDiskA2AFileRepository`, `S3A2AFileRepository`, `a2aFileContract`) or inline bytes, with
+  `[a2a.inline-files-without-store]`, `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`,
+  `[a2a.file-options-invalid]`, `[a2a.nested-file-field]`; `retention.a2aFiles`; `a2aHttpListener({ fileFetchTimeout })`; the
+  client's `A2AClientFile`, `downloadFile`, `A2ATaskResult.files`. The TCK's `DM-ART-001` file
+  variants pass ([A2A → files](A2A#files--raw-and-url-parts-859)).
+- **Changed**: `A2ATaskResult` has `files`; an input or output DTO of an A2A skill with file fields
+  travels as file parts plus a `data` part of the rest.
+
 ## Unreleased — 0.1.1: the execution audit log and the metric names (#889, API review G6)
 
 - **Changed — breaking**: the lease log is the **execution audit log** — it keeps takeovers,
