@@ -117,6 +117,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
             schemaHash: expect.any(String),
           },
         ],
+        reply: "task",
       },
       expect.objectContaining({ kind: "a2a", start: "refund-workflow-start" }),
       {

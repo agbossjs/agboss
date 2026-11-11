@@ -1,6 +1,8 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
+import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
+import { InMemoryCostLedgerRepository } from "../../../../src/infrastructure/cost-ledger.repository.js";
 import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
@@ -143,6 +145,12 @@ export function unitParts(
     maxTaskDuration: undefined,
     mesh: UNIT_MESH,
     files: { store: new InlineA2AFileRepository(), transport: undefined, timeout: seconds(10) },
+    // #860: no direct-reply skill here, no default skill
+    direct: {
+      messages: new InMemoryA2ADirectMessageRepository(new InMemoryDatabase()),
+      ledger: new InMemoryCostLedgerRepository(),
+      defaultSkill: undefined,
+    },
     ids: {
       newExecutionId: () => {
         const id = `minted-${String((minted += 1))}`;

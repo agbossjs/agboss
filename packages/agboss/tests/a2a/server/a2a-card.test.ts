@@ -67,7 +67,10 @@ describe("#808 AC1: the Agent Card", () => {
         A2A_SKILLS_EXTENSION,
       ]);
       // #810: an AGBoss peer — a messageId deduplicated as long as a finished task is kept
-      expect(extensions[0]?.params).toEqual({ idempotencyRetention: "PT86400S" });
+      expect(extensions[0]?.params).toEqual({
+        idempotencyRetention: "PT86400S",
+        messageIdempotencyRetention: "PT900S",
+      });
       expect(() => AgentCard.fromJSON(card)).not.toThrow();
     },
   );
