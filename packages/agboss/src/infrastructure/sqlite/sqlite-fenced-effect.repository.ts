@@ -19,9 +19,13 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
-import { checkSqliteCancel, prunedCancelRequests } from "./sqlite-cancel-requests.js";
-import { SyncWorkRequiredError } from "./sqlite-sync-work.js";
-import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { SyncWorkRequiredError } from "../fenced-effect-errors.js";
+import {
+  checkSqliteCancel,
+  prunedCancelRequests,
+  SqliteConnection,
+  sqliteImplementation,
+} from "./sqlite-connection.js";
 import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
 import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
 
@@ -222,4 +226,7 @@ function sqliteLeaseOf(
 
 sqliteImplementation(SqliteFencedEffectRepository);
 
-export { SyncWorkRequiredError, type SyncWorkRequiredErrorOptions } from "./sqlite-sync-work.js";
+export {
+  SyncWorkRequiredError,
+  type SyncWorkRequiredErrorOptions,
+} from "../fenced-effect-errors.js";

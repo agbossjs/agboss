@@ -135,6 +135,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
   it("a business key's key without a handle has no businessKeyHash at all", async () => {
     const context = {
       executionId: "execution-1",
+      root: { executionId: "execution-1" },
       step: {
         nodeId: "charge-action",
         visitNumber: 1,
@@ -217,7 +218,11 @@ describe("#626: the key errors", () => {
     const refused = (() => {
       try {
         effectKeyOf(
-          { step: { nodeId: "n", visitNumber: 1, idempotencyKey: "k" }, fence: {} } as never,
+          {
+            root: { executionId: "execution-1" },
+            step: { nodeId: "n", visitNumber: 1, idempotencyKey: "k" },
+            fence: {},
+          } as never,
           "charge",
           { businessKey: "" },
         );

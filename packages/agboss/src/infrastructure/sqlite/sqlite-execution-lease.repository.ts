@@ -12,8 +12,11 @@ import {
   type ExecutionLease,
 } from "../execution-lease.repository.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
-import { markedCancelRequested } from "./sqlite-cancel-requests.js";
-import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import {
+  markedCancelRequested,
+  SqliteConnection,
+  sqliteImplementation,
+} from "./sqlite-connection.js";
 
 /**
  * The leases' table — the fenced-effect store reads it in its own transaction (#500) — and the
@@ -185,13 +188,12 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(remainingOf(new Date(expires_at), new Date(now)));
   }
 
-  requestCancel(tree: ExecutionTree): Promise<void> {
+  async requestCancel(tree: ExecutionTree): Promise<void> {
     const now = this.clock.now().getTime();
     // one `BEGIN IMMEDIATE` like every fenced method, so the two serialize (#909)
     this.connection.transaction(() => {
       markedCancelRequested(this.connection.database, tree, now);
     });
-    return Promise.resolve();
   }
 
   reclaim(

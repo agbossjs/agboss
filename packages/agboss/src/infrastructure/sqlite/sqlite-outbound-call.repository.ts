@@ -24,9 +24,14 @@ import {
   OUTBOUND_CALLS_SCHEMA,
   upgradeOutboundCallsSeq,
 } from "./sqlite-outbound-call-schema.js";
-import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import {
+  checkSqliteCancel,
+  oneRowChanged,
+  prunedCancelRequests,
+  SqliteConnection,
+  sqliteImplementation,
+} from "./sqlite-connection.js";
 import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
-import { checkSqliteCancel, prunedCancelRequests } from "./sqlite-cancel-requests.js";
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
