@@ -80,6 +80,30 @@ export class LiveRuns {
   }
 
   /**
+   * `settled()` for the close of the workflow's own app: once the instance is stopping, only up to
+   * the end of its shutdown timeout (#923) — a run that waits for a store that never answers is
+   * given up there (the instance's stop logs it).
+   */
+  async settledByStop(): Promise<void> {
+    const deadline = this.#stopDeadline;
+    if (deadline === undefined) return this.settled();
+    await Promise.race([
+      this.settled(),
+      new Promise<void>((resolve) => {
+        if (deadline.aborted) resolve();
+        else
+          deadline.addEventListener(
+            "abort",
+            () => {
+              resolve();
+            },
+            { once: true },
+          );
+      }),
+    ]);
+  }
+
+  /**
    * The instance stops (#367): from now on a tree's lease is released only once the tree's running
    * step bodies returned, or `deadline` (the end of the shutdown timeout) aborted.
    */

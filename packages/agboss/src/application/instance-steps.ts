@@ -87,9 +87,12 @@ export interface StepsAtStop extends StopDeadline {
   /**
    * Awaits `stopping` (what an instance's stop waits for) until the stop's end, the shutdown
    * timeout (#923): a stop not done by then goes on without it — a store call that is never
-   * answered holds nothing — and logs `app.stop-store-call-pending`.
+   * answered holds nothing — and logs `app.stop-store-call-pending` naming `what` (default: the
+   * recovery sweep or the child workers) is pending.
    */
-  within(stopping: Promise<unknown>): Promise<void>;
+  within(stopping: Promise<unknown>, what?: string): Promise<void>;
+  /** Logs `app.stop-store-call-pending` for `what` the stop gave up at its end (#923). */
+  abandon(what: string): void;
 }
 
 function stepsAtStopOf(
@@ -102,19 +105,26 @@ function stepsAtStopOf(
     settled: async () => {
       warnStillRunning(log, await entries.allClosed(deadline.signal));
     },
-    within: async (stopping) => {
+    within: async (stopping, what = "the recovery sweep or the child workers") => {
       const ended = await untilInterrupted(
         stopping.then(() => true),
         deadline.signal,
       );
-      if (ended !== true)
-        log.warn(
-          "app.stop-store-call-pending",
-          "the recovery sweep or the child workers did not stop within the shutdown timeout: a store call has not been answered — the instance stops without it",
-        );
+      if (ended !== true) pending(log, what);
+    },
+    abandon: (what) => {
+      pending(log, what);
     },
   };
 }
+
+/** The warning for what a stop gave up at the shutdown timeout (#923). */
+const pending = (log: FrameworkLog, what: string): void => {
+  log.warn(
+    "app.stop-store-call-pending",
+    `${what} did not finish within the shutdown timeout: a store call has not been answered — the instance stops without it`,
+  );
+};
 
 /**
  * `work`'s answer — or `undefined` once `signal` aborts first: the work is left running and its
@@ -124,16 +134,16 @@ function untilInterrupted<TValue>(
   work: Promise<TValue>,
   signal: AbortSignal,
 ): Promise<TValue | undefined> {
-  if (signal.aborted) {
-    work.catch((): undefined => undefined);
-    return Promise.resolve(undefined);
-  }
+  work.catch((): undefined => undefined);
   return new Promise<TValue | undefined>((resolve, reject) => {
+    // what ends on the turn the end passes (a lease release after the last body) is not given up
     const interrupted = (): void => {
-      work.catch((): undefined => undefined);
-      resolve(undefined);
+      setImmediate(() => {
+        resolve(undefined);
+      });
     };
-    signal.addEventListener("abort", interrupted, { once: true });
+    if (signal.aborted) interrupted();
+    else signal.addEventListener("abort", interrupted, { once: true });
     work.then(resolve, reject).finally(() => {
       signal.removeEventListener("abort", interrupted);
     });

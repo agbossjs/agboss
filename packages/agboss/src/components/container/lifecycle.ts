@@ -78,16 +78,56 @@ async function runInOrder(
   }
 }
 
+/**
+ * The end of a stop (#923): once `signal` aborts, a hook that has not returned is given up — left
+ * running, its late answer or failure dropped — and `abandon` is told which.
+ */
+export interface StopBound {
+  readonly signal: AbortSignal;
+  abandon(what: string): void;
+}
+
+/** `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. */
+async function withinBound(work: Promise<void>, bound: StopBound, what: string): Promise<void> {
+  let release = (): void => undefined;
+  const ended = new Promise<boolean>((resolve) => {
+    // a hook that is done by the next turn of the loop is not abandoned
+    const fire = (): void => {
+      setImmediate(() => {
+        resolve(true);
+      });
+    };
+    if (bound.signal.aborted) fire();
+    else {
+      bound.signal.addEventListener("abort", fire, { once: true });
+      release = () => {
+        bound.signal.removeEventListener("abort", fire);
+      };
+    }
+  });
+  try {
+    const abandoned = await Promise.race([work.then(() => false), ended]);
+    if (!abandoned) return;
+    work.catch((): undefined => undefined);
+    bound.abandon(what);
+  } finally {
+    release();
+  }
+}
+
 /** Runs `hook` of every instance, dependants first; every hook runs, the failures are returned. */
 async function runAll(
   instances: readonly unknown[],
   hook: "onStop" | "onDestroy",
+  bound?: StopBound,
 ): Promise<ComponentError[]> {
   const failures: ComponentError[] = [];
   for (const instance of [...instances].reverse()) {
     if (!hasHook(instance, hook)) continue;
     try {
-      await instance[hook]();
+      const running = Promise.resolve(instance[hook]());
+      if (bound === undefined) await running;
+      else await withinBound(running, bound, `${hook} of ${componentName(instance)}`);
     } catch (error) {
       failures.push(hookFailure(instance, hook, error));
     }
@@ -123,15 +163,17 @@ export async function startComponents(instances: readonly unknown[]): Promise<vo
 /**
  * The stop of an application instance: `onStop` of every instance (dependants first), then
  * `executionsDone` (the running executions finish or pause), then `onDestroy` (dependants first).
- * Every hook runs; the failures are collected into one `AggregateError`.
+ * Every hook runs; the failures are collected into one `AggregateError`. With a `bound` (#923) an
+ * `onDestroy` that has not returned at its end is given up: the stop goes on without it.
  */
 export async function stopComponents(
   instances: readonly unknown[],
   executionsDone: () => Promise<void> = () => Promise.resolve(),
+  bound?: StopBound,
 ): Promise<void> {
   const stopped = await runAll(instances, "onStop");
   await executionsDone();
-  const destroyed = await runAll(instances, "onDestroy");
+  const destroyed = await runAll(instances, "onDestroy", bound);
   const failure = collected([...stopped, ...destroyed]);
   if (failure !== undefined) throw failure;
 }
