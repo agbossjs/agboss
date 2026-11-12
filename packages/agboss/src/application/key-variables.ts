@@ -39,9 +39,9 @@ export function assertKeyVariablesApart(
       ([name]) => name !== field && variableOf(environment, name) === variable,
     );
     if (other === undefined) continue;
-    throw new EnvironmentError(
-      EnvironmentErrorCode.InvalidValue,
-      `${application}: @Application({ ${option}: "${field}" }) reads ${variable}, as ${other[0]} (${other[1]}) does — give it a variable of its own: rotating the other key would change every value made with this one`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.InvalidValue,
+      message: `${application}: @Application({ ${option}: "${field}" }) reads ${variable}, as ${other[0]} (${other[1]}) does — give it a variable of its own: rotating the other key would change every value made with this one`,
+    });
   }
 }

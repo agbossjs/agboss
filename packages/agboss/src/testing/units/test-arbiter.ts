@@ -39,7 +39,7 @@ export function testArbiter<
 >(arbiter: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): ArbiterRunner {
   const declaration = arbiterOf(arbiter);
   if (declaration === undefined)
-    throw new TestSetupError(`testArbiter(${arbiter.name}): not an @Arbiter`);
+    throw new TestSetupError({ message: `testArbiter(${arbiter.name}): not an @Arbiter` });
   const { name } = declaration.options;
   const site = new UnitSite(options);
   if (!isCodeArbiter(declaration.options))

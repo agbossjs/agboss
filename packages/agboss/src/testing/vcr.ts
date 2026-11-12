@@ -56,9 +56,9 @@ function modeFromEnv(env: NodeJS.ProcessEnv): VcrMode | undefined {
   const value = env[VCR_MODE_VARIABLE];
   if (value === undefined || value === "") return undefined;
   if (isVcrMode(value)) return value;
-  throw new TestSetupError(
-    `${VCR_MODE_VARIABLE}=${value} is not a VCR mode: one of ${[...MODES].join(", ")}`,
-  );
+  throw new TestSetupError({
+    message: `${VCR_MODE_VARIABLE}=${value} is not a VCR mode: one of ${[...MODES].join(", ")}`,
+  });
 }
 
 /** `testWith(W, { vcr })`: record real model calls once, replay them in every later run. */
@@ -110,11 +110,12 @@ export function vcrModeOf(config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode {
     optIn === undefined || optIn === ""
       ? ""
       : ` (${VCR_RECORD_IN_CI_VARIABLE}=${optIn} is no opt-in: 1 or true)`;
-  throw new TestSetupError(
-    `[vcr.record-in-ci] ${source} records against real models, and CI is set (CI=${String(env.CI)}): ` +
+  throw new TestSetupError({
+    message:
+      `[vcr.record-in-ci] ${source} records against real models, and CI is set (CI=${String(env.CI)}): ` +
       `a CI run replays its cassettes — record without CI and commit the cassette, or set ` +
       `${VCR_RECORD_IN_CI_VARIABLE}=1 to record in this CI run on purpose${rejected}`,
-  );
+  });
 }
 
 /** A value as a message shows it: a text quoted, a number, a flag or null as is, else its type. */
@@ -134,9 +135,9 @@ function configuredModeOf(config: VcrConfig): VcrMode | undefined {
   const mode: unknown = Reflect.get(config, "mode");
   if (mode === undefined) return undefined;
   if (typeof mode === "string" && isVcrMode(mode)) return mode;
-  throw new TestSetupError(
-    `[vcr.unknown-mode] vcr.mode is ${shownOf(mode)}: one of ${[...MODES].join(", ")}`,
-  );
+  throw new TestSetupError({
+    message: `[vcr.unknown-mode] vcr.mode is ${shownOf(mode)}: one of ${[...MODES].join(", ")}`,
+  });
 }
 
 export const cassetteFileOf = (config: VcrConfig): string =>
@@ -222,7 +223,7 @@ export function vcrGatewayOverProviders(
   report: (failure: Error) => Error,
 ): GatewayOverProviders {
   if (workflows.length === 0)
-    throw new TestSetupError("a VCR test needs an application with a workflow");
+    throw new TestSetupError({ message: "a VCR test needs an application with a workflow" });
   const cassette = cassetteOf(
     cassetteFileOf(config),
     vcrModeOf(config, env),

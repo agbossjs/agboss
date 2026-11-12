@@ -111,8 +111,16 @@ export interface ClassProvider<T = unknown> {
     readonly useClass: Class<T>;
 }
 
-// @public (undocumented)
-export class ComponentError extends Error {
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
+// @public
+export class ComponentError extends AGBossError {
+    // Warning: (ae-forgotten-export) The symbol "MessageErrorOptions" needs to be exported by the entry point index.d.ts
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly code: "component" | "component.prompt" | "component.no-default-router";
     // (undocumented)
     name: string;
 }
@@ -568,7 +576,12 @@ export function PiiPolicy<const D extends readonly Token[] = []>(options: Custom
 
 // @public
 export class PromptError extends ComponentError {
-    constructor(problems: readonly PromptProblem[]);
+    // Warning: (ae-forgotten-export) The symbol "PromptErrorOptions" needs to be exported by the entry point index.d.ts
+    constructor(options: PromptErrorOptions);
+    // (undocumented)
+    static readonly code: "component.prompt";
+    // (undocumented)
+    readonly code: typeof PromptError.code;
     // (undocumented)
     name: string;
     // (undocumented)
@@ -728,12 +741,15 @@ export class WorkflowSettings {
 // src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts:166:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/judge-decorators.ts:171:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/metadata.ts:122:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:123:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:128:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:129:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
-// src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
-// src/components/prompt-problems.ts:24:3 - (ae-undocumented) Missing documentation for "problems".
+// src/components/prompt-problems.ts:29:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/prompt-problems.ts:30:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/prompt-problems.ts:31:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/prompt-problems.ts:32:3 - (ae-undocumented) Missing documentation for "problems".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
 // src/core/observability.ts:57:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:58:3 - (ae-undocumented) Missing documentation for "arguments".

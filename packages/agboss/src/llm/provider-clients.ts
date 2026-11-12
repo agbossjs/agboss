@@ -86,7 +86,8 @@ export function providerClients(
   });
   const providerFor = (model: string, purpose: ModelPurpose): RegisteredModelProvider => {
     const resolution = directory.resolve({ key: model, model, purpose });
-    if (resolution.kind === "problem") throw new ConfigurationError([resolution.problem]);
+    if (resolution.kind === "problem")
+      throw new ConfigurationError({ problems: [resolution.problem] });
     return resolution.provider;
   };
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {

@@ -130,7 +130,7 @@ export abstract class ExecutionRecordRepository {
   abstract recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
   /** Records of the thread after the compaction's last summary, oldest first (#120 PR 3). */
   abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
-  /** Up to `limit` records right before `ternId`, oldest first. */
+  /** Up to `limit` records right before `turnId`, oldest first. */
   abstract before(
     tenantId: string,
     threadId: string,
@@ -168,7 +168,7 @@ export abstract class ExecutionRecordRepository {
   ): Promise<PauseAnswerRecord[]>;
 }
 
-/** The records in a Turn store (internal): what the built-in default and the SQLite ones build on. */
+/** The records kept in a Turn store: what the built-in default and the SQLite ones build on. */
 export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   readonly #store: TurnStore;
 

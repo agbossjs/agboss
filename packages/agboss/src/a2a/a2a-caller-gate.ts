@@ -42,10 +42,11 @@ export function callerResolverOf<TStart extends Class>(
 
 function listedInstanceOf<T>(app: A2AApp, cls: Class<T>, code: string): T {
   if (isListedProvider(app, cls) === false) {
-    throw new ComponentError(
-      `[${code}] ${cls.name} is not listed in the application's providers — ` +
+    throw new ComponentError({
+      message:
+        `[${code}] ${cls.name} is not listed in the application's providers — ` +
         `list it in @Application({ providers }) or a @Workflow({ providers }): the listener takes it from the container`,
-    );
+    });
   }
   return app.resolve(cls);
 }

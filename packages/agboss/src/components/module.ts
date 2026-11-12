@@ -55,9 +55,9 @@ const modules = new WeakMap<Class, WorkflowMeta>();
 export function workflowDeclarationOf(workflow: Class): WorkflowDeclaration {
   const declaration = declarationOf(workflow);
   if (declaration?.kind !== NodeKind.Workflow) {
-    throw new ComponentError(
-      `${workflow.name || "(anonymous class)"} is not a @Workflow class — decorate it with @Workflow({ name, version, flow })`,
-    );
+    throw new ComponentError({
+      message: `${workflow.name || "(anonymous class)"} is not a @Workflow class — decorate it with @Workflow({ name, version, flow })`,
+    });
   }
   return declaration;
 }

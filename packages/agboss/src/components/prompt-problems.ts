@@ -18,16 +18,26 @@ export interface PromptProblem {
 export const promptProblemLine = (problem: PromptProblem): string =>
   `[${problem.code}] ${problem.message}`;
 
+/** What a prompt error takes (#906): every problem found. */
+export interface PromptErrorOptions {
+  readonly problems: readonly PromptProblem[];
+  readonly cause?: unknown;
+}
+
 /** The workflow's prompts have problems — every one found, reported at once, before any model call. */
 export class PromptError extends ComponentError {
+  static override readonly code = "component.prompt" as const;
+  declare readonly code: typeof PromptError.code;
   override name = "PromptError";
   readonly problems: readonly PromptProblem[];
 
-  constructor(problems: readonly PromptProblem[]) {
+  constructor(options: PromptErrorOptions) {
+    const { problems, cause } = options;
     const lines = problems.map((problem) => `  - ${promptProblemLine(problem)}`);
-    super(
-      `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`,
-    );
+    super({
+      message: `The workflow's prompts have ${String(problems.length)} problem(s):\n${lines.join("\n")}`,
+      cause,
+    });
     this.problems = problems;
   }
 }

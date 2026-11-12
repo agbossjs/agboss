@@ -22,7 +22,7 @@ const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
     runId: `run-${tenantId}`,
     threadId,
     tenantId,
-    turnId: "tern-1",
+    turnId: "turn-1",
     status: ExecutionStatus.Paused,
     budgetUsd: 1,
   } as AgentExecutionOutput,

@@ -36,10 +36,10 @@ function missingKey(options: ModelProviderOptions, field: string, value: unknown
     value === undefined
       ? `the environment has no ${field}`
       : `${field} is not a Secret — set it with secret("…")`;
-  throw new EnvironmentError(
-    EnvironmentErrorCode.MissingVariables,
-    `${options.name} reads its key from the application's environment: ${why} — declare ${field}: Secret in the environment contract and set ${field}: secret("…") in each environment that calls it`,
-  );
+  throw new EnvironmentError({
+    code: EnvironmentErrorCode.MissingVariables,
+    message: `${options.name} reads its key from the application's environment: ${why} — declare ${field}: Secret in the environment contract and set ${field}: secret("…") in each environment that calls it`,
+  });
 }
 
 /** The provider's key; `undefined` for one without a key, or a missing one when not `required`. */

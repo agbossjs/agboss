@@ -70,7 +70,9 @@ export function routerSlice(built: BuiltApp, target: Class): RouterSlice {
   const name = nodeNameOf(target);
   const loaded = built.deps.routers.find((router) => router.name === name);
   if (loaded === undefined) {
-    throw new TestSetupError(`app.router(${target.name}): not a router of this application`);
+    throw new TestSetupError({
+      message: `app.router(${target.name}): not a router of this application`,
+    });
   }
   const router = built.deps.routerFor(loaded);
   return {
@@ -133,7 +135,9 @@ export function agentSlice(built: BuiltApp, target: Class): AgentSlice {
   const name = nodeNameOf(target);
   const agent = agentDefinitions(built.deps).get(name);
   if (agent === undefined) {
-    throw new TestSetupError(`app.agent(${target.name}): not an agent of this application`);
+    throw new TestSetupError({
+      message: `app.agent(${target.name}): not an agent of this application`,
+    });
   }
   const loop = agentLoopGraph({
     agent,

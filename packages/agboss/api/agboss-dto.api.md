@@ -82,9 +82,13 @@ export const DecimalString: FieldFactory<string, DecimalStringLimits>;
 // @public
 export type DtoClass<T = object> = abstract new () => T;
 
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
 // @public
-export class DtoError extends Error {
-    constructor(code: DtoErrorCode, message: string);
+export class DtoError extends AGBossError {
+    constructor(options: DtoErrorOptions);
+    // (undocumented)
+    static readonly code: string;
     // (undocumented)
     readonly code: DtoErrorCode;
     // (undocumented)
@@ -95,6 +99,16 @@ export class DtoError extends Error {
 export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata";
 
 // @public
+export interface DtoErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly code: DtoErrorCode;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export interface DtoIssue {
     // (undocumented)
     readonly path: string;
@@ -102,8 +116,6 @@ export interface DtoIssue {
     readonly reason: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class DtoValidationError extends AGBossError {
     constructor(options: DtoValidationErrorOptions);
@@ -450,15 +462,19 @@ export class WorkflowStartTextDto {
 // src/dto/decorators.ts:59:14 - (ae-undocumented) Missing documentation for "Uuid".
 // src/dto/decorators.ts:86:1 - (ae-undocumented) Missing documentation for "OneOf".
 // src/dto/decorators.ts:125:1 - (ae-undocumented) Missing documentation for "Nested".
-// src/dto/errors.ts:7:12 - (ae-undocumented) Missing documentation for "name".
-// src/dto/errors.ts:9:5 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:18:3 - (ae-undocumented) Missing documentation for "path".
-// src/dto/errors.ts:19:3 - (ae-undocumented) Missing documentation for "reason".
-// src/dto/errors.ts:26:3 - (ae-undocumented) Missing documentation for "issues".
-// src/dto/errors.ts:27:3 - (ae-undocumented) Missing documentation for "cause".
-// src/dto/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:33:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:34:12 - (ae-undocumented) Missing documentation for "name".
+// src/dto/errors.ts:7:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:8:3 - (ae-undocumented) Missing documentation for "message".
+// src/dto/errors.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
+// src/dto/errors.ts:14:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:15:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:16:12 - (ae-undocumented) Missing documentation for "name".
+// src/dto/errors.ts:26:3 - (ae-undocumented) Missing documentation for "path".
+// src/dto/errors.ts:27:3 - (ae-undocumented) Missing documentation for "reason".
+// src/dto/errors.ts:34:3 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:35:3 - (ae-undocumented) Missing documentation for "cause".
+// src/dto/errors.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/standard/domain.ts:19:3 - (ae-undocumented) Missing documentation for "amount".
 // src/dto/standard/domain.ts:22:3 - (ae-undocumented) Missing documentation for "currency".
 // src/dto/standard/domain.ts:28:3 - (ae-undocumented) Missing documentation for "from".

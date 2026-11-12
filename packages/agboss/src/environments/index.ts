@@ -1,6 +1,6 @@
 export type { Environment } from "../flow/generated-types.js";
 export { EmptyEnvironment } from "./empty.js";
-export { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
+export { EnvironmentError, EnvironmentErrorCode, type EnvironmentErrorOptions } from "./errors.js";
 export {
   EnvironmentField,
   type EnvironmentFieldOptions,

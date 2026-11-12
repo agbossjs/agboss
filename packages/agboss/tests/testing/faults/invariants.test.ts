@@ -782,8 +782,8 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       });
       expect(String(error)).toContain("[trees-finish] o-1 never finished (no record)");
     }
-    expect(new FaultInvariantError("s", [], ["a wait ran out"]).message).toContain(
-      "(also) a wait ran out",
-    );
+    expect(
+      new FaultInvariantError({ scenario: "s", violations: [], notes: ["a wait ran out"] }).message,
+    ).toContain("(also) a wait ran out");
   });
 });

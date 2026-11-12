@@ -58,14 +58,14 @@ function keyValueOf(source: ApplicationKeySource, field: string): string | undef
 function namedKeyMissing(source: ApplicationKeySource, field: string): EnvironmentError {
   const option = `@Application({ piiKeyField: "${field}" })`;
   return Reflect.get(source.environment, field) instanceof Secret
-    ? new EnvironmentError(
-        EnvironmentErrorCode.MissingVariables,
-        `${source.application}: ${option} has no value — set ${field}: secret("…") in the environment and its variable`,
-      )
-    : new EnvironmentError(
-        EnvironmentErrorCode.InvalidValue,
-        `${source.application}: ${option} names no Secret — set ${field}: secret("…") in the environment`,
-      );
+    ? new EnvironmentError({
+        code: EnvironmentErrorCode.MissingVariables,
+        message: `${source.application}: ${option} has no value — set ${field}: secret("…") in the environment and its variable`,
+      })
+    : new EnvironmentError({
+        code: EnvironmentErrorCode.InvalidValue,
+        message: `${source.application}: ${option} names no Secret — set ${field}: secret("…") in the environment`,
+      });
 }
 
 /** The application's key; none when it sets none and nothing needs one. */
@@ -78,8 +78,8 @@ export function applicationPseudonymKeyOf(source: ApplicationKeySource): string 
   const needing = policiesNeedingTheKey(source.policies);
   if (needing.length === 0) return undefined;
   const fix = `set @Application({ piiKeyField: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment`;
-  throw new EnvironmentError(
-    EnvironmentErrorCode.MissingVariables,
-    `${source.application}: ${needing.join(", ")} make tokens with the application's PII key — ${fix}`,
-  );
+  throw new EnvironmentError({
+    code: EnvironmentErrorCode.MissingVariables,
+    message: `${source.application}: ${needing.join(", ")} make tokens with the application's PII key — ${fix}`,
+  });
 }

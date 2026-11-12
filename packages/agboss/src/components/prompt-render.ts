@@ -83,13 +83,13 @@ export class PromptLoader {
     const template = joinPromptParts(segments.map((segment) => segment.text));
     if (this.#problems.length > before) return template;
     const unknown = (key: string) =>
-      new ComponentError(`${owner.label}: unknown prompt variable {{${key}}}`);
+      new ComponentError({ message: `${owner.label}: unknown prompt variable {{${key}}}` });
     return normalisePromptText(renderTemplate(template, variables, unknown));
   }
 
   /** Throws `PromptError` with every problem found so far. */
   throwIfAny(): void {
-    if (this.#problems.length > 0) throw new PromptError(this.#problems);
+    if (this.#problems.length > 0) throw new PromptError({ problems: this.#problems });
   }
 
   async #segments(owner: PromptOwner): Promise<Segment[]> {

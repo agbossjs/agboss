@@ -81,7 +81,7 @@ export function toolsOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): Too
     if (asked.includes(cls)) continue;
     const kind = componentOf(cls)?.kind;
     if (kind !== "tool" && kind !== "mcp-tool")
-      throw new ComponentError(notAToolMessage(bundle, cls));
+      throw new ComponentError({ message: notAToolMessage(bundle, cls) });
     checkToolData(cls, kind);
   }
   return {
@@ -122,9 +122,9 @@ export function mcpOf(bundle: WorkflowMeta, mcpTools: readonly Class[]): Mcp {
   for (const cls of mcpTools) {
     const { meta } = requireComponent(cls, "mcp-tool", `@Workflow "${bundle.name}"`);
     if (!instances.has(meta.server)) {
-      throw new ComponentError(
-        `@McpTool ${cls.name}: its server ${meta.server.name} is not in @Workflow({ mcp })`,
-      );
+      throw new ComponentError({
+        message: `@McpTool ${cls.name}: its server ${meta.server.name} is not in @Workflow({ mcp })`,
+      });
     }
   }
   return {

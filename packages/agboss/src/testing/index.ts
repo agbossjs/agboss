@@ -28,6 +28,7 @@ export {
   failWith,
   waitFor,
   ModelCallFailedError,
+  type ModelCallFailedErrorOptions,
   ModelFailure,
   type ToolClass,
 } from "./script.js";
@@ -75,6 +76,7 @@ export { ClockSkew, SkewedClock } from "./clock-skew.js";
 // what a payment gateway must support (#508): a fake one, and the checklist a team runs on its own
 export {
   FakeGatewayError,
+  type FakeGatewayErrorOptions,
   FakeGatewayErrorKind,
   FakeGatewayFault,
   FakePaymentGateway,
@@ -156,8 +158,13 @@ export {
   TestFailure,
   TestSetupError,
   UnsettledWorkError,
+  type AppCloseTimeoutErrorOptions,
+  type StaleCassetteErrorOptions,
   type TestFailureCode,
+  type TestFailureOptions,
+  type UnsettledWorkErrorOptions,
 } from "./errors.js";
+export type { PlainErrorOptions } from "../core/errors.js";
 export { workflowMatchers, type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";
 export {
   childMatchers,

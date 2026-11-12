@@ -131,5 +131,5 @@ export function checkChannels(
     ...channelRuleViolations(uses, modules),
     ...(isStandalone ? sharedInterpreterViolations(uses) : []),
   ];
-  if (violations.length > 0) throw new GraphRuleError(violations);
+  if (violations.length > 0) throw new GraphRuleError({ violations });
 }

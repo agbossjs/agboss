@@ -55,16 +55,16 @@ function requiredValueOf(
   const held: unknown = Reflect.get(source.environment, field);
   if (held === undefined && fallback !== undefined) return fallback;
   if (!(held instanceof Secret))
-    throw new EnvironmentError(
-      EnvironmentErrorCode.InvalidValue,
-      `${source.application}: @Application({ ${option}: "${field}" }) names no Secret — set ${field}: secret("…") in the environment`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.InvalidValue,
+      message: `${source.application}: @Application({ ${option}: "${field}" }) names no Secret — set ${field}: secret("…") in the environment`,
+    });
   const value = secretValueOf(source, field) ?? fallback;
   if (value !== undefined) return value;
-  throw new EnvironmentError(
-    EnvironmentErrorCode.MissingVariables,
-    `${source.application}: @Application({ ${option}: "${field}" }) has no value — set ${field}: secret("…") in the environment and its variable`,
-  );
+  throw new EnvironmentError({
+    code: EnvironmentErrorCode.MissingVariables,
+    message: `${source.application}: @Application({ ${option}: "${field}" }) has no value — set ${field}: secret("…") in the environment and its variable`,
+  });
 }
 
 /**

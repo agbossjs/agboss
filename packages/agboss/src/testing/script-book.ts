@@ -75,6 +75,6 @@ export class ScriptBook {
     );
     if (lines.length === 0) return undefined;
     const message = `the test left scripts unused — a script is an expectation:\n  ${lines.join("\n  ")}`;
-    return new TestFailure("test.unused-script", message);
+    return new TestFailure({ code: "test.unused-script", message });
   }
 }

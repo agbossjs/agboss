@@ -5,7 +5,7 @@ import { agbossRules } from "./scripts/eslint-agboss-plugin.mjs";
 import { flowStyleRules } from "./scripts/flow-style.mjs";
 import { cliImportPatterns, packageImportPatterns } from "./scripts/public-entries.mjs";
 
-/** What any framework module may not import (src/routers, tools and terns have their own rules). */
+/** What any framework module may not import (src/routers, tools and turns have their own rules). */
 const frameworkImportPatterns = [
   {
     regex: "(^|/)examples/",
@@ -20,8 +20,8 @@ const frameworkImportPatterns = [
     message: "Import tools only through src/tools/index.ts.",
   },
   {
-    regex: "/terns/(?!index\\.js$)",
-    message: "Import terns only through src/terns/index.ts.",
+    regex: "/turns/(?!index\\.js$)",
+    message: "Import turns only through src/turns/index.ts.",
   },
 ];
 
@@ -88,7 +88,7 @@ export default tseslint.config(
               message: "The framework never imports example code (#91).",
             },
             {
-              regex: "/(graph|agents|prompts|tools)/",
+              regex: "/(graph|prompts|tools)/",
               message: "Routers are isolated: depend only on config, finops and llm.",
             },
           ],
@@ -108,7 +108,7 @@ export default tseslint.config(
               message: "The framework never imports example code (#91).",
             },
             {
-              regex: "/(graph|agents|prompts|routers)/",
+              regex: "/(graph|prompts|routers)/",
               message: "Tools are isolated: depend only on config, finops and llm.",
             },
           ],
@@ -117,7 +117,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["packages/agboss/src/terns/**/*.ts"],
+    files: ["packages/agboss/src/turns/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -129,7 +129,7 @@ export default tseslint.config(
             },
             {
               regex: "^\\.\\./",
-              message: "Terns are isolated: they depend on nothing else in src.",
+              message: "Turns are isolated: they depend on nothing else in src.",
             },
           ],
         },
@@ -143,9 +143,7 @@ export default tseslint.config(
       "packages/agboss/src/models/**",
       "packages/agboss/src/routers/**",
       "packages/agboss/src/tools/**",
-      "packages/agboss/src/terns/**",
-      "packages/agboss/src/bundles/**",
-      "packages/agboss/src/demos/**",
+      "packages/agboss/src/turns/**",
     ],
     rules: {
       "no-restricted-imports": [

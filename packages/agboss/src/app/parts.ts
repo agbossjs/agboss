@@ -168,6 +168,8 @@ export const policiesFor = (
 
 /** A model is needed for it, and `defaults.router.model` is not set. */
 export class NoDefaultRouterError extends ComponentError {
+  static override readonly code = "component.no-default-router" as const;
+  declare readonly code: typeof NoDefaultRouterError.code;
   override name = "NoDefaultRouterError";
 }
 
@@ -186,9 +188,9 @@ export function defaultRouterOf(
     name,
     route: () =>
       Promise.reject(
-        new NoDefaultRouterError(
-          `${name} decides on the workflow's default router, but @Workflow({ defaults: { router: { model } } }) is not set`,
-        ),
+        new NoDefaultRouterError({
+          message: `${name} decides on the workflow's default router, but @Workflow({ defaults: { router: { model } } }) is not set`,
+        }),
       ),
   };
 }

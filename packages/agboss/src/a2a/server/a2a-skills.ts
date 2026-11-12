@@ -131,15 +131,17 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
   const { contracts } = sources;
   const declaration = declarationOf(start);
   if (declaration?.kind !== NodeKind.Start)
-    throw new ComponentError(`[a2a.not-a-start] ${start.name} is not a @WorkflowStart`);
+    throw new ComponentError({
+      message: `[a2a.not-a-start] ${start.name} is not a @WorkflowStart`,
+    });
   const { name, description, input } = declaration.options;
   const found = contracts.exports.find(
     (entry) => entry.kind === "a2a" && entry.start === name && entry.expose === sources.expose.name,
   );
   if (found?.kind !== "a2a")
-    throw new ComponentError(
-      `[application.expose-unknown-start] ${name} is not a start of the application's workflows`,
-    );
+    throw new ComponentError({
+      message: `[application.expose-unknown-start] ${name} is not a start of the application's workflows`,
+    });
   return {
     id: name,
     start,

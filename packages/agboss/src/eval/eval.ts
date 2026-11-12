@@ -49,7 +49,7 @@ export function scoreOf(outcome: RouteOutcome): number | undefined {
   return outcome.decision.next === "adequate" ? confidence : 1 - confidence;
 }
 
-/** Scores the given Terns within the eval budget; a judge failure leaves a Turn unscored. */
+/** Scores the given Turns within the eval budget; a judge failure leaves a Turn unscored. */
 export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promise<ScoringReport> {
   let scored = 0;
   let costUsd = 0;
@@ -70,7 +70,7 @@ export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promis
   return { scored, costUsd };
 }
 
-/** `npm run eval`: score answered, unscored Terns (optionally of one prompt version). */
+/** `npm run eval`: score answered, unscored Turns (optionally of one prompt version). */
 export async function evaluate(
   deps: EvalDeps,
   bundle: string,

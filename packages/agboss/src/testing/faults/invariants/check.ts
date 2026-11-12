@@ -23,5 +23,5 @@ export const faultViolationsOf = (run: FaultRun): readonly FaultViolation[] => [
 /** Throws `FaultInvariantError` with every violation when `run` broke an invariant. */
 export function assertFaultInvariants(scenario: string, run: FaultRun): void {
   const violations = faultViolationsOf(run);
-  if (violations.length > 0) throw new FaultInvariantError(scenario, violations);
+  if (violations.length > 0) throw new FaultInvariantError({ scenario, violations });
 }

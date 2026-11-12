@@ -1,3 +1,4 @@
+import { causeOptionOf, type PlainErrorOptions } from "../../core/errors.js";
 /**
  * Named hold points (#484 AC5): places in a process where a test stops an operation and lets it go
  * when it chooses — the way to force the order of operations across processes without a sleep.
@@ -34,7 +35,13 @@ export interface HoldRequest {
 
 /** A store's answer lost on its way back to the caller (#720): the operation took effect. */
 export class StoreAnswerLostError extends Error {
+  static readonly code = "fault.store-answer-lost" as const;
+  readonly code = StoreAnswerLostError.code;
   override name = "StoreAnswerLostError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 /** An operation waiting at a hold point. */
@@ -142,7 +149,9 @@ export class HoldPoints {
     armed.left -= 1;
     if (armed.left === 0) this.disarm(armed.armId);
     if (armed.request.loseAnswer === true)
-      return Promise.reject(new StoreAnswerLostError(`the answer of ${point} was lost`));
+      return Promise.reject(
+        new StoreAnswerLostError({ message: `the answer of ${point} was lost` }),
+      );
     this.#count += 1;
     const operation = {
       holdId: `hold-${String(this.#count)}`,

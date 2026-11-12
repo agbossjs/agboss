@@ -32,9 +32,9 @@ async function completeOf(
   const handler = provider.handler ?? (await options.transports?.started(provider.type));
   const complete = handler?.complete?.bind(handler);
   if (complete === undefined)
-    throw new ModelProviderError(
-      `${provider.options.name}: a transport provider is created by the application's container — run it through createApp or testWith`,
-    );
+    throw new ModelProviderError({
+      message: `${provider.options.name}: a transport provider is created by the application's container — run it through createApp or testWith`,
+    });
   return options.chaos === undefined ? complete : options.chaos.completeOf(complete);
 }
 

@@ -22,10 +22,23 @@ export type Milliseconds = Brand<number, "Milliseconds">;
 export const minutes: (amount: number) => Milliseconds;
 
 // @public
+export interface PlainErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export const seconds: (amount: number) => Milliseconds;
 
-// @public (undocumented)
+// @public
 export class UnitError extends RangeError {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "config.unit";
+    // (undocumented)
+    readonly code: "config.unit";
     // (undocumented)
     name: string;
 }
@@ -38,8 +51,11 @@ export const usd: (amount: number) => Usd;
 
 // Warnings were encountered during analysis:
 //
-// src/units/index.ts:16:1 - (ae-undocumented) Missing documentation for "UnitError".
-// src/units/index.ts:17:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
+// src/units/index.ts:24:3 - (ae-undocumented) Missing documentation for "code".
+// src/units/index.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/units/index.ts:26:12 - (ae-undocumented) Missing documentation for "name".
 
 // (No @packageDocumentation comment for this package)
 

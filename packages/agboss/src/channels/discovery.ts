@@ -129,9 +129,9 @@ export function channelNameOf(cls: Class): string {
   if (role !== undefined) return role.name;
   const component = componentOf(cls);
   if (component?.kind === "channel") return component.meta.name;
-  throw new ComponentError(
-    `${cls.name || "(anonymous class)"} is named as a tool's channel but is neither a @Channel nor a @ChannelRole`,
-  );
+  throw new ComponentError({
+    message: `${cls.name || "(anonymous class)"} is named as a tool's channel but is neither a @Channel nor a @ChannelRole`,
+  });
 }
 
 /** The roles the uses name (each once), with their options. */

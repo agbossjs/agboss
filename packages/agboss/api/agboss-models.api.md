@@ -96,11 +96,25 @@ export interface CircuitBreakerStore {
     readonly rateLimits: RateLimitRepository;
 }
 
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
 // @public
-export class ConfigurationError extends Error {
-    constructor(problems: readonly ModelProblem[]);
+export class ConfigurationError extends AGBossError {
+    constructor(options: ConfigurationErrorOptions);
+    // (undocumented)
+    static readonly code: "config.model-settings";
+    // (undocumented)
+    readonly code: typeof ConfigurationError.code;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly problems: readonly ModelProblem[];
+}
+
+// @public
+export interface ConfigurationErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly problems: readonly ModelProblem[];
 }
@@ -169,8 +183,14 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 // @public @deprecated (undocumented)
 export type JevModelProvider = DecisionsModelProvider;
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "AGBossErrorOptions" needs to be exported by the entry point index.d.ts
 //
+// @public
+export interface MessageErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message: string;
+}
+
 // @public
 export class ModelCallError extends AGBossError {
     constructor(options: ModelCallErrorOptions);
@@ -292,7 +312,12 @@ export class ModelProviderDirectory {
 }
 
 // @public (undocumented)
-export class ModelProviderError extends Error {
+export class ModelProviderError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "config.model-provider";
+    // (undocumented)
+    readonly code: typeof ModelProviderError.code;
     // (undocumented)
     name: string;
 }
@@ -494,6 +519,14 @@ export interface PerMinuteLimits {
 }
 
 // @public
+export interface PlainErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export type PromptCaching = ({
     readonly kind: "where-supported";
 } & PromptCachingOptions) | {
@@ -506,8 +539,13 @@ export const PromptCaching: {
     off(): PromptCaching;
 };
 
-// @public (undocumented)
+// @public
 export class PromptCachingError extends RangeError {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "config.prompt-caching";
+    // (undocumented)
+    readonly code: "config.prompt-caching";
     // (undocumented)
     name: string;
 }
@@ -605,8 +643,13 @@ export const RateLimitPolicy: {
     of(options: RateLimitOptions): RateLimitPolicy;
 };
 
-// @public (undocumented)
+// @public
 export class RateLimitPolicyError extends RangeError {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "config.rate-limit-policy";
+    // (undocumented)
+    readonly code: "config.rate-limit-policy";
     // (undocumented)
     name: string;
 }
@@ -647,8 +690,13 @@ export enum ReasoningEffort {
     Minimal = "minimal"
 }
 
-// @public (undocumented)
+// @public
 export class ReasoningError extends RangeError {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "config.reasoning";
+    // (undocumented)
+    readonly code: "config.reasoning";
     // (undocumented)
     name: string;
 }
@@ -689,8 +737,13 @@ export const RetryPolicy: {
     none(): RetryPolicy;
 };
 
-// @public (undocumented)
+// @public
 export class RetryPolicyError extends RangeError {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "config.retry-policy";
+    // (undocumented)
+    readonly code: "config.retry-policy";
     // (undocumented)
     name: string;
 }
@@ -731,6 +784,9 @@ export interface WireRequest {
 
 // Warnings were encountered during analysis:
 //
+// src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
 // src/models/capabilities.ts:6:3 - (ae-undocumented) Missing documentation for "supported".
 // src/models/capabilities.ts:7:3 - (ae-undocumented) Missing documentation for "efforts".
 // src/models/capabilities.ts:8:3 - (ae-undocumented) Missing documentation for "budget".
@@ -776,9 +832,11 @@ export interface WireRequest {
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
-// src/models/model-provider.decorator.ts:102:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:103:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/model-provider.decorator.ts:123:1 - (ae-undocumented) Missing documentation for "ModelProvider".
+// src/models/model-provider.decorator.ts:103:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:104:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/model-provider.decorator.ts:105:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/model-provider.decorator.ts:106:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:130:1 - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openai-compatible.provider.ts:16:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:31:3 - (ae-undocumented) Missing documentation for "requestFields".
@@ -802,59 +860,67 @@ export interface WireRequest {
 // src/models/openrouter.provider.ts:87:40 - (ae-undocumented) Missing documentation for "reasoningFields".
 // src/models/openrouter.provider.ts:95:12 - (ae-undocumented) Missing documentation for "cachingPlan".
 // src/models/openrouter.provider.ts:113:12 - (ae-undocumented) Missing documentation for "capabilitiesOf".
-// src/models/policies/rate-limit-policy.ts:21:3 - (ae-undocumented) Missing documentation for "calls".
-// src/models/policies/rate-limit-policy.ts:22:3 - (ae-undocumented) Missing documentation for "tokens".
-// src/models/policies/rate-limit-policy.ts:29:3 - (ae-undocumented) Missing documentation for "perMinute".
-// src/models/policies/rate-limit-policy.ts:36:3 - (ae-undocumented) Missing documentation for "maxConcurrentCalls".
-// src/models/policies/rate-limit-policy.ts:37:3 - (ae-undocumented) Missing documentation for "perMinute".
-// src/models/policies/rate-limit-policy.ts:38:3 - (ae-undocumented) Missing documentation for "balancing".
-// src/models/policies/rate-limit-policy.ts:41:1 - (ae-undocumented) Missing documentation for "RateLimitPolicyError".
-// src/models/policies/rate-limit-policy.ts:42:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/policies/rate-limit-policy.ts:52:14 - (ae-undocumented) Missing documentation for "RateLimitPolicy".
-// src/models/problems.ts:14:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/problems.ts:15:3 - (ae-undocumented) Missing documentation for "key".
-// src/models/problems.ts:16:3 - (ae-undocumented) Missing documentation for "value".
-// src/models/problems.ts:17:3 - (ae-undocumented) Missing documentation for "model".
-// src/models/problems.ts:18:3 - (ae-undocumented) Missing documentation for "supported".
-// src/models/problems.ts:26:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts:27:15 - (ae-undocumented) Missing documentation for "problems".
-// src/models/prompt-caching.ts:3:3 - (ae-undocumented) Missing documentation for "FiveMinutes".
-// src/models/prompt-caching.ts:4:3 - (ae-undocumented) Missing documentation for "OneHour".
-// src/models/prompt-caching.ts:5:3 - (ae-undocumented) Missing documentation for "OneDay".
-// src/models/prompt-caching.ts:10:3 - (ae-undocumented) Missing documentation for "SystemPrompt".
-// src/models/prompt-caching.ts:11:3 - (ae-undocumented) Missing documentation for "Tools".
-// src/models/prompt-caching.ts:12:3 - (ae-undocumented) Missing documentation for "History".
-// src/models/prompt-caching.ts:17:3 - (ae-undocumented) Missing documentation for "retention".
-// src/models/prompt-caching.ts:18:3 - (ae-undocumented) Missing documentation for "cachedParts".
-// src/models/prompt-caching.ts:27:1 - (ae-undocumented) Missing documentation for "PromptCachingError".
-// src/models/prompt-caching.ts:28:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/prompt-caching.ts:31:14 - (ae-undocumented) Missing documentation for "PromptCaching".
-// src/models/reasoning.ts:5:3 - (ae-undocumented) Missing documentation for "Minimal".
-// src/models/reasoning.ts:6:3 - (ae-undocumented) Missing documentation for "Low".
-// src/models/reasoning.ts:7:3 - (ae-undocumented) Missing documentation for "Medium".
-// src/models/reasoning.ts:8:3 - (ae-undocumented) Missing documentation for "High".
-// src/models/reasoning.ts:9:3 - (ae-undocumented) Missing documentation for "ExtraHigh".
-// src/models/reasoning.ts:14:3 - (ae-undocumented) Missing documentation for "tokens".
-// src/models/reasoning.ts:19:3 - (ae-undocumented) Missing documentation for "effort".
-// src/models/reasoning.ts:20:3 - (ae-undocumented) Missing documentation for "budget".
-// src/models/reasoning.ts:29:1 - (ae-undocumented) Missing documentation for "ReasoningError".
-// src/models/reasoning.ts:30:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/reasoning.ts:33:14 - (ae-undocumented) Missing documentation for "Reasoning".
+// src/models/policies/rate-limit-policy.ts:22:3 - (ae-undocumented) Missing documentation for "calls".
+// src/models/policies/rate-limit-policy.ts:23:3 - (ae-undocumented) Missing documentation for "tokens".
+// src/models/policies/rate-limit-policy.ts:30:3 - (ae-undocumented) Missing documentation for "perMinute".
+// src/models/policies/rate-limit-policy.ts:37:3 - (ae-undocumented) Missing documentation for "maxConcurrentCalls".
+// src/models/policies/rate-limit-policy.ts:38:3 - (ae-undocumented) Missing documentation for "perMinute".
+// src/models/policies/rate-limit-policy.ts:39:3 - (ae-undocumented) Missing documentation for "balancing".
+// src/models/policies/rate-limit-policy.ts:47:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/policies/rate-limit-policy.ts:48:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/policies/rate-limit-policy.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/policies/rate-limit-policy.ts:65:14 - (ae-undocumented) Missing documentation for "RateLimitPolicy".
+// src/models/problems.ts:15:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/problems.ts:16:3 - (ae-undocumented) Missing documentation for "key".
+// src/models/problems.ts:17:3 - (ae-undocumented) Missing documentation for "value".
+// src/models/problems.ts:18:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/problems.ts:19:3 - (ae-undocumented) Missing documentation for "supported".
+// src/models/problems.ts:27:3 - (ae-undocumented) Missing documentation for "problems".
+// src/models/problems.ts:28:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/problems.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/problems.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/problems.ts:35:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/problems.ts:36:3 - (ae-undocumented) Missing documentation for "problems".
+// src/models/prompt-caching.ts:4:3 - (ae-undocumented) Missing documentation for "FiveMinutes".
+// src/models/prompt-caching.ts:5:3 - (ae-undocumented) Missing documentation for "OneHour".
+// src/models/prompt-caching.ts:6:3 - (ae-undocumented) Missing documentation for "OneDay".
+// src/models/prompt-caching.ts:11:3 - (ae-undocumented) Missing documentation for "SystemPrompt".
+// src/models/prompt-caching.ts:12:3 - (ae-undocumented) Missing documentation for "Tools".
+// src/models/prompt-caching.ts:13:3 - (ae-undocumented) Missing documentation for "History".
+// src/models/prompt-caching.ts:18:3 - (ae-undocumented) Missing documentation for "retention".
+// src/models/prompt-caching.ts:19:3 - (ae-undocumented) Missing documentation for "cachedParts".
+// src/models/prompt-caching.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/prompt-caching.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/prompt-caching.ts:35:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/prompt-caching.ts:42:14 - (ae-undocumented) Missing documentation for "PromptCaching".
+// src/models/reasoning.ts:6:3 - (ae-undocumented) Missing documentation for "Minimal".
+// src/models/reasoning.ts:7:3 - (ae-undocumented) Missing documentation for "Low".
+// src/models/reasoning.ts:8:3 - (ae-undocumented) Missing documentation for "Medium".
+// src/models/reasoning.ts:9:3 - (ae-undocumented) Missing documentation for "High".
+// src/models/reasoning.ts:10:3 - (ae-undocumented) Missing documentation for "ExtraHigh".
+// src/models/reasoning.ts:15:3 - (ae-undocumented) Missing documentation for "tokens".
+// src/models/reasoning.ts:20:3 - (ae-undocumented) Missing documentation for "effort".
+// src/models/reasoning.ts:21:3 - (ae-undocumented) Missing documentation for "budget".
+// src/models/reasoning.ts:35:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/reasoning.ts:36:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/reasoning.ts:37:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/reasoning.ts:44:14 - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/resolve.ts:15:3 - (ae-undocumented) Missing documentation for "Chat".
 // src/models/resolve.ts:16:3 - (ae-undocumented) Missing documentation for "Decision".
 // src/models/resolve.ts:77:15 - (ae-undocumented) Missing documentation for "providers".
-// src/models/retry-policy.ts:6:3 - (ae-undocumented) Missing documentation for "Exponential".
-// src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Fixed".
-// src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "None".
-// src/models/retry-policy.ts:15:3 - (ae-undocumented) Missing documentation for "initialDelay".
-// src/models/retry-policy.ts:16:3 - (ae-undocumented) Missing documentation for "maxDelay".
-// src/models/retry-policy.ts:19:3 - (ae-undocumented) Missing documentation for "retryOn".
-// src/models/retry-policy.ts:24:3 - (ae-undocumented) Missing documentation for "maxAttempts".
-// src/models/retry-policy.ts:25:3 - (ae-undocumented) Missing documentation for "delay".
-// src/models/retry-policy.ts:26:3 - (ae-undocumented) Missing documentation for "retryOn".
-// src/models/retry-policy.ts:35:1 - (ae-undocumented) Missing documentation for "RetryPolicyError".
-// src/models/retry-policy.ts:36:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/retry-policy.ts:45:14 - (ae-undocumented) Missing documentation for "RetryPolicy".
+// src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Exponential".
+// src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "Fixed".
+// src/models/retry-policy.ts:9:3 - (ae-undocumented) Missing documentation for "None".
+// src/models/retry-policy.ts:16:3 - (ae-undocumented) Missing documentation for "initialDelay".
+// src/models/retry-policy.ts:17:3 - (ae-undocumented) Missing documentation for "maxDelay".
+// src/models/retry-policy.ts:20:3 - (ae-undocumented) Missing documentation for "retryOn".
+// src/models/retry-policy.ts:25:3 - (ae-undocumented) Missing documentation for "maxAttempts".
+// src/models/retry-policy.ts:26:3 - (ae-undocumented) Missing documentation for "delay".
+// src/models/retry-policy.ts:27:3 - (ae-undocumented) Missing documentation for "retryOn".
+// src/models/retry-policy.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/retry-policy.ts:42:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/retry-policy.ts:43:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/retry-policy.ts:58:14 - (ae-undocumented) Missing documentation for "RetryPolicy".
 // src/models/transport/failure-error.ts:11:3 - (ae-undocumented) Missing documentation for "cause".
 // src/models/transport/failure-error.ts:21:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/transport/failure-error.ts:22:3 - (ae-undocumented) Missing documentation for "code".

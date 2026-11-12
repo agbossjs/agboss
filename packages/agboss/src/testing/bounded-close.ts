@@ -26,5 +26,5 @@ export async function closedWithin(
   ]).finally(() => {
     timer.abort();
   });
-  if (!isClosed) throw new AppCloseTimeoutError(instance, timeout);
+  if (!isClosed) throw new AppCloseTimeoutError({ instance, timeout });
 }

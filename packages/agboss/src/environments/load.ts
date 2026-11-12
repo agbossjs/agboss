@@ -73,16 +73,16 @@ async function notFound(owner: EnvironmentOwner, dir: string, name: string): Pro
   const path = join(dir, `${name}.environment.ts`);
   const contract = owner.contract?.name ?? "Environment";
   if (name === TEST_DEFAULT_ENVIRONMENT) {
-    throw new EnvironmentError(
-      EnvironmentErrorCode.NotFound,
-      `Environment "test" not found: ${path} — tests run on the test environment, never on dev's values: create it (export const environment: ${contract} = { … })`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.NotFound,
+      message: `Environment "test" not found: ${path} — tests run on the test environment, never on dev's values: create it (export const environment: ${contract} = { … })`,
+    });
   }
   const available = await availableEnvironments(dir);
-  throw new EnvironmentError(
-    EnvironmentErrorCode.NotFound,
-    `Environment "${name}" not found: ${path}. Available: ${available.length === 0 ? "none" : available.join(", ")}`,
-  );
+  throw new EnvironmentError({
+    code: EnvironmentErrorCode.NotFound,
+    message: `Environment "${name}" not found: ${path}. Available: ${available.length === 0 ? "none" : available.join(", ")}`,
+  });
 }
 
 /** The `environment` export of `<dir>/<name>.environment.ts`. */
@@ -93,12 +93,12 @@ async function loadValues(owner: EnvironmentOwner, dir: string, name: string): P
   if ("environment" in module) return module.environment;
   const contract = owner.contract?.name ?? "Environment";
   const isContract = owner.contract !== undefined && Object.values(module).includes(owner.contract);
-  throw new EnvironmentError(
-    EnvironmentErrorCode.NotFound,
-    isContract
+  throw new EnvironmentError({
+    code: EnvironmentErrorCode.NotFound,
+    message: isContract
       ? `${file} holds the contract ${contract}, not an environment — name another environment`
       : `${file} must export the environment: export const environment: ${contract} = { … }`,
-  );
+  });
 }
 
 /** The environment file to load; none when the application declares no environment and none is named. */
@@ -110,10 +110,10 @@ export async function selectedEnvironment(
   const { contract } = owner;
   if (contract === undefined) {
     if (env === undefined) return undefined;
-    throw new EnvironmentError(
-      EnvironmentErrorCode.NoContract,
-      `Environment "${env}": ${owner.application} declares no environment — add @Application({ environment: AppEnvironment }) and environments/${env}.environment.ts next to the application file`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.NoContract,
+      message: `Environment "${env}": ${owner.application} declares no environment — add @Application({ environment: AppEnvironment }) and environments/${env}.environment.ts next to the application file`,
+    });
   }
   const name = env ?? defaultName;
   // a contract with no fields (an application with no settings) needs no file for its default
@@ -123,10 +123,10 @@ export async function selectedEnvironment(
     if (file === undefined) return { name, contract: contract.name, values: {} };
   }
   if (owner.source === undefined) {
-    throw new EnvironmentError(
-      EnvironmentErrorCode.NotFound,
-      `Environment "${name}" not found: the file of ${owner.application} is unknown`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.NotFound,
+      message: `Environment "${name}" not found: the file of ${owner.application} is unknown`,
+    });
   }
   const values = await loadValues(owner, environmentsDirOf(owner.source), name);
   return { name, contract: contract.name, values };

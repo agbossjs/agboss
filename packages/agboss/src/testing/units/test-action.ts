@@ -32,7 +32,7 @@ interface ExecutableAction {
 function actionOptionsOf(action: Class) {
   const declaration = declarationOf(action);
   if (declaration?.kind !== NodeKind.Action)
-    throw new TestSetupError(`testAction(${action.name}): not an @Action`);
+    throw new TestSetupError({ message: `testAction(${action.name}): not an @Action` });
   return declaration.options;
 }
 

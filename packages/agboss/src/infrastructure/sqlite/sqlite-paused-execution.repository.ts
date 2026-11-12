@@ -70,11 +70,40 @@ const decode = (text: string): unknown =>
     return tagged.success ? Number(tagged.data.$number) : item;
   });
 
-/** Whether a decoded run is what `save` wrote: an `AgentExecutionOutput` of a paused run. */
-const isStoredRun = (value: unknown): value is AgentExecutionOutput => {
+/** The ids that name a stored run in an error: the keys of its tenant, thread and run, never its input. */
+/** ` (tenantId acme, …)`, or nothing when no id is readable. */
+const named = (ids: string): string => (ids === "" ? "" : ` (${ids})`);
+
+const idsOf = (value: unknown): string =>
+  ["tenantId", "threadId", "runId"]
+    .flatMap((key) => {
+      const id: unknown =
+        typeof value === "object" && value !== null ? Reflect.get(value, key) : "";
+      return typeof id === "string" ? [`${key} ${id}`] : [];
+    })
+    .join(", ");
+
+/**
+ * Why a stored run is refused: the ids that name it and the field that failed — never the run
+ * itself, whose `startInput` and `data` are the caller's (PII reaches the logs through a message,
+ * #906 D4). The schema's own error, which names paths and expectations only, is the `cause`.
+ */
+function unreadableRun(value: unknown, error: z.ZodError | undefined): Error {
+  const field = error?.issues[0]?.path.join(".") ?? "turnId";
+  return new Error(
+    `a stored paused run is not readable${named(idsOf(value))}: the field ${field === "" ? "(the value)" : field} is missing or not what the framework wrote`,
+    { cause: error },
+  );
+}
+
+/** A decoded run as `save` wrote it: an `AgentExecutionOutput` of a paused run. */
+function storedRunOf(value: unknown): AgentExecutionOutput {
   const stored = StoredRun.safeParse(value);
-  return stored.success && (stored.data.turnId ?? stored.data.ternId) !== undefined;
-};
+  if (!stored.success) throw unreadableRun(value, stored.error);
+  if ((stored.data.turnId ?? stored.data.ternId) === undefined)
+    throw unreadableRun(value, undefined);
+  return value as AgentExecutionOutput;
+}
 
 /** The run with its record's id as `turnId`: a run stored by 0.1.0 has it as `ternId` (#906). */
 function withTurnId(run: AgentExecutionOutput): AgentExecutionOutput {
@@ -88,8 +117,7 @@ function withTurnId(run: AgentExecutionOutput): AgentExecutionOutput {
 
 function toPausedExecution(row: unknown): PausedExecution {
   const r = PausedRow.parse(row);
-  const run = decode(r.run);
-  if (!isStoredRun(run)) throw new Error(`a stored paused run is not readable: ${r.run}`);
+  const run = storedRunOf(decode(r.run));
   const tenantId: unknown = Reflect.get(run, "tenantId");
   const current = withTurnId(run);
   return {

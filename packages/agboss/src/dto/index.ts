@@ -31,6 +31,7 @@ export {
   DtoValidationError,
   type DtoValidationErrorOptions,
   type DtoErrorCode,
+  type DtoErrorOptions,
   type DtoIssue,
 } from "./errors.js";
 export type {

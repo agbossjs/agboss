@@ -162,9 +162,10 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
     expect(
       declare({ ...role, approves: RefundCardInputDto, ask: ClarificationQuestionDto }),
     ).toThrow(
-      new ComponentError(
-        '[channel.role-form] @ChannelRole "both-question" (SomeChannel) declares both approves and ask / answer — keep one form',
-      ),
+      new ComponentError({
+        message:
+          '[channel.role-form] @ChannelRole "both-question" (SomeChannel) declares both approves and ask / answer — keep one form',
+      }),
     );
     expect(declare({ ...role, answer: ClarificationAnswerDto })).toThrow(
       "declares neither approves nor both ask and answer",

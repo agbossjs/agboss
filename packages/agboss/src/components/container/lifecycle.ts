@@ -55,10 +55,10 @@ const messageOf = (error: unknown): string =>
 
 /** A hook that threw, as an error naming the component and the hook (the original as `cause`). */
 const hookFailure = (instance: object, hook: HookName, error: unknown): ComponentError =>
-  new ComponentError(
-    `[di.hook-failed] ${componentName(instance)}.${hook} failed: ${messageOf(error)}`,
-    { cause: error },
-  );
+  new ComponentError({
+    message: `[di.hook-failed] ${componentName(instance)}.${hook} failed: ${messageOf(error)}`,
+    cause: error,
+  });
 
 /** Runs `hook` of every instance in order; the first failure stops it, naming the component and the hook. */
 async function runInOrder(

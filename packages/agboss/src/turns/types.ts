@@ -28,7 +28,7 @@ export interface TurnStep {
 
 export interface Turn {
   readonly id: string;
-  /** The run that wrote it (`ExecutionOutput.runId`, `executionContext.executionId`); null for Terns before #238. */
+  /** The run that wrote it (`ExecutionOutput.runId`, `executionContext.executionId`); null for Turns before #238. */
   readonly runId: string | null;
   readonly threadId: string;
   /** The tenant of its thread (#261): `"default"` for a thread that names none. */
@@ -90,7 +90,7 @@ export interface ConfigStore {
     snapshot: string,
   ) => Promise<{ readonly drift: boolean }>;
   readonly configSnapshots: (bundle: string, version: string) => Promise<ConfigSnapshot[]>;
-  /** The latest `limit` original (not replayed) answered Terns of a workflow, oldest first. */
+  /** The latest `limit` original (not replayed) answered Turns of a workflow, oldest first. */
   readonly recentOriginals: (bundle: string, limit: number) => Promise<Turn[]>;
 }
 
@@ -101,7 +101,7 @@ export interface ConfigStore {
 export interface MemoryStore {
   /** Turns of the thread after the compaction's last summary, oldest first. */
   readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Turn[]>;
-  /** Up to `limit` turns right before `ternId`, oldest first. */
+  /** Up to `limit` turns right before `turnId`, oldest first. */
   readonly before: (
     tenantId: string,
     threadId: string,
@@ -147,7 +147,7 @@ export type TurnOutcome = Pick<
   "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd"
 >;
 
-/** Mean judge score and total cost of the Terns of one prompt version. */
+/** Mean judge score and total cost of the Turns of one prompt version. */
 export interface VersionScore {
   readonly promptVersion: string;
   readonly turns: number;
@@ -158,7 +158,7 @@ export interface VersionScore {
 
 /**
  * One resolved pause of an execution tree as the records keep it (#267 S107): the permanent log
- * behind `ExecutionRecord.pauses`. Terns know nothing of its shape: `record` is its JSON.
+ * behind `ExecutionRecord.pauses`. Turns know nothing of its shape: `record` is its JSON.
  */
 export interface PauseAnswerEntry {
   readonly tenantId: string;
@@ -170,7 +170,7 @@ export interface PauseAnswerEntry {
   readonly record: string;
 }
 
-/** Durable memory of runs: threads, Terns, their quality scores and conversation summaries. */
+/** Durable memory of runs: threads, Turns, their quality scores and conversation summaries. */
 export interface TurnStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
   readonly createThread: (thread: NewThread) => Promise<string>;
@@ -190,16 +190,16 @@ export interface TurnStore extends MemoryStore, ConfigStore {
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
   completeIfStatus(turnId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
-  /** The last `limit` Terns of a thread (its tenant and id), oldest first. */
+  /** The last `limit` Turns of a thread (its tenant and id), oldest first. */
   readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
-  /** Up to `limit` Terns with `status`, oldest first, after the Turn `after` (a page of them). */
+  /** Up to `limit` Turns with `status`, oldest first, after the Turn `after` (a page of them). */
   readonly byStatus: (status: TurnStatus, limit: number, after?: string) => Promise<Turn[]>;
   /** The latest Turn a run of the tenant wrote (#808); `undefined` when it wrote none. */
   readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Turn | undefined>;
-  /** Original (non-replay) Terns of a prompt version, oldest first; a run in flight (`running`) is no result. */
+  /** Original (non-replay) Turns of a prompt version, oldest first; a run in flight (`running`) is no result. */
   readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Turn[]>;
-  /** Answered Terns without a score, oldest first. */
+  /** Answered Turns without a score, oldest first. */
   readonly unscored: (
     bundle: string,
     promptVersion: string | undefined,

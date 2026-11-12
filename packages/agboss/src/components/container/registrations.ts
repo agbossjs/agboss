@@ -39,17 +39,18 @@ const implementsContract = (cls: Class, contract: Class): boolean =>
 /** Values must come with an `InjectionToken`: a class is listed and created by the container. */
 function checkValueToken(token: Token, owner: string): void {
   if (token instanceof InjectionToken) return;
-  throw new ComponentError(
-    `[di.instance-provider] ${owner}: provide(${tokenName(token)}, …) binds an instance to a class — list ${tokenName(token)} in providers and let the container create it; values go with an InjectionToken`,
-  );
+  throw new ComponentError({
+    message: `[di.instance-provider] ${owner}: provide(${tokenName(token)}, …) binds an instance to a class — list ${tokenName(token)} in providers and let the container create it; values go with an InjectionToken`,
+  });
 }
 
 const conflictingValues = (token: Token, first: string, second: string): ComponentError =>
-  new ComponentError(
-    first === second
-      ? `[di.conflicting-values] ${tokenName(token)} has two different values in ${first} — keep one`
-      : `[di.conflicting-values] ${tokenName(token)} has different values in ${first} and ${second} — use different tokens or an environment value`,
-  );
+  new ComponentError({
+    message:
+      first === second
+        ? `[di.conflicting-values] ${tokenName(token)} has two different values in ${first} — keep one`
+        : `[di.conflicting-values] ${tokenName(token)} has different values in ${first} and ${second} — use different tokens or an environment value`,
+  });
 
 /** The registrations of an application instance: the core values, then every module's providers. */
 export class Registrations {
@@ -144,8 +145,8 @@ export class Registrations {
     const listed = found
       .map((cls) => `${tokenName(cls)} (${this.#classes.get(cls) ?? ""})`)
       .join(", ");
-    return new ComponentError(
-      `[di.ambiguous-implementation] ${dependant} depends on ${tokenName(contract)}, and ${String(found.length)} listed classes implement it: ${listed} — list one`,
-    );
+    return new ComponentError({
+      message: `[di.ambiguous-implementation] ${dependant} depends on ${tokenName(contract)}, and ${String(found.length)} listed classes implement it: ${listed} — list one`,
+    });
   }
 }

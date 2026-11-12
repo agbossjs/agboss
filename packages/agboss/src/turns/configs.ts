@@ -10,7 +10,7 @@ const SnapshotRow = z.object({
   first_seen: z.string(),
 });
 
-/** Config versions (table `config_versions`, migration 4) and recent original Terns. */
+/** Config versions (table `config_versions`, migration 4) and recent original Turns. */
 export function configMethods(db: DatabaseSync, now: () => Date): ConfigStore {
   return {
     rememberConfig: (bundle, version, hash, snapshot) => {

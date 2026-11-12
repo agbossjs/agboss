@@ -267,7 +267,7 @@ export function requireApplication(cls: Class, where: string): ApplicationDeclar
     declarationOf(cls)?.kind === NodeKind.Workflow
       ? `${name} is a @Workflow — list it in an @Application({ name, version, workflows: [${name}] }) and pass the application`
       : `decorate ${name} with @Application({ name, version, workflows })`;
-  throw new ComponentError(`${where} takes an @Application class: ${fix}`);
+  throw new ComponentError({ message: `${where} takes an @Application class: ${fix}` });
 }
 
 /** The applications loaded so far that list `workflow` (the CLI's commands on one workflow, eval). */

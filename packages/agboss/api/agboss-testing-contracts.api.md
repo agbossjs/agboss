@@ -219,13 +219,28 @@ export enum StoreCapability {
 // @public
 export function storeConformance<TTransaction>(options: StoreConformanceOptions<TTransaction>): void;
 
+// Warning: (ae-forgotten-export) The symbol "StoreConformanceRule" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type StoreConformanceCode = "store-conformance" | `store-conformance.${StoreConformanceRule}`;
+
 // @public
 export class StoreConformanceError extends Error {
-    constructor(problems: readonly string[]);
+    constructor(options: StoreConformanceErrorOptions);
     // (undocumented)
-    readonly code: string;
+    static readonly code: "store-conformance";
+    // (undocumented)
+    readonly code: StoreConformanceCode;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly problems: readonly string[];
+}
+
+// @public
+export interface StoreConformanceErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly problems: readonly string[];
 }
@@ -313,9 +328,12 @@ export interface VirtualClockOptions {
 // src/testing/contracts/sabotage-run.ts:23:3 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/sabotage-run.ts:24:3 - (ae-undocumented) Missing documentation for "state".
 // src/testing/contracts/sabotage-run.ts:33:3 - (ae-undocumented) Missing documentation for "cases".
-// src/testing/contracts/store-conformance-check.ts:38:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/contracts/store-conformance-check.ts:39:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/contracts/store-conformance-check.ts:40:3 - (ae-undocumented) Missing documentation for "problems".
+// src/testing/contracts/store-conformance-check.ts:74:3 - (ae-undocumented) Missing documentation for "problems".
+// src/testing/contracts/store-conformance-check.ts:75:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/contracts/store-conformance-check.ts:84:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/contracts/store-conformance-check.ts:85:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/contracts/store-conformance-check.ts:86:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/contracts/store-conformance-check.ts:87:3 - (ae-undocumented) Missing documentation for "problems".
 // src/testing/contracts/store-conformance.ts:59:3 - (ae-undocumented) Missing documentation for "checkpointSaver".
 // src/testing/contracts/store-conformance.ts:60:3 - (ae-undocumented) Missing documentation for "childExecutionQueue".
 // src/testing/contracts/store-conformance.ts:61:3 - (ae-undocumented) Missing documentation for "costLedger".

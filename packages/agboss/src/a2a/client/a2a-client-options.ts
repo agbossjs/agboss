@@ -94,9 +94,9 @@ export interface A2ATaskResult {
 export function urlOf(target: object, name: string): string {
   const meta = componentOf(target);
   if (meta?.kind !== "a2a-agent") {
-    throw new ComponentError(
-      `[a2a.no-url] ${name} has no @A2AAgent({ url }) and no url option — the remote agent's address is unknown`,
-    );
+    throw new ComponentError({
+      message: `[a2a.no-url] ${name} has no @A2AAgent({ url }) and no url option — the remote agent's address is unknown`,
+    });
   }
   return meta.meta.url;
 }
@@ -137,9 +137,9 @@ export function agentNameOf(target: object, fallback: string): string {
 /** A call's `key`: part of an outbound call's name, so of its charset (`[A-Za-z0-9._-]`, 1–40). */
 export function checkedCallKey(agent: string, key: string | undefined): string | undefined {
   if (key === undefined || /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/u.test(key)) return key;
-  throw new ComponentError(
-    `[a2a.call-key-invalid] ${agent}: a call's key is 1–40 letters, digits, ".", "_" or "-", a letter or digit first`,
-  );
+  throw new ComponentError({
+    message: `[a2a.call-key-invalid] ${agent}: a call's key is 1–40 letters, digits, ".", "_" or "-", a letter or digit first`,
+  });
 }
 
 /** When a call's wait ends at the latest: the execution's deadline, the call's timeout. */
@@ -170,12 +170,12 @@ export function typedContractOf(
       nestedFileFieldsOf(dto).map((path) => `${dto.name}.${path}`),
     );
     if (nested.length > 0)
-      throw new ComponentError(
-        `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds an A2AFileDto below the top level — an A2A file is a part of its own, in a top-level field`,
-      );
+      throw new ComponentError({
+        message: `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds an A2AFileDto below the top level — an A2A file is a part of its own, in a top-level field`,
+      });
     return { ...contract, input: contract.input, output: contract.output };
   }
-  throw new ComponentError(
-    `[a2a.no-contract] ${name} declares no typed contract — @A2AAgent({ input, output }) on its class, or the contract option; send(message) runs without one`,
-  );
+  throw new ComponentError({
+    message: `[a2a.no-contract] ${name} declares no typed contract — @A2AAgent({ input, output }) on its class, or the contract option; send(message) runs without one`,
+  });
 }

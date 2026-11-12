@@ -210,10 +210,10 @@ export class CompletionGates implements BranchScheduler, ScriptedExpectation {
     const step = this.steps[this.#nextStep()];
     const waiting = this.#waiting.map(branchText).join(", ");
     const next = step === undefined ? "the next branch" : `the next step ${stepText(step)}`;
-    const failure = new TestFailure(
-      "test.unreachable-step",
-      `TestConcurrency.inOrder: ${next} cannot complete — no branch runs and it is not waiting at its gate (waiting: ${waiting}; a branch without a slot waits for one: maxConcurrency)`,
-    );
+    const failure = new TestFailure({
+      code: "test.unreachable-step",
+      message: `TestConcurrency.inOrder: ${next} cannot complete — no branch runs and it is not waiting at its gate (waiting: ${waiting}; a branch without a slot waits for one: maxConcurrency)`,
+    });
     this.report(failure);
     this.#done.fill(true);
     for (const stuck of this.#waiting.splice(0)) stuck.fail(failure);

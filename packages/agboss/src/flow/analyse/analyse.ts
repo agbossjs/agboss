@@ -175,7 +175,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
 /** Analyses a workflow; throws one `GraphRuleError` with every violation found. */
 export function analyseWorkflow(workflow: Class, options: AnalyseOptions = {}): FlowAnalysis {
   const { analysis, errors } = checkWorkflow(workflow, options);
-  if (errors.length > 0 || analysis === undefined) throw new GraphRuleError(errors);
+  if (errors.length > 0 || analysis === undefined) throw new GraphRuleError({ violations: errors });
   return analysis;
 }
 

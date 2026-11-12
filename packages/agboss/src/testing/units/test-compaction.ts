@@ -57,16 +57,16 @@ function checkedMetaOf(
 ): CompactionMeta {
   const meta = compactionMetaOf(compaction);
   if (meta === undefined)
-    throw new TestSetupError(`testCompaction(${compaction.name}): not a @Compaction`);
+    throw new TestSetupError({ message: `testCompaction(${compaction.name}): not a @Compaction` });
   throwIfViolated(compactionViolations([compaction]));
   if (meta.strategy === CompactionStrategy.None)
-    throw new TestSetupError(
-      `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.None — it writes no summaries`,
-    );
+    throw new TestSetupError({
+      message: `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.None — it writes no summaries`,
+    });
   if (isCustomCompaction(meta) && options.model !== undefined)
-    throw new TestSetupError(
-      `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.Custom — its compact() calls no model; leave out model`,
-    );
+    throw new TestSetupError({
+      message: `testCompaction(${compaction.name}): ${meta.name} is CompactionStrategy.Custom — its compact() calls no model; leave out model`,
+    });
   return meta;
 }
 

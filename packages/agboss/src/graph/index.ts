@@ -7,6 +7,8 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   GraphRuleError,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type GraphRuleErrorOptions,
+  /** @deprecated Import from "@agboss/core" (#195). */
   LimitExceededError,
   /** @deprecated Import from "@agboss/core" (#195). */
   type LimitExceededErrorOptions,

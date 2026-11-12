@@ -10,7 +10,7 @@ export interface TraceContext {
 
 /**
  * Optional tracing of runs (LangChain callbacks). Off unless configured — the core runs the same
- * either way; spend and Terns never depend on it.
+ * either way; spend and Turns never depend on it.
  */
 export interface ExecutionTracing {
   readonly callbacks: (context: TraceContext) => BaseCallbackHandler[];

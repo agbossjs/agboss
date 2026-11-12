@@ -39,9 +39,9 @@ export class LiveJudgeModel extends JudgeModel {
   private current(member: string): JudgeModel {
     const model = judging.getStore();
     if (model === undefined) {
-      throw new ComponentError(
-        `[judge.model-outside-judge] ${this.consumer} used judgeModel.${member} outside a judge's judge() — inject JudgeModel only into a @Judge and call it from judge()`,
-      );
+      throw new ComponentError({
+        message: `[judge.model-outside-judge] ${this.consumer} used judgeModel.${member} outside a judge's judge() — inject JudgeModel only into a @Judge and call it from judge()`,
+      });
     }
     return model;
   }

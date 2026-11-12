@@ -23,6 +23,7 @@ import type {
   ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
+import { causeOptionOf } from "../core/errors.js";
 
 /** How a scripted model call fails — the failures a provider's retry policy knows. */
 export { ModelFailure };
@@ -80,7 +81,9 @@ export function toolNameOf(tool: Class): string {
   const meta = componentOf(tool);
   if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
   if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
-    throw new TestSetupError(`${tool.name} is not a @Tool, @McpTool, @Rag or question role`);
+    throw new TestSetupError({
+      message: `${tool.name} is not a @Tool, @McpTool, @Rag or question role`,
+    });
   }
   return meta.meta.name;
 }
@@ -174,13 +177,26 @@ export const waitFor = (duration: ClockDuration | Milliseconds): WaitTurn => ({
   delay: seconds(millisecondsOf(duration) / 1000),
 });
 
+/** What a scripted model failure takes (#906): how it failed and the component it failed for. */
+export interface ModelCallFailedErrorOptions {
+  readonly failure: ModelFailure;
+  readonly component: string;
+  readonly cause?: unknown;
+}
+
 /** A scripted model failure, as an agent's loop sees it. */
 export class ModelCallFailedError extends Error {
+  static readonly code = "test.model-call-failed" as const;
+  readonly code = ModelCallFailedError.code;
   override name = "ModelCallFailedError";
   readonly failure: ModelFailure;
+  /** The scripted component whose call failed. */
+  readonly component: string;
 
-  constructor(failure: ModelFailure, component: string) {
-    super(`scripted model failure for ${component}: ${failure}`);
+  constructor(options: ModelCallFailedErrorOptions) {
+    const { failure, component, cause } = options;
+    super(`scripted model failure for ${component}: ${failure}`, causeOptionOf(cause));
     this.failure = failure;
+    this.component = component;
   }
 }

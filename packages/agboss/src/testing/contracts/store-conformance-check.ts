@@ -1,3 +1,4 @@
+import { causeOptionOf } from "../../core/errors.js";
 /**
  * What `storeConformance` (#526) refuses before it registers anything: a store set whose fencing
  * contracts do not hold together — a lease store whose fenced-effect, outbound-call or audit-log
@@ -29,22 +30,72 @@ export interface ClaimedSet {
   readonly interleavings?: unknown;
 }
 
+/** The rules a store set is refused by: the tag of a problem, `[store-conformance.<rule>]`. */
+export type StoreConformanceRule =
+  | "invalid-capabilities"
+  | "invalid-interleavings"
+  | "interleavings-below-floor"
+  | "unknown-store"
+  | "empty"
+  | "opt-out-not-declared"
+  | "lease-store-required"
+  | "missing-fencing-contract"
+  | "capability-not-declared"
+  | "invalid-without"
+  | "opted-out-store"
+  | "capability-missing"
+  | "without-implemented";
+
+/** `store-conformance`, or the first problem's own: `store-conformance.empty`, … */
+export type StoreConformanceCode =
+  "store-conformance" | `store-conformance.${StoreConformanceRule}`;
+
+const STORE_CONFORMANCE_RULES = {
+  "invalid-capabilities": true,
+  "invalid-interleavings": true,
+  "interleavings-below-floor": true,
+  "unknown-store": true,
+  empty: true,
+  "opt-out-not-declared": true,
+  "lease-store-required": true,
+  "missing-fencing-contract": true,
+  "capability-not-declared": true,
+  "invalid-without": true,
+  "opted-out-store": true,
+  "capability-missing": true,
+  "without-implemented": true,
+} satisfies Record<StoreConformanceRule, true>;
+
+const isRule = (rule: string): rule is StoreConformanceRule =>
+  Object.hasOwn(STORE_CONFORMANCE_RULES, rule);
+
+/** What a refused store set takes (#906): every problem, each `[store-conformance.<rule>] …`. */
+export interface StoreConformanceErrorOptions {
+  readonly problems: readonly string[];
+  readonly cause?: unknown;
+}
+
 /**
  * A store set `storeConformance` refuses (#526): `code` is the first problem's, `problems` all of
  * them, each `[store-conformance.<rule>] …` — thrown while the suites are registered, so the file
  * fails before any case runs.
  */
 export class StoreConformanceError extends Error {
+  static readonly code = "store-conformance" as const;
   override name = "StoreConformanceError";
-  readonly code: string;
+  readonly code: StoreConformanceCode;
   readonly problems: readonly string[];
 
-  constructor(problems: readonly string[]) {
+  constructor(options: StoreConformanceErrorOptions) {
+    const { problems, cause } = options;
     super(
       `storeConformance refuses the store set:\n${problems.map((line) => `  - ${line}`).join("\n")}`,
+      causeOptionOf(cause),
     );
     this.problems = problems;
-    this.code = /^\[([^\]]+)\]/u.exec(problems[0] ?? "")?.[1] ?? "store-conformance";
+    const rule = /^\[store-conformance\.([^\]]+)\]/u.exec(problems[0] ?? "")?.[1];
+    this.code =
+      rule !== undefined && isRule(rule) ? `store-conformance.${rule}` : "store-conformance";
   }
 }
 
@@ -175,5 +226,5 @@ export function checkStoreSet(set: ClaimedSet): void {
           ...missingOf(set),
           ...interleavingProblemsOf(set),
         ];
-  if (problems.length > 0) throw new StoreConformanceError(problems);
+  if (problems.length > 0) throw new StoreConformanceError({ problems });
 }

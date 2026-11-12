@@ -110,7 +110,7 @@ export function resolvedModelProvidersOf(
 ): readonly ModelProviderType[] {
   const modelProviders = modelProvidersOf(listed);
   const found = modelResolutionViolations({ ...workflow, modelProviders });
-  if (found.length > 0) throw new GraphRuleError(found);
+  if (found.length > 0) throw new GraphRuleError({ violations: found });
   return modelProviders;
 }
 

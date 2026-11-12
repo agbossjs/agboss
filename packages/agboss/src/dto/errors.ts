@@ -2,14 +2,22 @@ import { AGBossError } from "../core/errors.js";
 /** What went wrong with a DTO class itself (found at registration, before any data). */
 export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata";
 
+/** What a DTO class error takes (#906): why, and the sentence naming the class and fields. */
+export interface DtoErrorOptions {
+  readonly code: DtoErrorCode;
+  readonly message: string;
+  readonly cause?: unknown;
+}
+
 /** A DTO class that cannot be used: the code says why, the message names the class and fields. */
-export class DtoError extends Error {
+export class DtoError extends AGBossError {
+  static override readonly code: string = "dto";
+  declare readonly code: DtoErrorCode;
   override name = "DtoError";
-  constructor(
-    readonly code: DtoErrorCode,
-    message: string,
-  ) {
-    super(`${code}: ${message}`);
+
+  constructor(options: DtoErrorOptions) {
+    super(`${options.code}: ${options.message}`, options);
+    this.code = options.code;
   }
 }
 

@@ -75,7 +75,10 @@ function answersOf(
   const wrongFor =
     (id: string): Wrong =>
     (why) =>
-      new TestFailure("test.wrong-script", `decideWith(…) for ${label}: "${id}" ${why}`);
+      new TestFailure({
+        code: "test.wrong-script",
+        message: `decideWith(…) for ${label}: "${id}" ${why}`,
+      });
   const unasked = Object.keys(turn.answers).find((id) => !Object.hasOwn(questions, id));
   if (unasked !== undefined) throw wrongFor(unasked)("was not asked");
   return Object.fromEntries(
@@ -98,7 +101,7 @@ function routeAnswers(
   const unknown = launched.filter((name) => !ids.includes(name));
   if (unknown.length > 0) {
     const message = `routeTo(${unknown.join(", ")}) for ${label}: not among the routes it launches (${ids.join(", ")})`;
-    throw new TestFailure("test.not-a-route", message);
+    throw new TestFailure({ code: "test.not-a-route", message });
   }
   return Object.fromEntries(
     ids.map((id) => [id, { type: "noul", noul: launched.includes(id) ? 1 : 0 }] as const),
@@ -114,14 +117,15 @@ function answersFor(
   if (turn.kind === "decide") return answersOf(turn, spec, label);
   if (turn.kind === "route" && spec.caller.startsWith("router:"))
     return routeAnswers(turn, spec, label);
-  throw new TestFailure(
-    "test.wrong-script",
-    `${label} decides on ${spec.model}: script it with decideWith(…), not replyWith(…) / callTool(…) / routeTo(…)`,
-  );
+  throw new TestFailure({
+    code: "test.wrong-script",
+    message: `${label} decides on ${spec.model}: script it with decideWith(…), not replyWith(…) / callTool(…) / routeTo(…)`,
+  });
 }
 
 function outcomeOf(turn: ScriptedTurn, spec: DecideSpec, label: string): DecisionOutcome {
-  if (turn.kind === "failure") throw new ModelCallFailedError(turn.failure, label);
+  if (turn.kind === "failure")
+    throw new ModelCallFailedError({ failure: turn.failure, component: label });
   const cost = turn.kind === "decide" || turn.kind === "route" ? turn.details.cost : undefined;
   return {
     answers: answersFor(turn, spec, label),

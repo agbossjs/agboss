@@ -119,7 +119,7 @@ function checkCapabilities<TStore>(
         );
     }
   }
-  if (problems.length > 0) throw new StoreConformanceError(problems);
+  if (problems.length > 0) throw new StoreConformanceError({ problems });
 }
 
 /** Cases registered together; with a `title`, inside a `describe` of their own. */

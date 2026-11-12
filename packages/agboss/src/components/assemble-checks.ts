@@ -52,9 +52,9 @@ export const toolNames = (
   const add = (cls: Class, name: string): void => {
     const existing = byName.get(name);
     if (existing !== undefined && existing !== cls) {
-      throw new ComponentError(
-        `[tool.duplicate-name] Duplicate tool name "${name}" found in classes ${tokenName(existing)} and ${tokenName(cls)}. Tool names must be unique across the workflow.`,
-      );
+      throw new ComponentError({
+        message: `[tool.duplicate-name] Duplicate tool name "${name}" found in classes ${tokenName(existing)} and ${tokenName(cls)}. Tool names must be unique across the workflow.`,
+      });
     }
     byName.set(name, cls);
     map.set(cls, name);
@@ -168,9 +168,9 @@ const isDecorated = (cls: Class): boolean =>
 export function checkProviderClasses(bundle: WorkflowMeta): void {
   for (const cls of providerClassesOf(bundle)) {
     if (!isDecorated(cls)) {
-      throw new ComponentError(
-        `[di.undecorated-provider] @Workflow "${bundle.name}": ${tokenName(cls)} in providers has no decorator — add @Injectable({ deps }) (or the component's own decorator), or register a value with provide(token, value).`,
-      );
+      throw new ComponentError({
+        message: `[di.undecorated-provider] @Workflow "${bundle.name}": ${tokenName(cls)} in providers has no decorator — add @Injectable({ deps }) (or the component's own decorator), or register a value with provide(token, value).`,
+      });
     }
   }
 }

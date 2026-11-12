@@ -68,5 +68,5 @@ function observerViolations(cls: Class): string[] {
 /** Every `@Application({ observers })` class implements at least one hook, and no misspelled one. */
 export function checkObservers(observers: readonly Class[]): void {
   const violations = observers.flatMap(observerViolations);
-  if (violations.length > 0) throw new ComponentError(violations.join("\n"));
+  if (violations.length > 0) throw new ComponentError({ message: violations.join("\n") });
 }

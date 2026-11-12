@@ -1,4 +1,5 @@
 import type { Thinking } from "../config/types.js";
+import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
 
 /** How hard a model thinks before it answers. */
 export enum ReasoningEffort {
@@ -26,8 +27,18 @@ export type Reasoning =
   | ({ readonly kind: "on" } & ReasoningOnOptions)
   | { readonly kind: "off" };
 
+/**
+ * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
+ * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
+ */
 export class ReasoningError extends RangeError {
+  static readonly code = "config.reasoning" as const;
+  readonly code = ReasoningError.code;
   override name = "ReasoningError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 export const Reasoning = {
@@ -36,15 +47,15 @@ export const Reasoning = {
   },
   on(options: ReasoningOnOptions): Reasoning {
     if (options.effort === undefined && options.budget === undefined) {
-      throw new ReasoningError("Reasoning.on needs an effort, a budget or both");
+      throw new ReasoningError({ message: "Reasoning.on needs an effort, a budget or both" });
     }
     if (
       options.budget !== undefined &&
       !(Number.isInteger(options.budget.tokens) && options.budget.tokens > 0)
     ) {
-      throw new ReasoningError(
-        `a reasoning budget is a positive whole number of tokens, got ${String(options.budget.tokens)}`,
-      );
+      throw new ReasoningError({
+        message: `a reasoning budget is a positive whole number of tokens, got ${String(options.budget.tokens)}`,
+      });
     }
     return Object.freeze({ kind: "on", ...options });
   },
@@ -66,7 +77,7 @@ export function reasoningOfThinking(thinking: Thinking): Reasoning {
   if (thinking === "default") return Reasoning.modelDecides();
   if (thinking === "none") return Reasoning.off();
   if (isEffort(thinking)) return Reasoning.on({ effort: thinking });
-  throw new ReasoningError(`unknown thinking level "${thinking}"`);
+  throw new ReasoningError({ message: `unknown thinking level "${thinking}"` });
 }
 
 /** How a reasoning setting reads in messages and the startup log. */

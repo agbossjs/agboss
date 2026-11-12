@@ -38,10 +38,10 @@ export class Secret {
   /** The value itself — the only way to it; read it where it is used, never to store or print it. */
   reveal(): string {
     if (this.#value === undefined) {
-      throw new EnvironmentError(
-        EnvironmentErrorCode.NotFound,
-        `the secret from ${this.#variable} is not resolved: read it from the application's environment, not from the environment file`,
-      );
+      throw new EnvironmentError({
+        code: EnvironmentErrorCode.NotFound,
+        message: `the secret from ${this.#variable} is not resolved: read it from the application's environment, not from the environment file`,
+      });
     }
     return this.#value;
   }

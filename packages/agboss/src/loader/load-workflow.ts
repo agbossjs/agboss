@@ -23,15 +23,16 @@ export async function loadWorkflowClass(
   options: { readonly typescript?: boolean } = {},
 ): Promise<Class> {
   const file = resolve(path);
-  if (!existsSync(file)) throw new WorkflowLoadError(`Workflow file not found: ${file}`);
+  if (!existsSync(file))
+    throw new WorkflowLoadError({ message: `Workflow file not found: ${file}` });
   if (options.typescript !== false) await registerTypeScript();
   const module = (await lazyLoad(import(pathToFileURL(file).href))) as Record<string, unknown>;
   const found = Object.values(module).filter(isWorkflowClass);
   const [workflow] = found;
   if (found.length !== 1 || workflow === undefined) {
-    throw new WorkflowLoadError(
-      `${file}: expected exactly one exported @Workflow class, found ${String(found.length)}`,
-    );
+    throw new WorkflowLoadError({
+      message: `${file}: expected exactly one exported @Workflow class, found ${String(found.length)}`,
+    });
   }
   return workflow;
 }

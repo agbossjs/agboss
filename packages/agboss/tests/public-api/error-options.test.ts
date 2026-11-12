@@ -1,76 +1,64 @@
 /**
- * #906 AC1 (API review G8, completing #890): every exported `AGBossError` subclass of every entry
+ * #906 AC1 (API review G8, completing #890; D1: every exported error class, `AGBossError` or not,
+ * testing exports included): every exported `Error` subclass of every entry
  * constructs from ONE options object whose keys are the error's own properties, and takes a
  * `cause` — typed (`ConstructorParameters` is checked by `tsc` on the fixtures below) and kept
  * (`.cause`). The test walks the exports of each entry, so a new error class without a fixture
  * fails it — and a class that takes its facts positionally, or drops a `cause`, fails its own case.
  * `AGBossError` itself is the base a project's own errors extend (`message`, `{ cause, details }`).
  */
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import * as a2a from "../../src/a2a/index.js";
-import * as channels from "../../src/channels/index.js";
-import * as core from "../../src/core/index.js";
-import * as dto from "../../src/dto/index.js";
-import * as evals from "../../src/eval/index.js";
-import * as graph from "../../src/graph/index.js";
-import * as root from "../../src/index.js";
-import * as internal from "../../src/internal.js";
-import * as mcp from "../../src/mcp/index.js";
-import * as memory from "../../src/memory/index.js";
-import * as models from "../../src/models/index.js";
-import * as rag from "../../src/rag/index.js";
-import * as router from "../../src/router/index.js";
-import * as stores from "../../src/stores/index.js";
-import * as testing from "../../src/testing/index.js";
-import * as contracts from "../../src/testing/contracts/index.js";
-import * as faults from "../../src/testing/faults/index.js";
-import * as testingVitest from "../../src/testing/vitest.js";
-import * as tool from "../../src/tool/index.js";
-import * as units from "../../src/units/index.js";
-import { AGBossError } from "../../src/index.js";
-import { fixtures } from "./error-options.fixtures.js";
+import { fixtures as agbossFixtures } from "./error-options.fixtures.js";
+import { plainFixtures } from "./error-options.fixtures-plain.js";
 
-/** Every entry of package.json#exports that has exports (`./testing/setup` has none). */
-const ENTRIES: Readonly<Record<string, object>> = {
-  ".": root,
-  "./dto": dto,
-  "./units": units,
-  "./models": models,
-  "./testing": testing,
-  "./testing/vitest": testingVitest,
-  "./testing/contracts": contracts,
-  "./testing/faults": faults,
-  "./mcp": mcp,
-  "./rag": rag,
-  "./a2a": a2a,
-  "./memory": memory,
-  "./eval": evals,
-  "./stores": stores,
-  "./internal": internal,
-  "./core": core,
-  "./graph": graph,
-  "./router": router,
-  "./tool": tool,
-  "./channels": channels,
+const fixtures: Readonly<Record<string, object>> = { ...agbossFixtures, ...plainFixtures };
+
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const { exports: exportMap } = JSON.parse(
+  readFileSync(resolve(packageRoot, "package.json"), "utf8"),
+) as {
+  readonly exports: Readonly<Record<string, { readonly types: string }>>;
 };
 
-type ErrorClass = new (options: never) => AGBossError;
+/**
+ * Every entry of package.json#exports, as its source module (`./dist/a/index.d.ts` →
+ * `src/a/index.ts`) — read from the package, never listed here, so an entry added later is walked.
+ */
+const ENTRIES: Readonly<Record<string, object>> = Object.fromEntries(
+  await Promise.all(
+    Object.entries(exportMap).map(async ([entry, { types }]) => {
+      const source = resolve(
+        packageRoot,
+        types.replace("./dist/", "src/").replace(/\.d\.ts$/, ".ts"),
+      );
+      return [entry, (await import(pathToFileURL(source).href)) as object] as const;
+    }),
+  ),
+);
 
-/** Every `AGBossError` subclass any entry exports, by name (the base is not one). */
+type ErrorClass = (new (options: never) => Error) & { readonly code?: unknown };
+
+/** Every `Error` subclass any entry exports, by name (`AGBossError` itself, the base, is not one). */
 const exportedErrors = (): ReadonlyMap<string, ErrorClass> => {
   const found = new Map<string, ErrorClass>();
   for (const entry of Object.values(ENTRIES))
     for (const [name, value] of Object.entries(entry))
-      if (typeof value === "function" && value.prototype instanceof AGBossError)
+      if (typeof value === "function" && value.prototype instanceof Error)
         found.set(name, value as ErrorClass);
+  found.delete("AGBossError");
   return found;
 };
 
 const classes = exportedErrors();
 
 describe("#906 AC1: every exported error takes one options bag with a cause", () => {
-  it("AC1: the walk finds the errors, and each has a fixture (a new class needs one)", () => {
-    expect(classes.size).toBeGreaterThan(80);
+  it("AC1: the walk covers every entry of package.json#exports and finds the errors, each with a fixture", () => {
+    expect(Object.keys(ENTRIES).length).toBe(Object.keys(exportMap).length);
+    // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them
+    expect(classes.size).toBeGreaterThanOrEqual(119);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)
@@ -80,31 +68,38 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
   });
 
   it.each([...classes.keys()].sort())(
-    "AC1: %s — keys are own properties, the cause is kept, the code is the class's",
+    "AC1: %s — one parameter, keys are own properties, the cause is kept, the code is a string",
     (name) => {
-      const ErrorClass = classes.get(name) as new (options: object) => AGBossError;
+      const ErrorClass = classes.get(name) as unknown as new (options: object) => Error & {
+        readonly code?: unknown;
+      };
       const options = fixtures[name] ?? {};
       const cause = new Error(`the cause of ${name}`);
 
+      expect(ErrorClass.length, `${name}: positional parameters`).toBeLessThanOrEqual(1);
       const error = new ErrorClass({ ...options, cause });
 
       expect(error).toBeInstanceOf(ErrorClass);
       expect(error.cause).toBe(cause);
       const missing = Object.keys(options).filter((key) => !Object.hasOwn(error, key));
       expect(missing, `${name}: option keys that are no own property`).toEqual([]);
+      expect(typeof error.code, `${name}: a literal code on the instance`).toBe("string");
       // the class's own code, or a sub-code of it (`model` → `model.circuit-open`)
-      const own = String(Reflect.get(ErrorClass, "code"));
-      expect(error.code === own || error.code.startsWith(`${own}.`), `${name}: ${error.code}`).toBe(
-        true,
-      );
+      const own = (classes.get(name) as ErrorClass).code;
+      if (own !== undefined) {
+        const code = String(error.code);
+        expect(code === own || code.startsWith(`${String(own)}.`), `${name}: ${code}`).toBe(true);
+      }
       expect(error.name).toBe(name);
     },
   );
 
   it("AC1: a cause is optional: every error is made without one", () => {
     for (const [name, ErrorClass] of classes) {
-      const error = new (ErrorClass as new (options: object) => AGBossError)(fixtures[name] ?? {});
-      expect(error, name).toBeInstanceOf(AGBossError);
+      const error = new (ErrorClass as unknown as new (options: object) => Error)(
+        fixtures[name] ?? {},
+      );
+      expect(error, name).toBeInstanceOf(Error);
     }
   });
 });

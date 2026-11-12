@@ -7,6 +7,7 @@ import { PromptCaching } from "./prompt-caching.js";
 import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
 import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** What every `@ModelProvider` says, HTTP or a transport (#385). */
 interface ModelProviderBaseOptions {
@@ -99,8 +100,14 @@ type TransportModelProviderType<D extends readonly Token[]> = abstract new (
 
 const providers = new WeakMap<object, KeptModelProviderOptions>();
 
-export class ModelProviderError extends Error {
+export class ModelProviderError extends AGBossError {
+  static override readonly code = "config.model-provider" as const;
+  declare readonly code: typeof ModelProviderError.code;
   override name = "ModelProviderError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** The options as kept: a transport's unset reasoning and caching are off. */
@@ -125,9 +132,9 @@ export function ModelProvider<const D extends readonly Token[] = []>(
 ): <C extends TransportModelProviderType<D>>(value: C) => C;
 export function ModelProvider(options: ModelProviderOptions) {
   if (options.serves.length === 0) {
-    throw new ModelProviderError(
-      `@ModelProvider "${options.name}": serves needs at least one pattern`,
-    );
+    throw new ModelProviderError({
+      message: `@ModelProvider "${options.name}": serves needs at least one pattern`,
+    });
   }
   return <C extends ModelProviderType>(value: C): C => {
     providers.set(value, keptOf(options));
@@ -140,7 +147,7 @@ export function modelProviderOf(cls: object): KeptModelProviderOptions {
   const options = providers.get(cls);
   if (options === undefined) {
     const name = typeof cls === "function" ? cls.name : "a value";
-    throw new ModelProviderError(`${name} is not a @ModelProvider class`);
+    throw new ModelProviderError({ message: `${name} is not a @ModelProvider class` });
   }
   return options;
 }

@@ -64,9 +64,9 @@ function decideOf(
 /** The model of a code judge (#396): it has none, so every call is a mistake, named. */
 function noModelOf(judge: string): JudgeModel {
   const refuse = (member: string): never => {
-    throw new ComponentError(
-      `[judge.model-on-code-judge] judge "${judge}" is decided by code (DecidedBy.Code) and has no model — judgeModel.${member} is not available`,
-    );
+    throw new ComponentError({
+      message: `[judge.model-on-code-judge] judge "${judge}" is decided by code (DecidedBy.Code) and has no model — judgeModel.${member} is not available`,
+    });
   };
   return {
     get model(): string {

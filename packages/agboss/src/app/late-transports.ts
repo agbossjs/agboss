@@ -36,15 +36,17 @@ export function lateTransports(): LateTransports {
   let unstarted: unknown[] = [];
   const bound = (cls: Class): TransportContainer => {
     if (container === undefined)
-      throw new ModelProviderError(
-        `${cls.name}: a transport provider is created by the application's container, which is not ready yet`,
-      );
+      throw new ModelProviderError({
+        message: `${cls.name}: a transport provider is created by the application's container, which is not ready yet`,
+      });
     return container;
   };
   const instanceOf = (cls: Class): ModelProviderHandler => {
     const instance = bound(cls).resolve(cls);
     if (!isHandler(instance))
-      throw new ModelProviderError(`${cls.name}: the container gave no provider instance`);
+      throw new ModelProviderError({
+        message: `${cls.name}: the container gave no provider instance`,
+      });
     return instance;
   };
   // the hooks of what this call created, before its first complete(); kept for app.close() once started

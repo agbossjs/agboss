@@ -87,8 +87,16 @@ export interface ApplicationDescription {
     readonly source?: string;
 }
 
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point internal.d.ts
+//
 // @public
-export class ApplicationLoadError extends Error {
+export class ApplicationLoadError extends AGBossError {
+    // Warning: (ae-forgotten-export) The symbol "MessageErrorOptions" needs to be exported by the entry point internal.d.ts
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "load.application";
+    // (undocumented)
+    readonly code: typeof ApplicationLoadError.code;
     // (undocumented)
     name: string;
 }
@@ -1404,7 +1412,12 @@ export interface ProcessVariable {
 }
 
 // @public
-export class ProfileError extends Error {
+export class ProfileError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "config.profile";
+    // (undocumented)
+    readonly code: typeof ProfileError.code;
     // (undocumented)
     name: string;
 }
@@ -1716,7 +1729,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts:20:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/config/defaults.ts:32:3 - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts:33:3 - (ae-undocumented) Missing documentation for "name".
-// src/config/profiles.ts:10:12 - (ae-undocumented) Missing documentation for "name".
+// src/config/profiles.ts:11:3 - (ae-undocumented) Missing documentation for "code".
+// src/config/profiles.ts:12:3 - (ae-undocumented) Missing documentation for "code".
+// src/config/profiles.ts:13:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/observer-manager.ts:81:5 - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onExecutionPause".
@@ -1809,8 +1824,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:41:3 - (ae-undocumented) Missing documentation for "variable".
 // src/environments/resolve.ts:42:3 - (ae-undocumented) Missing documentation for "field".
 // src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
-// src/environments/resolve.ts:188:3 - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts:189:3 - (ae-undocumented) Missing documentation for "values".
+// src/environments/resolve.ts:195:3 - (ae-undocumented) Missing documentation for "name".
+// src/environments/resolve.ts:196:3 - (ae-undocumented) Missing documentation for "values".
 // src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
 // src/eval/calibrate/taxonomy.ts:12:3 - (ae-undocumented) Missing documentation for "tag".
 // src/eval/calibrate/taxonomy.ts:13:3 - (ae-undocumented) Missing documentation for "description".
@@ -1879,11 +1894,13 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/graph/deps.ts:79:3 - (ae-undocumented) Missing documentation for "observer".
 // src/infrastructure/execution-history-export.ts:23:3 - (ae-undocumented) Missing documentation for "from".
 // src/infrastructure/execution-history-export.ts:24:3 - (ae-undocumented) Missing documentation for "to".
-// src/loader/load-errors.ts:8:12 - (ae-undocumented) Missing documentation for "name".
+// src/loader/load-errors.ts:16:3 - (ae-undocumented) Missing documentation for "code".
+// src/loader/load-errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
+// src/loader/load-errors.ts:18:12 - (ae-undocumented) Missing documentation for "name".
 // src/loader/load-eval-suites.ts:21:3 - (ae-undocumented) Missing documentation for "file".
 // src/loader/load-eval-suites.ts:22:3 - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts:23:3 - (ae-undocumented) Missing documentation for "name".
-// src/models/problems.ts:21:14 - (ae-undocumented) Missing documentation for "problemLine".
+// src/models/problems.ts:22:14 - (ae-undocumented) Missing documentation for "problemLine".
 // src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/rag/types.ts:153:3 - (ae-undocumented) Missing documentation for "name".

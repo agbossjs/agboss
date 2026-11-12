@@ -124,10 +124,10 @@ function truncatedReply(site: ReplySite, turn: TurnOf<"truncated-tool-call">): A
 }
 
 const wrongScript = (script: ComponentScript): never => {
-  throw new TestFailure(
-    "test.wrong-script",
-    `${script.label} chats: script it with replyWith(…) / callTool(…), not routeTo(…) / decideWith(…)`,
-  );
+  throw new TestFailure({
+    code: "test.wrong-script",
+    message: `${script.label} chats: script it with replyWith(…) / callTool(…), not routeTo(…) / decideWith(…)`,
+  });
 };
 
 /** The yes/no tool the agent bound (a router before a launch, an arbiter), if any. */
@@ -171,7 +171,7 @@ function launchReply(site: ReplySite, turn: TurnOf<"route">): AIMessage {
   if (unknown.length > 0) {
     const routes = properties.join(", ");
     const message = `routeTo(${unknown.join(", ")}) for ${site.script.label}: not among the routes it launches (${routes})`;
-    throw new TestFailure("test.not-a-route", message);
+    throw new TestFailure({ code: "test.not-a-route", message });
   }
   const args = Object.fromEntries(properties.map((name) => [name, launched.includes(name)]));
   return toolCallReply(site, tool.function.name, args, turn.details.cost);
@@ -209,7 +209,7 @@ export function replyOf(site: ReplySite, call: ScriptedCall): AIMessage {
     case "invalid-answer":
       return answerReply(site, turn);
     case "failure":
-      throw new ModelCallFailedError(turn.failure, site.script.label);
+      throw new ModelCallFailedError({ failure: turn.failure, component: site.script.label });
     case "decide":
       return decideReply(site, turn);
     case "route":

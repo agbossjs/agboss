@@ -110,7 +110,7 @@ export async function modelsFor(
     rerankers: bundle.rerankers,
   });
   const unresolved = resolutionProblems(uses, directory);
-  if (unresolved.length > 0) throw new ConfigurationError(unresolved);
+  if (unresolved.length > 0) throw new ConfigurationError({ problems: unresolved });
   // the production gateway reads the key of every provider a model use needs: a missing one fails
   // before the model check; a provider that serves no model of the workflow needs none (#716)
   const connectAtStart = providersAtStart(uses, directory);
@@ -124,7 +124,7 @@ export async function modelsFor(
   const checkModels = async (): Promise<void> => {
     if (given !== undefined) return;
     const problems = await checkModelUses(uses, directory, clients);
-    if (problems.length > 0) throw new ConfigurationError(problems);
+    if (problems.length > 0) throw new ConfigurationError({ problems });
   };
   return {
     gateway,

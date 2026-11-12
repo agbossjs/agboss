@@ -15,7 +15,7 @@ export function millisecondsOf(duration: ClockDuration | Milliseconds): number {
   const match = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/.exec(duration);
   const unit = match?.[2] ?? "";
   if (match === null || !isUnit(unit)) {
-    throw new TestSetupError(`Not a duration: "${duration}" (e.g. "30s", "25h")`);
+    throw new TestSetupError({ message: `Not a duration: "${duration}" (e.g. "30s", "25h")` });
   }
   return Number(match[1]) * UNIT_MS[unit];
 }
@@ -168,7 +168,12 @@ export class VirtualClock extends Clock {
       REAL_TIME.sleep(LOAD_TIMEOUT, timer.signal).then(() => false),
     ]);
     timer.abort();
-    if (!isLoaded) throw new UnsettledWorkError(loadsInFlight().length, LOAD_TIMEOUT, true);
+    if (!isLoaded)
+      throw new UnsettledWorkError({
+        inFlight: loadsInFlight().length,
+        settleTimeout: LOAD_TIMEOUT,
+        isLoad: true,
+      });
   }
 
   /** The tracked work in flight now, settled — or `UnsettledWorkError` after `settleTimeout`. */
@@ -181,7 +186,11 @@ export class VirtualClock extends Clock {
       REAL_TIME.sleep(this.#settleTimeout, timer.signal).then(() => false),
     ]);
     timer.abort();
-    if (!isSettled) throw new UnsettledWorkError(this.#inFlight.size, this.#settleTimeout);
+    if (!isSettled)
+      throw new UnsettledWorkError({
+        inFlight: this.#inFlight.size,
+        settleTimeout: this.#settleTimeout,
+      });
   }
 
   /** The earliest sleep due now (the first made, of two due at one moment). */

@@ -187,7 +187,9 @@ export function rememberLeaseGate(app: object, gate: LeaseGate): void {
 const gateOf = (app: object, call: string): LeaseGate => {
   const gate = gates.get(app);
   if (gate === undefined)
-    throw new TestSetupError(`leases.${call}(app): not an app of this test (use app or apps[i])`);
+    throw new TestSetupError({
+      message: `leases.${call}(app): not an app of this test (use app or apps[i])`,
+    });
   return gate;
 };
 

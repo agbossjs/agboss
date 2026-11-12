@@ -69,7 +69,7 @@ export class FallbackChatModel extends BaseChatModel {
     const bound =
       this.tools.length === 0 ? model : model.bindTools?.([...this.tools], this.binding);
     if (bound === undefined)
-      throw new ModelProviderError("the fallback's chat model cannot call tools");
+      throw new ModelProviderError({ message: "the fallback's chat model cannot call tools" });
     return bound.invoke(messages, { callbacks: [], ...(signal === undefined ? {} : { signal }) });
   }
 

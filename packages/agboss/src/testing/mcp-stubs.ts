@@ -58,9 +58,9 @@ export class McpStubs {
       const handler = this.#handlers.get(server)?.get(tool);
       if (handler === undefined) {
         throw this.book.report(
-          new LiveCallBlockedError(
-            `MCP server "${server}" tool "${tool}" has no stub; add mcpOf(${label}).thenReturn({ ${tool}: … })`,
-          ),
+          new LiveCallBlockedError({
+            message: `MCP server "${server}" tool "${tool}" has no stub; add mcpOf(${label}).thenReturn({ ${tool}: … })`,
+          }),
         );
       }
       return { structuredContent: await handler(args), content: [] };

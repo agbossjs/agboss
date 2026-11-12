@@ -1,5 +1,6 @@
 import type { Milliseconds } from "../units/index.js";
 import { ModelFailure } from "./model-failure.js";
+import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
 
 /** How the wait between attempts grows. */
 export enum Backoff {
@@ -32,13 +33,25 @@ export type RetryPolicy =
   | ({ readonly backoff: Backoff.Fixed } & FixedRetryOptions)
   | { readonly backoff: Backoff.None };
 
+/**
+ * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
+ * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
+ */
 export class RetryPolicyError extends RangeError {
+  static readonly code = "config.retry-policy" as const;
+  readonly code = RetryPolicyError.code;
   override name = "RetryPolicyError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 const checkAttempts = (maxAttempts: number): void => {
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
-    throw new RetryPolicyError(`maxAttempts must be an integer ≥ 1, got ${String(maxAttempts)}`);
+    throw new RetryPolicyError({
+      message: `maxAttempts must be an integer ≥ 1, got ${String(maxAttempts)}`,
+    });
   }
 };
 
@@ -46,7 +59,7 @@ export const RetryPolicy = {
   exponential(options: ExponentialRetryOptions): RetryPolicy {
     checkAttempts(options.maxAttempts);
     if (options.maxDelay < options.initialDelay) {
-      throw new RetryPolicyError("maxDelay must not be shorter than initialDelay");
+      throw new RetryPolicyError({ message: "maxDelay must not be shorter than initialDelay" });
     }
     return Object.freeze({ backoff: Backoff.Exponential, ...options });
   },

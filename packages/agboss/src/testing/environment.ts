@@ -82,7 +82,9 @@ function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]
     real.map((cls) => {
       const name = servers.get(cls);
       if (name === undefined) {
-        throw new TestSetupError(`real: [${cls.name}] — not an MCP server of this application`);
+        throw new TestSetupError({
+          message: `real: [${cls.name}] — not an MCP server of this application`,
+        });
       }
       return name;
     }),
@@ -225,14 +227,18 @@ export class TestEnvironment {
     const node = this.#nodes.find((item) => item.component === target);
     const key = node === undefined ? undefined : scriptKeyOf(node);
     if (key === undefined)
-      throw new TestSetupError(`mockLlm(${label}): ${this.#targets.whyNoScript(target)}`);
+      throw new TestSetupError({
+        message: `mockLlm(${label}): ${this.#targets.whyNoScript(target)}`,
+      });
     return this.book.scriptOf(key);
   }
 
   mcpOf<TServer extends McpServerClient<ServerTools>>(server: new () => TServer): McpStub<TServer> {
     const name = this.#servers.get(server);
     if (name === undefined) {
-      throw new TestSetupError(`mcpOf(${server.name}): not an MCP server of this application`);
+      throw new TestSetupError({
+        message: `mcpOf(${server.name}): not an MCP server of this application`,
+      });
     }
     return this.mcp.stubOf<TServer>(name);
   }

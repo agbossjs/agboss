@@ -16,6 +16,19 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
   readonly message: string;
 }
 
+/**
+ * What an error that extends a platform class (`RangeError`) or `Error` itself takes (#906): `{ message,
+ * cause }`, the one fact and the cause — the shape of `MessageErrorOptions` without `details`.
+ */
+export interface PlainErrorOptions {
+  readonly message: string;
+  readonly cause?: unknown;
+}
+
+/** `{ cause }` for a native `Error` constructor, nothing when there is no cause (#906). */
+export const causeOptionOf = (cause: unknown): ErrorOptions | undefined =>
+  cause === undefined ? undefined : { cause };
+
 /** The options of `ExecutionCancelledError`: the message is optional. */
 export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
   readonly message?: string;
