@@ -80,7 +80,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
     await expect(resumed.call).rejects.toBeInstanceOf(NotPausedError);
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual(["10 USD"]);
-    const [record] = (await seen.records[0]?.lastTerns(DEFAULT_TENANT_ID, "t-c1", 1)) ?? [];
+    const [record] = (await seen.records[0]?.lastTurns(DEFAULT_TENANT_ID, "t-c1", 1)) ?? [];
     expect(record?.status).toBe("failed");
 
     // the lease given back: another tree pauses and resumes normally, on either instance
@@ -117,7 +117,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
       );
       expect(paused.status).toBe(ExecutionStatus.Paused);
       const records = seen.records[0];
-      const [record] = (await records?.lastTerns(DEFAULT_TENANT_ID, `t-c2-${status}`, 1)) ?? [];
+      const [record] = (await records?.lastTurns(DEFAULT_TENANT_ID, `t-c2-${status}`, 1)) ?? [];
       if (records === undefined || record === undefined) throw new Error("the pause has no record");
       expect(record.status).toBe("paused");
       // the record ended behind the pause's back (a guard, a failure another holder wrote)
@@ -152,7 +152,7 @@ describe("#901: a resume at its lease take reads whether its tree is over", () =
     const done = await other.resume(answerOf(paused, approve));
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(seen.charges).toEqual(["40 USD"]);
-    const [record] = (await seen.records[0]?.lastTerns(DEFAULT_TENANT_ID, "t-c3", 1)) ?? [];
+    const [record] = (await seen.records[0]?.lastTurns(DEFAULT_TENANT_ID, "t-c3", 1)) ?? [];
     expect(record?.status).toBe("answered");
   });
 });
