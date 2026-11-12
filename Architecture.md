@@ -37,7 +37,7 @@ flowchart LR
   hitting one **fails** the run (`LimitExceededError`) unless an `.onError` takes it. See [Workflow](Workflow), [FinOps](FinOps).
 - **application** (`@Application`, `createApp(App)` → `execute` / `resume` / `cancel` / `close` over every workflow of it, [App](App)) over the run layer
   (`src/run`: `executeAgent` / `resumeAgent`) — check the
-  daily cap before the graph starts, record spend as it happens, write a Tern for every outcome
+  daily cap before the graph starts, record spend as it happens, write a Turn for every outcome
   (answered, paused, failed).
 
 ## Modules and dependency rules
@@ -55,7 +55,7 @@ flowchart LR
 | `src/prompts`        | agent, agent-loop, routing, guardrail texts                | config                                           |
 | `src/tracing`        | optional run tracing (Langfuse)                            | —                                                |
 | `src/graph`          | flow DSL, rules, decorators, engine, nodes, limits         | everything above; routers via `routers/index.ts` |
-| `src/run`            | executeAgent / resumeAgent: threads, Terns                     | graph, finops, turns, prompts, routers, tracing  |
+| `src/run`            | executeAgent / resumeAgent: threads, Turns                     | graph, finops, turns, prompts, routers, tracing  |
 | `src/eval`           | Jev judge, eval, replay                                    | run, routers, turns, finops                      |
 | `src/workflow.ts`    | workflow (flow + limits + config + prompts + tools + MCP)  | config, graph, prompts, tools, routers (types)   |
 | `src/application`, `src/app` | `@Application`, `createApp`, one workflow's wiring (`createAppDeps`, `@agboss/core/internal`) | all of the above              |
@@ -64,5 +64,5 @@ flowchart LR
 | `packages/agboss-cli` | the `agboss` command — a separate package            | `agboss` (+ `/internal`)                   |
 | `examples/flow-patterns` | the in-repo example — a separate package using only the public entries | `@agboss/core` (+ `/dto`, `/units`, `/models`, `/testing`, `/mcp`, `/rag`, `/a2a`, `/eval`, `/eslint`) |
 
-Router, tool and Tern isolation rules are enforced by ESLint (`no-restricted-imports`); the rest of
+Router, tool and Turn isolation rules are enforced by ESLint (`no-restricted-imports`); the rest of
 `src` imports them only via their `index.ts`.

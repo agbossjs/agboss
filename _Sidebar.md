@@ -51,7 +51,7 @@
 - [FinOps](FinOps)
 - [Tracing](Tracing)
 - [Observability](Observability)
-- [Terns and evaluation](Terns-and-evaluation)
+- [Turns and evaluation](Turns-and-evaluation)
 - [Profiles and comparisons](Profiles-and-comparisons)
 - [Pauses — pending, resume by id](Pauses)
 - [Pause seam](Pause-seam)

@@ -1,6 +1,6 @@
-# Terns and evaluation
+# Turns and evaluation
 
-**Tern** — one question → answer round, i.e. one run. A **thread** is a client's sequence of Terns.
+**Turn** — one question → answer round, i.e. one run. A **thread** is a client's sequence of Turns.
 
 ## Threads and history
 
@@ -33,12 +33,12 @@ that does not fit `summaryMaxTokens` after one "shorter" retry fails the executi
 `CompactionError`. Details: [Memory Management](Memory-Management); the queue's origin:
 [ADR-0007](ADR-0007-Conversation-memory-as-a-FIFO-queue-of-summaries).
 
-## What a Tern stores
+## What a Turn stores
 
 task · answer · status (`answered` | `guarded` | `failed` | `paused`) · stop reason · route · steps
 (what each agent answered) · cost · `prompt_version` · `model_version` · `replay_of`.
 
-- Every run writes a Tern — answered or failed.
+- Every run writes a Turn — answered or failed.
 - `prompt_version` / `model_version` = short sha256 of all agent and router prompts / of the resolved
   model settings. Same config → same versions; change a prompt → a new `prompt_version`.
 - Storage: the application's `ExecutionRecordRepository` (#261) — listed in
@@ -54,9 +54,9 @@ task · answer · status (`answered` | `guarded` | `failed` | `paused`) · stop 
 npm run eval   -- [--version <prompt_version>] [--limit 100]
 ```
 
-A judge (the default router model — Jev) answers for every unscored answered Tern: _is the answer
+A judge (the default router model — Jev) answers for every unscored answered Turn: _is the answer
 adequate to the task?_ Score = P(adequate). The command prints what was scored and a summary per
-prompt version: Terns, scored, mean score, cost. A judge failure leaves a Tern unscored.
+prompt version: Turns, scored, mean score, cost. A judge failure leaves a Turn unscored.
 
 ## Comparing a prompt change
 
@@ -76,11 +76,11 @@ count in the application budgets, scoring stopping once one is exhausted by its 
 
 ## Calibrate the judge first
 
-Before trusting mean scores, label 20–30 Terns by hand and check the judge agrees with you.
+Before trusting mean scores, label 20–30 Turns by hand and check the judge agrees with you.
 
 ## Comparing configurations
 
-Every Tern also stores the declared config `version` and a config hash. To compare variants on the
+Every Turn also stores the declared config `version` and a config hash. To compare variants on the
 same tasks (profiles, golden sets, pairwise judge), see [Profiles and comparisons](Profiles-and-comparisons).
 
 ### How versions are hashed
@@ -119,5 +119,5 @@ out of it (#123).
 
 The full 64 hex characters are stored; people see the first 8 (`agboss describe`, the drift warning).
 Hashes recorded before #134 have 12 characters and are not comparable with new ones — the length
-marks the boundary; old Terns are not migrated, and a 12-character config hash is not reported as
+marks the boundary; old Turns are not migrated, and a 12-character config hash is not reported as
 drift.

@@ -28,7 +28,7 @@ runaway loops ended quietly ("max hops reached", "budget exhausted") with a best
   built-in `finish`: returning to the user is a route to a workflow finish. A failed decision fails the run.
 - **Limits fail, never stop quietly**: `settings().limits({ perRun: { steps, cost }, perDay: { cost } })`
   and `maxVisits`; steps count agent and router visits; `LimitExceededError` carries the key, path and
-  spend, and the run is a failed Tern.
+  spend, and the run is a failed Turn.
 - **Removed**: the hub builder (`graph.ts`, `routing.ts`, the hub router node), `routers` and `budget`
   in `@Workflow`, `AgentsConfig` and profiles; `@Workflow({ agents })`.
 - The existing guard, approval, compaction, knowledge and agent nodes run inside the new graph until
@@ -39,7 +39,7 @@ runaway loops ended quietly ("max hops reached", "budget exhausted") with a best
 - A workflow's shape is code review-able and testable; `describe` lists it as transitions (a drawing
   comes with #127).
 - Hitting a limit or a router failure (e.g. a Jev timeout) now **fails** the turn instead of answering
-  with what is there — visible in the Tern and the CLI, at the price of an error message where the hub
+  with what is there — visible in the Turn and the CLI, at the price of an error message where the hub
   answered.
 - Route texts matter: Jev picks by them, so "send the answer" must say when (see [Routers](Routers)).
 - Eval keeps its own account (`<workflow>:eval`), now capped by `limits.perDay.cost`.

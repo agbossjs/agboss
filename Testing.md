@@ -783,7 +783,7 @@ that never started (the launch was aborted first) has no execution: it is a `Can
 
 - Real components get `onInit` → `onStart` when the app is built and `onStop` → `onDestroy` after the
   test — also when the test failed ([App → Lifecycle hooks](App#lifecycle-hooks)).
-- Per test: its own checkpoints, spend ledger, Terns and paused runs (in memory), deterministic ids
+- Per test: its own checkpoints, spend ledger, Turns and paused runs (in memory), deterministic ids
   (`thread-1`, `execution-1`, …, [Ids](#ids)) and a clock fixed at the start. Two tests — even in parallel, with the same
   thread id — never see each other.
 - `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with

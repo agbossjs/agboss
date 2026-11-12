@@ -28,6 +28,48 @@ Breaking changes and notable additions, newest first. The API reports
   `A2ACallerRejectedError.reason`, `InvalidFencedEffectNameError.length`,
   `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ModelKindError.model` / `.kind` / `.call`,
   `ToolTimeoutError.timeout`. A test walks every entry's exports (`error-options.test.ts`).
+- **Changed — breaking (errors, the other classes)**: "every exported error class" means every one —
+  the 27 that were not `AGBossError`s or took their facts positionally are made the same way (a
+  test walks the exports of every entry of `package.json#exports` for every `Error` subclass:
+  `error-options.test.ts`). Extending `AGBossError` now, each with a literal `code` (the parents
+  carry their family's union): `ComponentError` (`component`; `PromptError` `component.prompt`,
+  `NoDefaultRouterError` `component.no-default-router`), `EnvironmentError` and `DtoError` (the
+  `code` they always took — an `EnvironmentErrorCode`, a `DtoErrorCode` — under `environment` and
+  `dto`), `GraphRuleError` (`graph.rules`), `ConfigurationError` (`config.model-settings`),
+  `ModelProviderError` (`config.model-provider`), `ProfileError` (`config.profile`),
+  `WorkflowLoadError` (`load.workflow`), `ApplicationLoadError` (`load.application`). Still plain
+  `Error`s or `RangeError`s — a platform class they keep, so `catch` tells them apart — with the same
+  shape (one options object, `cause`, a literal instance and static `code`): `UnitError`
+  (`config.unit`), `ReasoningError`, `PromptCachingError`, `RetryPolicyError`, `RateLimitPolicyError`
+  (`config.reasoning`, `config.prompt-caching`, `config.retry-policy`, `config.rate-limit-policy`),
+  and the testing exports: `TestFailure({ code, message })` and its subclasses `LiveCallBlockedError`,
+  `CassetteMissingError` (`{ message }`), `StaleCassetteError({ file, component, changes })`,
+  `AppCloseTimeoutError({ instance, timeout })`, `UnsettledWorkError({ inFlight, settleTimeout,
+  isLoad })`, `TestSetupError` (`test.setup`), `ModelCallFailedError({ failure, component })`
+  (`test.model-call-failed`), `FakeGatewayError({ kind, message })` (`fake-gateway`, now a literal),
+  `StoreConformanceError({ problems })` (`store-conformance` or the first problem's
+  `store-conformance.<rule>`, now a union), `StoreAnswerLostError` (`fault.store-answer-lost`),
+  `FaultInvariantError({ scenario, violations, notes })` (`fault.invariant`). `PlainErrorOptions`
+  (`{ message, cause }`) is the options of a class with only its sentence that is not an
+  `AGBossError`. `new X("text")` is a type error everywhere: `new X({ message: "text" })`.
+- **Fixed — lint**: ESLint's isolation rules still named `src/terns`, which the rename removed, so
+  "turns depend on nothing else in src" and "import turns only through its index" matched nothing.
+  They name `src/turns` again; `eslint-boundaries.test.ts` fails when any path or module the
+  boundary rules name does not exist, and lints a planted bad import. The same check found two more
+  names no directory carried (`bundles`, `demos`) and one that was no directory (`agents`): removed.
+- **Fixed — docs**: "Tern" is "Turn" in the whole Wiki (the page is now
+  [Turns and evaluation](Turns-and-evaluation); the old name was not kept as a stub — a Wiki page
+  has no redirect), and in every comment of the sources (`ExecutionRecordRepository.before`,
+  `MemoryStore.before`: "right before `turnId`"); `no-tern-comments.test.ts` keeps it so.
+- **Fixed — stores**: a paused run stored by 0.1.0 with `ternId` is read as `turnId` on
+  PostgreSQL and MongoDB too (it was only on SQLite). A stored paused run (a pause, a pause
+  answer, a history record) that cannot be read is refused with its thread and run ids and the
+  paths of the invalid fields — `a stored paused run is not readable (threadId t-1, runId r-1): the
+  field(s) turnId missing or not what the framework wrote` — and the schema's error as its
+  `cause`; the message carried the whole run (`startInput`, `data`: PII) into the logs, in all
+  three stores.
+- **Added**: `TurnStoreRecordRepository` and `TurnRecords` are exported by the root entry (they were
+  named by `SqliteExecutionRecordRepository` and `AgentExecutionDeps` without being exported).
 - **Changed — breaking (codes)**: the instance `code` of every error is its class's literal, so
   `switch (error.code)` over a union of errors **narrows**. The seven parents with subclasses carry
   the literal union of their family — `PaidStepError`, `StepFailedError`, `AgentFailedError`,
@@ -2921,7 +2963,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 ## Unreleased — a child workflow's change is part of its root's configHash (#336, PR 1)
 
 - **Fixed — a root's `configHash` covers its child workflows**
-  ([Terns and evaluation → What the config hash covers](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
+  ([Turns and evaluation → What the config hash covers](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
   the snapshot adds `children` — every child reachable from the flow, recursively, each once by
   name, `ThisWorkflow` excluded. A run paused or running inside a child that a deploy changed is
   now `IncompatibleResumeError` / `recovery.incompatible`, decided by the root's
@@ -3063,7 +3105,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   interpreters, an arbiter's prompt and criteria and profile overrides. A prompt file's trailing
   newline is no longer sent.
 - **Changed — the config hash covers what an element's model reads outside its decorator**
-  ([Terns and evaluation](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)): per agent and
+  ([Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)): per agent and
   model router the PII policies in effect, `uncompactedTurns` and the compaction, an agent's judges;
   and the framework's own texts. Every workflow's `configHash` changes once with this release, so a
   pause taken before it resumes only where `onIncompatibleResume` accepts it.
@@ -3630,7 +3672,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `turnNumber(tenantId, threadId, ternId)`, `latestSummaries(tenantId, threadId, limit)`,
   `summaryCount(tenantId, threadId)`; a `Summary` and a `MemoryTurn` carry `tenantId` next to
   `threadId`. The SQLite thread store's migration 11 keys threads by `(tenant_id, id)`
-  (owners, Terns and summaries by `(tenant_id, thread_id)`); existing threads are `default`'s and
+  (owners, Turns and summaries by `(tenant_id, thread_id)`); existing threads are `default`'s and
   keep their ids.
 - **`mockAction(A)`** (the action still runs) and **`mockTool(T).thenFail(ToolFailure.Timeout)`**;
   the call matchers **`toHaveBeenCalledWith`**, **`toHaveBeenCalledTimes`**, **`toHaveReturned`** on
@@ -3947,7 +3989,7 @@ ownerId })` (was `thread`, `owner`), `app.resume(threadId, decision, { tenantId,
   `{ cancelled: false }`). The storage contracts take the tenant:
   `ExecutionRecordRepository.createThread(workflow, tenantId, owner?)`, `hasThread(workflow,
 tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record carries
-  `tenantId` (Tern store migration 10); `PausedExecutionRepository.findByTenantIdAndThreadId`,
+  `tenantId` (Turn store migration 10); `PausedExecutionRepository.findByTenantIdAndThreadId`,
   `resolveByTenantIdAndThreadId`, `deleteByTenantIdAndThreadId` (were `…ByThreadId`), keyed by the
   paused run's `tenantId`. Leases and tree keys use the execution's tenant (was always
   `"default"`); `holderInstanceId` is `ApplicationContext.instanceId`.
@@ -4196,7 +4238,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   `@Application({ providers })`, found by inheritance, each with a built-in in-memory default.
   **Breaking**: `createApp({ stores, pausedRuns })`, `AppStores`, `PausedRunRepository` and
   `createSqlitePausedRunRepository` are removed, and **nothing is written to the home folder any
-  more**: execution records (Terns) and the spend ledger were SQLite / JSONL files under
+  more**: execution records (Turns) and the spend ledger were SQLite / JSONL files under
   `~/.langgraph-agents/` (`TERN_DB`, `SPEND_LEDGER_DIR`) and are now in memory — gone on restart,
   so `agboss eval` / `replay` only see records of their own process until the SQLite
   implementations of #265 are listed ([App → Infrastructure](App#infrastructure)).

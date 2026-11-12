@@ -293,7 +293,7 @@ worst case of each start with how each number is made up — the [check report](
 | `compensations`                                                       | the undo actions that ran, in the order they ended — on a side path or automatically (a failed join's finished branches, #340) — `CompensationRecord[]` ([Rollback](Rollback)); also `record.compensations` |
 
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
-with a stable `code`; the Tern and the spend are recorded first.
+with a stable `code`; the Turn and the spend are recorded first.
 
 **`@Application({ compensationTimeout })`** (#340, default `seconds(15)`): how long each automatic
 undo action may run — its clean-up `executionContext.signal` aborts after it (and when the instance

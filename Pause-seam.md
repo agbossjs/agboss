@@ -5,7 +5,7 @@ tool needs a decision first. Then the call **pauses**: `app.execute` returns `st
 ExecutionStatus.Paused` with every waiting call in `pending`, and `app.resume({ pauseId, decision })`
 answers one of them ([Pauses](Pauses): several pauses at once, who answers, concurrent answers). This
 page is how a pause works inside: the core defines where and how, so a pause never contradicts
-limits, spend recording or Terns.
+limits, spend recording or Turns.
 
 ## Plug it in
 
@@ -142,14 +142,14 @@ flowchart LR
 | --- | -------------------------------------------------------------------------------------------- |
 | 1   | Spend before the pause is already in the ledger; on resume nothing is recorded twice      |
 | 2   | The run budget left at the pause is checkpointed and carried over                         |
-| 3   | The Tern is written with status `paused` and completed (same id) on resume                |
+| 3   | The Turn is written with status `paused` and completed (same id) on resume                |
 | 4   | Guardrails, limits, agent limits, history apply to the paused-and-resumed run as one run  |
 | 5   | A rejection reaches the model as a tool error                                             |
 
 After the decision and the agent's answer the router sends the turn to its workflow finish without a
 model call (#100). Answering a pause no longer waiting (twice, after it was withdrawn) →
 `NotPausedError`. A failure after resume completes
-the same Tern as `failed`. Decision recorded in [ADR-0004](ADR-0004-Pause-seam).
+the same Turn as `failed`. Decision recorded in [ADR-0004](ADR-0004-Pause-seam).
 
 ## After the decision
 

@@ -589,7 +589,7 @@ price table; `tool-reported` = the tool's own cost.
 compared execution is an execution like any (its tenant `"default"`), and stops the evaluation once a
 tenant or application budget is exhausted; the judge's own calls are outside any execution — they are
 counted in the application budgets and stop scoring once one is exhausted by its last known limit
-(the `maxSpend()` the last execution read). See [Terns and evaluation](Terns-and-evaluation).
+(the `maxSpend()` the last execution read). See [Turns and evaluation](Turns-and-evaluation).
 
 ## Tests
 

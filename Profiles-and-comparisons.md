@@ -5,7 +5,7 @@ Decision: [ADR-0008](ADR-0008-Declarative-profiles-and-explicit-versions).
 
 ## Versions
 
-Every workflow config has an explicit `version` (e.g. `1.0.0`). Every run (Tern) stores it together
+Every workflow config has an explicit `version` (e.g. `1.0.0`). Every run (Turn) stores it together
 with a hash of the resolved config + prompts, and the first run of a version keeps a full snapshot.
 Same version, different content → a warning on start:
 

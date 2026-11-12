@@ -6,7 +6,7 @@
 Typed agent workflows on LangGraph, in TypeScript. Agents, tools, MCP servers and knowledge bases are
 **Angular-style components** — annotated classes, wired by a `@Workflow` module, dependencies through
 the constructor, every link checked by the compiler. Routing and judging by decision models (Jev, …),
-FinOps on every call, Terns and evaluation, profiles and comparisons, tracing.
+FinOps on every call, Turns and evaluation, profiles and comparisons, tracing.
 
 The repository holds two things:
 

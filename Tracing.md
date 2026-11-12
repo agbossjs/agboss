@@ -52,7 +52,7 @@ turn of the conversation.
 
 ## Off by default
 
-Without the three `LANGFUSE_*` variables there is no tracing and nothing changes. Spend, Terns and
+Without the three `LANGFUSE_*` variables there is no tracing and nothing changes. Spend, Turns and
 answers never depend on it. Tracing uses an isolated OpenTelemetry provider — the core does not
 register global OpenTelemetry — and is flushed when the app closes.
 

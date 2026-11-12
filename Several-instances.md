@@ -36,7 +36,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreS
 | --------------------------- | --------------------------------- | --------------------------------- |
 | `BaseCheckpointSaver`       | `SqliteCheckpointSaver`           | `checkpoints`, `checkpoint_writes` |
 | `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
-| `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Tern tables (`threads`, `terns`, …) |
+| `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Turn tables (`threads`, `terns`, …) |
 | `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
 | `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
 | `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |

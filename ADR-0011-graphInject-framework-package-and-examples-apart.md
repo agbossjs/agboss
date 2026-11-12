@@ -23,4 +23,4 @@ mixed in one `src/`, with several demo sets of agents and a default one.
 
 - The example sees the framework as an outside project does; gaps in the public API show at once.
 - A build step: `npm run build` (or `npm run dev`) before running the example.
-- Terns keep a `bundle` column internally (no migration); everything user-facing says workflow.
+- Turns keep a `bundle` column internally (no migration); everything user-facing says workflow.

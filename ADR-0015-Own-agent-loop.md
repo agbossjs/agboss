@@ -27,7 +27,7 @@ LangGraph handles all of this with stock primitives.
 - The loop owns its hooks (usage per call, run budget before a call, tool timeouts); `createAgent`,
   the middlewares and the `langchain` dependency are removed.
 - **Reasoning attempts (#79) are removed** with it; #123 brings the idea back as
-  `BeforeAgentAnswerJudge` + `maxSendBacks`. Tern migration 5 drops the `attempts` column.
+  `BeforeAgentAnswerJudge` + `maxSendBacks`. Turn migration 5 drops the `attempts` column.
 
 ## Consequences
 

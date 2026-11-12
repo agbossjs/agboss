@@ -1,6 +1,6 @@
 # Memory Management
 
-A thread is a sequence of Terns (one execution each). What a router or an agent sees of
+A thread is a sequence of Turns (one execution each). What a router or an agent sees of
 the thread's past is its **memory**: its window of the last turns and, when it uses a compaction
 that writes summaries, the latest summaries of older ones. `@agboss/core/memory` holds the contract of an
 agent's own strategy.
@@ -183,7 +183,7 @@ and t2; on turn 4 the router reads the summary and t3, the agent t1–t3 in full
 When every reader sees `TurnLimit.ALL`, nothing is ever summarised.
 
 Each reader's window and the compaction in effect, and each compaction's settings and prompt, are
-part of the workflow's config hash (#120 PR 4, [Terns and evaluation](Terns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
+part of the workflow's config hash (#120 PR 4, [Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
 another window on one router, or a longer queue, is another configuration.
 
 ### Before the next turn: when and how (#120 S132)

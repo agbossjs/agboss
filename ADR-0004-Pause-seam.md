@@ -7,7 +7,7 @@
 
 The core ends a run at a terminal node; a follow-up is a new run in the thread. Some projects need
 a human to approve actions (write tools) mid-run. Added ad hoc, `interrupt` would conflict with
-spend recording while streaming, budgets and Terns.
+spend recording while streaming, budgets and Turns.
 
 ## Decision
 
@@ -16,7 +16,7 @@ spend recording while streaming, budgets and Terns.
 - The pause happens at the graph level (`approval` node), not inside the agent loop: the call is
   held, the agent node ends normally, then `interrupt`. This keeps all spend before the pause in
   state and in the ledger.
-- Five consistency rules (ledger, budget, Tern, limits, rejection) are specified and proven with
+- Five consistency rules (ledger, budget, Turn, limits, rejection) are specified and proven with
   LangGraph's `MemorySaver`; durable checkpointers and the approval channel stay in projects.
 
 ## Consequences

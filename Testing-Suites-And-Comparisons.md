@@ -8,7 +8,7 @@ you saved) or from the latest runs.
 ## Concepts
 
 - **Tasks** — what each side runs: a golden set (`agboss golden add`) or the last N tasks of the
-  workflow's Terns.
+  workflow's Turns.
 - **Profiles** — the sides of the comparison: `base` (the workflow as written) and any
   `profiles/<workflow>/<name>.yaml`.
 - **Judge** — Jev scores every answer, and compares the sides pairwise.
