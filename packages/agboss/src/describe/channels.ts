@@ -8,7 +8,7 @@ import {
   isQuestionRole,
   PauseAnswerer,
   replyInterpreterOf,
-  type ChannelRoleOptions,
+  type StoredChannelRole,
 } from "../channels/channel-role.decorator.js";
 import { implementationsOf } from "../channels/channel-rules.js";
 import { channelUsesOf, type ChannelUse } from "../channels/discovery.js";
@@ -41,6 +41,9 @@ export interface DescribedChannel {
   readonly question: string;
   /** What answers it: the role's `answer`, or `ToolCallApprovalDecisionDto` for an approval. */
   readonly answer: string;
+  /** Who may answer its pauses. */
+  readonly answerer: PauseAnswerer;
+  /** @deprecated 0.1.0's name of `answerer`, emitted until 0.2: use `answerer`. */
   readonly answeredBy: PauseAnswerer;
   /** The role's `@ReplyInterpreter`, by name. */
   readonly replyInterpreter?: string;
@@ -66,7 +69,7 @@ const inputsLabel = (uses: readonly ChannelUse[]): string =>
 
 function roleChannel(
   role: Class,
-  options: ChannelRoleOptions,
+  options: StoredChannelRole,
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
 ): DescribedChannel {
@@ -81,7 +84,8 @@ function roleChannel(
     isRole: true,
     question: dtoLabel(isQuestionRole(options) ? options.ask : options.approves),
     answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
-    answeredBy: options.answeredBy,
+    answerer: options.answerer,
+    answeredBy: options.answerer,
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined
       ? {}
@@ -102,6 +106,7 @@ function concreteChannel(channel: Class, uses: readonly ChannelUse[]): Described
     isRole: false,
     question: inputsLabel(uses),
     answer: dtoLabel(ToolCallApprovalDecisionDto),
+    answerer: PauseAnswerer.ThreadOwner,
     answeredBy: PauseAnswerer.ThreadOwner,
     implementation: channel.name,
     reason: ChannelImplementationReason.NamedByTool,
@@ -146,7 +151,7 @@ function channelLine(channel: DescribedChannel): string {
       : ` · reply interpreter ${channel.replyInterpreter}`;
   return (
     `  ${channel.name} (${channel.className}): ${channel.question} → ${channel.answer}` +
-    ` · answered by ${ANSWERED_BY[channel.answeredBy]}${interpreter} · ${implementation}` +
+    ` · answered by ${ANSWERED_BY[channel.answerer]}${interpreter} · ${implementation}` +
     usedByOf(channel)
   );
 }

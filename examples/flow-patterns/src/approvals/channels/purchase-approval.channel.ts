@@ -10,6 +10,6 @@ import { PurchaseOrder } from "../dto/place-purchase.dto.js";
   name: "purchase-approval-channel",
   description: "The thread's owner approves a purchase",
   approves: PurchaseOrder,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class PurchaseApprovalChannel extends ChannelOf<PurchaseApprovalChannel> {}

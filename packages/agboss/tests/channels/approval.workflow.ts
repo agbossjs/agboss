@@ -68,7 +68,7 @@ class RefundDone {
   name: "refund-approval-channel",
   description: "Approves refunds",
   approves: RefundRequest,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 

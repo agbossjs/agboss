@@ -102,7 +102,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
             validationAttempts: 0,
           },
           role: "payout-approval-channel",
-          answeredBy: PauseAnswerer.Channel,
+          answerer: PauseAnswerer.Channel,
+          answeredBy: "manager-17",
           responder: "manager-17",
           resolution: PauseResolution.Replied,
           askedAt: TEST_START,
@@ -159,7 +160,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId,
           role: "expense-approval-channel",
-          answeredBy: PauseAnswerer.ThreadOwner,
+          answerer: PauseAnswerer.ThreadOwner,
+          answeredBy: "alice",
           responder: "alice",
           resolution: PauseResolution.Replied,
           decision: { approved: true },
@@ -189,6 +191,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId: undefined,
           role: "transfer-approval-channel",
+          answeredBy: undefined,
           responder: undefined,
           resolution: PauseResolution.Decided,
           resolvedAt: TEST_START,
@@ -217,6 +220,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId: seen.confirmations[0]?.pauseId,
           role: "order-confirmation-channel",
+          answeredBy: undefined,
           responder: undefined,
           resolution: PauseResolution.Withdrawn,
           decision: undefined,
@@ -297,6 +301,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
         ["expense-approval-channel", PauseResolution.Replied],
       ]);
       expect(done.record?.pauses[0]).toMatchObject({
+        answeredBy: "manager-17",
         responder: "manager-17",
         askedAt: TEST_START,
       });
@@ -319,7 +324,7 @@ describe("#890 AC5: an unconsumed Resolved pause of an ended tree is Taken, then
       const pauseId = waiting.pending[0]?.pauseId ?? "";
       const pauses = treasuryPauses();
       // a resume recorded its answer and the cancel won before its pass took it (#811 s18c)
-      const answer = { decision: { approved: true }, answerer: undefined };
+      const answer = { decision: { approved: true }, answeredBy: undefined };
       await pauses.resolveByTenantIdAndPauseId(waiting.tenantId, pauseId, answer, clock.now());
 
       await app.cancel(waiting.threadId, { tenantId: waiting.tenantId });

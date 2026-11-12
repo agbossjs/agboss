@@ -374,13 +374,14 @@ export interface EvalPastTurn {
 
 // @public
 export interface EvalPauseTrace {
+    readonly answeredBy?: string;
     readonly decision?: unknown;
     readonly nodeId: string;
     // Warning: (ae-forgotten-export) The symbol "PauseResolution" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
     readonly resolution: PauseResolution;
-    // (undocumented)
+    // @deprecated (undocumented)
     readonly responder?: string;
     // (undocumented)
     readonly role: string;
@@ -774,27 +775,27 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/run/trace.ts:95:3 - (ae-undocumented) Missing documentation for "by".
 // src/eval/run/trace.ts:102:3 - (ae-undocumented) Missing documentation for "role".
 // src/eval/run/trace.ts:103:3 - (ae-undocumented) Missing documentation for "resolution".
-// src/eval/run/trace.ts:104:3 - (ae-undocumented) Missing documentation for "responder".
-// src/eval/run/trace.ts:113:3 - (ae-undocumented) Missing documentation for "compensator".
-// src/eval/run/trace.ts:114:3 - (ae-undocumented) Missing documentation for "reason".
-// src/eval/run/trace.ts:115:3 - (ae-undocumented) Missing documentation for "status".
-// src/eval/run/trace.ts:116:3 - (ae-undocumented) Missing documentation for "error".
-// src/eval/run/trace.ts:121:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/eval/run/trace.ts:122:3 - (ae-undocumented) Missing documentation for "path".
-// src/eval/run/trace.ts:123:3 - (ae-undocumented) Missing documentation for "steps".
-// src/eval/run/trace.ts:124:3 - (ae-undocumented) Missing documentation for "handledErrors".
-// src/eval/run/trace.ts:125:3 - (ae-undocumented) Missing documentation for "pauses".
-// src/eval/run/trace.ts:126:3 - (ae-undocumented) Missing documentation for "compensations".
-// src/eval/run/trace.ts:127:3 - (ae-undocumented) Missing documentation for "children".
-// src/eval/run/trace.ts:130:3 - (ae-undocumented) Missing documentation for "output".
-// src/eval/run/trace.ts:135:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/eval/run/trace.ts:136:3 - (ae-undocumented) Missing documentation for "status".
-// src/eval/run/trace.ts:139:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/eval/run/trace.ts:140:3 - (ae-undocumented) Missing documentation for "error".
-// src/eval/run/trace.ts:145:3 - (ae-undocumented) Missing documentation for "tool".
-// src/eval/run/trace.ts:146:3 - (ae-undocumented) Missing documentation for "arguments".
-// src/eval/run/trace.ts:151:3 - (ae-undocumented) Missing documentation for "requiredTools".
-// src/eval/run/trace.ts:152:3 - (ae-undocumented) Missing documentation for "forbiddenTools".
+// src/eval/run/trace.ts:107:3 - (ae-undocumented) Missing documentation for "responder".
+// src/eval/run/trace.ts:116:3 - (ae-undocumented) Missing documentation for "compensator".
+// src/eval/run/trace.ts:117:3 - (ae-undocumented) Missing documentation for "reason".
+// src/eval/run/trace.ts:118:3 - (ae-undocumented) Missing documentation for "status".
+// src/eval/run/trace.ts:119:3 - (ae-undocumented) Missing documentation for "error".
+// src/eval/run/trace.ts:124:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/eval/run/trace.ts:125:3 - (ae-undocumented) Missing documentation for "path".
+// src/eval/run/trace.ts:126:3 - (ae-undocumented) Missing documentation for "steps".
+// src/eval/run/trace.ts:127:3 - (ae-undocumented) Missing documentation for "handledErrors".
+// src/eval/run/trace.ts:128:3 - (ae-undocumented) Missing documentation for "pauses".
+// src/eval/run/trace.ts:129:3 - (ae-undocumented) Missing documentation for "compensations".
+// src/eval/run/trace.ts:130:3 - (ae-undocumented) Missing documentation for "children".
+// src/eval/run/trace.ts:133:3 - (ae-undocumented) Missing documentation for "output".
+// src/eval/run/trace.ts:138:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/eval/run/trace.ts:139:3 - (ae-undocumented) Missing documentation for "status".
+// src/eval/run/trace.ts:142:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/eval/run/trace.ts:143:3 - (ae-undocumented) Missing documentation for "error".
+// src/eval/run/trace.ts:148:3 - (ae-undocumented) Missing documentation for "tool".
+// src/eval/run/trace.ts:149:3 - (ae-undocumented) Missing documentation for "arguments".
+// src/eval/run/trace.ts:154:3 - (ae-undocumented) Missing documentation for "requiredTools".
+// src/eval/run/trace.ts:155:3 - (ae-undocumented) Missing documentation for "forbiddenTools".
 // src/eval/suite/cases.ts:15:3 - (ae-undocumented) Missing documentation for "input".
 // src/eval/suite/cases.ts:20:3 - (ae-undocumented) Missing documentation for "start".
 // src/eval/suite/cases.ts:21:3 - (ae-undocumented) Missing documentation for "input".

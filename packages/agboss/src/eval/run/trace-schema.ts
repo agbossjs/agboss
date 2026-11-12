@@ -72,19 +72,30 @@ const StepSchema = z.looseObject({
   error: ErrorSchema.optional(),
 });
 
+/** A saved pause: 0.1.0 named the person `responder`; both keys are filled, `answeredBy` first. */
+function pauseTraceOfStored<
+  T extends { answeredBy?: string | undefined; responder?: string | undefined },
+>(pause: T): T {
+  const person = pause.answeredBy ?? pause.responder;
+  return person === undefined ? pause : { ...pause, answeredBy: person, responder: person };
+}
+
 const executionShape = {
   executionId: z.string(),
   path: z.array(z.string()),
   steps: z.array(StepSchema),
   handledErrors: z.array(z.looseObject({ error: ErrorSchema, at: z.string(), by: z.string() })),
   pauses: z.array(
-    z.looseObject({
-      nodeId: z.string(),
-      role: z.string(),
-      resolution: z.enum(PauseResolution),
-      responder: z.string().optional(),
-      decision: z.unknown().optional(),
-    }),
+    z
+      .looseObject({
+        nodeId: z.string(),
+        role: z.string(),
+        resolution: z.enum(PauseResolution),
+        answeredBy: z.string().optional(),
+        responder: z.string().optional(),
+        decision: z.unknown().optional(),
+      })
+      .transform(pauseTraceOfStored),
   ),
   compensations: z.array(
     z.looseObject({

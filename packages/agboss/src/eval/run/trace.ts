@@ -101,6 +101,9 @@ export interface EvalPauseTrace {
   readonly nodeId: string;
   readonly role: string;
   readonly resolution: PauseResolution;
+  /** Who answered (`answeredBy` of its log entry). */
+  readonly answeredBy?: string;
+  /** @deprecated 0.1.0's name of `answeredBy`, the same value, until 0.2: use `answeredBy`. */
   readonly responder?: string;
   /** What was decided, masked. */
   readonly decision?: unknown;

@@ -91,7 +91,7 @@ export class SpendingLimitReplyInterpreter
   description: "Asks the thread's owner for this purchase's spending limit",
   ask: PurchaseQuestionDto,
   answer: SpendingLimitAnswerDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: SpendingLimitReplyInterpreter,
 })
 export abstract class SpendingLimitQuestion extends ChannelOf<SpendingLimitQuestion> {}
@@ -142,7 +142,7 @@ export class BudgetOwnerReplyInterpreter {}
   description: "Asks a budget owner, authenticated by the channel",
   ask: PurchaseQuestionDto,
   answer: SpendingLimitAnswerDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: BudgetOwnerReplyInterpreter,
   maxVisits: 2,
 })

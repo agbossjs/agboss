@@ -132,7 +132,7 @@ export class FileReplyInterpreter {
   description: "Asks the caller about its document",
   ask: ReviewAskDto,
   answer: ReviewReplyDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: FileReplyInterpreter,
 })
 export abstract class FileReviewQuestion extends ChannelOf<FileReviewQuestion> {}

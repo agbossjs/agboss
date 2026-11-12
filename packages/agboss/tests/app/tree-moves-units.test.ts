@@ -97,7 +97,7 @@ const resumeOf = (...pauseIds: string[]): TreeResume => ({
   pauseIds,
   taken: [],
   decisions: [],
-  answerers: [],
+  answeredBy: [],
 });
 
 /** A held lease that records its release. */

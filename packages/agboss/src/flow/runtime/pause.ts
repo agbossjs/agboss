@@ -37,7 +37,7 @@ import { plainRecordOf, type ComponentRecord } from "./records.js";
 export interface PauseChannel {
   readonly name: string;
   readonly sender: ChannelSender;
-  readonly answeredBy: PauseAnswerer;
+  readonly answerer: PauseAnswerer;
 }
 
 /**
@@ -169,7 +169,7 @@ function newRecordOf(
     step: question.step,
     channel: channel.name,
     branchKeys: branchKeysAt(frame),
-    answeredBy: channel.answeredBy,
+    answerer: channel.answerer,
     ask: question.ask,
     status: PauseStatus.Pending,
     isSent: false,
@@ -203,7 +203,7 @@ function settledAnswer(pause: PauseRecord, channel: string): StepAnswer {
   // a re-entry of a step its channel decided at once: the channel's decision, its spend counted already
   if (pause.resolution === PauseResolution.Decided)
     return { decision: answer.decision, by: channel, usage: [] };
-  const by = answer.answerer ?? THREAD_OWNER;
+  const by = answer.answeredBy ?? THREAD_OWNER;
   return { decision: answer.decision, by, usage: answer.usage ?? [] };
 }
 
@@ -250,7 +250,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
     const decided = await sendOnce(channel, pause, site.signal);
     if (decided !== undefined) {
       const decision = site.validate(decided.decision);
-      const answer = { decision, answerer: undefined };
+      const answer = { decision, answeredBy: undefined };
       const at = site.clock.now();
       if (await pauses.decideByTenantIdAndPauseId(tenantId, pause.pauseId, answer, at))
         await logPauseAnswer(

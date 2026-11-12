@@ -36,7 +36,7 @@ function channelOf(...outcomes: readonly (() => Promise<unknown>)[]) {
   const sent: ChannelSenderAsk[] = [];
   const channel: PauseChannel = {
     name: "refund-approval-channel",
-    answeredBy: PauseAnswerer.Channel,
+    answerer: PauseAnswerer.Channel,
     sender: {
       send: (ask) => {
         sent.push(ask);
@@ -112,7 +112,7 @@ describe("#267 S35: the pause step", () => {
       {
         status: PauseStatus.Taken,
         resolution: PauseResolution.Decided,
-        answer: { decision: { approved: false }, answerer: undefined },
+        answer: { decision: { approved: false }, answeredBy: undefined },
         askedAt: "2026-01-05T09:00:00.000Z",
         resolvedAt: "2026-01-05T09:00:00.000Z",
       },
@@ -134,7 +134,7 @@ describe("#267 S35: the pause step", () => {
         testFrame().execution.executionId,
       );
       if (pause === undefined) throw new Error("no record before send");
-      const answer = { decision: { approved: true }, answerer: "manager-17" };
+      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
       await pauses.resolveByTenantIdAndPauseId(tenantId, pause.pauseId, answer, clock.now());
       return ChannelOutcome.awaitReply();
     });
@@ -163,7 +163,7 @@ describe("#267 S35: the pause step", () => {
       kind: question.kind,
       step: question.step,
       channel: channel.name,
-      answeredBy: PauseAnswerer.Channel,
+      answerer: PauseAnswerer.Channel,
       ask: question.ask,
       status: PauseStatus.Pending,
       isSent: true,

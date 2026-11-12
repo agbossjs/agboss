@@ -63,7 +63,7 @@ function useOf(name: string, replyInterpreter: new () => object) {
     name,
     description: "Approves wires",
     approves: WireRequestDto,
-    answeredBy: PauseAnswerer.Channel,
+    answerer: PauseAnswerer.Channel,
     replyInterpreter,
   })
   abstract class WireApprovalChannel extends ChannelOf<WireApprovalChannel> {}

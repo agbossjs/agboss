@@ -48,7 +48,7 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   kind: PauseKind.Approval,
   step: "clerk-agent",
   channel: "refund-approval-channel",
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "charge", arguments: { text: "10 USD" }, summary: "charge" },
   status: PauseStatus.Pending,
   isSent: false,
@@ -56,12 +56,12 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
 });
 
 /** What a channel decided at once. */
-export const DECIDED_ANSWER: PauseAnswer = { decision: { approved: true }, answerer: undefined };
+export const DECIDED_ANSWER: PauseAnswer = { decision: { approved: true }, answeredBy: undefined };
 
 /** A person's approval. */
 export const APPROVED_BY_MANAGER: PauseAnswer = {
   decision: { approved: true },
-  answerer: "manager-17",
+  answeredBy: "manager-17",
 };
 
 /** The moments the cases resolve pauses at. */
@@ -103,5 +103,5 @@ export const kindOnlyPausesOf = (): readonly PauseRecord[] => {
 /** A question's answer: the role's answer DTO, not an approval. */
 export const QUESTION_ANSWER: PauseAnswer = {
   decision: { approved: true, limitUsd: 900 },
-  answerer: "manager-17",
+  answeredBy: "manager-17",
 };

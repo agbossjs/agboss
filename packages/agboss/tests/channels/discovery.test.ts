@@ -195,7 +195,7 @@ class LimitInputDto {
   name: "refund-reply-channel",
   description: "Refunds, replies in free text",
   approves: RefundCardInputDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: SharedReplyInterpreter,
 })
 abstract class RefundReplyChannel extends ChannelOf<RefundReplyChannel> {}
@@ -204,7 +204,7 @@ abstract class RefundReplyChannel extends ChannelOf<RefundReplyChannel> {}
   name: "limit-reply-channel",
   description: "Limits, replies in free text",
   approves: LimitInputDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: SharedReplyInterpreter,
 })
 abstract class LimitReplyChannel extends ChannelOf<LimitReplyChannel> {}

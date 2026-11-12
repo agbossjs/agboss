@@ -1,8 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { SqliteConnection } from "./sqlite-connection.js";
 import { z } from "zod";
-import { answerOf, askOfStored, componentOfStored, StoredLoopProgress } from "../stored-step.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
+import * as step from "../stored-step.js";
 import { PauseKind, PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
 
 /**
@@ -86,11 +86,13 @@ const StoredPause = z.object({
   askedAt: z.string().default(""),
   kind: z.enum(PauseKind),
   step: z.string(),
-  ...StoredLoopProgress,
+  ...step.StoredLoopProgress,
   channel: z.string(),
   // a pause stored before #337 has none: its own step's key is its only branch key
   branchKeys: z.array(z.string()).optional(),
-  answeredBy: z.enum(PauseAnswerer),
+  // 0.1.0's JSON has `answeredBy` (who may answer), the new `answerer` (#934)
+  answerer: z.enum(PauseAnswerer).optional(),
+  answeredBy: z.enum(PauseAnswerer).optional(),
   ask: z.record(z.string(), z.unknown()), // a tool call, or a role's ask (#659, #712): `kind` says
 });
 
@@ -108,10 +110,10 @@ const PauseRow = z.object({
 });
 
 /** How a row was resolved: its column, else (a row stored before #267 S107) its status says. */
-function resolutionOf(r: z.infer<typeof PauseRow>): PauseResolution | undefined {
-  if (r.resolution !== null) return r.resolution;
-  if (r.status === PauseStatus.Cancelled) return PauseResolution.Cancelled;
-  return r.answer === null ? undefined : PauseResolution.Replied;
+function resolutionOf(r: z.infer<typeof PauseRow>): { resolution?: PauseResolution } {
+  if (r.resolution !== null) return { resolution: r.resolution };
+  if (r.status === PauseStatus.Cancelled) return { resolution: PauseResolution.Cancelled };
+  return r.answer === null ? {} : { resolution: PauseResolution.Replied };
 }
 
 /** A row as the record it keeps. */
@@ -119,13 +121,12 @@ function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   const parsed = StoredPause.safeParse(JSON.parse(r.pause));
   if (!parsed.success)
-    throw new Error(`pause ${r.pause_id} (${r.tenant_id}) unreadable: ${parsed.error.message}`);
+    throw new Error(`pause ${r.pause_id} (${r.tenant_id}) unreadable: ${step.paths(parsed.error)}`);
   const { itemIndex, component, branchKeys, ask, ...stored } = parsed.data;
-  const record = component === undefined ? undefined : componentOfStored(component);
-  const pause: PauseRecord = {
+  const pause = {
     ...stored,
-    ask: askOfStored(ask, stored.kind === PauseKind.Question),
-    ...(record === undefined ? {} : { component: record }),
+    ask: step.askOfStored(ask, stored.kind === PauseKind.Question),
+    ...(component === undefined ? {} : { component: step.componentOfStored(component) }),
     ...(branchKeys === undefined ? {} : { branchKeys }),
     itemIndex,
     tenantId: r.tenant_id,
@@ -135,13 +136,12 @@ function toPauseRecord(row: unknown): PauseRecord {
     status: r.status,
     isSent: r.is_sent === 1,
   };
-  const resolution = resolutionOf(r);
-  return {
+  return step.pauseRecordOfStored({
     ...pause,
-    ...(r.answer === null ? {} : { answer: answerOf(r.answer) }),
-    ...(resolution === undefined ? {} : { resolution }),
+    ...(r.answer === null ? {} : { answer: step.answerOf(r.answer) }),
+    ...resolutionOf(r),
     ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
-  };
+  });
 }
 
 /** What a row keeps of a record as JSON. */
@@ -162,7 +162,7 @@ const storedOf = (pause: PauseRecord): string =>
     validationAttempts: pause.validationAttempts,
     channel: pause.channel,
     branchKeys: pause.branchKeys,
-    answeredBy: pause.answeredBy,
+    answerer: pause.answerer,
     ask: pause.ask,
   });
 

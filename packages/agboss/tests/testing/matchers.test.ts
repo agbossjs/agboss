@@ -54,6 +54,7 @@ const paused = run({
     {
       kind: PauseKind.Approval,
       pauseId: "pause-1",
+      answerer: PauseAnswerer.ThreadOwner,
       answeredBy: PauseAnswerer.ThreadOwner,
       step: "support-agent",
       channel: "terminal-user-channel",

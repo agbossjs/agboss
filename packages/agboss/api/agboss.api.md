@@ -1186,15 +1186,23 @@ export function ChannelRole(options: ChannelRoleOptions): <TClass extends Class>
 
 // @public
 export interface ChannelRoleBaseOptions {
-    readonly answeredBy: PauseAnswerer;
+    // @deprecated (undocumented)
+    readonly answeredBy?: PauseAnswerer;
+    readonly answerer?: PauseAnswerer;
     // (undocumented)
     readonly description: string;
     readonly name: string;
     readonly replyInterpreter?: Class;
 }
 
+// Warning: (ae-forgotten-export) The symbol "ChannelRoleForm" needs to be exported by the entry point index.d.ts
+//
 // @public
-export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+export type ChannelRoleOptions = ChannelRoleForm & ({
+    readonly answerer: PauseAnswerer;
+} | {
+    readonly answeredBy: PauseAnswerer;
+});
 
 // @public
 export interface ChannelRoles {
@@ -5637,7 +5645,7 @@ export type PathSource = StartSource | ComponentSource;
 
 // @public
 export interface PauseAnswer {
-    readonly answerer: string | undefined;
+    readonly answeredBy: string | undefined;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];
@@ -5662,7 +5670,8 @@ export class PauseAnswererError extends AGBossError {
 
 // @public
 export interface PauseAnswerRecord {
-    readonly answeredBy: PauseAnswerer;
+    readonly answeredBy: string | undefined;
+    readonly answerer: PauseAnswerer;
     readonly asked?: unknown;
     readonly askedAt: string;
     readonly decision: unknown;
@@ -5672,6 +5681,7 @@ export interface PauseAnswerRecord {
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
+    // @deprecated (undocumented)
     readonly responder: string | undefined;
     readonly role: string;
     readonly step: StepRecord;
@@ -5715,7 +5725,9 @@ export enum PauseKind {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    readonly answeredBy: PauseAnswerer;
+    // @deprecated (undocumented)
+    readonly answeredBy?: PauseAnswerer;
+    readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
     readonly channel: string;
@@ -5787,7 +5799,9 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
+    // @deprecated (undocumented)
     readonly answeredBy: PauseAnswerer;
+    readonly answerer: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
     readonly itemIndex: number | undefined;
@@ -8300,24 +8314,25 @@ export interface WrittenLedgerMark {
 // src/channels/channel-outcome.ts:24:3 - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts:32:14 - (ae-undocumented) Missing documentation for "ChannelOutcome".
 // src/channels/channel-role.decorator.ts:28:3 - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts:39:3 - (ae-undocumented) Missing documentation for "ask".
-// src/channels/channel-role.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "answer".
-// src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "maxVisits".
-// src/channels/channel-role.decorator.ts:56:3 - (ae-undocumented) Missing documentation for "approves".
-// src/channels/channel-role.decorator.ts:100:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:168:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:177:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:178:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:185:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:188:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:189:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:190:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "decision".
-// src/channels/channel-role.decorator.ts:225:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:226:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:234:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:259:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-role.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "ask".
+// src/channels/channel-role.decorator.ts:42:3 - (ae-undocumented) Missing documentation for "answer".
+// src/channels/channel-role.decorator.ts:43:3 - (ae-undocumented) Missing documentation for "maxVisits".
+// src/channels/channel-role.decorator.ts:58:3 - (ae-undocumented) Missing documentation for "approves".
+// src/channels/channel-role.decorator.ts:131:1 - (ae-undocumented) Missing documentation for "ChannelRole".
+// src/channels/channel-role.decorator.ts:199:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:208:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:209:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:216:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:221:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:250:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:251:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:256:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:257:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:265:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:290:3 - (ae-undocumented) Missing documentation for "interpret".
 // src/channels/decision.ts:130:3 - (ae-undocumented) Missing documentation for "message".
 // src/channels/decision.ts:131:3 - (ae-undocumented) Missing documentation for "reason".
 // src/channels/decision.ts:132:3 - (ae-undocumented) Missing documentation for "cause".
@@ -8897,8 +8912,9 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/execution-record.ts:24:3 - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/flow/runtime/execution-record.ts:25:3 - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts:26:3 - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts:68:3 - (ae-undocumented) Missing documentation for "resolution".
-// src/flow/runtime/execution-record.ts:71:3 - (ae-undocumented) Missing documentation for "resolvedAt".
+// src/flow/runtime/execution-record.ts:71:3 - (ae-undocumented) Missing documentation for "responder".
+// src/flow/runtime/execution-record.ts:72:3 - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts:75:3 - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/launch/quorum-errors.ts:20:3 - (ae-undocumented) Missing documentation for "usage".
 // src/flow/runtime/launch/quorum-errors.ts:30:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
@@ -9120,27 +9136,27 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-audit-log.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/infrastructure/execution-audit-log.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-audit-log.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
-// src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
-// src/infrastructure/execution-history.repository.ts:26:3 - (ae-undocumented) Missing documentation for "Cancelled".
-// src/infrastructure/execution-history.repository.ts:31:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/execution-history.repository.ts:32:3 - (ae-undocumented) Missing documentation for "version".
-// src/infrastructure/execution-history.repository.ts:33:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/infrastructure/execution-history.repository.ts:38:3 - (ae-undocumented) Missing documentation for "tenant".
-// src/infrastructure/execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "execution".
-// src/infrastructure/execution-history.repository.ts:44:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/execution-history.repository.ts:49:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/execution-history.repository.ts:50:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-history.repository.ts:51:3 - (ae-undocumented) Missing documentation for "application".
-// src/infrastructure/execution-history.repository.ts:52:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/infrastructure/execution-history.repository.ts:53:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/execution-history.repository.ts:56:3 - (ae-undocumented) Missing documentation for "endedAt".
-// src/infrastructure/execution-history.repository.ts:59:3 - (ae-undocumented) Missing documentation for "input".
-// src/infrastructure/execution-history.repository.ts:62:3 - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
-// src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
-// src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
+// src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/infrastructure/execution-history.repository.ts:26:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts:27:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/execution-history.repository.ts:32:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/execution-history.repository.ts:33:3 - (ae-undocumented) Missing documentation for "version".
+// src/infrastructure/execution-history.repository.ts:34:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/infrastructure/execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "tenant".
+// src/infrastructure/execution-history.repository.ts:40:3 - (ae-undocumented) Missing documentation for "execution".
+// src/infrastructure/execution-history.repository.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/execution-history.repository.ts:50:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/execution-history.repository.ts:51:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-history.repository.ts:52:3 - (ae-undocumented) Missing documentation for "application".
+// src/infrastructure/execution-history.repository.ts:53:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/infrastructure/execution-history.repository.ts:54:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/infrastructure/execution-history.repository.ts:60:3 - (ae-undocumented) Missing documentation for "input".
+// src/infrastructure/execution-history.repository.ts:63:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "offset".
+// src/infrastructure/execution-history.repository.ts:83:3 - (ae-undocumented) Missing documentation for "limit".
+// src/infrastructure/execution-history.repository.ts:86:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
@@ -9290,12 +9306,13 @@ export interface WrittenLedgerMark {
 // src/infrastructure/outbound-call.repository.ts:254:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
 // src/infrastructure/outbound-call.repository.ts:258:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/outbound-call.repository.ts:263:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/pause-record.ts:49:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:65:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:66:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:77:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:78:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:154:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:54:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:70:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:71:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:83:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:158:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:164:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
@@ -9317,14 +9334,14 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:39:3 - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:54:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:43:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:67:3 - (ae-undocumented) Missing documentation for "findAllByExecutionId".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:74:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:54:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:58:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:72:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "findAllByExecutionId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:89:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:101:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:115:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts:128:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:74:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:96:3 - (ae-undocumented) Missing documentation for "acquire".
@@ -9457,8 +9474,9 @@ export interface WrittenLedgerMark {
 // src/models/circuit-breaker.ts:41:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts:43:3 - (ae-undocumented) Missing documentation for "code".
-// src/pause/types.ts:80:3 - (ae-undocumented) Missing documentation for "kind".
-// src/pause/types.ts:87:3 - (ae-undocumented) Missing documentation for "kind".
+// src/pause/types.ts:66:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/pause/types.ts:82:3 - (ae-undocumented) Missing documentation for "kind".
+// src/pause/types.ts:89:3 - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts:10:3 - (ae-undocumented) Missing documentation for "ReplaceWithKind".
 // src/pii/actions.ts:11:3 - (ae-undocumented) Missing documentation for "ReplacePart".
 // src/pii/actions.ts:12:3 - (ae-undocumented) Missing documentation for "ReplaceWithToken".

@@ -66,7 +66,7 @@ export async function announceResume(
     return;
   }
   for (const [index, decision] of resume.decisions.entries()) {
-    const answeredBy = resume.answerers[index];
+    const answeredBy = resume.answeredBy[index];
     await observer.onExecutionResume({ ...event, reason, decision, answeredBy });
   }
 }

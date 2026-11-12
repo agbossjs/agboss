@@ -38,7 +38,7 @@ import { UnwindLog } from "./unwind.workflow.js";
   name: "guest-approval-channel",
   description: "The guest approves the reservation",
   approves: UndoRequestDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class GuestApprovalChannel extends ChannelOf<GuestApprovalChannel> {}
 

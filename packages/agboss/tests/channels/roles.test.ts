@@ -138,7 +138,7 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
       description: "Asks the customer to clarify",
       ask: ClarificationQuestionDto,
       answer: ClarificationAnswerDto,
-      answeredBy: PauseAnswerer.ThreadOwner,
+      answerer: PauseAnswerer.ThreadOwner,
       maxVisits: 2,
     };
     @ChannelRole(question)
@@ -157,7 +157,7 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
   });
 
   it("#659 AC1: both forms, or half a question, fail: [channel.role-form]", () => {
-    const role = { name: "both-question", description: "d", answeredBy: PauseAnswerer.Channel };
+    const role = { name: "both-question", description: "d", answerer: PauseAnswerer.Channel };
 
     expect(
       declare({ ...role, approves: RefundCardInputDto, ask: ClarificationQuestionDto }),
@@ -174,19 +174,19 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
   });
 
   it("a role without approves or ask / answer fails", () => {
-    const empty = { name: "empty-channel", description: "d", answeredBy: PauseAnswerer.Channel };
+    const empty = { name: "empty-channel", description: "d", answerer: PauseAnswerer.Channel };
 
     expect(declare(empty)).toThrow("[channel.role-form]");
     expect(declare(empty)).toThrow("declares neither approves nor both ask and answer");
   });
 
-  it("answeredBy is required: a role without it fails, never defaults to the thread's owner", () => {
+  it("answerer is required: a role without it fails, never defaults to the thread's owner", () => {
     const open = {
       name: "open-channel",
       description: "d",
       approves: RefundCardInputDto,
     };
 
-    expect(declare(open)).toThrow("has no answeredBy");
+    expect(declare(open)).toThrow("has no answerer");
   });
 });

@@ -31,7 +31,7 @@ export class LimitAnswerDto {
   description: "Asks the thread's owner for a limit",
   ask: LimitQuestionDto,
   answer: LimitAnswerDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class LimitQuestion extends ChannelOf<LimitQuestion> {}
 

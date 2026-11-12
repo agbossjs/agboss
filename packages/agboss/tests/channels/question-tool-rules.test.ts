@@ -108,6 +108,7 @@ describe("#712 AC1: a question role in an agent's tools", () => {
       isRole: true,
       question: "PurchaseQuestionDto",
       answer: "ApproverAnswerDto",
+      answerer: PauseAnswerer.ThreadOwner,
       answeredBy: PauseAnswerer.ThreadOwner,
       replyInterpreter: "approver-reply-interpreter",
       implementation: "DeskApproverChannel",

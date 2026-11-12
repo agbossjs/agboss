@@ -39,7 +39,7 @@ describe("#801: the pauses still pending, as their records say", () => {
     await pauses.resolveByTenantIdAndPauseId(
       "default",
       "p-answered",
-      { decision: { approved: true }, answerer: "manager-17" },
+      { decision: { approved: true }, answeredBy: "manager-17" },
       new Date(0),
     );
     const stored = {

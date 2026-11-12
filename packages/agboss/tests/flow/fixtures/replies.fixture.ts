@@ -195,7 +195,7 @@ export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseR
   name: "payout-approval-channel",
   description: "Approves payouts",
   approves: PayoutRequestDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: PayoutReplyInterpreter,
 })
 export abstract class PayoutApprovalChannel extends ChannelOf<PayoutApprovalChannel> {}
@@ -204,7 +204,7 @@ export abstract class PayoutApprovalChannel extends ChannelOf<PayoutApprovalChan
   name: "expense-approval-channel",
   description: "The thread's owner confirms an expense",
   approves: ExpenseRequestDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: ExpenseReplyInterpreter,
 })
 export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalChannel> {}
@@ -213,7 +213,7 @@ export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalCh
   name: "deposit-approval-channel",
   description: "A clerk approves deposit returns",
   approves: DepositReturnDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: DepositReplyInterpreter,
 })
 export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
@@ -222,7 +222,7 @@ export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalCh
   name: "transfer-approval-channel",
   description: "Approves transfers (typed decisions only)",
   approves: TransferRequestDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class TransferApprovalChannel extends ChannelOf<TransferApprovalChannel> {}
 

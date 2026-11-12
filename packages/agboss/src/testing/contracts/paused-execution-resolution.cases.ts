@@ -24,7 +24,7 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
     name: "of two concurrent transitions of one pause on two instances exactly one succeeds, with its decision",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
-      const no = { decision: { approved: false }, answerer: "manager-18" };
+      const no = { decision: { approved: false }, answeredBy: "manager-18" };
 
       const [one, other] = await Promise.all([
         first.resolveByTenantIdAndPauseId("default", "pause-a", APPROVED_BY_MANAGER, NINE),

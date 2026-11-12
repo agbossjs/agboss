@@ -133,7 +133,7 @@ export class OrderConfirmationDto {
   name: "refund-approval-channel",
   description: "Approves refunds",
   approves: RefundRequestDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
@@ -141,7 +141,7 @@ export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChan
   name: "order-confirmation-channel",
   description: "The customer confirms an order",
   approves: OrderConfirmationDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class OrderConfirmationChannel extends ChannelOf<OrderConfirmationChannel> {}
 

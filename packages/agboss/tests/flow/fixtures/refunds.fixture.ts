@@ -45,7 +45,7 @@ export class RefundDesk {
   name: "refund-approval-channel",
   description: "Approves card refunds",
   approves: RefundCardInputDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 

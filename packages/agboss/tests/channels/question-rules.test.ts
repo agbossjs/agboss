@@ -83,7 +83,7 @@ function questionRole(name: string, interpreter?: Class): { role: Class; channel
     description: "d",
     ask: PurchaseQuestionDto,
     answer: SpendingLimitAnswerDto,
-    answeredBy: PauseAnswerer.ThreadOwner,
+    answerer: PauseAnswerer.ThreadOwner,
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
   })
   abstract class SomeQuestion extends ChannelOf<SomeQuestion> {}

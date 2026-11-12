@@ -1,12 +1,17 @@
 import { randomBytes } from "node:crypto";
-import { z } from "zod";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
-import { componentOfStored, StoredComponent } from "./stored-step.js";
+import { z } from "zod";
+import {
+  componentOfStored,
+  pauseAnswerRecordOfStored,
+  pauseAnswererOf,
+  StoredStep,
+} from "./stored-step.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -50,9 +55,9 @@ export interface PauseAnswer {
   /**
    * Who answered: the `answeredBy` of a `PauseAnswerer.Channel` pause's resume, the `ownerId` of a
    * `PauseAnswerer.ThreadOwner` one (`undefined` for a thread without an owner, or a channel that
-   * decided at once).
+   * decided at once). 0.1.0 named it `answerer`: a record stored then reads with the new name.
    */
-  readonly answerer: string | undefined;
+  readonly answeredBy: string | undefined;
   /**
    * The model calls of its reply interpreter (`app.resume({ pauseId, reply })`): already in the
    * ledger, added to the execution's spend when its step takes the answer.
@@ -144,8 +149,13 @@ export interface PauseRecord extends PauseSite {
   readonly step: string;
   /** The channel asked: a role's name or a concrete `@Channel`'s. */
   readonly channel: string;
-  /** Who may answer it (its channel role's `answeredBy`). */
-  readonly answeredBy: PauseAnswerer;
+  /** Who may answer it (its channel role's `answerer`). */
+  readonly answerer: PauseAnswerer;
+  /**
+   * @deprecated 0.1.0's name of `answerer`, until 0.2. Read-only: a store of yours may still
+   * write it (the core reads `answerer ?? answeredBy`); use `answerer`.
+   */
+  readonly answeredBy?: PauseAnswerer;
   /**
    * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
    * role's ask (#659) — told apart by `kind`.
@@ -247,8 +257,10 @@ const isWithoutAnswer = (resolution: PauseResolution): boolean =>
 /** A resolved pause as the execution record lists it (unmasked: the record is masked when read). */
 export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution): PauseAnswerRecord {
   const hasAnswer = !isWithoutAnswer(resolution);
+  const answerer = pauseAnswererOf(pause);
+  const answeredBy = hasAnswer ? pause.answer?.answeredBy : undefined;
   return {
-    pauseId: pause.answeredBy === PauseAnswerer.Channel ? undefined : pause.pauseId,
+    pauseId: answerer === PauseAnswerer.Channel ? undefined : pause.pauseId,
     executionId: pause.executionId,
     step: {
       component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
@@ -262,8 +274,9 @@ export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution):
       validationAttempts: pause.validationAttempts ?? 0,
     },
     role: pause.channel,
-    answeredBy: pause.answeredBy,
-    responder: hasAnswer ? pause.answer?.answerer : undefined,
+    answerer,
+    answeredBy,
+    responder: answeredBy,
     resolution,
     askedAt: pause.askedAt,
     resolvedAt: pause.resolvedAt,
@@ -284,19 +297,11 @@ const optionalText = z.string().optional();
 const StoredPauseAnswer = z.object({
   pauseId: optionalText,
   executionId: z.string(),
-  step: z.object({
-    component: StoredComponent,
-    nodeId: z.string(),
-    visitNumber: z.number(),
-    idempotencyKey: z.string(),
-    callId: optionalText,
-    itemIndex: z.number().optional(),
-    copyNumber: z.number(),
-    toolLoopIteration: z.number().optional(),
-    validationAttempts: z.number().default(0),
-  }),
+  step: StoredStep,
   role: z.string(),
-  answeredBy: z.enum(PauseAnswerer),
+  // 0.1.0's entry has no `answerer`: its `answeredBy` is the kind, `responder` the person (#934)
+  answerer: z.enum(PauseAnswerer).optional(),
+  answeredBy: optionalText,
   responder: optionalText,
   resolution: z.enum(PauseResolution),
   askedAt: z.string(),
@@ -309,7 +314,7 @@ const StoredPauseAnswer = z.object({
 export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
   const stored = StoredPauseAnswer.parse(JSON.parse(text));
   const { step } = stored;
-  return {
+  return pauseAnswerRecordOfStored({
     ...stored,
     pauseId: stored.pauseId,
     step: {
@@ -319,9 +324,11 @@ export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
       itemIndex: step.itemIndex,
       toolLoopIteration: step.toolLoopIteration,
     },
+    answerer: stored.answerer,
+    answeredBy: stored.answeredBy,
     responder: stored.responder,
     resolvedAt: stored.resolvedAt,
     decision: stored.decision,
     ...(stored.asked === undefined ? {} : { asked: stored.asked }),
-  };
+  });
 }

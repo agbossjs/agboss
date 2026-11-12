@@ -48,7 +48,7 @@ export function temporarySqlitePath(): string {
 }
 
 /** The application context of a test instance whose environment names the SQLite file. */
-const applicationOn = (path: string, instanceId = "store-test"): ApplicationContext =>
+export const applicationOn = (path: string, instanceId = "store-test"): ApplicationContext =>
   applicationContextOf({
     name: "store-test-application",
     version: "1.0.0",

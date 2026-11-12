@@ -529,10 +529,10 @@ export interface DescribedBudget {
 // @public
 export interface DescribedChannel {
     readonly answer: string;
-    // Warning: (ae-forgotten-export) The symbol "PauseAnswerer" needs to be exported by the entry point internal.d.ts
-    //
-    // (undocumented)
+    // @deprecated (undocumented)
     readonly answeredBy: PauseAnswerer;
+    // Warning: (ae-forgotten-export) The symbol "PauseAnswerer" needs to be exported by the entry point internal.d.ts
+    readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
     readonly implementation?: string;
@@ -1782,8 +1782,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts:66:3 - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts:67:3 - (ae-undocumented) Missing documentation for "warnings".
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
-// src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
+// src/describe/channels.ts:47:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/describe/channels.ts:52:3 - (ae-undocumented) Missing documentation for "reason".
 // src/describe/contracts-types.ts:76:3 - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts:77:3 - (ae-undocumented) Missing documentation for "imports".
 // src/describe/contracts-types.ts:78:3 - (ae-undocumented) Missing documentation for "schemas".

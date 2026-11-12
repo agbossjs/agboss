@@ -235,18 +235,18 @@ export function recordingRouters<TDeps extends AgentExecutionDeps<string>>(
 
 /**
  * A resume of a run on its own (no app, #267 S35): the decision recorded on the run's first pending
- * pause (`Pending → Resolved`, answered by `answerer`), then the run moved with the tree's answers.
+ * pause (`Pending → Resolved`, answered by `answeredBy`), then the run moved with the tree's answers.
  * A run that is no longer paused moves with none — `resumeAgent` refuses it (`NotPausedError`).
  */
 export async function resumeWith(
   paused: AgentExecutionOutput,
   decision: unknown,
   deps: AgentExecutionDeps<string>,
-  answerer = "tester",
+  answeredBy = "tester",
 ): Promise<AgentExecutionOutput> {
   const [pending] = paused.pending;
   if (pending !== undefined) {
-    const answer = { decision, answerer };
+    const answer = { decision, answeredBy };
     await deps.pause?.pauses.resolveByTenantIdAndPauseId(
       paused.tenantId,
       pending.pauseId,
@@ -254,6 +254,6 @@ export async function resumeWith(
       (deps.clock ?? systemClock).now(),
     );
   }
-  const none = { values: {}, pauseIds: [], taken: [], decisions: [], answerers: [] };
+  const none = { values: {}, pauseIds: [], taken: [], decisions: [], answeredBy: [] };
   return resumeAgent(paused, (await treeResumeNow(deps, paused)) ?? none, deps);
 }

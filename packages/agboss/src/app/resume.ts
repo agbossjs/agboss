@@ -26,12 +26,13 @@ import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
+import { pauseAnswererOf } from "../infrastructure/stored-step.js";
 import { markAnswered, notPaused, refusedAfterMark } from "./paused-runs.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
- * its tree, who answers checked against its role's `answeredBy`, the decision validated (or a
+ * its tree, who answers checked against its role's `answerer`, the decision validated (or a
  * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
  * the resting root's record `running` again (#850), and `Pending → Resolved` with its decision,
  * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
@@ -102,13 +103,13 @@ export interface RecordedAnswer {
 }
 
 /** Who answers, as the pause's role says — checked; `undefined` for an unowned thread's owner. */
-async function answererOf(
+async function answeredByOf(
   parts: AnswerParts,
   pause: PauseRecord,
   call: ResumeOptions,
 ): Promise<string | undefined> {
   const { ownerId, answeredBy } = call;
-  if (pause.answeredBy === PauseAnswerer.ThreadOwner) {
+  if (pauseAnswererOf(pause) === PauseAnswerer.ThreadOwner) {
     if (answeredBy !== undefined) {
       throw new PauseAnswererError({
         message: `pause ${pause.pauseId} is answered by the thread's owner (${pause.channel}): pass ownerId, not answeredBy`,
@@ -191,12 +192,12 @@ export async function recordAnswer(
   call: ResumeOptions,
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
-  const answerer = await answererOf(parts, pause, call);
+  const answeredBy = await answeredByOf(parts, pause, call);
   if (pause.status !== PauseStatus.Pending) throw notPaused(pause.pauseId);
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
   const answer = {
     decision: read.decision,
-    answerer,
+    answeredBy,
     ...(read.usage.length === 0 ? {} : { usage: read.usage }),
   };
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
