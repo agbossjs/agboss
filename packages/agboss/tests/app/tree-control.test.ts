@@ -94,7 +94,7 @@ describe("#906: a tree read with a thread id that is no key names the rule", () 
   it("InvalidThreadIdError carries the rule it breaks", async () => {
     const read = executionStateOf(
       {} as never,
-      { tenantId: "acme", rootExecutionId: "root-1", threadId: "" } as never,
+      { tenantId: "acme", rootExecutionId: "root-1", threadId: "" },
     );
 
     await expect(read).rejects.toMatchObject({ rule: KeyTextRule.Length });
