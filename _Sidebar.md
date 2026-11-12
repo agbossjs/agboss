@@ -42,6 +42,7 @@
 - [Examples: 01–08, flow-patterns](Example)
 - [Agents — the loop](Agents)
 - [Model providers](Model-providers)
+  - [Try agboss on a subscription](Try-agboss-on-a-subscription)
 - [Tools](Tools)
 - [Knowledge bases (RAG)](Knowledge-bases)
 - [A2A — agent to agent](A2A)

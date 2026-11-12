@@ -174,6 +174,9 @@ export class BedrockModelProvider implements ModelProviderHandler {
 }
 ```
 
+- **Trying it on a subscription.** A transport can also drive a vendor's own CLI under your own login
+  (Codex, Claude, Gemini) — a demo-only example with its terms warnings:
+  [Try agboss on a subscription](Try-agboss-on-a-subscription).
 - **One mode.** HTTP (`baseUrl`, `apiKey`, `baseUrlField`, a `chat` class) or a transport
   (`complete`, `deps`) — both at once do not compile (the decorator's overloads) and fail assembly
   with `[model-provider.both-modes]`; so does neither. `description`, `timeout`, `cost` and
