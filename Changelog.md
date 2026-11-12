@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: one meaning per name — `answeredBy` is who answered, `answerer` is who may (#934, API review Q3, Q13)
+
+- **Changed — breaking (silent)**: `PauseAnswerRecord.answeredBy` (`result.record.pauses[i]`, the answer log,
+  `agboss records export`) keeps its name and changes its meaning — before: the kind (`"channel"` or
+  `"thread-owner"`), now: the person who answered (`"manager-17"`, or `undefined`). Nothing fails to compile and no
+  alias can keep the old meaning; read `answerer` for the kind. `PauseAnswer.answerer` (the person, in
+  `PauseRecord.answer`) is `answeredBy` now, with no alias.
+- **Changed (renamed, old spelling a `@deprecated` alias until 0.2)**: who may answer is `answerer: PauseAnswerer`
+  on `@ChannelRole` (`answeredBy` still accepted; both given and different → `[channel.role-form]`),
+  `PendingPause` (`answeredBy`, the same value), `PauseRecord` (`answeredBy?`, read-only), `describe` JSON
+  (`answeredBy` emitted too); `PauseAnswerRecord.responder` and `EvalPauseTrace.responder` are aliases of
+  `answeredBy`; a saved eval artifact reads with either key.
+- **Stored data**: nothing is migrated. Every store reads what 0.1.0 wrote with the new names — SQLite (including
+  `pauses.answer` and its answer log), PostgreSQL, MongoDB, kept execution history records and their children's
+  pauses — through `pauseRecordOfStored`, `pauseAnswerOfStored`, `pauseAnswerRecordOfStored` and
+  `executionHistoryRecordOfStored` in `@agboss/core/stores` (a store of your own returns their result, never the
+  value it parsed).
+- **Migration**: `@ChannelRole({ answerer })`; `pending[i].answerer`; `record.pauses[i].answerer` for the kind and
+  `.answeredBy` for the person; `answer.answeredBy` for `answer.answerer`.
+
 ## Unreleased — 0.1.1: one shape for every error, literal codes, the last Tern names (#906, completing #890)
 
 - **Added (flow)**: `toQuestion(Q)` as an `.onError` side-path start (#933, #910): `.onError(E, toQuestion(Role).returns(AnswerDto)…)` — a question role's step handles a failure; after a limit a side path still leads only to actions and finishes (`[graph.limit-handler-uses-model]`).
