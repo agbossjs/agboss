@@ -117,6 +117,7 @@ describe("#825: the key a call is sent under", () => {
   it("options without a business key make no key (a JavaScript caller)", () => {
     const executionContext = {
       executionId: "execution-1",
+      root: { executionId: "execution-1" },
       step: { nodeId: "charge-action", visitNumber: 1, idempotencyKey: KEY.idempotencyKey },
       fence: { ...KEY },
     } as never as ExecutionContext;
