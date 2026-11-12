@@ -638,6 +638,18 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
 
 ### Fixed — guarantees and safety
 
+- **`app.close()` ends within its shutdown timeout while a store call is never answered** (#923) —
+  the recovery sweep's look at the running executions and a child worker's claim of the queue each
+  wait on a store, and a call to a server that went quiet never returned: the stop waited for them
+  for ever. The stop now gives them up at the stop's end (the shutdown timeout) and logs
+  `app.stop-store-call-pending`; the late answer, if one comes, is dropped.
+- **A refused child lease take is not retried at store speed** (#923) — a worker that claimed a
+  queued child and found its lease held by another live worker put the row back and woke the other
+  instances of its process (and, through the queue's watch, of other processes) at once; they
+  claimed it, were refused and woke the first in turn: hundreds of claim → refused take → re-queue
+  rounds a second against the queue's and the lease store's backends until the lease ended. A worker
+  now looks at the queue again only after one `Clock` second past its last refused take (a wake-up
+  within it is held until then); the sweep stays the safety net.
 - **A pause's decision carries no file descriptor** (#900, after #859) — a follow-up message that
   resumes an `INPUT_REQUIRED` task with `{ pauseId?, decision }` holding an object shaped as an
   `A2AFileDto` (a `mediaType` with a `fileId`, `sha256`, `inline` or `url`) at any depth is refused

@@ -232,9 +232,7 @@ export function stopOf(
   const { shutdownTimeout } = assembled;
   const workers = childWorkersOf(workflows, parts, interruption.signal);
   const stopping: RecoverySweep = {
-    stop: async () => {
-      await Promise.all([sweep.stop(), workers.stop()]);
-    },
+    stop: () => parts.stepsAtStop.within(Promise.all([sweep.stop(), workers.stop()])),
     lastSweptAt: () => sweep.lastSweptAt(),
     isStopped: () => sweep.isStopped(),
   };
