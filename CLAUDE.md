@@ -1478,8 +1478,9 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   their renewals, the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's
   timeout, retry backoff and `Retry-After` pauses; a component that needs the time injects it
   (`deps: [Clock]`). Lint `agboss/no-direct-time` fails `Date.now()`, `new Date()` / `Date()`
-  without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and
-  `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
+  without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout`,
+  `Atomics.wait` (the one blocking pause, `pauseThread` — synchronous SQLite startup, bounded by the
+  busy timeout, #911) and `node:timers` in `packages/agboss/src` (the real implementation, `src/infrastructure/clock.ts`,
   excepted) and in a project's `src/` outside its tests (the `eslint.config.js` `agboss create`
   writes, #388). Lint `agboss/no-internal-import` (#818) fails any import of `@agboss/core/internal`
   (the CLI's, no semver promise) in every file of a project and of the examples.

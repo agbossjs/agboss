@@ -42,7 +42,8 @@ describe("#262 AC12: no direct time in framework code (agboss/no-direct-time)", 
           "  globalThis.setTimeout(() => undefined, 10);",
           "  const signal = AbortSignal.timeout(10);",
           "  const later = [1].map(setTimeout);",
-          "  return [at, text, tick, signal, later];",
+          "  const blocked = Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);",
+          "  return [at, text, tick, signal, later, blocked];",
         ].join("\n"),
       ),
     );
@@ -56,6 +57,7 @@ describe("#262 AC12: no direct time in framework code (agboss/no-direct-time)", 
       "`globalThis.setTimeout`",
       "`AbortSignal.timeout`",
       "`setTimeout`",
+      "`Atomics.wait`",
     ]);
   }, 60_000);
 

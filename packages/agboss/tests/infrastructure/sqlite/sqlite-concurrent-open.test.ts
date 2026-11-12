@@ -6,6 +6,7 @@
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -49,6 +50,27 @@ async function openTogether(path: string): Promise<string[]> {
   return Promise.all(outputs);
 }
 
+/** A connection holding the write lock of a file still in rollback-journal mode (not WAL). */
+function holdLocked(path: string): DatabaseSync {
+  const holder = new DatabaseSync(path);
+  holder.exec("PRAGMA journal_mode = DELETE; CREATE TABLE held (id INTEGER); BEGIN EXCLUSIVE");
+  return holder;
+}
+
+function release(holder: DatabaseSync): void {
+  holder.exec("ROLLBACK");
+  holder.close();
+}
+
+/**
+ * The open ends within the busy timeout, not at a multiple of it. A try that waits the whole timeout
+ * inside SQLite (the #921 regression) takes ~9x here, so 4x is a margin a loaded machine does not
+ * reach while a second SQLite-side wait still cannot pass it.
+ */
+function expectWithinBusyTimeout(elapsed: number, busyTimeout: number): void {
+  expect(elapsed).toBeLessThan(busyTimeout * 4);
+}
+
 describe("#911: a new SQLite file opened by several processes at once", () => {
   it("#911 AC1: every process opens it and creates its tables, round after round", async () => {
     for (let round = 0; round < ROUNDS; round += 1) {
@@ -58,15 +80,40 @@ describe("#911: a new SQLite file opened by several processes at once", () => {
     }
   }, 120_000);
 
-  it("#911 AC1: a file another connection holds locked still fails once the busy timeout is spent", () => {
-    const path = join(dir, "held.sqlite");
-    const holder = openSqliteDatabase(path, 50);
-    holder.exec("PRAGMA journal_mode = DELETE");
-    holder.exec("CREATE TABLE held (id INTEGER); BEGIN EXCLUSIVE");
+  it("#911 AC1: a file another connection holds locked still fails once the busy timeout is spent, within it", () => {
+    const busyTimeout = 100;
+    const holder = holdLocked(join(dir, "held.sqlite"));
 
-    expect(() => openSqliteDatabase(path, 50)).toThrow(/database is locked/);
+    const start = performance.now();
+    expect(() => openSqliteDatabase(join(dir, "held.sqlite"), busyTimeout)).toThrow(
+      /database is locked/,
+    );
+    const elapsed = performance.now() - start;
 
-    holder.exec("ROLLBACK");
-    holder.close();
+    expectWithinBusyTimeout(elapsed, busyTimeout);
+    release(holder);
+  });
+
+  it("#911 AC1: a lock held on a file not yet in WAL mode fails the whole open within the busy timeout, SQLite's own waits included", () => {
+    const busyTimeout = 300;
+    const holder = holdLocked(join(dir, "held-long.sqlite"));
+
+    const start = performance.now();
+    expect(() => openSqliteDatabase(join(dir, "held-long.sqlite"), busyTimeout)).toThrow(
+      /database is locked/,
+    );
+    const elapsed = performance.now() - start;
+
+    expectWithinBusyTimeout(elapsed, busyTimeout);
+    release(holder);
+  });
+
+  it("#911: the busy timeout is set on the opened connection once the WAL switch is done", () => {
+    const database = openSqliteDatabase(join(dir, "pragma.sqlite"), 1234);
+
+    expect(database.prepare("PRAGMA busy_timeout").get()).toEqual({ timeout: 1234 });
+    expect(database.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
+    expect(database.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+    database.close();
   });
 });

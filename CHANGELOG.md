@@ -1476,6 +1476,11 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   file with `SQLITE_BUSY` at once, whatever the busy timeout. `openSqliteDatabase` now sets
   `busy_timeout` first and tries the switch again while it is busy, with a growing pause bounded
   by the busy timeout (a file already in WAL is not switched); a file held locked still fails.
+  The whole open is bounded by the busy timeout (#911 fix-forward): the tries run with SQLite's
+  own `busy_timeout` at 0 — a lock really held on a file not yet in WAL no longer makes SQLite
+  wait the full timeout inside every try (minutes of a frozen event loop at 5 s) — and the
+  connection's timeout is set once the switch is done. The blocking pause is `pauseThread` in the
+  Clock's module, the one `Atomics.wait`; lint `agboss/no-direct-time` now flags it elsewhere.
 - **A parent waiting for an `AnyInstance` child is woken by its completion, after the child's end
   is announced** (#917): the worker signalled the waiting parent only after the lease's cleanup, so
   a slow store left it to the 1 s fallback look — and a test on a virtual clock, which nobody
