@@ -17,6 +17,7 @@ export {
   toAction,
   toAgent,
   toFinish,
+  toQuestion,
   toRouter,
   toWorkflow,
   workflow,

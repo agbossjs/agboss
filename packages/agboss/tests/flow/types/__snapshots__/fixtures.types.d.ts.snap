@@ -36,6 +36,7 @@ import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, Re
 import type { BatchSummaryAgent, BookExpenseTool, DepositApprovalChannel, DepositReplyInterpreter, DepositReturnDto, ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayOutTool, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, ReturnDepositTool, SplitRequestsAction, TransferApprovalChannel, TransferRequestDto, TransferTool, TreasurerAgent, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
+import type { FlakyCheckAction, SideQuestionWorkflow, SideQuestionWorkflowStart } from "../tests/flow/fixtures/side-question.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
 import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
 import type { DeliveryTopicAgent, OrderTopicAgent, RefundTopicAgent, TopicsRouter, TopicsWorkflow, TopicsWorkflowFinish, TopicsWorkflowStart } from "../tests/flow/fixtures/topics.fixture.js";
@@ -110,6 +111,7 @@ declare module "../src/flow/generated-types.js" {
     "first-draft-agent": OfferDraftDto;
     "fit-review-workflow-start": CandidateDto;
     "fit-summary-agent": FitSummaryDto;
+    "flaky-check-action": PurchasePlacedDto;
     "full-grade-workflow-start": CompanyDto;
     "full-review-agent": DueDiligenceReportDto;
     "grader-agent": CompanyGradeDto;
@@ -192,6 +194,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "side-question-workflow-start": WorkflowStartTextDto;
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
     "spending-limit-question": SpendingLimitAnswerDto;
@@ -309,7 +312,7 @@ declare module "../src/flow/generated-types.js" {
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
     "draft-history-workflow-finish": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
-    "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof OwnerPurchaseWorkflowStart | typeof PurchaseWorkflowStart> };
+    "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof OwnerPurchaseWorkflowStart | typeof PurchaseWorkflowStart | typeof SideQuestionWorkflowStart> };
     "draft-reviewer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent> };
     "due-diligence-report-workflow-finish": NoInput;
     "editor-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewerAgent> };
@@ -334,6 +337,7 @@ declare module "../src/flow/generated-types.js" {
       | { skills?: undefined; culture?: undefined; salary: Produced<SalaryFitDto, typeof SalaryFitAgent> }
       | { skills?: undefined; culture?: undefined; salary?: undefined };
     "fit-summary-workflow-finish": NoInput;
+    "flaky-check-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
     "full-grade-workflow-start": CompanyDto;
     "full-review-agent":
       | { deal: Produced<DealDto, typeof DealWorkflowStart>; legal: Produced<LegalReviewDto, typeof LegalAgent>; critiques: readonly Produced<DealCritiqueDto, typeof DealCriticAgent>[] }
@@ -474,6 +478,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
     "send-receipt-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
+    "side-question-workflow-start": WorkflowStartTextDto;
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "spending-limit-question": { ask: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
@@ -545,6 +550,7 @@ declare module "../src/flow/generated-types.js" {
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
     "fail-topic-action": ResearchFailedDto;
     "fit-summary-workflow-finish": FitSummaryDto;
+    "flaky-check-action": PurchasePlacedDto;
     "graded-shortlist-workflow-finish": GradedShortlistDto;
     "hand-over-workflow-finish": HandOverDto;
     "help-desk-workflow-finish": CustomerReplyDto;
@@ -664,6 +670,7 @@ declare module "../src/flow/generated-types.js" {
     "refund-workflow-start": { input: WorkflowStartTextDto; output: RefundCardOutputDto };
     "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto };
     "screening-workflow-start": { input: WorkflowStartTextDto; output: RankingDto | ScreeningFailedDto };
+    "side-question-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "story-workflow-start": { input: ArticleRequestDto; output: ArticleDto | DraftDto };
     "support-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "topics-workflow-start": { input: SupportIntentDto; output: TopicAnswerDto };
@@ -2227,6 +2234,18 @@ declare module "../tests/flow/fixtures/review.fixture.js" {
   }
   interface StoryWriterAgent {
     readonly [agbossComponent]?: "story-writer-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/side-question.fixture.js" {
+  interface FlakyCheckAction {
+    readonly [agbossComponent]?: "flaky-check-action";
+  }
+  interface SideQuestionWorkflow {
+    readonly [agbossComponent]?: "side-question-workflow";
+  }
+  interface SideQuestionWorkflowStart {
+    readonly [agbossComponent]?: "side-question-workflow-start";
   }
 }
 

@@ -33,7 +33,7 @@ import type { GroupStart } from "./quorum-types.js";
 /**
  * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
  * (#263), `question(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
- * `toRouter(R)…`, `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
+ * `toRouter(R)…`, `toQuestion(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
  * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
  */
 
@@ -142,6 +142,19 @@ export function toRouter<const TClass extends Class>(
 ): AfterStep<InstanceType<TClass>, SideHead>;
 export function toRouter(target: Class): PathBuilder<undefined> {
   return sidePath().toRouter(target);
+}
+
+/**
+ * The side path `.onError(E, toQuestion(Q)…)` (#910): a question role's step handles the failure —
+ * it reads its `ask` from the path like `.toQuestion(Q)` does, pauses on the role's channel and puts
+ * its `answer` on the path. A side path that can catch a limit leads only to actions and finishes
+ * (`[graph.limit-handler-uses-model]`: a reply interpreter may call a model).
+ */
+export function toQuestion<const TClass extends Class>(
+  target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+): AfterStep<InstanceType<TClass>, SideHead>;
+export function toQuestion(target: Class): PathBuilder<undefined> {
+  return sidePath().toQuestion(target);
 }
 
 /**

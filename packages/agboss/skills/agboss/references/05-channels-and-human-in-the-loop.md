@@ -446,6 +446,14 @@ second), another instance continues it, a cancel withdraws it — as any pause. 
 call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
 names a question role is `[channel.wrong-tool]`.
 
+A question may also start an `.onError` side path (#933): `.onError(StepFailedError,
+toQuestion(DirectorQuestion).returns(DirectorAnswerDto)…)` — the failure is handled by asking, the
+question reads its `ask` from the path as it stood before the failed step (field rules as for
+`.toQuestion`), and its answer goes on the path. One role is one node: its `maxVisits` counts the
+main path and the side path together. A side path that can catch a limit (`LimitExceededError`,
+`BudgetExceededError`, a parent such as `AGBossError`) still leads only to actions and finishes —
+a question there is `[graph.limit-handler-uses-model]` (a reply interpreter may call a model).
+
 ### An agent asks a question role as a tool (#712)
 
 When the model should decide **whether** and **when** to ask, list the role in the agent's tools —

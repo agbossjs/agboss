@@ -548,7 +548,7 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
   chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
   choice, one `route(…)` per `@Router` route; `.returns(oneOf(A, B)).switch(caseOf(A)…)` — a branch
-  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toWorkflow(…)… | toFinish(…))` — the side
+  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toQuestion(…)… | toWorkflow(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   before the step's `.returns(…)`.
 - **Parallel launches (#273):** `.toParallelAgents(A, B, B, { maxConcurrency })` /
