@@ -27,6 +27,8 @@ const sources = globSync("packages/*/src/**/*.ts", { cwd: repo }).sort();
 /** Every comment of a source file: its text and the line it starts on. */
 function commentsOf(file: string): readonly { readonly text: string; readonly line: number }[] {
   const text = readFileSync(resolve(repo, file), "utf8");
+  // only a file that names it anywhere is parsed: the walk of ~1,500 files stays fast
+  if (!new RegExp(OLD_NAME).test(text)) return [];
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const seen = new Set<number>();
   const found: { text: string; line: number }[] = [];
@@ -50,7 +52,7 @@ function commentsOf(file: string): readonly { readonly text: string; readonly li
   return found;
 }
 
-describe("#906 D3: the sources' comments say Turn", () => {
+describe("#906 D3: the sources' comments say Turn", { timeout: 60_000 }, () => {
   it("walks the sources of every package", () => {
     expect(sources.length).toBeGreaterThan(500);
     expect(sources).toContain("packages/agboss/src/turns/types.ts");
