@@ -59,7 +59,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 | --- | --- |
 | `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant; a write counts on any answer but an error — `replayed` and an outbound call's `false` too, since the lease check comes first and a refusal throws). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
-| `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard once by the pods' observers (#562). |
+| `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard at most once, never twice, by the pods' observers (#562; a pod killed between a child's completion and its announcement leaves the end unannounced, which is allowed). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
 | `no-undo-on-hand-over` | A hand-over undoes nothing. A real failure undoes once. |
 | `trees-finish` | Every order finished (a declined one failed), and every batch finished, within the scenario's bound. |
@@ -258,6 +258,11 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
     with the tree, by that worker (`onExecutionError`, `ExecutionCancelledError`);
   - a child on its parent's instance by the parent's pass that ran it to its finish or its failure;
   - a remote child's failure by the parent's pass that saw it happen; the child's undo runs there.
+
+  No order is promised between a child's end event and the parent's continuation. On the worker's
+  instance, the in-process wake of a parent waiting on an `AnyInstance` child comes after the
+  announcement; the parent's 1 s fallback look, or a parent on another instance, can read the
+  finished row first and end the root before the child's end is heard.
 
   A pass that re-enters the parent's step after a takeover finds the end already there and
   announces nothing. A holder whose lease is no longer live (frozen past it, taken over) stops at
