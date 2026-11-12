@@ -620,8 +620,11 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `route(W, { placement })` (default `ParentInstance`; one class one placement,
   `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
-  (woken in-process the moment its worker has completed the row and announced the child's end, still
-  holding the child's lease — never after the lease's cleanup, #917 — else every second on the `Clock`; the parent yields its lease in
+  (woken in-process by its worker, after the worker has completed the row and announced the child's
+  end while still holding the child's lease and before the lease's cleanup, #917 — else every second
+  on the `Clock`; only that in-process wake follows the announcement: a parent's fallback look or a
+  parent on another instance can read the finished row first, so the child's end event and the
+  parent's continuation have no promised order, #917; the parent yields its lease in
   `ExecutionLeaseRepository` while waiting and reclaims it before continuing, #333 PR 4 — yielded,
   not released: still its own there and renewed, so no other instance's sweep takes it over, #516);
   an instance with a free step slot (#332) claims it at once in-process or when the store's watch
@@ -1430,7 +1433,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   the run's time)
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too; #876: a write never answered — its pod died — that the rows read at the end hold (an outbound call's row; a fenced effect's stored token as its next call read it back), checked as accepted), `finished-work-untouched`,
-  `children-once` (each queue row completed once, each finished child's end heard once, #562),
+  `children-once` (each queue row completed once, each finished child's end heard at most once and never twice, #562 — a pod killed between a child's completion and its announcement leaves it unannounced, legitimately),
   `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `a2a-tasks-once` (#811, on every task id the run names: no state after a terminal one, told or written; the accepted status writes one version chain; the id kept once; nothing run by a task settled start-lost; no effect committed after a canceled task's cancel became durable, none more than a lease after any tree's cancel request), `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
   public API
@@ -1674,7 +1677,11 @@ description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxV
   the step again — the winner announces it, and a re-entry that finds the claim repeats the failure
   (by its durable record, #598, as #340's unwinding mark does) without running the step, so an announced
   failure never turns into a finish. So at most once: a holder that freezes or crashes between the
-  child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. A request refused
+  child's durable end (a finish, a claimed failure) and the announcement leaves it unannounced. No
+  order between a child's end event and its parent's continuation is promised (#917): on the
+  worker's instance the in-process wake of a parent waiting on an `AnyInstance` child comes after
+  the announcement, but the parent's 1 s fallback look and a parent on another instance can see the
+  finished row and end the root first. A request refused
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
   an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no

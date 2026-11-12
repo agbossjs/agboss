@@ -7,7 +7,7 @@ export enum FaultInvariant {
   OneOwner = "one-owner",
   /** No lease of finished work is granted again (#520): a child whose lease was finished is never taken. */
   FinishedWorkUntouched = "finished-work-untouched",
-  /** Every child of a batch ran to its end exactly once: none lost, none run twice. */
+  /** Every child of a batch ran to its end once: none lost, none run twice; its end heard at most once. */
   ChildrenOnce = "children-once",
   /** Every charge exactly once: one business row, one `Ran` / `Sent`, one payment per order, the rest replayed, reconciled or refused. */
   EffectsOnce = "effects-once",
