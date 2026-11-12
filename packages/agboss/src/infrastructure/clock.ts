@@ -340,3 +340,14 @@ export function definedOf<TValue>(value: TValue | undefined, invariant: string):
   if (value === undefined) throw new Error(`unreachable: ${invariant}`);
   return value;
 }
+
+/**
+ * Blocks this thread for `delay` milliseconds (#911): a real-time wait that no `Clock` can
+ * drive, for the one place that must pause inside synchronous code — opening the SQLite file at
+ * startup, before the event loop serves anything and inside a deadline the caller bounds (the busy
+ * timeout). Never call it from anything that runs while the application serves; everywhere else the
+ * wait is `Clock.sleep`. `agboss/no-direct-time` flags `Atomics.wait`, so this is its one site.
+ */
+export function pauseThread(delay: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+}
