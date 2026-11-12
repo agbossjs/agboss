@@ -6,25 +6,30 @@ import type { InMemoryFencedEffectTransaction } from "../../../src/infrastructur
 import { inMemoryFencedEffects } from "../../infrastructure/contracts/fenced-effect-stores.js";
 import { inMemoryTarget, sharedInMemory } from "../../infrastructure/contracts/store-kinds.js";
 
+type Insert = (transaction: InMemoryFencedEffectTransaction, row: string) => void;
+
+/** `insert`, after a turn of the loop: a write that waits. */
+const waitingInsert =
+  (insert: Insert) =>
+  async (transaction: InMemoryFencedEffectTransaction, row: string): Promise<void> => {
+    await Promise.resolve();
+    insert(transaction, row);
+  };
+
 /** The sound store, or (`isEarly`) one whose rows are visible the moment they are inserted. */
 const storesOf = (isAsync: boolean, isEarly: boolean) =>
   inMemoryTarget((seam) => {
     const stores = inMemoryFencedEffects(isAsync)(seam);
     if (!isEarly) return stores;
     const visible = sharedInMemory(seam, "fenced-effect-rows", (): string[] => []);
-    const insert = (_transaction: InMemoryFencedEffectTransaction, row: string): void => {
+    const insert: Insert = (_transaction, row) => {
       visible.push(row);
     };
     return {
       ...stores,
       rows: {
         ...stores.rows,
-        insert: isAsync
-          ? async (transaction, row) => {
-              await Promise.resolve();
-              insert(transaction, row);
-            }
-          : insert,
+        insert: isAsync ? waitingInsert(insert) : insert,
       },
     };
   });
