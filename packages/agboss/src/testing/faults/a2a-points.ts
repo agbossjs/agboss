@@ -62,10 +62,17 @@ const onPause = (point: StoreHoldPoint): StoreMethod => ({
   outputOf: (answer) => ({ isChanged: answer !== undefined && answer !== false }),
 });
 
-/** The pause store's two transitions out of `Pending`, and its read of a pause by id. */
+/**
+ * The pause store's two transitions out of `Pending`, its `Resolved → Taken` (#901), and its read
+ * of a pause by id.
+ */
 export const PAUSE_METHODS: Readonly<Record<string, StoreMethod>> = {
   resolveByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseResolve),
   cancelByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseCancel),
+  markTakenByTenantIdAndPauseId: {
+    ...onPause(StoreHoldPoint.PauseMarkTaken),
+    outputOf: () => null,
+  },
   findByTenantIdAndPauseId: {
     ...onPause(StoreHoldPoint.PauseFind),
     outputOf: (found) => ({ status: (found as { status?: unknown } | undefined)?.status }),
