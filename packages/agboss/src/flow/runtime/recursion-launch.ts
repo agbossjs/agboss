@@ -21,9 +21,14 @@ export function refuseBeyondMaxDepth(
 ): void {
   const maxDepth = graph.analysis.recursion?.maxDepth;
   if (maxDepth === undefined || child.depth <= maxDepth) return;
-  const error = new DepthLimitExceededError(child.workflow, maxDepth, path);
+  const error = new DepthLimitExceededError({ workflow: child.workflow, maxDepth, path });
   const failed = { status: ChildExecutionStatus.Failed, usage: [], error };
   frame.services.recordChild?.(childRecordOf(child, undefined, failed));
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
-  throw new ChildExecutionFailedError(identity, error, []);
+  throw new ChildExecutionFailedError({
+    childExecutionId: identity.executionId,
+    workflow: identity.workflow,
+    cause: error,
+    usage: [],
+  });
 }

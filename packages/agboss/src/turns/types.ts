@@ -62,8 +62,8 @@ export interface Summary {
   readonly bundle: string;
   /** The `@Compaction` that wrote it (#120 PR 3): each keeps its own summaries of the thread. */
   readonly compaction: string;
-  readonly fromTernId: string;
-  readonly toTernId: string;
+  readonly fromTurnId: string;
+  readonly toTurnId: string;
   readonly turns: number;
   readonly text: string;
   readonly costUsd: number;
@@ -105,11 +105,11 @@ export interface MemoryStore {
   readonly before: (
     tenantId: string,
     threadId: string,
-    ternId: string,
+    turnId: string,
     limit: number,
   ) => Promise<Turn[]>;
   /** 1-based position of a turn in its thread. */
-  readonly turnNumber: (tenantId: string, threadId: string, ternId: string) => Promise<number>;
+  readonly turnNumber: (tenantId: string, threadId: string, turnId: string) => Promise<number>;
   readonly addSummary: (summary: NewSummary) => Promise<Summary>;
   /** The compaction's latest `limit` summaries of the thread, oldest first. */
   readonly latestSummaries: (
@@ -150,7 +150,7 @@ export type TurnOutcome = Pick<
 /** Mean judge score and total cost of the Terns of one prompt version. */
 export interface VersionScore {
   readonly promptVersion: string;
-  readonly terns: number;
+  readonly turns: number;
   readonly scored: number;
   readonly meanScore: number | null;
   readonly costUsd: number;
@@ -171,7 +171,7 @@ export interface PauseAnswerEntry {
 }
 
 /** Durable memory of runs: threads, Terns, their quality scores and conversation summaries. */
-export interface TernStore extends MemoryStore, ConfigStore {
+export interface TurnStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
   readonly createThread: (thread: NewThread) => Promise<string>;
   /** Whether the tenant has the thread: another tenant's thread does not exist for it. */
@@ -182,16 +182,16 @@ export interface TernStore extends MemoryStore, ConfigStore {
     tenantId: string,
     threadId: string,
   ) => Promise<{ readonly owner: string | undefined } | undefined>;
-  readonly append: (tern: NewTurn) => Promise<Turn>;
+  readonly append: (turn: NewTurn) => Promise<Turn>;
   /** Completes a paused Turn (same id) with its final outcome. */
-  readonly complete: (ternId: string, outcome: TurnOutcome) => Promise<void>;
+  readonly complete: (turnId: string, outcome: TurnOutcome) => Promise<void>;
   /**
    * Compare-and-set (#265 S66 h): writes the outcome only while the Turn's status is `expected`;
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
-  completeIfStatus(ternId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
+  completeIfStatus(turnId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
   /** The last `limit` Terns of a thread (its tenant and id), oldest first. */
-  readonly lastTerns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
+  readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
   /** Up to `limit` Terns with `status`, oldest first, after the Turn `after` (a page of them). */
   readonly byStatus: (status: TurnStatus, limit: number, after?: string) => Promise<Turn[]>;
@@ -205,8 +205,8 @@ export interface TernStore extends MemoryStore, ConfigStore {
     promptVersion: string | undefined,
     limit: number,
   ) => Promise<Turn[]>;
-  readonly saveScore: (ternId: string, judge: string, score: number) => Promise<void>;
-  readonly meanScore: (ternIds: readonly string[]) => Promise<number | null>;
+  readonly saveScore: (turnId: string, judge: string, score: number) => Promise<void>;
+  readonly meanScore: (turnIds: readonly string[]) => Promise<number | null>;
   readonly summary: (bundle: string) => Promise<VersionScore[]>;
   /** Keeps a resolved pause's entry once: a second one for its tenant and step key is ignored. */
   readonly appendPauseAnswer: (entry: PauseAnswerEntry) => Promise<void>;
@@ -219,7 +219,7 @@ export interface TernStore extends MemoryStore, ConfigStore {
  * What a run reads and writes of its records: the store without its own `close`, recovery's look-up
  * and the pause answer log (`ExecutionRecordRepository` types it).
  */
-export type TernRecords = Omit<
-  TernStore,
+export type TurnRecords = Omit<
+  TurnStore,
   "close" | "byStatus" | "appendPauseAnswer" | "pauseAnswersOf"
 >;

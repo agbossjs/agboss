@@ -95,7 +95,7 @@ describe("#238: the Turn names the run that wrote it", () => {
     const result = await runText("Answer", deps, { executionId: "run-given" });
 
     expect(result.runId).toBe("run-given");
-    const [tern] = await deps.terns.lastTerns(result.tenantId, result.threadId, 1);
-    expect(tern).toMatchObject({ id: result.ternId, runId: "run-given", status: "answered" });
+    const [turn] = await deps.turns.lastTurns(result.tenantId, result.threadId, 1);
+    expect(turn).toMatchObject({ id: result.turnId, runId: "run-given", status: "answered" });
   });
 });

@@ -102,7 +102,11 @@ describe("one rule for what a wait may read again", () => {
     expect(isTransientWireError(protocol({ rpcCode: -32001 }))).toBe(false);
     expect(isTransientWireError(protocol({ httpStatus: 404 }))).toBe(false);
     expect(isTransientWireError(protocol({ httpStatus: 499 }))).toBe(false);
-    expect(isTransientWireError(new A2ACallerRejectedError(401, "a2a.caller-x", "x"))).toBe(false);
+    expect(
+      isTransientWireError(
+        new A2ACallerRejectedError({ httpStatus: 401, wireCode: "a2a.caller-x", reason: "x" }),
+      ),
+    ).toBe(false);
     const origin = new A2AOriginError({
       agent: "a",
       origin: "https://e",

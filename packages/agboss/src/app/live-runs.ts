@@ -1,6 +1,6 @@
 import { ExecutionCancelledError } from "../core/errors.js";
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
-import type { TurnOutcome } from "../terns/index.js";
+import type { TurnOutcome } from "../turns/index.js";
 import type { CallOptions } from "./types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
@@ -170,7 +170,7 @@ export const runOptionsOf = (call: TreeCall, signal: AbortSignal): AgentExecutio
 
 /** Why a thread's execution stopped when it was cancelled — on its own instance or another (#360). */
 export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
-  new ExecutionCancelledError(`thread "${threadId}" was cancelled`);
+  new ExecutionCancelledError({ message: `thread "${threadId}" was cancelled` });
 
 /** The reason a cancelled execution's record gives (#807: what reads it back as cancelled). */
 export const CANCELLED_STOP_REASON = "the run was cancelled";

@@ -20,7 +20,11 @@ export function callSignalOf(
   { run, clock }: NodeRunContext,
   exhausted: AbortSignal,
 ): CallSignal {
-  const timeout = timeoutOn(clock, tool.timeout, () => new ToolTimeoutError(tool.timeout));
+  const timeout = timeoutOn(
+    clock,
+    tool.timeout,
+    () => new ToolTimeoutError({ timeout: tool.timeout }),
+  );
   // an exhausted budget (#338) stops the call too: a sibling branch crossed it
   const signals = [run.signal, timeout.signal, exhausted];
   const signal = AbortSignal.any(

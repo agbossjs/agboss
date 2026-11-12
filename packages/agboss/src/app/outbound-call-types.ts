@@ -167,6 +167,7 @@ export interface OutboundCallPayloadTooLargeErrorOptions {
   readonly part: OutboundCallPart;
   readonly size: number;
   readonly maxPayloadSize: number;
+  readonly cause?: unknown;
 }
 
 /** What a superseded attempt knows (#795): the call, its key's handle and both attempts. */
@@ -183,11 +184,18 @@ export interface OutboundCallSupersededErrorOptions {
   readonly cause?: unknown;
 }
 
+/** What a refused unmasked call knows (#906): the call. */
+export interface OutboundCallUnmaskedErrorOptions {
+  readonly call: string;
+  readonly cause?: unknown;
+}
+
 /** What an in-flight call knows: the call, never its request or its business key. */
 export interface OutboundCallInFlightErrorOptions {
   readonly call: string;
   readonly target: string;
   readonly operation: string;
+  readonly cause?: unknown;
 }
 
 /**

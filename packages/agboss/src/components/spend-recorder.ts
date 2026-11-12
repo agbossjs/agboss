@@ -1,4 +1,4 @@
-import { AGBossError } from "../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import type { Usd } from "../units/index.js";
@@ -23,7 +23,12 @@ export abstract class SpendRecorder {
 /** `spendRecorder.record(…)` outside a step or a tool call: nothing to bill it to. */
 export class SpendOutsideStepError extends AGBossError {
   static override readonly code = "spend.outside-step" as const;
+  declare readonly code: typeof SpendOutsideStepError.code;
   override name = "SpendOutsideStepError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** The caller of a service's spend until its frame names it (`tool:<name>`, `action:<name>`). */
@@ -49,9 +54,9 @@ export class LiveSpendRecorder extends SpendRecorder {
     const frame = currentFrame();
     const report = frame?.isClosed() === false ? frame.services.reportUsage : undefined;
     if (report === undefined) {
-      throw new SpendOutsideStepError(
-        `[spend.outside-step] ${this.consumer} recorded ${spend.service} spend outside a step or a tool call — record it while the step (or the tool call) runs`,
-      );
+      throw new SpendOutsideStepError({
+        message: `[spend.outside-step] ${this.consumer} recorded ${spend.service} spend outside a step or a tool call — record it while the step (or the tool call) runs`,
+      });
     }
     report(serviceUsageOf(spend));
   }

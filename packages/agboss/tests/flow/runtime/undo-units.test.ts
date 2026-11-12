@@ -244,7 +244,7 @@ describe("#633: the undo's events and its record", () => {
 describe("#633: the holder's fence before the undo", () => {
   it("past its lease: the lease's loss thrown and recorded as a hand-over at the undo", async () => {
     const run = new AbortController();
-    const lost = new ExecutionLeaseLostError("root-1");
+    const lost = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
     const recordHandOver = vi.fn();
     const lease = {
       scopeKey: scopeKeyOf("acme", "root-1"),
@@ -282,7 +282,7 @@ describe("#633: the holder's fence before the undo", () => {
 describe("#633: the undo's clean-up signal", () => {
   it("the execution cancelled: the undo's signal goes on", async () => {
     const run = new AbortController();
-    run.abort(new ExecutionCancelledError("cancelled"));
+    run.abort(new ExecutionCancelledError({ message: "cancelled" }));
 
     await undone(BOOKED, siteOf({ signal: run.signal }));
 
@@ -291,7 +291,7 @@ describe("#633: the undo's clean-up signal", () => {
 
   it("its lease lost before the undo: the undo runs on an aborted signal, then hands over", async () => {
     const run = new AbortController();
-    const lost = new ExecutionLeaseLostError("root-1");
+    const lost = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
     run.abort(lost);
 
     await expect(undone(BOOKED, siteOf({ signal: run.signal }))).rejects.toBe(lost);
@@ -303,7 +303,7 @@ describe("#633: the undo's clean-up signal", () => {
     const run = new AbortController();
 
     await undone(BOOKED, siteOf({ signal: run.signal, clock }));
-    run.abort(new ExecutionLeaseLostError("root-1"));
+    run.abort(new ExecutionLeaseLostError({ rootExecutionId: "root-1" }));
 
     expect(clock.signals.every((signal) => signal?.aborted === true)).toBe(true);
     expect(behaviour.signals.map((signal) => signal.aborted)).toEqual([false]);

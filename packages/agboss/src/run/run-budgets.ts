@@ -51,9 +51,9 @@ export interface ExecutionStart {
  */
 function threadIdOf(start: ExecutionStart): string {
   if (start.threadId !== undefined) return start.threadId;
-  throw new ExecutionContextUnavailableError(
-    `the thread of execution ${start.executionId} was read in maxSpend(): it is a new thread, created only once the execution's budgets pass — read threadId in a step`,
-  );
+  throw new ExecutionContextUnavailableError({
+    message: `the thread of execution ${start.executionId} was read in maxSpend(): it is a new thread, created only once the execution's budgets pass — read threadId in a step`,
+  });
 }
 
 /** The frame of an execution's start: what an injected `ExecutionContext` reads in `maxSpend()`. */

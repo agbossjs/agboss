@@ -32,6 +32,7 @@ export interface A2ARemoteCallErrorOptions {
   readonly reason: A2ARemoteCallReason;
   /** The task, when the agent made one. */
   readonly taskId?: string | undefined;
+  readonly cause?: unknown;
 }
 
 /**
@@ -41,6 +42,7 @@ export interface A2ARemoteCallErrorOptions {
  */
 export class A2ARemoteCallError extends AGBossError {
   static override readonly code = "a2a.remote" as const;
+  declare readonly code: typeof A2ARemoteCallError.code;
   override name = "A2ARemoteCallError";
   readonly agent: string;
   readonly reason: A2ARemoteCallReason;
@@ -49,6 +51,7 @@ export class A2ARemoteCallError extends AGBossError {
   constructor(options: A2ARemoteCallErrorOptions) {
     const task = options.taskId === undefined ? "" : ` (task ${options.taskId})`;
     super(`A2A agent ${options.agent} gave no usable answer${task}: ${options.reason}`, {
+      cause: options.cause,
       details: { agent: options.agent, reason: options.reason },
     });
     this.agent = options.agent;
@@ -77,6 +80,7 @@ export interface A2AProtocolErrorOptions {
   readonly httpStatus?: number | undefined;
   /** The A2A versions the agent's card declares, when none is one this client speaks. */
   readonly protocolVersions?: readonly string[];
+  readonly cause?: unknown;
 }
 
 /** At most this many versions of a card are named. */
@@ -105,6 +109,7 @@ const describedOf = (options: A2AProtocolErrorOptions): string => {
  */
 export class A2AProtocolError extends AGBossError {
   static override readonly code = "a2a.protocol" as const;
+  declare readonly code: typeof A2AProtocolError.code;
   override name = "A2AProtocolError";
   readonly agent: string;
   readonly operation: A2AClientOperation;
@@ -112,9 +117,9 @@ export class A2AProtocolError extends AGBossError {
   readonly httpStatus: number | undefined;
   readonly protocolVersions: readonly string[] | undefined;
 
-  constructor(options: A2AProtocolErrorOptions, cause?: unknown) {
+  constructor(options: A2AProtocolErrorOptions) {
     super(`A2A agent ${options.agent} answered ${options.operation} with ${describedOf(options)}`, {
-      ...(cause === undefined ? {} : { cause }),
+      cause: options.cause,
       details: {
         agent: options.agent,
         operation: options.operation,
@@ -155,6 +160,7 @@ export interface A2AContractErrorOptions {
   readonly skill: string;
   /** `input: currency: …`, `output (refund-finish): amount: …` — the schemas' differences. */
   readonly differences?: readonly string[];
+  readonly cause?: unknown;
 }
 
 /**
@@ -167,6 +173,7 @@ export interface A2AContractErrorOptions {
  */
 export class A2AContractError extends AGBossError {
   static override readonly code = "a2a.contract" as const;
+  declare readonly code: typeof A2AContractError.code;
   override name = "A2AContractError";
   readonly agent: string;
   readonly rule: A2AContractRule;
@@ -184,6 +191,7 @@ export class A2AContractError extends AGBossError {
         "this step already called it with another message — give each call of one step its own key ({ key })",
     }[options.rule];
     super(`[${options.rule}] A2A agent ${options.agent}: ${what}${listed} — nothing was sent`, {
+      cause: options.cause,
       details: { agent: options.agent, rule: options.rule, skill: options.skill },
     });
     this.agent = options.agent;

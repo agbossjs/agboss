@@ -150,13 +150,14 @@ function answersOf(
   tool: string,
 ): Record<string, number> {
   const call = reply.tool_calls?.find((candidate) => candidate.name === tool);
-  if (call === undefined) throw new DecisionResponseError(`no ${tool} call in the reply`);
+  if (call === undefined)
+    throw new DecisionResponseError({ message: `no ${tool} call in the reply` });
   const args: Readonly<Record<string, unknown>> = call.args;
   return Object.fromEntries(
     request.questions.map(({ target }) => {
       const answer = args[target];
       if (typeof answer !== "boolean")
-        throw new DecisionResponseError(`${tool}: "${target}" is not true or false`);
+        throw new DecisionResponseError({ message: `${tool}: "${target}" is not true or false` });
       return [target, answer ? 1 : 0];
     }),
   );

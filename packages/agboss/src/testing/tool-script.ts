@@ -21,7 +21,7 @@ export interface ToolScript {
 
 /** The error each failure is, as the tool's own code would throw it: what the agent then reads. */
 const FAILURES: Readonly<Record<ToolFailure, (timeout: Milliseconds) => Error>> = {
-  [ToolFailure.Timeout]: (timeout) => new ToolTimeoutError(timeout),
+  [ToolFailure.Timeout]: (timeout) => new ToolTimeoutError({ timeout }),
 };
 
 /** A tool instance: what the agent's loop calls. */

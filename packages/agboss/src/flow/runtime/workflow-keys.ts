@@ -2,7 +2,7 @@ import type { Class } from "../../components/injection.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { WorkflowIdentity } from "./step-frame.js";
 import { configSnapshot } from "../../run/versions.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { NodeKind } from "../ast.js";
 import type { HandledErrorRecord } from "./child-records.js";

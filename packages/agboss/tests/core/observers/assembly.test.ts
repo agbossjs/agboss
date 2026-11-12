@@ -11,7 +11,7 @@ import {
 import { closestHook } from "../../../src/components/observer-checks.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
-import { createSqliteTernStore } from "../../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { applicationWith } from "./fixture.js";
 
 /** A typo next to a real hook: compiles, rejected at assembly with the hook it meant. */

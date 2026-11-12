@@ -84,7 +84,10 @@ describe("the keys", () => {
 describe("@agboss/unwinding", () => {
   it("keeps the first reason, and rebuilds the error it ends with", async () => {
     const marks = marksOf();
-    await markUnwinding(marks, unwindingMarkOf(new ExecutionCancelledError("cancelled here")));
+    await markUnwinding(
+      marks,
+      unwindingMarkOf(new ExecutionCancelledError({ message: "cancelled here" })),
+    );
     await markUnwinding(marks, unwindingMarkOf(new Error("a later failure")));
 
     const mark = await unwindingOf(marks.trees, tree, UNWINDING_KEY);

@@ -33,9 +33,9 @@ async function handled(
 ) {
   const instance: unknown = deps.container.get(node.component);
   if (!isHandler(instance)) {
-    throw new OutputInvalidError(
-      `${node.id} has input but no finish(input) — implement FinishHandler`,
-    );
+    throw new OutputInvalidError({
+      message: `${node.id} has input but no finish(input) — implement FinishHandler`,
+    });
   }
   const input = readInput(graph, node, view);
   return { value: await instance.finish(input.fields), read: input.read };

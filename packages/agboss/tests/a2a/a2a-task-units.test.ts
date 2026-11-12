@@ -3,6 +3,7 @@
  * store and an execution control of the test's, every branch of each.
  */
 import { describe, expect, it } from "vitest";
+import { InvalidA2APageTokenError } from "../../src/index.js";
 import {
   DurableExecutionStatus,
   ExecutionCancelOutcome,
@@ -146,7 +147,7 @@ describe("#807: an execution's state as its task's status", () => {
       static override readonly code: string = "limit.hops";
     }
 
-    expect(failedStatusOf(new ExecutionCancelledError("stop"))).toEqual({
+    expect(failedStatusOf(new ExecutionCancelledError({ message: "stop" }))).toEqual({
       state: A2ATaskState.Canceled,
       pendingPauses: [],
     });
@@ -360,7 +361,7 @@ describe("#807: the projection on its own", () => {
     );
     const stopped = scripted([{ status: DurableExecutionStatus.Cancelled }]);
     await projectionOf(cancelled.tasks, stopped.control).projection.onExecutionError(
-      errorOf(new ExecutionCancelledError("stop")),
+      errorOf(new ExecutionCancelledError({ message: "stop" })),
     );
 
     expect((await running.tasks.findById(KEY))?.version).toBe(1);
@@ -583,14 +584,14 @@ describe("#810: the mesh's statuses", () => {
       await import("../../src/mesh/mesh-errors.js");
     const { rejectedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
-    expect(rejectedStatusOf(new HopsLimitExceededError(entry, chain, 1))).toEqual({
+    expect(rejectedStatusOf(new HopsLimitExceededError({ entry, chain, maxMeshHops: 1 }))).toEqual({
       state: A2ATaskState.Rejected,
       pendingPauses: [],
       errorCode: "limit.hops",
       message: "the task was rejected: limit.hops",
       errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 1 }),
     });
-    expect(rejectedStatusOf(new MeshLoopDetectedError(entry, chain))).toMatchObject({
+    expect(rejectedStatusOf(new MeshLoopDetectedError({ entry, chain }))).toMatchObject({
       errorCode: "limit.mesh-loop",
       errorDetails: { entry, chain },
     });
@@ -600,14 +601,16 @@ describe("#810: the mesh's statuses", () => {
     const { HopsLimitExceededError, MeshLoopDetectedError } =
       await import("../../src/mesh/mesh-errors.js");
 
-    expect(failedStatusOf(new MeshLoopDetectedError(entry, chain))).toEqual({
+    expect(failedStatusOf(new MeshLoopDetectedError({ entry, chain }))).toEqual({
       state: A2ATaskState.Failed,
       pendingPauses: [],
       errorCode: "limit.mesh-loop",
       message: "the task failed: limit.mesh-loop",
       errorDetails: expect.objectContaining({ entry, chain }),
     });
-    expect(failedStatusOf(new HopsLimitExceededError(entry, chain, 2))).toMatchObject({
+    expect(
+      failedStatusOf(new HopsLimitExceededError({ entry, chain, maxMeshHops: 2 })),
+    ).toMatchObject({
       state: A2ATaskState.Failed,
       errorCode: "limit.hops",
       errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 2 }),
@@ -624,5 +627,13 @@ describe("#810: the mesh's statuses", () => {
       output: 1,
       spentUsd: 0.5,
     });
+  });
+});
+
+describe("#906: an invalid page token keeps its cause", () => {
+  it("InvalidA2APageTokenError({ cause })", () => {
+    const cause = new Error("why");
+
+    expect(new InvalidA2APageTokenError({ cause }).cause).toBe(cause);
   });
 });

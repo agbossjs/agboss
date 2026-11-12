@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { App } from "../../../src/app/types.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
-import { createSqliteTernStore } from "../../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import {

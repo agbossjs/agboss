@@ -111,15 +111,15 @@ function exitOf(
     const visit = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const step = { ...visit, component: recordOfNode(deps, node.id) };
     const reason = `"${outcome.route}" is not one of its routes`;
-    throw new RouterDecisionError(step, reason, outcome.usage ?? []);
+    throw new RouterDecisionError({ ...step, reason, usage: outcome.usage ?? [] });
   }
   if (exits.cases.size > 0) {
     const variant = outcome.value?.variant ?? "";
     const branch = exits.cases.get(variant);
     if (branch !== undefined) return branch;
-    throw new OutputInvalidError(
-      `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
-    );
+    throw new OutputInvalidError({
+      message: `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
+    });
   }
   return exits.next;
 }

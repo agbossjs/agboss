@@ -2,7 +2,7 @@ import { isPeriodBudgetExhausted } from "../graph/limits.js";
 import { executeAgent } from "../run/run-agent.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import { requestOfStartLine } from "../flow/runtime/start-input.js";
-import { BUDGET_EXHAUSTED, scoreTerns, type EvalDeps } from "./eval.js";
+import { BUDGET_EXHAUSTED, scoreTurns, type EvalDeps } from "./eval.js";
 
 export interface ReplayReport {
   readonly promptVersion: string;
@@ -24,9 +24,9 @@ export async function replay<TName extends string>(
   options: { readonly promptVersion: string; readonly limit: number },
 ): Promise<ReplayReport> {
   const bundle = run.config.name;
-  const originals = await run.terns.byVersion(bundle, options.promptVersion, options.limit);
-  const unscored = await run.terns.unscored(bundle, options.promptVersion, options.limit);
-  const baseline = await scoreTerns(evaluation, unscored);
+  const originals = await run.turns.byVersion(bundle, options.promptVersion, options.limit);
+  const unscored = await run.turns.unscored(bundle, options.promptVersion, options.limit);
+  const baseline = await scoreTurns(evaluation, unscored);
   const replayedIds: string[] = [];
   let costUsd = baseline.costUsd;
   let stoppedBy = baseline.stoppedBy;
@@ -36,19 +36,19 @@ export async function replay<TName extends string>(
     if (request === undefined) continue;
     try {
       const result = await executeAgent(request, run, { replayOf: original.id });
-      replayedIds.push(result.ternId);
+      replayedIds.push(result.turnId);
       costUsd += result.cost.totalUsd;
     } catch (error) {
       if (isPeriodBudgetExhausted(error)) stoppedBy = BUDGET_EXHAUSTED;
     }
   }
-  const scoring = await scoreTerns(evaluation, await run.terns.byIds(replayedIds));
+  const scoring = await scoreTurns(evaluation, await run.turns.byIds(replayedIds));
   return {
     promptVersion: options.promptVersion,
     tasks: originals.length,
     replayed: replayedIds.length,
-    before: await run.terns.meanScore(originals.map((tern) => tern.id)),
-    after: await run.terns.meanScore(replayedIds),
+    before: await run.turns.meanScore(originals.map((turn) => turn.id)),
+    after: await run.turns.meanScore(replayedIds),
     costUsd: costUsd + scoring.costUsd,
     ...(stoppedBy === undefined ? {} : { stoppedBy: stoppedBy }),
   };

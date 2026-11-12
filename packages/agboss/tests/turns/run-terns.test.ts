@@ -7,8 +7,8 @@ describe("executeAgent writes Terns", () => {
 
     const result = await runText("Answer", deps);
 
-    const [tern] = await deps.terns.byIds([result.ternId]);
-    expect(tern).toMatchObject({
+    const [turn] = await deps.turns.byIds([result.turnId]);
+    expect(turn).toMatchObject({
       threadId: result.threadId,
       task: 'start chat-workflow-start: {"text":"Answer"}',
       replyWith: 'finish answer-workflow-finish: {"text":"42"}',
@@ -23,10 +23,10 @@ describe("executeAgent writes Terns", () => {
 
     await expect(runText("Anything", deps)).rejects.toThrow();
 
-    const [tern] = await deps.terns.unscored("test-bundle-workflow", undefined, 10);
-    expect(tern).toBeUndefined();
-    expect((await deps.terns.summary("test-bundle-workflow"))[0]).toMatchObject({
-      terns: 1,
+    const [turn] = await deps.turns.unscored("test-bundle-workflow", undefined, 10);
+    expect(turn).toBeUndefined();
+    expect((await deps.turns.summary("test-bundle-workflow"))[0]).toMatchObject({
+      turns: 1,
       scored: 0,
     });
   });

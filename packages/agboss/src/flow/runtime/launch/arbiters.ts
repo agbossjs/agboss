@@ -112,10 +112,11 @@ async function byModel(
     deps.reading,
   );
   if (verdict.kind === "failed")
-    throw new ArbiterError(options.name, verdict.cause ?? verdict.reason, [
-      ...spent,
-      ...verdict.usage,
-    ]);
+    throw new ArbiterError({
+      arbiter: options.name,
+      cause: verdict.cause ?? verdict.reason,
+      usage: [...spent, ...verdict.usage],
+    });
   return { passed: verdict.passed, usage: verdict.usage };
 }
 
@@ -135,7 +136,7 @@ async function judgeOnce(
       : await byModel(arbiter, options, site, spent, deps);
   } catch (error) {
     if (passesThrough(error) || error instanceof ArbiterError) throw error;
-    throw new ArbiterError(arbiterNameOf(arbiter), error, spent);
+    throw new ArbiterError({ arbiter: arbiterNameOf(arbiter), cause: error, usage: spent });
   }
 }
 

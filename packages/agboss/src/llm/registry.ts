@@ -68,9 +68,9 @@ export function resolveSettings(
 function decisionJudge(judge: string, model: string, gateway: RegistryGateway): JudgeBinding {
   const decide = gateway.decide;
   if (decide === undefined) {
-    throw new DecisionError(
-      `judge "${judge}" is on decision model ${model}, but the app's model gateway has no decide`,
-    );
+    throw new DecisionError({
+      message: `judge "${judge}" is on decision model ${model}, but the app's model gateway has no decide`,
+    });
   }
   return {
     kind: ModelKind.Decisions,

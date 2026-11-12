@@ -89,11 +89,11 @@ async function callerRejectionOf(response: Response): Promise<A2ACallerRejectedE
   const wireCode = String(isRecord(body) ? body.code : undefined);
   if (!/^a2a\.caller-[a-z-]{1,40}$/u.test(wireCode)) return undefined;
   // the server's reason is its own text: the code says what happened
-  return new A2ACallerRejectedError(
-    response.status,
+  return new A2ACallerRejectedError({
+    httpStatus: response.status,
     wireCode,
-    "refused by the agent's caller resolver",
-  );
+    reason: "refused by the agent's caller resolver",
+  });
 }
 
 const urlOfInput = (input: Parameters<typeof fetch>[0]): string =>

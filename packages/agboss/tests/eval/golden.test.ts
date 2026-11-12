@@ -25,7 +25,7 @@ describe("golden sets", () => {
     );
 
     const set = await goldenFromRecent(
-      deps.terns,
+      deps.turns,
       "test-bundle-workflow",
       "core",
       10,
@@ -48,7 +48,7 @@ describe("golden sets", () => {
 
     await expect(loadGolden(file)).rejects.toThrow(`${file}: tasks`);
     await expect(
-      goldenFromRecent((await fakeDeps({})).terns, "empty", "x", 5),
+      goldenFromRecent((await fakeDeps({})).turns, "empty", "x", 5),
     ).rejects.toBeInstanceOf(GoldenSetError);
   });
 });

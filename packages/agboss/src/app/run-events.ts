@@ -6,7 +6,7 @@ import type { ExecutionEvent } from "../flow/observers/execution-event.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { IncompatibleResumeError } from "../run/resume-guard.js";
-import { InvalidThreadIdError } from "../run/thread.js";
+import { InvalidThreadIdError } from "../core/errors.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isHandedOver } from "./handed-over.js";
 import type { GraphDeps } from "../graph/deps.js";

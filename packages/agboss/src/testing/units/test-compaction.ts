@@ -171,7 +171,11 @@ async function modelCompaction(
     const written = (await summaryOf(binding, inUse, text, unitRunOf(spent))).text.trim();
     if (written === "") {
       const message = `${inUse.name}: the model wrote an empty summary`;
-      throw new CompactionError(message, inUse.name, inUse.summaryMaxTokens);
+      throw new CompactionError({
+        message,
+        compaction: inUse.name,
+        summaryMaxTokens: inUse.summaryMaxTokens,
+      });
     }
     const summaries = summariesAfter(inUse, input, written);
     return { summaries, requests: requestsSince(site, key, from) };

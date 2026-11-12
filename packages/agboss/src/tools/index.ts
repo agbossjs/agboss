@@ -11,6 +11,7 @@ export {
   defineTool,
   InvalidToolNameError,
   ToolTimeoutError,
+  type ToolTimeoutErrorOptions,
   type ToolDefinition,
 } from "./define-tool.js";
 

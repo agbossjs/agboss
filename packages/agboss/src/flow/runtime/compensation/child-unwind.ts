@@ -4,11 +4,8 @@ import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
 import { extractRunContext, type RunContext } from "../../../core/run-context.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { GraphDeps } from "../../../graph/deps.js";
-import {
-  COMPENSATION_TIMEOUT,
-  CompensationFailedError,
-  type CompensationEntry,
-} from "../../compensation.js";
+import { COMPENSATION_TIMEOUT, type CompensationEntry } from "../../compensation.js";
+import { CompensationFailedError } from "../../compensation.js";
 import { rootFactsOf, type ExecutionFacts, type Frame } from "../../context/frame.js";
 import type { WorkflowIdentity } from "../step-frame.js";
 import { joinKeysOf } from "../workflow-keys.js";
@@ -130,5 +127,5 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
   const { closed, usage, failures } = await unwound(unwind);
   await record(usage);
   if (failures.length === 0) return { thrown, closed };
-  return { thrown: new CompensationFailedError(failures, thrown), closed };
+  return { thrown: new CompensationFailedError({ failures, cause: thrown }), closed };
 }

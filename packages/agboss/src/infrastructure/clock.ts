@@ -238,7 +238,7 @@ export const executionIdsOf = (
   async newExecutionId(tenantId: string): Promise<string> {
     const executionId = idGenerator.newExecutionId();
     if (await leases.claimExecutionId({ executionId, tenantId })) return executionId;
-    throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
+    throw new DuplicateExecutionIdError({ generator: idGeneratorNameOf(idGenerator) });
   },
 });
 
@@ -263,7 +263,7 @@ export const reservedExecutionIdsOf = (
   claim: (identity) => leases.claimExecutionId(identity),
   async keep(identity: ExecutionIdentity): Promise<string> {
     if (await leases.claimExecutionId(identity)) return identity.executionId;
-    throw new DuplicateExecutionIdError(idGeneratorNameOf(idGenerator));
+    throw new DuplicateExecutionIdError({ generator: idGeneratorNameOf(idGenerator) });
   },
 });
 

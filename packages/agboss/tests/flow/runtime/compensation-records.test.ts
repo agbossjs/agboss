@@ -162,7 +162,7 @@ describe("the channel and the registry", () => {
     };
     const cause = new Error("card declined");
 
-    const error = new CompensationFailedError([failure], cause);
+    const error = new CompensationFailedError({ failures: [failure], cause });
 
     expect([error.code, error.cause, error.failures]).toEqual([
       "compensation.failed",

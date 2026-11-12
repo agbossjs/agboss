@@ -3,7 +3,7 @@ import { nameOf } from "../../components/name-of.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import { finishLine, startLine } from "../../flow/runtime/history.js";
 import { executionVersions } from "../../run/versions.js";
-import type { NewTurn } from "../../terns/index.js";
+import type { NewTurn } from "../../turns/index.js";
 import type { EvalPastTurn } from "../suite/cases.js";
 
 /**
@@ -20,7 +20,7 @@ export interface CaseThread {
   readonly threadId: string;
 }
 
-function ternOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn {
+function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn {
   const versions = executionVersions(deps);
   return {
     runId: null,
@@ -50,6 +50,6 @@ export async function writeCaseHistory(
 ): Promise<void> {
   if (history.length === 0) return;
   const { tenantId, threadId } = thread;
-  await deps.terns.createThread({ workflow: deps.config.name, tenantId, threadId });
-  for (const past of history) await deps.terns.append(ternOf(deps, thread, past));
+  await deps.turns.createThread({ workflow: deps.config.name, tenantId, threadId });
+  for (const past of history) await deps.turns.append(turnOf(deps, thread, past));
 }

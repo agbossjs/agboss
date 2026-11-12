@@ -20,20 +20,42 @@ export interface MeshLimitPlace {
   readonly usage: readonly UsageRecord[];
 }
 
-const NOWHERE: MeshLimitPlace = { path: [], spentUsd: 0, usage: [] };
+/** What a mesh limit error takes (#906): the entry, the chain, and — if known — the place. */
+export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
+  /** The entry that was called again: the receiver's application and start. */
+  readonly entry: MeshEntry;
+  /** The applications the request passed through, the first caller first. */
+  readonly chain: readonly MeshHop[];
+  readonly cause?: unknown;
+}
+
+/** What a hops limit error takes (#906). */
+export interface HopsLimitExceededErrorOptions extends MeshLoopDetectedErrorOptions {
+  /** The receiver's `@Application({ maxMeshHops })`. */
+  readonly maxMeshHops: number;
+}
 
 /** The same `(application, start)` twice in one call chain (#398 S2 Q9): always a loop. */
 export class MeshLoopDetectedError extends LimitExceededError {
   static override readonly code = "limit.mesh-loop" as const;
+  declare readonly code: typeof MeshLoopDetectedError.code;
   override name = "MeshLoopDetectedError";
   /** The entry that was called again: the receiver's application and start. */
   readonly entry: MeshEntry;
   /** The applications the request passed through, the first caller first. */
   readonly chain: readonly MeshHop[];
 
-  constructor(entry: MeshEntry, chain: readonly MeshHop[], place: MeshLimitPlace = NOWHERE) {
+  constructor(options: MeshLoopDetectedErrorOptions) {
+    const { entry, chain, path = [], spentUsd = 0, usage = [], cause } = options;
     const line = chainText([...chain, entry]);
-    super({ key: "mesh.callChain", limit: 1, actual: 2 }, place.path, place.spentUsd, place.usage, {
+    super({
+      key: "mesh.callChain",
+      limit: 1,
+      actual: 2,
+      path,
+      spentUsd,
+      usage,
+      cause,
       message: `${entry.application} › ${entry.start} was called again through the mesh: ${line}`,
       details: { entry: { ...entry }, chain: chain.map((hop) => ({ ...hop })) },
     });
@@ -45,6 +67,7 @@ export class MeshLoopDetectedError extends LimitExceededError {
 /** A call chain one hop longer than the receiver's `@Application({ maxMeshHops })` allows. */
 export class HopsLimitExceededError extends LimitExceededError {
   static override readonly code = "limit.hops" as const;
+  declare readonly code: typeof HopsLimitExceededError.code;
   override name = "HopsLimitExceededError";
   /** The entry that refused the request: the receiver's application and start. */
   readonly entry: MeshEntry;
@@ -55,15 +78,17 @@ export class HopsLimitExceededError extends LimitExceededError {
   /** The applications the chain would reach with the receiver: one more than `maxMeshHops`. */
   readonly hops: number;
 
-  constructor(
-    entry: MeshEntry,
-    chain: readonly MeshHop[],
-    maxMeshHops: number,
-    place: MeshLimitPlace = NOWHERE,
-  ) {
+  constructor(options: HopsLimitExceededErrorOptions) {
+    const { entry, chain, maxMeshHops, path = [], spentUsd = 0, usage = [], cause } = options;
     const hops = chain.length + 1;
-    const breach = { key: "maxMeshHops", limit: maxMeshHops, actual: hops };
-    const text = {
+    super({
+      key: "maxMeshHops",
+      limit: maxMeshHops,
+      actual: hops,
+      path,
+      spentUsd,
+      usage,
+      cause,
       message:
         `${entry.application} › ${entry.start} would be hop ${String(hops)} of the call chain; ` +
         `its maxMeshHops is ${String(maxMeshHops)}: ${chainText(chain)}`,
@@ -73,8 +98,7 @@ export class HopsLimitExceededError extends LimitExceededError {
         maxMeshHops,
         hops,
       },
-    };
-    super(breach, place.path, place.spentUsd, place.usage, text);
+    });
     this.entry = entry;
     this.chain = chain;
     this.maxMeshHops = maxMeshHops;
@@ -92,6 +116,11 @@ export const isMeshLimitError = (error: unknown): error is MeshLimitError =>
 /** The same limit at another place (the agent loop's path and spend, before it fails the step). */
 export function meshLimitAt(error: MeshLimitError, place: MeshLimitPlace): MeshLimitError {
   return error instanceof MeshLoopDetectedError
-    ? new MeshLoopDetectedError(error.entry, error.chain, place)
-    : new HopsLimitExceededError(error.entry, error.chain, error.maxMeshHops, place);
+    ? new MeshLoopDetectedError({ entry: error.entry, chain: error.chain, ...place })
+    : new HopsLimitExceededError({
+        entry: error.entry,
+        chain: error.chain,
+        maxMeshHops: error.maxMeshHops,
+        ...place,
+      });
 }

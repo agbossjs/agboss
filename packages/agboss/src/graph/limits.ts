@@ -1,6 +1,6 @@
 import { BudgetScope, type BudgetPeriod } from "../budgets/budget.js";
 import { periodWords } from "../budgets/budget-period.js";
-import { AGBossError, type ErrorDetails } from "../core/errors.js";
+import { AGBossError } from "../core/errors.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { WorkflowRecord } from "../flow/context/execution-context.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
@@ -12,26 +12,40 @@ import type { Usd } from "../units/index.js";
  * the decorator does and the value reached, and its message reads as a sentence.
  */
 
-/** What hit a limit: what it is keyed by (`maxSteps`, the tenant `acme`, …), the limit and the value that crossed it. */
-export interface LimitBreach {
+/** What a limit error takes (#906): the limit, where the execution was, and its own sentence. */
+export interface LimitExceededErrorOptions {
+  /** What it is keyed by (`maxSteps`, the tenant `acme`, …). */
   readonly key: string;
   readonly limit: number;
+  /** The value that crossed it. */
   readonly actual: number;
-}
-
-/** A subclass's own sentence and facts (`VisitsLimitExceededError`). */
-export interface LimitErrorText {
-  readonly message: string;
-  readonly details: ErrorDetails;
+  readonly path: readonly string[];
+  readonly spentUsd: number;
+  /** Spend the execution's state does not hold yet; none by default. */
+  readonly usage?: readonly UsageRecord[];
+  /** A subclass's own sentence; a general one by default. */
+  readonly message?: string;
+  /** A subclass's own facts, kept in the error's record (an `ErrorDetails`). */
+  readonly details?: Readonly<Record<string, unknown>>;
+  readonly cause?: unknown;
 }
 
 /**
  * A limit was hit — the execution **fails** (never a quiet stop), with its path and its spend.
  * `usage` is spend the execution's state does not hold yet (an agent's loop stopped midway), so the
- * ledger still sees it.
+ * ledger still sees it. Its instance `code` is the union of the codes of its family (#906).
  */
 export class LimitExceededError extends AGBossError {
   static override readonly code: string = "limit";
+  declare readonly code:
+    | "limit"
+    | "limit.budget"
+    | "limit.steps"
+    | "limit.visits"
+    | "limit.depth"
+    | "limit.deadline"
+    | "limit.mesh-loop"
+    | "limit.hops";
   override name = "LimitExceededError";
   readonly key: string;
   readonly limit: number;
@@ -40,24 +54,17 @@ export class LimitExceededError extends AGBossError {
   readonly spentUsd: number;
   readonly usage: readonly UsageRecord[];
 
-  constructor(
-    breach: LimitBreach,
-    path: readonly string[],
-    spentUsd: number,
-    usage: readonly UsageRecord[] = [],
-    text?: LimitErrorText,
-  ) {
+  constructor(options: LimitExceededErrorOptions) {
+    const { key, limit, actual, path, spentUsd, usage = [], message, details, cause } = options;
     super(
-      text?.message ??
-        `Limit ${breach.key} = ${String(breach.limit)} exceeded (${String(breach.actual)}); ` +
+      message ??
+        `Limit ${key} = ${String(limit)} exceeded (${String(actual)}); ` +
           `path: ${path.join(" → ")}; spent $${spentUsd.toFixed(4)}`,
-      {
-        details: { key: breach.key, limit: breach.limit, actual: breach.actual, ...text?.details },
-      },
+      { cause, details: { key, limit, actual, ...details } },
     );
-    this.key = breach.key;
-    this.limit = breach.limit;
-    this.actual = breach.actual;
+    this.key = key;
+    this.limit = limit;
+    this.actual = actual;
     this.path = path;
     this.spentUsd = spentUsd;
     this.usage = usage;
@@ -83,6 +90,14 @@ export interface BudgetBreach {
   readonly spent: Usd;
 }
 
+/** What a budget error takes (#906): the breach, where the execution was, its spend. */
+export interface BudgetExceededErrorOptions extends BudgetBreach {
+  readonly path: readonly string[];
+  readonly spentUsd: number;
+  readonly usage?: readonly UsageRecord[];
+  readonly cause?: unknown;
+}
+
 /** `tenant acme spent $40.05 today; tenant-daily-budget allows $40`. */
 function budgetSentence(breach: BudgetBreach): string {
   const allows = `${breach.budget.name} allows ${dollars(breach.maxSpend)}`;
@@ -105,11 +120,14 @@ function budgetSentence(breach: BudgetBreach): string {
  */
 export class BudgetExceededError extends LimitExceededError {
   static override readonly code = "limit.budget" as const;
+  declare readonly code: typeof BudgetExceededError.code;
   override name = "BudgetExceededError";
   /** The budget, compared with `nameOf(TenantDailyBudget)`. */
   readonly budget: ComponentRecord;
   /** What it limits: an execution, a tenant or the application. */
   readonly scope: BudgetScope;
+  /** The tenant and application budgets' period; `undefined` for an execution budget. */
+  readonly period: BudgetPeriod | undefined;
   /** The application's name, the `tenantId`, or the root execution's id. */
   override readonly key: string;
   /** What `maxSpend()` gave at the start of the execution. */
@@ -117,14 +135,17 @@ export class BudgetExceededError extends LimitExceededError {
   /** What the budget's counter reached. */
   readonly spent: Usd;
 
-  constructor(
-    breach: BudgetBreach,
-    path: readonly string[],
-    spentUsd: number,
-    usage: readonly UsageRecord[] = [],
-  ) {
-    const { budget, scope, key, maxSpend, spent } = breach;
-    super({ key, limit: maxSpend, actual: spent }, path, spentUsd, usage, {
+  constructor(options: BudgetExceededErrorOptions) {
+    const { path, spentUsd, usage, cause, ...breach } = options;
+    const { budget, scope, period, key, maxSpend, spent } = breach;
+    super({
+      key,
+      limit: maxSpend,
+      actual: spent,
+      path,
+      spentUsd,
+      ...(usage === undefined ? {} : { usage }),
+      cause,
       message: budgetSentence(breach),
       details: {
         budget: bareRecordOf(budget.name, ComponentKind.Budget),
@@ -136,26 +157,33 @@ export class BudgetExceededError extends LimitExceededError {
     });
     this.budget = bareRecordOf(budget.name, ComponentKind.Budget);
     this.scope = scope;
+    this.period = period;
     this.key = key;
     this.maxSpend = maxSpend;
     this.spent = spent;
   }
 }
 
+/** What a steps limit error takes (#906). */
+export interface StepsLimitExceededErrorOptions {
+  readonly workflow: WorkflowRecord;
+  readonly maxSteps: number;
+  readonly path: readonly string[];
+  readonly spentUsd: number;
+  readonly cause?: unknown;
+}
+
 /** An execution took more agent and router steps than its workflow's `maxSteps` (#261). */
 export class StepsLimitExceededError extends LimitExceededError {
   static override readonly code = "limit.steps" as const;
+  declare readonly code: typeof StepsLimitExceededError.code;
   override name = "StepsLimitExceededError";
   readonly workflow: WorkflowRecord;
   readonly maxSteps: number;
   readonly steps: number;
 
-  constructor(
-    workflow: WorkflowRecord,
-    maxSteps: number,
-    path: readonly string[],
-    spentUsd: number,
-  ) {
+  constructor(options: StepsLimitExceededErrorOptions) {
+    const { workflow, maxSteps, path, spentUsd, cause } = options;
     const steps = maxSteps + 1;
     const record = {
       name: workflow.name,
@@ -163,7 +191,13 @@ export class StepsLimitExceededError extends LimitExceededError {
       startedVersion: workflow.startedVersion,
       configHash: workflow.configHash,
     };
-    super({ key: "maxSteps", limit: maxSteps, actual: steps }, path, spentUsd, [], {
+    super({
+      key: "maxSteps",
+      limit: maxSteps,
+      actual: steps,
+      path,
+      spentUsd,
+      cause,
       message: `${workflow.name} took ${String(steps)} steps; its maxSteps is ${String(maxSteps)}`,
       details: { workflow: record, maxSteps, steps },
     });

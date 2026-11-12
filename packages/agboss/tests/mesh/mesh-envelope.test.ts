@@ -110,8 +110,8 @@ describe("#398 PR 1: the receiver's check of the call chain", () => {
 describe("#398 PR 1: a mesh limit on the wire", () => {
   it("round-trips both limits with their facts; other errors carry none", () => {
     const entry = { application: "billing-application", start: "billing-workflow-start" };
-    const loop = new MeshLoopDetectedError(entry, envelope.callChain);
-    const hops = new HopsLimitExceededError(entry, envelope.callChain, 1);
+    const loop = new MeshLoopDetectedError({ entry, chain: envelope.callChain });
+    const hops = new HopsLimitExceededError({ entry, chain: envelope.callChain, maxMeshHops: 1 });
 
     expect(meshLimitErrorOf(meshLimitBodyOf(loop))).toMatchObject({
       entry,

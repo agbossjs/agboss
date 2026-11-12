@@ -62,27 +62,46 @@ describe("S22: the StepFailedError family", () => {
   it("agents, routers, actions and guards fail as StepFailedError; limits do not", () => {
     const step = { nodeId: "main-router", visitNumber: 2 };
 
-    expect(new AgentFailedError("writer-agent", [], "boom")).toBeInstanceOf(StepFailedError);
-    expect(new RouterFailedError(step, "boom")).toBeInstanceOf(StepFailedError);
-    expect(new RouterDecisionError(step, "no route")).toBeInstanceOf(StepFailedError);
-    expect(new ActionFailedError("charge-action", "boom")).toBeInstanceOf(StepFailedError);
-    expect(new GuardFailedError("pii", [], "no answer")).toBeInstanceOf(StepFailedError);
     expect(
-      new StepFailedError("x", [], undefined, stepCoordinatesOf("x", ComponentKind.Action)),
+      new AgentFailedError({ agent: "writer-agent", usage: [], cause: "boom" }),
+    ).toBeInstanceOf(StepFailedError);
+    expect(new RouterFailedError({ ...step, cause: "boom" })).toBeInstanceOf(StepFailedError);
+    expect(new RouterDecisionError({ ...step, reason: "no route" })).toBeInstanceOf(
+      StepFailedError,
+    );
+    expect(new ActionFailedError({ action: "charge-action", cause: "boom" })).toBeInstanceOf(
+      StepFailedError,
+    );
+    expect(new GuardFailedError({ guard: "pii", usage: [], reason: "no answer" })).toBeInstanceOf(
+      StepFailedError,
+    );
+    expect(
+      new StepFailedError({
+        message: "x",
+        usage: [],
+        cause: undefined,
+        ...stepCoordinatesOf("x", ComponentKind.Action),
+      }),
     ).toBeInstanceOf(PaidStepError);
-    const limit = new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0);
+    const limit = new LimitExceededError({
+      key: "maxSteps",
+      limit: 1,
+      actual: 2,
+      path: [],
+      spentUsd: 0,
+    });
     expect(limit).not.toBeInstanceOf(StepFailedError);
   });
 
   it("outside a step an error names its component at visit 0; inside, the step it runs in", async () => {
     const context = testExecutionContext({ step: { visitNumber: 3, itemIndex: 4 } });
     const step = { ...context.step, nodeId: "critic-agent#2" };
-    const outside = new AgentFailedError("critic-agent", [], "boom");
+    const outside = new AgentFailedError({ agent: "critic-agent", usage: [], cause: "boom" });
 
     const { executionId, threadId, ownerId, signal, workflow, tenant } = context;
     const execution = { executionId, threadId, ownerId, signal, workflow, tenant, values: {} };
     const inside = await runInFrame({ execution, step }, () =>
-      Promise.resolve(new AgentFailedError("critic-agent", [], "boom")),
+      Promise.resolve(new AgentFailedError({ agent: "critic-agent", usage: [], cause: "boom" })),
     );
 
     expect(outside).toMatchObject({ nodeId: "critic-agent", visitNumber: 0 });
@@ -92,14 +111,26 @@ describe("S22: the StepFailedError family", () => {
   it("StepFailedError has its own code: .onJoinError(StepFailedError, …) takes exactly what Skip drops", () => {
     const step = { nodeId: "main-router", visitNumber: 1 };
     const errors: readonly Error[] = [
-      new AgentFailedError("writer-agent", [], "boom"),
-      new RouterFailedError(step, "boom"),
-      new RouterDecisionError(step, "no route"),
-      new ActionFailedError("charge-action", "boom"),
-      new GuardFailedError("pii", [], "no answer"),
-      new GuardrailBlockedError("pii-guardrail", "no", [], { probability: 1, threshold: 0.5 }), // a PaidStepError
-      new PaidStepError("paid", [], undefined),
-      new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, [], 0),
+      new AgentFailedError({ agent: "writer-agent", usage: [], cause: "boom" }),
+      new RouterFailedError({ ...step, cause: "boom" }),
+      new RouterDecisionError({ ...step, reason: "no route" }),
+      new ActionFailedError({ action: "charge-action", cause: "boom" }),
+      new GuardFailedError({ guard: "pii", usage: [], reason: "no answer" }),
+      new GuardrailBlockedError({
+        guard: "pii-guardrail",
+        refusal: "no",
+        usage: [],
+        probability: 1,
+        threshold: 0.5,
+      }), // a PaidStepError
+      new PaidStepError({ message: "paid", usage: [], cause: undefined }),
+      new LimitExceededError({
+        key: "maxSteps",
+        limit: 1,
+        actual: 2,
+        path: [],
+        spentUsd: 0,
+      }),
       new ExecutionCancelledError(),
       new Error("plain"),
     ];

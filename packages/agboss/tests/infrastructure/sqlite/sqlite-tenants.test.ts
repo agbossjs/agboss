@@ -22,7 +22,7 @@ const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
     runId: `run-${tenantId}`,
     threadId,
     tenantId,
-    ternId: "tern-1",
+    turnId: "tern-1",
     status: ExecutionStatus.Paused,
     budgetUsd: 1,
   } as AgentExecutionOutput,
@@ -62,6 +62,9 @@ describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
 
     const found = await paused.findByTenantIdAndThreadId("default", "thread-1");
     expect(found?.run).toMatchObject({ runId: "run-1", tenantId: "default" });
+    // #906: the record's id was `ternId` ("Tern" was a misspelling of "turn"): read as `turnId`
+    expect(found?.run).toMatchObject({ turnId: "t" });
+    expect(found?.run).not.toHaveProperty("ternId");
     expect(await paused.findByTenantIdAndThreadId("acme", "thread-1")).toBeUndefined();
   });
 });

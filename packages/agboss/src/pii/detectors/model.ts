@@ -17,6 +17,7 @@ import type { ModelDetection, ModelFoundRange } from "../runtime-policy.js";
 /** The model did not answer what masking needs: the execution stops before the text is sent. */
 export class PiiDetectionFailedError extends PaidStepError {
   static override readonly code = "pii.detection-failed" as const;
+  declare readonly code: typeof PiiDetectionFailedError.code;
   override name = "PiiDetectionFailedError";
 }
 
@@ -70,11 +71,10 @@ export function modelDetectionOf(policy: string, binding: ModelBinding): ModelDe
     const usage: UsageRecord[] = [recordUsage(caller, binding.settings, response)];
     const answer = parsedAnswer(response.content);
     if (answer === undefined)
-      throw new PiiDetectionFailedError(
-        `${policy}: the PII detection model did not answer the JSON asked for`,
+      throw new PiiDetectionFailedError({
+        message: `${policy}: the PII detection model did not answer the JSON asked for`,
         usage,
-        undefined,
-      );
+      });
     return { ranges: rangesOf(text, answer, new Set(kinds)), usage };
   };
 }

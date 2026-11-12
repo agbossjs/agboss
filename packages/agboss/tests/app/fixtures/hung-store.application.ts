@@ -11,7 +11,7 @@ import {
   InMemoryExecutionRecordRepository,
   type ExecutionRecordStatus,
 } from "../../../src/infrastructure/execution-record.repository.js";
-import type { Turn } from "../../../src/terns/index.js";
+import type { Turn } from "../../../src/turns/index.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { Application } from "../../../src/application/application.js";
 import { seconds } from "../../../src/units/index.js";

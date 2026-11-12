@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { compareProfiles } from "../../src/index.js";
 import type { ModelGateway } from "../../src/llm/gateway.js";
 import type { RouteOutcome, RouteRequest } from "../../src/routers/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { replyWith, routeTo } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";

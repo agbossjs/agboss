@@ -30,12 +30,24 @@ export class InvalidToolNameError extends Error {
   override name = "InvalidToolNameError";
 }
 
+/** What a tool that ran out of time takes (#906): the timeout it ran past. */
+export interface ToolTimeoutErrorOptions {
+  readonly timeout: Milliseconds;
+  readonly cause?: unknown;
+}
+
 /** A tool ran past its `timeout` (its agent's model reads it as a tool error): `timed out after 5 s`. */
 export class ToolTimeoutError extends AGBossError {
   static override readonly code = "tool.timeout" as const;
+  declare readonly code: typeof ToolTimeoutError.code;
   override name = "ToolTimeoutError";
-  constructor(timeout: Milliseconds) {
-    super(`timed out after ${String(timeout / 1000)} s`);
+  /** The `timeout` the tool ran past. */
+  readonly timeout: Milliseconds;
+
+  constructor(options: ToolTimeoutErrorOptions) {
+    const { timeout, cause } = options;
+    super(`timed out after ${String(timeout / 1000)} s`, { cause });
+    this.timeout = timeout;
   }
 }
 
@@ -82,7 +94,7 @@ async function runWithTimeout<TValue>(
   { timeout: delay, clock }: ToolTimeout,
 ): Promise<TValue> {
   if (outer.aborted) throw outer.reason as Error; // never start work for a cancelled run
-  const reason = (): Error => new ToolTimeoutError(delay);
+  const reason = (): Error => new ToolTimeoutError({ timeout: delay });
   const timeout = timeoutOn(clock ?? systemClock, delay, reason);
   const signal = AbortSignal.any([outer, timeout.signal]);
   try {

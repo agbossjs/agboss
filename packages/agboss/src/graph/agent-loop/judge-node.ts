@@ -136,7 +136,11 @@ async function rejectionsOf(
     const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps));
     const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
       (error: unknown) => {
-        throw new AgentFailedError(agent, [...loopUsage(state), ...spent.usage], error);
+        throw new AgentFailedError({
+          agent,
+          usage: [...loopUsage(state), ...spent.usage],
+          cause: error,
+        });
       },
     );
     spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
@@ -171,12 +175,12 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     if (state.retries >= maxRetries) {
-      const error = new QualityGateError(
+      const error = new QualityGateError({
         agent,
-        [...loopUsage(state), ...usage],
-        rejected,
-        state.retries,
-      );
+        usage: [...loopUsage(state), ...usage],
+        rejections: rejected,
+        retries: state.retries,
+      });
       carryRecords(error, { judgeVerdicts: verdicts }); // this round's, after the loop's (#395 S6)
       throw error;
     }

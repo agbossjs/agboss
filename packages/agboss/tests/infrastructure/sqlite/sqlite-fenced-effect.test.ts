@@ -142,3 +142,14 @@ describe("#500: SqliteFencedEffectRepository", () => {
     expect(nothing.result).toBeNull();
   });
 });
+
+describe("#906: SyncWorkRequiredError keeps its cause", () => {
+  it("takes the effect and a cause", () => {
+    const cause = new Error("why");
+
+    expect(new SyncWorkRequiredError({ effect: "charge", cause })).toMatchObject({
+      effect: "charge",
+      cause,
+    });
+  });
+});

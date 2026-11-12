@@ -19,7 +19,7 @@ import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/e
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
-import type { Turn } from "../../../src/terns/index.js";
+import type { Turn } from "../../../src/turns/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";

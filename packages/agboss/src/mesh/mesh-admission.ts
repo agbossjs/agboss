@@ -33,8 +33,8 @@ export function meshRefusalOf(
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) return new MeshLoopDetectedError(entry, chain);
-  if (chain.length >= maxMeshHops) return new HopsLimitExceededError(entry, chain, maxMeshHops);
+  if (isLoop) return new MeshLoopDetectedError({ entry, chain });
+  if (chain.length >= maxMeshHops) return new HopsLimitExceededError({ entry, chain, maxMeshHops });
   return undefined;
 }
 

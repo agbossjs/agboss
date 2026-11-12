@@ -97,7 +97,8 @@ describe("#385: the transport's messages", () => {
 describe("#385: its errors and its wiring", () => {
   it("ModelProviderFailureError carries its failure, retryAfter and cause, under a stable code", () => {
     const cause = new Error("ThrottlingException");
-    const error = new ModelProviderFailureError(ModelFailure.RateLimited, {
+    const error = new ModelProviderFailureError({
+      failure: ModelFailure.RateLimited,
       retryAfter: seconds(2),
       cause,
     });
@@ -109,7 +110,9 @@ describe("#385: its errors and its wiring", () => {
       cause,
       message: "model.provider-failure: rate-limited",
     });
-    expect(new ModelProviderFailureError(ModelFailure.Timeout).retryAfter).toBeUndefined();
+    expect(
+      new ModelProviderFailureError({ failure: ModelFailure.Timeout }).retryAfter,
+    ).toBeUndefined();
   });
 
   it("before the container is bound a transport cannot be created; after, the container gives it", () => {

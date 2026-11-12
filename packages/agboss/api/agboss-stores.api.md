@@ -265,10 +265,10 @@ export interface AgentExecutionOutput {
     readonly status: ExecutionStatus;
     readonly tenantId: string;
     // (undocumented)
-    readonly ternId: string;
-    // (undocumented)
     readonly threadId: string;
     readonly traceUrl?: string;
+    // (undocumented)
+    readonly turnId: string;
 }
 
 // @public
@@ -821,13 +821,13 @@ export interface ExecutionRecord {
 export abstract class ExecutionRecordRepository {
     abstract addSummary(summary: NewSummary): Promise<Summary>;
     // (undocumented)
-    abstract append(tern: NewTurn): Promise<Turn>;
-    abstract before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Turn[]>;
+    abstract append(turn: NewTurn): Promise<Turn>;
+    abstract before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Turn[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
-    abstract complete(ternId: string, outcome: TurnOutcome): Promise<void>;
-    abstract completeIfStatus(ternId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;
+    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -835,10 +835,10 @@ export abstract class ExecutionRecordRepository {
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
-    abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
+    abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
     // (undocumented)
-    abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+    abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
     abstract ping(): Promise<void>;
     abstract recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
     abstract rememberConfig(workflow: string, version: string, hash: string, snapshot: string): Promise<{
@@ -846,14 +846,14 @@ export abstract class ExecutionRecordRepository {
     }>;
     abstract savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
-    abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
+    abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
     abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
     } | undefined>;
-    abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
+    abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
     abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
@@ -1018,6 +1018,8 @@ export class FingerprintRequiredError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.fingerprint-required";
     // (undocumented)
+    readonly code: typeof FingerprintRequiredError.code;
+    // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
@@ -1028,7 +1030,8 @@ export class FingerprintRequiredError extends AGBossError {
 // @public
 export interface FingerprintRequiredErrorOptions {
     // (undocumented)
-    readonly name: string;
+    readonly cause?: unknown;
+    readonly effect: string;
     // (undocumented)
     readonly reason: FingerprintProblem;
 }
@@ -1738,7 +1741,7 @@ export interface Summary {
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
-    readonly fromTernId: string;
+    readonly fromTurnId: string;
     // (undocumented)
     readonly id: string;
     readonly tenantId: string;
@@ -1747,7 +1750,7 @@ export interface Summary {
     // (undocumented)
     readonly threadId: string;
     // (undocumented)
-    readonly toTernId: string;
+    readonly toTurnId: string;
     // (undocumented)
     readonly turns: number;
 }
@@ -1895,7 +1898,7 @@ export interface VersionScore {
     // (undocumented)
     readonly scored: number;
     // (undocumented)
-    readonly terns: number;
+    readonly turns: number;
 }
 
 // @public
@@ -1935,9 +1938,9 @@ export interface WrittenLedgerMark {
 // src/core/error-record.ts:17:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:19:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:33:3 - (ae-undocumented) Missing documentation for "details".
 // src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
@@ -1949,8 +1952,8 @@ export interface WrittenLedgerMark {
 // src/finops/cost-category.ts:7:3 - (ae-undocumented) Missing documentation for "Tools".
 // src/finops/cost-category.ts:8:3 - (ae-undocumented) Missing documentation for "Compaction".
 // src/finops/cost-category.ts:9:3 - (ae-undocumented) Missing documentation for "Retrieval".
-// src/finops/ledger-mark.ts:22:3 - (ae-undocumented) Missing documentation for "state".
-// src/finops/ledger-mark.ts:31:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:23:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:32:3 - (ae-undocumented) Missing documentation for "state".
 // src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "inputTokens".
 // src/finops/usage.ts:26:3 - (ae-undocumented) Missing documentation for "outputTokens".
 // src/finops/usage.ts:27:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
@@ -1967,9 +1970,9 @@ export interface WrittenLedgerMark {
 // src/finops/usage.ts:86:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
 // src/finops/usage.ts:87:3 - (ae-undocumented) Missing documentation for "byCaller".
 // src/finops/usage.ts:90:3 - (ae-undocumented) Missing documentation for "byModel".
-// src/flow/compensation.ts:117:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/flow/compensation.ts:122:3 - (ae-undocumented) Missing documentation for "compensated".
-// src/flow/compensation.ts:131:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/compensation.ts:122:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/flow/compensation.ts:127:3 - (ae-undocumented) Missing documentation for "compensated".
+// src/flow/compensation.ts:136:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/context/execution-context.ts:24:3 - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts:25:3 - (ae-undocumented) Missing documentation for "version".
 // src/flow/context/execution-context.ts:42:3 - (ae-undocumented) Missing documentation for "component".
@@ -2026,10 +2029,10 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts:164:3 - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts:175:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/infrastructure/a2a-task.repository.ts:176:3 - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts:193:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts:217:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts:219:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/cost-ledger.repository.ts:48:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
+// src/infrastructure/a2a-task.repository.ts:199:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:223:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:225:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/cost-ledger.repository.ts:52:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -2088,12 +2091,13 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-fingerprint.ts:157:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts:158:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts:168:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts:169:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts:170:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts:171:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-fingerprint.ts:159:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-fingerprint.ts:160:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-fingerprint.ts:170:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:171:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:172:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-fingerprint.ts:173:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-fingerprint.ts:174:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/fenced-effect-key.ts:166:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-key.ts:167:3 - (ae-undocumented) Missing documentation for "origin".
 // src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
@@ -2144,45 +2148,45 @@ export interface WrittenLedgerMark {
 // src/run/types.ts:93:3 - (ae-undocumented) Missing documentation for "budgetUsd".
 // src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "cost".
 // src/run/types.ts:95:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "turnId".
 // src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "data".
-// src/terns/types.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
-// src/terns/types.ts:26:3 - (ae-undocumented) Missing documentation for "content".
-// src/terns/types.ts:29:1 - (ae-undocumented) Missing documentation for "Turn".
-// src/terns/types.ts:30:3 - (ae-undocumented) Missing documentation for "id".
-// src/terns/types.ts:33:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/terns/types.ts:36:3 - (ae-undocumented) Missing documentation for "bundle".
-// src/terns/types.ts:37:3 - (ae-undocumented) Missing documentation for "createdAt".
-// src/terns/types.ts:38:3 - (ae-undocumented) Missing documentation for "task".
-// src/terns/types.ts:39:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/terns/types.ts:40:3 - (ae-undocumented) Missing documentation for "status".
-// src/terns/types.ts:41:3 - (ae-undocumented) Missing documentation for "stopReason".
-// src/terns/types.ts:42:3 - (ae-undocumented) Missing documentation for "route".
-// src/terns/types.ts:43:3 - (ae-undocumented) Missing documentation for "steps".
-// src/terns/types.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/terns/types.ts:45:3 - (ae-undocumented) Missing documentation for "promptVersion".
-// src/terns/types.ts:46:3 - (ae-undocumented) Missing documentation for "modelVersion".
-// src/terns/types.ts:51:3 - (ae-undocumented) Missing documentation for "configHash".
-// src/terns/types.ts:54:1 - (ae-undocumented) Missing documentation for "NewTurn".
-// src/terns/types.ts:58:3 - (ae-undocumented) Missing documentation for "id".
-// src/terns/types.ts:61:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/terns/types.ts:62:3 - (ae-undocumented) Missing documentation for "bundle".
-// src/terns/types.ts:65:3 - (ae-undocumented) Missing documentation for "fromTernId".
-// src/terns/types.ts:66:3 - (ae-undocumented) Missing documentation for "toTernId".
-// src/terns/types.ts:67:3 - (ae-undocumented) Missing documentation for "turns".
-// src/terns/types.ts:68:3 - (ae-undocumented) Missing documentation for "text".
-// src/terns/types.ts:69:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/terns/types.ts:70:3 - (ae-undocumented) Missing documentation for "createdAt".
-// src/terns/types.ts:73:1 - (ae-undocumented) Missing documentation for "NewSummary".
-// src/terns/types.ts:77:3 - (ae-undocumented) Missing documentation for "version".
-// src/terns/types.ts:78:3 - (ae-undocumented) Missing documentation for "hash".
-// src/terns/types.ts:79:3 - (ae-undocumented) Missing documentation for "snapshot".
-// src/terns/types.ts:80:3 - (ae-undocumented) Missing documentation for "firstSeen".
-// src/terns/types.ts:152:3 - (ae-undocumented) Missing documentation for "promptVersion".
-// src/terns/types.ts:153:3 - (ae-undocumented) Missing documentation for "terns".
-// src/terns/types.ts:154:3 - (ae-undocumented) Missing documentation for "scored".
-// src/terns/types.ts:155:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/terns/types.ts:156:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/turns/types.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
+// src/turns/types.ts:26:3 - (ae-undocumented) Missing documentation for "content".
+// src/turns/types.ts:29:1 - (ae-undocumented) Missing documentation for "Turn".
+// src/turns/types.ts:30:3 - (ae-undocumented) Missing documentation for "id".
+// src/turns/types.ts:33:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/types.ts:36:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts:37:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/turns/types.ts:38:3 - (ae-undocumented) Missing documentation for "task".
+// src/turns/types.ts:39:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/turns/types.ts:40:3 - (ae-undocumented) Missing documentation for "status".
+// src/turns/types.ts:41:3 - (ae-undocumented) Missing documentation for "stopReason".
+// src/turns/types.ts:42:3 - (ae-undocumented) Missing documentation for "route".
+// src/turns/types.ts:43:3 - (ae-undocumented) Missing documentation for "steps".
+// src/turns/types.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/turns/types.ts:45:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/turns/types.ts:46:3 - (ae-undocumented) Missing documentation for "modelVersion".
+// src/turns/types.ts:51:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/turns/types.ts:54:1 - (ae-undocumented) Missing documentation for "NewTurn".
+// src/turns/types.ts:58:3 - (ae-undocumented) Missing documentation for "id".
+// src/turns/types.ts:61:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/types.ts:62:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts:65:3 - (ae-undocumented) Missing documentation for "fromTurnId".
+// src/turns/types.ts:66:3 - (ae-undocumented) Missing documentation for "toTurnId".
+// src/turns/types.ts:67:3 - (ae-undocumented) Missing documentation for "turns".
+// src/turns/types.ts:68:3 - (ae-undocumented) Missing documentation for "text".
+// src/turns/types.ts:69:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/turns/types.ts:70:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/turns/types.ts:73:1 - (ae-undocumented) Missing documentation for "NewSummary".
+// src/turns/types.ts:77:3 - (ae-undocumented) Missing documentation for "version".
+// src/turns/types.ts:78:3 - (ae-undocumented) Missing documentation for "hash".
+// src/turns/types.ts:79:3 - (ae-undocumented) Missing documentation for "snapshot".
+// src/turns/types.ts:80:3 - (ae-undocumented) Missing documentation for "firstSeen".
+// src/turns/types.ts:152:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/turns/types.ts:153:3 - (ae-undocumented) Missing documentation for "turns".
+// src/turns/types.ts:154:3 - (ae-undocumented) Missing documentation for "scored".
+// src/turns/types.ts:155:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/turns/types.ts:156:3 - (ae-undocumented) Missing documentation for "costUsd".
 
 // (No @packageDocumentation comment for this package)
 

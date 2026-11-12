@@ -5,6 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { DurableExecutionStatus, ExecutionCancelOutcome } from "../../src/app/execution-control.js";
+import { executionStateOf } from "../../src/app/execution-trees.js";
+import { KeyTextRule } from "../../src/index.js";
 import { instanceExecutionControlOf, type ControlledWorkflow } from "../../src/app/tree-control.js";
 
 /** A workflow of the test's: the threads it has, and what it was asked. */
@@ -12,7 +14,7 @@ function workflowOf(name: string, threads: readonly string[], asked: string[]): 
   return {
     deps: {
       config: { name },
-      terns: {
+      turns: {
         hasThread: (workflow: string, tenantId: string, threadId: string) => {
           asked.push(`${name} has ${workflow} ${tenantId} ${threadId}`);
           return Promise.resolve(threads.includes(threadId));
@@ -85,5 +87,17 @@ describe("#807: an instance's trees by id", () => {
     await control.claimExecutionId({ executionId: "t", tenantId: "acme" });
 
     expect(asked).toEqual(["a claims t"]);
+  });
+});
+
+describe("#906: a tree read with a thread id that is no key names the rule", () => {
+  it("InvalidThreadIdError carries the rule it breaks", async () => {
+    const read = executionStateOf({} as never, {
+      tenantId: "acme",
+      rootExecutionId: "root-1",
+      threadId: "",
+    });
+
+    await expect(read).rejects.toMatchObject({ rule: KeyTextRule.Length });
   });
 });

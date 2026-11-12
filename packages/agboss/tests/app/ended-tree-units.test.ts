@@ -46,7 +46,7 @@ function partsOf(isFailedHere: boolean, recordThread = "thread-1") {
   const findByTenantIdAndRunId = vi.fn(() => Promise.resolve(record));
   const completeIfStatus = vi.fn(() => Promise.resolve(isFailedHere));
   const deps: AppDeps = {
-    terns: { findByTenantIdAndRunId, completeIfStatus },
+    turns: { findByTenantIdAndRunId, completeIfStatus },
     observer: { onExecutionError },
   } as never;
   const parts: EndedTreeParts = {

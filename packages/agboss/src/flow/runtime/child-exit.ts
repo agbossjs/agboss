@@ -139,9 +139,9 @@ export function childFailureOf(
     const cancelled =
       error instanceof ExecutionCancelledError
         ? error
-        : new ExecutionCancelledError(
-            `child execution ${child.identity.executionId} was cancelled`,
-          );
+        : new ExecutionCancelledError({
+            message: `child execution ${child.identity.executionId} was cancelled`,
+          });
     return { thrown: cancelled, status: ChildExecutionStatus.Cancelled, usage, reported: usage };
   }
   if (error instanceof BudgetExceededError)
@@ -157,6 +157,11 @@ export function childFailureOf(
   if (error instanceof CompensationFailedError || isRecordedAs(error, CompensationFailedError.code))
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: [] };
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
-  const thrown = new ChildExecutionFailedError(identity, error, usage);
+  const thrown = new ChildExecutionFailedError({
+    childExecutionId: identity.executionId,
+    workflow: identity.workflow,
+    cause: error,
+    usage,
+  });
   return { thrown, status: ChildExecutionStatus.Failed, usage, reported: [] };
 }

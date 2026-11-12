@@ -9,7 +9,7 @@ import { summaryTextsOf } from "../compaction/stored-summaries.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { mappedStringsAsync } from "../pii/strings.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
-import type { Turn } from "../terns/index.js";
+import type { Turn } from "../turns/index.js";
 import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
 import type { CompactedOne, CompactionRun } from "./compaction.js";
 import type { AgentExecutionDeps } from "./types.js";
@@ -40,9 +40,9 @@ function partsOf(line: string): { readonly name: string; readonly value: unknown
 }
 
 /** A turn of the thread as `compact()` reads it. */
-function turnOf(tern: Turn): CompactionTurn {
-  const start = partsOf(tern.task);
-  const finish = partsOf(tern.replyWith);
+function turnOf(turn: Turn): CompactionTurn {
+  const start = partsOf(turn.task);
+  const finish = partsOf(turn.replyWith);
   return {
     startName: start.name,
     input: start.value,
@@ -95,7 +95,7 @@ function checkedSummaries(name: string, given: unknown): readonly string[] {
   const texts: readonly unknown[] = isList ? given : [];
   if (texts.length === 0 || texts.some((text) => typeof text !== "string" || text.trim() === "")) {
     const message = `${name}: compact() gave no summaries or an empty one — it gives the summaries readers see`;
-    throw new CompactionError(message, name, undefined);
+    throw new CompactionError({ message, compaction: name, summaryMaxTokens: undefined });
   }
   return texts.map((text) => String(text).trim());
 }
@@ -117,7 +117,12 @@ export async function compactedBy(
   } catch (error) {
     if (error instanceof CompactionError) throw error;
     const message = `${name}: compact() failed`;
-    throw new CompactionError(message, name, undefined, error);
+    throw new CompactionError({
+      message,
+      compaction: name,
+      summaryMaxTokens: undefined,
+      cause: error,
+    });
   }
 }
 
@@ -138,7 +143,7 @@ export async function compactWithHandler<TName extends string>(
   due: readonly Turn[],
 ): Promise<CompactedOne> {
   const { tenantId, threadId } = run;
-  const [current] = await deps.terns.latestSummaries(tenantId, threadId, compaction.name, 1);
+  const [current] = await deps.turns.latestSummaries(tenantId, threadId, compaction.name, 1);
   const input: CompactionInput = {
     previousSummaries: current === undefined ? [] : summaryTextsOf(current.text),
     turnsToCompact: due.map(turnOf),

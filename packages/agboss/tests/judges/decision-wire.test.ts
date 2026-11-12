@@ -12,7 +12,7 @@ import { createModelGateway } from "../../src/llm/gateway.js";
 import { resolutionProblems } from "../../src/models/check.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { completion, providerStub, toolCallCompletion, type StubReply } from "../models/stub.js";
 import { answerToolName } from "../../src/flow/analyse/rules/models.js";
 import { LUNA, PNG, ImageDeskApplication } from "./fixtures/decision-judged.workflow.js";

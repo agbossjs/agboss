@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import { migrateTernDatabase, openTernDatabase, placeholders, toTern } from "./schema.js";
+import { migrateTurnDatabase, openTurnDatabase, placeholders, toTurn } from "./schema.js";
 import { configMethods } from "./configs.js";
-import { pauseAnswerWrites, ternWrites } from "./writes.js";
+import { pauseAnswerWrites, turnWrites } from "./writes.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
-import type { Turn, TernStore, VersionScore } from "./types.js";
+import type { Turn, TurnStore, VersionScore } from "./types.js";
 
 const SummaryRow = z.object({
   prompt_version: z.string(),
-  terns: z.number(),
+  turns: z.number(),
   scored: z.number(),
   mean_score: z.number().nullable(),
   cost_usd: z.number(),
@@ -20,7 +20,7 @@ function toVersionScore(row: unknown): VersionScore {
   const r = SummaryRow.parse(row);
   return {
     promptVersion: r.prompt_version,
-    terns: r.terns,
+    turns: r.turns,
     scored: r.scored,
     meanScore: r.mean_score,
     costUsd: r.cost_usd,
@@ -35,9 +35,9 @@ export type { ThreadIds } from "./threads.js";
 const RANDOM_THREAD_IDS: ThreadIds = { newThreadId: randomUUID };
 type Rows = (sql: string, ...params: SQLInputValue[]) => Turn[];
 
-function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersion" | "unscored"> {
+function turnReads(rows: Rows): Pick<TurnStore, "lastTurns" | "byIds" | "byVersion" | "unscored"> {
   return {
-    lastTerns: (tenantId, threadId, limit) =>
+    lastTurns: (tenantId, threadId, limit) =>
       Promise.resolve(
         rows(
           `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE tenant_id = ? AND thread_id = ?
@@ -84,7 +84,7 @@ function ternReads(rows: Rows): Pick<TernStore, "lastTerns" | "byIds" | "byVersi
  * Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first; and a run's
  * latest Turn by its id (#808), however many later Terns its thread has.
  */
-function statusReads(rows: Rows): Pick<TernStore, "byStatus" | "findByTenantIdAndRunId"> {
+function statusReads(rows: Rows): Pick<TurnStore, "byStatus" | "findByTenantIdAndRunId"> {
   return {
     findByTenantIdAndRunId: (tenantId, runId) =>
       Promise.resolve(
@@ -107,7 +107,7 @@ function statusReads(rows: Rows): Pick<TernStore, "byStatus" | "findByTenantIdAn
   };
 }
 
-const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS terns, COUNT(s.score) AS scored,
+const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS turns, COUNT(s.score) AS scored,
     AVG(s.score) AS mean_score,
     (SELECT SUM(cost_usd) FROM terns x WHERE x.bundle = t.bundle AND x.prompt_version = t.prompt_version
       AND x.status != 'running') AS cost_usd
@@ -117,20 +117,20 @@ const SUMMARY = `SELECT t.prompt_version, COUNT(DISTINCT t.id) AS terns, COUNT(s
 function scoreMethods(
   db: DatabaseSync,
   now: Now,
-): Pick<TernStore, "saveScore" | "meanScore" | "summary"> {
+): Pick<TurnStore, "saveScore" | "meanScore" | "summary"> {
   return {
-    saveScore: (ternId, judge, score) => {
+    saveScore: (turnId, judge, score) => {
       db.prepare("INSERT INTO scores VALUES (?, ?, ?, ?)").run(
-        ternId,
+        turnId,
         judge,
         score,
         now().toISOString(),
       );
       return Promise.resolve();
     },
-    meanScore: (ternIds) => {
-      const sql = `SELECT AVG(score) AS mean FROM scores WHERE tern_id IN (${placeholders(ternIds.length)})`;
-      const row = z.object({ mean: z.number().nullable() }).parse(db.prepare(sql).get(...ternIds));
+    meanScore: (turnIds) => {
+      const sql = `SELECT AVG(score) AS mean FROM scores WHERE tern_id IN (${placeholders(turnIds.length)})`;
+      const row = z.object({ mean: z.number().nullable() }).parse(db.prepare(sql).get(...turnIds));
       return Promise.resolve(row.mean);
     },
     summary: (bundle) => Promise.resolve(db.prepare(SUMMARY).all(bundle).map(toVersionScore)),
@@ -138,38 +138,38 @@ function scoreMethods(
 }
 
 /** Terns in SQLite (built-in `node:sqlite`) on a file of their own. `:memory:` for tests. */
-export function createSqliteTernStore(
+export function createSqliteTurnStore(
   path: string,
   now: Now,
   threadIds: ThreadIds = RANDOM_THREAD_IDS,
-): TernStore {
-  return ternStoreOn(openTernDatabase(path), now, threadIds);
+): TurnStore {
+  return turnStoreOn(openTurnDatabase(path), now, threadIds);
 }
 
 /**
  * Terns on an open database — a connection other stores share (#265): its tables migrated first.
  * `close` closes that connection.
  */
-export function sharedTernStore(
+export function sharedTurnStore(
   db: DatabaseSync,
   now: Now,
   threadIds: ThreadIds = RANDOM_THREAD_IDS,
-): TernStore {
-  migrateTernDatabase(db);
-  return ternStoreOn(db, now, threadIds);
+): TurnStore {
+  migrateTurnDatabase(db);
+  return turnStoreOn(db, now, threadIds);
 }
 
-function ternStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TernStore {
+function turnStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TurnStore {
   const rows: Rows = (sql, ...params) =>
     db
       .prepare(sql)
       .all(...params)
-      .map(toTern);
+      .map(toTurn);
   return {
     ...threadMethods(db, now, threadIds),
-    ...ternWrites(db, now),
+    ...turnWrites(db, now),
     ...pauseAnswerWrites(db),
-    ...ternReads(rows),
+    ...turnReads(rows),
     ...statusReads(rows),
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),

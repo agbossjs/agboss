@@ -8,14 +8,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore, openTernDatabase } from "../../src/terns/index.js";
+import { createSqliteTurnStore, openTurnDatabase } from "../../src/turns/index.js";
 
 const STEP_KEY = "child-7:refund-agent:1:call-1";
 
 /** A database as version 14 left it: the log keyed by tenant and step key, two answers of a tree. */
 async function version14(): Promise<string> {
   const path = join(await mkdtemp(join(tmpdir(), "terns-")), "v14.sqlite");
-  openTernDatabase(path).close();
+  openTurnDatabase(path).close();
   const old = new DatabaseSync(path);
   old.exec(`DROP TABLE pause_answers;
     CREATE TABLE pause_answers (tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
@@ -46,7 +46,7 @@ const keyOf = (path: string): string[] => {
 describe("#676: the pause answer log, one answer per pause of a tree", () => {
   it("a file of version 14 is rebuilt by tree, its answers and their order kept", async () => {
     const path = await version14();
-    const store = createSqliteTernStore(path, () => new Date());
+    const store = createSqliteTurnStore(path, () => new Date());
 
     await store.appendPauseAnswer({
       tenantId: "acme",

@@ -34,6 +34,8 @@ import type { PathStart } from "./path-start.js";
  */
 
 export { FlowSyntaxError } from "./launch-step.js";
+
+const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
 export { aboutTargets } from "./returns-step.js";
 
 export type { PathStart } from "./path-start.js";
@@ -56,7 +58,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private then(step: Step): PathBuilder<TSource> {
     const problem = launchOrderProblem(this.last, step);
-    if (problem !== undefined) throw new FlowSyntaxError(problem);
+    if (problem !== undefined) throw syntaxError(problem);
     return new PathBuilder(this.start, this.source, [...this.steps, step]);
   }
 
@@ -79,7 +81,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     const value = returnedValue(shape, options, rest.length);
     const { last } = this;
     if (last?.kind === StepKind.Join && last.quorum?.kind === QuorumKind.Groups)
-      throw new FlowSyntaxError(
+      throw syntaxError(
         "each group names its values: group(…).returns(…) — not after .joinQuorumGroups(…)",
       );
     if (last?.kind === StepKind.Join)
@@ -178,7 +180,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   /** `group(…).priority(n)`: 1 is the highest; written right after `group(…)`. */
   priority(priority: unknown): PathBuilder<TSource> {
     if (this.start.kind !== "group" || this.steps.length > 0)
-      throw new FlowSyntaxError(".priority(n) stands right after group(…)");
+      throw syntaxError(".priority(n) stands right after group(…)");
     const start = { ...this.start, priority: priorityOf(priority) };
     return new PathBuilder(start, this.source, this.steps);
   }
@@ -186,9 +188,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
     const { last } = this;
     if (last?.kind !== StepKind.Join || last.returns.length > 0)
-      throw new FlowSyntaxError(
-        ".onJoinError(E, …) stands right after .join(), before its .returns(…)",
-      );
+      throw syntaxError(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
     const handler = Object.freeze({ error, path: path.asSidePath() });
     return this.withJoin({ ...last, onJoinError: Object.freeze([...last.onJoinError, handler]) });
   }
@@ -207,15 +207,14 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   private asCase(): SwitchCase {
-    if (this.start.kind !== "case") throw new FlowSyntaxError(".switch(…) takes caseOf(…) paths");
+    if (this.start.kind !== "case") throw syntaxError(".switch(…) takes caseOf(…) paths");
     const { dto, about } = this.start;
     const path = this.subPath();
     return Object.freeze(about === undefined ? { dto, path } : { dto, about, path });
   }
 
   private asRoute(): ChooseOneRoute {
-    if (this.start.kind !== "route")
-      throw new FlowSyntaxError(".chooseOne(…) takes route(…) paths");
+    if (this.start.kind !== "route") throw syntaxError(".chooseOne(…) takes route(…) paths");
     const { target, placement } = this.start;
     return Object.freeze({ target, path: this.subPath(), ...(placement && { placement }) });
   }
@@ -227,7 +226,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private asSidePath(): SubPath {
     if (this.start.kind !== "side")
-      throw new FlowSyntaxError(".onError(E, …) takes a side path: toAction(…), toFinish(…), …");
+      throw syntaxError(".onError(E, …) takes a side path: toAction(…), toFinish(…), …");
     return this.subPath();
   }
 }
@@ -247,6 +246,6 @@ export const subPathFrom = (start: PathStart): PathBuilder<undefined> =>
 /** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279): one or more agent classes, repeats counted. */
 export function groupFrom(agents: readonly unknown[]): PathBuilder<undefined> {
   if (agents.length === 0 || agents.some((agent) => typeof agent !== "function"))
-    throw new FlowSyntaxError("group(…) takes one or more agent classes of the launch");
+    throw syntaxError("group(…) takes one or more agent classes of the launch");
   return subPathFrom({ kind: "group", agents: Object.freeze([...(agents as readonly Class[])]) });
 }

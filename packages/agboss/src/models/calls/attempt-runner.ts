@@ -32,7 +32,11 @@ export interface ResilienceOptions {
 
 /** The error of a call to a provider whose breaker is open. */
 const circuitOpenError = (provider: string): ModelCallError =>
-  new ModelCallError("model.circuit-open", provider, `${provider} is failing; calls are paused`);
+  new ModelCallError({
+    code: "model.circuit-open",
+    provider,
+    message: `${provider} is failing; calls are paused`,
+  });
 
 /** How long to wait before the next attempt; `undefined` = stop (not retried, or Retry-After too long). */
 function waitBefore<T>(

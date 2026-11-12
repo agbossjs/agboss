@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { NotSentTrust } from "../../app/outbound-call-contract.js";
 import { OutboundCallReconciliation, type OutboundCallLookup } from "../../app/outbound-calls.js";
 import type { OutboundCallNotSent } from "../../app/outbound-call-types.js";
-import { stableJson } from "../../terns/index.js";
+import { stableJson } from "../../turns/index.js";
 import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
 import type { AcceptCall, AcceptResult } from "./a2a-message.js";
 import { safeTaskIdOf } from "./a2a-task-errors.js";

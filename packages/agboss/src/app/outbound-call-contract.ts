@@ -78,6 +78,7 @@ export function checkedNotSentTrust(
 export interface InvalidNotSentTrustErrorOptions {
   readonly call: string;
   readonly problem: string;
+  readonly cause?: unknown;
 }
 
 /**
@@ -87,6 +88,7 @@ export interface InvalidNotSentTrustErrorOptions {
  */
 export class InvalidNotSentTrustError extends AGBossError {
   static override readonly code = "outbound-call.invalid-not-sent-trust" as const;
+  declare readonly code: typeof InvalidNotSentTrustError.code;
   override name = "InvalidNotSentTrustError";
   readonly call: string;
   readonly problem: string;
@@ -94,7 +96,7 @@ export class InvalidNotSentTrustError extends AGBossError {
   constructor(options: InvalidNotSentTrustErrorOptions) {
     super(
       `outbound call "${options.call}" was refused: ${options.problem} — notSent: { trust: NotSentTrust.Lookup } or { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }; nothing was recorded or sent`,
-      { details: { call: options.call } },
+      { cause: options.cause, details: { call: options.call } },
     );
     this.call = options.call;
     this.problem = options.problem;
@@ -110,6 +112,7 @@ export class InvalidNotSentTrustError extends AGBossError {
  */
 export class OutboundCallSupersededError extends StepFailedError {
   static override readonly code = "outbound-call.superseded" as const;
+  declare readonly code: typeof OutboundCallSupersededError.code;
   override name = "OutboundCallSupersededError";
   readonly call: string;
   readonly target: string;
@@ -127,19 +130,19 @@ export class OutboundCallSupersededError extends StepFailedError {
       supersededBy === undefined
         ? "a newer attempt (which one is unknown)"
         : `attempt ${String(supersededBy)}`;
-    super(
-      `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — its answer is not stored; check ${target} before going on`,
-      [],
+    super({
+      message: `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) attempt ${String(attempt)} was answered after ${by} took its intent over: both reached ${target} — its answer is not stored; check ${target} before going on`,
+      usage: [],
       cause,
-      stepCoordinatesOf(call, ComponentKind.Action),
-      {
+      ...stepCoordinatesOf(call, ComponentKind.Action),
+      details: {
         call,
         target,
         operation,
         attempt,
         ...(supersededBy === undefined ? {} : { supersededBy }),
       },
-    );
+    });
     this.call = call;
     this.target = target;
     this.operation = operation;
@@ -161,7 +164,7 @@ export function callKeyErrorOf(key: EffectKey | OutboundCallKey): void {
     );
   if (key.fingerprintPolicy !== undefined)
     throw new FingerprintRequiredError({
-      name: key.name,
+      effect: key.name,
       reason: FingerprintProblem.Contradictory,
     });
 }

@@ -67,7 +67,7 @@ export async function currentOutputOf(
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
   if (snapshot.next.length > 0 || state.finish === undefined || state.finish === "") {
-    throw new NotPausedError(`Thread "${tree.threadId}" has no paused run`);
+    throw new NotPausedError({ message: `Thread "${tree.threadId}" has no paused run` });
   }
   return withPauseAnswers(
     {
@@ -104,11 +104,11 @@ export async function refusedIfFailed(
   take: ResumeTake,
 ): Promise<void> {
   // the root's record by its id on its thread (`rootRecordOf`, whose module loads with an end)
-  const record = await deps.terns.findByTenantIdAndRunId(state.tenantId, state.runId);
+  const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
   const status = record?.threadId === state.threadId ? record.status : undefined;
   if (status !== ExecutionRecordStatus.Failed && status !== ExecutionRecordStatus.Guarded) return;
   await take.lease.release();
-  throw new NotPausedError(
-    `pause ${take.pauseId} was answered, but its tree ended before its answer ran`,
-  );
+  throw new NotPausedError({
+    message: `pause ${take.pauseId} was answered, but its tree ended before its answer ran`,
+  });
 }

@@ -144,7 +144,7 @@ describe("defineTool: what rises instead of an error result (#471)", () => {
   });
 
   it("a run failing after its lease was lost rises as the lost lease, not as the model's error", async () => {
-    const lost = new ExecutionLeaseLostError("root-1");
+    const lost = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
     const controller = new AbortController();
     const tool = echo(() => {
       controller.abort(lost);

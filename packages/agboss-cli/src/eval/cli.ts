@@ -33,7 +33,7 @@ async function scoreCommand(context: CommandContext): Promise<CommandOutcome> {
       ...(version === undefined ? {} : { promptVersion: version }),
       limit: Number(requiredText(context.values, "limit")),
     });
-    const summary = await deps.terns.summary(deps.config.name);
+    const summary = await deps.turns.summary(deps.config.name);
     context.say(JSON.stringify(report));
     summary.forEach((row) => {
       context.say(JSON.stringify(row));
@@ -62,7 +62,7 @@ async function goldenCommand(context: CommandContext): Promise<CommandOutcome> {
   const deps = await depsFor(context, undefined);
   try {
     const fromLast = Number(requiredText(context.values, "from-last"));
-    const set = await goldenFromRecent(deps.terns, deps.config.name, name, fromLast);
+    const set = await goldenFromRecent(deps.turns, deps.config.name, name, fromLast);
     const file = goldenFile(context.io.cwd, deps.config.name, name);
     await saveGolden(file, set);
     context.say(`${String(set.tasks.length)} tasks → ${file}`);

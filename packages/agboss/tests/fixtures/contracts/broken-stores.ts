@@ -11,7 +11,7 @@ import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructu
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import type { ExecutionTree } from "../../../src/index.js";
-import type { Turn, TurnOutcome } from "../../../src/terns/index.js";
+import type { Turn, TurnOutcome } from "../../../src/turns/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { MapExecutionLeaseRepository } from "./map-lease-store.js";
 
@@ -74,7 +74,7 @@ export class WindowSearchingRecordRepository extends InMemoryExecutionRecordRepo
   ): Promise<Turn | undefined> {
     const found = await super.findByTenantIdAndRunId(tenantId, runId);
     if (found === undefined) return undefined;
-    const window = await this.lastTerns(tenantId, found.threadId, LAST_RECORDS);
+    const window = await this.lastTurns(tenantId, found.threadId, LAST_RECORDS);
     return window.find((record) => record.runId === runId);
   }
 }

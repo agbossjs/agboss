@@ -54,8 +54,8 @@ describe("#272: a model router decides on its input only", () => {
       nodeId: "main-router",
       visitNumber: 1,
     });
-    const [summary] = await deps.terns.summary("test-bundle-workflow");
-    expect(summary).toMatchObject({ terns: 1 });
+    const [summary] = await deps.turns.summary("test-bundle-workflow");
+    expect(summary).toMatchObject({ turns: 1 });
   });
 
   it("a model reply that is not a decision is an invalid decision, not retried (S19)", async () => {

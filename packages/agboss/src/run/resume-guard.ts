@@ -23,6 +23,11 @@ export interface IncompatibleResume {
   readonly current: ResumeVersions;
 }
 
+/** What an incompatible resume takes (#906): the resume's facts and a cause. */
+export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
+  readonly cause?: unknown;
+}
+
 /** "resume": continue the paused checkpoint on the current graph; "reject": fail the resume. */
 export type ResumeDecision = "resume" | "reject";
 
@@ -40,17 +45,19 @@ const label = ({ workflowVersion, configHash }: ResumeVersions): string =>
  */
 export class IncompatibleResumeError extends AGBossError {
   static override readonly code = "resume.incompatible" as const;
+  declare readonly code: typeof IncompatibleResumeError.code;
   override name = "IncompatibleResumeError";
   readonly threadId: string;
   readonly executionId: string;
   readonly paused: ResumeVersions;
   readonly current: ResumeVersions;
 
-  constructor(resume: IncompatibleResume) {
+  constructor(resume: IncompatibleResumeErrorOptions) {
     super(
       `[resume.incompatible] thread "${resume.threadId}" paused under ${label(resume.paused)}, ` +
         `this app runs ${label(resume.current)} — register ` +
         `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway`,
+      { cause: resume.cause },
     );
     this.threadId = resume.threadId;
     this.executionId = resume.executionId;

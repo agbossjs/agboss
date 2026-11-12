@@ -19,11 +19,13 @@ export interface A2AFileRefusedErrorOptions {
   readonly refusal: A2AFileRefusal;
   readonly mediaType?: string;
   readonly sizeBytes?: number;
+  readonly cause?: unknown;
 }
 
 /** `A2AFiles.save` / `.fromUrl` refused a file (`a2a.file-refused`): nothing was kept. */
 export class A2AFileRefusedError extends AGBossError {
   static override readonly code = "a2a.file-refused" as const;
+  declare readonly code: typeof A2AFileRefusedError.code;
   readonly refusal: A2AFileRefusal;
   /** The media type it declared, when that is why (#890: each option is a field). */
   readonly mediaType: string | undefined;
@@ -31,8 +33,9 @@ export class A2AFileRefusedError extends AGBossError {
   readonly sizeBytes: number | undefined;
 
   constructor(options: A2AFileRefusedErrorOptions) {
-    const { refusal, mediaType, sizeBytes } = options;
+    const { refusal, mediaType, sizeBytes, cause } = options;
     super(`the file was refused: ${refusal}`, {
+      cause,
       details: {
         refusal,
         ...(mediaType === undefined ? {} : { mediaType }),
@@ -61,13 +64,21 @@ export enum A2AFileUnavailableReason {
   DownloadFailed = "download-failed",
 }
 
+/** What a file whose bytes are unavailable takes (#906). */
+export interface A2AFileUnavailableErrorOptions {
+  readonly reason: A2AFileUnavailableReason;
+  readonly cause?: unknown;
+}
+
 /** `A2AFiles.read` found no bytes it may give (`a2a.file-unavailable`). */
 export class A2AFileUnavailableError extends AGBossError {
   static override readonly code = "a2a.file-unavailable" as const;
+  declare readonly code: typeof A2AFileUnavailableError.code;
   readonly reason: A2AFileUnavailableReason;
 
-  constructor(reason: A2AFileUnavailableReason) {
-    super(`the file's bytes are unavailable: ${reason}`, { details: { reason } });
+  constructor(options: A2AFileUnavailableErrorOptions) {
+    const { reason, cause } = options;
+    super(`the file's bytes are unavailable: ${reason}`, { cause, details: { reason } });
     this.reason = reason;
   }
 }

@@ -1,4 +1,4 @@
-import { AGBossError } from "../../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { StepDescriptor } from "./execution-context.js";
 
 /** Where a context read failed: outside any execution, or after the step it belongs to ended. */
@@ -19,26 +19,31 @@ const stepLabelOf = (step: StepDescriptor): string =>
  */
 export class ExecutionContextUnavailableError extends AGBossError {
   static override readonly code = "context.unavailable" as const;
+  declare readonly code: typeof ExecutionContextUnavailableError.code;
   override name = "ExecutionContextUnavailableError";
 
   /** A read outside any execution. */
   static outside(read: UnavailableRead): ExecutionContextUnavailableError {
-    return new ExecutionContextUnavailableError(
-      `${read.consumer} read ${read.field} outside an execution. Read it inside a method called during an execution, or take ApplicationContext.`,
-    );
+    return new ExecutionContextUnavailableError({
+      message: `${read.consumer} read ${read.field} outside an execution. Read it inside a method called during an execution, or take ApplicationContext.`,
+    });
   }
 
   /** A read through the frame of a step (or tool call) that has ended. */
   static ended(step: StepDescriptor, executionId: string): ExecutionContextUnavailableError {
-    return new ExecutionContextUnavailableError(
-      `the execution context was read after its step ended (${stepLabelOf(step)} in execution ${executionId}). Read what you need before the step returns, or pass the value explicitly.`,
-    );
+    return new ExecutionContextUnavailableError({
+      message: `the execution context was read after its step ended (${stepLabelOf(step)} in execution ${executionId}). Read what you need before the step returns, or pass the value explicitly.`,
+    });
   }
 
   /** A read of `executionContext.fence` where no lease is held (#471): `why` says where it was. */
   static noFence(read: UnavailableRead, why: string): ExecutionContextUnavailableError {
-    return new ExecutionContextUnavailableError(
-      `${read.consumer} read ${read.field} ${why}. Fence an external write from a step (an action, a tool, a router, a judge) that runs during the execution's pass.`,
-    );
+    return new ExecutionContextUnavailableError({
+      message: `${read.consumer} read ${read.field} ${why}. Fence an external write from a step (an action, a tool, a router, a judge) that runs during the execution's pass.`,
+    });
+  }
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
   }
 }

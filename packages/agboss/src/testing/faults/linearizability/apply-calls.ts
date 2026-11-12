@@ -10,7 +10,7 @@ import {
   type ReadCall,
 } from "../../contracts/models/call-model.js";
 import { effectWritten, treeOf, type FencingState } from "../../contracts/models/lease-model.js";
-import { stableJson } from "../../../terns/index.js";
+import { stableJson } from "../../../turns/index.js";
 import { StoreHoldPoint } from "../store-points.js";
 import { numberOf, textOf, UNKNOWN, type CheckedOperation } from "./operations.js";
 

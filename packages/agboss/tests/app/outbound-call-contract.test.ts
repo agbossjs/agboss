@@ -306,7 +306,7 @@ class TakenOverOutboundCallRepository extends InMemoryOutboundCallRepository {
 
   override findByKey(key: EffectKey) {
     if (this.#isTakenOver && TakenOverOutboundCallRepository.isUnreadable)
-      return Promise.reject(new InvalidFencedEffectNameError(0));
+      return Promise.reject(new InvalidFencedEffectNameError({ length: 0 }));
     return super.findByKey(key);
   }
 

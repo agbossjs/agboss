@@ -58,6 +58,7 @@ export {
   FingerprintPolicy,
   FingerprintRequiredError,
   IdempotencyKeyMissingError,
+  type IdempotencyKeyMissingErrorOptions,
   type BusinessKeyOptions,
   type EffectKey,
   type EffectKeyFields,
@@ -97,7 +98,7 @@ export type {
   TurnStatus,
   TurnStep,
   VersionScore,
-} from "../terns/index.js";
+} from "../turns/index.js";
 // the names before #890, deprecated: removed in 0.2 (by `export *`, so no module of the core names them)
 export type * from "./turn-deprecated.js";
 export {
@@ -171,6 +172,7 @@ export {
   A2ATaskSaveStatus,
   A2ATaskState,
   InvalidA2APageTokenError,
+  type InvalidA2APageTokenErrorOptions,
   isTerminalA2ATaskState,
   type A2AMessageKey,
   type A2AMessageRecord,
@@ -191,6 +193,7 @@ export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-
 // #859: the A2A tasks' files (infrastructure, listed in `@Application({ providers })`)
 export {
   A2AFileConflictError,
+  type A2AFileConflictErrorOptions,
   A2AFileRepository,
   type A2AFileKey,
   type A2AFileMetadata,

@@ -30,7 +30,12 @@ export function invalidAnswer(
 ): AgentLoopUpdate {
   const attempts = state.invalidAnswers + 1;
   if (attempts >= MAX_ANSWER_ATTEMPTS) {
-    throw new AgentAnswerInvalidError(deps.agent.name, attempts, problem, loopUsage(state));
+    throw new AgentAnswerInvalidError({
+      agent: deps.agent.name,
+      attempts,
+      usage: loopUsage(state),
+      cause: problem,
+    });
   }
   return { messages: [...messages], move: null, invalidAnswers: 1 };
 }

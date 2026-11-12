@@ -85,7 +85,7 @@ const INTERRUPTED: InterruptedRun = {
   runId: ROOT,
   threadId: "thread-1",
   tenantId: "acme",
-  ternId: "tern-1",
+  turnId: "tern-1",
   startedVersion: "1.0.0",
 };
 
@@ -124,7 +124,7 @@ function partsOf(lease = leaseOf()) {
   const parts: TreeMoveParts = {
     deps: {
       config: { version: "2.0.0", name: "desk-workflow" },
-      terns: {
+      turns: {
         completeIfStatus: vi.fn(() => Promise.resolve(true)),
         findByTenantIdAndRunId,
       },
@@ -137,8 +137,8 @@ function partsOf(lease = leaseOf()) {
     trees: {},
     clock: {},
   } as never;
-  const terns = { findByTenantIdAndRunId };
-  return { parts, lease, leases, paused, warn, terns, moves: treeMovesOf(parts) };
+  const turns = { findByTenantIdAndRunId };
+  return { parts, lease, leases, paused, warn, turns, moves: treeMovesOf(parts) };
 }
 
 const call = { signal: new AbortController().signal } as never;
@@ -149,7 +149,7 @@ const answerOf = (startedVersion?: string): RecordedAnswer =>
     run:
       startedVersion === undefined
         ? undefined
-        : { startedVersion, ternId: "tern-1", path: [], cost: { totalUsd: 0 } },
+        : { startedVersion, turnId: "tern-1", path: [], cost: { totalUsd: 0 } },
   }) as never;
 
 beforeEach(() => {
@@ -302,8 +302,8 @@ describe("#901: a resume whose tree failed after its answer was recorded", () =>
   it.each(["failed", "guarded"])(
     "its root's record %s at the take: the lease given back, NotPausedError, no pass",
     async (status) => {
-      const { moves, paused, lease, terns } = partsOf();
-      terns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
+      const { moves, paused, lease, turns } = partsOf();
+      turns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
       mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
       paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
 
@@ -318,8 +318,8 @@ describe("#901: a resume whose tree failed after its answer was recorded", () =>
     ["running on its thread", { threadId: "thread-1", status: "running" }],
     ["failed on another thread", { threadId: "thread-2", status: "failed" }],
   ])("a record %s: the pass runs", async (_case, record) => {
-    const { moves, paused, terns } = partsOf();
-    terns.findByTenantIdAndRunId.mockResolvedValue(record);
+    const { moves, paused, turns } = partsOf();
+    turns.findByTenantIdAndRunId.mockResolvedValue(record);
     mocks.treeResumeNow.mockResolvedValueOnce(resumeOf("pause-1"));
     paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
     mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Finished));

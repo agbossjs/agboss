@@ -32,7 +32,7 @@ import { FINGERPRINT_LABEL } from "../../src/infrastructure/fenced-effect-key.js
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
-import { stableJson } from "../../src/terns/index.js";
+import { stableJson } from "../../src/turns/index.js";
 import { override, testAction, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";

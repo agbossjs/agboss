@@ -9,7 +9,7 @@ import path from "node:path";
 import { z } from "zod";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { RouteOutcome } from "../routers/index.js";
-import { stableJson } from "../terns/index.js";
+import { stableJson } from "../turns/index.js";
 import { CassetteMissingError } from "./errors.js";
 
 /**

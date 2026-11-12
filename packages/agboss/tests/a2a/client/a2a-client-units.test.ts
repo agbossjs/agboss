@@ -197,7 +197,13 @@ const protocol = (fields: Partial<ConstructorParameters<typeof A2AProtocolError>
 describe("which failed sends did nothing", () => {
   it("a refused caller, a JSON-RPC error but -32603, a 4xx but 408 are definite", () => {
     expect(
-      isDefiniteSendFailure(new A2ACallerRejectedError(403, "a2a.caller-forbidden", "x")),
+      isDefiniteSendFailure(
+        new A2ACallerRejectedError({
+          httpStatus: 403,
+          wireCode: "a2a.caller-forbidden",
+          reason: "x",
+        }),
+      ),
     ).toBe(true);
     expect(isDefiniteSendFailure(protocol({ rpcCode: -32602 }))).toBe(true);
     expect(isDefiniteSendFailure(protocol({ rpcCode: -32603 }))).toBe(false);
@@ -216,7 +222,11 @@ describe("which failed sends did nothing", () => {
     expect(isAmbiguous(protocol({ httpStatus: 503 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32603 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32602 }))).toBe(false);
-    expect(isAmbiguous(new A2ACallerRejectedError(401, "a2a.caller-x", "x"))).toBe(false);
+    expect(
+      isAmbiguous(
+        new A2ACallerRejectedError({ httpStatus: 401, wireCode: "a2a.caller-x", reason: "x" }),
+      ),
+    ).toBe(false);
     expect(isAmbiguous(new Error("an OutboundCalls refusal"))).toBe(false);
   });
 });
@@ -236,7 +246,11 @@ describe("wireErrorOf: codes only", () => {
 
   it("passes the client's own errors through, found in the causes", () => {
     const network = new A2ANetworkError(new TypeError("reset"));
-    const refused = new A2ACallerRejectedError(401, "a2a.caller-x", "x");
+    const refused = new A2ACallerRejectedError({
+      httpStatus: 401,
+      wireCode: "a2a.caller-x",
+      reason: "x",
+    });
     const origin = new A2AOriginError({
       agent: "a",
       origin: "https://e",

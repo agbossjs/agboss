@@ -25,7 +25,8 @@ import {
   StepFailedError,
 } from "../../src/index.js";
 import { ActionFailedError } from "../../src/flow/runtime/errors.js";
-import { CompensationFailedError, CompensationReason } from "../../src/flow/compensation.js";
+import { CompensationReason } from "../../src/flow/compensation.js";
+import { CompensationFailedError } from "../../src/flow/compensation.js";
 import {
   causeOfMark,
   unwindingMarkOf,
@@ -62,7 +63,10 @@ const child = {
   workflow: { name: "pay-workflow", version: "1.0.0", startedVersion: "1.0.0", configHash: "h" },
 };
 
-const declined = new ActionFailedError("charge-action", new PaymentDeclinedError("declined"));
+const declined = new ActionFailedError({
+  action: "charge-action",
+  cause: new PaymentDeclinedError("declined"),
+});
 
 describe("#598: a failure rebuilt from its durable record routes as the original", () => {
   it("the rebuilt failure's record is the original's, its details left out", () => {
@@ -84,8 +88,22 @@ describe("#598: a failure rebuilt from its durable record routes as the original
   it("wrapped again on another instance, every side path's class matches it as the original", () => {
     const classes = [StepFailedError, PaymentDeclinedError, CardError, CardExpiredError, Error];
     for (const failure of [declined, new CardExpiredError("x"), new Error("plain")]) {
-      const here = errorRecordOf(new ChildExecutionFailedError(child, failure, []));
-      const there = errorRecordOf(new ChildExecutionFailedError(child, stored(failure), []));
+      const here = errorRecordOf(
+        new ChildExecutionFailedError({
+          childExecutionId: child.executionId,
+          workflow: child.workflow,
+          cause: failure,
+          usage: [],
+        }),
+      );
+      const there = errorRecordOf(
+        new ChildExecutionFailedError({
+          childExecutionId: child.executionId,
+          workflow: child.workflow,
+          cause: stored(failure),
+          usage: [],
+        }),
+      );
       // errorHandlerOf ranks the side paths by these matches: the same matches, the same path
       for (const errorClass of classes) {
         const code = codeOfErrorClass(errorClass);
@@ -134,8 +152,11 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     expect(withoutDetails(errorRecordOf(causeOfMark(unwindingMarkOf(declined))))).toEqual(
       withoutDetails(errorRecordOf(declined)),
     );
-    const cancelled = causeOfMark(unwindingMarkOf(new ExecutionCancelledError("stop")));
+    const cancelled = causeOfMark(
+      unwindingMarkOf(new ExecutionCancelledError({ message: "stop" })),
+    );
     expect(cancelled).toBeInstanceOf(ExecutionCancelledError);
+    expect(cancelled.message).toBe("stop");
   });
 
   it("a mark written before #598 (no record) is an AGBossError with the message on every instance", () => {
@@ -159,18 +180,16 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
   });
 
   it("a rebuilt budget's or failed undo's error keeps its class line: it passes a child's boundary as it is", () => {
-    const budget = new BudgetExceededError(
-      {
-        budget: { name: "b" },
-        scope: BudgetScope.Tenant,
-        key: "acme",
-        maxSpend: usd(1),
-        spent: usd(2),
-      },
-      [],
-      2,
-    );
-    const undo = new CompensationFailedError([], declined);
+    const budget = new BudgetExceededError({
+      budget: { name: "b" },
+      scope: BudgetScope.Tenant,
+      key: "acme",
+      maxSpend: usd(1),
+      spent: usd(2),
+      path: [],
+      spentUsd: 2,
+    });
+    const undo = new CompensationFailedError({ failures: [], cause: declined });
 
     expect(stored(budget)?.record.lineage).toContain(BudgetExceededError.code);
     expect(stored(undo)?.record.lineage).toContain(CompensationFailedError.code);
@@ -194,19 +213,17 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     const through = (error: unknown) =>
       childFailureOf(error, ended, [], new AbortController().signal).thrown;
     const budget = stored(
-      new BudgetExceededError(
-        {
-          budget: { name: "b" },
-          scope: BudgetScope.Tenant,
-          key: "acme",
-          maxSpend: usd(1),
-          spent: usd(2),
-        },
-        [],
-        2,
-      ),
+      new BudgetExceededError({
+        budget: { name: "b" },
+        scope: BudgetScope.Tenant,
+        key: "acme",
+        maxSpend: usd(1),
+        spent: usd(2),
+        path: [],
+        spentUsd: 2,
+      }),
     );
-    const undo = stored(new CompensationFailedError([], declined));
+    const undo = stored(new CompensationFailedError({ failures: [], cause: declined }));
 
     expect(through(budget)).toBe(budget);
     expect(through(undo)).toBe(undo);

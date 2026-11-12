@@ -115,5 +115,5 @@ export function extractRunContext(
 
 /** A cancelled run stops before its next model or tool call. */
 export function throwIfCancelled(run: RunContext): void {
-  if (run.signal.aborted) throw new ExecutionCancelledError("the run was cancelled");
+  if (run.signal.aborted) throw new ExecutionCancelledError({ message: "the run was cancelled" });
 }

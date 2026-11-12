@@ -20,7 +20,7 @@ describe("#533: an answer to a fence that is over", () => {
   it("a confirmed renewal after the fence was lost moves no deadline: it throws the loss", async () => {
     const clock = new VirtualClock();
     const { fence, lost } = fenceOf(clock, seconds(30));
-    const loss = new ExecutionLeaseLostError("root-1");
+    const loss = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
     lost.abort(loss);
     const until = fence.trustedUntil;
     await clock.advance(seconds(10));
@@ -73,10 +73,21 @@ describe("#533: the background renewal", () => {
   }
 
   it("stops at a lost lease: no renewal after the one that found it", async () => {
-    await expect(renewalsWhile(new ExecutionLeaseLostError("root-1"))).resolves.toBe(1);
+    await expect(
+      renewalsWhile(new ExecutionLeaseLostError({ rootExecutionId: "root-1" })),
+    ).resolves.toBe(1);
   });
 
   it("retries any other failure at the next period", async () => {
     await expect(renewalsWhile(new Error("the lease store is down"))).resolves.toBe(3);
+  });
+});
+
+describe("#906: a lost fence says whose lease it was", () => {
+  it("lose() without a reason aborts with an ExecutionLeaseLostError naming the root execution", () => {
+    const { fence, lost } = fenceOf(new VirtualClock(), seconds(30));
+
+    expect(() => fence.lose()).toThrow(ExecutionLeaseLostError);
+    expect(lost.signal.reason).toMatchObject({ rootExecutionId: "root-1" });
   });
 });

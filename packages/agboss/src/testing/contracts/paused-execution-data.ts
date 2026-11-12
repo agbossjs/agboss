@@ -18,7 +18,7 @@ export const pausedRunOf = (threadId: string, runId = "run-1"): PausedExecution 
     runId,
     threadId,
     tenantId: "default",
-    ternId: "tern-1",
+    turnId: "turn-1",
     status: ExecutionStatus.Paused,
     start: "order-workflow-start",
     startInput: { text: "charge" },

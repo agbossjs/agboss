@@ -32,10 +32,10 @@ export const isChildPlacement = (value: unknown): value is ChildPlacement => PLA
 export function placementOptionOf(options: unknown, call: string): ChildPlacement | undefined {
   if (options === undefined) return undefined;
   if (typeof options !== "object" || options === null)
-    throw new FlowSyntaxError(`${call} takes an options object`);
+    throw new FlowSyntaxError({ message: `${call} takes an options object` });
   const placement: unknown = Reflect.get(options, "placement");
   if (placement === undefined || isChildPlacement(placement)) return placement;
-  throw new FlowSyntaxError(
-    `${call} takes a ChildPlacement: ChildPlacement.ParentInstance or ChildPlacement.AnyInstance`,
-  );
+  throw new FlowSyntaxError({
+    message: `${call} takes a ChildPlacement: ChildPlacement.ParentInstance or ChildPlacement.AnyInstance`,
+  });
 }

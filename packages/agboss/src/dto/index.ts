@@ -26,7 +26,13 @@ export {
   Uuid,
   type ListItem,
 } from "./decorators.js";
-export { DtoError, DtoValidationError, type DtoErrorCode, type DtoIssue } from "./errors.js";
+export {
+  DtoError,
+  DtoValidationError,
+  type DtoValidationErrorOptions,
+  type DtoErrorCode,
+  type DtoIssue,
+} from "./errors.js";
 export type {
   DtoClass,
   FieldDecorator,

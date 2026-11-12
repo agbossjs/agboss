@@ -1166,11 +1166,11 @@ export const GENERATED_TYPES_FILE = ".agboss/types.d.ts";
 // @public (undocumented)
 export const goldenFile: (root: string, bundle: string, name: string) => string;
 
-// Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point internal.d.ts
+// Warning: (ae-forgotten-export) The symbol "TurnRecords" needs to be exported by the entry point internal.d.ts
 // Warning: (ae-forgotten-export) The symbol "GoldenSet" needs to be exported by the entry point internal.d.ts
 //
 // @public
-export function goldenFromRecent(terns: TernRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
+export function goldenFromRecent(turns: TurnRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
 
 // @public
 export interface GraphDeps<TName extends string> {
@@ -1872,8 +1872,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/flow/context/runtime-contexts.ts:25:3 - (ae-undocumented) Missing documentation for "application".
 // src/flow/context/runtime-contexts.ts:26:3 - (ae-undocumented) Missing documentation for "tenantContext".
 // src/flow/context/runtime-contexts.ts:27:3 - (ae-undocumented) Missing documentation for "executionContext".
-// src/flow/runtime/start-input.ts:91:3 - (ae-undocumented) Missing documentation for "start".
-// src/flow/runtime/start-input.ts:92:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/runtime/start-input.ts:101:3 - (ae-undocumented) Missing documentation for "start".
+// src/flow/runtime/start-input.ts:102:3 - (ae-undocumented) Missing documentation for "input".
 // src/graph/deps.ts:34:3 - (ae-undocumented) Missing documentation for "config".
 // src/graph/deps.ts:35:3 - (ae-undocumented) Missing documentation for "registry".
 // src/graph/deps.ts:79:3 - (ae-undocumented) Missing documentation for "observer".

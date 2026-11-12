@@ -131,7 +131,7 @@ function refuseLoop(call: A2AMeshCall): void {
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) throw new MeshLoopDetectedError(entry, chain);
+  if (isLoop) throw new MeshLoopDetectedError({ entry, chain });
 }
 
 /**

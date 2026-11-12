@@ -158,7 +158,7 @@ export async function isUnwinding(
  */
 export function causeOfMark(mark: UnwindingMark): Error {
   if (mark.reason === CompensationReason.ExecutionCancelled)
-    return new ExecutionCancelledError(mark.cause.message);
+    return new ExecutionCancelledError({ message: mark.cause.message });
   return mark.error === undefined
     ? new AGBossError(mark.cause.message)
     : new RecordedError(mark.error);

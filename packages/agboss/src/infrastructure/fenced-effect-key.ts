@@ -38,7 +38,7 @@ import type {
  * stores outside the core, #526: before any statement, as the core's stores check it).
  */
 export function assertEffectName(name: string): void {
-  if (!isEffectName(name)) throw new InvalidFencedEffectNameError(name.length);
+  if (!isEffectName(name)) throw new InvalidFencedEffectNameError({ length: name.length });
 }
 
 /**
@@ -276,6 +276,7 @@ export {
   fingerprintsOf,
   fingerprintsUnder,
   IdempotencyKeyMissingError,
+  type IdempotencyKeyMissingErrorOptions,
   isKeyFingerprint,
   type BusinessKeyOptions,
   type EffectKeyOptions,
@@ -291,6 +292,7 @@ export {
   BusinessKeyConflictError,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
+  type InvalidFencedEffectNameErrorOptions,
   type BusinessKeyConflictErrorOptions,
   type FingerprintNotJsonErrorOptions,
   type InvalidBusinessKeyErrorOptions,

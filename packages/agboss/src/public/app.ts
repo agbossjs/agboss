@@ -101,6 +101,7 @@ export {
 } from "../infrastructure/execution-history.repository.js";
 export {
   IncompatibleResumeError,
+  type IncompatibleResumeErrorOptions,
   type IncompatibleResume,
   type IncompatibleResumePolicy,
   type ResumeDecision,

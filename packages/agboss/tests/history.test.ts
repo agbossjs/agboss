@@ -57,7 +57,7 @@ describe("threads and history (#272 S8: a turn is its start input and finish out
 
     const result = await runText("Hi", deps);
 
-    expect(await deps.terns.hasThread("test-bundle-workflow", "default", result.threadId)).toBe(
+    expect(await deps.turns.hasThread("test-bundle-workflow", "default", result.threadId)).toBe(
       true,
     );
   });

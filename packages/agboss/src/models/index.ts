@@ -76,6 +76,7 @@ export { ModelFailure } from "./model-failure.js";
 export {
   CircuitBreaker,
   ModelCallError,
+  type ModelCallErrorOptions,
   type CircuitBreakerPolicy,
   type CircuitBreakerStore,
   type ModelCallErrorCode,

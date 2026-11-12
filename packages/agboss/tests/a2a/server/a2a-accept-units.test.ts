@@ -204,7 +204,7 @@ describe("#824: a start the app refused", () => {
   };
 
   it("before its execution began: fenced, then FAILED with the refusal's code", async () => {
-    const { script, read } = await refusedWith(new DuplicateExecutionIdError("G"));
+    const { script, read } = await refusedWith(new DuplicateExecutionIdError({ generator: "G" }));
     const refused = await refusedWith(Object.assign(new Error("x"), { name: "BudgetError" }));
 
     expect(script.calls.filter((call) => call.startsWith("claim"))).toEqual([]);

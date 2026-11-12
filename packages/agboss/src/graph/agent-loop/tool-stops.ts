@@ -65,13 +65,21 @@ export function stopErrorOf(
 ): StepFailedError {
   const kept = takeStopCause(call.runId, call.callId);
   if (stop.kind === ToolCallStopKind.Blocked)
-    return new ToolBlockedError(
-      { agent: call.agent, tool: call.tool, interceptor: stop.interceptor, reason: stop.reason },
+    return new ToolBlockedError({
+      agent: call.agent,
+      tool: call.tool,
+      interceptor: stop.interceptor,
+      reason: stop.reason,
       usage,
-    );
+    });
   const cause = kept ?? new Error(stop.reason);
-  return new AgentFailedError(call.agent, usage, cause, {
-    tool: call.tool,
-    interceptor: stop.interceptor,
+  return new AgentFailedError({
+    agent: call.agent,
+    usage,
+    cause,
+    details: {
+      tool: call.tool,
+      interceptor: stop.interceptor,
+    },
   });
 }

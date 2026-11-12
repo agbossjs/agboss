@@ -9,7 +9,7 @@ import type { CostLedgerRepository } from "./cost-ledger.repository.js";
 import type { Clock } from "./clock.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
-import type { Turn } from "../terns/index.js";
+import type { Turn } from "../turns/index.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import {
   ExecutionRecordStatus,

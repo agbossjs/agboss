@@ -156,7 +156,7 @@ export { applicationModelUsesOf, resolvedModelUsesOf } from "./models/resolution
 export { frameworkPackageJson } from "./package-json.js";
 export { type ExecutionStreamEvent } from "./run/types.js";
 export { childSourcesIn, configSnapshot, type ChildSnapshotSources } from "./run/versions.js";
-export { shortVersion, versionOf } from "./terns/index.js";
+export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";
 export { applicationOf, type AssembledApplication } from "./application/assemble.js";
 export { environmentOwnerOf } from "./application/create-app.js";

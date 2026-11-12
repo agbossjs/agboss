@@ -3,7 +3,7 @@ import {
   ExecutionRecordStatus,
   type ExecutionRecordRepository,
 } from "../../infrastructure/execution-record.repository.js";
-import type { NewTurn, TurnOutcome } from "../../terns/index.js";
+import type { NewTurn, TurnOutcome } from "../../turns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import { pauseAnswerCases } from "./pause-answer-log.cases.js";
@@ -149,8 +149,8 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         threadId: thread,
         bundle: "desk-workflow",
         compaction: "conversation-compaction",
-        fromTernId: turn.id,
-        toTernId: turn.id,
+        fromTurnId: turn.id,
+        toTurnId: turn.id,
         turns: 1,
         text: NUL_TEXT,
         costUsd: 0,

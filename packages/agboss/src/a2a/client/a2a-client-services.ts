@@ -55,6 +55,8 @@ export const storedFileReaderOf =
   (file: A2AFileDto): Promise<Uint8Array> => {
     const files = services?.files?.();
     return files === undefined
-      ? Promise.reject(new A2AFileUnavailableError(A2AFileUnavailableReason.OutsideExecution))
+      ? Promise.reject(
+          new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.OutsideExecution }),
+        )
       : files.read(file);
   };

@@ -18,7 +18,7 @@ import {
   routerModelSource,
 } from "./defaults.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
-import { shortVersion, versionOf } from "../terns/index.js";
+import { shortVersion, versionOf } from "../turns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";

@@ -30,7 +30,7 @@ export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta 
     executionContext: options.executionContext ?? ExecutionContext,
   };
   const issues = caseValueIssues(meta.start, contexts, meta.cases);
-  if (issues.length > 0) throw new EvalCaseInvalidError(meta.name, issues);
+  if (issues.length > 0) throw new EvalCaseInvalidError({ suite: meta.name, issues });
   return meta;
 }
 

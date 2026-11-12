@@ -148,7 +148,7 @@ export function quorumNotReached(
     counted: decision.outcome.counted.length,
     reason: reasonOf(site),
   };
-  const error = new QuorumNotReachedError(ticket.launchId, step, shortfall);
+  const error = new QuorumNotReachedError({ launch: ticket.launchId, ...step, ...shortfall });
   const record = errorRecordOf(error);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;

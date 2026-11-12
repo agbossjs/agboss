@@ -12,7 +12,7 @@ import type { Class } from "../../../src/components/injection.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { start } from "../../helpers/flow.js";
-import { createSqliteTernStore } from "../../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import {

@@ -121,9 +121,13 @@ async function askedOrFailed<TAnswer>(
     return await ask();
   } catch (error) {
     if (isQuestion && error instanceof DtoValidationError)
-      throw new AgentFailedError(deps.agent.name, loopUsage(state), error);
+      throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
     if (!(error instanceof ChannelSendError)) throw error;
-    throw new AgentFailedError(deps.agent.name, loopUsage(state), error.cause);
+    throw new AgentFailedError({
+      agent: deps.agent.name,
+      usage: loopUsage(state),
+      cause: error.cause,
+    });
   }
 }
 
@@ -143,7 +147,12 @@ function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool:
   const maxVisits = tool.question?.maxVisits;
   const spent = totalCost(state.usage);
   if (maxVisits !== undefined && askedOf(state, tool) >= maxVisits)
-    throw new VisitsLimitExceededError(toolRecordOf(tool), maxVisits, state.flowPath, spent);
+    throw new VisitsLimitExceededError({
+      component: toolRecordOf(tool),
+      maxVisits,
+      path: state.flowPath,
+      spentUsd: spent,
+    });
   deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
   currentFrame()?.execution.lease?.assertHeld();
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { appWithKeys } from "../models/gateway.js";
 import { ConfigurationError } from "../../src/models/index.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ChatStart } from "../channels/approval.workflow.js";
 import { completion, providerStub } from "../models/stub.js";
 import { UnmappedFallbackApplication, WithFallbackApplication } from "./fallback.workflow.js";

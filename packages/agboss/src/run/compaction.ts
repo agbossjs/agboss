@@ -9,7 +9,7 @@ import type { ModelBinding } from "../llm/registry.js";
 import { isCutAtLimit } from "../models/finish-reason.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
 import { SHORTER_SUMMARY_REQUEST } from "../prompts/compaction.js";
-import type { Summary, Turn } from "../terns/index.js";
+import type { Summary, Turn } from "../turns/index.js";
 import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
 import { summaryInputTextOf } from "./compaction-input.js";
 
@@ -61,8 +61,8 @@ export interface CompactionOutcome {
   readonly compacted: readonly Compacted[];
 }
 
-const asTurns = (terns: readonly Turn[]): string =>
-  toTurns(terns)
+const asTurns = (turns: readonly Turn[]): string =>
+  toTurns(turns)
     .map((turn) => `${turn.start}\n${turn.finish}`)
     .join("\n\n");
 
@@ -92,7 +92,7 @@ async function inputOf<TName extends string>(
   const [first] = due;
   const { tenantId, threadId } = run;
   if (compaction.strategy === CompactionStrategy.SingleSummary) {
-    const [current] = await deps.terns.latestSummaries(tenantId, threadId, compaction.name, 1);
+    const [current] = await deps.turns.latestSummaries(tenantId, threadId, compaction.name, 1);
     const parts = { earlier: "", due: asTurns(due) };
     if (current === undefined) return { text: summaryInputTextOf(compaction.strategy, parts) };
     return {
@@ -103,7 +103,7 @@ async function inputOf<TName extends string>(
   const previous =
     first === undefined
       ? []
-      : await deps.terns.before(tenantId, threadId, first.id, compaction.turnsBetweenCompactions);
+      : await deps.turns.before(tenantId, threadId, first.id, compaction.turnsBetweenCompactions);
   return {
     text: summaryInputTextOf(compaction.strategy, {
       earlier: asTurns(previous),
@@ -130,7 +130,12 @@ async function summaryCall(
   } catch (error) {
     if (error instanceof CompactionError) throw error;
     const message = `${compaction.name}: the summary's model call failed`;
-    throw new CompactionError(message, compaction.name, compaction.summaryMaxTokens, error);
+    throw new CompactionError({
+      message,
+      compaction: compaction.name,
+      summaryMaxTokens: compaction.summaryMaxTokens,
+      cause: error,
+    });
   }
 }
 
@@ -150,11 +155,11 @@ export async function summaryOf(
     run,
   );
   if (isCutAtLimit(shorter.answer)) {
-    throw new CompactionError(
-      `${compaction.name}: the summary did not fit in summaryMaxTokens ${String(compaction.summaryMaxTokens)}, also when asked to be shorter`,
-      compaction.name,
-      compaction.summaryMaxTokens,
-    );
+    throw new CompactionError({
+      message: `${compaction.name}: the summary did not fit in summaryMaxTokens ${String(compaction.summaryMaxTokens)}, also when asked to be shorter`,
+      compaction: compaction.name,
+      summaryMaxTokens: compaction.summaryMaxTokens,
+    });
   }
   return { text: shorter.answer.text, usage: [first.usage, shorter.usage] };
 }
@@ -174,10 +179,14 @@ async function compactWithModel<TName extends string>(
   const text = revealedText(summary.text.trim(), masked.tokens).text;
   if (text === "") {
     const message = `${compaction.name}: the model wrote an empty summary`;
-    throw new CompactionError(message, compaction.name, compaction.summaryMaxTokens);
+    throw new CompactionError({
+      message,
+      compaction: compaction.name,
+      summaryMaxTokens: compaction.summaryMaxTokens,
+    });
   }
   const { tenantId, threadId } = run;
-  const count = (await deps.terns.summaryCount(tenantId, threadId, compaction.name)) + 1;
+  const count = (await deps.turns.summaryCount(tenantId, threadId, compaction.name)) + 1;
   const compacted = await storedCompaction(deps, run, {
     compaction: compaction.name,
     due,
@@ -205,7 +214,7 @@ async function compactOne<TName extends string>(
   run: CompactionRun,
 ): Promise<CompactedOne> {
   const { tenantId, threadId } = run;
-  const due = dueOf(compaction, await deps.terns.uncovered(tenantId, threadId, compaction.name));
+  const due = dueOf(compaction, await deps.turns.uncovered(tenantId, threadId, compaction.name));
   if (due.length === 0) return { usage: [] };
   return compaction.strategy === CompactionStrategy.Custom
     ? compactWithHandler(deps, compaction, run, due)

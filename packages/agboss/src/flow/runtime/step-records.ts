@@ -2,7 +2,7 @@ import type { ErrorRecord } from "../../core/error-record.js";
 import type { GuardrailSide } from "../../components/policy-decorators.js";
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { buildCostReport, type CostReport, type UsageRecord } from "../../finops/usage.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import type { StepRecord } from "../context/execution-context.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "./records.js";
 

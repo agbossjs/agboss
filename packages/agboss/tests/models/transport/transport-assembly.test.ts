@@ -20,7 +20,7 @@ import {
   type ModelProviderResponse,
 } from "../../../src/models/index.js";
 import { configSnapshot } from "../../../src/run/versions.js";
-import { versionOf } from "../../../src/terns/index.js";
+import { versionOf } from "../../../src/turns/index.js";
 import { minutes, seconds } from "../../../src/units/index.js";
 import { BedrockApplication, bedrockApplicationOn } from "./bedrock-apps.fixture.js";
 import {

@@ -3,7 +3,7 @@
  * minor release as deprecated aliases, re-exported by `export *` so that no module of the core
  * names them; removed in 0.2.
  */
-import type { NewTurn, Turn, TurnOutcome, TurnStatus, TurnStep } from "../terns/index.js";
+import type { NewTurn, Turn, TurnOutcome, TurnStatus, TurnStep } from "../turns/index.js";
 
 /** @deprecated Use {@link Turn} (#890); removed in 0.2. */
 export type Tern = Turn;

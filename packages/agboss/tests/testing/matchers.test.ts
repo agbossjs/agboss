@@ -99,20 +99,23 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
   });
 
   it("toFailWith matches a class and its fields along the cause chain (#262 AC10)", () => {
-    const router = new RouterDecisionError(
-      { nodeId: "main-router", visitNumber: 1 },
-      '"ghost-agent" is not one of its routes',
-    );
-    const limit = new LimitExceededError(
-      { key: "maxSteps", limit: 1, actual: 2 },
-      ["writer-agent"],
-      2,
-    );
-    const agent = new AgentFailedError(
-      "writer-agent",
-      [],
-      new TestFailure("test.script-exhausted", "x"),
-    );
+    const router = new RouterDecisionError({
+      nodeId: "main-router",
+      visitNumber: 1,
+      reason: '"ghost-agent" is not one of its routes',
+    });
+    const limit = new LimitExceededError({
+      key: "maxSteps",
+      limit: 1,
+      actual: 2,
+      path: ["writer-agent"],
+      spentUsd: 2,
+    });
+    const agent = new AgentFailedError({
+      agent: "writer-agent",
+      usage: [],
+      cause: new TestFailure("test.script-exhausted", "x"),
+    });
     const rules = new GraphRuleError([
       { code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] },
     ]);

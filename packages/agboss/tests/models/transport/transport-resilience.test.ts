@@ -36,7 +36,7 @@ describe("#385: the gateway's policies run around complete()", { timeout: 20_000
 
   it("retryPolicy: a ModelFailure.ServerError is retried after its backoff — one call, paid once", async () => {
     const clock = new VirtualClock();
-    const failure = new ModelProviderFailureError(ModelFailure.ServerError);
+    const failure = new ModelProviderFailureError({ failure: ModelFailure.ServerError });
     const client = new ScriptedBedrockClient([failure, answer("ok")], clock);
     const app = await transportApp(BedrockApplication, { client, clock });
 
@@ -50,7 +50,8 @@ describe("#385: the gateway's policies run around complete()", { timeout: 20_000
 
   it("a 429 with retryAfter pauses the provider's whole queue: another execution waits too", async () => {
     const clock = new VirtualClock();
-    const limited = new ModelProviderFailureError(ModelFailure.RateLimited, {
+    const limited = new ModelProviderFailureError({
+      failure: ModelFailure.RateLimited,
       retryAfter: seconds(3),
     });
     const client = new ScriptedBedrockClient([limited, answer("ok")], clock);

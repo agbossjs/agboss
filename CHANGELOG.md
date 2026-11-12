@@ -67,6 +67,61 @@ scopeKey, token, observedToken })` reads and checks a scope key; `new ExecutionF
     cancel won over, #811 s18c) is marked `Taken`, its answer kept, so the sweep removes it after
     `retention.pauseRecords` — it stayed `Resolved` forever before.
 
+- **One shape for every error, literal codes, the last `Tern` names** (#906, completing #890 / G8):
+  - **Every exported `AGBossError` subclass is made from one options object** whose keys are its own
+    properties, `cause` among them (typed; kept as `.cause`): `new DtoValidationError({ dto, issues })`,
+    `new ActionFailedError({ action, cause })`, `new LimitExceededError({ key, limit, actual, path,
+spentUsd })`, `new BudgetExceededError({ budget, scope, period, key, maxSpend, spent, path,
+spentUsd })`, `new StepsLimitExceededError({ workflow, maxSteps, path, spentUsd })`, `new
+PaidStepError({ message, usage, cause })`, `new StepFailedError({ message, usage, cause,
+component, nodeId, visitNumber })`, `new AgentFailedError({ agent, usage, cause })`, `new
+RouterFailedError({ nodeId, visitNumber, cause })`, `new A2AProtocolError({ agent, operation,
+…, cause })`, `new A2ACallerRejectedError({ httpStatus, wireCode, reason })`, `new
+UninterpretableReplyError({ message, reason })`, `new ModelProviderFailureError({ failure,
+retryAfter })`, `new ModelCallError({ code, provider, message })`, `new ToolTimeoutError({ timeout
+})`, … An error with nothing but its text: `new UnknownPauseError({ message, cause })` (also
+    `FlowSyntaxError`, `NotPausedError`, `ExecutionCancelledError({ message? })`,
+    `ApplicationStoppingError`, the `DecisionError` family, …). `cause` was refused or dropped on
+    `BusinessKeyConflictError`, `ThreadIdsExhaustedError`, `InvalidMintedIdError`,
+    `FingerprintNotJsonError`, `InvalidBusinessKeyError`, `OutboundCallInFlightError`,
+    `OutboundCallResultNotStoredError`, `OutboundCallPayloadTooLargeError`,
+    `FencedEffectResultTooLargeError`, `ExecutionFencedError` — each takes it now. The base
+    `AGBossError(message, { cause, details })` stays as it is, the base of your own errors.
+    Facts that the message only said are fields now: `GuardFailedError.reason`,
+    `QuorumNotReachedError.reason`, `ActionFailedError.action`, `BudgetExceededError.period`,
+    `A2ACallerRejectedError.reason`, `InvalidFencedEffectNameError.length`,
+    `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ModelKindError.model` / `.kind` /
+    `.call`, `ToolTimeoutError.timeout`. `AgentAnswerInvalidError` takes what was wrong with the
+    answer as its `cause`, `GuardrailBlockedError`'s `{ probability, threshold }` and
+    `DeadlineExceededError`'s `{ deadline, deadlineAt }` are plain options.
+  - **`FingerprintRequiredError({ effect, reason, cause })`:** the option was `name`, the field is
+    `.effect` — and `name` shadowed `Error.name`.
+  - **`switch (error.code)` narrows** over a union of error instances: the instance `code` of every
+    error is its class's literal (`declare readonly code: typeof X.code`; `ModelCallError.code` is
+    `"model.circuit-open"`). The seven parents with subclasses carry the **literal union of their
+    family** — not `string`: `PaidStepError` (its own `step`, the `step.*` family, the
+    `outbound-call.*` step failures, `guardrail.blocked`, `pii.refused`, `pii.detection-failed`),
+    `StepFailedError` (the same without `step`, `guardrail.blocked` and the two `pii.*`),
+    `AgentFailedError` (`step.agent`, `.quality-gate`, `.invalid-answer`), `LimitExceededError`
+    (`limit`, `.budget`, `.steps`, `.visits`, `.depth`, `.deadline`, `.mesh-loop`, `.hops`),
+    `RouterFailedError` (`step.router`, `.invalid-decision`), `DecisionError` (`model.decision`,
+    `.invalid-request`, `.invalid-response`) and `ExecutionLeaseLostError` (`execution.lease-lost`,
+    `.fenced`). Their `static code` stays `string` (a subclass overrides it). A class of your own
+    extending one of them keeps its `static code` and must keep the instance `code` assignable to the
+    union — or extend `AGBossError`.
+  - **`Turn`, to the end:** `ExecutionRecordRepository.lastTerns` → `lastTurns`,
+    `Summary.fromTernId` / `toTernId` → `fromTurnId` / `toTurnId`, `AgentExecutionDeps.terns:
+TernRecords` → `turns: TurnRecords`, `TernStoreRecordRepository` → `TurnStoreRecordRepository`, `AgentExecutionOutput.ternId` →
+    `turnId`, the
+    contract's parameters (`ternId` → `turnId`, `tern` → `turn`) and the module `src/terns` →
+    `src/turns`; `@agboss/postgres` and `@agboss/mongodb` rename the method in their stores. Only the
+    five deprecated aliases (`Tern`, `NewTern`, `TernOutcome`, `TernStatus`, `TernStep`) keep the
+    name. **Stored names:** the core's SQLite tables and columns (`terns`, `tern_id`, `from_tern`,
+    `to_tern`) stay as they are — a rename is a data migration of a kept database, for no reader's
+    gain; a paused run stored by 0.1.0 names its record `ternId` and is read as `turnId`
+    (`AgentExecutionOutput.ternId` → `turnId`, no migration); the unreleased MongoDB and PostgreSQL
+    stores write `fromTurnId` / `toTurnId` (MongoDB) from the start.
+
 - **The execution audit log and the metric names** (#889, API review G6):
   - **The lease log is the execution audit log** — it keeps takeovers, hand-overs, fenced effects and
     outbound calls, not only leases. `ExecutionLeaseEventRepository` → `ExecutionAuditLogRepository`

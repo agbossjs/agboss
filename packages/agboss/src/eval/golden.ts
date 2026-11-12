@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
-import type { TernRecords } from "../terns/index.js";
+import type { TurnRecords } from "../turns/index.js";
 
 /** A saved set of tasks for reproducible comparisons: `golden/<workflow>/<name>.yaml`. */
 export const GoldenSetSchema = z.strictObject({
@@ -40,14 +40,14 @@ export async function saveGolden(file: string, set: GoldenSet): Promise<void> {
 
 /** The last `limit` distinct real tasks of a workflow (answered, not replays), oldest first. */
 export async function goldenFromRecent(
-  terns: TernRecords,
+  turns: TurnRecords,
   bundle: string,
   name: string,
   limit: number,
   now: () => Date = () => systemClock.now(),
 ): Promise<GoldenSet> {
-  const recent = await terns.recentOriginals(bundle, limit);
-  const tasks = [...new Set(recent.map((tern) => tern.task))].map((task) => ({ task }));
+  const recent = await turns.recentOriginals(bundle, limit);
+  const tasks = [...new Set(recent.map((turn) => turn.task))].map((task) => ({ task }));
   if (tasks.length === 0) throw new GoldenSetError(`No answered tasks of "${bundle}" to save`);
   return { name, bundle, created: now().toISOString(), tasks };
 }

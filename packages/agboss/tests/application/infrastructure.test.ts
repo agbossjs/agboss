@@ -15,7 +15,7 @@ import { buildApplication } from "../../src/application/create-app.js";
 import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
-import { UnknownThreadError } from "../../src/run/thread.js";
+import { UnknownThreadError } from "../../src/core/errors.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";

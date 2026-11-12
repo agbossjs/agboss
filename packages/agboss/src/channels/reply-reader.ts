@@ -14,7 +14,7 @@ import {
   REPLY_INTERPRETER_SYSTEM,
   replyInputMessage,
 } from "../prompts/reply-interpreter.js";
-import { UninterpretableReplyError } from "./channel-role.decorator.js";
+import { UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";

@@ -173,19 +173,28 @@ export type JevModelProvider = DecisionsModelProvider;
 //
 // @public
 export class ModelCallError extends AGBossError {
-    constructor(code: ModelCallErrorCode, provider: string, message: string);
-    // (undocumented)
-    readonly code: ModelCallErrorCode;
+    constructor(options: ModelCallErrorOptions);
     // (undocumented)
     static readonly code: "model";
     // (undocumented)
-    name: string;
+    readonly code: ModelCallErrorCode;
     // (undocumented)
+    name: string;
     readonly provider: string;
 }
 
 // @public
 export type ModelCallErrorCode = "model.circuit-open";
+
+// @public
+export interface ModelCallErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly code: ModelCallErrorCode;
+    // (undocumented)
+    readonly message: string;
+    readonly provider: string;
+}
 
 // @public
 export interface ModelCapabilities {
@@ -290,9 +299,11 @@ export class ModelProviderError extends Error {
 
 // @public
 export class ModelProviderFailureError extends AGBossError {
-    constructor(failure: ModelFailure, options?: ModelProviderFailureOptions);
+    constructor(options: ModelProviderFailureOptions);
     // (undocumented)
     static readonly code: "model.provider-failure";
+    // (undocumented)
+    readonly code: typeof ModelProviderFailureError.code;
     // (undocumented)
     readonly failure: ModelFailure;
     // (undocumented)
@@ -303,6 +314,7 @@ export class ModelProviderFailureError extends AGBossError {
 export interface ModelProviderFailureOptions {
     // (undocumented)
     readonly cause?: unknown;
+    readonly failure: ModelFailure;
     readonly retryAfter?: Milliseconds;
 }
 
@@ -732,12 +744,13 @@ export interface WireRequest {
 // src/models/circuit-breaker.ts:15:3 - (ae-undocumented) Missing documentation for "window".
 // src/models/circuit-breaker.ts:16:3 - (ae-undocumented) Missing documentation for "openFor".
 // src/models/circuit-breaker.ts:17:3 - (ae-undocumented) Missing documentation for "fallback".
-// src/models/circuit-breaker.ts:30:48 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
-// src/models/circuit-breaker.ts:44:3 - (ae-undocumented) Missing documentation for "rateLimits".
-// src/models/circuit-breaker.ts:45:3 - (ae-undocumented) Missing documentation for "clock".
+// src/models/circuit-breaker.ts:35:3 - (ae-undocumented) Missing documentation for "message".
+// src/models/circuit-breaker.ts:36:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/circuit-breaker.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:43:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:57:3 - (ae-undocumented) Missing documentation for "rateLimits".
+// src/models/circuit-breaker.ts:58:3 - (ae-undocumented) Missing documentation for "clock".
 // src/models/cost.ts:6:3 - (ae-undocumented) Missing documentation for "inputPerMillion".
 // src/models/cost.ts:7:3 - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts:8:3 - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
@@ -842,10 +855,11 @@ export interface WireRequest {
 // src/models/retry-policy.ts:35:1 - (ae-undocumented) Missing documentation for "RetryPolicyError".
 // src/models/retry-policy.ts:36:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/retry-policy.ts:45:14 - (ae-undocumented) Missing documentation for "RetryPolicy".
-// src/models/transport/failure-error.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
-// src/models/transport/failure-error.ts:19:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/transport/failure-error.ts:20:3 - (ae-undocumented) Missing documentation for "failure".
-// src/models/transport/failure-error.ts:21:3 - (ae-undocumented) Missing documentation for "retryAfter".
+// src/models/transport/failure-error.ts:11:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/transport/failure-error.ts:21:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/transport/failure-error.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/transport/failure-error.ts:23:3 - (ae-undocumented) Missing documentation for "failure".
+// src/models/transport/failure-error.ts:24:3 - (ae-undocumented) Missing documentation for "retryAfter".
 // src/models/transport/transport.ts:15:3 - (ae-undocumented) Missing documentation for "System".
 // src/models/transport/transport.ts:16:3 - (ae-undocumented) Missing documentation for "User".
 // src/models/transport/transport.ts:17:3 - (ae-undocumented) Missing documentation for "Assistant".

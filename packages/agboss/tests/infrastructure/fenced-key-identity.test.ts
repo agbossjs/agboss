@@ -24,7 +24,7 @@ import {
 } from "../../src/infrastructure/fenced-effect-key.js";
 import type { OutboundCallRecord } from "../../src/infrastructure/outbound-call.repository.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
-import { stableJson } from "../../src/terns/versions.js";
+import { stableJson } from "../../src/turns/versions.js";
 import { testFrame } from "../helpers/frame.js";
 
 /** A step's frame with the execution's keys as given. */
@@ -211,7 +211,7 @@ describe("#626: the key errors", () => {
   });
 
   it("InvalidFencedEffectNameError and InvalidBusinessKeyError are named and coded", () => {
-    expect(new InvalidFencedEffectNameError(0)).toMatchObject({
+    expect(new InvalidFencedEffectNameError({ length: 0 })).toMatchObject({
       name: "InvalidFencedEffectNameError",
     });
     const refused = (() => {

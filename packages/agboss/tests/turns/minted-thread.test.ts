@@ -7,7 +7,7 @@
  * owner of the same workflow (its history joined in silence).
  */
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 
 /** Ids in order, as `SequentialIdGenerator` mints them. */
 const sequential = () => {
@@ -22,7 +22,7 @@ const sequential = () => {
 
 describe("#550: a minted thread id is a new thread", () => {
   it("an id another workflow's thread has is skipped: the next one is minted", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date(), sequential());
+    const store = createSqliteTurnStore(":memory:", () => new Date(), sequential());
     await store.createThread({
       workflow: "credit-workflow",
       tenantId: "default",
@@ -40,7 +40,7 @@ describe("#550: a minted thread id is a new thread", () => {
   });
 
   it("an id another owner's thread of the same workflow has is skipped: its history stays its own", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date(), sequential());
+    const store = createSqliteTurnStore(":memory:", () => new Date(), sequential());
     await store.createThread({
       workflow: "desk-workflow",
       tenantId: "default",
@@ -62,7 +62,7 @@ describe("#550: a minted thread id is a new thread", () => {
   });
 
   it("another tenant's thread-1 is no collision: each tenant's key is its own", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date(), sequential());
+    const store = createSqliteTurnStore(":memory:", () => new Date(), sequential());
     await store.createThread({ workflow: "desk-workflow", tenantId: "acme", threadId: "thread-1" });
 
     expect(await store.createThread({ workflow: "desk-workflow", tenantId: "default" })).toBe(
@@ -71,7 +71,7 @@ describe("#550: a minted thread id is a new thread", () => {
   });
 
   it("a caller's own id that exists is kept as it was — the first one keeps it (#262 Q4)", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date(), sequential());
+    const store = createSqliteTurnStore(":memory:", () => new Date(), sequential());
     await store.createThread({
       workflow: "desk-workflow",
       tenantId: "default",

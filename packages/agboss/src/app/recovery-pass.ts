@@ -1,4 +1,4 @@
-import type { TernStore } from "../terns/index.js";
+import type { TurnStore } from "../turns/index.js";
 import type { PausedExecution } from "./paused-runs.js";
 import { continueAgent, type InterruptedRun } from "../run/continue-agent.js";
 import { resumeAgent } from "../run/resume-agent.js";
@@ -24,7 +24,7 @@ export async function recoveryPassOf(
   given: TreeCall,
 ): Promise<RecoveryPass | undefined> {
   const { deps, paused } = parts;
-  if (await recordEndedOf(deps.terns, interrupted.ternId)()) return undefined;
+  if (await recordEndedOf(deps.turns, interrupted.turnId)()) return undefined;
   // its first pass runs again what the tree's earlier holders lost (#853)
   const call = await callWithLostPasses(parts, interrupted, given);
   const stored = await paused.find(interrupted);
@@ -42,8 +42,8 @@ export async function recoveryPassOf(
  * take of its lease — `LeaseTake.isOver` of the sweep's takes.
  */
 export const recordEndedOf =
-  (terns: Pick<TernStore, "byIds">, ternId: string) => async (): Promise<boolean> =>
-    (await terns.byIds([ternId]))[0]?.status !== "running";
+  (turns: Pick<TurnStore, "byIds">, turnId: string) => async (): Promise<boolean> =>
+    (await turns.byIds([turnId]))[0]?.status !== "running";
 
 /** The pass that continues a paused tree with the answers of its pauses. */
 export const resumePassOf =

@@ -14,6 +14,6 @@ describe("interrupted runs", () => {
       "the run was cancelled",
     );
 
-    expect((await deps.terns.summary("test-bundle-workflow"))[0]).toMatchObject({ terns: 1 });
+    expect((await deps.turns.summary("test-bundle-workflow"))[0]).toMatchObject({ turns: 1 });
   });
 });

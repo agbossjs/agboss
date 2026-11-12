@@ -21,6 +21,7 @@ export interface A2AOriginErrorOptions {
   readonly origin: string;
   readonly site: A2AOriginSite;
   readonly allowedOrigins: readonly string[];
+  readonly cause?: unknown;
 }
 
 /**
@@ -30,6 +31,7 @@ export interface A2AOriginErrorOptions {
  */
 export class A2AOriginError extends AGBossError {
   static override readonly code = "a2a.origin-refused" as const;
+  declare readonly code: typeof A2AOriginError.code;
   override name = "A2AOriginError";
   readonly agent: string;
   readonly origin: string;
@@ -39,7 +41,10 @@ export class A2AOriginError extends AGBossError {
   constructor(options: A2AOriginErrorOptions) {
     super(
       `[a2a.origin-refused] A2A agent ${options.agent}: ${options.site} at ${options.origin}, outside its origins (${options.allowedOrigins.join(", ")}) — nothing was sent there; list it in allowedOrigins if it is the agent's`,
-      { details: { agent: options.agent, origin: options.origin, site: options.site } },
+      {
+        cause: options.cause,
+        details: { agent: options.agent, origin: options.origin, site: options.site },
+      },
     );
     this.agent = options.agent;
     this.origin = options.origin;
@@ -64,6 +69,7 @@ export enum A2AMesh {
 export interface A2AMeshUnsupportedErrorOptions {
   readonly agent: string;
   readonly application: string | undefined;
+  readonly cause?: unknown;
 }
 
 /**
@@ -73,6 +79,7 @@ export interface A2AMeshUnsupportedErrorOptions {
  */
 export class A2AMeshUnsupportedError extends AGBossError {
   static override readonly code = "a2a.mesh-unsupported" as const;
+  declare readonly code: typeof A2AMeshUnsupportedError.code;
   override name = "A2AMeshUnsupportedError";
   readonly agent: string;
   readonly application: string | undefined;
@@ -81,7 +88,7 @@ export class A2AMeshUnsupportedError extends AGBossError {
     const target = options.application === undefined ? "" : ` (${options.application})`;
     super(
       `A2A agent ${options.agent}${target} does not declare the AGBoss mesh extension, which the call requires — nothing was sent; mesh: A2AMesh.IfSupported calls it without the mesh`,
-      { details: { agent: options.agent } },
+      { cause: options.cause, details: { agent: options.agent } },
     );
     this.agent = options.agent;
     this.application = options.application;

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { AGBossError } from "../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 
 /**
@@ -15,7 +15,12 @@ export const FTS_SCHEMA_VERSION = 1;
 /** An index file of a later version than this connector knows: it is never rewritten. */
 export class RagIndexVersionError extends AGBossError {
   static override readonly code = "rag.index-version" as const;
+  declare readonly code: typeof RagIndexVersionError.code;
   override name = "RagIndexVersionError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 const Version = z.object({ user_version: z.number() });
@@ -67,9 +72,9 @@ export function openSchema(db: DatabaseSync): void {
   inTransaction(db, () => {
     const version = Version.parse(db.prepare("PRAGMA user_version").get()).user_version;
     if (version > FTS_SCHEMA_VERSION) {
-      throw new RagIndexVersionError(
-        `the index file is of version ${String(version)}, this SqliteFtsConnector knows up to ${String(FTS_SCHEMA_VERSION)} — upgrade @agboss/core, or index into another file`,
-      );
+      throw new RagIndexVersionError({
+        message: `the index file is of version ${String(version)}, this SqliteFtsConnector knows up to ${String(FTS_SCHEMA_VERSION)} — upgrade @agboss/core, or index into another file`,
+      });
     }
     if (version === FTS_SCHEMA_VERSION) return;
     if (tablesOf(db).has("files")) migrateFromVersion0(db);

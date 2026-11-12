@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { toTern } from "./schema.js";
+import { toTurn } from "./schema.js";
 import type { ConfigSnapshot, ConfigStore } from "./types.js";
 
 const SnapshotRow = z.object({
@@ -55,7 +55,7 @@ export function configMethods(db: DatabaseSync, now: () => Date): ConfigStore {
              AND status = 'answered' ORDER BY rowid DESC LIMIT ?) ORDER BY seq`,
           )
           .all(bundle, limit)
-          .map(toTern),
+          .map(toTurn),
       ),
   };
 }

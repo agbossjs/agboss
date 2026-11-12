@@ -30,7 +30,7 @@ const STATE = {
   threadId: "thread-1",
   tenantId: "acme",
   startedVersion: "1",
-  ternId: "tern-1",
+  turnId: "tern-1",
 };
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };
 
@@ -51,7 +51,7 @@ function partsOf(lease?: HeldExecutionLease) {
     deps: {
       log: { warn },
       pause: undefined,
-      terns: { byIds: () => Promise.resolve([{ status: "failed" }]) },
+      turns: { byIds: () => Promise.resolve([{ status: "failed" }]) },
     },
   } as never as CancelParts;
   return { parts, trees, warn, tryHold };

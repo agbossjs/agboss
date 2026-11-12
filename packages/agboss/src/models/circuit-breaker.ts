@@ -26,16 +26,29 @@ export interface CircuitBreakerPolicy {
 /** Codes of a failed model call the framework raises itself. */
 export type ModelCallErrorCode = "model.circuit-open";
 
+/** What a model call the framework failed itself takes (#906): why, the provider and the message. */
+export interface ModelCallErrorOptions {
+  /** Why: `model.circuit-open`. */
+  readonly code: ModelCallErrorCode;
+  /** The provider's name. */
+  readonly provider: string;
+  readonly message: string;
+  readonly cause?: unknown;
+}
+
 /** A model call the framework failed itself; `code` on the instance says why (`model.circuit-open`). */
 export class ModelCallError extends AGBossError {
   static override readonly code = "model" as const;
   override name = "ModelCallError";
-  constructor(
-    override readonly code: ModelCallErrorCode,
-    readonly provider: string,
-    message: string,
-  ) {
-    super(`${code}: ${message}`);
+  override readonly code: ModelCallErrorCode;
+  /** The provider's name. */
+  readonly provider: string;
+
+  constructor(options: ModelCallErrorOptions) {
+    const { code, provider, message, cause } = options;
+    super(`${code}: ${message}`, { cause });
+    this.code = code;
+    this.provider = provider;
   }
 }
 

@@ -3,12 +3,12 @@ import { extractRunContext } from "../../../core/run-context.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import {
   COMPENSATION_TIMEOUT,
-  CompensationFailedError,
   CompensationEntryStatus,
   CompensationReason,
   type CompensationEntry,
   type FailedJoinUndo,
 } from "../../compensation.js";
+import { CompensationFailedError } from "../../compensation.js";
 import { rootFactsOf } from "../../context/frame.js";
 import type { JoinDeps } from "../launch/join-node.js";
 import type { LaunchTicket } from "../launch/records.js";
@@ -97,7 +97,7 @@ export async function unwoundJoin(site: JoinUnwindSite): Promise<FailedJoinUndo>
   const { closed, usage, failures } = await unwound(unwind);
   if (failures.length > 0) {
     await unwind.record(usage);
-    throw new CompensationFailedError(failures, site.cause);
+    throw new CompensationFailedError({ failures, cause: site.cause });
   }
   return { compensations: [...undoneEarlier(site, unwind), ...closed], usage: [...usage] };
 }

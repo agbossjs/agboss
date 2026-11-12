@@ -66,7 +66,9 @@ export async function watchRunningChild(
       .findByTenantIdAndExecutionId(tenantId, executionId)
       .catch(() => row);
     if (still === undefined || (await isCancelRequested(parts.trees, tree))) {
-      stop.abort(new ExecutionCancelledError("the child's tree was cancelled or ended"));
+      stop.abort(
+        new ExecutionCancelledError({ message: "the child's tree was cancelled or ended" }),
+      );
       return;
     }
   }

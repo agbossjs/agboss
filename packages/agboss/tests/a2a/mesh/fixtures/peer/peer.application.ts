@@ -152,7 +152,7 @@ export class PeerAnswerAction {
     peer.runs.push(text);
     // a call of the peer's own that a further hop refused as a loop: its run fails with that limit
     if (text === DOWNSTREAM_LOOP)
-      throw new MeshLoopDetectedError(DOWNSTREAM_ENTRY, DOWNSTREAM_CHAIN);
+      throw new MeshLoopDetectedError({ entry: DOWNSTREAM_ENTRY, chain: DOWNSTREAM_CHAIN });
     await peer.gate;
     this.spendRecorder.record({ service: "peer-service", cost: usd(peer.spend) });
     return { text: `answered ${text}` };

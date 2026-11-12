@@ -114,7 +114,7 @@ export class S3A2AFileRepository extends A2AFileRepository {
     if (!isNew) {
       const kept = await this.findMetadata(file);
       if (kept !== undefined && !isSameFile(kept, file))
-        throw new A2AFileConflictError(file.fileId);
+        throw new A2AFileConflictError({ fileId: file.fileId });
     }
     // the index after the file: a file the sweep finds is there; one written twice is one key
     const entry = `${this.#prefix}${indexKeyOf(file)}`;

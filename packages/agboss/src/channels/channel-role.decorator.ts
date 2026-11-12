@@ -1,7 +1,6 @@
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
-import { AGBossError } from "../core/errors.js";
 import type { DtoClass } from "../dto/types.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
@@ -297,37 +296,3 @@ export const replyInterpreterOf = (cls: Class): ReplyInterpreterDeclaration | un
 export const isCodeReplyInterpreter = (
   options: ReplyInterpreterOptions,
 ): options is CodeReplyInterpreterOptions => options.decidedBy === DecidedBy.Code;
-
-/**
- * Why a free-text reply did not answer its pause (#267 PR 3). Both leave the pause `Pending`: the
- * webhook may ask for a clearer answer, or answer with a typed `decision`.
- */
-
-/** `new UninterpretableReplyError(message, { reason, cause? })`. */
-export interface UninterpretableReplyErrorOptions {
-  readonly reason: string;
-  readonly cause?: unknown;
-}
-
-/**
- * The role's reply interpreter could not read the reply as a valid answer: a code interpreter's
- * `ReplyInterpretation.notUnderstood({ reason })`, a model that gave no answer, an answer not valid
- * for the role (`cause`) or an interpreter that crashed (`cause`, #267 S124 b). `reason` says why.
- */
-export class UninterpretableReplyError extends AGBossError {
-  static override readonly code = "pause.uninterpretable-reply" as const;
-  override name = "UninterpretableReplyError";
-  /** Why the reply was not read: the interpreter's own reason, or its error's message. */
-  readonly reason: string;
-
-  constructor(message: string, options: UninterpretableReplyErrorOptions) {
-    super(message, options.cause === undefined ? {} : { cause: options.cause });
-    this.reason = options.reason;
-  }
-}
-
-/** A `reply` for a pause whose role declares no `replyInterpreter`: answer it with a `decision`. */
-export class ReplyInterpreterMissingError extends AGBossError {
-  static override readonly code = "pause.no-reply-interpreter" as const;
-  override name = "ReplyInterpreterMissingError";
-}

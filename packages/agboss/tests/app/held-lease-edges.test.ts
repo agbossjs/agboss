@@ -138,7 +138,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       const waiting = lease.yieldWhile(wait);
       waiting.catch(() => undefined);
       await settled();
-      const handedOver = new ExecutionLeaseLostError(TREE.rootExecutionId);
+      const handedOver = new ExecutionLeaseLostError({ rootExecutionId: TREE.rootExecutionId });
 
       end(handedOver);
 

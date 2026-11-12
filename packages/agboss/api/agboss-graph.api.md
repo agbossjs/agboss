@@ -24,13 +24,13 @@ export class GraphRuleError extends Error {
 //
 // @public
 export class LimitExceededError extends AGBossError {
-    // Warning: (ae-forgotten-export) The symbol "LimitBreach" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "LimitErrorText" needs to be exported by the entry point index.d.ts
-    constructor(breach: LimitBreach, path: readonly string[], spentUsd: number, usage?: readonly UsageRecord[], text?: LimitErrorText);
+    constructor(options: LimitExceededErrorOptions);
     // (undocumented)
     readonly actual: number;
     // (undocumented)
     static readonly code: string;
+    // (undocumented)
+    readonly code: "limit" | "limit.budget" | "limit.steps" | "limit.visits" | "limit.depth" | "limit.deadline" | "limit.mesh-loop" | "limit.hops";
     // (undocumented)
     readonly key: string;
     // (undocumented)
@@ -45,6 +45,23 @@ export class LimitExceededError extends AGBossError {
     //
     // (undocumented)
     readonly usage: readonly UsageRecord[];
+}
+
+// @public
+export interface LimitExceededErrorOptions {
+    readonly actual: number;
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly details?: Readonly<Record<string, unknown>>;
+    readonly key: string;
+    // (undocumented)
+    readonly limit: number;
+    readonly message?: string;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
+    readonly usage?: readonly UsageRecord[];
 }
 
 // Warning: (ae-forgotten-export) The symbol "OptionalInnerShape" needs to be exported by the entry point index.d.ts
@@ -70,13 +87,25 @@ export function Router<const TDeps extends readonly Token[] = []>(options: CodeR
 //
 // @public
 export class RouterDecisionError extends RouterFailedError {
-    // Warning: (ae-forgotten-export) The symbol "RouterVisit" needs to be exported by the entry point index.d.ts
-    constructor(step: RouterVisit, reason: string, usage?: readonly UsageRecord[]);
+    constructor(options: RouterDecisionErrorOptions);
     // (undocumented)
     static readonly code: "step.router.invalid-decision";
     // (undocumented)
+    readonly code: typeof RouterDecisionError.code;
+    // (undocumented)
     name: string;
     readonly reason: string;
+}
+
+// Warning: (ae-forgotten-export) The symbol "RouterVisit" needs to be exported by the entry point index.d.ts
+//
+// @public
+export interface RouterDecisionErrorOptions extends RouterVisit {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly reason: string;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -194,16 +223,24 @@ export interface WorkflowStartOptions {
 // src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-start.ts:17:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/dto-wrappers.ts:96:1 - (ae-undocumented) Missing documentation for "optional".
-// src/flow/runtime/router-error.ts:62:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/router-error.ts:63:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:34:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/limits.ts:35:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:36:3 - (ae-undocumented) Missing documentation for "key".
-// src/graph/limits.ts:37:3 - (ae-undocumented) Missing documentation for "limit".
-// src/graph/limits.ts:38:3 - (ae-undocumented) Missing documentation for "actual".
-// src/graph/limits.ts:39:3 - (ae-undocumented) Missing documentation for "path".
-// src/graph/limits.ts:40:3 - (ae-undocumented) Missing documentation for "spentUsd".
-// src/graph/limits.ts:41:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/router-error.ts:69:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/router-error.ts:70:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/router-error.ts:78:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:79:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:80:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:19:3 - (ae-undocumented) Missing documentation for "limit".
+// src/graph/limits.ts:22:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:23:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:30:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/limits.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:50:3 - (ae-undocumented) Missing documentation for "key".
+// src/graph/limits.ts:51:3 - (ae-undocumented) Missing documentation for "limit".
+// src/graph/limits.ts:52:3 - (ae-undocumented) Missing documentation for "actual".
+// src/graph/limits.ts:53:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:54:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:55:3 - (ae-undocumented) Missing documentation for "usage".
 // src/graph/rule-error.ts:7:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "message".
 // src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "nodes".

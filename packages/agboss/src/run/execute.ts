@@ -6,13 +6,13 @@ import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PaidStepError } from "../graph/errors.js";
 import { LimitExceededError } from "../graph/limits.js";
-import type { NewTurn, TurnOutcome } from "../terns/index.js";
+import type { NewTurn, TurnOutcome } from "../turns/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { AgentExecutionDeps } from "./types.js";
 import type { Compacted } from "./compaction.js";
 import type { RootUnwind } from "../flow/runtime/compensation/registry.js";
 
-export type TernBase = Pick<
+export type TurnBase = Pick<
   NewTurn,
   | "runId"
   | "threadId"
@@ -30,7 +30,7 @@ export type TernBase = Pick<
 export interface FinishContext<TName extends string> {
   readonly deps: AgentExecutionDeps<TName>;
   readonly graph: ExecutionGraph;
-  readonly base: TernBase;
+  readonly base: TurnBase;
   readonly runId: string;
   readonly budgetUsd: number;
   /** Where spend goes as it happens: the Turn's list and the budgets' counters. */
@@ -57,7 +57,7 @@ export const outcomeError = (error: unknown, signal: AbortSignal | undefined): u
   const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) return handedOver;
   return signal?.aborted === true && !(error instanceof ExecutionCancelledError)
-    ? new ExecutionCancelledError("the run was cancelled")
+    ? new ExecutionCancelledError({ message: "the run was cancelled" })
     : error;
 };
 

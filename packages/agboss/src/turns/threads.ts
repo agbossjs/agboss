@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import type { TernStore } from "./types.js";
+import type { TurnStore } from "./types.js";
 
 /** Where new thread ids come from: the application's `IdGenerator` (#313); random by default. */
 export interface ThreadIds {
@@ -36,7 +36,7 @@ export function threadMethods(
   db: DatabaseSync,
   now: Now,
   threadIds: ThreadIds,
-): Pick<TernStore, "createThread" | "hasThread" | "threadOwner"> {
+): Pick<TurnStore, "createThread" | "hasThread" | "threadOwner"> {
   return {
     // a caller's own id (#262 Q4) may be created twice at once: the first one keeps it; a minted
     // one that the tenant has already (#550: ids minted from 1 again on a shared database) is

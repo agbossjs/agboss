@@ -1,6 +1,17 @@
 import { AGBossError } from "../core/errors.js";
 import type { SummaryMaxTokens } from "./compaction.decorator.js";
 
+/** What a failed compaction takes (#906): the message, the compaction and the cut limit. */
+export interface CompactionErrorOptions {
+  readonly message: string;
+  /** The compaction's `name`. */
+  readonly compaction: string;
+  /** The limit the summary was cut at; `undefined` for a custom compaction's failure. */
+  readonly summaryMaxTokens: SummaryMaxTokens | undefined;
+  /** The model call's failure, or what the custom compaction's `compact()` threw. */
+  readonly cause?: unknown;
+}
+
 /**
  * A compaction could not write its summary (#120 AC10): the summary was cut at `summaryMaxTokens`
  * twice — the first answer, then the one asked to be shorter — or its model call failed (the
@@ -11,20 +22,17 @@ import type { SummaryMaxTokens } from "./compaction.decorator.js";
  */
 export class CompactionError extends AGBossError {
   static override readonly code = "compaction" as const;
+  declare readonly code: typeof CompactionError.code;
   override name = "CompactionError";
   /** The `@Compaction`'s name. */
   readonly compaction: string;
   /** Its `summaryMaxTokens`; `undefined` for a custom compaction (#382), which has none. */
   readonly summaryMaxTokens: SummaryMaxTokens | undefined;
 
-  constructor(
-    message: string,
-    compaction: string,
-    summaryMaxTokens: SummaryMaxTokens | undefined,
-    cause?: unknown,
-  ) {
+  constructor(options: CompactionErrorOptions) {
+    const { message, compaction, summaryMaxTokens, cause } = options;
     super(message, {
-      ...(cause === undefined ? {} : { cause }),
+      cause,
       details: { compaction, ...(summaryMaxTokens === undefined ? {} : { summaryMaxTokens }) },
     });
     this.compaction = compaction;

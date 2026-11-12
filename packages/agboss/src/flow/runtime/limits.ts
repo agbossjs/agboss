@@ -139,11 +139,21 @@ function checkSteps(
   const spent = totalCost(state.usage);
   const visits = (state.visits[node.id] ?? 0) + 1;
   if (node.maxVisits !== undefined && visits > node.maxVisits) {
-    throw new VisitsLimitExceededError(plainRecordOf(site.component), node.maxVisits, path, spent);
+    throw new VisitsLimitExceededError({
+      component: plainRecordOf(site.component),
+      maxVisits: node.maxVisits,
+      path,
+      spentUsd: spent,
+    });
   }
   if (isStep && state.steps + 1 > limits.maxSteps) {
     const record = { ...site.workflow, startedVersion: startedVersionOf(state, site.workflow) };
-    throw new StepsLimitExceededError(record, limits.maxSteps, path, spent);
+    throw new StepsLimitExceededError({
+      workflow: record,
+      maxSteps: limits.maxSteps,
+      path,
+      spentUsd: spent,
+    });
   }
 }
 

@@ -95,19 +95,17 @@ export const budgetExceededErrorOf = (
   executionSpent: number,
   usage: readonly UsageRecord[],
 ): BudgetExceededError =>
-  new BudgetExceededError(
-    {
-      budget: record.budget,
-      scope: record.scope,
-      period: record.period,
-      key: record.key,
-      maxSpend: usd(record.maxSpend),
-      spent: usd(Math.max(0, spent)),
-    },
+  new BudgetExceededError({
+    budget: record.budget,
+    scope: record.scope,
+    period: record.period,
+    key: record.key,
+    maxSpend: usd(record.maxSpend),
+    spent: usd(Math.max(0, spent)),
     path,
-    executionSpent,
+    spentUsd: executionSpent,
     usage,
-  );
+  });
 
 /**
  * The counters as one read saw them, and how much of the execution's own spend that read holds: what

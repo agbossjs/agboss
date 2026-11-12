@@ -107,8 +107,11 @@ export const jsonSchemaOf = (dto: DtoClass): JsonSchema => inputJsonSchema(schem
 export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T {
   const parsed = schemaOf(dto).safeParse(raw);
   if (parsed.success) return parsed.data;
-  throw new DtoValidationError(
-    dto.name,
-    parsed.error.issues.map((issue) => ({ path: pathOf(issue.path), reason: issue.message })),
-  );
+  throw new DtoValidationError({
+    dto: dto.name,
+    issues: parsed.error.issues.map((issue) => ({
+      path: pathOf(issue.path),
+      reason: issue.message,
+    })),
+  });
 }

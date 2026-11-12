@@ -68,7 +68,7 @@ async function holding(app: TestApp): Promise<StartedExecution> {
 
 /** The status of the thread's last record. */
 async function lastStatus(): Promise<string | undefined> {
-  const [record] = (await stores.records?.lastTerns("default", THREAD, 1)) ?? [];
+  const [record] = (await stores.records?.lastTurns("default", THREAD, 1)) ?? [];
   return record?.status;
 }
 
@@ -171,7 +171,7 @@ describe("#360: the execution moves between the request and the re-read", () => 
     const { call } = await holding(first);
     const records = stores.records;
     if (records === undefined) throw new Error("the records were not created");
-    const [record] = await records.lastTerns("default", THREAD, 1);
+    const [record] = await records.lastTurns("default", THREAD, 1);
     if (record === undefined) throw new Error("the execution has no record");
     vi.spyOn(records, "byIds").mockResolvedValueOnce([{ ...record, status: "answered" }]);
     const removals = vi.spyOn(InMemoryExecutionTreeRepository.prototype, "deleteAllInTree");
@@ -195,7 +195,7 @@ describe("#360: the execution moves between the request and the re-read", () => 
     const { call } = await holding(first);
     const records = stores.records;
     if (records === undefined) throw new Error("the records were not created");
-    const [record] = await records.lastTerns("default", THREAD, 1);
+    const [record] = await records.lastTurns("default", THREAD, 1);
     if (record === undefined) throw new Error("the execution has no record");
     vi.spyOn(records, "byIds").mockResolvedValueOnce([{ ...record, status: "paused" }]);
 

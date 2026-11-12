@@ -148,7 +148,7 @@ export abstract class FencedEffectRepository<TTransaction> {
       return Promise.reject(new InvalidFencedEffectKeyError(UNISSUED_KEY));
     // the name first, as every store checks it at its entry (#508, #526 AC7)
     if (!isEffectName(key.name))
-      return Promise.reject(new InvalidFencedEffectNameError(key.name.length));
+      return Promise.reject(new InvalidFencedEffectNameError({ length: key.name.length }));
     // the business key's text (#538): its own error, naming the rule, never the key
     const invalidKey = businessKeyErrorOf(key);
     if (invalidKey !== undefined) return Promise.reject(invalidKey);
@@ -296,8 +296,10 @@ export {
   FingerprintRequiredError,
   BusinessKeyConflictError,
   IdempotencyKeyMissingError,
+  type IdempotencyKeyMissingErrorOptions,
   InvalidBusinessKeyError,
   InvalidFencedEffectNameError,
+  type InvalidFencedEffectNameErrorOptions,
   type BusinessKeyOptions,
   type EffectKeyOptions,
   type FingerprintedKeyOptions,

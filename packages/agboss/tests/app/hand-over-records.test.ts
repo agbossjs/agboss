@@ -68,7 +68,8 @@ const frameUnder = (lease: FrameLease | undefined): FrameSpec => {
   return { ...frame, execution: { ...frame.execution, lease } };
 };
 
-const lost = (): ExecutionLeaseLostError => new ExecutionLeaseLostError("execution-1");
+const lost = (): ExecutionLeaseLostError =>
+  new ExecutionLeaseLostError({ rootExecutionId: "execution-1" });
 
 describe("#501: a hand-over is recorded once, at the innermost site", () => {
   it("records the error with the frame's step and the site, and returns it as it is", () => {
@@ -96,7 +97,7 @@ describe("#501: a hand-over is recorded once, at the innermost site", () => {
   it("one error under two leases (the app's stop of two trees) is recorded for each", () => {
     const first = recordingLease("default:execution-1");
     const second = recordingLease("default:execution-2");
-    const error = new ApplicationStoppingError("the app is stopping");
+    const error = new ApplicationStoppingError({ message: "the app is stopping" });
 
     recordedHandOver(error, HandOverSite.Step, frameUnder(first.lease));
     recordedHandOver(error, HandOverSite.Step, frameUnder(second.lease));
@@ -180,7 +181,10 @@ describe("#501: why a step was handed over, and the tokens its event names", () 
   });
 
   it("the app's stop: ApplicationStopping", () => {
-    const event = handOverEventOf(reportOf(new ApplicationStoppingError("stopping")), HELD);
+    const event = handOverEventOf(
+      reportOf(new ApplicationStoppingError({ message: "stopping" })),
+      HELD,
+    );
 
     expect(event.reason).toBe(HandOverReason.ApplicationStopping);
   });

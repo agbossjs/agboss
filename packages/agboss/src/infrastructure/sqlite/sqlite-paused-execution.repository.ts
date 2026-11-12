@@ -49,7 +49,9 @@ const StoredRun = z.looseObject({
   // a run stored before tenants (#261) has none: it is the tenant "default"
   tenantId: z.string().optional(),
   runId: z.string(),
-  ternId: z.string(),
+  // a run stored by 0.1.0 names its record `ternId` ("Tern" was a misspelling of "turn", #906)
+  turnId: z.string().optional(),
+  ternId: z.string().optional(),
   // Infinity when the run has no cost limit (z.number() rejects it)
   budgetUsd: z.custom<number>((value) => typeof value === "number" && !Number.isNaN(value)),
 });
@@ -69,16 +71,29 @@ const decode = (text: string): unknown =>
   });
 
 /** Whether a decoded run is what `save` wrote: an `AgentExecutionOutput` of a paused run. */
-const isStoredRun = (value: unknown): value is AgentExecutionOutput =>
-  StoredRun.safeParse(value).success;
+const isStoredRun = (value: unknown): value is AgentExecutionOutput => {
+  const stored = StoredRun.safeParse(value);
+  return stored.success && (stored.data.turnId ?? stored.data.ternId) !== undefined;
+};
+
+/** The run with its record's id as `turnId`: a run stored by 0.1.0 has it as `ternId` (#906). */
+function withTurnId(run: AgentExecutionOutput): AgentExecutionOutput {
+  const legacy: unknown = Reflect.get(run, "ternId");
+  if (typeof legacy !== "string") return run;
+  const turnId: unknown = Reflect.get(run, "turnId");
+  const current = { ...run, turnId: typeof turnId === "string" ? turnId : legacy };
+  Reflect.deleteProperty(current, "ternId");
+  return current;
+}
 
 function toPausedExecution(row: unknown): PausedExecution {
   const r = PausedRow.parse(row);
   const run = decode(r.run);
   if (!isStoredRun(run)) throw new Error(`a stored paused run is not readable: ${r.run}`);
   const tenantId: unknown = Reflect.get(run, "tenantId");
+  const current = withTurnId(run);
   return {
-    run: typeof tenantId === "string" ? run : { ...run, tenantId: "default" },
+    run: typeof tenantId === "string" ? current : { ...current, tenantId: "default" },
     workflowVersion: r.workflow_version,
     configHash: r.config_hash,
   };

@@ -6,7 +6,7 @@ import { toolKeysOf } from "../flow/runtime/tool-keys.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { modelComponentRecordsOf } from "../flow/runtime/model-component-keys.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
-import { versionOf } from "../terns/index.js";
+import { versionOf } from "../turns/index.js";
 import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
 import {
   edgesOf,

@@ -114,7 +114,10 @@ const tenantIdReason = (tenantId: string): string | undefined => {
 export function checkedTenantId(tenantId: string): void {
   const reason = tenantIdReason(tenantId);
   if (reason !== undefined)
-    throw new DtoValidationError(TenantContext.name, [{ path: "tenantId", reason }]);
+    throw new DtoValidationError({
+      dto: TenantContext.name,
+      issues: [{ path: "tenantId", reason }],
+    });
 }
 
 /**
@@ -128,7 +131,7 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
   const rule = typeof id === "string" ? keyTextRuleOf(id) : KeyTextRule.Length;
   if (rule === undefined) return;
   const reason = `an id of who calls is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
-  throw new DtoValidationError(options, [{ path: field, reason }]);
+  throw new DtoValidationError({ dto: options, issues: [{ path: field, reason }] });
 }
 
 /**
@@ -169,7 +172,10 @@ export async function treeRead<T>(
   const rule = keyTextRuleOf(tree.rootExecutionId);
   if (rule !== undefined) {
     const reason = `an execution id is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`;
-    throw new DtoValidationError(TREE_QUERY, [{ path: "rootExecutionId", reason }]);
+    throw new DtoValidationError({
+      dto: TREE_QUERY,
+      issues: [{ path: "rootExecutionId", reason }],
+    });
   }
   return read();
 }
@@ -209,10 +215,13 @@ function deepFrozen<T>(value: T): T {
 function validated(type: Class, raw: unknown, isTenant: boolean): ContextFields {
   const parsed = schemaOf(type, isTenant).safeParse(raw ?? {});
   if (!parsed.success) {
-    throw new DtoValidationError(
-      type.name,
-      parsed.error.issues.map((issue) => ({ path: pathOf(issue.path), reason: issue.message })),
-    );
+    throw new DtoValidationError({
+      dto: type.name,
+      issues: parsed.error.issues.map((issue) => ({
+        path: pathOf(issue.path),
+        reason: issue.message,
+      })),
+    });
   }
   return deepFrozen(parsed.data);
 }

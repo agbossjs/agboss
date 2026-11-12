@@ -52,14 +52,12 @@ export function agentLimitError(
   breach: AgentLimitBreach,
 ): LimitExceededError {
   const usage = [...loopUsage(state), ...breach.spent];
-  return new LimitExceededError(
-    {
-      key: `agents.${breach.agent}.limits.${breach.limit}`,
-      limit: breach.max,
-      actual: breach.actual,
-    },
-    state.flowPath,
-    totalCost(state.usage) + totalCost(breach.spent),
+  return new LimitExceededError({
+    key: `agents.${breach.agent}.limits.${breach.limit}`,
+    limit: breach.max,
+    actual: breach.actual,
+    path: state.flowPath,
+    spentUsd: totalCost(state.usage) + totalCost(breach.spent),
     usage,
-  );
+  });
 }

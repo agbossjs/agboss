@@ -98,7 +98,9 @@ function choice<const C extends Readonly<Record<string, string | null>>>(
   criteria: C,
 ): ChoiceQuestion<keyof C & string> {
   if (Object.keys(criteria).length < 2) {
-    throw new DecisionRequestError(`Decision.choice("${instructions}"): needs at least 2 options`);
+    throw new DecisionRequestError({
+      message: `Decision.choice("${instructions}"): needs at least 2 options`,
+    });
   }
   return { type: "choice", instructions, criteria };
 }
@@ -114,16 +116,19 @@ function noul(
 
 function score(instructions: string, levels: readonly string[]): ScoreQuestion {
   if (levels.length < 2) {
-    throw new DecisionRequestError(`Decision.score("${instructions}"): needs at least 2 levels`);
+    throw new DecisionRequestError({
+      message: `Decision.score("${instructions}"): needs at least 2 levels`,
+    });
   }
   return { type: "score", instructions, criteria: [...levels] };
 }
 
 function image(dataUrl: string, detail?: ImageDetail): DecisionImage {
   if (!IMAGE_DATA_URL.test(dataUrl)) {
-    throw new DecisionRequestError(
-      "Decision.image: only data URLs of png, jpeg or webp images (data:image/png;base64,…)",
-    );
+    throw new DecisionRequestError({
+      message:
+        "Decision.image: only data URLs of png, jpeg or webp images (data:image/png;base64,…)",
+    });
   }
   return {
     type: "image_url",
@@ -140,11 +145,12 @@ export const Decision = { choice, noul, score, image } as const;
 /** The checks the Decisions API would fail a request with, made before the call. */
 export function checkDecisionRequest(request: DecisionRequest): void {
   const count = Object.keys(request.questions).length;
-  if (count === 0) throw new DecisionRequestError("a decision needs at least one question");
+  if (count === 0)
+    throw new DecisionRequestError({ message: "a decision needs at least one question" });
   if (count > MAX_DECISION_QUESTIONS) {
-    throw new DecisionRequestError(
-      `${String(count)} questions in one decision: the Decisions API takes at most ${String(MAX_DECISION_QUESTIONS)}`,
-      { details: { count, max: MAX_DECISION_QUESTIONS } },
-    );
+    throw new DecisionRequestError({
+      message: `${String(count)} questions in one decision: the Decisions API takes at most ${String(MAX_DECISION_QUESTIONS)}`,
+      details: { count, max: MAX_DECISION_QUESTIONS },
+    });
   }
 }

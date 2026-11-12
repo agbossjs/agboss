@@ -1,5 +1,6 @@
 import type { FrameLease } from "../flow/context/frame.js";
-import type { CompensationFailedError, CompensationRecord } from "../flow/compensation.js";
+import type { CompensationRecord } from "../flow/compensation.js";
+import type { CompensationFailedError } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
 import type { TreeState } from "./tree-move-types.js";
 import { lazyLoad } from "../infrastructure/clock.js";

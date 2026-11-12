@@ -175,8 +175,8 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       { tenantId: "eval-acme", plan: "pro", executionId: run?.executionId, userId: "eval-user-1" },
     ]);
     expect(run?.tenantId).toBe("eval-acme"); // the case's tenant, kept on the run (#397 PR 5b)
-    const terns = await built.infrastructure.records.lastTerns("eval-acme", run?.threadId ?? "", 9);
-    expect(terns.map((tern) => tern.task)).toEqual([
+    const turns = await built.infrastructure.records.lastTurns("eval-acme", run?.threadId ?? "", 9);
+    expect(turns.map((turn) => turn.task)).toEqual([
       'start desk-workflow-start: {"text":"Never delete my orders."}',
       'start desk-workflow-start: {"text":"Hi"}',
       'start desk-workflow-start: {"text":"Refund order 7, it arrived broken"}',
@@ -199,13 +199,13 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
 
     const { records } = built.infrastructure;
     const threadId = report.cases[0]?.runResults[0]?.threadId ?? "";
-    const terns = await records.lastTerns("eval-acme", threadId, 9);
-    expect(terns.map((tern) => tern.status)).toEqual([
+    const turns = await records.lastTurns("eval-acme", threadId, 9);
+    expect(turns.map((turn) => turn.status)).toEqual([
       ExecutionRecordStatus.Written,
       ExecutionRecordStatus.Answered,
       ExecutionRecordStatus.Answered,
     ]);
-    const tasks = (found: readonly { readonly task: string }[]) => found.map((tern) => tern.task);
+    const tasks = (found: readonly { readonly task: string }[]) => found.map((turn) => turn.task);
     const written = 'start desk-workflow-start: {"text":"Never delete my orders."}';
     expect(tasks(await records.unscored("eval-desk-workflow", undefined, 9))).not.toContain(
       written,

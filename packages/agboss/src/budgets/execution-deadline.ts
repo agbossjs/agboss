@@ -16,34 +16,44 @@ export interface ExecutionDeadline {
   readonly deadline: Milliseconds;
 }
 
+/** What a deadline that passed takes (#906): the deadline and where the execution was. */
+export interface DeadlineExceededErrorOptions {
+  /** The duration it was given. */
+  readonly deadline: Milliseconds;
+  /** When it passed (ISO 8601). */
+  readonly deadlineAt: string;
+  readonly path: readonly string[];
+  readonly spentUsd: number;
+  readonly usage?: readonly UsageRecord[];
+  readonly cause?: unknown;
+}
+
 /** An execution ran past its deadline: it fails before its next step or model call. */
 export class DeadlineExceededError extends LimitExceededError {
   static override readonly code = "limit.deadline" as const;
+  declare readonly code: typeof DeadlineExceededError.code;
   override name = "DeadlineExceededError";
   /** The duration it was given. */
   readonly deadline: Milliseconds;
   /** When it passed (ISO 8601). */
   readonly deadlineAt: string;
 
-  constructor(
-    deadline: ExecutionDeadline,
-    path: readonly string[],
-    spentUsd: number,
-    usage: readonly UsageRecord[] = [],
-  ) {
-    const seconds = deadline.deadline / 1000;
-    super(
-      { key: "deadline", limit: deadline.deadline, actual: deadline.deadline },
+  constructor(options: DeadlineExceededErrorOptions) {
+    const { deadline, deadlineAt, path, spentUsd, usage, cause } = options;
+    const seconds = deadline / 1000;
+    super({
+      key: "deadline",
+      limit: deadline,
+      actual: deadline,
       path,
       spentUsd,
-      usage,
-      {
-        message: `the execution ran past its deadline of ${String(seconds)} s (at ${deadline.at})`,
-        details: { deadline: deadline.deadline, deadlineAt: deadline.at },
-      },
-    );
-    this.deadline = deadline.deadline;
-    this.deadlineAt = deadline.at;
+      ...(usage === undefined ? {} : { usage }),
+      cause,
+      message: `the execution ran past its deadline of ${String(seconds)} s (at ${deadlineAt})`,
+      details: { deadline, deadlineAt },
+    });
+    this.deadline = deadline;
+    this.deadlineAt = deadlineAt;
   }
 }
 
@@ -65,7 +75,13 @@ export function checkDeadline(
   },
 ): void {
   if (deadline === undefined || now.getTime() < Date.parse(deadline.at)) return;
-  throw new DeadlineExceededError(deadline, place.path, place.spentUsd, place.usage);
+  throw new DeadlineExceededError({
+    deadline: deadline.deadline,
+    deadlineAt: deadline.at,
+    path: place.path,
+    spentUsd: place.spentUsd,
+    usage: place.usage,
+  });
 }
 
 /** The smaller of two optional delays. */

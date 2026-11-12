@@ -11,7 +11,7 @@ import type { OutdatedValueRecord, ScopeRecords } from "../flow/runtime/records.
 import type { GraphDeps } from "../graph/deps.js";
 import type { Compacted } from "./compaction.js";
 import type { WaitingPause } from "../pause/index.js";
-import type { TernRecords } from "../terns/index.js";
+import type { TurnRecords } from "../turns/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
@@ -24,7 +24,7 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
    * against them; absent = a workflow run without an application (no budgets).
    */
   readonly budgets?: ApplicationBudgets | undefined;
-  readonly terns: TernRecords;
+  readonly turns: TurnRecords;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
   readonly tracing?: ExecutionTracing | undefined;
   /** Its application's model providers: a transport one (#385) is part of its `configHash`. */
@@ -95,7 +95,7 @@ export interface AgentExecutionOutput {
   readonly threadId: string;
   /** The tenant the execution works for (#261): with `threadId`, the key of its thread. */
   readonly tenantId: string;
-  readonly ternId: string;
+  readonly turnId: string;
   readonly data: ExecutionData;
   /** What the compactions did before this execution read its thread (#120 S132), when one did. */
   readonly compacted?: readonly Compacted[];

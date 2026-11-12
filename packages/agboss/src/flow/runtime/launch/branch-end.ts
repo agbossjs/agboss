@@ -55,7 +55,9 @@ export function passThroughStops(
   const handedOver = handedOverOf(error, config?.signal);
   if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Branch);
   if (executionSignalOf(config, runId).aborted || config?.signal?.aborted === true)
-    throw new ExecutionCancelledError("the execution was cancelled during a parallel launch");
+    throw new ExecutionCancelledError({
+      message: "the execution was cancelled during a parallel launch",
+    });
 }
 
 /** How a branch ended, as its record keeps it. */

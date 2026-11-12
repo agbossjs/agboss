@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { storedTextOf } from "./schema.js";
-import type { PauseAnswerEntry, Turn, TurnOutcome, TernStore } from "./types.js";
+import type { PauseAnswerEntry, Turn, TurnOutcome, TurnStore } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -24,7 +24,7 @@ const PauseAnswerRow = z.object({ record: z.string() });
 /** The pause answer log (#267 S107): an entry kept once per pause, read per tree in the order asked. */
 export function pauseAnswerWrites(
   db: DatabaseSync,
-): Pick<TernStore, "appendPauseAnswer" | "pauseAnswersOf"> {
+): Pick<TurnStore, "appendPauseAnswer" | "pauseAnswersOf"> {
   return {
     appendPauseAnswer: (entry) => {
       db.prepare(
@@ -46,10 +46,10 @@ export function pauseAnswerWrites(
 }
 
 /** Appending a Turn and completing it — unconditionally, or only from an expected status (#265 S66 h). */
-export function ternWrites(
+export function turnWrites(
   db: DatabaseSync,
   now: Now,
-): Pick<TernStore, "append" | "complete" | "completeIfStatus"> {
+): Pick<TurnStore, "append" | "complete" | "completeIfStatus"> {
   return {
     complete: (id, o) => {
       db.prepare(COMPLETE).run(...outcomeParams(o), id);
@@ -62,8 +62,8 @@ export function ternWrites(
         .run(...outcomeParams(o), id, expected);
       return Promise.resolve(Number(changes) === 1);
     },
-    append: (tern) => {
-      const t: Turn = { ...tern, id: randomUUID(), createdAt: now().toISOString() };
+    append: (turn) => {
+      const t: Turn = { ...turn, id: randomUUID(), createdAt: now().toISOString() };
       db.prepare(
         `INSERT INTO terns (id, thread_id, bundle, created_at, task, replyWith, status, stop_reason,
            route, steps, cost_usd, prompt_version, model_version, replay_of, config_version,

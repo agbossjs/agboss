@@ -64,7 +64,11 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
       startedVersion: "1.0.0",
       configHash: "hash",
     };
-    const error = new DepthLimitExceededError(workflow, 3, ["countdown-action"]);
+    const error = new DepthLimitExceededError({
+      workflow,
+      maxDepth: 3,
+      path: ["countdown-action"],
+    });
 
     expect(error).toBeInstanceOf(LimitExceededError);
     expect(error).toMatchObject({ code: "limit.depth", workflow, maxDepth: 3, depth: 4 });

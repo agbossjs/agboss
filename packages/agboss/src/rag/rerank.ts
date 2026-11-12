@@ -50,7 +50,7 @@ export interface RerankFailedErrorOptions {
   /** Its `@Reranker`, by name. */
   readonly reranker: string;
   /** What the reranker threw, or why its answer was refused. */
-  readonly cause: unknown;
+  readonly cause?: unknown;
   /** The spend the failed reranking still made (a model's reply it could not read). */
   readonly usage: readonly UsageRecord[];
 }
@@ -58,6 +58,7 @@ export interface RerankFailedErrorOptions {
 /** A reranking that failed under `RerankFailurePolicy.FailStep`: the agent's step fails. */
 export class RerankFailedError extends StepFailedError {
   static override readonly code = RERANK_FAILED_CODE;
+  declare readonly code: "step.rerank-failed";
   override name = "RerankFailedError";
   /** The knowledge base whose reranking failed. */
   readonly rag: string;
@@ -66,13 +67,13 @@ export class RerankFailedError extends StepFailedError {
 
   constructor({ rag, reranker, cause, usage }: RerankFailedErrorOptions) {
     const why = cause instanceof Error ? cause.message : String(cause);
-    super(
-      `Knowledge base "${rag}": its reranker ${reranker} failed (${why}) — RerankFailurePolicy.FailStep fails the step`,
+    super({
+      message: `Knowledge base "${rag}": its reranker ${reranker} failed (${why}) — RerankFailurePolicy.FailStep fails the step`,
       usage,
       cause,
-      stepCoordinatesOf(rag, ComponentKind.Rag),
-      { rag, reranker },
-    );
+      ...stepCoordinatesOf(rag, ComponentKind.Rag),
+      details: { rag, reranker },
+    });
     this.rag = rag;
     this.reranker = reranker;
   }

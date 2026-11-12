@@ -4,7 +4,7 @@ import { carriedRecordsOf, carryRecords } from "./carried-records.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { UsageRecord } from "../../finops/usage.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import { NodeKind } from "../ast.js";
 import type { FrameSpec } from "../context/frame.js";
 import { stepRecordOf } from "../observers/execution-event.js";

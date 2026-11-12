@@ -114,6 +114,6 @@ export class PiiPolicySet {
     if (finding?.action.kind !== PiiActionKind.BlockWithRefusal) return undefined;
     const policy = this.policies.find((candidate) => candidate.name === finding.policy);
     const refusal = (await policy?.refusalOf(finding.kind, finding.action)) ?? "";
-    return new PiiRefusedError(finding.label, refusal, usage);
+    return new PiiRefusedError({ kind: finding.label, refusal, usage });
   }
 }

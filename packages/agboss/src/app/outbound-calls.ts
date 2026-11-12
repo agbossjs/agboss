@@ -18,6 +18,7 @@ import type {
   OutboundCallPayloadTooLargeErrorOptions,
   OutboundCallResultNotStoredErrorOptions,
   OutboundCallResultNotStoredReason,
+  OutboundCallUnmaskedErrorOptions,
   OutboundCallUnreconciledErrorOptions,
   OutboundCallUnreconciledReason,
 } from "./outbound-call-types.js";
@@ -145,6 +146,7 @@ markBusinessKeyWriter(OutboundCalls);
  */
 export class OutboundCallUnreconciledError extends StepFailedError {
   static override readonly code = "outbound-call.unreconciled" as const;
+  declare readonly code: typeof OutboundCallUnreconciledError.code;
   override name = "OutboundCallUnreconciledError";
   readonly call: string;
   readonly target: string;
@@ -156,13 +158,13 @@ export class OutboundCallUnreconciledError extends StepFailedError {
 
   constructor(options: OutboundCallUnreconciledErrorOptions) {
     const { call, target, operation, idempotencyKey, reason, detail, cause } = options;
-    super(
-      `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled (${reason}): ${detail} — nothing was sent; an operator decides (app.pendingOutboundCallsOf)`,
-      [],
+    super({
+      message: `outbound call "${call}" (${operation} on ${target}, key ${idempotencyKey}) is left pending and could not be reconciled (${reason}): ${detail} — nothing was sent; an operator decides (app.pendingOutboundCallsOf)`,
+      usage: [],
       cause,
-      stepCoordinatesOf(call, ComponentKind.Action),
-      { call, target, operation, reason, detail },
-    );
+      ...stepCoordinatesOf(call, ComponentKind.Action),
+      details: { call, target, operation, reason, detail },
+    });
     this.call = call;
     this.target = target;
     this.operation = operation;
@@ -185,6 +187,7 @@ export enum OutboundCallPart {
  */
 export class OutboundCallPayloadTooLargeError extends AGBossError {
   static override readonly code = "outbound-call.payload-too-large" as const;
+  declare readonly code: typeof OutboundCallPayloadTooLargeError.code;
   override name = "OutboundCallPayloadTooLargeError";
   readonly call: string;
   readonly part: OutboundCallPart;
@@ -194,6 +197,7 @@ export class OutboundCallPayloadTooLargeError extends AGBossError {
   constructor(options: OutboundCallPayloadTooLargeErrorOptions) {
     super(
       `the ${options.part} of outbound call "${options.call}" is ${String(options.size)} bytes, above its maxPayloadSize of ${String(options.maxPayloadSize)} bytes — send and store a reference, or raise @Application({ outboundCalls: { maxPayloadSize } })`,
+      { cause: options.cause },
     );
     this.call = options.call;
     this.part = options.part;
@@ -209,12 +213,15 @@ export class OutboundCallPayloadTooLargeError extends AGBossError {
  */
 export class OutboundCallUnmaskedError extends AGBossError {
   static override readonly code = "outbound-call.unmasked" as const;
+  declare readonly code: typeof OutboundCallUnmaskedError.code;
   override name = "OutboundCallUnmaskedError";
   readonly call: string;
 
-  constructor(call: string) {
+  constructor(options: OutboundCallUnmaskedErrorOptions) {
+    const { call, cause } = options;
     super(
       `outbound call "${call}" was refused: the application lists PII policies, but this step has no mask to store its request with — nothing was recorded or sent`,
+      { cause },
     );
     this.call = call;
   }
@@ -232,20 +239,21 @@ export const REDACTED = "[redacted]";
  */
 export class OutboundCallInFlightError extends StepFailedError {
   static override readonly code = "outbound-call.in-flight" as const;
+  declare readonly code: typeof OutboundCallInFlightError.code;
   override name = "OutboundCallInFlightError";
   readonly call: string;
   readonly target: string;
   readonly operation: string;
 
   constructor(options: OutboundCallInFlightErrorOptions) {
-    const { call, target, operation } = options;
-    super(
-      `outbound call "${call}" (${operation} on ${target}) is already in flight: another call holds its key and has not ended — nothing was sent`,
-      [],
-      undefined,
-      stepCoordinatesOf(call, ComponentKind.Action),
-      { call, target, operation },
-    );
+    const { call, target, operation, cause } = options;
+    super({
+      message: `outbound call "${call}" (${operation} on ${target}) is already in flight: another call holds its key and has not ended — nothing was sent`,
+      usage: [],
+      cause,
+      ...stepCoordinatesOf(call, ComponentKind.Action),
+      details: { call, target, operation },
+    });
     this.call = call;
     this.target = target;
     this.operation = operation;
@@ -260,6 +268,7 @@ export class OutboundCallInFlightError extends StepFailedError {
  */
 export class OutboundCallResultNotStoredError extends StepFailedError {
   static override readonly code = "outbound-call.result-not-stored" as const;
+  declare readonly code: typeof OutboundCallResultNotStoredError.code;
   override name = "OutboundCallResultNotStoredError";
   readonly call: string;
   readonly target: string;
@@ -267,14 +276,14 @@ export class OutboundCallResultNotStoredError extends StepFailedError {
   readonly reason: OutboundCallResultNotStoredReason;
 
   constructor(options: OutboundCallResultNotStoredErrorOptions) {
-    const { call, target, operation, reason } = options;
-    super(
-      `outbound call "${call}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
-      [],
-      undefined,
-      stepCoordinatesOf(call, ComponentKind.Action),
-      { call, target, operation, reason },
-    );
+    const { call, target, operation, reason, cause } = options;
+    super({
+      message: `outbound call "${call}" (${operation} on ${target}) happened, but its result was not stored (${reason}): there is nothing to replay — nothing was sent again; read the result from ${target}`,
+      usage: [],
+      cause,
+      ...stepCoordinatesOf(call, ComponentKind.Action),
+      details: { call, target, operation, reason },
+    });
     this.call = call;
     this.target = target;
     this.operation = operation;

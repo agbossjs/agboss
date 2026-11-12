@@ -32,7 +32,7 @@ describe("replay", () => {
       prompts: { ...deps.prompts, "alpha-agent": "You are alpha, now precise." },
     };
     const evaluation: EvalDeps = {
-      terns: deps.terns,
+      turns: deps.turns,
       budgets: deps.budgets,
       judge: judgeWith(0.6, 0.9),
     };
@@ -43,7 +43,7 @@ describe("replay", () => {
     });
 
     expect(report).toMatchObject({ tasks: 1, replayed: 1, before: 0.6, after: 0.9 });
-    const rows = await deps.terns.summary("test-bundle-workflow");
+    const rows = await deps.turns.summary("test-bundle-workflow");
     expect(rows.map((row) => row.promptVersion)).toContain(
       executionVersions(changed).promptVersion,
     );
@@ -62,7 +62,7 @@ describe("replay", () => {
       key: "test-application",
     };
     await ledger.saveMaxSpend(application, usd(0));
-    const evaluation: EvalDeps = { terns: deps.terns, budgets: deps.budgets, judge: judgeWith() };
+    const evaluation: EvalDeps = { turns: deps.turns, budgets: deps.budgets, judge: judgeWith() };
 
     const report = await replay(deps, evaluation, {
       promptVersion: executionVersions(deps).promptVersion,

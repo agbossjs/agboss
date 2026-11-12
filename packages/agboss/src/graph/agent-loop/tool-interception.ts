@@ -109,7 +109,7 @@ async function after(
       }));
       throw new InterceptorFailure(
         interceptor.name,
-        new DtoValidationError(`${tool.name} output from afterToolCall`, issues),
+        new DtoValidationError({ dto: `${tool.name} output from afterToolCall`, issues }),
       );
     }
     current = parsed.data;

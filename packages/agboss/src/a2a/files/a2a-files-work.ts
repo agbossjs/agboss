@@ -79,7 +79,7 @@ async function bytesOf(
 ): Promise<Uint8Array> {
   switch (fileSourceOf(file)) {
     case A2AFileSource.Url:
-      throw new A2AFileUnavailableError(A2AFileUnavailableReason.ByReference);
+      throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.ByReference });
     case A2AFileSource.Inline:
       return new Uint8Array(Buffer.from(file.inline ?? "", "base64"));
     case A2AFileSource.Stored: {
@@ -89,7 +89,8 @@ async function bytesOf(
         meta?.ownerId === rootFactsOf(execution).executionId
           ? await store.findBytes(key)
           : undefined;
-      if (bytes === undefined) throw new A2AFileUnavailableError(A2AFileUnavailableReason.NotFound);
+      if (bytes === undefined)
+        throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.NotFound });
       return bytes;
     }
   }
@@ -99,9 +100,9 @@ async function bytesOf(
 export async function readFile(store: A2AFileRepository, file: A2AFileDto): Promise<Uint8Array> {
   const execution = executionOf();
   if (execution === undefined)
-    throw new A2AFileUnavailableError(A2AFileUnavailableReason.OutsideExecution);
+    throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.OutsideExecution });
   const bytes = await bytesOf(store, file, execution);
   if (sha256Of(bytes) !== file.sha256)
-    throw new A2AFileUnavailableError(A2AFileUnavailableReason.DigestMismatch);
+    throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.DigestMismatch });
   return bytes;
 }

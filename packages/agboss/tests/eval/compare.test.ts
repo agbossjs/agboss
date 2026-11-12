@@ -40,7 +40,7 @@ async function profileRun(name: string, spentToday = 0) {
     { ledger },
   );
   const evaluation: EvalDeps = {
-    terns: deps.terns,
+    turns: deps.turns,
     budgets: deps.budgets,
     judge: judgeSaying(adequate(0.8)),
   };
@@ -92,7 +92,7 @@ describe("compare — pairwise", () => {
   const evaluationWith = async (...outcomes: RouteOutcome[]): Promise<EvalDeps> => {
     const route = vi.fn<RouterEngine["route"]>();
     outcomes.forEach((o) => route.mockResolvedValueOnce(o));
-    return { terns: (await fakeDeps({})).terns, judge: { name: "judge", route } };
+    return { turns: (await fakeDeps({})).turns, judge: { name: "judge", route } };
   };
   const pick = (next: string, confidence: number): RouteOutcome => ({
     kind: "decided",

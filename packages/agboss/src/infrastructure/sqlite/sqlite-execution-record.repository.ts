@@ -1,8 +1,8 @@
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
-import { sharedTernStore } from "../../terns/index.js";
+import { sharedTurnStore } from "../../turns/index.js";
 import { Clock, IdGenerator, mintedThreadIdsOf } from "../clock.js";
-import { TernStoreRecordRepository } from "../execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -16,14 +16,14 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * [SqliteConnection, Clock, ApplicationContext, IdGenerator] })`, the same `deps` as this class.
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
-export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
+export class SqliteExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor(
     private readonly connection: SqliteConnection,
     clock: Clock,
     applicationContext: ApplicationContext,
     idGenerator: IdGenerator,
   ) {
-    super(sharedTernStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)));
+    super(sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)));
   }
 
   override ping(): Promise<void> {
