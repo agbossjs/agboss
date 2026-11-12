@@ -3,7 +3,7 @@
  * `no-tern-names.test.ts` cannot see the shipped prose: every comment of the sources — the JSDoc a
  * `.d.ts` ships, and the `//` lines beside it — says "turn". Only the documented deprecated
  * aliases (`public/turn-deprecated.ts`) and the read of a paused run stored by 0.1.0 under its old
- * name `ternId` (the SQLite paused-run reader) may name it.
+ * name `ternId` (the paused-run reader) may name it.
  */
 import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -16,7 +16,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 /** Where the old name is kept on purpose: the five deprecated aliases, the 0.1.0 paused-run read. */
 const DOCUMENTED = new Set([
   "packages/agboss/src/public/turn-deprecated.ts",
-  "packages/agboss/src/infrastructure/sqlite/sqlite-paused-run.ts",
+  "packages/agboss/src/app/paused-runs.ts",
 ]);
 
 /** `Tern`, `Terns`, `ternId`, `tern`: not `pattern`, `external`, `internal`, `alternative`, … */

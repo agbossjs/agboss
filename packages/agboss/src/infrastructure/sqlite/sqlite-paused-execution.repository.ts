@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PausedExecution } from "../../app/paused-runs.js";
+import { decodePausedRun, encodePausedRun, type PausedExecution } from "../../app/paused-runs.js";
 import { Injectable } from "../../components/decorators.js";
 import { Clock } from "../clock.js";
 import {
@@ -10,7 +10,6 @@ import {
 } from "../paused-execution.repository.js";
 import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { decodePausedRun, encodePausedRun } from "./sqlite-paused-run.js";
 import { migratePauses, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
