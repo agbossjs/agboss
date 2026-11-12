@@ -12,6 +12,7 @@ import {
   RandomIdGenerator,
   StoreClock,
   StoreTimeSource,
+  pauseThread,
   SystemClock,
   timeoutError,
   timeoutOn,
@@ -148,5 +149,18 @@ describe("#626: a timeout on the clock", () => {
 
     expect(isAbortedAtRelease).toBe(false);
     expect(timeout.signal.aborted).toBe(false);
+  });
+});
+
+describe("#911: pauseThread, the one blocking wait (synchronous SQLite startup)", () => {
+  it("blocks the thread on Atomics.wait for the delay it is given, and returns", () => {
+    const wait = vi.spyOn(Atomics, "wait");
+
+    pauseThread(2);
+
+    expect(wait).toHaveBeenCalledOnce();
+    const [array, index, expected, timeout] = wait.mock.calls[0] ?? [];
+    expect(array).toBeInstanceOf(Int32Array);
+    expect([index, expected, timeout]).toEqual([0, 0, 2]);
   });
 });
