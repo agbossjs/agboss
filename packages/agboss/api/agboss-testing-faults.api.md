@@ -237,6 +237,7 @@ export enum StoreHoldPoint {
     OutboundSaveIfAbsent = "outboundCall.saveIfAbsent",
     PauseCancel = "pause.cancel",
     PauseFind = "pause.find",
+    PauseMarkTaken = "pause.markTaken",
     PauseResolve = "pause.resolve",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }
