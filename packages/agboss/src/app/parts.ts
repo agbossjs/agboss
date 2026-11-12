@@ -184,15 +184,8 @@ export function defaultRouterOf(
 ): RouterEngine {
   const model = config.defaults.router;
   if (model !== undefined) return createRouter(name, model, config.defaults.models, gateway);
-  return {
-    name,
-    route: () =>
-      Promise.reject(
-        new NoDefaultRouterError({
-          message: `${name} decides on the workflow's default router, but @Workflow({ defaults: { router: { model } } }) is not set`,
-        }),
-      ),
-  };
+  const message = `${name} decides on the workflow's default router, but @Workflow({ defaults: { router: { model } } }) is not set`;
+  return { name, route: () => Promise.reject(new NoDefaultRouterError({ message })) };
 }
 
 /** The workflow's graph, steps limit and routers; each router decides on its own model. */

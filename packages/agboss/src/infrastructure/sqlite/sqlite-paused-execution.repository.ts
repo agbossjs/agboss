@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { PausedExecution } from "../../app/paused-runs.js";
 import { Injectable } from "../../components/decorators.js";
-import type { AgentExecutionOutput } from "../../run/types.js";
 import { Clock } from "../clock.js";
 import {
   PausedExecutionRepository,
@@ -11,6 +10,7 @@ import {
 } from "../paused-execution.repository.js";
 import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { decodePausedRun, encodePausedRun } from "./sqlite-paused-run.js";
 import { migratePauses, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
 /** One row per thread of a tenant (#261: the key is tenant + thread). */
@@ -42,86 +42,12 @@ const PausedRow = z.object({
   config_hash: z.string(),
 });
 
-/** The fields a resume relies on; the rest of the stored run is passed through as written. */
-const StoredRun = z.looseObject({
-  status: z.literal("paused"),
-  threadId: z.string(),
-  // a run stored before tenants (#261) has none: it is the tenant "default"
-  tenantId: z.string().optional(),
-  runId: z.string(),
-  // a run stored by 0.1.0 names its record `ternId` ("Tern" was a misspelling of "turn", #906)
-  turnId: z.string().optional(),
-  ternId: z.string().optional(),
-  // Infinity when the run has no cost limit (z.number() rejects it)
-  budgetUsd: z.custom<number>((value) => typeof value === "number" && !Number.isNaN(value)),
-});
-
-/** JSON keeps no `Infinity` (a run without a cost limit has `budgetUsd: Infinity`): tagged. */
-const NonFinite = z.object({ $number: z.enum(["Infinity", "-Infinity", "NaN"]) });
-
-const encode = (value: unknown): string =>
-  JSON.stringify(value, (_key, item: unknown) =>
-    typeof item === "number" && !Number.isFinite(item) ? { $number: String(item) } : item,
-  );
-
-const decode = (text: string): unknown =>
-  JSON.parse(text, (_key, item: unknown) => {
-    const tagged = NonFinite.safeParse(item);
-    return tagged.success ? Number(tagged.data.$number) : item;
-  });
-
-/** The ids that name a stored run in an error: the keys of its tenant, thread and run, never its input. */
-/** ` (tenantId acme, …)`, or nothing when no id is readable. */
-const named = (ids: string): string => (ids === "" ? "" : ` (${ids})`);
-
-const idsOf = (value: unknown): string =>
-  ["tenantId", "threadId", "runId"]
-    .flatMap((key) => {
-      const id: unknown =
-        typeof value === "object" && value !== null ? Reflect.get(value, key) : "";
-      return typeof id === "string" ? [`${key} ${id}`] : [];
-    })
-    .join(", ");
-
-/**
- * Why a stored run is refused: the ids that name it and the field that failed — never the run
- * itself, whose `startInput` and `data` are the caller's (PII reaches the logs through a message,
- * #906 D4). The schema's own error, which names paths and expectations only, is the `cause`.
- */
-function unreadableRun(value: unknown, error: z.ZodError | undefined): Error {
-  const field = error?.issues[0]?.path.join(".") ?? "turnId";
-  return new Error(
-    `a stored paused run is not readable${named(idsOf(value))}: the field ${field === "" ? "(the value)" : field} is missing or not what the framework wrote`,
-    { cause: error },
-  );
-}
-
-/** A decoded run as `save` wrote it: an `AgentExecutionOutput` of a paused run. */
-function storedRunOf(value: unknown): AgentExecutionOutput {
-  const stored = StoredRun.safeParse(value);
-  if (!stored.success) throw unreadableRun(value, stored.error);
-  if ((stored.data.turnId ?? stored.data.ternId) === undefined)
-    throw unreadableRun(value, undefined);
-  return value as AgentExecutionOutput;
-}
-
-/** The run with its record's id as `turnId`: a run stored by 0.1.0 has it as `ternId` (#906). */
-function withTurnId(run: AgentExecutionOutput): AgentExecutionOutput {
-  const legacy: unknown = Reflect.get(run, "ternId");
-  if (typeof legacy !== "string") return run;
-  const turnId: unknown = Reflect.get(run, "turnId");
-  const current = { ...run, turnId: typeof turnId === "string" ? turnId : legacy };
-  Reflect.deleteProperty(current, "ternId");
-  return current;
-}
-
 function toPausedExecution(row: unknown): PausedExecution {
   const r = PausedRow.parse(row);
-  const run = storedRunOf(decode(r.run));
+  const run = decodePausedRun(r.run);
   const tenantId: unknown = Reflect.get(run, "tenantId");
-  const current = withTurnId(run);
   return {
-    run: typeof tenantId === "string" ? current : { ...current, tenantId: "default" },
+    run: typeof tenantId === "string" ? run : { ...run, tenantId: "default" },
     workflowVersion: r.workflow_version,
     configHash: r.config_hash,
   };
@@ -177,7 +103,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
         run.tenantId,
         run.threadId,
         run.runId,
-        encode(run),
+        encodePausedRun(run),
         paused.workflowVersion,
         paused.configHash,
         this.clock.now().toISOString(),

@@ -3,10 +3,9 @@
  * `no-tern-names.test.ts` cannot see the shipped prose: every comment of the sources — the JSDoc a
  * `.d.ts` ships, and the `//` lines beside it — says "turn". Only the documented deprecated
  * aliases (`public/turn-deprecated.ts`) and the read of a paused run stored by 0.1.0 under its old
- * name `ternId` (the SQLite paused-run repository) may name it.
+ * name `ternId` (the SQLite paused-run reader) may name it.
  */
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -17,22 +16,13 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 /** Where the old name is kept on purpose: the five deprecated aliases, the 0.1.0 paused-run read. */
 const DOCUMENTED = new Set([
   "packages/agboss/src/public/turn-deprecated.ts",
-  "packages/agboss/src/infrastructure/sqlite/sqlite-paused-execution.repository.ts",
+  "packages/agboss/src/infrastructure/sqlite/sqlite-paused-run.ts",
 ]);
 
 /** `Tern`, `Terns`, `ternId`, `tern`: not `pattern`, `external`, `internal`, `alternative`, … */
 const OLD_NAME = /(?<![A-Za-z])ternId|(?<![A-Za-z])[Tt]erns?(?![a-z])/g;
 
-const sources = execFileSync(
-  "git",
-  ["ls-files", "--cached", "--others", "--exclude-standard", "packages"],
-  {
-    cwd: repo,
-    encoding: "utf8",
-  },
-)
-  .split("\n")
-  .filter((file) => /^packages\/[^/]+\/src\/.*\.ts$/.test(file));
+const sources = globSync("packages/*/src/**/*.ts", { cwd: repo }).sort();
 
 /** Every comment of a source file: its text and the line it starts on. */
 function commentsOf(file: string): readonly { readonly text: string; readonly line: number }[] {

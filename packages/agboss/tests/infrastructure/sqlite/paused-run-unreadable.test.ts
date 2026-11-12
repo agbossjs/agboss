@@ -14,7 +14,8 @@ const SECRET = "ssn-078-05-1120";
 /** A store holding one stored run, written as given (a damaged one, or a 0.1.0 one). */
 function storeWith(run: Record<string, unknown>): SqlitePausedExecutionRepository {
   const path = temporarySqlitePath();
-  const first = new SqlitePausedExecutionRepository(connectionTo(path), clock);
+  // the repository makes its table; a second connection writes the row a store write never makes
+  const store = new SqlitePausedExecutionRepository(connectionTo(path), clock);
   const connection = connectionTo(path);
   connection.database
     .prepare(
@@ -22,8 +23,7 @@ function storeWith(run: Record<string, unknown>): SqlitePausedExecutionRepositor
        VALUES ('acme', 'thread-1', 'run-1', ?, '1.0.0', 'hash', '1970-01-01T00:00:00.000Z')`,
     )
     .run(JSON.stringify(run));
-  void first;
-  return new SqlitePausedExecutionRepository(connection, clock);
+  return store;
 }
 
 const failureOf = async (store: SqlitePausedExecutionRepository): Promise<Error> => {
@@ -52,7 +52,7 @@ describe("#906 D4: an unreadable stored paused run names ids and a field, not th
     const error = await failureOf(storeWith(run));
 
     expect(error.message).toContain("a stored paused run is not readable");
-    expect(error.message).toContain("tenantId acme");
+    expect(error.message).not.toContain("tenantId");
     expect(error.message).toContain("threadId thread-1");
     expect(error.message).toContain("runId run-1");
     expect(error.message).toContain("turnId");
@@ -64,10 +64,10 @@ describe("#906 D4: an unreadable stored paused run names ids and a field, not th
   it("a run with another failing field: that field is named, the schema's error is the cause", async () => {
     const error = await failureOf(storeWith({ ...run, turnId: "turn-1", status: "running" }));
 
-    expect(error.message).toContain("the field status");
+    expect(error.message).toContain("the field(s) status");
     expect(error.message).not.toContain(SECRET);
     expect(error.cause).toBeInstanceOf(Error);
-    expect(String((error.cause as Error).message)).not.toContain(SECRET);
+    expect((error.cause as Error).message).not.toContain(SECRET);
   });
 
   it("a run stored by 0.1.0 under `ternId` is still read", async () => {

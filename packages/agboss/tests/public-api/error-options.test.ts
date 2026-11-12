@@ -72,7 +72,8 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
   it.each([...classes.keys()].sort())(
     "AC1: %s — one parameter, keys are own properties, the cause is kept, the code is a string",
     (name) => {
-      const ErrorClass = classes.get(name) as ErrorClass;
+      const ErrorClass = classes.get(name);
+      if (ErrorClass === undefined) throw new Error(`no class ${name}`);
       const options = fixtures[name] ?? {};
       const cause = new Error(`the cause of ${name}`);
 
@@ -86,9 +87,9 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
       expect(typeof error.code, `${name}: a literal code on the instance`).toBe("string");
       // the class's own code, or a sub-code of it (`model` → `model.circuit-open`)
       const own = ErrorClass.code;
-      if (own !== undefined) {
+      if (typeof own === "string") {
         const code = String(error.code);
-        expect(code === own || code.startsWith(`${String(own)}.`), `${name}: ${code}`).toBe(true);
+        expect(code === own || code.startsWith(`${own}.`), `${name}: ${code}`).toBe(true);
       }
       expect(error.name).toBe(name);
     },
