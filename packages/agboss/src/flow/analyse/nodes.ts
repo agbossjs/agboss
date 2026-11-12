@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import type { NodeKind } from "../ast.js";
+import { NodeKind } from "../ast.js";
 import { declarationOf, type ComponentDeclaration } from "../decorators/declaration.js";
 import { ComponentRegistry, type ComponentName } from "../registry.js";
 import type { FlowNode } from "./flow-graph.js";
@@ -83,7 +83,10 @@ const undefinedNode = (kind: NodeKind): string =>
 
 const notANode = (component: Class, kind: NodeKind): string =>
   `${toCallOf(kind)}(${classLabel(component)}): ${classLabel(component)} has no ` +
-  "@WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish / @Workflow decorator — decorate it";
+  "@WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish / @Workflow decorator — decorate it" +
+  (kind === NodeKind.Question
+    ? "; a question is a @ChannelRole class — name the role, not a @Channel class that extends it"
+    : "");
 
 const wrongKind = (component: Class, name: string, actual: NodeKind, mentioned: NodeKind): string =>
   `${toCallOf(mentioned)}(${classLabel(component)}): ${name} is ${articled(actual)}, not ` +
