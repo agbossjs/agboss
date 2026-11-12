@@ -25,9 +25,9 @@ export const isHostAllowed = (allowed: readonly string[], host: string): boolean
 /** A request to a host no active test allows: the failure, reported to every active test. */
 function blocked(host: string, via: string): LiveCallBlockedError | undefined {
   if ([...active].some((policy) => isHostAllowed(policy.allowed, host))) return undefined;
-  const error = new LiveCallBlockedError(
-    `${via} to ${host} — the network is blocked in tests; allow it with testWith(…, { allowNetwork: ["${host}"] })`,
-  );
+  const error = new LiveCallBlockedError({
+    message: `${via} to ${host} — the network is blocked in tests; allow it with testWith(…, { allowNetwork: ["${host}"] })`,
+  });
   active.forEach((policy) => {
     policy.onBlocked(error);
   });

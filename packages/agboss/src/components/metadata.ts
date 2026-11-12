@@ -5,6 +5,7 @@ import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelMeta } from "./meta-types.js";
 import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** `@Tool` — its options as recorded. */
 export interface ToolMeta {
@@ -119,8 +120,18 @@ export const recordComponent = (target: object, meta: ComponentMeta): void => {
 
 export const componentOf = (target: object): ComponentMeta | undefined => components.get(target);
 
-export class ComponentError extends Error {
+/**
+ * A component that is declared wrong (#906): a class that is not the component it is used as, a
+ * prompt, an environment, an A2A declaration. Its instance `code` is the union of its family.
+ */
+export class ComponentError extends AGBossError {
+  static override readonly code: string = "component";
+  declare readonly code: "component" | "component.prompt" | "component.no-default-router";
   override name = "ComponentError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 export function requireComponent<K extends ComponentMeta["kind"]>(
@@ -130,9 +141,9 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 ): Extract<ComponentMeta, { kind: K }> {
   const meta = componentOf(target);
   if (meta?.kind !== kind) {
-    throw new ComponentError(
-      `${where}: ${target.name || "(anonymous class)"} is not a @${kindName[kind]} component`,
-    );
+    throw new ComponentError({
+      message: `${where}: ${target.name || "(anonymous class)"} is not a @${kindName[kind]} component`,
+    });
   }
   return meta as Extract<ComponentMeta, { kind: K }>;
 }

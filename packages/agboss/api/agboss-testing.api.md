@@ -96,9 +96,25 @@ export interface AnswerTurn<TValue = unknown, TIsList extends boolean = boolean>
 
 // @public
 export class AppCloseTimeoutError extends TestFailure {
-    constructor(instance: number, timeout: number);
+    constructor(options: AppCloseTimeoutErrorOptions);
+    // (undocumented)
+    static readonly code: "test.close-timeout";
+    // (undocumented)
+    readonly code: typeof AppCloseTimeoutError.code;
+    readonly instance: number;
     // (undocumented)
     name: string;
+    readonly timeout: number;
+}
+
+// @public
+export interface AppCloseTimeoutErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly instance: number;
+    // (undocumented)
+    readonly timeout: number;
 }
 
 // @public
@@ -159,7 +175,11 @@ export enum CassetteChange {
 
 // @public
 export class CassetteMissingError extends TestFailure {
-    constructor(message: string);
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "test.cassette-missing";
+    // (undocumented)
+    readonly code: typeof CassetteMissingError.code;
     // (undocumented)
     name: string;
 }
@@ -340,11 +360,11 @@ export interface FakeGatewayCharge {
 
 // @public
 export class FakeGatewayError extends Error {
-    constructor(kind: FakeGatewayErrorKind, message: string);
+    constructor(options: FakeGatewayErrorOptions);
     // (undocumented)
-    static readonly code: string;
+    static readonly code: "fake-gateway";
     // (undocumented)
-    readonly code: string;
+    readonly code: "fake-gateway";
     // (undocumented)
     readonly kind: FakeGatewayErrorKind;
     // (undocumented)
@@ -357,6 +377,16 @@ export enum FakeGatewayErrorKind {
     NoLookup = "no-lookup",
     Timeout = "timeout",
     Unavailable = "unavailable"
+}
+
+// @public
+export interface FakeGatewayErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly kind: FakeGatewayErrorKind;
+    // (undocumented)
+    readonly message: string;
 }
 
 // @public
@@ -536,7 +566,11 @@ export interface JudgeRunner<TReply> extends UnitClock {
 
 // @public
 export class LiveCallBlockedError extends TestFailure {
-    constructor(message: string);
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "test.live-call-blocked";
+    // (undocumented)
+    readonly code: typeof LiveCallBlockedError.code;
     // (undocumented)
     name: string;
 }
@@ -565,11 +599,26 @@ export interface McpStubCall {
 
 // @public
 export class ModelCallFailedError extends Error {
-    constructor(failure: ModelFailure, component: string);
+    constructor(options: ModelCallFailedErrorOptions);
+    // (undocumented)
+    static readonly code: "test.model-call-failed";
+    // (undocumented)
+    readonly code: "test.model-call-failed";
+    readonly component: string;
     // (undocumented)
     readonly failure: ModelFailure;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface ModelCallFailedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly component: string;
+    // (undocumented)
+    readonly failure: ModelFailure;
 }
 
 // @public
@@ -669,6 +718,14 @@ export interface PaymentGatewayChecklistOptions {
 export interface PiiRunner extends UnitClock {
     mask(text: string): Promise<UnitRun<string>>;
     reveal(text: string): string;
+}
+
+// @public
+export interface PlainErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly message: string;
 }
 
 // @public
@@ -820,13 +877,29 @@ export class SkewedClock extends Clock {
 
 // @public
 export class StaleCassetteError extends TestFailure {
-    constructor(file: string, component: string, changes: readonly CassetteChange[]);
+    constructor(options: StaleCassetteErrorOptions);
     // (undocumented)
     readonly changes: readonly CassetteChange[];
+    // (undocumented)
+    static readonly code: "vcr.stale-cassette";
+    // (undocumented)
+    readonly code: typeof StaleCassetteError.code;
     readonly component: string;
     readonly file: string;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface StaleCassetteErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly changes: readonly CassetteChange[];
+    // (undocumented)
+    readonly component: string;
+    // (undocumented)
+    readonly file: string;
 }
 
 // @public
@@ -946,7 +1019,7 @@ export interface TestExecutionContextOptions {
 
 // @public
 export class TestFailure extends Error {
-    constructor(code: TestFailureCode, message: string);
+    constructor(options: TestFailureOptions);
     // (undocumented)
     readonly code: TestFailureCode;
     // (undocumented)
@@ -955,6 +1028,16 @@ export class TestFailure extends Error {
 
 // @public
 export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step" | "test.close-timeout" | "test.unsettled-work";
+
+// @public
+export interface TestFailureOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly code: TestFailureCode;
+    // (undocumented)
+    readonly message: string;
+}
 
 // @public
 export interface TestFenceOptions {
@@ -1002,6 +1085,11 @@ export function testRouter<TRouter extends Class, TExecution extends ExecutionCo
 
 // @public
 export class TestSetupError extends Error {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "test.setup";
+    // (undocumented)
+    readonly code: "test.setup";
     // (undocumented)
     name: string;
 }
@@ -1199,10 +1287,28 @@ export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
 
 // @public
 export class UnsettledWorkError extends TestFailure {
-    constructor(inFlight: number, settleTimeout: number, isLoad?: boolean);
+    constructor(options: UnsettledWorkErrorOptions);
+    // (undocumented)
+    static readonly code: "test.unsettled-work";
+    // (undocumented)
+    readonly code: typeof UnsettledWorkError.code;
     readonly inFlight: number;
+    readonly isLoad: boolean;
     // (undocumented)
     name: string;
+    readonly settleTimeout: number;
+}
+
+// @public
+export interface UnsettledWorkErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly inFlight: number;
+    // (undocumented)
+    readonly isLoad?: boolean;
+    // (undocumented)
+    readonly settleTimeout: number;
 }
 
 // @public
@@ -1303,28 +1409,56 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 
 // Warnings were encountered during analysis:
 //
+// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
 // src/models/model-failure.ts:3:3 - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "MatcherContext" needs to be exported by the entry point index.d.ts
 // src/testing/child-matchers.ts:112:27 - (ae-forgotten-export) The symbol "Verdict" needs to be exported by the entry point index.d.ts
-// src/testing/clock-skew.ts:68:3 - (ae-undocumented) Missing documentation for "now".
-// src/testing/clock-skew.ts:73:12 - (ae-undocumented) Missing documentation for "monotonicNow".
+// src/testing/clock-skew.ts:71:3 - (ae-undocumented) Missing documentation for "now".
+// src/testing/clock-skew.ts:76:12 - (ae-undocumented) Missing documentation for "monotonicNow".
 // src/testing/compensation-matchers.ts:28:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/concurrency/test-concurrency.ts:26:3 - (ae-undocumented) Missing documentation for "node".
 // src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
 // src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
-// src/testing/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/errors.ts:30:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:42:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:70:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:75:3 - (ae-undocumented) Missing documentation for "changes".
-// src/testing/errors.ts:94:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:112:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/errors.ts:131:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:22:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/errors.ts:23:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/errors.ts:28:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:29:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:41:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:53:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:54:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:55:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:78:3 - (ae-undocumented) Missing documentation for "file".
+// src/testing/errors.ts:79:3 - (ae-undocumented) Missing documentation for "component".
+// src/testing/errors.ts:80:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/errors.ts:81:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/errors.ts:91:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:92:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:93:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:98:3 - (ae-undocumented) Missing documentation for "changes".
+// src/testing/errors.ts:115:3 - (ae-undocumented) Missing documentation for "instance".
+// src/testing/errors.ts:116:3 - (ae-undocumented) Missing documentation for "timeout".
+// src/testing/errors.ts:117:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/errors.ts:126:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:127:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:128:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:151:3 - (ae-undocumented) Missing documentation for "inFlight".
+// src/testing/errors.ts:152:3 - (ae-undocumented) Missing documentation for "settleTimeout".
+// src/testing/errors.ts:153:3 - (ae-undocumented) Missing documentation for "isLoad".
+// src/testing/errors.ts:154:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/errors.ts:163:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:164:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:165:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/errors.ts:192:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:193:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/errors.ts:194:12 - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts:39:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/testing/execution-context.ts:40:3 - (ae-undocumented) Missing documentation for "callId".
 // src/testing/execution-context.ts:41:3 - (ae-undocumented) Missing documentation for "itemIndex".
@@ -1339,24 +1473,27 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/execution-context.ts:133:3 - (ae-undocumented) Missing documentation for "instanceId".
 // src/testing/execution-context.ts:134:3 - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts:152:3 - (ae-undocumented) Missing documentation for "application".
-// src/testing/gateway/fake-payment-gateway.ts:46:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/fake-payment-gateway.ts:47:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-payment-gateway.ts:54:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-payment-gateway.ts:55:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/fake-payment-gateway.ts:60:3 - (ae-undocumented) Missing documentation for "paymentId".
-// src/testing/gateway/fake-payment-gateway.ts:61:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/testing/gateway/fake-payment-gateway.ts:62:3 - (ae-undocumented) Missing documentation for "amount".
-// src/testing/gateway/fake-payment-gateway.ts:65:3 - (ae-undocumented) Missing documentation for "firstReceipt".
-// src/testing/gateway/fake-payment-gateway.ts:70:3 - (ae-undocumented) Missing documentation for "times".
-// src/testing/gateway/fake-payment-gateway.ts:71:3 - (ae-undocumented) Missing documentation for "delay".
-// src/testing/gateway/fake-payment-gateway.ts:76:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/gateway/fake-payment-gateway.ts:77:3 - (ae-undocumented) Missing documentation for "capabilities".
-// src/testing/gateway/fake-payment-gateway.ts:98:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/gateway/fake-payment-gateway.ts:99:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/gateway/fake-payment-gateway.ts:100:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/gateway/fake-payment-gateway.ts:103:5 - (ae-undocumented) Missing documentation for "kind".
-// src/testing/gateway/fake-payment-gateway.ts:116:1 - (ae-undocumented) Missing documentation for "FakePaymentGateway".
-// src/testing/gateway/fake-payment-gateway.ts:117:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/fake-payment-gateway.ts:47:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-payment-gateway.ts:48:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:55:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:56:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-payment-gateway.ts:61:3 - (ae-undocumented) Missing documentation for "paymentId".
+// src/testing/gateway/fake-payment-gateway.ts:62:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/testing/gateway/fake-payment-gateway.ts:63:3 - (ae-undocumented) Missing documentation for "amount".
+// src/testing/gateway/fake-payment-gateway.ts:66:3 - (ae-undocumented) Missing documentation for "firstReceipt".
+// src/testing/gateway/fake-payment-gateway.ts:71:3 - (ae-undocumented) Missing documentation for "times".
+// src/testing/gateway/fake-payment-gateway.ts:72:3 - (ae-undocumented) Missing documentation for "delay".
+// src/testing/gateway/fake-payment-gateway.ts:77:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/gateway/fake-payment-gateway.ts:78:3 - (ae-undocumented) Missing documentation for "capabilities".
+// src/testing/gateway/fake-payment-gateway.ts:95:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/gateway/fake-payment-gateway.ts:96:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/gateway/fake-payment-gateway.ts:97:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/gateway/fake-payment-gateway.ts:106:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/gateway/fake-payment-gateway.ts:107:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/gateway/fake-payment-gateway.ts:108:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/gateway/fake-payment-gateway.ts:109:3 - (ae-undocumented) Missing documentation for "kind".
+// src/testing/gateway/fake-payment-gateway.ts:123:1 - (ae-undocumented) Missing documentation for "FakePaymentGateway".
+// src/testing/gateway/fake-payment-gateway.ts:124:3 - (ae-undocumented) Missing documentation for "capabilities".
 // src/testing/gateway/payment-gateway-checklist.ts:25:1 - (ae-undocumented) Missing documentation for "GatewayCheckStatus".
 // src/testing/gateway/payment-gateway-checklist.ts:26:3 - (ae-undocumented) Missing documentation for "Passed".
 // src/testing/gateway/payment-gateway-checklist.ts:27:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -1385,11 +1522,16 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/model-script.ts:37:7 - (ae-forgotten-export) The symbol "DecisionState" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:38:7 - (ae-forgotten-export) The symbol "DecisionQuestions" needs to be exported by the entry point index.d.ts
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:43:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:143:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:179:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:180:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:39:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:44:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:146:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:182:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:183:3 - (ae-undocumented) Missing documentation for "component".
+// src/testing/script.ts:184:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/script.ts:189:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/script.ts:190:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/script.ts:191:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:192:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
@@ -1446,8 +1588,8 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 // src/testing/units/test-reply-interpreter.ts:39:3 - (ae-undocumented) Missing documentation for "reply".
 // src/testing/units/test-reply-interpreter.ts:44:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-router.ts:22:3 - (ae-undocumented) Missing documentation for "__call".
-// src/testing/units/test-tool-interceptor.ts:57:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/testing/units/test-tool-interceptor.ts:62:3 - (ae-undocumented) Missing documentation for "afterToolCall".
+// src/testing/units/test-tool-interceptor.ts:59:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
+// src/testing/units/test-tool-interceptor.ts:64:3 - (ae-undocumented) Missing documentation for "afterToolCall".
 // src/testing/units/test-tool.ts:12:3 - (ae-undocumented) Missing documentation for "run".
 // src/testing/units/test-tool.ts:30:3 - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts:60:3 - (ae-undocumented) Missing documentation for "output".

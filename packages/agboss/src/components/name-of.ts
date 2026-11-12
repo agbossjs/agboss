@@ -32,9 +32,9 @@ function recordedName(component: Class): string | undefined {
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent> {
   const name = recordedName(component);
   if (name === undefined) {
-    throw new ComponentError(
-      `nameOf(${component.name || "(anonymous class)"}): no AGBoss decorator describes this class`,
-    );
+    throw new ComponentError({
+      message: `nameOf(${component.name || "(anonymous class)"}): no AGBoss decorator describes this class`,
+    });
   }
   // the decorator recorded this name; the generated brand types it as the same literal (or string)
   return name;

@@ -44,12 +44,12 @@ function modelProblemOf(cls: Class, meta: JudgeMeta, deps: readonly Token[]): st
 export function checkedJudgeOf(where: string, cls: Class): JudgeClass {
   const component = componentOf(cls);
   if (component?.kind !== "judge") {
-    throw new ComponentError(
-      `[judge.not-a-judge] ${where}: ${tokenName(cls)} in judges is not a @Judge class`,
-    );
+    throw new ComponentError({
+      message: `[judge.not-a-judge] ${where}: ${tokenName(cls)} in judges is not a @Judge class`,
+    });
   }
   const problem = modelProblemOf(cls, component.meta, component.meta.deps);
-  if (problem !== undefined) throw new ComponentError(problem);
+  if (problem !== undefined) throw new ComponentError({ message: problem });
   return { cls, meta: component.meta };
 }
 
@@ -71,9 +71,9 @@ export function judgeClassesOf(agents: readonly AgentMeta[]): ReadonlyMap<string
       const judge = judgeClassOf(agent.name, cls);
       const known = byName.get(judge.meta.name);
       if (known !== undefined && known.cls !== cls) {
-        throw new ComponentError(
-          `[judge.duplicate-name] @Judge "${judge.meta.name}": declared by ${tokenName(known.cls)} and ${tokenName(cls)}`,
-        );
+        throw new ComponentError({
+          message: `[judge.duplicate-name] @Judge "${judge.meta.name}": declared by ${tokenName(known.cls)} and ${tokenName(cls)}`,
+        });
       }
       byName.set(judge.meta.name, judge);
     }

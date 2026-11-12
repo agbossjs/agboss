@@ -117,6 +117,7 @@ export { ComponentError } from "../components/metadata.js";
 export { nameOf, type ComponentName } from "../components/name-of.js";
 export {
   PromptError,
+  type PromptErrorOptions,
   type PromptProblem,
   type PromptProblemCode,
 } from "../components/prompt-problems.js";
@@ -175,6 +176,7 @@ export {
   Secret,
   EnvironmentError,
   EnvironmentErrorCode,
+  type EnvironmentErrorOptions,
   EnvironmentField,
   type EnvironmentFieldOptions,
   type Environment,

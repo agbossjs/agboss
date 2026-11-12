@@ -35,5 +35,7 @@ export { FAULT_SABOTAGE_SCENARIOS, FAULT_SCENARIOS } from "./scenarios/index.js"
 export {
   FaultInvariant,
   FaultInvariantError,
+  type FaultInvariantErrorOptions,
   type FaultViolation,
 } from "./invariants/violations.js";
+export type { PlainErrorOptions } from "../../core/errors.js";

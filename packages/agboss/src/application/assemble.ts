@@ -171,7 +171,7 @@ async function assembleWorkflows(
 /** The rules an application breaks, its workflows' included: a `GraphRuleError` naming the application. */
 class ApplicationRuleError extends GraphRuleError {
   constructor(violations: readonly RuleViolation[]) {
-    super(violations);
+    super({ violations });
     const lines = violations.map((item) => `  - [${item.code}] ${item.message}`);
     this.message = `The application breaks ${String(violations.length)} rule(s):\n${lines.join("\n")}`;
   }

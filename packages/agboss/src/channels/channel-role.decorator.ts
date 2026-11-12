@@ -102,9 +102,9 @@ export function ChannelRole(options: ChannelRoleOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
     const problem = formProblem(options);
     if (problem !== undefined) {
-      throw new ComponentError(
-        `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${problem}`,
-      );
+      throw new ComponentError({
+        message: `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${problem}`,
+      });
     }
     roles.set(value, options);
     if (isQuestionRole(options)) recordDeclaration(value, questionDeclarationOf(options, source));

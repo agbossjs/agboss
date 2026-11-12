@@ -35,7 +35,7 @@ type UnitRouter =
 function routerOf(router: Class): UnitRouter {
   const declaration = declarationOf(router);
   if (declaration?.kind !== NodeKind.Router)
-    throw new TestSetupError(`testRouter(${router.name}): not a @Router`);
+    throw new TestSetupError({ message: `testRouter(${router.name}): not a @Router` });
   const { options } = declaration;
   return isCodeRouter(options) ? { options } : { options, model: { ...declaration, options } };
 }

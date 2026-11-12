@@ -3,6 +3,9 @@
  * `seconds(30)`, `minutes(5)`, `kilobytes(64)`. Each value is checked once here and carries its unit in its type.
  */
 import type { Brand } from "../types/brand.js";
+import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
+
+export type { PlainErrorOptions };
 
 /** An amount of money in US dollars. */
 export type Usd = Brand<number, "Usd">;
@@ -13,13 +16,23 @@ export type Bytes = Brand<number, "Bytes">;
 /** A duration in milliseconds. */
 export type Milliseconds = Brand<number, "Milliseconds">;
 
+/**
+ * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
+ * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
+ */
 export class UnitError extends RangeError {
+  static readonly code = "config.unit" as const;
+  readonly code = UnitError.code;
   override name = "UnitError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 function nonNegative(amount: number, unit: string): number {
   if (!Number.isFinite(amount) || amount < 0) {
-    throw new UnitError(`${unit} must be a finite number ≥ 0, got ${String(amount)}`);
+    throw new UnitError({ message: `${unit} must be a finite number ≥ 0, got ${String(amount)}` });
   }
   return amount;
 }

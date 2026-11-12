@@ -57,9 +57,9 @@ function privateKeyOf(pem: string): KeyObject {
     return createPrivateKey(pem);
   } catch (error) {
     const why = error instanceof Error ? error.message : String(error);
-    throw new TestSetupError(
-      `signedMeshEnvelope: signingKey holds no private key (${why}) — ${NOT_A_SIGNING_KEY}`,
-    );
+    throw new TestSetupError({
+      message: `signedMeshEnvelope: signingKey holds no private key (${why}) — ${NOT_A_SIGNING_KEY}`,
+    });
   }
 }
 
@@ -67,9 +67,9 @@ function privateKeyOf(pem: string): KeyObject {
 function signingKeyOf(signingKey: KeyObject | string): KeyObject {
   const key = typeof signingKey === "string" ? privateKeyOf(signingKey) : signingKey;
   if (key.type !== "private" || key.asymmetricKeyType !== "ed25519")
-    throw new TestSetupError(
-      `signedMeshEnvelope: signingKey is a ${key.type} ${String(key.asymmetricKeyType)} key — ${NOT_A_SIGNING_KEY}`,
-    );
+    throw new TestSetupError({
+      message: `signedMeshEnvelope: signingKey is a ${key.type} ${String(key.asymmetricKeyType)} key — ${NOT_A_SIGNING_KEY}`,
+    });
   return key;
 }
 

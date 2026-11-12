@@ -69,7 +69,7 @@ export function undeclaredContextError(
     typeof token === "function" && token.prototype instanceof TenantContext
       ? "tenantContext"
       : "executionContext";
-  return new ComponentError(
-    `[context.not-declared] ${dependant} injects ${name}, which its application does not declare — @Application({ ${option}: ${name} })`,
-  );
+  return new ComponentError({
+    message: `[context.not-declared] ${dependant} injects ${name}, which its application does not declare — @Application({ ${option}: ${name} })`,
+  });
 }

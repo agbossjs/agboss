@@ -93,7 +93,8 @@ async function checkedRun(
   const run = { ...(await cluster.run(reader)), timeScale };
   const violations = faultViolationsOf(run);
   const notes = [...cluster.expectations, ...(stopped === undefined ? [] : [String(stopped)])];
-  if (violations.length > 0) throw new FaultInvariantError(scenario.id, violations, notes);
+  if (violations.length > 0)
+    throw new FaultInvariantError({ scenario: scenario.id, violations, notes });
   // stopped early: why, with every expectation that failed before (#811), the stop as its cause
   if (stopped !== undefined)
     throw new FaultScenarioFailedError(`${scenario.id}: ${notes.join("; ")}`, { cause: stopped });

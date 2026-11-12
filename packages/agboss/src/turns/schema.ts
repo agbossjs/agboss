@@ -37,7 +37,7 @@ const MIGRATIONS: readonly string[] = [
   // 7 — a thread belongs to the owner it was created for (#202); older threads have none
   `CREATE TABLE IF NOT EXISTS thread_owners (thread_id TEXT PRIMARY KEY REFERENCES threads(id),
      owner TEXT NOT NULL);`,
-  // 8 — a Turn names the run that wrote it (#238); older Terns have none
+  // 8 — a Turn names the run that wrote it (#238); older Turns have none
   `ALTER TABLE terns ADD COLUMN run_id TEXT;`,
   // 9 — recovery looks up the records still running (#265 S30)
   `CREATE INDEX IF NOT EXISTS terns_status ON terns(status);`,

@@ -52,20 +52,20 @@ function requirementOf(
 ): EnvironmentFieldRequirement {
   const where = `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}`;
   if (!FIELD_NAME.test(field)) {
-    throw new ComponentError(
-      `${where}: "${field}" is not a field name — a field of the environment contract is a camelCase identifier (postgresUrl)`,
-    );
+    throw new ComponentError({
+      message: `${where}: "${field}" is not a field name — a field of the environment contract is a camelCase identifier (postgresUrl)`,
+    });
   }
   if (typeof value === "function") {
-    throw new ComponentError(
-      `${where}: ${field} is a helper, not a field — call it: EnvironmentField.text(), .integer(), .flag() or .secret()`,
-    );
+    throw new ComponentError({
+      message: `${where}: ${field} is a helper, not a field — call it: EnvironmentField.text(), .integer(), .flag() or .secret()`,
+    });
   }
   const spec = fieldSpecOf(value);
   if (spec === undefined) {
-    throw new ComponentError(
-      `${where}: ${field} is ${shownValueOf(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret() (a store with its own copy of @agboss/core makes fields this one does not know: list the core as a peer dependency)`,
-    );
+    throw new ComponentError({
+      message: `${where}: ${field} is ${shownValueOf(value)}, not a field made by EnvironmentField.text(), .integer(), .flag() or .secret() (a store with its own copy of @agboss/core makes fields this one does not know: list the core as a peer dependency)`,
+    });
   }
   return { field, type: spec.type, isOptional: spec.isOptional };
 }
@@ -73,9 +73,9 @@ function requirementOf(
 /** `environmentFields` of a decorator, as the class's requirements (#511), each checked (#834). */
 export function declareEnvironmentFields(implementation: Class, fields: EnvironmentFields): void {
   if (typeof fields !== "object" || (fields as unknown) === null) {
-    throw new ComponentError(
-      `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}: ${shownValueOf(fields)} is not an object of fields`,
-    );
+    throw new ComponentError({
+      message: `@Injectable({ environmentFields }) of ${implementation.name || "(anonymous class)"}: ${shownValueOf(fields)} is not an object of fields`,
+    });
   }
   requireEnvironmentFields(
     implementation,

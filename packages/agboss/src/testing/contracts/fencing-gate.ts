@@ -52,9 +52,11 @@ export const shownOptOutBody =
   (instances: ContractInstances<TStore>): Promise<void> => {
     const store = gate.storeOf(instances.first);
     if (!isOptedOutStore(store))
-      throw new StoreConformanceError([
-        `[store-conformance.opt-out-not-declared] acceptWithoutDoubleChargeProtection is set, but ${(store.constructor as { readonly name: string }).name} does not declare LeaseCheck.WithoutDoubleChargeProtection: its fencing cases ran — drop the flag`,
-      ]);
+      throw new StoreConformanceError({
+        problems: [
+          `[store-conformance.opt-out-not-declared] acceptWithoutDoubleChargeProtection is set, but ${(store.constructor as { readonly name: string }).name} does not declare LeaseCheck.WithoutDoubleChargeProtection: its fencing cases ran — drop the flag`,
+        ],
+      });
     return Promise.resolve();
   };
 
@@ -73,9 +75,11 @@ export const isOptedOutStore = (store: object): boolean => optsOutOfLeaseCheck(s
 
 /** The refusal of an opted-out store the call did not accept, naming it. */
 export const optedOutRefusal = (store: object): StoreConformanceError =>
-  new StoreConformanceError([
-    `[store-conformance.opted-out-store] ${(store.constructor as { readonly name: string }).name} declares LeaseCheck.WithoutDoubleChargeProtection: it gives no double-charge protection, so its fencing cases cannot pass — pass acceptWithoutDoubleChargeProtection: true to run the rest, its fencing cases skipped, and never let it back payments`,
-  ]);
+  new StoreConformanceError({
+    problems: [
+      `[store-conformance.opted-out-store] ${(store.constructor as { readonly name: string }).name} declares LeaseCheck.WithoutDoubleChargeProtection: it gives no double-charge protection, so its fencing cases cannot pass — pass acceptWithoutDoubleChargeProtection: true to run the rest, its fencing cases skipped, and never let it back payments`,
+    ],
+  });
 
 /**
  * The body of a fencing case behind the gate: an opted-out store is refused (not accepted) or the

@@ -123,7 +123,8 @@ export function clockOf(modules: readonly ProviderModule[], options: ContainerOp
   const core = contextsNotYet("the Clock is created before them (their startedAt is read from it)");
   const sources = { modules, core, defaults: INFRASTRUCTURE_DEFAULTS };
   const clock = createContainer(sources, options).get(Clock);
-  if (!(clock instanceof Clock)) throw new ComponentError("the application's Clock is not a Clock");
+  if (!(clock instanceof Clock))
+    throw new ComponentError({ message: "the application's Clock is not a Clock" });
   return clock;
 }
 
@@ -148,7 +149,7 @@ export function idGeneratorOf(
   const container = createContainer({ modules, core, defaults }, { ...options, application });
   const generator = container.get(IdGenerator);
   if (!(generator instanceof IdGenerator)) {
-    throw new ComponentError("the application's IdGenerator is not an IdGenerator");
+    throw new ComponentError({ message: "the application's IdGenerator is not an IdGenerator" });
   }
   return generator;
 }

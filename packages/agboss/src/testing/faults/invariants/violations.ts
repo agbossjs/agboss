@@ -1,3 +1,4 @@
+import { causeOptionOf } from "../../../core/errors.js";
 /**
  * The invariants of the fault suite (#484 AC1), each a name a broken run is reported by: what must
  * hold after every scenario, whatever fault it injected.
@@ -30,21 +31,35 @@ export interface FaultViolation {
   readonly message: string;
 }
 
+/** What a broken run takes (#906): the scenario, each violation, and the notes of what else failed. */
+export interface FaultInvariantErrorOptions {
+  readonly scenario: string;
+  readonly violations: readonly FaultViolation[];
+  readonly notes?: readonly string[];
+  readonly cause?: unknown;
+}
+
 /** A run that broke invariants: every violation, each named. */
 export class FaultInvariantError extends Error {
+  static readonly code = "fault.invariant" as const;
+  readonly code = FaultInvariantError.code;
   override name = "FaultInvariantError";
+  readonly scenario: string;
+  readonly violations: readonly FaultViolation[];
+  /** The scenario's own expectations that failed too, and why it stopped early. */
+  readonly notes: readonly string[];
 
-  constructor(
-    readonly scenario: string,
-    readonly violations: readonly FaultViolation[],
-    /** The scenario's own expectations that failed too, and why it stopped early. */
-    readonly notes: readonly string[] = [],
-  ) {
+  constructor(options: FaultInvariantErrorOptions) {
+    const { scenario, violations, notes = [], cause } = options;
     const lines = violations.map((violation) => `  [${violation.invariant}] ${violation.message}`);
     const also = notes.map((note) => `  (also) ${note}`);
     super(
       `${scenario}: ${String(violations.length)} invariant(s) broken —\n${[...lines, ...also].join("\n")}`,
+      causeOptionOf(cause),
     );
+    this.scenario = scenario;
+    this.violations = violations;
+    this.notes = notes;
   }
 
   /** The invariants broken, each once. */

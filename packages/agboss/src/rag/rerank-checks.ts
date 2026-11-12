@@ -62,5 +62,5 @@ export function checkRerankings(rags: readonly Class[]): void {
     const { name, rerank } = meta.meta;
     return [...countViolations(name, rerank), ...rerankerViolations(name, rerank.by)];
   });
-  if (found.length > 0) throw new GraphRuleError(found);
+  if (found.length > 0) throw new GraphRuleError({ violations: found });
 }

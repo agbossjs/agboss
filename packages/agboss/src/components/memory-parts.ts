@@ -17,9 +17,9 @@ const strategiesOf = (
 export function checkMemoryStrategies(agents: readonly AgentMeta[]): void {
   for (const [agent, cls] of strategiesOf(agents)) {
     if (!(cls.prototype instanceof BaseMemoryStrategy)) {
-      throw new ComponentError(
-        `[memory.not-a-strategy] @Agent "${agent}": memoryStrategy ${tokenName(cls)} does not extend BaseMemoryStrategy (agboss/memory)`,
-      );
+      throw new ComponentError({
+        message: `[memory.not-a-strategy] @Agent "${agent}": memoryStrategy ${tokenName(cls)} does not extend BaseMemoryStrategy (agboss/memory)`,
+      });
     }
   }
 }

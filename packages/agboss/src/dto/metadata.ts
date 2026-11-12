@@ -18,10 +18,10 @@ function ownTable(metadata: DecoratorMetadataObject): FieldTable {
 /** Called by every field decorator at class definition. */
 export function recordField(metadata: DecoratorMetadataObject | undefined, spec: FieldSpec): void {
   if (metadata === undefined) {
-    throw new DtoError(
-      "dto.no-metadata",
-      `field "${spec.name}": decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
-    );
+    throw new DtoError({
+      code: "dto.no-metadata",
+      message: `field "${spec.name}": decorator metadata is missing — import "@agboss/core/dto" before declaring DTOs`,
+    });
   }
   ownTable(metadata).set(spec.name, spec);
 }
@@ -72,20 +72,20 @@ export function registerDto(dto: DtoClass): readonly FieldSpec[] {
     (key) => !decorated.has(key),
   );
   if (undecorated.length > 0) {
-    throw new DtoError(
-      "dto.undecorated-field",
-      `${dto.name}: every field needs a field decorator — ${undecorated.join(", ")}`,
-    );
+    throw new DtoError({
+      code: "dto.undecorated-field",
+      message: `${dto.name}: every field needs a field decorator — ${undecorated.join(", ")}`,
+    });
   }
   const notPlain = [
     ...behaviourOf(dto),
     ...fields.filter((field) => field.isPrivate).map((field) => field.name),
   ];
   if (notPlain.length > 0) {
-    throw new DtoError(
-      "dto.not-plain-data",
-      `${dto.name}: a DTO is plain data, without methods or private fields — ${notPlain.join(", ")}`,
-    );
+    throw new DtoError({
+      code: "dto.not-plain-data",
+      message: `${dto.name}: a DTO is plain data, without methods or private fields — ${notPlain.join(", ")}`,
+    });
   }
   registered.add(dto);
   return fields;

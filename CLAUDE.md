@@ -2728,9 +2728,12 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   class gets a `static code`, and **one shape (#906, #890 G8)**: it is made from one options object
   whose keys are its own properties — `new BusinessKeyConflictError({ effect, businessKeyHash, cause })`,
   an error with only its text `new UnknownPauseError({ message, cause })` — and every one takes a
-  `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry's exports and
-  fails for a class without a fixture, with positional facts, or one that drops its `cause`; only
-  the base `new AGBossError(message, { cause, details })` is positional). Its instance `code` is its
+  `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry of
+  `package.json#exports` for every `Error` subclass — `AGBossError` or not, the `/testing` ones and
+  the platform's `RangeError` ones included (`UnitError`, `ReasoningError`, …: `{ message, cause }`,
+  `PlainErrorOptions`, a literal `code`) — and fails for a class without a fixture, with positional
+  facts, or one that drops its `cause`; only the base `new AGBossError(message, { cause, details })`
+  is positional). Its instance `code` is its
   class's literal — `static override readonly code = "…" as const;` and `declare readonly code:
 typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   (`tests/public-api/error-codes.test-d.ts`); the seven parents with subclasses (`PaidStepError`,
@@ -2980,7 +2983,7 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
 - **No specs, plans or docs as files.** Specs and implementation plans → GitHub Issues (bodies via
   stdin). Docs → GitHub Wiki via `scripts/wiki.sh`. **ALWAYS update the `../<repo>.wiki` repository directly whenever making API, DSL, or architectural changes so that the wiki is always up-to-date** — checked with `node scripts/check-docs.mjs --wiki ../<repo>.wiki` before `scripts/wiki.sh publish`, and by CI. Decisions → wiki pages `ADR-NNNN-Title`.
 - Inside the framework, `src/routers` never imports graph/agents/prompts, and the rest imports it
-  only via `src/routers/index.ts` (ESLint-enforced; the same for `src/tools` and `src/terns`).
+  only via `src/routers/index.ts` (ESLint-enforced; the same for `src/tools` and `src/turns`).
 - **Example code before spec**: a new decorator or a new parameter enters a spec only after example
   code using it is agreed.
 - New names follow the naming grammar (above, #127).
@@ -3020,7 +3023,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
                     rule-error.ts + rule-codes.ts, limits.ts, settings.ts, studio-graph.ts
-    llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  tracing/
+    llm/  routers/  tools/  guardrails/  compaction/  turns/  run/  pause/  finops/  tracing/
     prompts/  types/
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through @agboss/core/internal)
                     and its parts — the tree, channels, PII policies, the worst-case report;

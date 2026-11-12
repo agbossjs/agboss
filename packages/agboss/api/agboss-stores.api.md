@@ -1926,7 +1926,7 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
-// src/app/paused-runs.ts:26:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/components/policy-decorators.ts:20:3 - (ae-undocumented) Missing documentation for "Input".
@@ -1938,9 +1938,9 @@ export interface WrittenLedgerMark {
 // src/core/error-record.ts:17:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:33:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:45:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:46:3 - (ae-undocumented) Missing documentation for "details".
 // src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".

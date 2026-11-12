@@ -15,5 +15,5 @@ export function checkTenancies(
     const message = `${name}: declare whose content it serves — tenancy: RagTenancy.PerTenant (each tenant's own passages, read by options.tenantId) or RagTenancy.Shared (one corpus every tenant may read); got ${String(tenancy)}`;
     return [violation("rag.tenancy-required", message, [name])];
   });
-  if (found.length > 0) throw new GraphRuleError(found);
+  if (found.length > 0) throw new GraphRuleError({ violations: found });
 }

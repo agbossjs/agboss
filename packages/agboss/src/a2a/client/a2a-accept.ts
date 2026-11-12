@@ -182,9 +182,9 @@ export async function accept(call: AcceptCall): Promise<Accepted> {
   if (frame === undefined) return acceptedDirectly(call);
   const services = a2aClientServicesOf(frame.execution.tenant.application);
   if (services === undefined) {
-    throw new ComponentError(
-      `[a2a.outside-application] ${call.agent} was called in a step of no application (a unit runner's): its call cannot be recorded, so it is not sent — mock the client (mockOf), or run the step in testWith`,
-    );
+    throw new ComponentError({
+      message: `[a2a.outside-application] ${call.agent} was called in a step of no application (a unit runner's): its call cannot be recorded, so it is not sent — mock the client (mockOf), or run the step in testWith`,
+    });
   }
   const executionContext = liveExecutionContextOf(undefined, call.agent);
   return acceptedThrough(call, {

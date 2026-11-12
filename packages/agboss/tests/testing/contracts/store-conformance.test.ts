@@ -240,7 +240,7 @@ describe("#526 AC2: StoreConformanceError", () => {
   });
 
   it("its code falls back to store-conformance for a problem without one", () => {
-    expect(new StoreConformanceError(["something"]).code).toBe("store-conformance");
+    expect(new StoreConformanceError({ problems: ["something"] }).code).toBe("store-conformance");
   });
 
   it("nothing was built: the refusal comes before any store's factory", () => {

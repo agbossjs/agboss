@@ -20,9 +20,9 @@ import type { RuleViolation } from "../../graph/rule-error.js";
 export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta {
   const meta = evalSuiteOf(suite);
   if (meta === undefined)
-    throw new ComponentError(
-      `checkEvalSuite: ${suite.name || "(anonymous class)"} is not an @EvalSuite — decorate it with @EvalSuite({ name, description, start, checks, cascade, cases })`,
-    );
+    throw new ComponentError({
+      message: `checkEvalSuite: ${suite.name || "(anonymous class)"} is not an @EvalSuite — decorate it with @EvalSuite({ name, description, start, checks, cascade, cases })`,
+    });
   throwIfViolated(evalSuiteViolations(application, suite, meta));
   const { options } = requireApplication(application, "checkEvalSuite");
   const contexts = {

@@ -15,7 +15,9 @@ const unknownKeys = (keys: readonly string[], known: object): string[] =>
 function checkNames(bundle: AssembledWorkflow, profile: Profile, file: string): void {
   const base = bundle.config;
   if (profile.version === base.version) {
-    throw new ProfileError(`${file}: version: must differ from the base version ${base.version}`);
+    throw new ProfileError({
+      message: `${file}: version: must differ from the base version ${base.version}`,
+    });
   }
   const unknown = [
     ...unknownKeys(Object.keys(profile.agents ?? {}), base.agents).map((a) => `agents.${a}`),
@@ -25,7 +27,9 @@ function checkNames(bundle: AssembledWorkflow, profile: Profile, file: string): 
     ),
   ];
   if (unknown.length > 0) {
-    throw new ProfileError(`${file}: unknown in workflow "${base.name}": ${unknown.join(", ")}`);
+    throw new ProfileError({
+      message: `${file}: unknown in workflow "${base.name}": ${unknown.join(", ")}`,
+    });
   }
 }
 
@@ -46,9 +50,9 @@ export function applyProfile(
   const parsed = AgentsConfigSchema.safeParse(merged);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    throw new ProfileError(
-      `${file}: ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`,
-    );
+    throw new ProfileError({
+      message: `${file}: ${issue?.path.join(".") ?? ""}: ${issue?.message ?? "invalid"}`,
+    });
   }
   return {
     ...bundle,

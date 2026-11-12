@@ -1,3 +1,4 @@
+import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
 /** How long a cached prompt prefix lives. */
 export enum CacheRetention {
   FiveMinutes = "5m",
@@ -24,16 +25,26 @@ export interface PromptCachingOptions {
 export type PromptCaching =
   ({ readonly kind: "where-supported" } & PromptCachingOptions) | { readonly kind: "off" };
 
+/**
+ * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
+ * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
+ */
 export class PromptCachingError extends RangeError {
+  static readonly code = "config.prompt-caching" as const;
+  readonly code = PromptCachingError.code;
   override name = "PromptCachingError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 export const PromptCaching = {
   whereSupported(options: PromptCachingOptions): PromptCaching {
     if (options.cachedParts.length === 0) {
-      throw new PromptCachingError(
-        "cachedParts needs at least one part (or use PromptCaching.off())",
-      );
+      throw new PromptCachingError({
+        message: "cachedParts needs at least one part (or use PromptCaching.off())",
+      });
     }
     return Object.freeze({ kind: "where-supported", ...options });
   },

@@ -81,8 +81,8 @@ function turnReads(rows: Rows): Pick<TurnStore, "lastTurns" | "byIds" | "byVersi
 }
 
 /**
- * Recovery's look-up (#265 S30): a page of the Terns with one status, oldest first; and a run's
- * latest Turn by its id (#808), however many later Terns its thread has.
+ * Recovery's look-up (#265 S30): a page of the Turns with one status, oldest first; and a run's
+ * latest Turn by its id (#808), however many later Turns its thread has.
  */
 function statusReads(rows: Rows): Pick<TurnStore, "byStatus" | "findByTenantIdAndRunId"> {
   return {
@@ -137,7 +137,7 @@ function scoreMethods(
   };
 }
 
-/** Terns in SQLite (built-in `node:sqlite`) on a file of their own. `:memory:` for tests. */
+/** Turns in SQLite (built-in `node:sqlite`) on a file of their own. `:memory:` for tests. */
 export function createSqliteTurnStore(
   path: string,
   now: Now,
@@ -147,7 +147,7 @@ export function createSqliteTurnStore(
 }
 
 /**
- * Terns on an open database — a connection other stores share (#265): its tables migrated first.
+ * Turns on an open database — a connection other stores share (#265): its tables migrated first.
  * `close` closes that connection.
  */
 export function sharedTurnStore(

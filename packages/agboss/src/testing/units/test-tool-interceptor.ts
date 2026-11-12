@@ -29,7 +29,9 @@ const toolMetaOf = (tool: Class): ToolMeta =>
 function checkedNameOf(interceptor: Class): string {
   const meta = toolInterceptorMetaOf(interceptor);
   if (meta === undefined)
-    throw new TestSetupError(`testToolInterceptor(${interceptor.name}): not a @ToolInterceptor`);
+    throw new TestSetupError({
+      message: `testToolInterceptor(${interceptor.name}): not a @ToolInterceptor`,
+    });
   throwIfViolated(toolInterceptorViolations(interceptor, meta));
   return meta.name;
 }
@@ -42,9 +44,9 @@ function methodOf(
 ): (call: unknown) => unknown {
   const found = instance[method];
   if (found === undefined)
-    throw new TestSetupError(
-      `testToolInterceptor(${interceptor.name}): it has no ${method}(call) — implements ${method === "beforeToolCall" ? "BeforeToolCall" : "AfterToolCall"}`,
-    );
+    throw new TestSetupError({
+      message: `testToolInterceptor(${interceptor.name}): it has no ${method}(call) — implements ${method === "beforeToolCall" ? "BeforeToolCall" : "AfterToolCall"}`,
+    });
   return (call) => found.call(instance, call);
 }
 

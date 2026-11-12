@@ -20,7 +20,9 @@ export class TurnQueue {
 
   always(turn: ScriptedTurn): void {
     if (turn.kind === "wait") {
-      throw new TestSetupError("thenReturnAlways(waitFor(…)): a wait is followed by its answer");
+      throw new TestSetupError({
+        message: "thenReturnAlways(waitFor(…)): a wait is followed by its answer",
+      });
     }
     this.#always = turn;
   }

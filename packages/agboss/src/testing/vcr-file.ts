@@ -91,13 +91,13 @@ export const RE_RECORD = "re-record it: run the test with vcr mode RECORD (and a
 /** The cassette in `file`; a missing or unreadable one fails here, before the test runs. */
 export function readCassette(file: string): CassetteContent {
   if (!fs.existsSync(file)) {
-    throw new CassetteMissingError(`no cassette ${file} — ${RE_RECORD}`);
+    throw new CassetteMissingError({ message: `no cassette ${file} — ${RE_RECORD}` });
   }
   const parsed = CassetteFile.safeParse(JSON.parse(fs.readFileSync(file, "utf8")));
   if (!parsed.success) {
-    throw new CassetteMissingError(
-      `${file} is not a cassette (${parsed.error.message}) — ${RE_RECORD}`,
-    );
+    throw new CassetteMissingError({
+      message: `${file} is not a cassette (${parsed.error.message}) — ${RE_RECORD}`,
+    });
   }
   return parsed.data;
 }

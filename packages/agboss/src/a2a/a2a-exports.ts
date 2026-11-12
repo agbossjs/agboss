@@ -14,9 +14,9 @@ export function exportsOf(app: A2AApp, expose: Class): readonly Class[] {
   const { meta } = requireComponent(expose, "a2a-expose", "a2aHttpListener expose");
   const listed = meshSettingsOf(app)?.exposes;
   if (listed !== undefined && !listed.includes(expose)) {
-    throw new ComponentError(
-      `[application.expose-unlisted] ${expose.name} is not listed in @Application({ exposes }) — list it there: what is served is what describe lists`,
-    );
+    throw new ComponentError({
+      message: `[application.expose-unlisted] ${expose.name} is not listed in @Application({ exposes }) — list it there: what is served is what describe lists`,
+    });
   }
   return meta.exports;
 }

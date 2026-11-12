@@ -59,10 +59,10 @@ function keyOf(meta: PiiPolicyMeta, parts: PiiRuntimeParts): string {
   const variable = variableOfSecret(meta.pseudonymKey);
   const value = parts.processEnv[variable];
   if (value === undefined || value === "")
-    throw new EnvironmentError(
-      EnvironmentErrorCode.MissingVariables,
-      `${variable} is not set (${meta.name}.pseudonymKey)`,
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.MissingVariables,
+      message: `${variable} is not set (${meta.name}.pseudonymKey)`,
+    });
   return value;
 }
 

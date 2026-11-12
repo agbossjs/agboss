@@ -50,9 +50,9 @@ const fieldOf =
       keys.some((key) => key !== "optional") ||
       (optional !== undefined && typeof optional !== "boolean")
     ) {
-      throw new ComponentError(
-        `EnvironmentField.${maker}(${shownValueOf(given)}): its options are { optional?: boolean } — EnvironmentField.${maker}({ optional: true })`,
-      );
+      throw new ComponentError({
+        message: `EnvironmentField.${maker}(${shownValueOf(given)}): its options are { optional?: boolean } — EnvironmentField.${maker}({ optional: true })`,
+      });
     }
     const field = Object.freeze({});
     made.set(field, { type, isOptional: options.optional === true });

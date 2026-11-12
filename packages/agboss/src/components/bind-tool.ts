@@ -31,7 +31,7 @@ export function BindTool(tool: Class | string, options?: BindToolOptions) {
     } else {
       const meta = componentOf(tool);
       if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
-        throw new ComponentError("@BindTool expects a @Tool, @McpTool, or a string");
+        throw new ComponentError({ message: "@BindTool expects a @Tool, @McpTool, or a string" });
       }
       toolName = meta.meta.name;
     }
@@ -43,7 +43,9 @@ export function BindTool(tool: Class | string, options?: BindToolOptions) {
       } else {
         const agentDeclaration = declarationOf(options.agent);
         if (agentDeclaration?.kind !== NodeKind.Agent) {
-          throw new ComponentError("@BindTool agent option expects an @Agent or a string");
+          throw new ComponentError({
+            message: "@BindTool agent option expects an @Agent or a string",
+          });
         }
         agentName = agentDeclaration.options.name;
       }

@@ -102,10 +102,12 @@ function registrationOf(
 ): Registration {
   const found = registrations.find(token, dependant);
   if (found?.kind === "value" && found.value instanceof UnavailableValue) {
-    throw new ComponentError(found.value.message(dependant));
+    throw new ComponentError({ message: found.value.message(dependant) });
   }
   if (found === undefined && token instanceof InjectionToken) {
-    throw new ComponentError(`"${tokenName(token)}" is not registered in @Workflow({ providers })`);
+    throw new ComponentError({
+      message: `"${tokenName(token)}" is not registered in @Workflow({ providers })`,
+    });
   }
   return found ?? { kind: "class", cls: token as Class };
 }
@@ -116,9 +118,9 @@ type Resolve = (token: Token, dependant: string) => unknown;
 function construct(cls: Class, resolve: Resolve): unknown {
   const args = depsOf(cls).map((dep) => resolve(dep, tokenName(cls)));
   if (args.length === 0 && cls.length > 0 && !isDecorated(cls)) {
-    throw new ComponentError(
-      `[di.undecorated-provider] ${tokenName(cls)} takes ${String(cls.length)} constructor argument(s) but has no @Injectable({ deps }) or similar decorator.`,
-    );
+    throw new ComponentError({
+      message: `[di.undecorated-provider] ${tokenName(cls)} takes ${String(cls.length)} constructor argument(s) but has no @Injectable({ deps }) or similar decorator.`,
+    });
   }
   return new (cls as unknown as new (...a: unknown[]) => unknown)(...args);
 }

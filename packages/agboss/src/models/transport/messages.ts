@@ -34,9 +34,9 @@ function textOf(content: MessageContent, provider: string): string {
   return content
     .map((block) => {
       if (block.type === "text" && typeof block.text === "string") return block.text;
-      throw new ModelProviderError(
-        `${provider}: a transport provider carries text only, not a "${block.type}" part`,
-      );
+      throw new ModelProviderError({
+        message: `${provider}: a transport provider carries text only, not a "${block.type}" part`,
+      });
     })
     .join("");
 }
@@ -52,7 +52,9 @@ const toolCallsOf = (message: AIMessage): readonly ModelProviderToolCall[] =>
 function providerMessageOf(message: BaseMessage, provider: string): ModelProviderMessage {
   const role = ROLES[message.type];
   if (role === undefined)
-    throw new ModelProviderError(`${provider}: a "${message.type}" message has no transport role`);
+    throw new ModelProviderError({
+      message: `${provider}: a "${message.type}" message has no transport role`,
+    });
   const text = textOf(message.content, provider);
   if (AIMessage.isInstance(message)) {
     const toolCalls = toolCallsOf(message);
@@ -96,9 +98,9 @@ function checkResponse(
     typeof Reflect.get(usage, "inputTokens") === "number" &&
     typeof Reflect.get(usage, "outputTokens") === "number";
   if (isObject && typeof Reflect.get(response, "text") === "string" && hasUsage) return;
-  throw new ModelProviderError(
-    `${provider}: complete(request) must answer { text, toolCalls?, usage: { inputTokens, outputTokens }, cost?, finishReason? }`,
-  );
+  throw new ModelProviderError({
+    message: `${provider}: complete(request) must answer { text, toolCalls?, usage: { inputTokens, outputTokens }, cost?, finishReason? }`,
+  });
 }
 
 /** The provider's answer as the agent loop's message: text, tool calls, usage, cost, finish reason. */

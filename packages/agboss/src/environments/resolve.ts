@@ -90,9 +90,15 @@ class Problems {
 
   throwIfAny(): void {
     if (this.missing.length > 0)
-      throw new EnvironmentError(EnvironmentErrorCode.MissingVariables, this.missing.join("; "));
+      throw new EnvironmentError({
+        code: EnvironmentErrorCode.MissingVariables,
+        message: this.missing.join("; "),
+      });
     if (this.invalid.length > 0)
-      throw new EnvironmentError(EnvironmentErrorCode.InvalidValue, this.invalid.join("; "));
+      throw new EnvironmentError({
+        code: EnvironmentErrorCode.InvalidValue,
+        message: this.invalid.join("; "),
+      });
   }
 }
 
@@ -148,10 +154,11 @@ function environmentOf(values: unknown): Environment {
     Array.isArray(values) ||
     !checkedByTsc(values)
   ) {
-    throw new EnvironmentError(
-      EnvironmentErrorCode.NotFound,
-      "an environment file must export an object: export const environment: AppEnvironment = { … }",
-    );
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.NotFound,
+      message:
+        "an environment file must export an object: export const environment: AppEnvironment = { … }",
+    });
   }
   return values;
 }

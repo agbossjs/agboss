@@ -95,28 +95,28 @@ function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | un
 function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScript): RouteOutcome {
   if (turn.kind === "failure") {
     // the model call failed: a router fails with RouterFailedError, this error as its cause (#280 S19)
-    const cause = new ModelCallFailedError(turn.failure, script.label);
+    const cause = new ModelCallFailedError({ failure: turn.failure, component: script.label });
     return { kind: "failed", reason: cause.message, cause };
   }
   if (turn.kind !== "route") {
-    throw new TestFailure(
-      "test.wrong-script",
-      `${script.label} is a router: script it with routeTo(…), not replyWith(…) / callTool(…)`,
-    );
+    throw new TestFailure({
+      code: "test.wrong-script",
+      message: `${script.label} is a router: script it with routeTo(…), not replyWith(…) / callTool(…)`,
+    });
   }
   const [target, ...more] = turn.targets;
   if (target === undefined || more.length > 0) {
     const given = turn.targets.map(optionOf).join(", ");
     const message = `routeTo(${given}) for ${script.label}: it chooses one route — name exactly one target`;
-    throw new TestFailure("test.wrong-script", message);
+    throw new TestFailure({ code: "test.wrong-script", message });
   }
   const next = optionOf(target);
   const options = spec.request.options.map((option) => option.name);
   if (!options.includes(next)) {
-    throw new TestFailure(
-      "test.not-a-route",
-      `routeTo(${next}) for ${script.label}: not one of its routes (${options.join(", ")})`,
-    );
+    throw new TestFailure({
+      code: "test.not-a-route",
+      message: `routeTo(${next}) for ${script.label}: not one of its routes (${options.join(", ")})`,
+    });
   }
   const decision = {
     next,

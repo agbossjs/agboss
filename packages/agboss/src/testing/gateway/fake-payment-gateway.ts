@@ -1,5 +1,6 @@
 import type { Clock } from "../../infrastructure/clock.js";
 import { hours, seconds, type Milliseconds } from "../../units/index.js";
+import { causeOptionOf } from "../../core/errors.js";
 
 /**
  * A payment gateway in the test's process (#508): what a team's adapter is checked against offline
@@ -89,21 +90,27 @@ export enum FakeGatewayErrorKind {
   NoLookup = "no-lookup",
 }
 
+/** What a fake gateway's error takes (#906): why, and the sentence. */
+export interface FakeGatewayErrorOptions {
+  readonly kind: FakeGatewayErrorKind;
+  readonly message: string;
+  readonly cause?: unknown;
+}
+
 /**
  * The fake gateway refused or lost a call; `kind` says why. The other system's own error, never a
  * framework one (`@agboss/core/testing` exports no `AGBossError` to throw by name): a plain `Error` with
  * its own `code`, as a provider SDK's.
  */
 export class FakeGatewayError extends Error {
-  static readonly code: string = "fake-gateway";
-  readonly code: string = FakeGatewayError.code;
+  static readonly code = "fake-gateway" as const;
+  readonly code = FakeGatewayError.code;
   override name = "FakeGatewayError";
+  readonly kind: FakeGatewayErrorKind;
 
-  constructor(
-    readonly kind: FakeGatewayErrorKind,
-    message: string,
-  ) {
-    super(message);
+  constructor(options: FakeGatewayErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+    this.kind = options.kind;
   }
 }
 
@@ -139,17 +146,17 @@ export class FakePaymentGateway {
   async charge(request: FakeGatewayCharge): Promise<FakeGatewayReceipt> {
     const fault = this.#nextFault();
     if (fault?.fault === FakeGatewayFault.FailBeforeProcessing)
-      throw new FakeGatewayError(
-        FakeGatewayErrorKind.Unavailable,
-        "the gateway is unavailable: nothing was processed",
-      );
+      throw new FakeGatewayError({
+        kind: FakeGatewayErrorKind.Unavailable,
+        message: "the gateway is unavailable: nothing was processed",
+      });
     if (fault?.fault === FakeGatewayFault.Slow) await this.#clock.sleep(fault.delay);
     const receipt = this.#processed(request);
     if (fault?.fault === FakeGatewayFault.AnswerThenDrop)
-      throw new FakeGatewayError(
-        FakeGatewayErrorKind.Timeout,
-        "the gateway did not answer in time",
-      );
+      throw new FakeGatewayError({
+        kind: FakeGatewayErrorKind.Timeout,
+        message: "the gateway did not answer in time",
+      });
     return receipt;
   }
 
@@ -157,7 +164,10 @@ export class FakePaymentGateway {
   lookup(idempotencyKey: string): Promise<FakeGatewayReceipt | undefined> {
     if (!this.capabilities.lookupByKey)
       return Promise.reject(
-        new FakeGatewayError(FakeGatewayErrorKind.NoLookup, "the gateway has no lookup by key"),
+        new FakeGatewayError({
+          kind: FakeGatewayErrorKind.NoLookup,
+          message: "the gateway has no lookup by key",
+        }),
       );
     return Promise.resolve(this.#kept(idempotencyKey)?.firstReceipt);
   }
@@ -185,10 +195,10 @@ export class FakePaymentGateway {
     const kept = this.#kept(request.idempotencyKey);
     if (kept === undefined) return this.#made(request);
     if (kept.amount !== request.amount && this.capabilities.conflictOnMismatch)
-      throw new FakeGatewayError(
-        FakeGatewayErrorKind.Conflict,
-        `key ${request.idempotencyKey} was used with other parameters`,
-      );
+      throw new FakeGatewayError({
+        kind: FakeGatewayErrorKind.Conflict,
+        message: `key ${request.idempotencyKey} was used with other parameters`,
+      });
     if (this.capabilities.firstResponseOnRepeat) return kept.firstReceipt;
     const answer = (this.#answers.get(kept.paymentId) ?? 1) + 1;
     this.#answers.set(kept.paymentId, answer);

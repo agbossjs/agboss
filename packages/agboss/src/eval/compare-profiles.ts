@@ -72,7 +72,7 @@ export async function compareBundleProfiles(
   tasksOf: (base: AppDeps) => Promise<readonly string[]>,
 ): Promise<ProfileComparison> {
   if (names.length < 2) {
-    throw new ProfileError(`compare needs at least two profiles, e.g. base,<profile>`);
+    throw new ProfileError({ message: `compare needs at least two profiles, e.g. base,<profile>` });
   }
   const runs = await Promise.all(
     names.map(async (name) => ({
@@ -105,10 +105,12 @@ function workflowOfStart(
     (candidate) => candidate.component === start,
   );
   if (found === undefined)
-    throw new ProfileError(`${nameOf(start)} is not a start of ${nameOf(application)}`);
+    throw new ProfileError({
+      message: `${nameOf(start)} is not a start of ${nameOf(application)}`,
+    });
   const workflow = assembled.workflows.find((each) => each.config.name === found.workflow);
   if (workflow === undefined)
-    throw new ProfileError(`${found.workflow} is not assembled in ${assembled.name}`);
+    throw new ProfileError({ message: `${found.workflow} is not assembled in ${assembled.name}` });
   return workflow;
 }
 

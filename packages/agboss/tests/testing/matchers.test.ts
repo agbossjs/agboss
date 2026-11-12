@@ -114,11 +114,11 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     const agent = new AgentFailedError({
       agent: "writer-agent",
       usage: [],
-      cause: new TestFailure("test.script-exhausted", "x"),
+      cause: new TestFailure({ code: "test.script-exhausted", message: "x" }),
     });
-    const rules = new GraphRuleError([
-      { code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] },
-    ]);
+    const rules = new GraphRuleError({
+      violations: [{ code: "graph.unreachable-node", message: "x", nodes: ["writer-agent"] }],
+    });
 
     expect(router).toFailWith(RouterDecisionError, { nodeId: "main-router" });
     expect(router).toFailWith(RouterFailedError, { code: "step.router.invalid-decision" });

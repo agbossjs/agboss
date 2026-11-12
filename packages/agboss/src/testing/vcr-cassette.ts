@@ -152,7 +152,13 @@ export class Cassette {
   #take(kind: Interaction["kind"], key: string, request: string): Interaction | undefined {
     const stale = this.stale.get(componentOfKey(key));
     if (stale !== undefined && this.mode === CassetteMode.Replay) {
-      throw this.report(new StaleCassetteError(this.file, stale.component, stale.changes));
+      throw this.report(
+        new StaleCassetteError({
+          file: this.file,
+          component: stale.component,
+          changes: stale.changes,
+        }),
+      );
     }
     const id = `${kind} ${key} ${request}`;
     const n = this.#used.get(id) ?? 0;
@@ -165,9 +171,9 @@ export class Cassette {
   #missing(key: string): Error {
     const recorded = this.interactions.filter((i) => i.key === key).length;
     return this.report(
-      new CassetteMissingError(
-        `${this.file} has no recording of this ${key} request (${String(recorded)} recorded for ${key}: a prompt, tool or input changed) — ${RE_RECORD}`,
-      ),
+      new CassetteMissingError({
+        message: `${this.file} has no recording of this ${key} request (${String(recorded)} recorded for ${key}: a prompt, tool or input changed) — ${RE_RECORD}`,
+      }),
     );
   }
 }

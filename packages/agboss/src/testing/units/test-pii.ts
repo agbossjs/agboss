@@ -33,7 +33,8 @@ export interface PiiRunner extends UnitClock {
 function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimePiiPolicy[] {
   return policies.map((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined) throw new TestSetupError(`testPii: ${cls.name} is not a @PiiPolicy`);
+    if (meta === undefined)
+      throw new TestSetupError({ message: `testPii: ${cls.name} is not a @PiiPolicy` });
     const model = isCustomPolicy(meta) ? undefined : meta.detectWithModel;
     const detection = (name: string, id: string) => {
       const settings = unitChatSettings(id);
@@ -67,7 +68,8 @@ export function testPii<
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
 ): PiiRunner {
   const [first] = policies;
-  if (first === undefined) throw new TestSetupError("testPii([]): name the policies to apply");
+  if (first === undefined)
+    throw new TestSetupError({ message: "testPii([]): name the policies to apply" });
   throwIfViolated([...policyViolations(policies), ...conflictViolations("testPii", policies)]);
   const site = new UnitSite(options);
   for (const cls of policies) {

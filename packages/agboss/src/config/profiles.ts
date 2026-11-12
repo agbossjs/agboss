@@ -4,10 +4,17 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { AgentsConfigSchema, AgentSettingsSchema, CompactionSettingsSchema } from "./types.js";
 import { normalisePromptText } from "../components/prompt-render.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** A profile names a variant of a workflow and lists only what differs (Spring-Boot-like). */
-export class ProfileError extends Error {
+export class ProfileError extends AGBossError {
+  static override readonly code = "config.profile" as const;
+  declare readonly code: typeof ProfileError.code;
   override name = "ProfileError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** Every field optional at every depth; unknown keys rejected (typos surface with their path). */
@@ -60,9 +67,9 @@ export async function loadProfile(file: string): Promise<Profile> {
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const key = issue?.path.join(".") ?? "";
-    throw new ProfileError(
-      `${file}: ${key === "" ? "" : `${key}: `}${issue?.message ?? "invalid profile"}`,
-    );
+    throw new ProfileError({
+      message: `${file}: ${key === "" ? "" : `${key}: `}${issue?.message ?? "invalid profile"}`,
+    });
   }
   return parsed.data;
 }

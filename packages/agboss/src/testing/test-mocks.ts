@@ -53,9 +53,9 @@ export class TestMocks {
 
   #beforeStart(what: string): void {
     if (this.#isStarted) {
-      throw new TestSetupError(
-        `${what} after the app started: call it before the first app.execute(…)`,
-      );
+      throw new TestSetupError({
+        message: `${what} after the app started: call it before the first app.execute(…)`,
+      });
     }
   }
 
@@ -64,7 +64,9 @@ export class TestMocks {
     // the mock stored for this class was created by mockInstanceOf(cls) below
     if (existing !== undefined) return existing as Mocked<T>;
     if (!this.used.has(cls)) {
-      throw new TestSetupError(`mockOf(${cls.name}): not a component of this application`);
+      throw new TestSetupError({
+        message: `mockOf(${cls.name}): not a component of this application`,
+      });
     }
     this.#beforeStart(`mockOf(${cls.name})`);
     const mock = mockInstanceOf(cls);
@@ -76,7 +78,9 @@ export class TestMocks {
   mockAction(action: Class): ActionScript {
     const node = this.nodes.find((item) => item.component === action);
     if (node?.kind !== NodeKind.Action) {
-      throw new TestSetupError(`mockAction(${action.name}): not an action of this application`);
+      throw new TestSetupError({
+        message: `mockAction(${action.name}): not an action of this application`,
+      });
     }
     return this.actions.callsOf(nodeNameOf(action));
   }
@@ -84,7 +88,9 @@ export class TestMocks {
   /** The scripted failures of a tool of the application. */
   mockTool(tool: Class): ToolScript {
     if (!this.used.has(tool)) {
-      throw new TestSetupError(`mockTool(${tool.name}): not a tool of this application`);
+      throw new TestSetupError({
+        message: `mockTool(${tool.name}): not a tool of this application`,
+      });
     }
     this.#beforeStart(`mockTool(${tool.name})`);
     return this.#tools.scriptOf(tool);

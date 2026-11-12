@@ -96,6 +96,22 @@ retryAfter })`, `new ModelCallError({ code, provider, message })`, `new ToolTime
     `DeadlineExceededError`'s `{ deadline, deadlineAt }` are plain options.
   - **`FingerprintRequiredError({ effect, reason, cause })`:** the option was `name`, the field is
     `.effect` — and `name` shadowed `Error.name`.
+  - **The 27 other exported error classes, the same way** (every `Error` subclass of every entry,
+    the testing ones included): extending `AGBossError` — `ComponentError` (`component`,
+    `PromptError` `component.prompt`, `NoDefaultRouterError`), `EnvironmentError`, `DtoError` (their
+    `code` stays the enum / union value), `GraphRuleError`, `ConfigurationError`,
+    `ModelProviderError`, `ProfileError`, `WorkflowLoadError`, `ApplicationLoadError`; and staying
+    `RangeError` / `Error` with the shape (`PlainErrorOptions`: `{ message, cause }`, a literal
+    `code`) — `UnitError`, `ReasoningError`, `PromptCachingError`, `RetryPolicyError`,
+    `RateLimitPolicyError`, `TestFailure({ code, message })` and its subclasses, `TestSetupError`,
+    `ModelCallFailedError({ failure, component })`, `FakeGatewayError({ kind, message })`,
+    `StoreConformanceError({ problems })`, `StoreAnswerLostError`, `FaultInvariantError({ scenario,
+violations, notes })`. `new X("text")` is `new X({ message: "text" })`.
+  - **Also:** ESLint's module-isolation rules name `src/turns` again (they named the removed
+    `src/terns` and matched nothing; a test fails when a path they name does not exist); "Tern" is
+    "Turn" in every shipped doc comment; `TurnStoreRecordRepository` and `TurnRecords` are exported
+    by the root entry; a stored paused run that cannot be read is refused by its ids and the failing
+    field, the schema's error as `cause` — not with the run (its input) in the message.
   - **`switch (error.code)` narrows** over a union of error instances: the instance `code` of every
     error is its class's literal (`declare readonly code: typeof X.code`; `ModelCallError.code` is
     `"model.circuit-open"`). The seven parents with subclasses carry the **literal union of their

@@ -43,9 +43,9 @@ export interface GuardrailRunner extends UnitClock {
 function checkedMetaOf(guardrail: Class): GuardrailMeta {
   const meta = guardrailMetaOf(guardrail);
   if (meta === undefined)
-    throw new TestSetupError(
-      `testGuardrail(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
-    );
+    throw new TestSetupError({
+      message: `testGuardrail(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
+    });
   throwIfViolated(guardrailViolations([guardrail], UNIT_DECISION_MODEL));
   return meta;
 }
@@ -57,7 +57,9 @@ async function loadedOf(guardrail: Class): Promise<LoadedGuardrail> {
   const [loaded] = await loadedGuardrailOf(guardrail, UNIT_DECISION_MODEL, loader);
   loader.throwIfAny();
   if (loaded === undefined)
-    throw new TestSetupError(`testGuardrail(${guardrail.name}): could not be assembled`);
+    throw new TestSetupError({
+      message: `testGuardrail(${guardrail.name}): could not be assembled`,
+    });
   return loaded;
 }
 
@@ -68,9 +70,9 @@ function checkedScript(
   options: Pick<UnitModelOptions, "model">,
 ): void {
   if (isCodeGuardrail(meta) && options.model !== undefined)
-    throw new TestSetupError(
-      `testGuardrail(${guardrail.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
-    );
+    throw new TestSetupError({
+      message: `testGuardrail(${guardrail.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+    });
 }
 
 /**

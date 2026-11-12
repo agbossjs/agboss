@@ -57,15 +57,15 @@ interface RoleInterpreter {
 async function interpreterOfRole(role: Class): Promise<RoleInterpreter> {
   const found = channelRoleOf(role);
   if (found === undefined)
-    throw new TestSetupError(`testReplyInterpreter(${role.name}): not a @ChannelRole`);
+    throw new TestSetupError({ message: `testReplyInterpreter(${role.name}): not a @ChannelRole` });
   const loader = new PromptLoader();
   const { interpreter, violations } = await roleInterpreterOf(found, loader);
   loader.throwIfAny();
   throwIfViolated(violations);
   if (interpreter === undefined)
-    throw new TestSetupError(
-      `testReplyInterpreter(${role.name}): ${found.options.name} names no replyInterpreter — it is answered with a decision only`,
-    );
+    throw new TestSetupError({
+      message: `testReplyInterpreter(${role.name}): ${found.options.name} names no replyInterpreter — it is answered with a decision only`,
+    });
   return { found, interpreter };
 }
 
@@ -143,9 +143,9 @@ export function testReplyInterpreter<
   const ready = interpreterOfRole(role).then((assembled) => {
     const { name, model } = assembled.interpreter;
     if (model === undefined && options.model !== undefined)
-      throw new TestSetupError(
-        `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
-      );
+      throw new TestSetupError({
+        message: `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+      });
     site.scriptModel(replyInterpreterKeyOf(name), name, options.model);
     return assembled;
   });

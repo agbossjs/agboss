@@ -1,7 +1,5 @@
 /** #906 AC1: a fixture typed by its class's constructor. */
-import type { AGBossError } from "../../src/index.js";
-
-type Ctor = new (options: never) => AGBossError;
+type Ctor = new (options: never) => Error;
 
 /** One fixture: the class's name and its options, typed by the class. */
 export const fx = <C extends Ctor>(

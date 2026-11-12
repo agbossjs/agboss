@@ -1,3 +1,4 @@
+import { causeOptionOf, type PlainErrorOptions } from "../../core/errors.js";
 /**
  * `rateLimitPolicy` of a `@ModelProvider` (#266): one limit for the provider's calls, shared by every
  * execution, tenant, parallel branch and application instance — its slots and windows are kept in
@@ -38,14 +39,26 @@ export interface RateLimitPolicy {
   readonly balancing: QueueBalancingStrategy;
 }
 
+/**
+ * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
+ * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
+ */
 export class RateLimitPolicyError extends RangeError {
+  static readonly code = "config.rate-limit-policy" as const;
+  readonly code = RateLimitPolicyError.code;
   override name = "RateLimitPolicyError";
+
+  constructor(options: PlainErrorOptions) {
+    super(options.message, causeOptionOf(options.cause));
+  }
 }
 
 function checkLimit(name: string, value: number | undefined): void {
   if (value === undefined) return;
   if (!Number.isInteger(value) || value < 1) {
-    throw new RateLimitPolicyError(`${name} must be an integer ≥ 1, got ${String(value)}`);
+    throw new RateLimitPolicyError({
+      message: `${name} must be an integer ≥ 1, got ${String(value)}`,
+    });
   }
 }
 
@@ -61,9 +74,9 @@ export const RateLimitPolicy = {
     checkLimit("perMinute.tokens", perMinute.tokens);
     const limits = [options.maxConcurrentCalls, perMinute.calls, perMinute.tokens];
     if (limits.every((limit) => limit === undefined)) {
-      throw new RateLimitPolicyError(
-        "a rate limit needs maxConcurrentCalls or perMinute.calls / perMinute.tokens",
-      );
+      throw new RateLimitPolicyError({
+        message: "a rate limit needs maxConcurrentCalls or perMinute.calls / perMinute.tokens",
+      });
     }
     return Object.freeze({
       maxConcurrentCalls: options.maxConcurrentCalls,

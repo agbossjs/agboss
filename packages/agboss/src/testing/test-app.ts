@@ -75,7 +75,8 @@ function workflowWith(built: BuiltApplication, component: Class): BuiltApp {
       [...workflow.bundle.graph.nodes.values()].some((node) => node.component === component),
     ) ?? built.workflows[0];
   // the assembly rejects an application without workflows
-  if (found === undefined) throw new TestSetupError("the application has no workflows");
+  if (found === undefined)
+    throw new TestSetupError({ message: "the application has no workflows" });
   return found;
 }
 
@@ -166,7 +167,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   const built = (): Promise<BuiltApplication> => {
     if (closed) {
       const message = "this app is closed — after recoverApp() use the app it returned";
-      return Promise.reject(new TestFailure("test.app-closed", message));
+      return Promise.reject(new TestFailure({ code: "test.app-closed", message }));
     }
     return (building ??= withProbesLoaded(environment.newApp(gate)).then(
       (application) => (ready = application),
@@ -176,7 +177,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   const readyApp = (): App => {
     if (ready === undefined) {
       const message = "the app is not built yet — await app.ready() (or an execute) before resolve";
-      throw new TestFailure("test.app-not-ready", message);
+      throw new TestFailure({ code: "test.app-not-ready", message });
     }
     return ready.app;
   };

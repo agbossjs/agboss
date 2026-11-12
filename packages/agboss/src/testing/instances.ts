@@ -28,32 +28,33 @@ const INSTANCE_OPTION_KEYS: ReadonlySet<string> = new Set(["clockSkew", "meterPr
 export function testInstancesOf(options: TestWithOptions): readonly TestInstanceOptions[] {
   for (const removed of ["clockSkews", "meterProviders"])
     if (Reflect.get(options, removed) !== undefined)
-      throw new TestSetupError(
-        `${removed}: no such option (#831) — each instance's own settings are its entry: instances: [{ clockSkew, meterProvider }, …]`,
-      );
+      throw new TestSetupError({
+        message: `${removed}: no such option (#831) — each instance's own settings are its entry: instances: [{ clockSkew, meterProvider }, …]`,
+      });
   const instances: unknown = options.instances ?? 1;
   if (typeof instances === "number") {
     if (!Number.isInteger(instances) || instances < 1)
-      throw new TestSetupError(`instances: ${String(instances)} — a whole number ≥ 1`);
+      throw new TestSetupError({ message: `instances: ${String(instances)} — a whole number ≥ 1` });
     return Array.from({ length: instances }, () => ({}));
   }
   if (!Array.isArray(instances) || instances.length === 0)
-    throw new TestSetupError(
-      "instances: a whole number ≥ 1, or a non-empty list of { clockSkew?, meterProvider? }",
-    );
+    throw new TestSetupError({
+      message:
+        "instances: a whole number ≥ 1, or a non-empty list of { clockSkew?, meterProvider? }",
+    });
   return instances.map((instance: unknown, at) => {
     if (typeof instance !== "object" || instance === null)
-      throw new TestSetupError(`instances[${String(at)}]: not an object`);
+      throw new TestSetupError({ message: `instances[${String(at)}]: not an object` });
     const unknown = Object.keys(instance).filter((key) => !INSTANCE_OPTION_KEYS.has(key));
     if (unknown.length > 0)
-      throw new TestSetupError(
-        `instances[${String(at)}]: ${unknown.join(", ")} — an instance takes clockSkew and meterProvider only`,
-      );
+      throw new TestSetupError({
+        message: `instances[${String(at)}]: ${unknown.join(", ")} — an instance takes clockSkew and meterProvider only`,
+      });
     const { clockSkew } = instance as TestInstanceOptions;
     if (clockSkew !== undefined && !(clockSkew instanceof ClockSkew))
-      throw new TestSetupError(
-        `instances[${String(at)}].clockSkew: not a ClockSkew (ClockSkew.ahead(…), .behind(…), .drifting(…))`,
-      );
+      throw new TestSetupError({
+        message: `instances[${String(at)}].clockSkew: not a ClockSkew (ClockSkew.ahead(…), .behind(…), .drifting(…))`,
+      });
     return instance;
   });
 }

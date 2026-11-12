@@ -19,9 +19,12 @@ export class ClockSkew {
     /** How much faster its clock runs: 0.01 = 1 % fast, −0.01 = 1 % slow. */
     readonly drift: number,
   ) {
-    if (!Number.isFinite(offset)) throw new TestSetupError(`ClockSkew: offset ${String(offset)}`);
+    if (!Number.isFinite(offset))
+      throw new TestSetupError({ message: `ClockSkew: offset ${String(offset)}` });
     if (!(Math.abs(drift) < 0.5))
-      throw new TestSetupError(`ClockSkew: drift ${String(drift)} — a rate between −0.5 and 0.5`);
+      throw new TestSetupError({
+        message: `ClockSkew: drift ${String(drift)} — a rate between −0.5 and 0.5`,
+      });
   }
 
   /** A wall clock `by` ahead of the test's. */

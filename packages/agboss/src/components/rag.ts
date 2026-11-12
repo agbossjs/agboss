@@ -31,9 +31,9 @@ export function ragClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[])
   ];
   for (const cls of classes) {
     if (componentOf(cls)?.kind !== "rag") {
-      throw new ComponentError(
-        `@Workflow "${bundle.name}": ${cls.name} in an agent's rag is not a @Rag`,
-      );
+      throw new ComponentError({
+        message: `@Workflow "${bundle.name}": ${cls.name} in an agent's rag is not a @Rag`,
+      });
     }
   }
   return classes;
@@ -140,9 +140,9 @@ export function boundRerankerOf(
   if (rerank === undefined || reranker === undefined) return undefined;
   const { name } = reranker;
   const model = reranker.model ?? DEFAULT_RERANKER_MODEL;
+  const message = `[reranker.no-model-gateway] ${name}: no model gateway here`;
   const binding = () => {
-    if (services.rerankModel === undefined)
-      throw new ComponentError(`[reranker.no-model-gateway] ${name}: no model gateway here`);
+    if (services.rerankModel === undefined) throw new ComponentError({ message });
     return services.rerankModel(name, model);
   };
   return {

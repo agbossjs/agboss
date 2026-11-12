@@ -81,7 +81,8 @@ export async function loadFlowProject(
   const files = paths.map((path) => resolve(path));
   const workflows: Class[] = [];
   for (const file of files) {
-    if (!existsSync(file)) throw new WorkflowLoadError(`Workflow file not found: ${file}`);
+    if (!existsSync(file))
+      throw new WorkflowLoadError({ message: `Workflow file not found: ${file}` });
     workflows.push(...Object.values(await namespaceOf(file)).filter(isFlowWorkflow));
   }
   const own = new Set([...files, ...componentFiles(workflows)]);

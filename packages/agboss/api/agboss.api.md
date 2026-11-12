@@ -462,8 +462,6 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
     // Warning: (ae-forgotten-export) The symbol "ExecutionTracing" needs to be exported by the entry point index.d.ts
     readonly tracing?: ExecutionTracing | undefined;
-    // Warning: (ae-forgotten-export) The symbol "TurnRecords" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly turns: TurnRecords;
 }
@@ -1650,8 +1648,13 @@ export interface ComponentDescriptor extends ComponentRecord {
     readonly type: Class;
 }
 
-// @public (undocumented)
-export class ComponentError extends Error {
+// @public
+export class ComponentError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    readonly code: "component" | "component.prompt" | "component.no-default-router";
     // (undocumented)
     name: string;
 }
@@ -2148,8 +2151,10 @@ export interface Environment {
 }
 
 // @public
-export class EnvironmentError extends Error {
-    constructor(code: EnvironmentErrorCode, message: string);
+export class EnvironmentError extends AGBossError {
+    constructor(options: EnvironmentErrorOptions);
+    // (undocumented)
+    static readonly code: string;
     // (undocumented)
     readonly code: EnvironmentErrorCode;
     // (undocumented)
@@ -2162,6 +2167,16 @@ export enum EnvironmentErrorCode {
     MissingVariables = "environment.missing-variables",
     NoContract = "environment.no-contract",
     NotFound = "environment.not-found"
+}
+
+// @public
+export interface EnvironmentErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly code: EnvironmentErrorCode;
+    // (undocumented)
+    readonly message: string;
 }
 
 // @public
@@ -3170,10 +3185,22 @@ export interface GeneratedTypeError {
 }
 
 // @public
-export class GraphRuleError extends Error {
-    constructor(violations: readonly RuleViolation[]);
+export class GraphRuleError extends AGBossError {
+    constructor(options: GraphRuleErrorOptions);
+    // (undocumented)
+    static readonly code: "graph.rules";
+    // (undocumented)
+    readonly code: typeof GraphRuleError.code;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly violations: readonly RuleViolation[];
+}
+
+// @public
+export interface GraphRuleErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly violations: readonly RuleViolation[];
 }
@@ -5983,6 +6010,14 @@ export interface PiiRule {
 export type PiiTarget = PiiKind | PiiGroup;
 
 // @public
+export interface PlainErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export interface PreviousLeaseHolder {
     // (undocumented)
     readonly holderInstanceId: string;
@@ -6046,9 +6081,21 @@ export interface ProfileReport {
 
 // @public
 export class PromptError extends ComponentError {
-    constructor(problems: readonly PromptProblem[]);
+    constructor(options: PromptErrorOptions);
+    // (undocumented)
+    static readonly code: "component.prompt";
+    // (undocumented)
+    readonly code: typeof PromptError.code;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly problems: readonly PromptProblem[];
+}
+
+// @public
+export interface PromptErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly problems: readonly PromptProblem[];
 }
@@ -6880,8 +6927,6 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "TurnStoreRecordRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class SqliteExecutionRecordRepository extends TurnStoreRecordRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext, idGenerator: IdGenerator);
@@ -7666,6 +7711,11 @@ export enum TurnLimit {
 // @public
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
+// Warning: (ae-forgotten-export) The symbol "TurnStore" needs to be exported by the entry point index.d.ts
+//
+// @public
+export type TurnRecords = Omit<TurnStore, "close" | "byStatus" | "appendPauseAnswer" | "pauseAnswersOf">;
+
 // @public
 export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
 
@@ -7675,6 +7725,67 @@ export interface TurnStep {
     readonly agent: string;
     // (undocumented)
     readonly content: MessageContent;
+}
+
+// @public
+export class TurnStoreRecordRepository extends ExecutionRecordRepository {
+    constructor(store: TurnStore);
+    // (undocumented)
+    addSummary(summary: NewSummary): Promise<Summary>;
+    // (undocumented)
+    append(turn: NewTurn): Promise<Turn>;
+    // (undocumented)
+    before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]>;
+    // (undocumented)
+    byIds(ids: readonly string[]): Promise<Turn[]>;
+    // (undocumented)
+    byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
+    // (undocumented)
+    complete(turnId: string, outcome: TurnOutcome): Promise<void>;
+    // (undocumented)
+    completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    // (undocumented)
+    configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
+    // (undocumented)
+    createThread(thread: NewThread): Promise<string>;
+    // (undocumented)
+    findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]>;
+    // (undocumented)
+    findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
+    // (undocumented)
+    findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
+    // (undocumented)
+    hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
+    // (undocumented)
+    lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
+    // (undocumented)
+    latestSummaries(...args: Parameters<TurnStore["latestSummaries"]>): Promise<Summary[]>;
+    // (undocumented)
+    meanScore(turnIds: readonly string[]): Promise<number | null>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
+    // (undocumented)
+    rememberConfig(...args: Parameters<TurnStore["rememberConfig"]>): Promise<{
+        drift: boolean;
+    }>;
+    // (undocumented)
+    savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
+    // (undocumented)
+    saveScore(turnId: string, judge: string, score: number): Promise<void>;
+    // (undocumented)
+    summary(workflow: string): Promise<VersionScore[]>;
+    // (undocumented)
+    summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
+    // (undocumented)
+    threadOwner(...args: Parameters<TurnStore["threadOwner"]>): ReturnType<TurnStore["threadOwner"]>;
+    // (undocumented)
+    turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
+    // (undocumented)
+    uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
+    // (undocumented)
+    unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
 
 // @public
@@ -7948,7 +8059,12 @@ export interface WorkflowLaunchOptions extends LaunchOptions, ChildStepOptions {
 }
 
 // @public
-export class WorkflowLoadError extends Error {
+export class WorkflowLoadError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "load.workflow";
+    // (undocumented)
+    readonly code: typeof WorkflowLoadError.code;
     // (undocumented)
     name: string;
 }
@@ -8137,7 +8253,7 @@ export interface WrittenLedgerMark {
 // src/app/outbound-calls.ts:274:3 - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-calls.ts:275:3 - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-calls.ts:276:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/paused-runs.ts:26:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts:103:3 - (ae-undocumented) Missing documentation for "reply".
@@ -8251,8 +8367,9 @@ export interface WrittenLedgerMark {
 // src/components/judge-decorators.ts:50:3 - (ae-undocumented) Missing documentation for "model".
 // src/components/judge-decorators.ts:129:3 - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts:136:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/metadata.ts:122:1 - (ae-undocumented) Missing documentation for "ComponentError".
-// src/components/metadata.ts:123:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:128:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:129:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/name-of.ts:32:1 - (ae-undocumented) Missing documentation for "nameOf".
 // src/components/policy-decorators.ts:20:3 - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts:21:3 - (ae-undocumented) Missing documentation for "Output".
@@ -8260,8 +8377,12 @@ export interface WrittenLedgerMark {
 // src/components/policy-decorators.ts:75:3 - (ae-undocumented) Missing documentation for "refusal".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
-// src/components/prompt-problems.ts:23:12 - (ae-undocumented) Missing documentation for "name".
-// src/components/prompt-problems.ts:24:3 - (ae-undocumented) Missing documentation for "problems".
+// src/components/prompt-problems.ts:23:3 - (ae-undocumented) Missing documentation for "problems".
+// src/components/prompt-problems.ts:24:3 - (ae-undocumented) Missing documentation for "cause".
+// src/components/prompt-problems.ts:29:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/prompt-problems.ts:30:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/prompt-problems.ts:31:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/prompt-problems.ts:32:3 - (ae-undocumented) Missing documentation for "problems".
 // src/components/spend-recorder.ts:10:3 - (ae-undocumented) Missing documentation for "cost".
 // src/components/spend-recorder.ts:20:3 - (ae-undocumented) Missing documentation for "record".
 // src/components/spend-recorder.ts:25:3 - (ae-undocumented) Missing documentation for "code".
@@ -8280,40 +8401,42 @@ export interface WrittenLedgerMark {
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts:21:3 - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:33:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:34:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:45:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:46:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:47:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:61:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:62:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:63:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:199:3 - (ae-undocumented) Missing documentation for "generator".
-// src/core/errors.ts:200:3 - (ae-undocumented) Missing documentation for "method".
-// src/core/errors.ts:201:3 - (ae-undocumented) Missing documentation for "rule".
-// src/core/errors.ts:202:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:212:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:213:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:214:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:238:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:251:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:273:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:286:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:305:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/core/errors.ts:306:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:307:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:308:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:317:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:318:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:319:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:328:3 - (ae-undocumented) Missing documentation for "rule".
-// src/core/errors.ts:329:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:337:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:338:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:339:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:340:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:46:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:58:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:59:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:60:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:74:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:75:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:76:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:212:3 - (ae-undocumented) Missing documentation for "generator".
+// src/core/errors.ts:213:3 - (ae-undocumented) Missing documentation for "method".
+// src/core/errors.ts:214:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:215:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:225:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:226:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:227:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:251:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:264:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:286:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:299:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:318:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/core/errors.ts:319:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:320:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:321:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:330:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:331:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:332:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:341:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:342:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:350:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:351:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:352:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:353:3 - (ae-undocumented) Missing documentation for "rule".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
@@ -8393,17 +8516,21 @@ export interface WrittenLedgerMark {
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/dto/errors.ts:26:3 - (ae-undocumented) Missing documentation for "issues".
-// src/dto/errors.ts:27:3 - (ae-undocumented) Missing documentation for "cause".
-// src/dto/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:33:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:34:12 - (ae-undocumented) Missing documentation for "name".
+// src/dto/errors.ts:34:3 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:35:3 - (ae-undocumented) Missing documentation for "cause".
+// src/dto/errors.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:42:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
 // src/dto/standard/framework.ts:62:3 - (ae-undocumented) Missing documentation for "summary".
-// src/environments/errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
-// src/environments/errors.ts:17:5 - (ae-undocumented) Missing documentation for "code".
+// src/environments/errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
+// src/environments/errors.ts:18:3 - (ae-undocumented) Missing documentation for "message".
+// src/environments/errors.ts:19:3 - (ae-undocumented) Missing documentation for "cause".
+// src/environments/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
+// src/environments/errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/environments/errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
 // src/environments/fields.ts:26:3 - (ae-undocumented) Missing documentation for "[environmentFieldBrand]".
 // src/environments/secret.ts:49:3 - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts:53:3 - (ae-undocumented) Missing documentation for "toJSON".
@@ -8875,11 +9002,15 @@ export interface WrittenLedgerMark {
 // src/graph/limits.ts:181:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/graph/limits.ts:182:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/graph/limits.ts:183:3 - (ae-undocumented) Missing documentation for "steps".
-// src/graph/rule-error.ts:7:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:20:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:10:3 - (ae-undocumented) Missing documentation for "nodes".
 // src/graph/rule-error.ts:21:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:22:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/rule-error.ts:27:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:28:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:29:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:30:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
@@ -9015,6 +9146,33 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:180:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/execution-record.repository.ts:184:3 - (ae-undocumented) Missing documentation for "createThread".
+// src/infrastructure/execution-record.repository.ts:187:3 - (ae-undocumented) Missing documentation for "hasThread".
+// src/infrastructure/execution-record.repository.ts:190:3 - (ae-undocumented) Missing documentation for "threadOwner".
+// src/infrastructure/execution-record.repository.ts:193:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:196:3 - (ae-undocumented) Missing documentation for "complete".
+// src/infrastructure/execution-record.repository.ts:199:3 - (ae-undocumented) Missing documentation for "completeIfStatus".
+// src/infrastructure/execution-record.repository.ts:206:3 - (ae-undocumented) Missing documentation for "lastTurns".
+// src/infrastructure/execution-record.repository.ts:209:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:212:3 - (ae-undocumented) Missing documentation for "findByStatus".
+// src/infrastructure/execution-record.repository.ts:215:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndRunId".
+// src/infrastructure/execution-record.repository.ts:218:3 - (ae-undocumented) Missing documentation for "byVersion".
+// src/infrastructure/execution-record.repository.ts:221:3 - (ae-undocumented) Missing documentation for "unscored".
+// src/infrastructure/execution-record.repository.ts:224:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:227:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:230:3 - (ae-undocumented) Missing documentation for "summary".
+// src/infrastructure/execution-record.repository.ts:233:3 - (ae-undocumented) Missing documentation for "rememberConfig".
+// src/infrastructure/execution-record.repository.ts:236:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:239:3 - (ae-undocumented) Missing documentation for "recentOriginals".
+// src/infrastructure/execution-record.repository.ts:242:3 - (ae-undocumented) Missing documentation for "uncovered".
+// src/infrastructure/execution-record.repository.ts:245:3 - (ae-undocumented) Missing documentation for "before".
+// src/infrastructure/execution-record.repository.ts:248:3 - (ae-undocumented) Missing documentation for "turnNumber".
+// src/infrastructure/execution-record.repository.ts:251:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:254:3 - (ae-undocumented) Missing documentation for "latestSummaries".
+// src/infrastructure/execution-record.repository.ts:257:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:260:3 - (ae-undocumented) Missing documentation for "savePauseAnswer".
+// src/infrastructure/execution-record.repository.ts:267:9 - (ae-undocumented) Missing documentation for "findPauseAnswersByTenantIdAndRootExecutionId".
 // src/infrastructure/fenced-effect-errors.ts:12:3 - (ae-undocumented) Missing documentation for "cause".
 // src/infrastructure/fenced-effect-errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
@@ -9203,19 +9361,19 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:130:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:144:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:160:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:167:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:177:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:181:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:188:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:192:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:204:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:216:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:228:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:233:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:83:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:87:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:97:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:120:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:130:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:141:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:145:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:157:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:169:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:181:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:186:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -9273,7 +9431,9 @@ export interface WrittenLedgerMark {
 // src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
 // src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
 // src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
-// src/loader/load-errors.ts:3:12 - (ae-undocumented) Missing documentation for "name".
+// src/loader/load-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
+// src/loader/load-errors.ts:6:3 - (ae-undocumented) Missing documentation for "code".
+// src/loader/load-errors.ts:7:12 - (ae-undocumented) Missing documentation for "name".
 // src/mesh/mesh-call.ts:23:3 - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/mesh/mesh-envelope.ts:42:3 - (ae-undocumented) Missing documentation for "remaining".

@@ -92,10 +92,10 @@ function checkDecorated(type: Class): void {
   const fields = typeof instance === "object" && instance !== null ? Object.keys(instance) : [];
   const undecorated = fields.filter((field) => !decorated.has(field));
   if (undecorated.length > 0) {
-    throw new DtoError(
-      "dto.undecorated-field",
-      `${type.name}: every field of a context needs a field decorator — ${undecorated.join(", ")}`,
-    );
+    throw new DtoError({
+      code: "dto.undecorated-field",
+      message: `${type.name}: every field of a context needs a field decorator — ${undecorated.join(", ")}`,
+    });
   }
 }
 

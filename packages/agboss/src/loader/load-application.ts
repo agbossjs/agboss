@@ -21,15 +21,16 @@ export async function loadApplicationClass(
   options: { readonly typescript?: boolean } = {},
 ): Promise<Class> {
   const file = resolve(path);
-  if (!existsSync(file)) throw new ApplicationLoadError(`Application file not found: ${file}`);
+  if (!existsSync(file))
+    throw new ApplicationLoadError({ message: `Application file not found: ${file}` });
   if (options.typescript !== false) await registerTypeScript();
   const module = (await lazyLoad(import(pathToFileURL(file).href))) as Record<string, unknown>;
   const found = [...new Set(Object.values(module).filter(isApplicationClass))];
   const [application] = found;
   if (found.length !== 1 || application === undefined) {
-    throw new ApplicationLoadError(
-      `${file}: expected exactly one exported @Application class, found ${String(found.length)}`,
-    );
+    throw new ApplicationLoadError({
+      message: `${file}: expected exactly one exported @Application class, found ${String(found.length)}`,
+    });
   }
   return application;
 }

@@ -11,17 +11,29 @@ export type ExecutionId = string & {
     readonly __brand: "ExecutionId";
 };
 
+// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
+//
 // @public
-export class GraphRuleError extends Error {
-    constructor(violations: readonly RuleViolation[]);
+export class GraphRuleError extends AGBossError {
+    constructor(options: GraphRuleErrorOptions);
+    // (undocumented)
+    static readonly code: "graph.rules";
+    // (undocumented)
+    readonly code: typeof GraphRuleError.code;
     // (undocumented)
     name: string;
     // (undocumented)
     readonly violations: readonly RuleViolation[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
+// @public
+export interface GraphRuleErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly violations: readonly RuleViolation[];
+}
+
 // @public
 export class LimitExceededError extends AGBossError {
     constructor(options: LimitExceededErrorOptions);
@@ -241,11 +253,15 @@ export interface WorkflowStartOptions {
 // src/graph/limits.ts:53:3 - (ae-undocumented) Missing documentation for "path".
 // src/graph/limits.ts:54:3 - (ae-undocumented) Missing documentation for "spentUsd".
 // src/graph/limits.ts:55:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/rule-error.ts:7:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "message".
-// src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "nodes".
-// src/graph/rule-error.ts:20:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/rule-error.ts:10:3 - (ae-undocumented) Missing documentation for "nodes".
 // src/graph/rule-error.ts:21:3 - (ae-undocumented) Missing documentation for "violations".
+// src/graph/rule-error.ts:22:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/rule-error.ts:27:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:28:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/rule-error.ts:29:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/rule-error.ts:30:3 - (ae-undocumented) Missing documentation for "violations".
 // src/graph/settings.ts:10:3 - (ae-undocumented) Missing documentation for "build".
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".

@@ -134,7 +134,8 @@ export function testWith<TApplication extends Class>(
     },
     app: async ({ apps }, use) => {
       const [first] = apps;
-      if (first === undefined) throw new TestSetupError("instances: the test runs no instance");
+      if (first === undefined)
+        throw new TestSetupError({ message: "instances: the test runs no instance" });
       await use(first);
     },
     clock: async ({ environment }, use) => {

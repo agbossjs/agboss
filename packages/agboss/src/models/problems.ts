@@ -1,3 +1,4 @@
+import { AGBossError } from "../core/errors.js";
 /** Stable codes of a model setting that cannot work (startup and `agboss check --models`). */
 export type ModelProblemCode =
   | "model.unserved"
@@ -21,14 +22,27 @@ export interface ModelProblem {
 export const problemLine = (problem: ModelProblem): string =>
   `${problem.code}  ${problem.key} = ${problem.value} — model ${problem.model}: ${problem.supported}`;
 
+/** What a model-settings error takes (#906): every problem found. */
+export interface ConfigurationErrorOptions {
+  readonly problems: readonly ModelProblem[];
+  readonly cause?: unknown;
+}
+
 /** Every model setting that cannot work, all at once — raised before any model call. */
-export class ConfigurationError extends Error {
+export class ConfigurationError extends AGBossError {
+  static override readonly code = "config.model-settings" as const;
+  declare readonly code: typeof ConfigurationError.code;
   override name = "ConfigurationError";
-  constructor(readonly problems: readonly ModelProblem[]) {
+  readonly problems: readonly ModelProblem[];
+
+  constructor(options: ConfigurationErrorOptions) {
+    const { problems, cause } = options;
     super(
       `${String(problems.length)} model setting(s) do not fit their models:\n${problems
         .map((problem) => `  ${problemLine(problem)}`)
         .join("\n")}`,
+      { cause },
     );
+    this.problems = problems;
   }
 }

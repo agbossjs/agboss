@@ -45,12 +45,27 @@ export enum FaultInvariant {
 
 // @public
 export class FaultInvariantError extends Error {
-    constructor(scenario: string, violations: readonly FaultViolation[],
-    notes?: readonly string[]);
+    constructor(options: FaultInvariantErrorOptions);
+    // (undocumented)
+    static readonly code: "fault.invariant";
+    // (undocumented)
+    readonly code: "fault.invariant";
     get invariants(): readonly FaultInvariant[];
     // (undocumented)
     name: string;
     readonly notes: readonly string[];
+    // (undocumented)
+    readonly scenario: string;
+    // (undocumented)
+    readonly violations: readonly FaultViolation[];
+}
+
+// @public
+export interface FaultInvariantErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly notes?: readonly string[];
     // (undocumented)
     readonly scenario: string;
     // (undocumented)
@@ -189,6 +204,14 @@ export enum OperationPhase {
 }
 
 // @public
+export interface PlainErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export const processHoldPoints: HoldPoints;
 
 // @public
@@ -196,6 +219,11 @@ export function reportHeldOperations(report: HeldOperationsReport): () => void;
 
 // @public
 export class StoreAnswerLostError extends Error {
+    constructor(options: PlainErrorOptions);
+    // (undocumented)
+    static readonly code: "fault.store-answer-lost";
+    // (undocumented)
+    readonly code: "fault.store-answer-lost";
     // (undocumented)
     name: string;
 }
@@ -247,19 +275,29 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 
 // Warnings were encountered during analysis:
 //
+// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
 // src/testing/faults/fault-stores.ts:61:3 - (ae-undocumented) Missing documentation for "environment".
 // src/testing/faults/fault-stores.ts:62:3 - (ae-undocumented) Missing documentation for "businessRows".
-// src/testing/faults/hold-points.ts:12:3 - (ae-undocumented) Missing documentation for "Before".
-// src/testing/faults/hold-points.ts:13:3 - (ae-undocumented) Missing documentation for "After".
-// src/testing/faults/hold-points.ts:37:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/hold-points.ts:46:3 - (ae-undocumented) Missing documentation for "point".
-// src/testing/faults/hold-points.ts:47:3 - (ae-undocumented) Missing documentation for "phase".
-// src/testing/faults/hold-points.ts:48:3 - (ae-undocumented) Missing documentation for "key".
-// src/testing/faults/invariants/violations.ts:29:3 - (ae-undocumented) Missing documentation for "invariant".
-// src/testing/faults/invariants/violations.ts:30:3 - (ae-undocumented) Missing documentation for "message".
-// src/testing/faults/invariants/violations.ts:35:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/invariants/violations.ts:38:5 - (ae-undocumented) Missing documentation for "scenario".
-// src/testing/faults/invariants/violations.ts:39:5 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/hold-points.ts:13:3 - (ae-undocumented) Missing documentation for "Before".
+// src/testing/faults/hold-points.ts:14:3 - (ae-undocumented) Missing documentation for "After".
+// src/testing/faults/hold-points.ts:38:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/hold-points.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/hold-points.ts:40:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/hold-points.ts:53:3 - (ae-undocumented) Missing documentation for "point".
+// src/testing/faults/hold-points.ts:54:3 - (ae-undocumented) Missing documentation for "phase".
+// src/testing/faults/hold-points.ts:55:3 - (ae-undocumented) Missing documentation for "key".
+// src/testing/faults/invariants/violations.ts:30:3 - (ae-undocumented) Missing documentation for "invariant".
+// src/testing/faults/invariants/violations.ts:31:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/faults/invariants/violations.ts:36:3 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:37:3 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/invariants/violations.ts:38:3 - (ae-undocumented) Missing documentation for "notes".
+// src/testing/faults/invariants/violations.ts:39:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/faults/invariants/violations.ts:44:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/invariants/violations.ts:45:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/invariants/violations.ts:46:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/invariants/violations.ts:47:3 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:48:3 - (ae-undocumented) Missing documentation for "violations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".

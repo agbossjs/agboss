@@ -75,9 +75,9 @@ export function testJudge<
   requireComponent(judge, "judge", "testJudge");
   const { meta } = checkedJudgeOf(`testJudge(${judge.name})`, judge);
   if (isCodeJudge(meta) && options.model !== undefined)
-    throw new TestSetupError(
-      `testJudge(${judge.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
-    );
+    throw new TestSetupError({
+      message: `testJudge(${judge.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+    });
   const site = new UnitSite(options);
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);
   const binding = isCodeJudge(meta) ? undefined : bindingOf(site, meta.name, meta.model);

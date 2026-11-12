@@ -18,11 +18,17 @@ export {
   type ErrorDetails,
   type AGBossErrorOptions,
   type MessageErrorOptions,
+  type PlainErrorOptions,
   type InvalidMintedIdErrorOptions,
   type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
-export { GraphRuleError, type RuleCode, type RuleViolation } from "./graph/rule-error.js";
+export {
+  GraphRuleError,
+  type GraphRuleErrorOptions,
+  type RuleCode,
+  type RuleViolation,
+} from "./graph/rule-error.js";
 export { FlowSyntaxError } from "./flow/path-builder.js";
 export {
   BudgetExceededError,

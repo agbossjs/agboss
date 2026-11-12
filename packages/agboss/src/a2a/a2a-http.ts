@@ -81,19 +81,19 @@ function interfaceUrlOf(publicUrl: string, base: string): string {
   try {
     url = new URL(publicUrl);
   } catch {
-    throw new ComponentError(
-      `[a2a.public-url-invalid] a2aHttpListener's publicUrl is not an absolute URL`,
-    );
+    throw new ComponentError({
+      message: `[a2a.public-url-invalid] a2aHttpListener's publicUrl is not an absolute URL`,
+    });
   }
   const isHttp = url.protocol === "http:" || url.protocol === "https:";
   if (!isHttp || url.search !== "" || url.hash !== "")
-    throw new ComponentError(
-      `[a2a.public-url-invalid] a2aHttpListener's publicUrl is an http(s) URL without a query or fragment`,
-    );
+    throw new ComponentError({
+      message: `[a2a.public-url-invalid] a2aHttpListener's publicUrl is an http(s) URL without a query or fragment`,
+    });
   if (base !== "" && (!base.startsWith("/") || base.endsWith("/")))
-    throw new ComponentError(
-      `[a2a.base-invalid] a2aHttpListener's base starts with "/" and does not end with one`,
-    );
+    throw new ComponentError({
+      message: `[a2a.base-invalid] a2aHttpListener's base starts with "/" and does not end with one`,
+    });
   return `${publicUrl.replace(/\/+$/, "")}${base}`;
 }
 
@@ -111,9 +111,9 @@ function builtAppOf(app: A2AApp) {
   const mesh = meshSettingsOf(app);
   const control = executionControlOf(app);
   if (mesh === undefined || control === undefined)
-    throw new ComponentError(
-      "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
-    );
+    throw new ComponentError({
+      message: "[a2a.app-required] a2aHttpListener serves an app createApp or testWith built",
+    });
   return { mesh, control };
 }
 
@@ -129,7 +129,7 @@ const serverFilesOf = (app: A2AApp, options: A2AHttpListenerOptions<Class>) => (
 function exposeOptionsOf(expose: Class): A2AExposeOptions {
   const meta = componentOf(expose);
   if (meta?.kind !== "a2a-expose")
-    throw new ComponentError("[a2a.not-an-expose] not an @A2AExpose");
+    throw new ComponentError({ message: "[a2a.not-an-expose] not an @A2AExpose" });
   return meta.meta;
 }
 
