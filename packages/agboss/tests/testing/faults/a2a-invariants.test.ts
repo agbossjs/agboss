@@ -354,6 +354,7 @@ describe("#811 AC4: the A2A hold points and the fixture's A2A", () => {
     expect(Object.keys(heldMethodsOf(SqlitePausedExecutionRepository) ?? {})).toEqual([
       "resolveByTenantIdAndPauseId",
       "cancelByTenantIdAndPauseId",
+      "markTakenByTenantIdAndPauseId",
       "findByTenantIdAndPauseId",
     ]);
     expect(heldMethodsOf(SqliteExecutionLeaseRepository)?.claimExecutionId?.point).toBe(
