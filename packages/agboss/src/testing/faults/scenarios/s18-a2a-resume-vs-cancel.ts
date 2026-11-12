@@ -199,11 +199,8 @@ export const s18dDrainTookAnswer: RunnableFaultScenario = {
     await release(a, await heldAt(cluster, a, LeaseRenew, taskId, 2));
     // the pass stops, the tree ends: its record failed, CANCELED, its keys gone (the request
     // with them); a dies before the answer no step took is marked `Taken` (#890 marks it at the end)
-    await holdStore(
-      a,
-      PauseMarkTaken,
-      resolved.key === undefined ? undefined : String(resolved.key),
-    );
+    const pauseId = typeof resolved.key === "string" ? resolved.key : undefined;
+    await holdStore(a, PauseMarkTaken, pauseId);
     await release(a, drained);
     await heldAt(cluster, a, PauseMarkTaken);
     await a.kill();
