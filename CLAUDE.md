@@ -620,7 +620,8 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `route(W, { placement })` (default `ParentInstance`; one class one placement,
   `[flow.conflicting-placement]`) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
-  (woken in-process, else every second on the `Clock`; the parent yields its lease in
+  (woken in-process the moment its worker has completed the row and announced the child's end, still
+  holding the child's lease — never after the lease's cleanup, #917 — else every second on the `Clock`; the parent yields its lease in
   `ExecutionLeaseRepository` while waiting and reclaims it before continuing, #333 PR 4 — yielded,
   not released: still its own there and renewed, so no other instance's sweep takes it over, #516);
   an instance with a free step slot (#332) claims it at once in-process or when the store's watch
