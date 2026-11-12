@@ -218,7 +218,7 @@ export async function buildApp(
       closed = true;
       if (released) return;
       released = true;
-      await deps.close(() => live.settled());
+      await deps.close(() => live.settledByStop());
     },
     resolve: (token) => deps.container.get(token),
     hasTool: (name) => {

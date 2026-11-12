@@ -124,7 +124,11 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
     for (const workflow of workflows) workflow.refuse(deadline.signal);
     const swept = parts.sweep.stop();
     try {
-      await stopComponents(parts.created, () => executionsEnded(parts, swept, ended));
+      await stopComponents(
+        parts.created,
+        () => deadline.within(executionsEnded(parts, swept, ended), "the running executions"),
+        deadline,
+      );
     } finally {
       ended.abort();
       deadline.release();

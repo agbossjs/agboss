@@ -136,7 +136,8 @@ describe("#923 AC2: a refused child lease take backs off on the clock", () => {
     expect(first).toBeGreaterThan(0);
     expect(first).toBeLessThanOrEqual(2);
 
-    await settleReal(300);
+    // longer than the backoff's second: a backoff on a real timer would take again by now
+    await settleReal(1500);
     expect(CountingLeases.takes).toBe(first);
 
     for (let second = 1; second <= 5; second += 1) {
