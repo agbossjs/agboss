@@ -328,9 +328,12 @@ npx agboss rag index   # every knowledge base of the application [--rag company_
 SQLite FTS5 (built into Node's `node:sqlite`), ranked by BM25 — no dependencies, no cost. `index()`
 splits Markdown at headings and paragraphs (≤ 800 characters) and skips files whose content hash did
 not change (`maxChunkLength`, in characters); it reads every document of the tenant first and then
-writes every change — changed documents, removed ones — in one transaction (#891): an interrupted
-run (an abort, Ctrl+C on `agboss rag index`, an unreadable file, a crash) leaves the tenant's index
-as it found it, never part of the new one, and a second process never leaves two sets. A retrieval reads (#818): a tenant never indexed is indexed by its first
+writes every change — changed documents, removed ones — in one transaction on a connection of its
+own (#891): an interrupted run (an abort, Ctrl+C on `agboss rag index`, an unreadable file, a crash)
+leaves the tenant's index as it found it, never part of the new one, and a second process never
+leaves two sets. The write gives the event loop back every couple of thousand rows and checks the
+abort there and before the commit, so Ctrl+C stops even a long write at once (exit 1,
+`rag.interrupted`, the transaction rolled back), and a retrieval beside it reads the committed index. A retrieval reads (#818): a tenant never indexed is indexed by its first
 retrieval on the instance, once — however many arrive at once, and a tenant without documents too —
 and whole, in one transaction, then every retrieval only reads. A first build that failed midway
 (an abort, an unreadable file, a crash) leaves nothing, so the next retrieval builds it again; a
