@@ -105,15 +105,22 @@ const intentOf = (step: CallStep, owner: string) => ({
   step: { nodeId: "charge-action", visitNumber: 1 },
 });
 
-/** One fenced store operation of the call, its acceptance told to the observer. */
-async function fenced<T>(step: CallStep, what: string, call: Promise<T>): Promise<T> {
+/**
+ * One fenced store operation of the call, its acceptance told to the observer — and, for one that
+ * starts a send (`isSend`: a new intent, a new attempt), a violation when it was accepted although
+ * the tree's cancel was answered before it was invoked (#909).
+ */
+async function fenced<T>(
+  step: CallStep,
+  what: string,
+  call: Promise<T>,
+  isSend = false,
+): Promise<T> {
+  const isAfterCancel = step.observer.cancelled.has(step.tree);
   const answer = await call;
-  step.observer.accepted(
-    `instance-${String(step.instance)}'s ${what}`,
-    step.tree,
-    step.token,
-    step.now,
-  );
+  const by = `instance-${String(step.instance)}'s ${what}`;
+  step.observer.accepted(by, step.tree, step.token, step.now);
+  if (isSend) step.observer.acceptedAfterCancel(by, step.tree, isAfterCancel && answer === true);
   return answer;
 }
 
@@ -170,6 +177,7 @@ async function claimed(step: CallStep, phase: CallPhase): Promise<CallOutcome> {
       step,
       "saveIfAbsent",
       step.calls.saveIfAbsent(key, intentOf(step, owner)),
+      true,
     );
     return isSaved
       ? sent(step, 1, owner)
@@ -181,6 +189,7 @@ async function claimed(step: CallStep, phase: CallPhase): Promise<CallOutcome> {
     step,
     "markPending",
     step.calls.markPending(key, phase.expected, claim),
+    true,
   );
   return isMoved
     ? sent(step, claim.attempt, owner)

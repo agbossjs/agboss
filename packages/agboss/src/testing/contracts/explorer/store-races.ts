@@ -1,6 +1,7 @@
 import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
 import {
   OutboundCallStatus,
+  type OutboundCallIntent,
   type OutboundCallRepository,
 } from "../../../infrastructure/outbound-call.repository.js";
 import type { ExecutionLease } from "../../../infrastructure/execution-lease.repository.js";
@@ -24,10 +25,10 @@ import { ExplorerWorldKind } from "./types.js";
  */
 
 /** The rows of the step's fenced effect. */
-const rowsOf = async (run: ExplorerRun): Promise<number> =>
+export const rowsOf = async (run: ExplorerRun): Promise<number> =>
   ((await run.storesOf(1).rows?.committed()) ?? []).filter((row) => row.startsWith("race:")).length;
 
-const writeBy = (run: ExplorerRun, instance: number, token: number): Promise<unknown> => {
+export const writeBy = (run: ExplorerRun, instance: number, token: number): Promise<unknown> => {
   const { effects, rows } = run.storesOf(instance);
   if (effects === undefined || rows === undefined) throw new TypeError("no fenced-effect store");
   const row = `race:instance-${String(instance)}`;
@@ -66,7 +67,7 @@ export const EFFECT_RACES: readonly ForcedRace[] = [
 ];
 
 /** A first attempt's intent of `tree`'s execution. */
-const raceIntent = (tree: string) => ({
+export const raceIntent = (tree: string): OutboundCallIntent => ({
   rootExecutionId: tree,
   executionId: tree,
   workflow: "explored-workflow",
@@ -82,7 +83,7 @@ const raceIntent = (tree: string) => ({
 const PENDING = { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" };
 
 /** The first instance's lease with its call recorded pending (attempt 1 of owner-1). */
-const recorded = async (run: ExplorerRun): Promise<RaceState> => {
+export const recorded = async (run: ExplorerRun): Promise<RaceState> => {
   const lease = await taken(run, 1);
   const calls = run.storesOf(1).calls;
   if (calls === undefined) throw new TypeError("no outbound-call store");
@@ -93,7 +94,7 @@ const recorded = async (run: ExplorerRun): Promise<RaceState> => {
 };
 
 /** A call store operation of `instance` on the first instance's key. */
-const onKey = (
+export const onKey = (
   run: ExplorerRun,
   instance: number,
   lease: ExecutionLease,
@@ -103,7 +104,11 @@ const onKey = (
   return { calls, key: callKeyOf("tree-1", lease.token) };
 };
 
-const moveBy = (run: ExplorerRun, instance: number, lease: ExecutionLease): Promise<unknown> => {
+export const moveBy = (
+  run: ExplorerRun,
+  instance: number,
+  lease: ExecutionLease,
+): Promise<unknown> => {
   const { calls, key } = onKey(run, instance, lease);
   return calls.markPending(key, PENDING, {
     attempt: 2,
@@ -112,12 +117,12 @@ const moveBy = (run: ExplorerRun, instance: number, lease: ExecutionLease): Prom
 };
 
 /** The owner of the intent after the race. */
-const ownerOf = async (run: ExplorerRun, lease: ExecutionLease): Promise<unknown> => {
+export const ownerOf = async (run: ExplorerRun, lease: ExecutionLease): Promise<unknown> => {
   const { calls, key } = onKey(run, 1, lease);
   return (await calls.findByKey(key))?.attemptOwner;
 };
 
-const winner = (answers: RaceAnswers, first: boolean): string | undefined =>
+export const winner = (answers: RaceAnswers, first: boolean): string | undefined =>
   expectEqual("the winner", answers.first, first) ??
   expectEqual("the loser", answers.second, !first);
 

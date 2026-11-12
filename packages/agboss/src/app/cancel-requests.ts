@@ -71,6 +71,11 @@ export interface CancelWatch {
   readonly check: RenewalCheck;
   /** Whether the request is there now. */
   readonly isRequested: () => Promise<boolean>;
+  /**
+   * Aborts `signal` now, as `check` does after finding the request (#909): a fenced write was
+   * refused by the tree's cancel — no need to wait for the next renewal. A no-op once aborted.
+   */
+  readonly abortNow: () => void;
 }
 
 export function cancelWatchOf(trees: ExecutionTreeRepository, state: TreeState): CancelWatch {
@@ -79,11 +84,23 @@ export function cancelWatchOf(trees: ExecutionTreeRepository, state: TreeState):
   return {
     signal: controller.signal,
     isRequested,
+    abortNow: () => {
+      controller.abort(cancelledErrorOf(state.threadId));
+    },
     check: async () => {
       if (controller.signal.aborted || !(await isRequested())) return;
       controller.abort(cancelledErrorOf(state.threadId));
     },
   };
+}
+
+/**
+ * Starts the holder's watch over its tree's cancel (#360, #909): the request is read after every
+ * confirmed renewal, and a fenced write of a step refused by the tree's cancel aborts at once.
+ */
+export function watchedBy(lease: HeldExecutionLease, watch: CancelWatch): void {
+  lease.afterEachRenewal(watch.check);
+  lease.whenCancelFound(watch.abortNow);
 }
 
 /**
@@ -226,6 +243,8 @@ export async function remoteCancel(
   for (const record of running) {
     if (record.runId === null) continue;
     const tree = { tenantId: thread.tenantId, rootExecutionId: record.runId };
+    // the mark is the fence (#909); the key stays as the holder's watch's notification
+    await parts.leases.requestCancel(tree);
     await trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, request);
   }
   let isCancelled = false;

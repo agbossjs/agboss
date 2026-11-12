@@ -34,6 +34,8 @@ export class Observer {
   readonly tokens = new Map<string, number>();
   readonly granted = new Map<string, Set<number>>();
   readonly charges = new Map<string, number>();
+  /** The trees whose cancel request the store answered (#909). */
+  readonly cancelled = new Set<string>();
   readonly violations: ExplorerViolation[] = [];
 
   /** The belief of `instance` on `tree`, if it holds one. */
@@ -132,6 +134,23 @@ export class Observer {
       );
   }
 
+  /** The store answered `tree`'s cancel request. */
+  cancelAnswered(tree: string): void {
+    this.cancelled.add(tree);
+  }
+
+  /**
+   * An operation of `what` that started after `tree`'s cancel was answered was accepted (#909): a
+   * write that ran, an intent recorded, an attempt claimed.
+   */
+  acceptedAfterCancel(what: string, tree: string, isAfterCancel: boolean): void {
+    if (isAfterCancel)
+      this.fail(
+        ExplorerInvariant.NoEffectAfterCancel,
+        `${what} on ${tree} was accepted after the tree's cancel was answered`,
+      );
+  }
+
   fail(invariant: ExplorerInvariant, message: string): void {
     this.violations.push({ invariant, message });
   }
@@ -147,7 +166,13 @@ export class Observer {
       slot,
       { ...belief, until: relative(belief.until) },
     ]);
-    return JSON.stringify([trees, beliefs, [...this.tokens], [...this.charges]]);
+    return JSON.stringify([
+      trees,
+      beliefs,
+      [...this.tokens],
+      [...this.charges],
+      [...this.cancelled],
+    ]);
   }
 
   #trust(instance: number, tree: string, epoch: number, until: number): void {

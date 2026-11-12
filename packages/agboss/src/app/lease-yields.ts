@@ -188,3 +188,20 @@ export class AuditLogReports {
     this.#tail = this.#tail.then(async () => write(await events.recording, events));
   }
 }
+
+/**
+ * What a holder does when a write of its steps meets its tree's cancel (#909): the listeners
+ * (`whenCancelFound`, the pass's watch and a remote child's stop) run once `cancelFound` is told.
+ */
+export class CancelFoundHooks {
+  readonly #listeners: (() => void)[] = [];
+
+  whenCancelFound(listener: () => void): void {
+    this.#listeners.push(listener);
+  }
+
+  /** A write of a step under the lease met its tree's cancel: the holder stops as cancelled. */
+  cancelFound(): void {
+    for (const listener of this.#listeners) listener();
+  }
+}

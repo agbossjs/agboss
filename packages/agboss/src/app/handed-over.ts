@@ -1,8 +1,12 @@
-import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
+import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
+import {
+  ExecutionCancelFencedError,
+  ExecutionFencedError,
+  ExecutionLeaseLostError,
+} from "./lease-lost.js";
 
 /**
  * Work that stopped without failing (#265): its instance lost the tree's lease
@@ -31,15 +35,41 @@ export function handedOverReason(signal: AbortSignal | undefined): HandedOver | 
  * The `ExecutionFencedError` behind `error` (#471): the error itself, or one in its `cause` chain or
  * an `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once.
  */
-export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined {
+export const fencedErrorOf = (error: unknown): ExecutionFencedError | undefined =>
+  errorOfClass(error, ExecutionFencedError);
+
+/**
+ * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`
+ * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
+ * however a driver or a step wrapped it.
+ */
+export const cancelFencedErrorOf = (error: unknown): ExecutionCancelFencedError | undefined =>
+  errorOfClass(error, ExecutionCancelFencedError);
+
+/**
+ * A step under `lease` met its tree's cancel in `error` (#909): `tell` it (the audit row and the
+ * observer first), then the holder stops the tree as cancelled; nothing for any other error.
+ */
+export function cancelMet(error: unknown, lease: FrameLease, tell: () => void): void {
+  const cancelled = cancelFencedErrorOf(error);
+  if (cancelled === undefined) return;
+  tell();
+  lease.cancelFound?.(cancelled);
+}
+
+/** The first error of `type` in `error`'s cause chain (an `AggregateError`'s too); cycles are walked once. */
+function errorOfClass<T extends Error>(
+  error: unknown,
+  type: new (...args: never[]) => T,
+): T | undefined {
   const seen = new Set<unknown>();
   const pending: unknown[] = [error];
   while (pending.length > 0) {
     const next = pending.shift();
-    // `undefined` and `null` are neither errors nor fenced: they fall through every check below
+    // `undefined` and `null` are neither errors nor of `type`: they fall through every check below
     if (seen.has(next)) continue;
     seen.add(next);
-    if (next instanceof ExecutionFencedError) return next;
+    if (next instanceof type) return next;
     if (next instanceof AggregateError) pending.push(...(next.errors as unknown[]));
     if (next instanceof Error) pending.push(next.cause);
   }

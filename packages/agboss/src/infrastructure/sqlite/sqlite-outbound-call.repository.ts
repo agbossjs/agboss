@@ -26,6 +26,7 @@ import {
 } from "./sqlite-outbound-call-schema.js";
 import { oneRowChanged, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
+import { checkSqliteCancel, prunedCancelRequests } from "./sqlite-cancel-requests.js";
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
@@ -99,6 +100,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 
   saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
+      checkSqliteCancel(this.connection.database, key); // #909: a new intent is a new send
       const record = pendingOutboundCallOf(key, intent, this.clock.now());
       const { changes } = this.connection.database
         .prepare(
@@ -126,7 +128,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     // the store's changes load on first use (#658: the root import stays within its budget)
     const startedAt = this.clock.now();
     const { claimedOf } = await this.#changes;
-    return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt));
+    // #909: a new attempt is a new send, refused after the tree's cancel
+    return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt), true);
   }
 
   markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
@@ -177,6 +180,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     this.connection.database
       .prepare("DELETE FROM outbound_calls WHERE ended_at IS NOT NULL AND ended_at < ?")
       .run(cutoff.getTime());
+    prunedCancelRequests(this.connection.database, cutoff.getTime()); // #909
     return Promise.resolve();
   }
 
@@ -191,8 +195,10 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   #update(
     key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
+    isSend = false,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
+      if (isSend) checkSqliteCancel(this.connection.database, key);
       const found = this.#found(key);
       if (found === undefined) return false;
       const changed = change(found);

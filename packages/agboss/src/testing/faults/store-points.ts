@@ -18,6 +18,11 @@ export enum StoreHoldPoint {
   LeaseRetire = "lease.retire",
   LeaseYield = "lease.yield",
   LeaseReclaim = "lease.reclaim",
+  /**
+   * A tree's cancel made durable (#909), keyed by the tree's root: the anchor of "no effect after a
+   * durable cancel" — an effect whose operation was invoked after this one answered must not run.
+   */
+  LeaseRequestCancel = "lease.requestCancel",
   /** The fenced effect's transaction: the lease check, the mark, the key, the business write. */
   FencedEffectWrite = "fencedEffect.write",
   OutboundFindByKey = "outboundCall.findByKey",
@@ -97,12 +102,26 @@ export const leaseFacts = (lease: unknown): unknown => {
   };
 };
 
-/** What the history keeps of a fenced key. */
+/** What the history keeps of a fenced key (#909: its tree, and whether it is an undo's). */
 export const keyFacts = (key: unknown): unknown => {
   const { scopeKey, tenantId, leaseExecutionId, token, idempotencyKey, name, businessKey } =
     key as EffectKey;
+  const { rootExecutionId, isCompensation } = key as EffectKey;
   const business = businessKey === undefined ? {} : { businessKey };
-  return { scopeKey, tenantId, leaseExecutionId, token, idempotencyKey, name, ...business };
+  const tree = {
+    rootExecutionId: rootExecutionId ?? leaseExecutionId,
+    ...(isCompensation === true ? { isCompensation } : {}),
+  };
+  return {
+    scopeKey,
+    tenantId,
+    leaseExecutionId,
+    token,
+    idempotencyKey,
+    name,
+    ...business,
+    ...tree,
+  };
 };
 
 const first = (args: readonly unknown[]): unknown => args[0];
@@ -155,6 +174,12 @@ export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   retire: onLease(StoreHoldPoint.LeaseRetire),
   yield: onLease(StoreHoldPoint.LeaseYield),
   reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
+  requestCancel: {
+    point: StoreHoldPoint.LeaseRequestCancel,
+    keyOf: (args) => (args[0] as { readonly rootExecutionId: string }).rootExecutionId,
+    inputOf: first,
+    outputOf: asIs,
+  },
   claimExecutionId: {
     point: StoreHoldPoint.LeaseClaimExecutionId,
     keyOf: (args) => (args[0] as { readonly executionId: string }).executionId,

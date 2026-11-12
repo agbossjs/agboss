@@ -23,6 +23,12 @@ export enum FaultInvariant {
    * under its id, nothing run by a task settled start-lost, no effect after a cancel it was told.
    */
   A2ATasksOnce = "a2a-tasks-once",
+  /**
+   * No effect after a durable cancel (#909): a fenced write that ran, an intent recorded or an
+   * attempt claimed — its store operation invoked after the tree's `requestCancel` answered —
+   * except an undo's, the cancel's own unwinding.
+   */
+  NoEffectAfterCancel = "no-effect-after-cancel",
 }
 
 /** One broken invariant, said plainly. */

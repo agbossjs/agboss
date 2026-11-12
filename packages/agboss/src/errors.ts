@@ -196,9 +196,12 @@ export {
   FencedEffectStoreMismatchError,
   type FencedEffectStoreMismatchErrorOptions,
 } from "./infrastructure/in-memory-fenced-effect.repository.js";
+export { cancelFencedErrorOf } from "./app/handed-over.js";
 export {
+  ExecutionCancelFencedError,
   ExecutionFencedError,
   ExecutionLeaseLostError,
+  type ExecutionCancelFencedErrorOptions,
   type ExecutionLeaseLostErrorOptions,
   type ExecutionFencedErrorOptions,
   type FencedWriteRefusal,

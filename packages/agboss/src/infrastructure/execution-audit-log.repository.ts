@@ -60,6 +60,12 @@ export enum OutboundCallEventOutcome {
    * (`closedLease`), so its holder writes nothing under it again — the call is reconciled here.
    */
   LeaseClosed = "lease-closed",
+  /**
+   * Refused before anything was recorded or sent: its tree's cancel is durable (#909,
+   * `ExecutionCancelFencedError`) — the step stops, the tree unwinds as cancelled. Told with
+   * attempt 0 and a `Pending` status: no intent or attempt was made.
+   */
+  Cancelled = "cancelled",
 }
 
 /** The state of the lease that wrote a pending intent, as `leaseStateOf` finds it (#508). */
@@ -82,6 +88,8 @@ export enum FencedEffectEventOutcome {
   Joined = "joined",
   /** The lease or the scope's mark refused the call (`ExecutionFencedError`): nothing written. */
   Refused = "refused",
+  /** Its tree's cancel is durable (#909, `ExecutionCancelFencedError`): the write did not run. */
+  Cancelled = "cancelled",
 }
 
 /** What the instance that took a tree's lease over does with the tree. */

@@ -1293,7 +1293,8 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `ExecutionLeaseRepository` (one lease per tree, `acquire` / `renew` / `release`, `yield` /
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
   `retire` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
-  `claimExecutionId` — #591: every execution id handed out, kept once, never removed),
+  `claimExecutionId` — #591: every execution id handed out, kept once, never removed —,
+  `requestCancel` — #909: the tree's durable cancel mark, the fence the fencing stores of its backend read; a no-op on Redis),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1419,7 +1420,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   answer taken by the first pass's drain, whose pass a cancel request stops, its pod killed before
   the tree's end marks that answer `Taken` — the waiting resume on the other pod reads the tree's
   failed record at its take and moves nothing (`-32004`, nothing charged), though its pause is
-  still `Resolved` (a record store blind to the end fails it: charged and paid); held at `StoreHoldPoint.A2ATaskSaveIfAbsent`,
+  still `Resolved` (a record store blind to the end no longer charges — the cancel's mark fences it, #909 — but never reads CANCELED); `s19-cancel-at-charge` / `s19b-cancel-at-payment` (#909), a live holder between its task's cancel request and its next renewal reaches the charge's fenced write / the payment's intent — refused, no gateway request, undone once, `CANCELED` (a lease store whose mark never lands fails them: `no-effect-after-cancel`); held at `StoreHoldPoint.LeaseRequestCancel`, `StoreHoldPoint.A2ATaskSaveIfAbsent`,
   `LeaseClaimExecutionId`, `PauseFind` (a resume before its mark, #850), `PauseResolve`,
   `A2ATaskStatusWrite`, `LeaseRenew`, `PauseMarkTaken`; a set that keeps no A2A tasks skips them with the reason; #720:
   `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —
@@ -1435,7 +1436,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (`tests/faults/s*.test.ts` on SQLite at `timeScale` 10, the `faults` vitest project, one file
   at a time), each checked by `faultViolationsOf` — `one-owner` (#840: a write accepted at a token no grant gave too; #876: a write never answered — its pod died — that the rows read at the end hold (an outbound call's row; a fenced effect's stored token as its next call read it back), checked as accepted), `finished-work-untouched`,
   `children-once` (each queue row completed once, each finished child's end heard at most once and never twice, #562 — a pod killed between a child's completion and its announcement leaves it unannounced, legitimately),
-  `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `a2a-tasks-once` (#811, on every task id the run names: no state after a terminal one, told or written; the accepted status writes one version chain; the id kept once; nothing run by a task settled start-lost; no effect committed after a canceled task's cancel became durable, none more than a lease after any tree's cancel request), `linearizable` (#533: the history
+  `effects-once`, `no-undo-on-hand-over` (and a declined order released once, #607), `trees-finish`, `a2a-tasks-once` (#811, on every task id the run names: no state after a terminal one, told or written; the accepted status writes one version chain; the id kept once; nothing run by a task settled start-lost; no effect committed after a canceled task's cancel became durable — #909: no window, an undo's excluded), `no-effect-after-cancel` (#909, on every run: no fenced write that ran, intent recorded or attempt claimed by an operation invoked after a tree's `requestCancel` answered, but its undo's), `linearizable` (#533: the history
   against the sequential model of `src/testing/contracts/models/`, `linearizabilityOf`) — from the
   public API
   and the run's `OperationHistory` (every held store operation's invoke and complete, monotonic
@@ -2278,7 +2279,18 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
   `Resolved` pause no step took when its tree ends (finished, failed, cancelled — an answer a cancel
   won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890). `app.cancel(threadId, { tenantId, ownerId })` aborts a
-  running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn). The options are named like the
+  running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
+  (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
+  tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept
+  until the fencing stores' retention prunes it — and `app.cancel` resolves only once it is durable (it rejects with the store's
+  error, nothing aborted, when it cannot be written); from then on every fencing store refuses, in the transaction that checks the
+  lease, a new fenced effect (`runOnce`), a new intent (`saveIfAbsent`) and a new attempt (`markPending`) of the tree with
+  `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`, nothing written or sent) — after the
+  lease and mark checks and, for an effect, after the key's lookup: a stored result replays, an undo's key (`isCompensation`, set by
+  `effectKeyOf` from `step.compensates`) is never refused, a child's key is fenced by its root's cancel (`rootExecutionId`,
+  `cancelTreeOf(key)`), a stale token is still `ExecutionFencedError`; `markCompleted`/`markFailed`/`findByKey` are accepted. The
+  step that met it stops the tree as cancelled at once (`lease.cancelFound`, audit outcome `cancelled`), not at the next renewal.
+  The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ThreadOwnerError`).
 - **Context levels (#261 PR 3):** `ApplicationContext` (`name`, `version`, `instanceId`,

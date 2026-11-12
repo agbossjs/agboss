@@ -146,6 +146,8 @@ export async function cancelExecution(
     const { trees, clock, live } = parts;
     const tree = { tenantId: request.tenantId, rootExecutionId: request.rootExecutionId };
     const requestedAt = clock.now().toISOString();
+    // the mark first (#909): the fence on every instance, then the tree key the watch reads
+    await parts.leases.requestCancel(tree);
     await trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, {
       requestedAt,
       ownerId: request.ownerId ?? null,

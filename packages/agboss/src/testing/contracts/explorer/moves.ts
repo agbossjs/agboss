@@ -1,7 +1,10 @@
 import { effectKeyForTesting } from "../effect-key.js";
 import { scopeKeyOf } from "../../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../../infrastructure/execution-audit-log.repository.js";
-import type { EffectKey } from "../../../infrastructure/fenced-effect.repository.js";
+import {
+  FencedEffectStatus,
+  type EffectKey,
+} from "../../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../../units/index.js";
 import { callStep } from "./calls.js";
 import type { ExplorerRun } from "./run.js";
@@ -54,6 +57,7 @@ async function written(run: ExplorerRun, instance: number, tree: string): Promis
   const { effects, rows } = run.storesOf(instance);
   if (effects === undefined || rows === undefined) throw new TypeError("no fenced-effect store");
   run.writes.add(`${String(instance)}|${tree}|${String(token)}`);
+  const isAfterCancel = run.observer.cancelled.has(tree);
   const row = `effect:${tree}:instance-${String(instance)}:${String(token)}`;
   const outcome = await effects.runOnce(effectKeyOf(tree, token), (transaction) => {
     const inserted = rows.insert(transaction, row);
@@ -64,6 +68,13 @@ async function written(run: ExplorerRun, instance: number, tree: string): Promis
     tree,
     token,
     now,
+  );
+  // a replay answers a result stored before; only a write that ran is an effect (#909)
+  const isRan = outcome.status === FencedEffectStatus.Ran;
+  run.observer.acceptedAfterCancel(
+    `instance-${String(instance)}'s fenced effect`,
+    tree,
+    isAfterCancel && isRan,
   );
   const committed = (await rows.committed()).filter((one) => one.startsWith(`effect:${tree}:`));
   if (committed.length > 1)
@@ -92,6 +103,15 @@ async function called(run: ExplorerRun, instance: number, tree: string): Promise
   );
   run.setPhase(instance, tree, outcome.next);
   return outcome.label;
+}
+
+/** The tree's cancel request, answered by `instance`'s lease store (#909). */
+async function cancelled(run: ExplorerRun, instance: number, tree: string): Promise<string> {
+  await run
+    .storesOf(instance)
+    .leases.requestCancel({ tenantId: EXPLORED_TENANT, rootExecutionId: tree });
+  run.observer.cancelAnswered(tree);
+  return "→ durable";
 }
 
 /** The other system takes `instance`'s request in flight. */
@@ -144,6 +164,8 @@ export function stepOf(run: ExplorerRun, action: ExplorerAction): Promise<string
       return written(run, action.instance, action.tree);
     case "call":
       return called(run, action.instance, action.tree);
+    case "cancel":
+      return cancelled(run, action.instance, action.tree);
     case "deliver":
       return Promise.resolve(delivered(run, action.instance, action.tree, action.isAccepted));
     case "time":

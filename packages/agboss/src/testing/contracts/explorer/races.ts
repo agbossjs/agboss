@@ -1,7 +1,7 @@
 import type { ExecutionLease } from "../../../infrastructure/execution-lease.repository.js";
 import { ClockSkew } from "../../clock-skew.js";
 import type { ContractTarget } from "../instance-context.js";
-import { ExplorerRun, isFenced } from "./run.js";
+import { ExplorerRun, isCancelFenced, isFenced } from "./run.js";
 import {
   EXPLORED_LEASE,
   EXPLORED_TENANT,
@@ -64,6 +64,7 @@ const settled = (call: Promise<unknown>): Promise<unknown> =>
     (answer) => answer,
     (error: unknown) => {
       if (isFenced(error)) return "fenced";
+      if (isCancelFenced(error)) return "cancelled";
       throw error;
     },
   );

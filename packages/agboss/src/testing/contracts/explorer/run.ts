@@ -93,7 +93,7 @@ export class ExplorerRun {
       label = await stepOf(this, action);
     } catch (error) {
       label = `threw ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`;
-      if (!isFenced(error))
+      if (!isFenced(error) && !isCancelFenced(error))
         this.observer.fail(ExplorerInvariant.StoreError, `${describe(action)} ${label}`);
     }
     this.steps.push({ action, label });
@@ -130,6 +130,10 @@ export class ExplorerRun {
 /** Whether `error` is the fence's refusal: a hand-over, the answer a stale write gets. */
 export const isFenced = (error: unknown): boolean =>
   error instanceof Error && error.name === "ExecutionFencedError";
+
+/** Whether `error` is the cancel's refusal (#909): the answer a new write of a cancelled tree gets. */
+export const isCancelFenced = (error: unknown): boolean =>
+  error instanceof Error && error.name === "ExecutionCancelFencedError";
 
 /** An action as the printed schedule names it. */
 export function describe(action: ExplorerAction): string {

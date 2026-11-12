@@ -78,6 +78,17 @@ function callActions(run: ExplorerRun, instance: number, tree: string): Explorer
   return [{ kind: "call", instance, tree }];
 }
 
+/** The cancel request of each tree, once, at any time (#909) — where an effect or a call is explored. */
+function cancelActions(run: ExplorerRun): ExplorerAction[] {
+  if (run.world.kind === ExplorerWorldKind.Lease) return [];
+  const trees = new Set<string>();
+  for (let instance = 1; instance <= run.world.instances; instance += 1)
+    trees.add(run.world.treeOf(instance));
+  return [...trees]
+    .filter((tree) => !run.observer.cancelled.has(tree))
+    .map((tree): ExplorerAction => ({ kind: "cancel", instance: 1, tree }));
+}
+
 /** The time steps: a beat always, the next end's edges while a lease is live. */
 function timeActions(run: ExplorerRun): ExplorerAction[] {
   const beat: ExplorerAction = { kind: "time", step: TimeStep.Beat };
@@ -95,7 +106,7 @@ export function enabledActions(run: ExplorerRun): ExplorerAction[] {
     const tree = run.world.treeOf(instance);
     actions.push(...leaseActions(run, instance, tree), ...otherActions(run, instance, tree));
   }
-  return [...actions, ...timeActions(run)];
+  return [...actions, ...cancelActions(run), ...timeActions(run)];
 }
 
 /** Whether two actions are the same choice. */

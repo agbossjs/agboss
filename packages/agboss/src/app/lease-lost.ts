@@ -1,4 +1,5 @@
-import { AGBossError } from "../core/errors.js";
+import { AGBossError, ExecutionCancelledError } from "../core/errors.js";
+import type { EffectKey } from "../infrastructure/effect-key.js";
 import { definedOf } from "../infrastructure/clock.js";
 import type { ExecutionLease } from "../infrastructure/execution-lease.repository.js";
 
@@ -188,3 +189,63 @@ export const heldWhileYieldsRun = (current: ExecutionLease | undefined): Executi
     current,
     "the yields' callback returns once #stopped aborts, which a release does before it clears the lease",
   );
+
+/** Every fact of a write refused by its tree's cancel (#909, #906: an options bag). */
+export interface ExecutionCancelFencedErrorOptions {
+  /** `executionContext.fence.scopeKey` of the refused write. */
+  readonly scopeKey: string;
+  readonly tenantId: string;
+  /** The root of the tree whose cancel refused it. */
+  readonly rootExecutionId: string;
+  /** The execution whose lease the write ran under (the root, or an `AnyInstance` child). */
+  readonly leaseExecutionId: string;
+  readonly token: number;
+  /** The effect's or the call's name, never its business key. */
+  readonly effect: string;
+  readonly cause?: unknown;
+}
+
+/**
+ * A fenced write or an outbound call was refused because its tree's cancel request is durable
+ * (#909): nothing was written or sent. Not a hand-over — the lease is held and the tree unwinds as
+ * cancelled, its undo running under it; a store builds it with `ExecutionCancelFencedError.of(key)`.
+ */
+export class ExecutionCancelFencedError extends ExecutionCancelledError {
+  static override readonly code = "execution.cancelled.fenced" as const;
+  declare readonly code: typeof ExecutionCancelFencedError.code;
+  override name = "ExecutionCancelFencedError";
+  readonly scopeKey: string;
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+  readonly leaseExecutionId: string;
+  readonly token: number;
+  readonly effect: string;
+
+  /** The refusal of the write `key` names (never throws, never names a business key). */
+  static of(
+    key: Pick<
+      EffectKey,
+      "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId"
+    >,
+  ): ExecutionCancelFencedError {
+    return new ExecutionCancelFencedError({
+      ...{ scopeKey: key.scopeKey, tenantId: key.tenantId, leaseExecutionId: key.leaseExecutionId },
+      ...{ rootExecutionId: key.rootExecutionId ?? key.leaseExecutionId, token: key.token },
+      effect: key.name,
+    });
+  }
+
+  constructor(options: ExecutionCancelFencedErrorOptions) {
+    const { effect, rootExecutionId, cause } = options;
+    super({
+      message: `"${effect}" of execution ${rootExecutionId} was refused: its tree's cancel was requested — nothing was written or sent`,
+      cause,
+    });
+    this.scopeKey = options.scopeKey;
+    this.tenantId = options.tenantId;
+    this.rootExecutionId = rootExecutionId;
+    this.leaseExecutionId = options.leaseExecutionId;
+    this.token = options.token;
+    this.effect = effect;
+  }
+}

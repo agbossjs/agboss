@@ -82,6 +82,9 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   reclaim(): Promise<undefined> {
     return Promise.resolve(undefined);
   }
+  requestCancel(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 describe("#500: the in-memory fenced-effect store", () => {

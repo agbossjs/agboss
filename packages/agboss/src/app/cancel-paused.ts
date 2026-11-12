@@ -28,6 +28,8 @@ export async function cancelledPaused(
   // another run of its thread, paused before the look or since
   const tree = { ...thread, runId: runId ?? found.run.runId };
   const startedVersion = found.run.startedVersion ?? deps.config.version;
+  // the mark first (#909): from here on no effect of the tree but its undo's is accepted
+  await leases.requestCancel({ tenantId: thread.tenantId, rootExecutionId: tree.runId });
   const take = rootTakeOf(deps.pause, tree.runId, LeaseTakeoverReason.Cancelled);
   const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {

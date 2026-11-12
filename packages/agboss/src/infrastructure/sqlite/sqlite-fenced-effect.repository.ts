@@ -1,5 +1,4 @@
 import type { StoreDescriptor } from "../execution-lease.repository.js";
-import { AGBossError } from "../../core/errors.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
@@ -20,6 +19,8 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
+import { checkSqliteCancel, prunedCancelRequests } from "./sqlite-cancel-requests.js";
+import { SyncWorkRequiredError } from "./sqlite-sync-work.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
 import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
@@ -141,6 +142,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
         .prepare("DELETE FROM fenced_effect_business_results WHERE stored_at < ?")
         .run(before);
       database.prepare("DELETE FROM fenced_effect_marks WHERE stored_at < ?").run(before);
+      prunedCancelRequests(database, before); // #909
     });
     return Promise.resolve();
   }
@@ -165,6 +167,8 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
       };
     }
+    // #909: no stored result — a new effect after a durable cancel is refused, the work not run
+    checkSqliteCancel(database, key);
     const result = work(database);
     if (isThenable(result)) {
       // its rejection is the work's own: the effect already failed with why
@@ -218,30 +222,4 @@ function sqliteLeaseOf(
 
 sqliteImplementation(SqliteFencedEffectRepository);
 
-/** What an async work refused knows (#906): the effect. */
-export interface SyncWorkRequiredErrorOptions {
-  readonly effect: string;
-  readonly cause?: unknown;
-}
-
-/**
- * A fenced effect on SQLite returned a promise (#500): its transaction is one synchronous group of
- * statements on the instance's connection, so it is rolled back — nothing written, the result not
- * stored. Do the step's I/O before the call (its input) or after it (with its result), and write
- * the rows with the given `DatabaseSync` only.
- */
-export class SyncWorkRequiredError extends AGBossError {
-  static override readonly code = "fenced-effect.sync-work-required" as const;
-  declare readonly code: typeof SyncWorkRequiredError.code;
-  override name = "SyncWorkRequiredError";
-  readonly effect: string;
-
-  constructor(options: SyncWorkRequiredErrorOptions) {
-    const { effect, cause } = options;
-    super(
-      `fenced effect "${effect}" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call`,
-      { cause },
-    );
-    this.effect = effect;
-  }
-}
+export { SyncWorkRequiredError, type SyncWorkRequiredErrorOptions } from "./sqlite-sync-work.js";

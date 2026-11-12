@@ -38,6 +38,7 @@ import {
   keyRetentionRefusalOf,
 } from "./outbound-call-ambiguity.js";
 import {
+  cancelledBy,
   fencedEnd,
   leaseClosed,
   replayed,
@@ -252,5 +253,5 @@ export async function sendOutboundCall<TRequest, TResult>(
   };
   // masked for the store, within the limit, before anything is read, recorded or sent
   const request = await storedJson(run, OutboundCallPart.Request, options.request);
-  return joinedOrMade(run, () => sendOnce(run, request));
+  return joinedOrMade(run, () => sendOnce(run, request)).catch(cancelledBy(run));
 }
