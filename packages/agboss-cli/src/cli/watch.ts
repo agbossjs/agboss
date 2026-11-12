@@ -20,7 +20,23 @@ export interface WatchOptions {
   readonly pass: (changed: readonly string[]) => Promise<void>;
   /** Told of each file the watcher reports, a source or not, before the loop looks at it. */
   readonly onEvent?: (file: string) => void;
+  /** Where the changes come from; the default is the operating system's recursive file watch. */
+  readonly watcher?: FolderWatcher;
 }
+
+/** A started watch of a folder: what the loop closes when it ends. */
+interface FolderWatch {
+  close(): void;
+}
+
+/** Starts watching `folder`, telling `onFile` the path (relative to it) of each reported change. */
+export type FolderWatcher = (folder: string, onFile: (file: string) => void) => FolderWatch;
+
+/** The operating system's recursive file watch (FSEvents, inotify): events may be late or lost. */
+const systemWatcher: FolderWatcher = (folder, onFile) =>
+  watch(folder, { recursive: true }, (_event, file) => {
+    if (file !== null) onFile(file);
+  });
 
 /** Folders a change in never starts a pass: dependencies, builds, the generated files. */
 const IGNORED_FOLDERS: ReadonlySet<string> = new Set(["node_modules", "dist", ".agboss", ".git"]);
@@ -85,9 +101,7 @@ export async function watchSources(options: WatchOptions): Promise<void> {
     timer = setTimeout(flush, options.debounce);
   };
 
-  const watcher = watch(options.folder, { recursive: true }, (_event, file) => {
-    if (file !== null) onChange(file);
-  });
+  const watcher = (options.watcher ?? systemWatcher)(options.folder, onChange);
   runPass([]);
   await abortOf(signal);
   watcher.close();
