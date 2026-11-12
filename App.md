@@ -344,7 +344,9 @@ From the call on, no new execution is accepted: `execute` / `resume` reject with
 an execution starts, so observers get `onExecutionRejected` (`operation: ExecutionOperation`,
 `tenantId`, `code`, a message without input values); `cancel` still works. Then, in order (#265 S30 / S51):
 
-1. the instance stops its own [recovery sweep](Several-instances#recovery);
+1. the instance stops its own [recovery sweep](Several-instances#recovery) and its child workers; a
+   store call of theirs that is never answered (a server gone quiet) is given up at the end of the
+   shutdown timeout and logged `app.stop-store-call-pending` (#923) — it never holds the stop;
 2. `onStop` of the components;
 3. it waits for the running executions of every workflow to finish or pause — the whole stop
    ends within the **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by

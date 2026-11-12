@@ -12,6 +12,20 @@ Breaking changes and notable additions, newest first. The API reports
   `check --federation` compares only the listed finishes (`[federation.unknown-finish]`)
   ([A2A → the client side](A2A#4-the-client-side--a2a-v10-809)).
 
+## Unreleased — 0.1.1: a refused child lease take backs off; a store call never answered holds no stop (#923)
+
+- **Fixed**: a worker that claimed a queued child and found its lease held by another live worker
+  re-queued the row and woke the other instances at once — claim, refused take, re-queue repeated at
+  store speed (thousands a second on two instances of a process). A worker now looks again after one
+  `Clock` second past its last refused take, or when that tree's lease is released in the process;
+  the sweep stays the safety net.
+- **Fixed**: `app.close()` ends within its shutdown timeout while the recovery sweep's look or a child
+  worker's claim waits on a store call that is never answered: given up at the stop's end, logged
+  `app.stop-store-call-pending` ([App → close](App)).
+- **`@agboss/redis`**: the claim of an execution id the id store hands out as new whose lease key
+  already exists fails with `RedisLeaseKeyConflictError` (`redis.lease-key-conflict`) — a database
+  replaced under a Redis that was not; give each database its own `redisKeyPrefix`.
+
 ## Unreleased — 0.1.1: A2A file fetch never through a proxy, file fields of outputs on the card (#916)
 
 - **Fixed — SSRF**: a file by url is fetched on its own `https.Agent` (its own pool, the guarded
