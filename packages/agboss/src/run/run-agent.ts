@@ -10,7 +10,7 @@ import {
   outcomeError,
   recordFailure,
   runningOutcome,
-  type TernBase,
+  type TurnBase,
 } from "./execute.js";
 import { inStartFrame, openExecutionBudgets, recorder, type PassBudgets } from "./run-budgets.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
@@ -47,11 +47,11 @@ export function runOpenedAgent<TName extends string>(
 }
 
 /** What every Turn of the run has: its run, thread, start line, replay and versions. */
-const ternBaseOf = <TName extends string>(
+const turnBaseOf = <TName extends string>(
   deps: AgentExecutionDeps<TName>,
-  run: Pick<TernBase, "runId" | "threadId" | "tenantId" | "task">,
+  run: Pick<TurnBase, "runId" | "threadId" | "tenantId" | "task">,
   options: AgentExecutionOptions,
-): TernBase => ({
+): TurnBase => ({
   ...run,
   bundle: deps.config.name,
   replayOf: options.replayOf ?? null,
@@ -83,12 +83,12 @@ async function runOnce<TName extends string>(
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
   const { threadId } = known ?? (await openThread(deps, tenantId, undefined));
   const spent: UsageRecord[] = [];
-  const base = ternBaseOf(
+  const base = turnBaseOf(
     deps,
     { runId, threadId, tenantId, task: startLine(start, input) },
     options,
   );
-  let ternId: string | undefined;
+  let turnId: string | undefined;
   try {
     const config = streamConfig(deps, { threadId, tenantId, runId, input }, options);
     const record = recorder(budgets.meter, spent);
@@ -99,7 +99,7 @@ async function runOnce<TName extends string>(
     // the compactions due run before the thread is read: a CompactionError fails it here (S132)
     const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
-    ternId = (await deps.terns.append({ ...base, ...runningOutcome([], 0) })).id;
+    turnId = (await deps.turns.append({ ...base, ...runningOutcome([], 0) })).id;
     const graph = executionGraphOf(deps, { budgets: budgets.meter });
     const memory = { history: read.history, memory: read.memory, usage: [...read.usage] };
     const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };
@@ -110,10 +110,10 @@ async function runOnce<TName extends string>(
     const state = await drainRun(await graph.stream(initial, config), record, read.usage);
     const context = { deps, graph, base, runId, budgetUsd, record, recorded: spent };
     const finish = { ...context, callbacks: config.callbacks, compacted: read.compacted };
-    return await finishRun(finish, state, ternId);
+    return await finishRun(finish, state, turnId);
   } catch (error) {
     throw await failureRecorded(deps, base, outcomeError(error, options.signal), {
-      ternId,
+      turnId,
       spent,
     });
   }
@@ -125,18 +125,18 @@ async function runOnce<TName extends string>(
  */
 function failureRecorded<TName extends string>(
   deps: AgentExecutionDeps<TName>,
-  base: TernBase,
+  base: TurnBase,
   cause: unknown,
-  run: { readonly ternId: string | undefined; readonly spent: readonly UsageRecord[] },
+  run: { readonly turnId: string | undefined; readonly spent: readonly UsageRecord[] },
 ): Promise<unknown> {
-  const { ternId, spent } = run;
-  const unwind = ternId === undefined ? undefined : deps.compensation?.rootUnwind;
+  const { turnId, spent } = run;
+  const unwind = turnId === undefined ? undefined : deps.compensation?.rootUnwind;
   return recordFailure(
     cause,
     (ended) =>
-      ternId === undefined
-        ? deps.terns.append({ ...base, ...failedOutcome(ended, spent) })
-        : deps.terns.complete(ternId, failedOutcome(ended, spent)),
+      turnId === undefined
+        ? deps.turns.append({ ...base, ...failedOutcome(ended, spent) })
+        : deps.turns.complete(turnId, failedOutcome(ended, spent)),
     unwind,
   );
 }

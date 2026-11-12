@@ -56,7 +56,7 @@ function pageLimitOf(limit: number | undefined): number {
   if (limit === undefined) return DEFAULT_OUTBOUND_CALL_PAGE;
   if (Number.isInteger(limit) && limit >= 1 && limit <= MAX_OUTBOUND_CALL_PAGE) return limit;
   const reason = `a page is a whole number of calls from 1 to ${String(MAX_OUTBOUND_CALL_PAGE)}`;
-  throw new DtoValidationError(PENDING_QUERY, [{ path: "limit", reason }]);
+  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "limit", reason }] });
 }
 
 /**
@@ -66,7 +66,7 @@ function pageLimitOf(limit: number | undefined): number {
 function cursorRefused(error: unknown): never {
   if (!(error instanceof RangeError)) throw error;
   const reason = "a cursor is the next of a page before, as the store gave it";
-  throw new DtoValidationError(PENDING_QUERY, [{ path: "after", reason }]);
+  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }
 
 /** A page's cursor (#825): a non-empty text a page before gave as `next` — `dto.invalid` else. */
@@ -74,5 +74,5 @@ function afterOf(after: string | undefined): { readonly after?: string } {
   if (after === undefined) return {};
   if (typeof after === "string" && after !== "") return { after };
   const reason = "a cursor is the next of a page before: a non-empty text";
-  throw new DtoValidationError(PENDING_QUERY, [{ path: "after", reason }]);
+  throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }

@@ -123,9 +123,9 @@ export function OnAnswer<const TAgent extends Class>(
   return (_value, context) => {
     const { metadata } = context;
     if (metadata === undefined)
-      throw new FlowSyntaxError(
-        `@OnAnswer on ${String(context.name)}: decorator metadata is missing — import "@agboss/core" first`,
-      );
+      throw new FlowSyntaxError({
+        message: `@OnAnswer on ${String(context.name)}: decorator metadata is missing — import "@agboss/core" first`,
+      });
     const methods = answerMethods.get(metadata) ?? [];
     answerMethods.set(metadata, [...methods, { method: String(context.name), agent }]);
   };

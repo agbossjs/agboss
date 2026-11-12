@@ -23,7 +23,7 @@ import {
   type FencedEffectOutcome,
   type EffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
-import { stableJson } from "../../src/terns/versions.js";
+import { stableJson } from "../../src/turns/versions.js";
 import { seconds } from "../../src/units/index.js";
 import { seededProperties } from "../helpers/property-seed.js";
 import { inMemoryFencedEffects } from "../infrastructure/contracts/fenced-effect-stores.js";

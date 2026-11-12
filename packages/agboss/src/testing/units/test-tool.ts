@@ -65,7 +65,7 @@ export function testTool<
   ): Promise<UnitRun<ToolOutputOf<InstanceType<TTool>>>> => {
     const valid = validate(meta.input, input);
     const delay = call.timeout ?? meta.timeout ?? DEFAULT_TOOL_TIMEOUT;
-    const timeout = { delay, reason: (): Error => new ToolTimeoutError(delay) };
+    const timeout = { delay, reason: (): Error => new ToolTimeoutError({ timeout: delay }) };
     const frame = { component: tool, caller: `tool:${meta.name}`, callId: "test-call", timeout };
     // the container creates the class itself: an instance of the tool, `run` included
     const instance = site.instanceOf(tool) as RunnableTool;

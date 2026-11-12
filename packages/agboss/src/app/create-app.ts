@@ -114,21 +114,21 @@ export async function buildApp(
   });
   const { auditLog } = parts.infrastructure;
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog });
-  const owned = (access: ThreadAccess) => checkThreadOwner(deps.terns, deps.config.name, access);
-  const known = (access: ThreadAccess) => checkThreadAccess(deps.terns, deps.config.name, access);
-  const fresh = (access: ThreadAccess) => isNewThread(deps.terns, deps.config.name, access);
+  const owned = (access: ThreadAccess) => checkThreadOwner(deps.turns, deps.config.name, access);
+  const known = (access: ThreadAccess) => checkThreadAccess(deps.turns, deps.config.name, access);
+  const fresh = (access: ThreadAccess) => isNewThread(deps.turns, deps.config.name, access);
   // a pause inside a child (#263) is validated against the child's tool
   const questions = treeQuestionAnswersOf(deps);
   const tools = treeToolsOf(deps);
-  const marks = { terns: deps.terns, log: deps.log };
+  const marks = { turns: deps.turns, log: deps.log };
   const answers = { pauses, paused, owned, tools, questions, current, policy, ...marks };
   const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
-    (await deps.terns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
+    (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
   const newThread = async (access: NewThreadAccess): Promise<string> => {
     const { tenantId, threadId, ownerId } = access;
-    const id = await deps.terns.createThread({ workflow: deps.config.name, ...access });
+    const id = await deps.turns.createThread({ workflow: deps.config.name, ...access });
     if (threadId !== undefined) await owned({ tenantId, threadId: id, ownerId });
     return id;
   };
@@ -142,7 +142,7 @@ export async function buildApp(
   const byId = treeControlOf(parts.infrastructure, cancelParts);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
   const accepting = (): void => {
-    if (closed) throw new ApplicationStoppingError(STOPPING);
+    if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
   const app: WorkflowApp = {
     name: deps.config.name,

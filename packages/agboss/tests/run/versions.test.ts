@@ -9,7 +9,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { childSourcesIn, configSnapshot } from "../../src/run/versions.js";
-import { versionOf } from "../../src/terns/index.js";
+import { versionOf } from "../../src/turns/index.js";
 import { testWith } from "../../src/testing/index.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { execute } from "../helpers/flow.js";

@@ -2,6 +2,13 @@ import { AGBossError } from "../core/errors.js";
 import { definedOf } from "../infrastructure/clock.js";
 import type { ExecutionLease } from "../infrastructure/execution-lease.repository.js";
 
+/** What a lost lease takes (#906): the execution whose lease it was. */
+export interface ExecutionLeaseLostErrorOptions {
+  /** The execution whose lease was lost: the root of the tree, or a child with a lease of its own. */
+  readonly rootExecutionId: string;
+  readonly cause?: unknown;
+}
+
 /**
  * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the holder
  * was frozen or cut off longer than the lease, or its store never confirmed a renewal (#335) — and
@@ -10,6 +17,8 @@ import type { ExecutionLease } from "../infrastructure/execution-lease.repositor
  */
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";
+  /** This class's code, or its subclass `ExecutionFencedError`'s (#906: `switch (error.code)` narrows). */
+  declare readonly code: "execution.lease-lost" | "execution.lease-lost.fenced";
   override name = "ExecutionLeaseLostError";
   /**
    * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyInstance`
@@ -17,9 +26,11 @@ export class ExecutionLeaseLostError extends AGBossError {
    */
   readonly rootExecutionId: string;
 
-  constructor(rootExecutionId: string) {
+  constructor(options: ExecutionLeaseLostErrorOptions) {
+    const { rootExecutionId, cause } = options;
     super(
       `the lease of execution ${rootExecutionId} is over — it expired, or another instance took it: this instance stops, the next take of the lease continues the execution`,
+      { cause },
     );
     this.rootExecutionId = rootExecutionId;
   }
@@ -30,7 +41,7 @@ export class ExecutionLeaseLostError extends AGBossError {
  * yet, so only the message differs — the class, `code` and fields are `ExecutionLeaseLostError`'s.
  */
 export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostError {
-  const error = new ExecutionLeaseLostError(rootExecutionId);
+  const error = new ExecutionLeaseLostError({ rootExecutionId });
   // #567: nothing says another instance exists — the next take may be this instance's own sweep
   error.message = `the lease of execution ${rootExecutionId} expired before its store confirmed a renewal — the holder was frozen, or its store did not answer, for longer than the lease: this instance stops, the next take of the lease continues the execution`;
   return error;
@@ -42,7 +53,7 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
  * too, taken by another instance or not (#534) — only the message differs, as for `leaseExpiredError`.
  */
 export function leaseTakenWhileYieldedError(rootExecutionId: string): ExecutionLeaseLostError {
-  const error = new ExecutionLeaseLostError(rootExecutionId);
+  const error = new ExecutionLeaseLostError({ rootExecutionId });
   error.message = `the lease of execution ${rootExecutionId} is over — it expired while it waited for remote children, or another instance took it: this instance stops, the next take of the lease continues the execution`;
   return error;
 }
@@ -79,6 +90,8 @@ export interface FencedWriteRefusal {
   readonly token: number;
   /** The highest token the external system saw for the scope, when it says. */
   readonly observedToken?: number | undefined;
+  /** What made the store refuse, when it has one (its own error). */
+  readonly cause?: unknown;
 }
 
 /** Every fact of a refused write (#890): its scope key and that key's parts, and the tokens. */
@@ -105,6 +118,7 @@ class InvalidScopeKeyError extends TypeError {
  */
 export class ExecutionFencedError extends ExecutionLeaseLostError {
   static override readonly code = "execution.lease-lost.fenced" as const;
+  declare readonly code: typeof ExecutionFencedError.code;
   override name = "ExecutionFencedError";
   readonly scopeKey: string;
   readonly tenantId: string;
@@ -129,8 +143,8 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
 
   /** Every fact given as is: it never throws — a store's `catch` builds it safely (#890). */
   constructor(options: ExecutionFencedErrorOptions) {
-    const { scopeKey, tenantId, leaseExecutionId, token, observedToken } = options;
-    super(leaseExecutionId);
+    const { scopeKey, tenantId, leaseExecutionId, token, observedToken, cause } = options;
+    super({ rootExecutionId: leaseExecutionId, cause });
     this.scopeKey = scopeKey;
     this.tenantId = tenantId;
     this.leaseExecutionId = leaseExecutionId;

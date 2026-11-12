@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InMemoryExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
-import { TernStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import {
   Action,
   Clock,
@@ -33,7 +33,7 @@ const callsBeforeStart: string[] = [];
 /** What `rememberConfig` reports: drift, so the start must warn about it. */
 const DRIFT = { drift: true };
 
-/** The methods of the record store's contract, as `TernStoreRecordRepository` implements them. */
+/** The methods of the record store's contract, as `TurnStoreRecordRepository` implements them. */
 const methodNamesOf = (prototype: object): string[] =>
   Object.getOwnPropertyNames(prototype).filter(
     (name) =>
@@ -51,7 +51,7 @@ class StartedRecordRepository extends InMemoryExecutionRecordRepository implemen
 
   constructor(clock: Clock, idGenerator: IdGenerator) {
     super(clock, idGenerator);
-    for (const name of methodNamesOf(TernStoreRecordRepository.prototype)) {
+    for (const name of methodNamesOf(TurnStoreRecordRepository.prototype)) {
       const method: unknown = Reflect.get(this, name);
       if (typeof method !== "function") continue;
       Reflect.set(this, name, (...args: unknown[]): unknown => {
@@ -71,7 +71,7 @@ class StartedRecordRepository extends InMemoryExecutionRecordRepository implemen
   }
 
   override async rememberConfig(
-    ...args: Parameters<TernStoreRecordRepository["rememberConfig"]>
+    ...args: Parameters<TurnStoreRecordRepository["rememberConfig"]>
   ): Promise<{ drift: boolean }> {
     await super.rememberConfig(...args);
     return DRIFT;

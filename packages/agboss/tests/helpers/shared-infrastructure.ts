@@ -1,7 +1,7 @@
 import { MemorySaver } from "@langchain/langgraph";
 import type { PausedExecution } from "../../src/app/paused-runs.js";
 import { Injectable } from "../../src/components/decorators.js";
-import { TernStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import {
   InMemoryPausedExecutionRepository,
   PausedExecutionRepository,
@@ -9,7 +9,7 @@ import {
   type PauseAnswer,
   type PauseCancellation,
 } from "../../src/infrastructure/paused-execution.repository.js";
-import { createSqliteTernStore, type TernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore, type TurnStore } from "../../src/turns/index.js";
 
 /**
  * Durable infrastructure for the tests of restarts and deployments (#261): an application lists
@@ -22,14 +22,14 @@ interface SharedDatabase {
   readonly paused: Map<string, PausedExecution>;
   /** The pauses of every paused run: one store every instance reads. */
   pauses: InMemoryPausedExecutionRepository;
-  records: TernStore;
+  records: TurnStore;
 }
 
 const database: SharedDatabase = {
   checkpoints: new MemorySaver(),
   paused: new Map(),
   pauses: new InMemoryPausedExecutionRepository(),
-  records: createSqliteTernStore(":memory:", () => new Date()),
+  records: createSqliteTurnStore(":memory:", () => new Date()),
 };
 
 /** Empties the shared database (each test starts with none). */
@@ -39,7 +39,7 @@ export function resetSharedDatabase(): void {
   database.paused.clear();
   database.pauses = new InMemoryPausedExecutionRepository();
   database.records.close();
-  database.records = createSqliteTernStore(":memory:", () => new Date());
+  database.records = createSqliteTurnStore(":memory:", () => new Date());
 }
 
 /** The paused executions in the shared database. */
@@ -141,7 +141,7 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
 }
 
 @Injectable()
-export class SharedExecutionRecordRepository extends TernStoreRecordRepository {
+export class SharedExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor() {
     super(database.records);
   }

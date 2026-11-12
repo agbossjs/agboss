@@ -24,9 +24,9 @@ import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import { createSqliteTernStore, type Turn } from "../../../src/terns/index.js";
+import { createSqliteTurnStore, type Turn } from "../../../src/turns/index.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
@@ -187,7 +187,7 @@ export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecuti
     seen.resumes.push({ reason: event.reason, decision: event.decision });
   }
   async onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
-    const [record] = await this.executionRecordRepository.lastTerns(
+    const [record] = await this.executionRecordRepository.lastTurns(
       event.tenantId,
       event.threadId,
       1,
@@ -254,9 +254,9 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
 
 /** The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. */
 @Injectable()
-export class StampedExecutionRecordRepository extends TernStoreRecordRepository {
+export class StampedExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor() {
-    super(createSqliteTernStore(":memory:", () => new Date()));
+    super(createSqliteTurnStore(":memory:", () => new Date()));
     stores.records ??= this;
   }
 

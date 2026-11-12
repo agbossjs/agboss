@@ -10,7 +10,7 @@ import { currentFrame } from "../../flow/context/frame.js";
 import { liveExecutionContextOf } from "../../flow/context/live-context.js";
 import { effectKeyOf } from "../../infrastructure/fenced-effect-key.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
-import { stableJson } from "../../terns/index.js";
+import { stableJson } from "../../turns/index.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
 import { A2AContractError, A2AContractRule, A2AProtocolError } from "./a2a-client-errors.js";

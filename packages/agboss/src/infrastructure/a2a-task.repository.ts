@@ -181,12 +181,18 @@ export interface A2ATaskPage {
   readonly totalSize: number;
 }
 
+/** What an invalid page token takes (#906): only a cause. */
+export interface InvalidA2APageTokenErrorOptions {
+  readonly cause?: unknown;
+}
+
 /** A page token that no `list` of this store gave. */
 export class InvalidA2APageTokenError extends AGBossError {
   static override readonly code = "a2a.invalid-page-token" as const;
+  declare readonly code: typeof InvalidA2APageTokenError.code;
 
-  constructor() {
-    super("the page token is not one a list of these tasks gave");
+  constructor(options: InvalidA2APageTokenErrorOptions = {}) {
+    super("the page token is not one a list of these tasks gave", { cause: options.cause });
   }
 }
 

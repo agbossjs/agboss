@@ -1,13 +1,13 @@
 import type { A2AError } from "@a2a-js/sdk/errors";
-import { UnknownPauseError } from "../../app/resume.js";
+import { UnknownPauseError } from "../../run/resume-agent.js";
 import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
-} from "../../channels/channel-role.decorator.js";
+} from "../../channels/decision.js";
 import { DtoValidationError } from "../../dto/errors.js";
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
 import { NotPausedError } from "../../run/resume-agent.js";
-import { ThreadOwnerError } from "../../run/thread.js";
+import { ThreadOwnerError } from "../../core/errors.js";
 import { logSubjectOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
   A2AInternalError,

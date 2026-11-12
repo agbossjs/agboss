@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { KEYS } from "./models/gateway.js";
 import { createWorkflowDeps } from "../src/app/app-deps.js";
 import { standaloneInfrastructure } from "../src/application/application-container.js";
-import { TernStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
 import { providerStub } from "./models/stub.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/index.js";
-import { createSqliteTernStore } from "../src/terns/index.js";
+import { createSqliteTurnStore } from "../src/turns/index.js";
 import { executionVersions } from "../src/run/versions.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
@@ -46,13 +46,13 @@ describe("config versions", () => {
 
     const result = await runText("Hi", deps);
 
-    const [tern] = await deps.terns.byIds([result.ternId]);
-    expect(tern?.configVersion).toBe("1.0.0");
-    expect(tern?.configHash).toMatch(/^[0-9a-f]{64}$/);
+    const [turn] = await deps.turns.byIds([result.turnId]);
+    expect(turn?.configVersion).toBe("1.0.0");
+    expect(turn?.configHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("AC2: the same version with other content is drift; snapshots are kept", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date());
+    const store = createSqliteTurnStore(":memory:", () => new Date());
 
     expect(await store.rememberConfig("b", "1.0.0", "h1", "{a}")).toEqual({ drift: false });
     expect(await store.rememberConfig("b", "1.0.0", "h1", "{a}")).toEqual({ drift: false });
@@ -61,7 +61,7 @@ describe("config versions", () => {
   });
 
   it("AC4: a 12-character hash from before canonical JSON is not comparable — no drift", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date());
+    const store = createSqliteTurnStore(":memory:", () => new Date());
 
     await store.rememberConfig("b", "1.0.0", "a".repeat(12), "{old}");
     expect(await store.rememberConfig("b", "1.0.0", "b".repeat(64), "{new}")).toEqual({
@@ -78,7 +78,7 @@ describe("config versions", () => {
     // the records outlive the app instance: a durable repository both starts share
     const infrastructure = {
       ...standaloneInfrastructure(base, {}),
-      records: new TernStoreRecordRepository(createSqliteTernStore(":memory:", () => new Date())),
+      records: new TurnStoreRecordRepository(createSqliteTurnStore(":memory:", () => new Date())),
     };
     const options = { processEnv: {}, environment: KEYS, providerFetch };
     const first = await createWorkflowDeps(base, options, { infrastructure });

@@ -55,10 +55,10 @@ export async function runProfile(
       const result = await executeAgent(request, run.deps);
       latenciesMs.push(clock() - started);
       costUsd += result.cost.totalUsd;
-      const [tern] = await run.deps.terns.byIds([result.ternId]);
-      answers.push(tern?.replyWith);
+      const [turn] = await run.deps.turns.byIds([result.turnId]);
+      answers.push(turn?.replyWith);
       scores.push(
-        tern === undefined ? undefined : scoreOf(await judged(run.evaluation, judgeRequest(tern))),
+        turn === undefined ? undefined : scoreOf(await judged(run.evaluation, judgeRequest(turn))),
       );
     } catch (error) {
       if (isPeriodBudgetExhausted(error)) {

@@ -173,6 +173,7 @@ export interface FencedEffectResultTooLargeErrorOptions {
   readonly effect: string;
   readonly size: number;
   readonly maxResultSize: number;
+  readonly cause?: unknown;
 }
 
 /**
@@ -182,6 +183,7 @@ export interface FencedEffectResultTooLargeErrorOptions {
  */
 export class FencedEffectResultTooLargeError extends AGBossError {
   static override readonly code = "fenced-effect.result-too-large" as const;
+  declare readonly code: typeof FencedEffectResultTooLargeError.code;
   override name = "FencedEffectResultTooLargeError";
   readonly effect: string;
   readonly size: number;
@@ -190,6 +192,7 @@ export class FencedEffectResultTooLargeError extends AGBossError {
   constructor(options: FencedEffectResultTooLargeErrorOptions) {
     super(
       `the result of fenced effect "${options.effect}" is ${String(options.size)} bytes, above its maxResultSize of ${String(options.maxResultSize)} bytes: nothing was written — store a reference to it, or raise @Application({ fencedEffects: { maxResultSize } })`,
+      { cause: options.cause },
     );
     this.effect = options.effect;
     this.size = options.size;

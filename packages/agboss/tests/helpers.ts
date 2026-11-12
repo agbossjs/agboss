@@ -31,7 +31,7 @@ import type {
   AgentExecutionDeps,
   AgentExecutionOptions,
 } from "../src/run/types.js";
-import { createSqliteTernStore, type TernStore } from "../src/terns/index.js";
+import { createSqliteTurnStore, type TurnStore } from "../src/turns/index.js";
 import { StarWorkflow } from "./fixtures/test-flow/star.workflow.js";
 
 export type TestAgent = "alpha" | "beta";
@@ -139,7 +139,7 @@ export interface FakeDepsOptions {
   readonly ledger?: CostLedgerRepository;
   /** The default execution budget, USD (default 1); the tenant's and the application's are $1000 a day. */
   readonly executionBudget?: number;
-  readonly terns?: TernStore;
+  readonly turns?: TurnStore;
   readonly workflow?: Class;
   /** Chat models instead of the script's (e.g. a `ScriptedChatModel` with tool calls). */
   readonly chatModel?: ModelFactory;
@@ -171,8 +171,8 @@ export async function fakeDeps(
     ledger: options.ledger ?? memoryLedger(),
     clock: systemClock,
   };
-  const terns = options.terns ?? createSqliteTernStore(":memory:", () => new Date());
-  return { ...deps, budgets, terns, evaluation: { ...deps.evaluation, budgets, terns } };
+  const turns = options.turns ?? createSqliteTurnStore(":memory:", () => new Date());
+  return { ...deps, budgets, turns, evaluation: { ...deps.evaluation, budgets, turns } };
 }
 
 /** Runs the star's chat start with a text (on the thread given, else a new one). */

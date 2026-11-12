@@ -70,8 +70,13 @@ export async function supersededErrorOf<TRequest, TResult>(
   const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
   const { target, operation } = run.options;
   return new OutboundCallSupersededError({
-    ...{ call: run.key.name, target, operation, idempotencyKey },
-    ...{ attempt, supersededBy, cause },
+    call: run.key.name,
+    target,
+    operation,
+    idempotencyKey,
+    attempt,
+    supersededBy,
+    cause,
   });
 }
 
@@ -138,8 +143,13 @@ export async function unreconciledOf<TRequest, TResult>(
   const { target, operation } = run.options;
   const { reason, cause } = why;
   return new OutboundCallUnreconciledError({
-    ...{ call: run.key.name, target, operation, idempotencyKey },
-    ...{ reason, detail, cause },
+    call: run.key.name,
+    target,
+    operation,
+    idempotencyKey,
+    reason,
+    detail,
+    cause,
   });
 }
 

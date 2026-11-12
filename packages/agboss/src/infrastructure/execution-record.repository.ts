@@ -1,6 +1,6 @@
 import { Injectable } from "../components/decorators.js";
 import {
-  createSqliteTernStore,
+  createSqliteTurnStore,
   pauseAnswerEntryOf,
   type ConfigSnapshot,
   type NewSummary,
@@ -9,14 +9,14 @@ import {
   type Summary,
   type Turn,
   type TurnOutcome,
-  type TernStore,
+  type TurnStore,
   type VersionScore,
-} from "../terns/index.js";
+} from "../turns/index.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { Clock, IdGenerator, mintedThreadIdsOf } from "./clock.js";
 import { pauseAnswerRecordOfJson } from "./pause-record.js";
 
-export type { NewThread } from "../terns/index.js";
+export type { NewThread } from "../turns/index.js";
 
 /**
  * Where an execution's record is (#265 S30): `Running` while its tree moves — what recovery looks
@@ -75,21 +75,21 @@ export abstract class ExecutionRecordRepository {
     tenantId: string,
     threadId: string,
   ): Promise<{ readonly owner: string | undefined } | undefined>;
-  abstract append(tern: NewTurn): Promise<Turn>;
+  abstract append(turn: NewTurn): Promise<Turn>;
   /** Completes a paused record (same id) with its final outcome. */
-  abstract complete(ternId: string, outcome: TurnOutcome): Promise<void>;
+  abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;
   /**
    * Compare-and-set (#265 S66 h): writes the outcome only while the record's status is `expected`,
    * atomically; `true` when it did. A resume marks its paused record `running` this way, so its
    * write never lands over the outcome a holder wrote meanwhile.
    */
   abstract completeIfStatus(
-    ternId: string,
+    turnId: string,
     expected: ExecutionRecordStatus,
     outcome: TurnOutcome,
   ): Promise<boolean>;
   /** The last `limit` records of a thread, oldest first. */
-  abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
+  abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
   abstract byIds(ids: readonly string[]): Promise<Turn[]>;
   /**
    * A page of the records with `status`, oldest first: up to `limit`, after the record `after`
@@ -114,8 +114,8 @@ export abstract class ExecutionRecordRepository {
     promptVersion: string | undefined,
     limit: number,
   ): Promise<Turn[]>;
-  abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
-  abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+  abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
+  abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
   /** Mean score and cost per prompt version; `running` records left out (a run in flight is no result). */
   abstract summary(workflow: string): Promise<VersionScore[]>;
   /** Stores the snapshot the first time; `drift` when the version already has another hash. */
@@ -134,11 +134,11 @@ export abstract class ExecutionRecordRepository {
   abstract before(
     tenantId: string,
     threadId: string,
-    ternId: string,
+    turnId: string,
     limit: number,
   ): Promise<Turn[]>;
   /** 1-based position of a record in its thread. */
-  abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
+  abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
   /** A summary of a thread: it carries the thread's `tenantId` and `threadId`. */
   abstract addSummary(summary: NewSummary): Promise<Summary>;
   /** The compaction's latest `limit` summaries of the thread, oldest first. */
@@ -169,10 +169,10 @@ export abstract class ExecutionRecordRepository {
 }
 
 /** The records in a Turn store (internal): what the built-in default and the SQLite ones build on. */
-export class TernStoreRecordRepository extends ExecutionRecordRepository {
-  readonly #store: TernStore;
+export class TurnStoreRecordRepository extends ExecutionRecordRepository {
+  readonly #store: TurnStore;
 
-  constructor(store: TernStore) {
+  constructor(store: TurnStore) {
     super();
     this.#store = store;
   }
@@ -187,24 +187,24 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
     return this.#store.hasThread(workflow, tenantId, threadId);
   }
-  threadOwner(...args: Parameters<TernStore["threadOwner"]>): ReturnType<TernStore["threadOwner"]> {
+  threadOwner(...args: Parameters<TurnStore["threadOwner"]>): ReturnType<TurnStore["threadOwner"]> {
     return this.#store.threadOwner(...args);
   }
-  append(tern: NewTurn): Promise<Turn> {
-    return this.#store.append(tern);
+  append(turn: NewTurn): Promise<Turn> {
+    return this.#store.append(turn);
   }
-  complete(ternId: string, outcome: TurnOutcome): Promise<void> {
-    return this.#store.complete(ternId, outcome);
+  complete(turnId: string, outcome: TurnOutcome): Promise<void> {
+    return this.#store.complete(turnId, outcome);
   }
   completeIfStatus(
-    ternId: string,
+    turnId: string,
     expected: ExecutionRecordStatus,
     outcome: TurnOutcome,
   ): Promise<boolean> {
-    return this.#store.completeIfStatus(ternId, expected, outcome);
+    return this.#store.completeIfStatus(turnId, expected, outcome);
   }
-  lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
-    return this.#store.lastTerns(tenantId, threadId, limit);
+  lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
+    return this.#store.lastTurns(tenantId, threadId, limit);
   }
   byIds(ids: readonly string[]): Promise<Turn[]> {
     return this.#store.byIds(ids);
@@ -221,16 +221,16 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]> {
     return this.#store.unscored(workflow, promptVersion, limit);
   }
-  saveScore(ternId: string, judge: string, score: number): Promise<void> {
-    return this.#store.saveScore(ternId, judge, score);
+  saveScore(turnId: string, judge: string, score: number): Promise<void> {
+    return this.#store.saveScore(turnId, judge, score);
   }
-  meanScore(ternIds: readonly string[]): Promise<number | null> {
-    return this.#store.meanScore(ternIds);
+  meanScore(turnIds: readonly string[]): Promise<number | null> {
+    return this.#store.meanScore(turnIds);
   }
   summary(workflow: string): Promise<VersionScore[]> {
     return this.#store.summary(workflow);
   }
-  rememberConfig(...args: Parameters<TernStore["rememberConfig"]>): Promise<{ drift: boolean }> {
+  rememberConfig(...args: Parameters<TurnStore["rememberConfig"]>): Promise<{ drift: boolean }> {
     return this.#store.rememberConfig(...args);
   }
   configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]> {
@@ -242,16 +242,16 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
   uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]> {
     return this.#store.uncovered(tenantId, threadId, compaction);
   }
-  before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Turn[]> {
-    return this.#store.before(tenantId, threadId, ternId, limit);
+  before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]> {
+    return this.#store.before(tenantId, threadId, turnId, limit);
   }
-  turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number> {
-    return this.#store.turnNumber(tenantId, threadId, ternId);
+  turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number> {
+    return this.#store.turnNumber(tenantId, threadId, turnId);
   }
   addSummary(summary: NewSummary): Promise<Summary> {
     return this.#store.addSummary(summary);
   }
-  latestSummaries(...args: Parameters<TernStore["latestSummaries"]>): Promise<Summary[]> {
+  latestSummaries(...args: Parameters<TurnStore["latestSummaries"]>): Promise<Summary[]> {
     return this.#store.latestSummaries(...args);
   }
   summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {
@@ -278,8 +278,8 @@ export class TernStoreRecordRepository extends ExecutionRecordRepository {
  * on restart, never written to disk; a new thread's id from the application's `IdGenerator`.
  */
 @Injectable({ deps: [Clock, IdGenerator] })
-export class InMemoryExecutionRecordRepository extends TernStoreRecordRepository {
+export class InMemoryExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor(clock: Clock, idGenerator: IdGenerator) {
-    super(createSqliteTernStore(":memory:", () => clock.now(), mintedThreadIdsOf(idGenerator)));
+    super(createSqliteTurnStore(":memory:", () => clock.now(), mintedThreadIdsOf(idGenerator)));
   }
 }

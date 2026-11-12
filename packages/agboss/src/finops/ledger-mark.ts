@@ -1,4 +1,5 @@
 import { isDate } from "node:util/types";
+import { AGBossError } from "../core/errors.js";
 
 /**
  * Where the ledger holds a usage record (#333 PR 3, #727, #771; one state, #817): the budgets'
@@ -187,4 +188,97 @@ export function withLedgerMarkRead<T extends object>(record: T): T {
       : { ...without(record, MARK_FIELDS), ledger: mark };
   if (!("ledgerKey" in record) || record.ledgerKey === undefined) return read;
   return { ...read, ledgerKey: ledgerKeyOf(record.ledgerKey) };
+}
+
+/** Why `assertLedgerEntries` refused a save (#817): the entry's place in the save and what is wrong. */
+export interface CostLedgerEntryInvalidErrorOptions {
+  /** The entry's index in the save. */
+  readonly index: number;
+  /** What it lacks: `ledgerId`, `madeAt` or `costUsd`, and why. */
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
+/**
+ * A save handed something that is no `LedgerEntry` (#817): a record without a `ledgerId`, a valid
+ * `madeAt` `Date` or a finite, non-negative `costUsd` — what a JS caller (or a cast) can pass. The
+ * save adds nothing: spend without an identity could be counted on every retry.
+ */
+export class CostLedgerEntryInvalidError extends AGBossError {
+  static override readonly code = "cost-ledger.entry-invalid" as const;
+  declare readonly code: typeof CostLedgerEntryInvalidError.code;
+  override name = "CostLedgerEntryInvalidError";
+  readonly index: number;
+  readonly reason: string;
+
+  constructor(options: CostLedgerEntryInvalidErrorOptions) {
+    super(
+      `the ledger was handed no ledger entry at index ${String(options.index)}: ${options.reason} — the save added nothing; save only LedgerEntry values (an id, a madeAt Date, a costUsd in Usd)`,
+      { cause: options.cause },
+    );
+    this.index = options.index;
+    this.reason = options.reason;
+  }
+}
+
+/** What a prune's invalid cutoff knows (#906). */
+export interface CostLedgerCutoffInvalidErrorOptions {
+  /** What is wrong with the cutoff: `the cutoff is no valid Date: <what it got>`. */
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
+/**
+ * A prune handed a cutoff that is no valid `Date` (#817, #869): one compares false with every entry
+ * and would lower the pruning mark, so it is refused — nothing pruned, the mark where it was. What
+ * a JS caller (or a cast) can pass; every store refuses it with this code (`assertLedgerCutoff`).
+ */
+export class CostLedgerCutoffInvalidError extends AGBossError {
+  static override readonly code = "cost-ledger.cutoff-invalid" as const;
+  declare readonly code: typeof CostLedgerCutoffInvalidError.code;
+  override name = "CostLedgerCutoffInvalidError";
+  /** What is wrong with the cutoff: `the cutoff is no valid Date: <what it got>`. */
+  readonly reason: string;
+
+  constructor(options: CostLedgerCutoffInvalidErrorOptions) {
+    const { reason, cause } = options;
+    super(
+      `the ledger was handed no valid Date as its prune's cutoff: ${reason} — nothing was pruned and the pruning mark stays where it was; prune with a valid Date`,
+      { cause },
+    );
+    this.reason = reason;
+  }
+}
+
+/** What a save refused (#771): the entries it does not hold dated before its pruning mark. */
+export interface CostLedgerEntryExpiredErrorOptions {
+  /** The refused entries' `ledgerId`s. */
+  readonly ledgerIds: readonly string[];
+  /** The store's pruning mark when it refused them. */
+  readonly prunedBefore: Date;
+  readonly cause?: unknown;
+}
+
+/**
+ * A save of an entry the ledger may have pruned (#771): dated before the store's pruning mark and
+ * not held, so it may have been counted and removed since — counting it again could count it twice.
+ * The save adds nothing; the pass's reads fail with it from then on (its spend is never counted
+ * twice, and never read beside spend it cannot place). Only a write retried longer after its spend
+ * was made than `@Application({ retention: { costLedgerEntries } })` meets it — a pass that slept that long.
+ */
+export class CostLedgerEntryExpiredError extends AGBossError {
+  static override readonly code = "cost-ledger.entry-expired" as const;
+  declare readonly code: typeof CostLedgerEntryExpiredError.code;
+  override name = "CostLedgerEntryExpiredError";
+  readonly ledgerIds: readonly string[];
+  readonly prunedBefore: Date;
+
+  constructor(options: CostLedgerEntryExpiredErrorOptions) {
+    super(
+      `the ledger may have pruned the entries ${options.ledgerIds.join(", ")}: made before its pruning mark ${options.prunedBefore.toISOString()} and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ retention: { costLedgerEntries } })`,
+      { cause: options.cause },
+    );
+    this.ledgerIds = options.ledgerIds;
+    this.prunedBefore = options.prunedBefore;
+  }
 }

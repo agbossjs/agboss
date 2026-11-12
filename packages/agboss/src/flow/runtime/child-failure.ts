@@ -6,11 +6,11 @@ import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { takeCarriedRecords } from "./carried-records.js";
 import {
-  CompensationFailedError,
   compensationRecordsOf,
   hasUndoableActions,
   type CompensationRecord,
 } from "../compensation.js";
+import { CompensationFailedError } from "../compensation.js";
 import type { Frame } from "../context/frame.js";
 import type { ExecutionEvent } from "../observers/execution-event.js";
 import type { ChildGraph } from "./child.js";

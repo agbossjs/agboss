@@ -211,7 +211,7 @@ function claimAt(site: TreeSlotSite): TreeClaim {
 
 /** A wait the execution's signal ended (a cancel, its launch's `FailFast`, the instance's stop). */
 const cancelledWaiting = (what: string): ExecutionCancelledError =>
-  new ExecutionCancelledError(`the execution was cancelled waiting for ${what}`);
+  new ExecutionCancelledError({ message: `the execution was cancelled waiting for ${what}` });
 
 /**
  * The step's slots: its tree's (#264), then — when the application caps them — one of its

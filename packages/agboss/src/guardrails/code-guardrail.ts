@@ -36,19 +36,29 @@ export function codeGuardrailDecision(
   return async ({ text }, spent) => {
     const instance = resolve(guardrail.type);
     if (!isHandler(instance))
-      throw new GuardFailedError(guardrail.name, [...spent], "its class has no check(text)");
+      throw new GuardFailedError({
+        guard: guardrail.name,
+        usage: [...spent],
+        reason: "its class has no check(text)",
+      });
     let verdict: unknown;
     try {
       verdict = await instance.check(text);
     } catch (error: unknown) {
-      throw new GuardFailedError(guardrail.name, [...spent], messageOf(error), error);
+      throw new GuardFailedError({
+        guard: guardrail.name,
+        usage: [...spent],
+        reason: messageOf(error),
+        cause: error,
+      });
     }
     if (!isGuardrailVerdict(verdict))
-      throw new GuardFailedError(
-        guardrail.name,
-        [...spent],
-        "check(text) returned no GuardrailVerdict — return GuardrailVerdict.passed() or .blocked()",
-      );
+      throw new GuardFailedError({
+        guard: guardrail.name,
+        usage: [...spent],
+        reason:
+          "check(text) returned no GuardrailVerdict — return GuardrailVerdict.passed() or .blocked()",
+      });
     return verdict.isBlocked ? BLOCKED : PASSED;
   };
 }

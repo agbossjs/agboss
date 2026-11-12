@@ -82,7 +82,7 @@ function interceptedOf(
   if (stop.kind === ToolCallStopKind.Failed)
     return { status: ToolCallStatus.Failed, output: undefined, error: errorRecordOf(stop.reason) };
   const blocked = { agent: call.step.nodeId, tool: call.tool.name, ...stop };
-  const error = errorRecordOf(new ToolBlockedError(blocked, []));
+  const error = errorRecordOf(new ToolBlockedError({ ...blocked, usage: [] }));
   return { status: ToolCallStatus.Blocked, output: undefined, error };
 }
 

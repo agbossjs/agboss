@@ -13,7 +13,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { createSqliteTernStore } from "../../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { start } from "../../helpers/flow.js";

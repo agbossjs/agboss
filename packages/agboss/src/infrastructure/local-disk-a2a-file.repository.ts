@@ -68,7 +68,7 @@ export class LocalDiskA2AFileRepository extends A2AFileRepository {
   async save(file: NewA2AFile): Promise<void> {
     const kept = await this.findMetadata(file);
     if (kept !== undefined) {
-      if (!isSameFile(kept, file)) throw new A2AFileConflictError(file.fileId);
+      if (!isSameFile(kept, file)) throw new A2AFileConflictError({ fileId: file.fileId });
       return;
     }
     const tenant = join(this.folder, nameOf(file.tenantId));
@@ -80,7 +80,7 @@ export class LocalDiskA2AFileRepository extends A2AFileRepository {
     if (!(await this.#placed(`${base}.json`, JSON.stringify(stored)))) {
       const other = await this.findMetadata(file);
       if (other !== undefined && !isSameFile(other, file))
-        throw new A2AFileConflictError(file.fileId);
+        throw new A2AFileConflictError({ fileId: file.fileId });
     }
   }
 

@@ -18,7 +18,7 @@ async function tasksOf(context: CommandContext, base: AppDeps): Promise<string[]
   const golden = textOption(context.values, "golden");
   if (golden === undefined) {
     const last = Number(requiredText(context.values, "last"));
-    return (await base.terns.recentOriginals(base.config.name, last)).map((t) => t.task);
+    return (await base.turns.recentOriginals(base.config.name, last)).map((t) => t.task);
   }
   const set = await loadGolden(goldenFile(context.io.cwd, base.config.name, golden));
   return set.tasks.map((t) => t.task);

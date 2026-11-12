@@ -178,6 +178,16 @@ export const A2A_CALLER_CODES = {
   resolutionFailed: "a2a.caller-resolution-failed",
 } as const;
 
+/** What a rejected caller takes (#906): the status, the wire code and the server's reason. */
+export interface A2ACallerRejectedErrorOptions {
+  /** `401` or `403`. */
+  readonly httpStatus: number;
+  /** The code the server sent (`{ code, error }`): `a2a.caller-unauthenticated`, `a2a.caller-forbidden`, … */
+  readonly wireCode: string;
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
 /**
  * The A2A server refused the caller (#387): `A2AClient.send` on a `401` / `403` carrying an
  * `a2a.caller-*` code — `httpStatus`, `wireCode` (`a2a.caller-unauthenticated`,
@@ -187,16 +197,24 @@ export const A2A_CALLER_CODES = {
 export class A2ACallerRejectedError extends AGBossError {
   /** `a2a.caller-rejected`. */
   static override readonly code = "a2a.caller-rejected" as const;
+  declare readonly code: typeof A2ACallerRejectedError.code;
   /** `A2ACallerRejectedError`. */
   override name = "A2ACallerRejectedError";
 
-  constructor(
-    /** `401` or `403`. */
-    readonly httpStatus: number,
-    /** The code the server sent (`{ code, error }`): `a2a.caller-unauthenticated`, `a2a.caller-forbidden`, … */
-    readonly wireCode: string,
-    reason: string,
-  ) {
-    super(`the A2A server rejected the caller (${String(httpStatus)} ${wireCode}): ${reason}`);
+  /** `401` or `403`. */
+  readonly httpStatus: number;
+  /** The code the server sent (`{ code, error }`): `a2a.caller-unauthenticated`, `a2a.caller-forbidden`, … */
+  readonly wireCode: string;
+  /** The server's reason, as it said it. */
+  readonly reason: string;
+
+  constructor(options: A2ACallerRejectedErrorOptions) {
+    const { httpStatus, wireCode, reason, cause } = options;
+    super(`the A2A server rejected the caller (${String(httpStatus)} ${wireCode}): ${reason}`, {
+      cause,
+    });
+    this.httpStatus = httpStatus;
+    this.wireCode = wireCode;
+    this.reason = reason;
   }
 }

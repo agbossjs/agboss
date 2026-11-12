@@ -1,7 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
-import { NonJsonValueError, stableJson } from "../terns/index.js";
+import { NonJsonValueError, stableJson } from "../turns/index.js";
 import { FingerprintNotJsonError } from "./fenced-effect-errors.js";
 import type { EffectKeyFields } from "./effect-key.js";
 import type { JsonValue } from "./fenced-effect.repository.js";
@@ -91,7 +91,7 @@ const digestUnder = (key: string, text: string): string =>
  */
 export function fingerprintsOf(value: unknown, name: string): KeyFingerprints {
   const keys = currentFrame()?.execution.fingerprintKeys;
-  if (keys === undefined) throw new IdempotencyKeyMissingError(name);
+  if (keys === undefined) throw new IdempotencyKeyMissingError({ effect: name });
   try {
     return fingerprintsUnder(keys, value);
   } catch (error) {
@@ -140,7 +140,7 @@ export function fingerprintFactsOf(
   if (fingerprintPolicy === undefined)
     return fingerprint === undefined ? {} : fingerprintsOf(fingerprint, name);
   if (fingerprintPolicy !== FingerprintPolicy.None || fingerprint !== undefined)
-    throw new FingerprintRequiredError({ name, reason: FingerprintProblem.Contradictory });
+    throw new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Contradictory });
   return { fingerprintPolicy: FingerprintPolicy.None };
 }
 
@@ -154,8 +154,10 @@ export enum FingerprintProblem {
 
 /** What a fingerprint refusal knows: the effect and why — never the key. */
 export interface FingerprintRequiredErrorOptions {
-  readonly name: string;
+  /** The effect's or the call's name (#906: its key is the field's, as on the other fenced-effect errors). */
+  readonly effect: string;
   readonly reason: FingerprintProblem;
+  readonly cause?: unknown;
 }
 
 /**
@@ -166,6 +168,7 @@ export interface FingerprintRequiredErrorOptions {
  */
 export class FingerprintRequiredError extends AGBossError {
   static override readonly code = "fenced-effect.fingerprint-required" as const;
+  declare readonly code: typeof FingerprintRequiredError.code;
   override name = "FingerprintRequiredError";
   readonly effect: string;
   readonly reason: FingerprintProblem;
@@ -176,10 +179,10 @@ export class FingerprintRequiredError extends AGBossError {
         ? "names neither a fingerprint nor fingerprintPolicy: FingerprintPolicy.None"
         : "names a fingerprint and a fingerprintPolicy, or a policy that is not FingerprintPolicy.None";
     super(
-      `the fenced effect "${options.name}" under a business key ${why} — effectKeyOf(executionContext, name, { businessKey, fingerprint: { …what the work does } }): nothing ran`,
-      { details: { effect: options.name, reason: options.reason } },
+      `the fenced effect "${options.effect}" under a business key ${why} — effectKeyOf(executionContext, name, { businessKey, fingerprint: { …what the work does } }): nothing ran`,
+      { cause: options.cause, details: { effect: options.effect, reason: options.reason } },
     );
-    this.effect = options.name;
+    this.effect = options.effect;
     this.reason = options.reason;
   }
 }
@@ -198,11 +201,17 @@ export function fingerprintErrorOf(
   const fingerprintPolicy: unknown = key.fingerprintPolicy;
   if (fingerprintPolicy === undefined)
     return fingerprint === undefined
-      ? new FingerprintRequiredError({ name, reason: FingerprintProblem.Missing })
+      ? new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Missing })
       : undefined;
   return fingerprintPolicy === FingerprintPolicy.None && fingerprint === undefined
     ? undefined
-    : new FingerprintRequiredError({ name, reason: FingerprintProblem.Contradictory });
+    : new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Contradictory });
+}
+
+/** What a missing idempotency key knows: the effect (or call) whose fingerprint needed it. */
+export interface IdempotencyKeyMissingErrorOptions {
+  readonly effect: string;
+  readonly cause?: unknown;
 }
 
 /**
@@ -213,13 +222,15 @@ export function fingerprintErrorOf(
  */
 export class IdempotencyKeyMissingError extends AGBossError {
   static override readonly code = "fenced-effect.idempotency-key-missing" as const;
+  declare readonly code: typeof IdempotencyKeyMissingError.code;
   override name = "IdempotencyKeyMissingError";
   readonly effect: string;
 
-  constructor(effect: string) {
+  constructor(options: IdempotencyKeyMissingErrorOptions) {
+    const { effect, cause } = options;
     super(
       `"${effect}" is under a business key, whose fingerprint is keyed by the application's idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step`,
-      { details: { effect } },
+      { cause, details: { effect } },
     );
     this.effect = effect;
   }

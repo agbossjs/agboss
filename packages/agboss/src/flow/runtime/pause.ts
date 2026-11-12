@@ -1,5 +1,5 @@
 import { interrupt } from "@langchain/langgraph";
-import { AGBossError } from "../../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { ChannelSender } from "../../channels/channel-sender.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
@@ -74,7 +74,12 @@ export interface PauseInterruptValue {
 /** A pause that was withdrawn before its answer (its branch cancelled, #267 AC10). */
 export class PauseWithdrawnError extends AGBossError {
   static override readonly code = "pause.withdrawn" as const;
+  declare readonly code: typeof PauseWithdrawnError.code;
   override name = "PauseWithdrawnError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /**
@@ -191,7 +196,9 @@ async function sendOnce(
 function settledAnswer(pause: PauseRecord, channel: string): StepAnswer {
   const { answer } = pause;
   if (pause.status === PauseStatus.Cancelled || answer === undefined) {
-    throw new PauseWithdrawnError(`pause ${pause.pauseId} was withdrawn: its branch was cancelled`);
+    throw new PauseWithdrawnError({
+      message: `pause ${pause.pauseId} was withdrawn: its branch was cancelled`,
+    });
   }
   // a re-entry of a step its channel decided at once: the channel's decision, its spend counted already
   if (pause.resolution === PauseResolution.Decided)

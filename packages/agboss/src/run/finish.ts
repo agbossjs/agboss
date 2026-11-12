@@ -3,7 +3,7 @@ import { buildCostReport, totalCost } from "../finops/usage.js";
 import { finishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
-import type { TurnOutcome } from "../terns/index.js";
+import type { TurnOutcome } from "../turns/index.js";
 import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
@@ -76,7 +76,7 @@ const originDataOf = (state: ExecutionStateType): Pick<ExecutionData, "origin"> 
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
   state: ExecutionStateType,
-  existingTernId?: string,
+  existingTurnId?: string,
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
   const finishedLine = outcomeOf(state, usage, paused).replyWith;
@@ -87,9 +87,9 @@ export async function finishRun<TName extends string>(
     ? { usage: [] }
     : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: finishedLine });
   const outcome = outcomeOf(state, [...usage, ...memory.usage], paused);
-  let ternId = existingTernId;
-  if (ternId === undefined) ternId = (await ctx.deps.terns.append({ ...ctx.base, ...outcome })).id;
-  else await ctx.deps.terns.complete(ternId, outcome);
+  let turnId = existingTurnId;
+  if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
+  else await ctx.deps.turns.complete(turnId, outcome);
   return {
     status: paused ? ExecutionStatus.Paused : ExecutionStatus.Finished,
     start: state.start,
@@ -99,7 +99,7 @@ export async function finishRun<TName extends string>(
     cost: buildCostReport([...usage, ...memory.usage]),
     threadId: ctx.base.threadId,
     tenantId: ctx.base.tenantId,
-    ternId,
+    turnId,
     runId: ctx.runId,
     startedVersion: state.startedVersion === "" ? ctx.deps.config.version : state.startedVersion,
     data: {

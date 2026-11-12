@@ -19,15 +19,29 @@ export interface DtoIssue {
   readonly reason: string;
 }
 
+/** What invalid data takes (#906): the DTO and each issue. */
+export interface DtoValidationErrorOptions {
+  /** The DTO class's name. */
+  readonly dto: string;
+  readonly issues: readonly DtoIssue[];
+  readonly cause?: unknown;
+}
+
 /** Data that does not fit a DTO: every issue with its field path and reason. */
 export class DtoValidationError extends AGBossError {
   static override readonly code = "dto.invalid" as const;
+  declare readonly code: typeof DtoValidationError.code;
   override name = "DtoValidationError";
-  constructor(
-    readonly dto: string,
-    readonly issues: readonly DtoIssue[],
-  ) {
-    super(`invalid ${dto}: ${issues.map((i) => `${i.path}: ${i.reason}`).join("; ")}`);
+  /** The DTO class's name. */
+  readonly dto: string;
+  /** Each value that failed, by path. */
+  readonly issues: readonly DtoIssue[];
+
+  constructor(options: DtoValidationErrorOptions) {
+    const { dto, issues, cause } = options;
+    super(`invalid ${dto}: ${issues.map((i) => `${i.path}: ${i.reason}`).join("; ")}`, { cause });
+    this.dto = dto;
+    this.issues = issues;
   }
 }
 

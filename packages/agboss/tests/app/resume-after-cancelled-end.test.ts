@@ -94,7 +94,7 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual([]);
     expect(seen.completed).toEqual(["paused", "failed"]);
-    const [record] = (await seen.records[0]?.lastTerns(DEFAULT_TENANT_ID, THREAD, 1)) ?? [];
+    const [record] = (await seen.records[0]?.lastTurns(DEFAULT_TENANT_ID, THREAD, 1)) ?? [];
     expect(record?.status).toBe("failed");
   });
 });

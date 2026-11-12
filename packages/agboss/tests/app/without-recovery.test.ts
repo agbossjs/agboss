@@ -72,7 +72,7 @@ async function holding(
 }
 
 const lastStatus = async (): Promise<string | undefined> =>
-  (await stores.records?.lastTerns("default", THREAD, 1))?.[0]?.status;
+  (await stores.records?.lastTurns("default", THREAD, 1))?.[0]?.status;
 
 const stepAndHold = [
   callTool(Step, { text: "one" }),
@@ -158,7 +158,7 @@ const kept = testWith(KeptRecoveryApplication, { instances: 2 });
 
 /** The kept record of the one root the test ran, read on `app` (what `records export` writes). */
 async function keptRecordOn(app: TestApp) {
-  const [root] = (await stores.records?.lastTerns("default", THREAD, 1)) ?? [];
+  const [root] = (await stores.records?.lastTurns("default", THREAD, 1)) ?? [];
   return app.resolve(ExecutionHistoryRepository).findAllByExecutionId(root?.runId ?? "");
 }
 

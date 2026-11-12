@@ -36,9 +36,9 @@ export async function cancelledPaused(
     const run = await paused.drop(thread, tree.runId);
     if (run === undefined) return false;
     const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
-    const cause = new ExecutionCancelledError(
-      `thread "${thread.threadId}" was cancelled while paused`,
-    );
+    const cause = new ExecutionCancelledError({
+      message: `thread "${thread.threadId}" was cancelled while paused`,
+    });
     const ended = await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease });
     if (ended.error instanceof CompensationFailedError) throw ended.error;
     return true;

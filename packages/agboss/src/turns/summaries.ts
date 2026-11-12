@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import { storedTextOf, textOf, toTern } from "./schema.js";
+import { storedTextOf, textOf, toTurn } from "./schema.js";
 import type { MemoryStore, Summary, Turn } from "./types.js";
 
 const SummaryRow = z.object({
@@ -26,8 +26,8 @@ const toSummary = (row: unknown): Summary => {
     threadId: r.thread_id,
     bundle: r.bundle,
     compaction: r.compaction,
-    fromTernId: r.from_tern,
-    toTernId: r.to_tern,
+    fromTurnId: r.from_tern,
+    toTurnId: r.to_tern,
     turns: r.turns,
     text: textOf(r.text),
     costUsd: r.cost_usd,
@@ -38,8 +38,8 @@ const toSummary = (row: unknown): Summary => {
 const Count = z.object({ n: z.number() });
 const Seq = z.object({ seq: z.number() });
 
-const seqOf = (db: DatabaseSync, ternId: string): number =>
-  Seq.parse(db.prepare("SELECT rowid AS seq FROM terns WHERE id = ?").get(ternId)).seq;
+const seqOf = (db: DatabaseSync, turnId: string): number =>
+  Seq.parse(db.prepare("SELECT rowid AS seq FROM terns WHERE id = ?").get(turnId)).seq;
 
 /** A thread as the queries name it: its tenant and its id (#261 S72). */
 const OF_THREAD = "tenant_id = ? AND thread_id = ?";
@@ -60,38 +60,38 @@ const lastCovered = (
   ).n;
 
 function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" | "turnNumber"> {
-  const terns = (sql: string, ...params: SQLInputValue[]): Turn[] =>
+  const turns = (sql: string, ...params: SQLInputValue[]): Turn[] =>
     db
       .prepare(sql)
       .all(...params)
-      .map(toTern);
+      .map(toTurn);
   return {
     uncovered: (tenantId, threadId, compaction) =>
       Promise.resolve(
-        terns(
+        turns(
           `SELECT * FROM terns WHERE ${OF_THREAD} AND rowid > ? ORDER BY rowid`,
           tenantId,
           threadId,
           lastCovered(db, tenantId, threadId, compaction),
         ),
       ),
-    before: (tenantId, threadId, ternId, limit) =>
+    before: (tenantId, threadId, turnId, limit) =>
       Promise.resolve(
-        terns(
+        turns(
           `SELECT * FROM (SELECT rowid AS seq, * FROM terns WHERE ${OF_THREAD} AND rowid < ?
            ORDER BY rowid DESC LIMIT ?) ORDER BY seq`,
           tenantId,
           threadId,
-          seqOf(db, ternId),
+          seqOf(db, turnId),
           limit,
         ),
       ),
-    turnNumber: (tenantId, threadId, ternId) =>
+    turnNumber: (tenantId, threadId, turnId) =>
       Promise.resolve(
         Count.parse(
           db
             .prepare(`SELECT COUNT(*) AS n FROM terns WHERE ${OF_THREAD} AND rowid <= ?`)
-            .get(tenantId, threadId, seqOf(db, ternId)),
+            .get(tenantId, threadId, seqOf(db, turnId)),
         ).n,
       ),
   };
@@ -109,10 +109,10 @@ function summaryMethods(
         stored.tenantId,
         stored.threadId,
         stored.bundle,
-        stored.fromTernId,
-        stored.toTernId,
-        seqOf(db, stored.fromTernId),
-        seqOf(db, stored.toTernId),
+        stored.fromTurnId,
+        stored.toTurnId,
+        seqOf(db, stored.fromTurnId),
+        seqOf(db, stored.toTurnId),
         stored.turns,
         storedTextOf(stored.text),
         stored.costUsd,

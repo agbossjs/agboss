@@ -1,4 +1,4 @@
-import { AGBossError } from "../core/errors.js";
+import { PauseAnswererError, UnknownPauseError } from "../run/resume-agent.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
@@ -37,21 +37,6 @@ import type { AnsweredRootParts } from "./paused-runs.js";
  * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
  */
 
-/** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
-export class UnknownPauseError extends AGBossError {
-  static override readonly code = "pause.unknown" as const;
-  override name = "UnknownPauseError";
-}
-
-/**
- * A pause answered with the wrong credential (#267 AC4): a `ThreadOwner` pause with `answeredBy`, a
- * `Channel` pause with `ownerId`, or a `Channel` pause without a non-empty `answeredBy`.
- */
-export class PauseAnswererError extends AGBossError {
-  static override readonly code = "pause.wrong-answerer" as const;
-  override name = "PauseAnswererError";
-}
-
 /**
  * What a resume answers with (#267 PR 3): exactly one of a typed `decision` or a non-empty free-text
  * `reply` — by types, and checked here for an untyped (JS) caller, before the pause is looked up.
@@ -73,7 +58,7 @@ function answerGivenBy(request: ResumeRequest): GivenAnswer {
 }
 
 function reject(path: string, reason: string): never {
-  throw new DtoValidationError("ResumeRequest", [{ path, reason }]);
+  throw new DtoValidationError({ dto: "ResumeRequest", issues: [{ path, reason }] });
 }
 
 /**
@@ -125,22 +110,22 @@ async function answererOf(
   const { ownerId, answeredBy } = call;
   if (pause.answeredBy === PauseAnswerer.ThreadOwner) {
     if (answeredBy !== undefined) {
-      throw new PauseAnswererError(
-        `pause ${pause.pauseId} is answered by the thread's owner (${pause.channel}): pass ownerId, not answeredBy`,
-      );
+      throw new PauseAnswererError({
+        message: `pause ${pause.pauseId} is answered by the thread's owner (${pause.channel}): pass ownerId, not answeredBy`,
+      });
     }
     await parts.owned({ tenantId: pause.tenantId, threadId: pause.threadId, ownerId });
     return ownerId;
   }
   if (ownerId !== undefined) {
-    throw new PauseAnswererError(
-      `pause ${pause.pauseId} is answered through its channel (${pause.channel}): pass answeredBy, not ownerId`,
-    );
+    throw new PauseAnswererError({
+      message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): pass answeredBy, not ownerId`,
+    });
   }
   if (typeof answeredBy !== "string" || answeredBy.trim() === "") {
-    throw new PauseAnswererError(
-      `pause ${pause.pauseId} is answered through its channel (${pause.channel}): answeredBy must name who answered`,
-    );
+    throw new PauseAnswererError({
+      message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): answeredBy must name who answered`,
+    });
   }
   return answeredBy;
 }
@@ -153,7 +138,7 @@ export async function pauseOf(
 ): Promise<PauseRecord> {
   const pause = await pauses.findByTenantIdAndPauseId(tenantId, request.pauseId);
   if (pause === undefined) {
-    throw new UnknownPauseError(`tenant ${tenantId} has no pause ${request.pauseId}`);
+    throw new UnknownPauseError({ message: `tenant ${tenantId} has no pause ${request.pauseId}` });
   }
   return pause;
 }

@@ -2,7 +2,7 @@ import type { FrameLease } from "../flow/context/frame.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runningOutcome } from "../run/execute.js";
-import type { Turn, TurnOutcome } from "../terns/index.js";
+import type { Turn, TurnOutcome } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { cancelledRecordOutcome } from "./live-runs.js";
 import { executionEventAt } from "./run-events.js";
@@ -30,7 +30,7 @@ export type EndedTreeParts = Pick<TreeMoveParts, "deps" | "paused" | "trees" | "
  * has none on its thread.
  */
 export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Turn | undefined> {
-  const record = await deps.terns.findByTenantIdAndRunId(state.tenantId, state.runId);
+  const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
   return record?.threadId === state.threadId ? record : undefined;
 }
 
@@ -46,8 +46,8 @@ function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
 async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<boolean> {
   const outcome = endedOutcomeOf(record, error);
   return (
-    (await deps.terns.completeIfStatus(record.id, ExecutionRecordStatus.Running, outcome)) ||
-    (await deps.terns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome))
+    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Running, outcome)) ||
+    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome))
   );
 }
 
@@ -81,7 +81,7 @@ export async function endedWithoutPass(
   await markTreeUnwinding(deps, state, end.cause);
   if (record !== undefined) {
     const running = runningOutcome(record.route, record.costUsd);
-    await deps.terns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, running);
+    await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, running);
   }
   const stored = await paused.find(state);
   if (stored?.run.runId === state.runId) await paused.drop(state);

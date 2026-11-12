@@ -26,7 +26,7 @@ const TAIL =
 describe("#825: the fingerprint's errors", () => {
   it("FingerprintRequiredError, missing: its name, code, text and details", () => {
     const error = new FingerprintRequiredError({
-      name: "charge",
+      effect: "charge",
       reason: FingerprintProblem.Missing,
     });
 
@@ -42,7 +42,7 @@ describe("#825: the fingerprint's errors", () => {
 
   it("FingerprintRequiredError, contradictory: its own text", () => {
     const error = new FingerprintRequiredError({
-      name: "refund",
+      effect: "refund",
       reason: FingerprintProblem.Contradictory,
     });
 
@@ -54,7 +54,7 @@ describe("#825: the fingerprint's errors", () => {
   });
 
   it("IdempotencyKeyMissingError and FingerprintNotJsonError: names, codes, texts, details", () => {
-    expect(new IdempotencyKeyMissingError("charge")).toMatchObject({
+    expect(new IdempotencyKeyMissingError({ effect: "charge" })).toMatchObject({
       name: "IdempotencyKeyMissingError",
       code: "fenced-effect.idempotency-key-missing",
       effect: "charge",
@@ -142,5 +142,38 @@ describe("#825: a fingerprint's own failure, and the previous key's match", () =
       false,
     );
     expect(isKeyFingerprint({ fingerprint: "now" }, "then")).toBe(false);
+  });
+});
+
+describe("#906 AC4: FingerprintRequiredError({ effect, reason, cause })", () => {
+  it("AC4: the option key is the field — `effect` — and no `name` option shadows Error.name", () => {
+    const cause = new Error("the store's check");
+
+    const error = new FingerprintRequiredError({
+      effect: "refund",
+      reason: FingerprintProblem.Missing,
+      cause,
+    });
+
+    expect(error).toMatchObject({ effect: "refund", reason: "missing", cause });
+    expect(error.name).toBe("FingerprintRequiredError");
+    expect(error.details).toEqual({ effect: "refund", reason: "missing" });
+  });
+
+  it("AC4: a refusal from a key's options carries the effect's name as `.effect`", () => {
+    const refused = (): unknown => {
+      try {
+        fingerprintFactsOf("refund", {
+          businessKey: "order:42",
+          fingerprint: { amount: 1 },
+          fingerprintPolicy: FingerprintPolicy.None,
+        } as never);
+      } catch (error) {
+        return error;
+      }
+      return undefined;
+    };
+
+    expect(refused()).toMatchObject({ effect: "refund", reason: "contradictory" });
   });
 });

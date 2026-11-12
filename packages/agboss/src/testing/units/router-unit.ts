@@ -56,7 +56,7 @@ function checkLaunched(options: RouterOptions, launched: readonly Class[]): void
   if (launched.length > 0 || hasAlwaysRoute(options)) return;
   const reason =
     "it launched none of its OnDemand routes and has no Always route — nothing would run";
-  throw new RouterDecisionError(visitOf(options.name), reason);
+  throw new RouterDecisionError({ ...visitOf(options.name), reason });
 }
 
 /** A code router's answer as its step accepts it: one of its routes, or a list of `OnDemand` ones. */
@@ -68,12 +68,18 @@ export function checkedCodeAnswer(options: RouterOptions, answer: unknown): unkn
       (target) => !allowed.some((cls) => cls === target),
     );
     if (outside !== undefined)
-      throw new RouterDecisionError(step, "route() returned a target outside its OnDemand routes");
+      throw new RouterDecisionError({
+        ...step,
+        reason: "route() returned a target outside its OnDemand routes",
+      });
     checkLaunched(options, answer as readonly Class[]);
     return answer;
   }
   if (routesOf(options).some((route) => route.target === answer)) return answer;
-  throw new RouterDecisionError(step, "route() returned a target outside its routes");
+  throw new RouterDecisionError({
+    ...step,
+    reason: "route() returned a target outside its routes",
+  });
 }
 
 /** Who produced a value: its class's `name` (the step reads `{ producer: Class, value }`). */
@@ -161,7 +167,10 @@ async function routeDecision(site: DecisionSite): Promise<ModelDecision> {
   if (outcome.kind === "failed") throw routerFailureOf(step, outcome);
   const target = targetNamed(options, outcome.decision.next);
   if (target === undefined)
-    throw new RouterDecisionError(step, `"${outcome.decision.next}" is not one of its routes`);
+    throw new RouterDecisionError({
+      ...step,
+      reason: `"${outcome.decision.next}" is not one of its routes`,
+    });
   return { answer: target, usage: usageOf(outcome.usage) };
 }
 

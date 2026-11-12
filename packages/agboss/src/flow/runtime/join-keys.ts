@@ -2,7 +2,7 @@ import { z } from "zod";
 import { schemaOf, type JsonSchema } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { promptTextOf } from "../../components/prompt-render.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import { NodeKind } from "../ast.js";
 import type { ComponentDeclaration, InputFieldShape } from "../decorators/declaration.js";
 import { isWrapper, Wrapper, type AnyWrapper, type OutputShape } from "../dto-wrappers.js";

@@ -1,3 +1,4 @@
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { DtoValidationError, pathOf } from "../dto/errors.js";
 import { validate } from "../dto/schema.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
@@ -52,22 +53,22 @@ export function validDecisionOf(
     // strict (#688): a key the tool's input does not have, at any depth, is refused — never dropped
     const dropped = droppedKeysOf(valid.overrideArguments, checked.data, []);
     if (dropped.length > 0)
-      throw new DtoValidationError(
-        ToolCallApprovalDecisionDto.name,
-        dropped.map((path) => ({
+      throw new DtoValidationError({
+        dto: ToolCallApprovalDecisionDto.name,
+        issues: dropped.map((path) => ({
           path: pathOf(["overrideArguments", ...path]),
           reason: "is no field of the tool's input",
         })),
-      );
+      });
     return valid;
   }
-  throw new DtoValidationError(
-    ToolCallApprovalDecisionDto.name,
-    checked.error.issues.map((issue) => ({
+  throw new DtoValidationError({
+    dto: ToolCallApprovalDecisionDto.name,
+    issues: checked.error.issues.map((issue) => ({
       path: pathOf(["overrideArguments", ...issue.path]),
       reason: issue.message,
     })),
-  );
+  });
 }
 
 const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -117,4 +118,45 @@ export function answerValidatorOf(
 function askedByAgent(pause: PauseRecord, checks: AnswerChecks): DtoClass | undefined {
   const role = pause.component?.name;
   return role === undefined ? undefined : checks.tools(role).question?.answer;
+}
+
+/**
+ * Why a free-text reply did not answer its pause (#267 PR 3). Both leave the pause `Pending`: the
+ * webhook may ask for a clearer answer, or answer with a typed `decision`.
+ */
+
+/** `new UninterpretableReplyError({ message, reason, cause? })`. */
+export interface UninterpretableReplyErrorOptions {
+  readonly message: string;
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
+/**
+ * The role's reply interpreter could not read the reply as a valid answer: a code interpreter's
+ * `ReplyInterpretation.notUnderstood({ reason })`, a model that gave no answer, an answer not valid
+ * for the role (`cause`) or an interpreter that crashed (`cause`, #267 S124 b). `reason` says why.
+ */
+export class UninterpretableReplyError extends AGBossError {
+  static override readonly code = "pause.uninterpretable-reply" as const;
+  declare readonly code: typeof UninterpretableReplyError.code;
+  override name = "UninterpretableReplyError";
+  /** Why the reply was not read: the interpreter's own reason, or its error's message. */
+  readonly reason: string;
+
+  constructor(options: UninterpretableReplyErrorOptions) {
+    super(options.message, options);
+    this.reason = options.reason;
+  }
+}
+
+/** A `reply` for a pause whose role declares no `replyInterpreter`: answer it with a `decision`. */
+export class ReplyInterpreterMissingError extends AGBossError {
+  static override readonly code = "pause.no-reply-interpreter" as const;
+  declare readonly code: typeof ReplyInterpreterMissingError.code;
+  override name = "ReplyInterpreterMissingError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }

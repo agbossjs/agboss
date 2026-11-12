@@ -1,6 +1,6 @@
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { RouteOutcome } from "../routers/index.js";
-import { versionOf } from "../terns/index.js";
+import { versionOf } from "../turns/index.js";
 import { CassetteMissingError, StaleCassetteError } from "./errors.js";
 import {
   componentOfKey,

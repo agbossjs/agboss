@@ -61,7 +61,7 @@ export async function endUnwindingIfFree(
   // a root whose record ended since the sweep's listing is not taken over (#520)
   const take = {
     ...rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Unwinding, true),
-    isOver: recordEndedOf(parts.deps.terns, state.ternId),
+    isOver: recordEndedOf(parts.deps.turns, state.turnId),
   };
   const lease = await parts.leases.tryHold(treeOf(state), take);
   if (lease !== undefined) await endedUnwindingAtTake(parts, state, lease);

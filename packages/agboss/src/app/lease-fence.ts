@@ -112,7 +112,11 @@ export class LeaseFence {
    * Aborts the holder: another instance took the lease (or this instance can no longer acquire it),
    * or an external system fenced one of its writes (`reason`, #471).
    */
-  lose(reason: ExecutionLeaseLostError = new ExecutionLeaseLostError(this.rootExecutionId)): never {
+  lose(
+    reason: ExecutionLeaseLostError = new ExecutionLeaseLostError({
+      rootExecutionId: this.rootExecutionId,
+    }),
+  ): never {
     // aborting an aborted controller is a no-op that keeps its first reason (#619: no test of it)
     this.lost.abort(reason);
     throw this.lost.signal.reason;

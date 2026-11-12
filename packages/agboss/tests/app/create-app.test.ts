@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { NotAWorkflowStartError } from "../../src/app/create-app.js";
 import { Agent, Workflow, NotPausedError, GraphRuleError, WorkflowStart } from "../../src/index.js";
 import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

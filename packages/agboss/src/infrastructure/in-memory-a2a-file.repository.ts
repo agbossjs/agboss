@@ -37,7 +37,7 @@ export class InMemoryA2AFileRepository extends A2AFileRepository {
     if (kept !== undefined)
       return isSameFile(kept, file)
         ? Promise.resolve()
-        : Promise.reject(new A2AFileConflictError(file.fileId));
+        : Promise.reject(new A2AFileConflictError({ fileId: file.fileId }));
     files.set(rowOf(file), { ...metadataOf(file), bytes: Uint8Array.from(file.bytes) });
     return Promise.resolve();
   }

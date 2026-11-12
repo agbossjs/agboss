@@ -1,4 +1,4 @@
-import { AGBossError } from "../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { Command } from "@langchain/langgraph";
 import { ExecutionStatus } from "../app/types.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
@@ -16,7 +16,12 @@ import type { AgentExecutionOutput, AgentExecutionDeps } from "./types.js";
 /** `resume` of a run that is not waiting for a decision. */
 export class NotPausedError extends AGBossError {
   static override readonly code = "run.not-paused" as const;
+  declare readonly code: typeof NotPausedError.code;
   override name = "NotPausedError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** What a paused run is: what it spent so far (every paused loop's), and the budgets it keeps. */
@@ -35,7 +40,9 @@ async function pausedRun<TName extends string>(
 ): Promise<PausedRunState> {
   const pause = deps.pause;
   if (paused.status !== ExecutionStatus.Paused || pause === undefined) {
-    throw new NotPausedError(`Run ${paused.runId} was not paused or the pause seam is off`);
+    throw new NotPausedError({
+      message: `Run ${paused.runId} was not paused or the pause seam is off`,
+    });
   }
   const graph = readingGraphOf(deps);
   const loops = (await isWaiting(graph, paused.runId))
@@ -51,7 +58,7 @@ async function pausedRun<TName extends string>(
       )
     : [];
   if (loops.length === 0) {
-    throw new NotPausedError(`Run ${paused.runId} is not waiting for an approval`);
+    throw new NotPausedError({ message: `Run ${paused.runId} is not waiting for an approval` });
   }
   const snapshot = await graph.getState(runConfig(paused.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
@@ -79,4 +86,29 @@ export async function resumeAgent<TName extends string>(
   return continueRun(run, deps, options, async (moving, streaming, record) =>
     drainRun(await moving.stream(new Command({ resume: resume.values }), streaming), record, spent),
   );
+}
+
+/** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
+export class UnknownPauseError extends AGBossError {
+  static override readonly code = "pause.unknown" as const;
+  declare readonly code: typeof UnknownPauseError.code;
+  override name = "UnknownPauseError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
+}
+
+/**
+ * A pause answered with the wrong credential (#267 AC4): a `ThreadOwner` pause with `answeredBy`, a
+ * `Channel` pause with `ownerId`, or a `Channel` pause without a non-empty `answeredBy`.
+ */
+export class PauseAnswererError extends AGBossError {
+  static override readonly code = "pause.wrong-answerer" as const;
+  declare readonly code: typeof PauseAnswererError.code;
+  override name = "PauseAnswererError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }

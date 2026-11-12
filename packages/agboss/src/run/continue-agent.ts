@@ -1,4 +1,4 @@
-import { AGBossError } from "../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { continueRun, type ContinueOptions } from "./continue-run.js";
 import { drainRun, failedOutcome } from "./execute.js";
@@ -11,7 +11,7 @@ export interface InterruptedRun {
   readonly runId: string;
   readonly threadId: string;
   readonly tenantId: string;
-  readonly ternId: string;
+  readonly turnId: string;
   /** The workflow version it started on (its record's). */
   readonly startedVersion: string;
 }
@@ -22,7 +22,12 @@ export interface InterruptedRun {
  */
 export class NothingToRecoverError extends AGBossError {
   static override readonly code = "execution.nothing-to-recover" as const;
+  declare readonly code: typeof NothingToRecoverError.code;
   override name = "NothingToRecoverError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /**
@@ -40,10 +45,10 @@ export async function continueAgent<TName extends string>(
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const before = snapshot.values as Partial<ExecutionStateType>;
   if (before.start === undefined || before.usage === undefined) {
-    const error = new NothingToRecoverError(
-      `execution ${interrupted.runId} stopped before its first checkpoint: nothing to continue`,
-    );
-    await deps.terns.complete(interrupted.ternId, failedOutcome(error, []));
+    const error = new NothingToRecoverError({
+      message: `execution ${interrupted.runId} stopped before its first checkpoint: nothing to continue`,
+    });
+    await deps.turns.complete(interrupted.turnId, failedOutcome(error, []));
     throw error;
   }
   const spent = before.usage;

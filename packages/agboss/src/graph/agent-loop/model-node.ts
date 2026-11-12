@@ -130,7 +130,11 @@ async function observedCall(
     deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
   );
   const response = await callModel(request.messages, deps, config).catch((error: unknown) => {
-    throw new AgentFailedError(name, [...loopUsage(state), ...request.usage], error);
+    throw new AgentFailedError({
+      agent: name,
+      usage: [...loopUsage(state), ...request.usage],
+      cause: error,
+    });
   });
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {

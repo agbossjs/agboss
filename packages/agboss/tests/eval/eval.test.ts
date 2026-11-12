@@ -52,7 +52,7 @@ describe("evaluate", () => {
     const ledger = memoryLedger();
     const deps = await answeredRuns(2, ledger);
     const evaluation: EvalDeps = {
-      terns: deps.terns,
+      turns: deps.turns,
       budgets: deps.budgets,
       judge: judge(adequate(0.9), adequate(0.7)),
     };
@@ -65,7 +65,7 @@ describe("evaluate", () => {
       "router:judge",
       "router:judge",
     ]);
-    expect((await deps.terns.summary("test-bundle-workflow"))[0]?.meanScore).toBeCloseTo(0.8);
+    expect((await deps.turns.summary("test-bundle-workflow"))[0]?.meanScore).toBeCloseTo(0.8);
     expect(await evaluate(evaluation, "test-bundle-workflow", { limit: 10 })).toEqual({
       scored: 0,
       costUsd: 0,
@@ -75,7 +75,7 @@ describe("evaluate", () => {
   it("leaves a Turn unscored when the judge fails", async () => {
     const deps = await answeredRuns(1);
     const evaluation: EvalDeps = {
-      terns: deps.terns,
+      turns: deps.turns,
       budgets: deps.budgets,
       judge: judge({ kind: "failed", reason: "down" }),
     };
@@ -84,7 +84,7 @@ describe("evaluate", () => {
       scored: 0,
       costUsd: 0,
     });
-    expect(await deps.terns.unscored("test-bundle-workflow", undefined, 10)).toHaveLength(1);
+    expect(await deps.turns.unscored("test-bundle-workflow", undefined, 10)).toHaveLength(1);
   });
 
   it("stops when an application budget is spent by its last known limit", async () => {
@@ -98,7 +98,7 @@ describe("evaluate", () => {
     // the last execution read $0: the day has spent it
     await ledger.saveMaxSpend(account, usd(0));
     const evaluation: EvalDeps = {
-      terns: deps.terns,
+      turns: deps.turns,
       budgets: deps.budgets,
       judge: judge(adequate()),
     };

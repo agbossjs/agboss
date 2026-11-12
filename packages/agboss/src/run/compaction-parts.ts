@@ -1,7 +1,7 @@
 import type { UsageRecord } from "../finops/usage.js";
 import { DetectionMode } from "../pii/runtime-policy.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
-import type { Summary, Turn } from "../terns/index.js";
+import type { Summary, Turn } from "../turns/index.js";
 import type { Compacted, CompactionRun } from "./compaction.js";
 import type { AgentExecutionDeps } from "./types.js";
 
@@ -56,21 +56,21 @@ export async function storedCompaction<TName extends string>(
   const last = write.due.at(-1);
   if (first === undefined || last === undefined) return undefined;
   const { tenantId, threadId } = run;
-  await deps.terns.addSummary({
+  await deps.turns.addSummary({
     tenantId,
     threadId,
     bundle: deps.config.name,
     compaction: write.compaction,
-    fromTernId: write.current?.fromTernId ?? first.id,
-    toTernId: last.id,
+    fromTurnId: write.current?.fromTurnId ?? first.id,
+    toTurnId: last.id,
     turns: (write.current?.turns ?? 0) + write.due.length,
     text: write.text,
     costUsd: write.costUsd,
   });
   return {
     compaction: write.compaction,
-    fromTurn: await deps.terns.turnNumber(tenantId, threadId, first.id),
-    toTurn: await deps.terns.turnNumber(tenantId, threadId, last.id),
+    fromTurn: await deps.turns.turnNumber(tenantId, threadId, first.id),
+    toTurn: await deps.turns.turnNumber(tenantId, threadId, last.id),
     summaries: write.summaries,
     summaryQueueLength: write.summaryQueueLength,
   };

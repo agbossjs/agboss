@@ -48,7 +48,7 @@ describe("#280 S45: in a tool call, executionContext.signal is the call's", () =
 
     const run = execute(app, SpendStart, { text: "fetch" }, { signal: controller.signal });
     setTimeout(() => {
-      controller.abort(new ExecutionCancelledError("stop"));
+      controller.abort(new ExecutionCancelledError({ message: "stop" }));
     }, 10);
 
     await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);

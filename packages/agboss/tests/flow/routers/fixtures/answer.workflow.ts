@@ -95,7 +95,7 @@ const answerOf = (answer: Answer): unknown => {
     case "crash":
       throw new TypeError("route() has a bug");
     case "limit":
-      throw new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2 }, ["ask-router"], 0);
+      throw new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2, path: ["ask-router"], spentUsd: 0 });
   }
 };
 

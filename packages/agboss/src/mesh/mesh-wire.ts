@@ -53,8 +53,8 @@ export function meshLimitErrorOf(body: unknown): MeshLimitError | undefined {
   if (!parsed.success) return undefined;
   const { data } = parsed;
   if (data.code === "limit.mesh-loop") {
-    return new MeshLoopDetectedError(data.details.entry, data.details.chain);
+    return new MeshLoopDetectedError({ entry: data.details.entry, chain: data.details.chain });
   }
   const { entry, chain, maxMeshHops } = data.details;
-  return new HopsLimitExceededError(entry, chain, maxMeshHops);
+  return new HopsLimitExceededError({ entry, chain, maxMeshHops });
 }

@@ -8,7 +8,7 @@ import {
   resetEvents,
   ApplicationsApplication,
 } from "../app/fixtures/run-events.workflow.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";

@@ -11,7 +11,7 @@ import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import { configSnapshot, executionVersions } from "../run/versions.js";
-import { shortVersion, stableJson } from "../terns/index.js";
+import { shortVersion, stableJson } from "../turns/index.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
@@ -141,7 +141,7 @@ export const treeDepsOf = (
 /** Stores the config snapshot of this version; warns when the version already had other content. */
 export async function versionWarnings(deps: AgentExecutionDeps<string>): Promise<string[]> {
   const { configVersion, configHash } = executionVersions(deps);
-  const { drift } = await deps.terns.rememberConfig(
+  const { drift } = await deps.turns.rememberConfig(
     deps.config.name,
     configVersion,
     configHash,

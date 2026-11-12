@@ -73,7 +73,7 @@ describe("AC3: QuestionFailedError names its question", () => {
     expectTypeOf(QuestionFailedError.code).toEqualTypeOf<"step.question">();
     expectTypeOf<QuestionFailedError["question"]>().toEqualTypeOf<string>();
     expectTypeOf(QuestionFailedError).constructorParameters.toEqualTypeOf<
-      [options: { readonly question: string; readonly cause: unknown }]
+      [options: { readonly question: string; readonly cause?: unknown }]
     >();
   });
 });

@@ -220,6 +220,7 @@ export interface FencedEffectStoreMismatchErrorOptions {
   readonly leaseRepository: string;
   /** The lease store the fenced-effect store reads its leases from. */
   readonly expectedLeaseRepository: string;
+  readonly cause?: unknown;
 }
 
 /**
@@ -230,15 +231,20 @@ export interface FencedEffectStoreMismatchErrorOptions {
  */
 export class FencedEffectStoreMismatchError extends AGBossError {
   static override readonly code = "fenced-effect.store-mismatch" as const;
+  declare readonly code: typeof FencedEffectStoreMismatchError.code;
   override name = "FencedEffectStoreMismatchError";
   readonly fencedEffectRepository: string;
   readonly leaseRepository: string;
+  /** The lease store the fenced-effect store reads its leases from. */
+  readonly expectedLeaseRepository: string;
 
   constructor(options: FencedEffectStoreMismatchErrorOptions) {
     super(
       `${options.fencedEffectRepository} checks the leases of ${options.expectedLeaseRepository}, but the application's leases are in ${options.leaseRepository}: list the fenced-effect store of that lease store's database in @Application({ providers })`,
+      { cause: options.cause },
     );
     this.fencedEffectRepository = options.fencedEffectRepository;
     this.leaseRepository = options.leaseRepository;
+    this.expectedLeaseRepository = options.expectedLeaseRepository;
   }
 }

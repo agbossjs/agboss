@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { stableJson } from "../terns/index.js";
+import { stableJson } from "../turns/index.js";
 import { A2A_MESH_EXTENSION } from "./a2a-extension-uris.js";
 
 /**

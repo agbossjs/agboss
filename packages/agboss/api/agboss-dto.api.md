@@ -106,15 +106,24 @@ export interface DtoIssue {
 //
 // @public
 export class DtoValidationError extends AGBossError {
-    constructor(dto: string, issues: readonly DtoIssue[]);
+    constructor(options: DtoValidationErrorOptions);
     // (undocumented)
     static readonly code: "dto.invalid";
     // (undocumented)
+    readonly code: typeof DtoValidationError.code;
     readonly dto: string;
-    // (undocumented)
     readonly issues: readonly DtoIssue[];
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface DtoValidationErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly dto: string;
+    // (undocumented)
+    readonly issues: readonly DtoIssue[];
 }
 
 // @public
@@ -445,10 +454,11 @@ export class WorkflowStartTextDto {
 // src/dto/errors.ts:9:5 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:18:3 - (ae-undocumented) Missing documentation for "path".
 // src/dto/errors.ts:19:3 - (ae-undocumented) Missing documentation for "reason".
-// src/dto/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
-// src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
-// src/dto/errors.ts:28:5 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:26:3 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:27:3 - (ae-undocumented) Missing documentation for "cause".
+// src/dto/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:34:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/standard/domain.ts:19:3 - (ae-undocumented) Missing documentation for "amount".
 // src/dto/standard/domain.ts:22:3 - (ae-undocumented) Missing documentation for "currency".
 // src/dto/standard/domain.ts:28:3 - (ae-undocumented) Missing documentation for "from".

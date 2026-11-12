@@ -16,7 +16,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { compactionViolations } from "../../src/compaction/checks.js";
 import { memoryLines } from "../../src/describe/defaults.js";
 import { configSnapshot } from "../../src/run/versions.js";
-import { versionOf } from "../../src/terns/index.js";
+import { versionOf } from "../../src/turns/index.js";
 import { replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import type { ExecutionOutput } from "../../src/app/types.js";

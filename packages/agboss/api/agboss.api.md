@@ -96,9 +96,19 @@ export enum A2ADirectMessageState {
 
 // @public
 export class A2AFileConflictError extends AGBossError {
-    constructor(fileId: string);
+    constructor(options: A2AFileConflictErrorOptions);
     // (undocumented)
     static readonly code: "a2a.file-conflict";
+    // (undocumented)
+    readonly code: typeof A2AFileConflictError.code;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileConflictErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly fileId: string;
 }
@@ -323,11 +333,20 @@ export type ActionEndEvent = EndEvent<unknown>;
 
 // @public
 export class ActionFailedError extends StepFailedError {
-    constructor(action: string, cause: unknown);
+    constructor(options: ActionFailedErrorOptions);
+    readonly action: string;
     // (undocumented)
     static readonly code: "step.action";
     // (undocumented)
+    readonly code: typeof ActionFailedError.code;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface ActionFailedErrorOptions {
+    readonly action: string;
+    readonly cause?: unknown;
 }
 
 // @public
@@ -406,13 +425,26 @@ export function agent<const TClass extends Class>(source: TClass & KindCheck<TCl
 
 // @public
 export class AgentAnswerInvalidError extends AgentFailedError {
-    constructor(agent: string, attempts: number, problem: string, usage: readonly UsageRecord[]);
+    constructor(options: AgentAnswerInvalidErrorOptions);
     // (undocumented)
     readonly attempts: number;
     // (undocumented)
     static readonly code: "step.agent.invalid-answer";
     // (undocumented)
+    readonly code: typeof AgentAnswerInvalidError.code;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface AgentAnswerInvalidErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly attempts: number;
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // Warning: (ae-forgotten-export) The symbol "NodeValue" needs to be exported by the entry point index.d.ts
@@ -428,12 +460,12 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly budgets?: ApplicationBudgets | undefined;
     // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
-    // Warning: (ae-forgotten-export) The symbol "TernRecords" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly terns: TernRecords;
     // Warning: (ae-forgotten-export) The symbol "ExecutionTracing" needs to be exported by the entry point index.d.ts
     readonly tracing?: ExecutionTracing | undefined;
+    // Warning: (ae-forgotten-export) The symbol "TurnRecords" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    readonly turns: TurnRecords;
 }
 
 // @public (undocumented)
@@ -472,21 +504,34 @@ export interface AgentExecutionOutput {
     readonly status: ExecutionStatus;
     readonly tenantId: string;
     // (undocumented)
-    readonly ternId: string;
-    // (undocumented)
     readonly threadId: string;
     readonly traceUrl?: string;
+    // (undocumented)
+    readonly turnId: string;
 }
 
 // @public
 export class AgentFailedError extends StepFailedError {
-    constructor(agent: string, usage: readonly UsageRecord[], cause: unknown, details?: ErrorDetails);
+    constructor(options: AgentFailedErrorOptions);
     // (undocumented)
     readonly agent: string;
     // (undocumented)
     static readonly code: string;
     // (undocumented)
+    readonly code: "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer";
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface AgentFailedErrorOptions {
+    readonly agent: string;
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly details?: ErrorDetails;
+    readonly message?: string;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // Warning: (ae-forgotten-export) The symbol "GuardrailFields" needs to be exported by the entry point index.d.ts
@@ -684,8 +729,11 @@ export interface ApplicationRecord {
 
 // @public
 export class ApplicationStoppingError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "app.stopping";
+    // (undocumented)
+    readonly code: typeof ApplicationStoppingError.code;
     // (undocumented)
     name: string;
 }
@@ -732,12 +780,22 @@ export type ArbiterDecorator<TDeps extends readonly Token[]> = <TClass extends n
 
 // @public
 export class ArbiterError extends StepFailedError {
-    constructor(arbiter: string, cause: unknown, usage?: readonly UsageRecord[]);
+    constructor(options: ArbiterErrorOptions);
     readonly arbiter: string;
     // (undocumented)
     static readonly code: "step.arbiter";
     // (undocumented)
+    readonly code: typeof ArbiterError.code;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface ArbiterErrorOptions {
+    readonly arbiter: string;
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -916,16 +974,31 @@ export interface BudgetBreach {
 
 // @public
 export class BudgetExceededError extends LimitExceededError {
-    constructor(breach: BudgetBreach, path: readonly string[], spentUsd: number, usage?: readonly UsageRecord[]);
+    constructor(options: BudgetExceededErrorOptions);
     readonly budget: ComponentRecord;
     // (undocumented)
     static readonly code: "limit.budget";
+    // (undocumented)
+    readonly code: typeof BudgetExceededError.code;
     readonly key: string;
     readonly maxSpend: Usd;
     // (undocumented)
     name: string;
+    readonly period: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
     readonly spent: Usd;
+}
+
+// @public
+export interface BudgetExceededErrorOptions extends BudgetBreach {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -966,6 +1039,8 @@ export class BusinessKeyConflictError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.business-key-conflict";
     // (undocumented)
+    readonly code: typeof BusinessKeyConflictError.code;
+    // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
@@ -975,6 +1050,8 @@ export class BusinessKeyConflictError extends AGBossError {
 export interface BusinessKeyConflictErrorOptions {
     // (undocumented)
     readonly businessKeyHash?: string | undefined;
+    // (undocumented)
+    readonly cause?: unknown;
     readonly effect: string;
 }
 
@@ -1160,15 +1237,23 @@ export interface ChildExecutionEnd {
 
 // @public
 export class ChildExecutionFailedError extends StepFailedError {
-    constructor(child: {
-        readonly executionId: string;
-        readonly workflow: WorkflowRecord;
-    }, cause: unknown, usage: readonly UsageRecord[]);
+    constructor(options: ChildExecutionFailedErrorOptions);
     readonly childExecutionId: string;
     // (undocumented)
     static readonly code: "step.child";
     // (undocumented)
+    readonly code: typeof ChildExecutionFailedError.code;
+    // (undocumented)
     name: string;
+    readonly workflow: WorkflowRecord;
+}
+
+// @public
+export interface ChildExecutionFailedErrorOptions {
+    readonly cause?: unknown;
+    readonly childExecutionId: string;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
     readonly workflow: WorkflowRecord;
 }
 
@@ -1403,12 +1488,23 @@ export function Compaction<const TDeps extends readonly Token[] = []>(options: C
 
 // @public
 export class CompactionError extends AGBossError {
-    constructor(message: string, compaction: string, summaryMaxTokens: SummaryMaxTokens | undefined, cause?: unknown);
+    constructor(options: CompactionErrorOptions);
     // (undocumented)
     static readonly code: "compaction";
+    // (undocumented)
+    readonly code: typeof CompactionError.code;
     readonly compaction: string;
     // (undocumented)
     name: string;
+    readonly summaryMaxTokens: SummaryMaxTokens | undefined;
+}
+
+// @public
+export interface CompactionErrorOptions {
+    readonly cause?: unknown;
+    readonly compaction: string;
+    // (undocumented)
+    readonly message: string;
     readonly summaryMaxTokens: SummaryMaxTokens | undefined;
 }
 
@@ -1493,11 +1589,19 @@ export enum CompensationEntryStatus {
 
 // @public
 export class CompensationFailedError extends AGBossError {
-    constructor(failures: readonly CompensationRecord[], cause: unknown);
+    constructor(options: CompensationFailedErrorOptions);
     static readonly code: "compensation.failed";
+    // (undocumented)
+    readonly code: typeof CompensationFailedError.code;
     readonly failures: readonly CompensationRecord[];
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface CompensationFailedErrorOptions {
+    readonly cause?: unknown;
+    readonly failures: readonly CompensationRecord[];
 }
 
 // @public
@@ -1633,11 +1737,20 @@ export interface CostCounter extends BudgetAccount {
 
 // @public
 export class CostLedgerCutoffInvalidError extends AGBossError {
-    constructor(reason: string);
+    constructor(options: CostLedgerCutoffInvalidErrorOptions);
     // (undocumented)
     static readonly code: "cost-ledger.cutoff-invalid";
     // (undocumented)
+    readonly code: typeof CostLedgerCutoffInvalidError.code;
+    // (undocumented)
     name: string;
+    readonly reason: string;
+}
+
+// @public
+export interface CostLedgerCutoffInvalidErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly reason: string;
 }
 
@@ -1646,6 +1759,8 @@ export class CostLedgerEntryExpiredError extends AGBossError {
     constructor(options: CostLedgerEntryExpiredErrorOptions);
     // (undocumented)
     static readonly code: "cost-ledger.entry-expired";
+    // (undocumented)
+    readonly code: typeof CostLedgerEntryExpiredError.code;
     // (undocumented)
     readonly ledgerIds: readonly string[];
     // (undocumented)
@@ -1656,6 +1771,8 @@ export class CostLedgerEntryExpiredError extends AGBossError {
 
 // @public
 export interface CostLedgerEntryExpiredErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly ledgerIds: readonly string[];
     readonly prunedBefore: Date;
 }
@@ -1666,6 +1783,8 @@ export class CostLedgerEntryInvalidError extends AGBossError {
     // (undocumented)
     static readonly code: "cost-ledger.entry-invalid";
     // (undocumented)
+    readonly code: typeof CostLedgerEntryInvalidError.code;
+    // (undocumented)
     readonly index: number;
     // (undocumented)
     name: string;
@@ -1675,6 +1794,8 @@ export class CostLedgerEntryInvalidError extends AGBossError {
 
 // @public
 export interface CostLedgerEntryInvalidErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly index: number;
     readonly reason: string;
 }
@@ -1751,13 +1872,29 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
 
 // @public
 export class DeadlineExceededError extends LimitExceededError {
-    constructor(deadline: ExecutionDeadline, path: readonly string[], spentUsd: number, usage?: readonly UsageRecord[]);
+    constructor(options: DeadlineExceededErrorOptions);
     // (undocumented)
     static readonly code: "limit.deadline";
+    // (undocumented)
+    readonly code: typeof DeadlineExceededError.code;
     readonly deadline: Milliseconds;
     readonly deadlineAt: string;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface DeadlineExceededErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly deadline: Milliseconds;
+    readonly deadlineAt: string;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -1787,8 +1924,11 @@ export type DecisionAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
 
 // @public
 export class DecisionError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: string;
+    // (undocumented)
+    readonly code: "model.decision" | "model.decision.invalid-request" | "model.decision.invalid-response";
     // (undocumented)
     name: string;
 }
@@ -1823,6 +1963,8 @@ export class DecisionRequestError extends DecisionError {
     // (undocumented)
     static readonly code: "model.decision.invalid-request";
     // (undocumented)
+    readonly code: typeof DecisionRequestError.code;
+    // (undocumented)
     name: string;
 }
 
@@ -1830,6 +1972,8 @@ export class DecisionRequestError extends DecisionError {
 export class DecisionResponseError extends DecisionError {
     // (undocumented)
     static readonly code: "model.decision.invalid-response";
+    // (undocumented)
+    readonly code: typeof DecisionResponseError.code;
     // (undocumented)
     name: string;
 }
@@ -1861,13 +2005,25 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
 
 // @public
 export class DepthLimitExceededError extends LimitExceededError {
-    constructor(workflow: WorkflowRecord, maxDepth: number, path: readonly string[]);
+    constructor(options: DepthLimitExceededErrorOptions);
     // (undocumented)
     static readonly code: "limit.depth";
+    // (undocumented)
+    readonly code: typeof DepthLimitExceededError.code;
     readonly depth: number;
     readonly maxDepth: number;
     // (undocumented)
     name: string;
+    readonly workflow: WorkflowRecord;
+}
+
+// @public
+export interface DepthLimitExceededErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly maxDepth: number;
+    // (undocumented)
+    readonly path: readonly string[];
     readonly workflow: WorkflowRecord;
 }
 
@@ -1879,25 +2035,42 @@ export interface DtoBrands {
 
 // @public
 export class DtoValidationError extends AGBossError {
-    constructor(dto: string, issues: readonly DtoIssue[]);
+    constructor(options: DtoValidationErrorOptions);
     // (undocumented)
     static readonly code: "dto.invalid";
     // (undocumented)
+    readonly code: typeof DtoValidationError.code;
     readonly dto: string;
     // Warning: (ae-forgotten-export) The symbol "DtoIssue" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
     readonly issues: readonly DtoIssue[];
     // (undocumented)
     name: string;
 }
 
 // @public
+export interface DtoValidationErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly dto: string;
+    // (undocumented)
+    readonly issues: readonly DtoIssue[];
+}
+
+// @public
 export class DuplicateExecutionIdError extends AGBossError {
-    constructor(generator: string);
+    constructor(options: DuplicateExecutionIdErrorOptions);
     static readonly code: "run.duplicate-execution-id";
+    // (undocumented)
+    readonly code: typeof DuplicateExecutionIdError.code;
     readonly generator: string;
     name: string;
+}
+
+// @public
+export interface DuplicateExecutionIdErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly generator: string;
 }
 
 // @public
@@ -2066,14 +2239,23 @@ export function errorRecordOf(thrown: unknown): ErrorRecord;
 
 // @public
 export class EvalCaseInvalidError extends AGBossError {
-    constructor(
-    suite: string, issues: readonly EvalCaseIssue[]);
+    constructor(options: EvalCaseInvalidErrorOptions);
     // (undocumented)
     static readonly code: "eval.case-invalid";
     // (undocumented)
+    readonly code: typeof EvalCaseInvalidError.code;
     readonly issues: readonly EvalCaseIssue[];
     // (undocumented)
     name: string;
+    readonly suite: string;
+}
+
+// @public
+export interface EvalCaseInvalidErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly issues: readonly EvalCaseIssue[];
     readonly suite: string;
 }
 
@@ -2138,11 +2320,19 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends 
 
 // @public
 export class ExecutionCancelledError extends AGBossError {
-    constructor(message?: string);
+    constructor(options?: ExecutionCancelledErrorOptions);
     // (undocumented)
     static readonly code: "execution.cancelled";
     // (undocumented)
+    readonly code: typeof ExecutionCancelledError.code;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message?: string;
 }
 
 // @public
@@ -2178,8 +2368,11 @@ export interface ExecutionContextRecord {
 
 // @public
 export class ExecutionContextUnavailableError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "context.unavailable";
+    // (undocumented)
+    readonly code: typeof ExecutionContextUnavailableError.code;
     static ended(step: StepDescriptor, executionId: string): ExecutionContextUnavailableError;
     // (undocumented)
     name: string;
@@ -2254,6 +2447,8 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
     constructor(options: ExecutionFencedErrorOptions);
     // (undocumented)
     static readonly code: "execution.lease-lost.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionFencedError.code;
     readonly leaseExecutionId: string;
     // (undocumented)
     name: string;
@@ -2376,11 +2571,19 @@ export interface ExecutionLease {
 
 // @public
 export class ExecutionLeaseLostError extends AGBossError {
-    constructor(rootExecutionId: string);
+    constructor(options: ExecutionLeaseLostErrorOptions);
     // (undocumented)
     static readonly code: string;
+    readonly code: "execution.lease-lost" | "execution.lease-lost.fenced";
     // (undocumented)
     name: string;
+    readonly rootExecutionId: string;
+}
+
+// @public
+export interface ExecutionLeaseLostErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly rootExecutionId: string;
 }
 
@@ -2515,13 +2718,13 @@ export interface ExecutionRecord {
 export abstract class ExecutionRecordRepository {
     abstract addSummary(summary: NewSummary): Promise<Summary>;
     // (undocumented)
-    abstract append(tern: NewTurn): Promise<Turn>;
-    abstract before(tenantId: string, threadId: string, ternId: string, limit: number): Promise<Turn[]>;
+    abstract append(turn: NewTurn): Promise<Turn>;
+    abstract before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Turn[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
-    abstract complete(ternId: string, outcome: TurnOutcome): Promise<void>;
-    abstract completeIfStatus(ternId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;
+    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -2529,10 +2732,10 @@ export abstract class ExecutionRecordRepository {
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
-    abstract lastTerns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
+    abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
     // (undocumented)
-    abstract meanScore(ternIds: readonly string[]): Promise<number | null>;
+    abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
     abstract ping(): Promise<void>;
     abstract recentOriginals(workflow: string, limit: number): Promise<Turn[]>;
     abstract rememberConfig(workflow: string, version: string, hash: string, snapshot: string): Promise<{
@@ -2540,14 +2743,14 @@ export abstract class ExecutionRecordRepository {
     }>;
     abstract savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
-    abstract saveScore(ternId: string, judge: string, score: number): Promise<void>;
+    abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
     abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
     } | undefined>;
-    abstract turnNumber(tenantId: string, threadId: string, ternId: string): Promise<number>;
+    abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
     abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
@@ -2764,6 +2967,8 @@ export class FencedEffectResultTooLargeError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.result-too-large";
     // (undocumented)
+    readonly code: typeof FencedEffectResultTooLargeError.code;
+    // (undocumented)
     readonly effect: string;
     // (undocumented)
     readonly maxResultSize: number;
@@ -2775,6 +2980,8 @@ export class FencedEffectResultTooLargeError extends AGBossError {
 
 // @public
 export interface FencedEffectResultTooLargeErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly effect: string;
     // (undocumented)
     readonly maxResultSize: number;
@@ -2813,6 +3020,9 @@ export class FencedEffectStoreMismatchError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.store-mismatch";
     // (undocumented)
+    readonly code: typeof FencedEffectStoreMismatchError.code;
+    readonly expectedLeaseRepository: string;
+    // (undocumented)
     readonly fencedEffectRepository: string;
     // (undocumented)
     readonly leaseRepository: string;
@@ -2822,6 +3032,8 @@ export class FencedEffectStoreMismatchError extends AGBossError {
 
 // @public
 export interface FencedEffectStoreMismatchErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly expectedLeaseRepository: string;
     // (undocumented)
     readonly fencedEffectRepository: string;
@@ -2834,6 +3046,7 @@ export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction
 
 // @public
 export interface FencedWriteRefusal {
+    readonly cause?: unknown;
     readonly observedToken?: number | undefined;
     readonly scopeKey: string;
     readonly token: number;
@@ -2862,6 +3075,8 @@ export class FingerprintNotJsonError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.fingerprint-not-json";
     // (undocumented)
+    readonly code: typeof FingerprintNotJsonError.code;
+    // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
@@ -2871,6 +3086,8 @@ export class FingerprintNotJsonError extends AGBossError {
 
 // @public
 export interface FingerprintNotJsonErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly effect: string;
     // (undocumented)
@@ -2896,6 +3113,8 @@ export class FingerprintRequiredError extends AGBossError {
     // (undocumented)
     static readonly code: "fenced-effect.fingerprint-required";
     // (undocumented)
+    readonly code: typeof FingerprintRequiredError.code;
+    // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
@@ -2906,7 +3125,8 @@ export class FingerprintRequiredError extends AGBossError {
 // @public
 export interface FingerprintRequiredErrorOptions {
     // (undocumented)
-    readonly name: string;
+    readonly cause?: unknown;
+    readonly effect: string;
     // (undocumented)
     readonly reason: FingerprintProblem;
 }
@@ -2933,8 +3153,11 @@ export interface FlowPath {
 
 // @public
 export class FlowSyntaxError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "flow.syntax";
+    // (undocumented)
+    readonly code: typeof FlowSyntaxError.code;
 }
 
 // @public
@@ -3003,21 +3226,36 @@ export interface GroupValues<TNames extends string, TGiven extends readonly unkn
 
 // @public
 export class GuardFailedError extends StepFailedError {
-    constructor(guard: string, usage: readonly UsageRecord[], reason: string, cause?: unknown);
+    constructor(options: GuardFailedErrorOptions);
     // (undocumented)
     static readonly code: "step.guard";
+    // (undocumented)
+    readonly code: typeof GuardFailedError.code;
     // (undocumented)
     readonly guard: string;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface GuardFailedErrorOptions {
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly guard: string;
+    readonly reason: string;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // @public
 export class GuardrailBlockedError extends PaidStepError {
-    // Warning: (ae-forgotten-export) The symbol "GuardrailHit" needs to be exported by the entry point index.d.ts
-    constructor(guard: string, refusal: string, usage: readonly UsageRecord[], hit: GuardrailHit);
+    constructor(options: GuardrailBlockedErrorOptions);
     // (undocumented)
     static readonly code: "guardrail.blocked";
+    // (undocumented)
+    readonly code: typeof GuardrailBlockedError.code;
     readonly guard: string;
     readonly key: string;
     // (undocumented)
@@ -3027,6 +3265,19 @@ export class GuardrailBlockedError extends PaidStepError {
     readonly refusal: string;
     // (undocumented)
     readonly threshold: number;
+}
+
+// @public
+export interface GuardrailBlockedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly guard: string;
+    readonly probability: number;
+    readonly refusal: string;
+    // (undocumented)
+    readonly threshold: number;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // Warning: (ae-forgotten-export) The symbol "ModelGuardrailFields" needs to be exported by the entry point index.d.ts
@@ -3239,15 +3490,22 @@ export type HookResult = Promise<void> | void;
 
 // @public
 export class HopsLimitExceededError extends LimitExceededError {
-    constructor(entry: MeshEntry, chain: readonly MeshHop[], maxMeshHops: number, place?: MeshLimitPlace);
+    constructor(options: HopsLimitExceededErrorOptions);
     readonly chain: readonly MeshHop[];
     // (undocumented)
     static readonly code: "limit.hops";
+    // (undocumented)
+    readonly code: typeof HopsLimitExceededError.code;
     readonly entry: MeshEntry;
     readonly hops: number;
     readonly maxMeshHops: number;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface HopsLimitExceededErrorOptions extends MeshLoopDetectedErrorOptions {
+    readonly maxMeshHops: number;
 }
 
 // @public
@@ -3262,13 +3520,23 @@ export interface HostContext {
 
 // @public
 export class IdempotencyKeyMissingError extends AGBossError {
-    constructor(effect: string);
+    constructor(options: IdempotencyKeyMissingErrorOptions);
     // (undocumented)
     static readonly code: "fenced-effect.idempotency-key-missing";
+    // (undocumented)
+    readonly code: typeof IdempotencyKeyMissingError.code;
     // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface IdempotencyKeyMissingErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly effect: string;
 }
 
 // @public
@@ -3299,9 +3567,11 @@ export interface IncompatibleResume {
 
 // @public
 export class IncompatibleResumeError extends AGBossError {
-    constructor(resume: IncompatibleResume);
+    constructor(resume: IncompatibleResumeErrorOptions);
     // (undocumented)
     static readonly code: "resume.incompatible";
+    // (undocumented)
+    readonly code: typeof IncompatibleResumeError.code;
     // (undocumented)
     readonly current: ResumeVersions;
     // (undocumented)
@@ -3312,6 +3582,12 @@ export class IncompatibleResumeError extends AGBossError {
     readonly paused: ResumeVersions;
     // (undocumented)
     readonly threadId: string;
+}
+
+// @public
+export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
+    // (undocumented)
+    readonly cause?: unknown;
 }
 
 // @public
@@ -3465,9 +3741,17 @@ export interface Inputs {
 
 // @public
 export class InvalidA2APageTokenError extends AGBossError {
-    constructor();
+    constructor(options?: InvalidA2APageTokenErrorOptions);
     // (undocumented)
     static readonly code: "a2a.invalid-page-token";
+    // (undocumented)
+    readonly code: typeof InvalidA2APageTokenError.code;
+}
+
+// @public
+export interface InvalidA2APageTokenErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
 }
 
 // @public
@@ -3475,6 +3759,8 @@ export class InvalidBusinessKeyError extends AGBossError {
     constructor(options: InvalidBusinessKeyErrorOptions);
     // (undocumented)
     static readonly code: "fenced-effect.invalid-business-key";
+    // (undocumented)
+    readonly code: typeof InvalidBusinessKeyError.code;
     // (undocumented)
     readonly effect: string;
     // (undocumented)
@@ -3485,6 +3771,8 @@ export class InvalidBusinessKeyError extends AGBossError {
 
 // @public
 export interface InvalidBusinessKeyErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly effect: string;
     // (undocumented)
     readonly rule: KeyTextRule;
@@ -3492,11 +3780,21 @@ export interface InvalidBusinessKeyErrorOptions {
 
 // @public
 export class InvalidFencedEffectNameError extends AGBossError {
-    constructor(length: number);
+    constructor(options: InvalidFencedEffectNameErrorOptions);
     // (undocumented)
     static readonly code: "fenced-effect.invalid-name";
     // (undocumented)
+    readonly code: typeof InvalidFencedEffectNameError.code;
+    readonly length: number;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface InvalidFencedEffectNameErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly length: number;
 }
 
 // @public
@@ -3504,6 +3802,8 @@ export class InvalidMintedIdError extends AGBossError {
     constructor(options: InvalidMintedIdErrorOptions);
     // (undocumented)
     static readonly code: "run.invalid-minted-id";
+    // (undocumented)
+    readonly code: typeof InvalidMintedIdError.code;
     readonly generator: string;
     readonly method: "newThreadId" | "newExecutionId";
     // (undocumented)
@@ -3513,6 +3813,8 @@ export class InvalidMintedIdError extends AGBossError {
 
 // @public
 export interface InvalidMintedIdErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly generator: string;
     // (undocumented)
@@ -3529,6 +3831,8 @@ export class InvalidNotSentTrustError extends AGBossError {
     // (undocumented)
     static readonly code: "outbound-call.invalid-not-sent-trust";
     // (undocumented)
+    readonly code: typeof InvalidNotSentTrustError.code;
+    // (undocumented)
     name: string;
     // (undocumented)
     readonly problem: string;
@@ -3539,16 +3843,28 @@ export interface InvalidNotSentTrustErrorOptions {
     // (undocumented)
     readonly call: string;
     // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
     readonly problem: string;
 }
 
 // @public
 export class InvalidThreadIdError extends AGBossError {
-    constructor(rule: KeyTextRule);
+    constructor(options: InvalidThreadIdErrorOptions);
     // (undocumented)
     static readonly code: "run.invalid-thread-id";
     // (undocumented)
+    readonly code: typeof InvalidThreadIdError.code;
+    // (undocumented)
     name: string;
+    // (undocumented)
+    readonly rule: KeyTextRule;
+}
+
+// @public
+export interface InvalidThreadIdErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly rule: KeyTextRule;
 }
@@ -3872,13 +4188,13 @@ export enum LedgerState {
 
 // @public
 export class LimitExceededError extends AGBossError {
-    // Warning: (ae-forgotten-export) The symbol "LimitBreach" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "LimitErrorText" needs to be exported by the entry point index.d.ts
-    constructor(breach: LimitBreach, path: readonly string[], spentUsd: number, usage?: readonly UsageRecord[], text?: LimitErrorText);
+    constructor(options: LimitExceededErrorOptions);
     // (undocumented)
     readonly actual: number;
     // (undocumented)
     static readonly code: string;
+    // (undocumented)
+    readonly code: "limit" | "limit.budget" | "limit.steps" | "limit.visits" | "limit.depth" | "limit.deadline" | "limit.mesh-loop" | "limit.hops";
     // (undocumented)
     readonly key: string;
     // (undocumented)
@@ -3891,6 +4207,23 @@ export class LimitExceededError extends AGBossError {
     readonly spentUsd: number;
     // (undocumented)
     readonly usage: readonly UsageRecord[];
+}
+
+// @public
+export interface LimitExceededErrorOptions {
+    readonly actual: number;
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly details?: Readonly<Record<string, unknown>>;
+    readonly key: string;
+    // (undocumented)
+    readonly limit: number;
+    readonly message?: string;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
+    readonly usage?: readonly UsageRecord[];
 }
 
 // Warning: (ae-forgotten-export) The symbol "ListElementShape" needs to be exported by the entry point index.d.ts
@@ -3993,13 +4326,23 @@ export interface MeshLimitPlace {
 
 // @public
 export class MeshLoopDetectedError extends LimitExceededError {
-    constructor(entry: MeshEntry, chain: readonly MeshHop[], place?: MeshLimitPlace);
+    constructor(options: MeshLoopDetectedErrorOptions);
     readonly chain: readonly MeshHop[];
     // (undocumented)
     static readonly code: "limit.mesh-loop";
+    // (undocumented)
+    readonly code: typeof MeshLoopDetectedError.code;
     readonly entry: MeshEntry;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly chain: readonly MeshHop[];
+    readonly entry: MeshEntry;
 }
 
 // @public
@@ -4076,6 +4419,12 @@ export interface MeshSpendReport {
 }
 
 // @public
+export interface MessageErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export interface MissingGeneratedTypes {
     // (undocumented)
     readonly __error: "Missing generated types — run `agboss check` to update .agboss/types.d.ts";
@@ -4095,19 +4444,28 @@ export interface ModelArbiterOptions {
 
 // @public
 export class ModelCallError extends AGBossError {
-    constructor(code: ModelCallErrorCode, provider: string, message: string);
-    // (undocumented)
-    readonly code: ModelCallErrorCode;
+    constructor(options: ModelCallErrorOptions);
     // (undocumented)
     static readonly code: "model";
     // (undocumented)
-    name: string;
+    readonly code: ModelCallErrorCode;
     // (undocumented)
+    name: string;
     readonly provider: string;
 }
 
 // @public
 export type ModelCallErrorCode = "model.circuit-open";
+
+// @public
+export interface ModelCallErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly code: ModelCallErrorCode;
+    // (undocumented)
+    readonly message: string;
+    readonly provider: string;
+}
 
 // @public
 export interface ModelDefaults {
@@ -4151,11 +4509,27 @@ export enum ModelKind {
 
 // @public
 export class ModelKindError extends AGBossError {
-    constructor(model: string, kind: ModelKind, call: "invoke" | "decide");
+    constructor(options: ModelKindErrorOptions);
+    readonly call: "invoke" | "decide";
     // (undocumented)
     static readonly code: "model.wrong-kind";
     // (undocumented)
+    readonly code: typeof ModelKindError.code;
+    readonly kind: ModelKind;
+    readonly model: string;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface ModelKindErrorOptions {
+    // (undocumented)
+    readonly call: "invoke" | "decide";
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly kind: ModelKind;
+    readonly model: string;
 }
 
 // @public
@@ -4300,16 +4674,22 @@ export interface NoSummaryCompactionOptions {
 
 // @public
 export class NotAWorkflowStartError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "workflow.not-a-start";
+    // (undocumented)
+    readonly code: typeof NotAWorkflowStartError.code;
     // (undocumented)
     name: string;
 }
 
 // @public
 export class NotPausedError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "run.not-paused";
+    // (undocumented)
+    readonly code: typeof NotPausedError.code;
     // (undocumented)
     name: string;
 }
@@ -4737,6 +5117,8 @@ export class OutboundCallInFlightError extends StepFailedError {
     // (undocumented)
     static readonly code: "outbound-call.in-flight";
     // (undocumented)
+    readonly code: typeof OutboundCallInFlightError.code;
+    // (undocumented)
     name: string;
     // (undocumented)
     readonly operation: string;
@@ -4748,6 +5130,8 @@ export class OutboundCallInFlightError extends StepFailedError {
 export interface OutboundCallInFlightErrorOptions {
     // (undocumented)
     readonly call: string;
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly operation: string;
     // (undocumented)
@@ -4843,6 +5227,8 @@ export class OutboundCallPayloadTooLargeError extends AGBossError {
     // (undocumented)
     static readonly code: "outbound-call.payload-too-large";
     // (undocumented)
+    readonly code: typeof OutboundCallPayloadTooLargeError.code;
+    // (undocumented)
     readonly maxPayloadSize: number;
     // (undocumented)
     name: string;
@@ -4856,6 +5242,8 @@ export class OutboundCallPayloadTooLargeError extends AGBossError {
 export interface OutboundCallPayloadTooLargeErrorOptions {
     // (undocumented)
     readonly call: string;
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly maxPayloadSize: number;
     // (undocumented)
@@ -4917,6 +5305,8 @@ export class OutboundCallResultNotStoredError extends StepFailedError {
     readonly call: string;
     // (undocumented)
     static readonly code: "outbound-call.result-not-stored";
+    // (undocumented)
+    readonly code: typeof OutboundCallResultNotStoredError.code;
     // (undocumented)
     name: string;
     // (undocumented)
@@ -4999,6 +5389,8 @@ export class OutboundCallSupersededError extends StepFailedError {
     readonly call: string;
     // (undocumented)
     static readonly code: "outbound-call.superseded";
+    // (undocumented)
+    readonly code: typeof OutboundCallSupersededError.code;
     readonly idempotencyKey: string;
     // (undocumented)
     name: string;
@@ -5032,13 +5424,23 @@ export interface OutboundCallUnknownOptions {
 
 // @public
 export class OutboundCallUnmaskedError extends AGBossError {
-    constructor(call: string);
+    constructor(options: OutboundCallUnmaskedErrorOptions);
     // (undocumented)
     readonly call: string;
     // (undocumented)
     static readonly code: "outbound-call.unmasked";
     // (undocumented)
+    readonly code: typeof OutboundCallUnmaskedError.code;
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface OutboundCallUnmaskedErrorOptions {
+    // (undocumented)
+    readonly call: string;
+    // (undocumented)
+    readonly cause?: unknown;
 }
 
 // @public
@@ -5048,6 +5450,8 @@ export class OutboundCallUnreconciledError extends StepFailedError {
     readonly call: string;
     // (undocumented)
     static readonly code: "outbound-call.unreconciled";
+    // (undocumented)
+    readonly code: typeof OutboundCallUnreconciledError.code;
     readonly detail: string;
     // (undocumented)
     readonly idempotencyKey: string;
@@ -5127,8 +5531,11 @@ export function OutputGuardrail<const D extends readonly Token[] = []>(options: 
 
 // @public
 export class OutputInvalidError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "step.output-invalid";
+    // (undocumented)
+    readonly code: typeof OutputInvalidError.code;
     // (undocumented)
     name: string;
 }
@@ -5147,12 +5554,25 @@ export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
 export class PaidStepError extends AGBossError {
-    constructor(message: string, usage: readonly UsageRecord[], cause: unknown, details?: ErrorDetails);
+    constructor(options: PaidStepErrorOptions);
     // (undocumented)
     static readonly code: string;
     // (undocumented)
+    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
+    // (undocumented)
     name: string;
     // (undocumented)
+    readonly usage: readonly UsageRecord[];
+}
+
+// @public
+export interface PaidStepErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly details?: ErrorDetails;
+    // (undocumented)
+    readonly message: string;
     readonly usage: readonly UsageRecord[];
 }
 
@@ -5204,8 +5624,11 @@ export enum PauseAnswerer {
 
 // @public
 export class PauseAnswererError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "pause.wrong-answerer";
+    // (undocumented)
+    readonly code: typeof PauseAnswererError.code;
     // (undocumented)
     name: string;
 }
@@ -5390,6 +5813,8 @@ export class PiiDetectionFailedError extends PaidStepError {
     // (undocumented)
     static readonly code: "pii.detection-failed";
     // (undocumented)
+    readonly code: typeof PiiDetectionFailedError.code;
+    // (undocumented)
     name: string;
 }
 
@@ -5513,13 +5938,25 @@ export interface PiiRefusalOptions {
 
 // @public
 export class PiiRefusedError extends PaidStepError {
-    constructor(kind: string, refusal: string, usage?: readonly UsageRecord[]);
+    constructor(options: PiiRefusedErrorOptions);
     // (undocumented)
     static readonly code: "pii.refused";
+    // (undocumented)
+    readonly code: typeof PiiRefusedError.code;
     readonly kind: string;
     // (undocumented)
     name: string;
     readonly refusal: string;
+}
+
+// @public
+export interface PiiRefusedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly kind: string;
+    readonly refusal: string;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -5641,14 +6078,28 @@ export type Provider = Class | ValueProvider | ClassProvider;
 
 // @public
 export class QualityGateError extends AgentFailedError {
-    constructor(agent: string, usage: readonly UsageRecord[], rejections: readonly JudgeRejection[], retries: number);
+    constructor(options: QualityGateErrorOptions);
     // (undocumented)
     static readonly code: "step.agent.quality-gate";
+    // (undocumented)
+    readonly code: typeof QualityGateError.code;
     // (undocumented)
     name: string;
     readonly rejections: readonly JudgeRejection[];
     // (undocumented)
     readonly retries: number;
+}
+
+// @public
+export interface QualityGateErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    readonly cause?: unknown;
+    readonly rejections: readonly JudgeRejection[];
+    // (undocumented)
+    readonly retries: number;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // @public
@@ -5668,13 +6119,15 @@ export class QuestionFailedError extends StepFailedError {
     // (undocumented)
     static readonly code: "step.question";
     // (undocumented)
+    readonly code: typeof QuestionFailedError.code;
+    // (undocumented)
     name: string;
     readonly question: string;
 }
 
 // @public
 export interface QuestionFailedErrorOptions {
-    readonly cause: unknown;
+    readonly cause?: unknown;
     readonly question: string;
 }
 
@@ -5745,14 +6198,24 @@ export enum QuorumKind {
 
 // @public
 export class QuorumNotReachedError extends StepFailedError {
-    constructor(launch: string, step: StepCoordinates, shortfall: QuorumShortfall);
+    constructor(options: QuorumNotReachedErrorOptions);
     // (undocumented)
     static readonly code: "step.quorum";
+    // (undocumented)
+    readonly code: typeof QuorumNotReachedError.code;
     readonly counted: number;
     readonly launch: string;
     readonly min: number | undefined;
     // (undocumented)
     name: string;
+    readonly reason: string;
+}
+
+// @public
+export interface QuorumNotReachedErrorOptions extends QuorumShortfall, StepCoordinates {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly launch: string;
 }
 
 // @public
@@ -5780,7 +6243,7 @@ export interface Quorums<TKey extends string, THead extends PathHead, TCount ext
 // @public
 export interface QuorumShortfall {
     readonly counted: number;
-    readonly min?: number;
+    readonly min?: number | undefined;
     readonly reason: string;
 }
 
@@ -5882,8 +6345,11 @@ export interface ReplyInterpreterHandler<TSelf> {
 
 // @public
 export class ReplyInterpreterMissingError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "pause.no-reply-interpreter";
+    // (undocumented)
+    readonly code: typeof ReplyInterpreterMissingError.code;
     // (undocumented)
     name: string;
 }
@@ -6045,12 +6511,23 @@ export interface RouterDecided {
 
 // @public
 export class RouterDecisionError extends RouterFailedError {
-    constructor(step: RouterVisit, reason: string, usage?: readonly UsageRecord[]);
+    constructor(options: RouterDecisionErrorOptions);
     // (undocumented)
     static readonly code: "step.router.invalid-decision";
     // (undocumented)
+    readonly code: typeof RouterDecisionError.code;
+    // (undocumented)
     name: string;
     readonly reason: string;
+}
+
+// @public
+export interface RouterDecisionErrorOptions extends RouterVisit {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly reason: string;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -6075,11 +6552,21 @@ export interface RouterEngine {
 
 // @public
 export class RouterFailedError extends StepFailedError {
-    constructor(step: RouterVisit, cause: unknown, usage?: readonly UsageRecord[], message?: string);
+    constructor(options: RouterFailedErrorOptions);
     // (undocumented)
     static readonly code: string;
     // (undocumented)
+    readonly code: "step.router" | "step.router.invalid-decision";
+    // (undocumented)
     name: string;
+}
+
+// @public
+export interface RouterFailedErrorOptions extends RouterVisit {
+    readonly cause?: unknown;
+    readonly message?: string;
+    // (undocumented)
+    readonly usage?: readonly UsageRecord[];
 }
 
 // @public
@@ -6250,8 +6737,11 @@ export enum SpawnPolicy {
 
 // @public
 export class SpendOutsideStepError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "spend.outside-step";
+    // (undocumented)
+    readonly code: typeof SpendOutsideStepError.code;
     // (undocumented)
     name: string;
 }
@@ -6390,10 +6880,10 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "TernStoreRecordRepository" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "TurnStoreRecordRepository" needs to be exported by the entry point index.d.ts
 //
 // @public
-export class SqliteExecutionRecordRepository extends TernStoreRecordRepository {
+export class SqliteExecutionRecordRepository extends TurnStoreRecordRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext, idGenerator: IdGenerator);
     // (undocumented)
     ping(): Promise<void>;
@@ -6542,15 +7032,20 @@ export interface StepDescriptor extends StepRecord {
 
 // @public
 export class StepFailedError extends PaidStepError {
-    constructor(message: string, usage: readonly UsageRecord[], cause: unknown, step: StepCoordinates, details?: ErrorDetails);
+    constructor(options: StepFailedErrorOptions);
     // (undocumented)
     static readonly code: string;
+    readonly code: Exclude<PaidStepError["code"], "step" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed">;
     readonly component: ComponentRecord;
     readonly itemIndex: number | undefined;
     // (undocumented)
     name: string;
     readonly nodeId: string;
     readonly visitNumber: number;
+}
+
+// @public
+export interface StepFailedErrorOptions extends PaidStepErrorOptions, StepCoordinates {
 }
 
 // @public
@@ -6611,15 +7106,31 @@ export interface StepRecord {
 
 // @public
 export class StepsLimitExceededError extends LimitExceededError {
-    constructor(workflow: WorkflowRecord, maxSteps: number, path: readonly string[], spentUsd: number);
+    constructor(options: StepsLimitExceededErrorOptions);
     // (undocumented)
     static readonly code: "limit.steps";
+    // (undocumented)
+    readonly code: typeof StepsLimitExceededError.code;
     // (undocumented)
     readonly maxSteps: number;
     // (undocumented)
     name: string;
     // (undocumented)
     readonly steps: number;
+    // (undocumented)
+    readonly workflow: WorkflowRecord;
+}
+
+// @public
+export interface StepsLimitExceededErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly maxSteps: number;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
     // (undocumented)
     readonly workflow: WorkflowRecord;
 }
@@ -6686,7 +7197,7 @@ export interface Summary {
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
-    readonly fromTernId: string;
+    readonly fromTurnId: string;
     // (undocumented)
     readonly id: string;
     readonly tenantId: string;
@@ -6695,7 +7206,7 @@ export interface Summary {
     // (undocumented)
     readonly threadId: string;
     // (undocumented)
-    readonly toTernId: string;
+    readonly toTurnId: string;
     // (undocumented)
     readonly turns: number;
 }
@@ -6737,13 +7248,23 @@ export interface SwitchStep {
 
 // @public
 export class SyncWorkRequiredError extends AGBossError {
-    constructor(effect: string);
+    constructor(options: SyncWorkRequiredErrorOptions);
     // (undocumented)
     static readonly code: "fenced-effect.sync-work-required";
+    // (undocumented)
+    readonly code: typeof SyncWorkRequiredError.code;
     // (undocumented)
     readonly effect: string;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface SyncWorkRequiredErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly effect: string;
 }
 
 // @public
@@ -6798,6 +7319,8 @@ export interface ThisWorkflowOutputs {
 export class ThreadIdsExhaustedError extends AGBossError {
     constructor(options: ThreadIdsExhaustedErrorOptions);
     static readonly code: "run.thread-ids-exhausted";
+    // (undocumented)
+    readonly code: typeof ThreadIdsExhaustedError.code;
     readonly generator: string;
     name: string;
     readonly tries: number;
@@ -6805,14 +7328,19 @@ export class ThreadIdsExhaustedError extends AGBossError {
 
 // @public
 export interface ThreadIdsExhaustedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     readonly generator: string;
     readonly tries: number;
 }
 
 // @public
 export class ThreadOwnerError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "run.thread-owner";
+    // (undocumented)
+    readonly code: typeof ThreadOwnerError.code;
     // (undocumented)
     name: string;
 }
@@ -6861,20 +7389,32 @@ export function Tool<In extends DtoClass, Out extends DtoClass, const D extends 
 
 // @public
 export class ToolBlockedError extends StepFailedError {
-    constructor(call: {
-        readonly agent: string;
-        readonly tool: string;
-        readonly interceptor: string;
-        readonly reason: string;
-    }, usage: readonly UsageRecord[]);
+    constructor(options: ToolBlockedErrorOptions);
     readonly agent: string;
     // (undocumented)
     static readonly code: "step.tool-blocked";
+    // (undocumented)
+    readonly code: typeof ToolBlockedError.code;
     readonly interceptor: string;
     // (undocumented)
     name: string;
     readonly reason: string;
     readonly tool: string;
+}
+
+// @public
+export interface ToolBlockedErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly interceptor: string;
+    // (undocumented)
+    readonly reason: string;
+    // (undocumented)
+    readonly tool: string;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
 }
 
 // @public
@@ -7024,11 +7564,22 @@ export interface ToolStartEvent extends NodeEvent {
 
 // @public
 export class ToolTimeoutError extends AGBossError {
-    constructor(timeout: Milliseconds);
+    constructor(options: ToolTimeoutErrorOptions);
     // (undocumented)
     static readonly code: "tool.timeout";
     // (undocumented)
+    readonly code: typeof ToolTimeoutError.code;
+    // (undocumented)
     name: string;
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export interface ToolTimeoutErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly timeout: Milliseconds;
 }
 
 // @public
@@ -7157,9 +7708,11 @@ export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
 
 // @public
 export class UninterpretableReplyError extends AGBossError {
-    constructor(message: string, options: UninterpretableReplyErrorOptions);
+    constructor(options: UninterpretableReplyErrorOptions);
     // (undocumented)
     static readonly code: "pause.uninterpretable-reply";
+    // (undocumented)
+    readonly code: typeof UninterpretableReplyError.code;
     // (undocumented)
     name: string;
     readonly reason: string;
@@ -7170,13 +7723,18 @@ export interface UninterpretableReplyErrorOptions {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
+    readonly message: string;
+    // (undocumented)
     readonly reason: string;
 }
 
 // @public
 export class UnknownPauseError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "pause.unknown";
+    // (undocumented)
+    readonly code: typeof UnknownPauseError.code;
     // (undocumented)
     name: string;
 }
@@ -7190,8 +7748,11 @@ export interface UnknownReconciliation extends BuiltReconciliation {
 
 // @public (undocumented)
 export class UnknownThreadError extends AGBossError {
+    constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "run.unknown-thread";
+    // (undocumented)
+    readonly code: typeof UnknownThreadError.code;
     // (undocumented)
     name: string;
 }
@@ -7271,14 +7832,16 @@ export interface VersionScore {
     // (undocumented)
     readonly scored: number;
     // (undocumented)
-    readonly terns: number;
+    readonly turns: number;
 }
 
 // @public
 export class VisitsLimitExceededError extends LimitExceededError {
-    constructor(component: ComponentRecord, maxVisits: number, path: readonly string[], spentUsd: number);
+    constructor(options: VisitsLimitExceededErrorOptions);
     // (undocumented)
     static readonly code: "limit.visits";
+    // (undocumented)
+    readonly code: typeof VisitsLimitExceededError.code;
     readonly component: ComponentRecord;
     // (undocumented)
     readonly maxVisits: number;
@@ -7288,6 +7851,19 @@ export class VisitsLimitExceededError extends LimitExceededError {
     readonly nodeId: string;
     // (undocumented)
     readonly visits: number;
+}
+
+// @public
+export interface VisitsLimitExceededErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly component: ComponentRecord;
+    // (undocumented)
+    readonly maxVisits: number;
+    // (undocumented)
+    readonly path: readonly string[];
+    // (undocumented)
+    readonly spentUsd: number;
 }
 
 // @public
@@ -7468,25 +8044,30 @@ export interface WrittenLedgerMark {
 // Warnings were encountered during analysis:
 //
 // src/app/create-app.ts:62:3 - (ae-undocumented) Missing documentation for "profileRoot".
-// src/app/lease-lost.ts:12:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts:13:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts:107:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts:108:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts:109:3 - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-lost.ts:110:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts:113:3 - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts:114:3 - (ae-undocumented) Missing documentation for "observedToken".
+// src/app/lease-lost.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/lease-lost.ts:19:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:22:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:120:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:121:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:122:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:123:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-lost.ts:124:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:127:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:128:3 - (ae-undocumented) Missing documentation for "observedToken".
 // src/app/outbound-call-contract.ts:79:3 - (ae-undocumented) Missing documentation for "call".
 // src/app/outbound-call-contract.ts:80:3 - (ae-undocumented) Missing documentation for "problem".
-// src/app/outbound-call-contract.ts:89:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts:90:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-contract.ts:91:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-contract.ts:92:3 - (ae-undocumented) Missing documentation for "problem".
-// src/app/outbound-call-contract.ts:112:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts:113:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-contract.ts:114:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-contract.ts:115:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-contract.ts:116:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-contract.ts:81:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/outbound-call-contract.ts:90:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:91:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:92:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-contract.ts:93:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-contract.ts:94:3 - (ae-undocumented) Missing documentation for "problem".
+// src/app/outbound-call-contract.ts:114:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:115:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-call-contract.ts:116:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-call-contract.ts:117:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-contract.ts:118:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-contract.ts:119:3 - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-call-reconciliation.ts:32:3 - (ae-undocumented) Missing documentation for "verdict".
 // src/app/outbound-call-reconciliation.ts:39:3 - (ae-undocumented) Missing documentation for "verdict".
 // src/app/outbound-call-reconciliation.ts:44:3 - (ae-undocumented) Missing documentation for "verdict".
@@ -7510,48 +8091,53 @@ export interface WrittenLedgerMark {
 // src/app/outbound-call-types.ts:167:3 - (ae-undocumented) Missing documentation for "part".
 // src/app/outbound-call-types.ts:168:3 - (ae-undocumented) Missing documentation for "size".
 // src/app/outbound-call-types.ts:169:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-call-types.ts:174:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts:175:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:176:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts:177:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts:188:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts:189:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts:190:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts:205:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts:147:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:148:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:149:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:150:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:151:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:152:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-calls.ts:153:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts:177:3 - (ae-undocumented) Missing documentation for "Request".
-// src/app/outbound-calls.ts:178:3 - (ae-undocumented) Missing documentation for "Result".
-// src/app/outbound-calls.ts:187:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:188:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:189:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:190:3 - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-calls.ts:191:3 - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-calls.ts:192:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-calls.ts:211:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:212:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:213:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:234:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:235:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:236:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:237:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:238:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:262:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts:263:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts:264:3 - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts:265:3 - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts:266:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts:267:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-call-types.ts:170:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/outbound-call-types.ts:175:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-types.ts:176:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:177:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:178:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-call-types.ts:189:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-types.ts:190:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/outbound-call-types.ts:195:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-call-types.ts:196:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-call-types.ts:197:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-call-types.ts:198:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/outbound-call-types.ts:213:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:148:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:149:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:150:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:151:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:152:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:153:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:154:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/app/outbound-calls.ts:155:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-calls.ts:179:3 - (ae-undocumented) Missing documentation for "Request".
+// src/app/outbound-calls.ts:180:3 - (ae-undocumented) Missing documentation for "Result".
+// src/app/outbound-calls.ts:189:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:190:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:191:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:192:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:193:3 - (ae-undocumented) Missing documentation for "part".
+// src/app/outbound-calls.ts:194:3 - (ae-undocumented) Missing documentation for "size".
+// src/app/outbound-calls.ts:195:3 - (ae-undocumented) Missing documentation for "maxPayloadSize".
+// src/app/outbound-calls.ts:215:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:216:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:217:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:218:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:241:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:242:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:243:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:244:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:245:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:246:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:270:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:271:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/outbound-calls.ts:272:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/outbound-calls.ts:273:3 - (ae-undocumented) Missing documentation for "call".
+// src/app/outbound-calls.ts:274:3 - (ae-undocumented) Missing documentation for "target".
+// src/app/outbound-calls.ts:275:3 - (ae-undocumented) Missing documentation for "operation".
+// src/app/outbound-calls.ts:276:3 - (ae-undocumented) Missing documentation for "reason".
 // src/app/paused-runs.ts:26:3 - (ae-undocumented) Missing documentation for "run".
-// src/app/resume.ts:42:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/resume.ts:43:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/resume.ts:51:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/resume.ts:52:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts:103:3 - (ae-undocumented) Missing documentation for "reply".
@@ -7581,39 +8167,47 @@ export interface WrittenLedgerMark {
 // src/budgets/budget.ts:56:3 - (ae-undocumented) Missing documentation for "scope".
 // src/budgets/budget.ts:57:3 - (ae-undocumented) Missing documentation for "period".
 // src/budgets/budget.ts:58:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/budgets/execution-deadline.ts:21:3 - (ae-undocumented) Missing documentation for "code".
-// src/budgets/execution-deadline.ts:22:12 - (ae-undocumented) Missing documentation for "name".
+// src/budgets/execution-deadline.ts:25:3 - (ae-undocumented) Missing documentation for "path".
+// src/budgets/execution-deadline.ts:26:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/budgets/execution-deadline.ts:27:3 - (ae-undocumented) Missing documentation for "usage".
+// src/budgets/execution-deadline.ts:28:3 - (ae-undocumented) Missing documentation for "cause".
+// src/budgets/execution-deadline.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/budgets/execution-deadline.ts:34:3 - (ae-undocumented) Missing documentation for "code".
+// src/budgets/execution-deadline.ts:35:12 - (ae-undocumented) Missing documentation for "name".
 // src/channels/channel-handler.ts:40:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/channel-handler.ts:55:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/channel-outcome.ts:18:3 - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts:24:3 - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts:32:14 - (ae-undocumented) Missing documentation for "ChannelOutcome".
-// src/channels/channel-role.decorator.ts:29:3 - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "ask".
-// src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "answer".
-// src/channels/channel-role.decorator.ts:42:3 - (ae-undocumented) Missing documentation for "maxVisits".
-// src/channels/channel-role.decorator.ts:57:3 - (ae-undocumented) Missing documentation for "approves".
-// src/channels/channel-role.decorator.ts:101:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:169:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:178:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:179:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:186:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:189:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:190:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:191:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:221:3 - (ae-undocumented) Missing documentation for "decision".
-// src/channels/channel-role.decorator.ts:226:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:227:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:235:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:260:3 - (ae-undocumented) Missing documentation for "interpret".
-// src/channels/channel-role.decorator.ts:308:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:309:3 - (ae-undocumented) Missing documentation for "cause".
-// src/channels/channel-role.decorator.ts:318:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:319:12 - (ae-undocumented) Missing documentation for "name".
-// src/channels/channel-role.decorator.ts:331:3 - (ae-undocumented) Missing documentation for "code".
-// src/channels/channel-role.decorator.ts:332:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-role.decorator.ts:28:3 - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-role.decorator.ts:39:3 - (ae-undocumented) Missing documentation for "ask".
+// src/channels/channel-role.decorator.ts:40:3 - (ae-undocumented) Missing documentation for "answer".
+// src/channels/channel-role.decorator.ts:41:3 - (ae-undocumented) Missing documentation for "maxVisits".
+// src/channels/channel-role.decorator.ts:56:3 - (ae-undocumented) Missing documentation for "approves".
+// src/channels/channel-role.decorator.ts:100:1 - (ae-undocumented) Missing documentation for "ChannelRole".
+// src/channels/channel-role.decorator.ts:168:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:177:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:178:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:185:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:188:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:189:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:190:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:225:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:226:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:234:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:259:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/decision.ts:130:3 - (ae-undocumented) Missing documentation for "message".
+// src/channels/decision.ts:131:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/decision.ts:132:3 - (ae-undocumented) Missing documentation for "cause".
+// src/channels/decision.ts:141:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/decision.ts:142:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/decision.ts:143:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/decision.ts:155:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/decision.ts:156:3 - (ae-undocumented) Missing documentation for "code".
+// src/channels/decision.ts:157:12 - (ae-undocumented) Missing documentation for "name".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
@@ -7632,8 +8226,10 @@ export interface WrittenLedgerMark {
 // src/compaction/compaction.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
 // src/compaction/compaction.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/compaction/compaction.decorator.ts:81:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
-// src/compaction/errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/compaction/errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/errors.ts:6:3 - (ae-undocumented) Missing documentation for "message".
+// src/compaction/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
+// src/compaction/errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/compaction/errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:17:3 - (ae-undocumented) Missing documentation for "run".
@@ -7669,7 +8265,8 @@ export interface WrittenLedgerMark {
 // src/components/spend-recorder.ts:10:3 - (ae-undocumented) Missing documentation for "cost".
 // src/components/spend-recorder.ts:20:3 - (ae-undocumented) Missing documentation for "record".
 // src/components/spend-recorder.ts:25:3 - (ae-undocumented) Missing documentation for "code".
-// src/components/spend-recorder.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/spend-recorder.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/spend-recorder.ts:27:12 - (ae-undocumented) Missing documentation for "name".
 // src/config/types.ts:13:3 - (ae-undocumented) Missing documentation for "MODEL_MAX".
 // src/config/types.ts:18:3 - (ae-undocumented) Missing documentation for "ALL".
 // src/config/types.ts:227:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
@@ -7682,18 +8279,41 @@ export interface WrittenLedgerMark {
 // src/core/error-record.ts:17:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:19:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts:21:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:45:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:177:3 - (ae-undocumented) Missing documentation for "generator".
-// src/core/errors.ts:178:3 - (ae-undocumented) Missing documentation for "method".
-// src/core/errors.ts:179:3 - (ae-undocumented) Missing documentation for "rule".
-// src/core/errors.ts:189:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:190:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:33:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:45:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:46:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:47:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:61:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:62:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:63:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:199:3 - (ae-undocumented) Missing documentation for "generator".
+// src/core/errors.ts:200:3 - (ae-undocumented) Missing documentation for "method".
+// src/core/errors.ts:201:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:202:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:212:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:213:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:214:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:238:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:251:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:273:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:286:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:305:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
+// src/core/errors.ts:306:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:307:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:308:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:317:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:318:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:319:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:328:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:329:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:337:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:338:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:339:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:340:3 - (ae-undocumented) Missing documentation for "rule".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
@@ -7773,10 +8393,11 @@ export interface WrittenLedgerMark {
 // src/core/observer-hooks.ts:130:3 - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts:137:3 - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts:247:14 - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
-// src/dto/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
-// src/dto/errors.ts:25:12 - (ae-undocumented) Missing documentation for "name".
-// src/dto/errors.ts:27:5 - (ae-undocumented) Missing documentation for "dto".
-// src/dto/errors.ts:28:5 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:26:3 - (ae-undocumented) Missing documentation for "issues".
+// src/dto/errors.ts:27:3 - (ae-undocumented) Missing documentation for "cause".
+// src/dto/errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/dto/errors.ts:34:12 - (ae-undocumented) Missing documentation for "name".
 // src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
@@ -7808,9 +8429,11 @@ export interface WrittenLedgerMark {
 // src/eval/compare.ts:94:3 - (ae-undocumented) Missing documentation for "losses".
 // src/eval/compare.ts:95:3 - (ae-undocumented) Missing documentation for "ties".
 // src/eval/suite/errors.ts:9:3 - (ae-undocumented) Missing documentation for "reason".
-// src/eval/suite/errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
-// src/eval/suite/errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
-// src/eval/suite/errors.ts:24:5 - (ae-undocumented) Missing documentation for "issues".
+// src/eval/suite/errors.ts:16:3 - (ae-undocumented) Missing documentation for "issues".
+// src/eval/suite/errors.ts:17:3 - (ae-undocumented) Missing documentation for "cause".
+// src/eval/suite/errors.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/eval/suite/errors.ts:27:3 - (ae-undocumented) Missing documentation for "code".
+// src/eval/suite/errors.ts:28:12 - (ae-undocumented) Missing documentation for "name".
 // src/finops/cost-category.ts:3:3 - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts:4:3 - (ae-undocumented) Missing documentation for "Routing".
 // src/finops/cost-category.ts:5:3 - (ae-undocumented) Missing documentation for "Guards".
@@ -7818,8 +8441,24 @@ export interface WrittenLedgerMark {
 // src/finops/cost-category.ts:7:3 - (ae-undocumented) Missing documentation for "Tools".
 // src/finops/cost-category.ts:8:3 - (ae-undocumented) Missing documentation for "Compaction".
 // src/finops/cost-category.ts:9:3 - (ae-undocumented) Missing documentation for "Retrieval".
-// src/finops/ledger-mark.ts:22:3 - (ae-undocumented) Missing documentation for "state".
-// src/finops/ledger-mark.ts:31:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:23:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:32:3 - (ae-undocumented) Missing documentation for "state".
+// src/finops/ledger-mark.ts:199:3 - (ae-undocumented) Missing documentation for "cause".
+// src/finops/ledger-mark.ts:208:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:209:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:210:12 - (ae-undocumented) Missing documentation for "name".
+// src/finops/ledger-mark.ts:211:3 - (ae-undocumented) Missing documentation for "index".
+// src/finops/ledger-mark.ts:212:3 - (ae-undocumented) Missing documentation for "reason".
+// src/finops/ledger-mark.ts:228:3 - (ae-undocumented) Missing documentation for "cause".
+// src/finops/ledger-mark.ts:237:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:238:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:239:12 - (ae-undocumented) Missing documentation for "name".
+// src/finops/ledger-mark.ts:259:3 - (ae-undocumented) Missing documentation for "cause".
+// src/finops/ledger-mark.ts:270:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:271:3 - (ae-undocumented) Missing documentation for "code".
+// src/finops/ledger-mark.ts:272:12 - (ae-undocumented) Missing documentation for "name".
+// src/finops/ledger-mark.ts:273:3 - (ae-undocumented) Missing documentation for "ledgerIds".
+// src/finops/ledger-mark.ts:274:3 - (ae-undocumented) Missing documentation for "prunedBefore".
 // src/finops/usage.ts:25:3 - (ae-undocumented) Missing documentation for "inputTokens".
 // src/finops/usage.ts:26:3 - (ae-undocumented) Missing documentation for "outputTokens".
 // src/finops/usage.ts:27:3 - (ae-undocumented) Missing documentation for "cacheReadTokens".
@@ -7912,15 +8551,17 @@ export interface WrittenLedgerMark {
 // src/flow/builder-types.ts:264:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:275:3 - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts:280:3 - (ae-undocumented) Missing documentation for "chooseOne".
+// src/flow/compensation.ts:88:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/compensation.ts:89:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/compensation.ts:117:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/flow/compensation.ts:122:3 - (ae-undocumented) Missing documentation for "compensated".
-// src/flow/compensation.ts:131:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/compensation.ts:122:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/flow/compensation.ts:127:3 - (ae-undocumented) Missing documentation for "compensated".
+// src/flow/compensation.ts:136:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/context/application-context.ts:13:3 - (ae-undocumented) Missing documentation for "hostname".
 // src/flow/context/application-context.ts:14:3 - (ae-undocumented) Missing documentation for "pid".
 // src/flow/context/application-context.ts:38:3 - (ae-undocumented) Missing documentation for "host".
 // src/flow/context/errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/context/errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/context/errors.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/context/errors.ts:23:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts:19:3 - (ae-undocumented) Missing documentation for "type".
 // src/flow/context/execution-context.ts:24:3 - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts:25:3 - (ae-undocumented) Missing documentation for "version".
@@ -8015,6 +8656,7 @@ export interface WrittenLedgerMark {
 // src/flow/dto-wrappers.ts:170:3 - (ae-undocumented) Missing documentation for "producer".
 // src/flow/dto-wrappers.ts:171:3 - (ae-undocumented) Missing documentation for "value".
 // src/flow/flow-syntax-error.ts:5:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/flow-syntax-error.ts:6:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/generated-types.ts:34:3 - (ae-undocumented) Missing documentation for "[noOutput]".
 // src/flow/generated-types.ts:39:3 - (ae-undocumented) Missing documentation for "[noInput]".
 // src/flow/generated-types.ts:44:3 - (ae-undocumented) Missing documentation for "__error".
@@ -8077,28 +8719,49 @@ export interface WrittenLedgerMark {
 // src/flow/returns-types.ts:92:3 - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/returns-types.ts:93:3 - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/returns-types.ts:145:3 - (ae-undocumented) Missing documentation for "returns".
-// src/flow/runtime/child-errors.ts:14:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/child-errors.ts:15:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/depth-limit.ts:12:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/depth-limit.ts:13:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:21:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:24:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/flow/runtime/errors.ts:25:3 - (ae-undocumented) Missing documentation for "maxVisits".
-// src/flow/runtime/errors.ts:26:3 - (ae-undocumented) Missing documentation for "visits".
-// src/flow/runtime/errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:50:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:51:3 - (ae-undocumented) Missing documentation for "attempts".
-// src/flow/runtime/errors.ts:66:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:67:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:86:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:87:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/child-errors.ts:12:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/child-errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/child-errors.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/child-errors.ts:27:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/depth-limit.ts:10:3 - (ae-undocumented) Missing documentation for "path".
+// src/flow/runtime/depth-limit.ts:11:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/depth-limit.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/depth-limit.ts:23:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/depth-limit.ts:24:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:29:3 - (ae-undocumented) Missing documentation for "maxVisits".
+// src/flow/runtime/errors.ts:30:3 - (ae-undocumented) Missing documentation for "path".
+// src/flow/runtime/errors.ts:31:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/flow/runtime/errors.ts:32:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/errors.ts:37:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:38:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:39:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:42:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/flow/runtime/errors.ts:43:3 - (ae-undocumented) Missing documentation for "maxVisits".
+// src/flow/runtime/errors.ts:44:3 - (ae-undocumented) Missing documentation for "visits".
+// src/flow/runtime/errors.ts:69:3 - (ae-undocumented) Missing documentation for "agent".
+// src/flow/runtime/errors.ts:70:3 - (ae-undocumented) Missing documentation for "attempts".
+// src/flow/runtime/errors.ts:71:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/errors.ts:78:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:79:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:80:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:81:3 - (ae-undocumented) Missing documentation for "attempts".
+// src/flow/runtime/errors.ts:109:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:110:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:111:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:133:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:134:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/errors.ts:135:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/errors.ts:142:3 - (ae-undocumented) Missing documentation for "probability".
-// src/flow/runtime/errors.ts:143:3 - (ae-undocumented) Missing documentation for "threshold".
-// src/flow/runtime/errors.ts:165:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/errors.ts:166:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:175:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/errors.ts:178:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/flow/runtime/errors.ts:179:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/errors.ts:187:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:188:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:189:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/errors.ts:196:3 - (ae-undocumented) Missing documentation for "probability".
+// src/flow/runtime/errors.ts:197:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/flow/runtime/errors.ts:218:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:219:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/errors.ts:220:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/execution-record.ts:22:3 - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/execution-record.ts:23:3 - (ae-undocumented) Missing documentation for "scope".
 // src/flow/runtime/execution-record.ts:24:3 - (ae-undocumented) Missing documentation for "outdatedValues".
@@ -8106,10 +8769,14 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/execution-record.ts:26:3 - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts:68:3 - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts:71:3 - (ae-undocumented) Missing documentation for "resolvedAt".
-// src/flow/runtime/launch/quorum-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/launch/quorum-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/launch/quorum-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/launch/quorum-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/launch/quorum-errors.ts:20:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/launch/quorum-errors.ts:30:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:31:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:32:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/launch/quorum-errors.ts:59:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/launch/quorum-errors.ts:68:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:69:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/launch/quorum-errors.ts:70:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/records.ts:88:3 - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts:128:3 - (ae-undocumented) Missing documentation for "reason".
 // src/flow/runtime/records.ts:133:3 - (ae-undocumented) Missing documentation for "outdated".
@@ -8117,12 +8784,18 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/records.ts:139:3 - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts:140:3 - (ae-undocumented) Missing documentation for "producer".
 // src/flow/runtime/records.ts:145:3 - (ae-undocumented) Missing documentation for "reason".
-// src/flow/runtime/router-error.ts:39:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/router-error.ts:40:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/router-error.ts:62:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/router-error.ts:63:12 - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/start-input.ts:76:3 - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/start-input.ts:77:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/router-error.ts:39:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/router-error.ts:48:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:49:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:50:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/router-error.ts:69:3 - (ae-undocumented) Missing documentation for "usage".
+// src/flow/runtime/router-error.ts:70:3 - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/router-error.ts:78:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:79:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/router-error.ts:80:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/start-input.ts:79:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/start-input.ts:80:3 - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/start-input.ts:81:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/step-records.ts:17:3 - (ae-undocumented) Missing documentation for "judge".
 // src/flow/runtime/step-records.ts:20:3 - (ae-undocumented) Missing documentation for "passed".
 // src/flow/runtime/step-records.ts:23:3 - (ae-undocumented) Missing documentation for "metrics".
@@ -8140,37 +8813,68 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/tool-calls.ts:86:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts:91:3 - (ae-undocumented) Missing documentation for "status".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:13:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:14:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/errors.ts:72:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:73:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:100:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:101:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:102:3 - (ae-undocumented) Missing documentation for "agent".
-// src/graph/errors.ts:121:3 - (ae-undocumented) Missing documentation for "judge".
-// src/graph/errors.ts:122:3 - (ae-undocumented) Missing documentation for "reason".
-// src/graph/errors.ts:127:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/errors.ts:128:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:131:3 - (ae-undocumented) Missing documentation for "retries".
+// src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "message".
+// src/graph/errors.ts:15:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/errors.ts:16:3 - (ae-undocumented) Missing documentation for "details".
+// src/graph/errors.ts:26:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:27:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:50:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:51:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/errors.ts:108:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:114:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:138:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/errors.ts:143:3 - (ae-undocumented) Missing documentation for "details".
+// src/graph/errors.ts:148:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:149:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/errors.ts:150:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/errors.ts:151:3 - (ae-undocumented) Missing documentation for "guard".
-// src/graph/limits.ts:34:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/limits.ts:35:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:36:3 - (ae-undocumented) Missing documentation for "key".
-// src/graph/limits.ts:37:3 - (ae-undocumented) Missing documentation for "limit".
-// src/graph/limits.ts:38:3 - (ae-undocumented) Missing documentation for "actual".
-// src/graph/limits.ts:39:3 - (ae-undocumented) Missing documentation for "path".
-// src/graph/limits.ts:40:3 - (ae-undocumented) Missing documentation for "spentUsd".
-// src/graph/limits.ts:41:3 - (ae-undocumented) Missing documentation for "usage".
-// src/graph/limits.ts:107:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/limits.ts:108:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:147:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/limits.ts:148:12 - (ae-undocumented) Missing documentation for "name".
-// src/graph/limits.ts:149:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/graph/limits.ts:150:3 - (ae-undocumented) Missing documentation for "maxSteps".
-// src/graph/limits.ts:151:3 - (ae-undocumented) Missing documentation for "steps".
+// src/graph/errors.ts:151:3 - (ae-undocumented) Missing documentation for "agent".
+// src/graph/errors.ts:168:3 - (ae-undocumented) Missing documentation for "judge".
+// src/graph/errors.ts:169:3 - (ae-undocumented) Missing documentation for "reason".
+// src/graph/errors.ts:174:3 - (ae-undocumented) Missing documentation for "agent".
+// src/graph/errors.ts:175:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/errors.ts:178:3 - (ae-undocumented) Missing documentation for "retries".
+// src/graph/errors.ts:185:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:186:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:187:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:190:3 - (ae-undocumented) Missing documentation for "retries".
+// src/graph/errors.ts:210:3 - (ae-undocumented) Missing documentation for "guard".
+// src/graph/errors.ts:211:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/errors.ts:220:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:221:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/errors.ts:222:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/errors.ts:223:3 - (ae-undocumented) Missing documentation for "guard".
+// src/graph/errors.ts:224:3 - (ae-undocumented) Missing documentation for "reason".
+// src/graph/limits.ts:19:3 - (ae-undocumented) Missing documentation for "limit".
+// src/graph/limits.ts:22:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:23:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:30:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/limits.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:50:3 - (ae-undocumented) Missing documentation for "key".
+// src/graph/limits.ts:51:3 - (ae-undocumented) Missing documentation for "limit".
+// src/graph/limits.ts:52:3 - (ae-undocumented) Missing documentation for "actual".
+// src/graph/limits.ts:53:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:54:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:55:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/limits.ts:95:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:96:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:97:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/limits.ts:98:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/limits.ts:122:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:123:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:124:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:169:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/graph/limits.ts:170:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/graph/limits.ts:171:3 - (ae-undocumented) Missing documentation for "path".
+// src/graph/limits.ts:172:3 - (ae-undocumented) Missing documentation for "spentUsd".
+// src/graph/limits.ts:173:3 - (ae-undocumented) Missing documentation for "cause".
+// src/graph/limits.ts:178:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:179:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/limits.ts:180:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/limits.ts:181:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/graph/limits.ts:182:3 - (ae-undocumented) Missing documentation for "maxSteps".
+// src/graph/limits.ts:183:3 - (ae-undocumented) Missing documentation for "steps".
 // src/graph/rule-error.ts:7:3 - (ae-undocumented) Missing documentation for "code".
 // src/graph/rule-error.ts:8:3 - (ae-undocumented) Missing documentation for "message".
 // src/graph/rule-error.ts:9:3 - (ae-undocumented) Missing documentation for "nodes".
@@ -8180,8 +8884,14 @@ export interface WrittenLedgerMark {
 // src/graph/settings.ts:19:23 - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts:21:3 - (ae-undocumented) Missing documentation for "builder".
 // src/graph/settings.ts:36:3 - (ae-undocumented) Missing documentation for "settings".
-// src/graph/tool-blocked-error.ts:11:3 - (ae-undocumented) Missing documentation for "code".
-// src/graph/tool-blocked-error.ts:12:12 - (ae-undocumented) Missing documentation for "name".
+// src/graph/tool-blocked-error.ts:7:3 - (ae-undocumented) Missing documentation for "agent".
+// src/graph/tool-blocked-error.ts:8:3 - (ae-undocumented) Missing documentation for "tool".
+// src/graph/tool-blocked-error.ts:9:3 - (ae-undocumented) Missing documentation for "interceptor".
+// src/graph/tool-blocked-error.ts:10:3 - (ae-undocumented) Missing documentation for "reason".
+// src/graph/tool-blocked-error.ts:11:3 - (ae-undocumented) Missing documentation for "usage".
+// src/graph/tool-blocked-error.ts:22:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/tool-blocked-error.ts:23:3 - (ae-undocumented) Missing documentation for "code".
+// src/graph/tool-blocked-error.ts:24:12 - (ae-undocumented) Missing documentation for "name".
 // src/health/health-check.ts:52:3 - (ae-undocumented) Missing documentation for "kind".
 // src/health/health-check.ts:53:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:62:3 - (ae-undocumented) Missing documentation for "status".
@@ -8207,9 +8917,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-file.repository.ts:42:3 - (ae-undocumented) Missing documentation for "filename".
 // src/infrastructure/a2a-file.repository.ts:45:3 - (ae-undocumented) Missing documentation for "sizeBytes".
 // src/infrastructure/a2a-file.repository.ts:52:3 - (ae-undocumented) Missing documentation for "bytes".
-// src/infrastructure/a2a-file.repository.ts:57:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-file.repository.ts:59:15 - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts:64:1 - (ae-undocumented) Missing documentation for "A2AFileRepository".
+// src/infrastructure/a2a-file.repository.ts:57:3 - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts:58:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-file.repository.ts:63:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts:64:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts:66:3 - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts:74:1 - (ae-undocumented) Missing documentation for "A2AFileRepository".
 // src/infrastructure/a2a-task.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Submitted".
 // src/infrastructure/a2a-task.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Working".
 // src/infrastructure/a2a-task.repository.ts:25:3 - (ae-undocumented) Missing documentation for "InputRequired".
@@ -8236,22 +8949,14 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts:164:3 - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts:175:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/infrastructure/a2a-task.repository.ts:176:3 - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts:186:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts:193:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts:217:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts:219:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/a2a-task.repository.ts:186:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-task.repository.ts:191:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:192:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts:199:1 - (ae-undocumented) Missing documentation for "A2ATaskRepository".
+// src/infrastructure/a2a-task.repository.ts:223:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/a2a-task.repository.ts:225:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts:118:5 - (ae-undocumented) Missing documentation for "source".
-// src/infrastructure/cost-ledger.repository.ts:48:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/cost-ledger.repository.ts:112:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:113:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:114:3 - (ae-undocumented) Missing documentation for "index".
-// src/infrastructure/cost-ledger.repository.ts:115:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/cost-ledger.repository.ts:180:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:181:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:264:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/cost-ledger.repository.ts:265:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/cost-ledger.repository.ts:266:3 - (ae-undocumented) Missing documentation for "ledgerIds".
-// src/infrastructure/cost-ledger.repository.ts:267:3 - (ae-undocumented) Missing documentation for "prunedBefore".
+// src/infrastructure/cost-ledger.repository.ts:52:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
@@ -8310,48 +9015,62 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-errors.ts:13:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts:14:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts:27:3 - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-errors.ts:35:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts:36:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts:37:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts:38:3 - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-errors.ts:54:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
-// src/infrastructure/fenced-effect-errors.ts:64:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts:65:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts:66:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:12:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-errors.ts:40:3 - (ae-undocumented) Missing documentation for "rule".
+// src/infrastructure/fenced-effect-errors.ts:41:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-errors.ts:52:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:53:3 - (ae-undocumented) Missing documentation for "rule".
+// src/infrastructure/fenced-effect-errors.ts:70:3 - (ae-undocumented) Missing documentation for "businessKeyHash".
+// src/infrastructure/fenced-effect-errors.ts:71:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-errors.ts:81:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:82:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:83:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/fenced-effect-errors.ts:84:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts:85:3 - (ae-undocumented) Missing documentation for "path".
-// src/infrastructure/fenced-effect-errors.ts:86:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-errors.ts:95:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts:96:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts:97:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:103:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:104:3 - (ae-undocumented) Missing documentation for "path".
+// src/infrastructure/fenced-effect-errors.ts:105:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-errors.ts:106:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-errors.ts:115:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:116:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:117:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-errors.ts:118:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-fingerprint.ts:40:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts:41:3 - (ae-undocumented) Missing documentation for "fingerprintPolicy".
 // src/infrastructure/fenced-effect-fingerprint.ts:46:3 - (ae-undocumented) Missing documentation for "fingerprintPolicy".
 // src/infrastructure/fenced-effect-fingerprint.ts:47:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts:55:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts:56:3 - (ae-undocumented) Missing documentation for "fingerprintPolicy".
-// src/infrastructure/fenced-effect-fingerprint.ts:157:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts:158:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts:168:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts:169:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts:170:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts:171:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts:215:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts:216:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts:217:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-fingerprint.ts:159:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-fingerprint.ts:160:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-fingerprint.ts:170:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:171:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:172:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-fingerprint.ts:173:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-fingerprint.ts:174:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-fingerprint.ts:213:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-fingerprint.ts:214:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-fingerprint.ts:224:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:225:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-fingerprint.ts:226:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-fingerprint.ts:227:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-key.ts:78:1 - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-key.ts:83:1 - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-key.ts:88:1 - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-settings.ts:174:3 - (ae-undocumented) Missing documentation for "size".
 // src/infrastructure/fenced-effect-settings.ts:175:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-settings.ts:184:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts:185:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-settings.ts:186:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-settings.ts:187:3 - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts:188:3 - (ae-undocumented) Missing documentation for "maxResultSize".
+// src/infrastructure/fenced-effect-settings.ts:176:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-settings.ts:185:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-settings.ts:186:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-settings.ts:187:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-settings.ts:188:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-settings.ts:189:3 - (ae-undocumented) Missing documentation for "size".
+// src/infrastructure/fenced-effect-settings.ts:190:3 - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:112:3 - (ae-undocumented) Missing documentation for "store".
@@ -8379,10 +9098,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/in-memory-fenced-effect.repository.ts:87:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:219:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:220:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:232:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:233:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:235:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:233:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:235:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:236:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -8460,9 +9181,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:122:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:126:3 - (ae-undocumented) Missing documentation for "runInTransaction".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:135:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:228:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:229:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:230:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:224:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:235:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:236:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:38:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:42:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:52:3 - (ae-undocumented) Missing documentation for "findByKey".
@@ -8479,19 +9203,19 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:115:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:119:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:129:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:145:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:152:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:162:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:166:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:173:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:177:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:189:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:201:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:213:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:218:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:130:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:144:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:160:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:167:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:177:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:181:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:188:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:192:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:204:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:216:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:228:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:233:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -8501,15 +9225,22 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:133:3 - (ae-undocumented) Missing documentation for "pauseUntil".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:143:3 - (ae-undocumented) Missing documentation for "pausedUntil".
 // src/llm/decision-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts:6:12 - (ae-undocumented) Missing documentation for "name".
-// src/llm/decision-errors.ts:11:3 - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts:12:12 - (ae-undocumented) Missing documentation for "name".
+// src/llm/decision-errors.ts:6:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:8:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts:17:3 - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts:18:12 - (ae-undocumented) Missing documentation for "name".
-// src/llm/decision-errors.ts:23:3 - (ae-undocumented) Missing documentation for "Chat".
-// src/llm/decision-errors.ts:24:3 - (ae-undocumented) Missing documentation for "Decisions".
-// src/llm/decision-errors.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts:33:12 - (ae-undocumented) Missing documentation for "name".
+// src/llm/decision-errors.ts:18:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:19:12 - (ae-undocumented) Missing documentation for "name".
+// src/llm/decision-errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/llm/decision-errors.ts:31:3 - (ae-undocumented) Missing documentation for "Chat".
+// src/llm/decision-errors.ts:32:3 - (ae-undocumented) Missing documentation for "Decisions".
+// src/llm/decision-errors.ts:39:3 - (ae-undocumented) Missing documentation for "kind".
+// src/llm/decision-errors.ts:40:3 - (ae-undocumented) Missing documentation for "call".
+// src/llm/decision-errors.ts:41:3 - (ae-undocumented) Missing documentation for "cause".
+// src/llm/decision-errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
+// src/llm/decision-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
 // src/llm/decisions.ts:5:3 - (ae-undocumented) Missing documentation for "Auto".
 // src/llm/decisions.ts:6:3 - (ae-undocumented) Missing documentation for "Low".
 // src/llm/decisions.ts:7:3 - (ae-undocumented) Missing documentation for "High".
@@ -8538,10 +9269,10 @@ export interface WrittenLedgerMark {
 // src/llm/decisions.ts:70:1 - (ae-undocumented) Missing documentation for "DecisionAnswer".
 // src/llm/decisions.ts:87:3 - (ae-undocumented) Missing documentation for "state".
 // src/llm/decisions.ts:88:3 - (ae-undocumented) Missing documentation for "questions".
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
 // src/loader/load-errors.ts:3:12 - (ae-undocumented) Missing documentation for "name".
 // src/mesh/mesh-call.ts:23:3 - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".
@@ -8551,14 +9282,18 @@ export interface WrittenLedgerMark {
 // src/mesh/mesh-envelope.ts:103:3 - (ae-undocumented) Missing documentation for "schema".
 // src/mesh/mesh-envelope.ts:118:3 - (ae-undocumented) Missing documentation for "total".
 // src/mesh/mesh-envelope.ts:119:3 - (ae-undocumented) Missing documentation for "currency".
-// src/mesh/mesh-errors.ts:27:3 - (ae-undocumented) Missing documentation for "code".
-// src/mesh/mesh-errors.ts:28:12 - (ae-undocumented) Missing documentation for "name".
-// src/mesh/mesh-errors.ts:47:3 - (ae-undocumented) Missing documentation for "code".
-// src/mesh/mesh-errors.ts:48:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:30:48 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:32:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:35:5 - (ae-undocumented) Missing documentation for "provider".
+// src/mesh/mesh-errors.ts:29:3 - (ae-undocumented) Missing documentation for "cause".
+// src/mesh/mesh-errors.ts:40:3 - (ae-undocumented) Missing documentation for "code".
+// src/mesh/mesh-errors.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/mesh/mesh-errors.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/mesh/mesh-errors.ts:69:3 - (ae-undocumented) Missing documentation for "code".
+// src/mesh/mesh-errors.ts:70:3 - (ae-undocumented) Missing documentation for "code".
+// src/mesh/mesh-errors.ts:71:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:35:3 - (ae-undocumented) Missing documentation for "message".
+// src/models/circuit-breaker.ts:36:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/circuit-breaker.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:42:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker.ts:43:3 - (ae-undocumented) Missing documentation for "code".
 // src/pause/types.ts:80:3 - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts:87:3 - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts:10:3 - (ae-undocumented) Missing documentation for "ReplaceWithKind".
@@ -8580,9 +9315,13 @@ export interface WrittenLedgerMark {
 // src/pii/actions.ts:55:3 - (ae-undocumented) Missing documentation for "refusal".
 // src/pii/actions.ts:66:3 - (ae-undocumented) Missing documentation for "refusal".
 // src/pii/detectors/model.ts:19:3 - (ae-undocumented) Missing documentation for "code".
-// src/pii/detectors/model.ts:20:12 - (ae-undocumented) Missing documentation for "name".
-// src/pii/errors.ts:10:3 - (ae-undocumented) Missing documentation for "code".
-// src/pii/errors.ts:11:12 - (ae-undocumented) Missing documentation for "name".
+// src/pii/detectors/model.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/pii/detectors/model.ts:21:12 - (ae-undocumented) Missing documentation for "name".
+// src/pii/errors.ts:10:3 - (ae-undocumented) Missing documentation for "usage".
+// src/pii/errors.ts:11:3 - (ae-undocumented) Missing documentation for "cause".
+// src/pii/errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/pii/errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
+// src/pii/errors.ts:22:12 - (ae-undocumented) Missing documentation for "name".
 // src/pii/kinds.ts:7:3 - (ae-undocumented) Missing documentation for "Email".
 // src/pii/kinds.ts:8:3 - (ae-undocumented) Missing documentation for "Phone".
 // src/pii/kinds.ts:9:3 - (ae-undocumented) Missing documentation for "StreetAddress".
@@ -8635,26 +9374,27 @@ export interface WrittenLedgerMark {
 // src/run/compaction.ts:39:3 - (ae-undocumented) Missing documentation for "toTurn".
 // src/run/compaction.ts:42:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/run/resume-agent.ts:18:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts:19:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:19:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:20:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:93:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:94:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:95:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-agent.ts:107:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:108:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-agent.ts:109:12 - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-guard.ts:12:3 - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts:13:3 - (ae-undocumented) Missing documentation for "configHash".
 // src/run/resume-guard.ts:18:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/run/resume-guard.ts:19:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/run/resume-guard.ts:42:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-guard.ts:43:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/resume-guard.ts:44:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/resume-guard.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/run/resume-guard.ts:46:3 - (ae-undocumented) Missing documentation for "paused".
-// src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/thread.ts:31:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/run/thread.ts:32:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:33:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:38:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:39:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:47:3 - (ae-undocumented) Missing documentation for "code".
-// src/run/thread.ts:48:12 - (ae-undocumented) Missing documentation for "name".
-// src/run/thread.ts:49:3 - (ae-undocumented) Missing documentation for "rule".
-// src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "terns".
+// src/run/resume-guard.ts:28:3 - (ae-undocumented) Missing documentation for "cause".
+// src/run/resume-guard.ts:47:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-guard.ts:48:3 - (ae-undocumented) Missing documentation for "code".
+// src/run/resume-guard.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/run/resume-guard.ts:50:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/resume-guard.ts:51:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/run/resume-guard.ts:52:3 - (ae-undocumented) Missing documentation for "paused".
+// src/run/resume-guard.ts:53:3 - (ae-undocumented) Missing documentation for "current".
+// src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "turns".
 // src/run/types.ts:40:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:63:3 - (ae-undocumented) Missing documentation for "scope".
 // src/run/types.ts:64:3 - (ae-undocumented) Missing documentation for "outdatedValues".
@@ -8665,48 +9405,51 @@ export interface WrittenLedgerMark {
 // src/run/types.ts:93:3 - (ae-undocumented) Missing documentation for "budgetUsd".
 // src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "cost".
 // src/run/types.ts:95:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "ternId".
+// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "turnId".
 // src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "data".
-// src/terns/types.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
-// src/terns/types.ts:26:3 - (ae-undocumented) Missing documentation for "content".
-// src/terns/types.ts:29:1 - (ae-undocumented) Missing documentation for "Turn".
-// src/terns/types.ts:30:3 - (ae-undocumented) Missing documentation for "id".
-// src/terns/types.ts:33:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/terns/types.ts:36:3 - (ae-undocumented) Missing documentation for "bundle".
-// src/terns/types.ts:37:3 - (ae-undocumented) Missing documentation for "createdAt".
-// src/terns/types.ts:38:3 - (ae-undocumented) Missing documentation for "task".
-// src/terns/types.ts:39:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/terns/types.ts:40:3 - (ae-undocumented) Missing documentation for "status".
-// src/terns/types.ts:41:3 - (ae-undocumented) Missing documentation for "stopReason".
-// src/terns/types.ts:42:3 - (ae-undocumented) Missing documentation for "route".
-// src/terns/types.ts:43:3 - (ae-undocumented) Missing documentation for "steps".
-// src/terns/types.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/terns/types.ts:45:3 - (ae-undocumented) Missing documentation for "promptVersion".
-// src/terns/types.ts:46:3 - (ae-undocumented) Missing documentation for "modelVersion".
-// src/terns/types.ts:51:3 - (ae-undocumented) Missing documentation for "configHash".
-// src/terns/types.ts:54:1 - (ae-undocumented) Missing documentation for "NewTurn".
-// src/terns/types.ts:58:3 - (ae-undocumented) Missing documentation for "id".
-// src/terns/types.ts:61:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/terns/types.ts:62:3 - (ae-undocumented) Missing documentation for "bundle".
-// src/terns/types.ts:65:3 - (ae-undocumented) Missing documentation for "fromTernId".
-// src/terns/types.ts:66:3 - (ae-undocumented) Missing documentation for "toTernId".
-// src/terns/types.ts:67:3 - (ae-undocumented) Missing documentation for "turns".
-// src/terns/types.ts:68:3 - (ae-undocumented) Missing documentation for "text".
-// src/terns/types.ts:69:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/terns/types.ts:70:3 - (ae-undocumented) Missing documentation for "createdAt".
-// src/terns/types.ts:73:1 - (ae-undocumented) Missing documentation for "NewSummary".
-// src/terns/types.ts:77:3 - (ae-undocumented) Missing documentation for "version".
-// src/terns/types.ts:78:3 - (ae-undocumented) Missing documentation for "hash".
-// src/terns/types.ts:79:3 - (ae-undocumented) Missing documentation for "snapshot".
-// src/terns/types.ts:80:3 - (ae-undocumented) Missing documentation for "firstSeen".
-// src/terns/types.ts:152:3 - (ae-undocumented) Missing documentation for "promptVersion".
-// src/terns/types.ts:153:3 - (ae-undocumented) Missing documentation for "terns".
-// src/terns/types.ts:154:3 - (ae-undocumented) Missing documentation for "scored".
-// src/terns/types.ts:155:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/terns/types.ts:156:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
-// src/tools/define-tool.ts:35:3 - (ae-undocumented) Missing documentation for "code".
-// src/tools/define-tool.ts:36:12 - (ae-undocumented) Missing documentation for "name".
+// src/tools/define-tool.ts:35:3 - (ae-undocumented) Missing documentation for "timeout".
+// src/tools/define-tool.ts:36:3 - (ae-undocumented) Missing documentation for "cause".
+// src/tools/define-tool.ts:41:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:42:3 - (ae-undocumented) Missing documentation for "code".
+// src/tools/define-tool.ts:43:12 - (ae-undocumented) Missing documentation for "name".
+// src/turns/types.ts:25:3 - (ae-undocumented) Missing documentation for "agent".
+// src/turns/types.ts:26:3 - (ae-undocumented) Missing documentation for "content".
+// src/turns/types.ts:29:1 - (ae-undocumented) Missing documentation for "Turn".
+// src/turns/types.ts:30:3 - (ae-undocumented) Missing documentation for "id".
+// src/turns/types.ts:33:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/types.ts:36:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts:37:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/turns/types.ts:38:3 - (ae-undocumented) Missing documentation for "task".
+// src/turns/types.ts:39:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/turns/types.ts:40:3 - (ae-undocumented) Missing documentation for "status".
+// src/turns/types.ts:41:3 - (ae-undocumented) Missing documentation for "stopReason".
+// src/turns/types.ts:42:3 - (ae-undocumented) Missing documentation for "route".
+// src/turns/types.ts:43:3 - (ae-undocumented) Missing documentation for "steps".
+// src/turns/types.ts:44:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/turns/types.ts:45:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/turns/types.ts:46:3 - (ae-undocumented) Missing documentation for "modelVersion".
+// src/turns/types.ts:51:3 - (ae-undocumented) Missing documentation for "configHash".
+// src/turns/types.ts:54:1 - (ae-undocumented) Missing documentation for "NewTurn".
+// src/turns/types.ts:58:3 - (ae-undocumented) Missing documentation for "id".
+// src/turns/types.ts:61:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/types.ts:62:3 - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts:65:3 - (ae-undocumented) Missing documentation for "fromTurnId".
+// src/turns/types.ts:66:3 - (ae-undocumented) Missing documentation for "toTurnId".
+// src/turns/types.ts:67:3 - (ae-undocumented) Missing documentation for "turns".
+// src/turns/types.ts:68:3 - (ae-undocumented) Missing documentation for "text".
+// src/turns/types.ts:69:3 - (ae-undocumented) Missing documentation for "costUsd".
+// src/turns/types.ts:70:3 - (ae-undocumented) Missing documentation for "createdAt".
+// src/turns/types.ts:73:1 - (ae-undocumented) Missing documentation for "NewSummary".
+// src/turns/types.ts:77:3 - (ae-undocumented) Missing documentation for "version".
+// src/turns/types.ts:78:3 - (ae-undocumented) Missing documentation for "hash".
+// src/turns/types.ts:79:3 - (ae-undocumented) Missing documentation for "snapshot".
+// src/turns/types.ts:80:3 - (ae-undocumented) Missing documentation for "firstSeen".
+// src/turns/types.ts:152:3 - (ae-undocumented) Missing documentation for "promptVersion".
+// src/turns/types.ts:153:3 - (ae-undocumented) Missing documentation for "turns".
+// src/turns/types.ts:154:3 - (ae-undocumented) Missing documentation for "scored".
+// src/turns/types.ts:155:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/turns/types.ts:156:3 - (ae-undocumented) Missing documentation for "costUsd".
 // src/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "config".
 // src/workflow.ts:70:3 - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts:71:3 - (ae-undocumented) Missing documentation for "tools".

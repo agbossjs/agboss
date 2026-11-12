@@ -352,7 +352,7 @@ describe("#824: a follow-up sent again", () => {
       "resolved",
       undefined,
     ]);
-    expect(await lostWith(pausedOn("p-1"), new NotPausedError("x"))).toEqual([
+    expect(await lostWith(pausedOn("p-1"), new NotPausedError({ message: "x" }))).toEqual([
       "resolved",
       undefined,
     ]);

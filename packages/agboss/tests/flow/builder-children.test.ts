@@ -64,9 +64,10 @@ describe("#263: a child workflow in the AST", () => {
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto);
     expect(() => picked.toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })).toThrow(
-      new FlowSyntaxError(
-        "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it",
-      ),
+      new FlowSyntaxError({
+        message:
+          "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it",
+      }),
     );
     expect(() =>
       found().toParallelWorkflows(CompanyReviewWorkflow, CompanyReviewWorkflow, { maxItems: 5 }),

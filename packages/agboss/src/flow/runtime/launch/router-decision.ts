@@ -61,7 +61,7 @@ function checkLaunches(
   if (launch.length > 0 || hasAlwaysRoute(node)) return;
   const reason =
     "it launched none of its OnDemand routes and has no Always route — nothing would run";
-  throw new RouterDecisionError(step, reason, usage);
+  throw new RouterDecisionError({ ...step, reason, usage });
 }
 
 const traceEntry = RunnableLambda.from((trace: object) => trace);
@@ -111,20 +111,20 @@ export function codeRouterLaunch(
   answer: unknown,
 ): readonly string[] {
   if (!Array.isArray(answer))
-    throw new RouterDecisionError(
-      step,
-      "before .toParallelAgents(…) route() returns a list of its OnDemand targets",
-    );
+    throw new RouterDecisionError({
+      ...step,
+      reason: "before .toParallelAgents(…) route() returns a list of its OnDemand targets",
+    });
   const allowed = onDemandTargetsOf(node);
   const names = (answer as readonly unknown[]).map((target) =>
     isClass(target) ? nameOf(target) : String(target),
   );
   const outside = names.find((name) => !allowed.includes(name));
   if (outside !== undefined)
-    throw new RouterDecisionError(
-      step,
-      `route() returned ${outside}: not one of its OnDemand routes (${allowed.join(", ")})`,
-    );
+    throw new RouterDecisionError({
+      ...step,
+      reason: `route() returned ${outside}: not one of its OnDemand routes (${allowed.join(", ")})`,
+    });
   const launch = allowed.filter((name) => names.includes(name));
   checkLaunches(node, step, launch, []);
   return launch;

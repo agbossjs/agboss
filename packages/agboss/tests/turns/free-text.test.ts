@@ -8,10 +8,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore, openTernDatabase, type NewTurn } from "../../src/terns/index.js";
+import { createSqliteTurnStore, openTurnDatabase, type NewTurn } from "../../src/turns/index.js";
 import { NUL_TEXT } from "../../src/testing/contracts/nul-text.js";
 
-const tern = (threadId: string, overrides: Partial<NewTurn> = {}): NewTurn => ({
+const turn = (threadId: string, overrides: Partial<NewTurn> = {}): NewTurn => ({
   runId: "run-1",
   threadId,
   tenantId: "default",
@@ -34,7 +34,7 @@ const tern = (threadId: string, overrides: Partial<NewTurn> = {}): NewTurn => ({
 /** A database of version 13 (every migration before #521) with one turn and one summary of raw text. */
 async function version13(): Promise<string> {
   const path = join(await mkdtemp(join(tmpdir(), "terns-")), "v13.sqlite");
-  openTernDatabase(path).close();
+  openTurnDatabase(path).close();
   const old = new DatabaseSync(path);
   old.exec(`PRAGMA user_version = 13;
     INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES ('t', 'b', '2026-01-01', 'default');
@@ -50,18 +50,18 @@ line 2', 'answered', 'done', '[]', '[]', 0, 'p', 'm', 'default');
 
 describe("#521 AC4: the SQLite Turn store keeps free text as JSON text", () => {
   it("AC4: a task, an answer, a stop reason and a summary with a NUL character read back unchanged", async () => {
-    const store = createSqliteTernStore(":memory:", () => new Date());
+    const store = createSqliteTurnStore(":memory:", () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });
     const appended = await store.append(
-      tern(thread, { task: NUL_TEXT, replyWith: NUL_TEXT, stopReason: NUL_TEXT }),
+      turn(thread, { task: NUL_TEXT, replyWith: NUL_TEXT, stopReason: NUL_TEXT }),
     );
     await store.addSummary({
       tenantId: "default",
       threadId: thread,
       bundle: "b",
       compaction: "conversation-compaction",
-      fromTernId: appended.id,
-      toTernId: appended.id,
+      fromTurnId: appended.id,
+      toTurnId: appended.id,
       turns: 1,
       text: NUL_TEXT,
       costUsd: 0,
@@ -77,9 +77,9 @@ describe("#521 AC4: the SQLite Turn store keeps free text as JSON text", () => {
 
   it("AC4: the column holds the text as JSON — no NUL byte stored", async () => {
     const path = join(await mkdtemp(join(tmpdir(), "terns-")), "nul.sqlite");
-    const store = createSqliteTernStore(path, () => new Date());
+    const store = createSqliteTurnStore(path, () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });
-    await store.append(tern(thread, { task: "a\u0000b" }));
+    await store.append(turn(thread, { task: "a\u0000b" }));
     store.close();
 
     const raw = new DatabaseSync(path);
@@ -94,7 +94,7 @@ describe("#521 AC4: the SQLite Turn store keeps free text as JSON text", () => {
   it("AC4: migration 14 rewrites an older database's text as JSON — its rows read back as they were", async () => {
     const path = await version13();
 
-    const store = createSqliteTernStore(path, () => new Date());
+    const store = createSqliteTurnStore(path, () => new Date());
     const [old] = await store.byIds(["old"]);
     const [summary] = await store.latestSummaries("default", "t", "conversation-compaction", 1);
 

@@ -11,14 +11,14 @@ import {
   settledOutcome,
   type KeptReply,
 } from "../../../src/a2a/server/a2a-follow-up-outcome.js";
-import { UnknownPauseError } from "../../../src/app/resume.js";
+import { UnknownPauseError } from "../../../src/run/resume-agent.js";
 import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
-} from "../../../src/channels/channel-role.decorator.js";
+} from "../../../src/channels/decision.js";
 import { DtoValidationError } from "../../../src/dto/errors.js";
 import { NotPausedError } from "../../../src/run/resume-agent.js";
-import { ThreadOwnerError } from "../../../src/run/thread.js";
+import { ThreadOwnerError } from "../../../src/core/errors.js";
 import { scriptOf, unitParts } from "./support/unit-parts.js";
 
 type Refusal = Exclude<KeptReply, { readonly accepted: true }>;
@@ -88,15 +88,15 @@ describe("#824: a resume that settled", () => {
   });
 
   it("refused before its pause took the answer, whether the pause still waits or not", () => {
-    const reply = new UninterpretableReplyError("x", { reason: "r" });
+    const reply = new UninterpretableReplyError({ message: "x", reason: "r" });
     for (const isStillPending of [true, false])
       expect(
         [
-          new NotPausedError("x"),
-          new UnknownPauseError("x"),
-          new ThreadOwnerError("x"),
+          new NotPausedError({ message: "x" }),
+          new UnknownPauseError({ message: "x" }),
+          new ThreadOwnerError({ message: "x" }),
           reply,
-          new ReplyInterpreterMissingError("x"),
+          new ReplyInterpreterMissingError({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),
       ).toEqual([
         { refused: "unsupported", code: "a2a.already-answered" },
@@ -108,7 +108,7 @@ describe("#824: a resume that settled", () => {
   });
 
   it("an invalid decision, its pause still waiting: refused; the pause gone: the answer was taken", () => {
-    const invalid = new DtoValidationError("Decision", []);
+    const invalid = new DtoValidationError({ dto: "Decision", issues: [] });
 
     expect(outcomeOf(invalid, true).outcome).toEqual({
       refused: "invalid-params",

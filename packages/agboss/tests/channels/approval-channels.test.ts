@@ -1,6 +1,6 @@
 import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";

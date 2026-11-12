@@ -12,7 +12,7 @@ import { recordEndedOf, recoveryPassOf, RootCalls } from "../../src/app/recovery
 import type { TreeMoves } from "../../src/app/tree-moves.js";
 import { IncompatibleResumeError, type IncompatibleResume } from "../../src/run/resume-guard.js";
 import type { InterruptedRun } from "../../src/run/continue-agent.js";
-import type { Turn } from "../../src/terns/index.js";
+import type { Turn } from "../../src/turns/index.js";
 
 const mocks = vi.hoisted(() => ({ treeResumeNow: vi.fn() }));
 
@@ -43,7 +43,7 @@ function partsOf(owner?: string) {
   };
   const deps: AppDeps = {
     config: { name: "desk-workflow", version: "2.0.0" },
-    terns: {
+    turns: {
       threadOwner: vi.fn(() => Promise.resolve(owner === undefined ? undefined : { owner })),
     },
   } as never;
@@ -84,14 +84,14 @@ describe("#633: recoverRootOf", () => {
         runId: "root-1",
         threadId: "thread-1",
         tenantId: "acme",
-        ternId: "tern-1",
+        turnId: "tern-1",
         startedVersion: "0.9.0",
       },
       {
         runId: "root-1",
         threadId: "thread-1",
         tenantId: "acme",
-        ternId: "tern-1",
+        turnId: "tern-1",
         startedVersion: "2.0.0",
       },
     ]);
@@ -212,7 +212,7 @@ describe("#633: recoveryPassOf", () => {
     runId: "root-1",
     threadId: "thread-1",
     tenantId: "acme",
-    ternId: "tern-1",
+    turnId: "tern-1",
   } as InterruptedRun;
   const call = { signal } as never;
   const resume = { values: {}, pauseIds: ["pause-1"], taken: [], decisions: [], answerers: [] };
@@ -220,7 +220,7 @@ describe("#633: recoveryPassOf", () => {
   function passParts(status: string, stored: unknown) {
     const find = vi.fn(() => Promise.resolve(stored));
     const deps: AppDeps = {
-      terns: { byIds: () => Promise.resolve([{ status }]) },
+      turns: { byIds: () => Promise.resolve([{ status }]) },
     } as never;
     return { find, parts: { deps, paused: { find } } as never };
   }
@@ -257,12 +257,12 @@ describe("#633: recoveryPassOf", () => {
   });
 
   it("recordEndedOf: a record gone counts as ended, a running one does not", async () => {
-    const terns = (records: readonly { status: string }[]) => ({
+    const turns = (records: readonly { status: string }[]) => ({
       byIds: () => Promise.resolve(records as never),
     });
 
-    expect(await recordEndedOf(terns([]), "tern-1")()).toBe(true);
-    expect(await recordEndedOf(terns([{ status: "running" }]), "tern-1")()).toBe(false);
+    expect(await recordEndedOf(turns([]), "tern-1")()).toBe(true);
+    expect(await recordEndedOf(turns([{ status: "running" }]), "tern-1")()).toBe(false);
   });
 });
 

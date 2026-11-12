@@ -18,7 +18,7 @@ import type { Class } from "../../src/components/injection.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { configSnapshot } from "../../src/run/versions.js";
-import { versionOf } from "../../src/terns/index.js";
+import { versionOf } from "../../src/turns/index.js";
 import { decideWith, testGuardrail } from "../../src/testing/index.js";
 import {
   BrokenGuardrail,

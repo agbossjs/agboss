@@ -8,6 +8,20 @@ export interface AGBossErrorOptions {
 }
 
 /**
+ * What an error that has nothing to say but its message takes (#906): `new X({ message, cause })`.
+ * Every error the framework throws is made from one options object — its keys are the error's own
+ * properties, `cause` among them; `message` is the one fact of an error with no other.
+ */
+export interface MessageErrorOptions extends AGBossErrorOptions {
+  readonly message: string;
+}
+
+/** The options of `ExecutionCancelledError`: the message is optional. */
+export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
+  readonly message?: string;
+}
+
+/**
  * The base of every error the framework throws at run time. Each class has a stable `code`
  * (`static code`, also on the instance) — what `catchError` matches and what an error record keeps
  * after a checkpoint. A subclass's code extends its parent's (`limit` → `limit.budget`), so catching
@@ -29,9 +43,12 @@ export class AGBossError extends Error {
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {
   static override readonly code = "execution.cancelled" as const;
+  declare readonly code: typeof ExecutionCancelledError.code;
   override name = "ExecutionCancelledError";
-  constructor(message = "the execution was cancelled externally") {
-    super(message);
+
+  constructor(options: ExecutionCancelledErrorOptions = {}) {
+    const { message = "the execution was cancelled externally", ...rest } = options;
+    super(message, rest);
   }
 }
 
@@ -42,7 +59,12 @@ export class ExecutionCancelledError extends AGBossError {
  */
 export class ApplicationStoppingError extends AGBossError {
   static override readonly code = "app.stopping" as const;
+  declare readonly code: typeof ApplicationStoppingError.code;
   override name = "ApplicationStoppingError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** At most this long: a thread id or a business key is a key, not data (#262 Q4, #508). */
@@ -177,6 +199,7 @@ export interface InvalidMintedIdErrorOptions {
   readonly generator: string;
   readonly method: "newThreadId" | "newExecutionId";
   readonly rule: KeyTextRule;
+  readonly cause?: unknown;
 }
 
 /**
@@ -187,6 +210,7 @@ export interface InvalidMintedIdErrorOptions {
  */
 export class InvalidMintedIdError extends AGBossError {
   static override readonly code = "run.invalid-minted-id" as const;
+  declare readonly code: typeof InvalidMintedIdError.code;
   override name = "InvalidMintedIdError";
   /** The generator's class name. */
   readonly generator: string;
@@ -196,15 +220,22 @@ export class InvalidMintedIdError extends AGBossError {
   readonly rule: KeyTextRule;
 
   constructor(options: InvalidMintedIdErrorOptions) {
-    const { generator, method, rule } = options;
+    const { generator, method, rule, cause } = options;
     super(
       `${generator}.${method}() minted an id that is no key (${rule}): ${KEY_TEXT_RULE_TEXT[rule]} — fix the IdGenerator`,
-      { details: { generator, method, rule } },
+      { cause, details: { generator, method, rule } },
     );
     this.generator = generator;
     this.method = method;
     this.rule = rule;
   }
+}
+
+/** What `DuplicateExecutionIdError` names. */
+export interface DuplicateExecutionIdErrorOptions {
+  /** The generator's class name. */
+  readonly generator: string;
+  readonly cause?: unknown;
 }
 
 /**
@@ -217,15 +248,17 @@ export class InvalidMintedIdError extends AGBossError {
 export class DuplicateExecutionIdError extends AGBossError {
   /** `run.duplicate-execution-id`. */
   static override readonly code = "run.duplicate-execution-id" as const;
+  declare readonly code: typeof DuplicateExecutionIdError.code;
   /** `DuplicateExecutionIdError`. */
   override name = "DuplicateExecutionIdError";
   /** The generator's class name. */
   readonly generator: string;
 
-  constructor(generator: string) {
+  constructor(options: DuplicateExecutionIdErrorOptions) {
+    const { generator, cause } = options;
     super(
       `${generator}.newExecutionId() minted an execution id another execution already has — an IdGenerator never repeats an id over the life of the application's stores`,
-      { details: { generator, method: "newExecutionId" } },
+      { cause, details: { generator, method: "newExecutionId" } },
     );
     this.generator = generator;
   }
@@ -237,6 +270,7 @@ export interface ThreadIdsExhaustedErrorOptions {
   readonly generator: string;
   /** How many minted ids were tried. */
   readonly tries: number;
+  readonly cause?: unknown;
 }
 
 /**
@@ -249,6 +283,7 @@ export interface ThreadIdsExhaustedErrorOptions {
 export class ThreadIdsExhaustedError extends AGBossError {
   /** `run.thread-ids-exhausted`. */
   static override readonly code = "run.thread-ids-exhausted" as const;
+  declare readonly code: typeof ThreadIdsExhaustedError.code;
   /** `ThreadIdsExhaustedError`. */
   override name = "ThreadIdsExhaustedError";
   /** The generator's class name. */
@@ -257,12 +292,56 @@ export class ThreadIdsExhaustedError extends AGBossError {
   readonly tries: number;
 
   constructor(options: ThreadIdsExhaustedErrorOptions) {
-    const { generator, tries } = options;
+    const { generator, tries, cause } = options;
     super(
       `${generator}.newThreadId() minted ${String(tries)} ids in a row that are threads the tenant has — an IdGenerator never repeats an id over the life of the application's stores`,
-      { details: { generator, method: "newThreadId", tries } },
+      { cause, details: { generator, method: "newThreadId", tries } },
     );
     this.generator = generator;
     this.tries = tries;
+  }
+}
+
+export class UnknownThreadError extends AGBossError {
+  static override readonly code = "run.unknown-thread" as const;
+  declare readonly code: typeof UnknownThreadError.code;
+  override name = "UnknownThreadError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
+}
+
+/** A thread used by a caller that is not its owner (`execute`, `resume`, `cancel` with `ownerId`). */
+export class ThreadOwnerError extends AGBossError {
+  static override readonly code = "run.thread-owner" as const;
+  declare readonly code: typeof ThreadOwnerError.code;
+  override name = "ThreadOwnerError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
+}
+
+/** What an invalid thread id knows (#906): the rule it breaks — never the id. */
+export interface InvalidThreadIdErrorOptions {
+  readonly rule: KeyTextRule;
+  readonly cause?: unknown;
+}
+
+/**
+ * A thread id a caller picked that cannot be one (#538): the rule of a key's text it breaks
+ * (`rule`), named in the message — never the id.
+ */
+export class InvalidThreadIdError extends AGBossError {
+  static override readonly code = "run.invalid-thread-id" as const;
+  declare readonly code: typeof InvalidThreadIdError.code;
+  override name = "InvalidThreadIdError";
+  readonly rule: KeyTextRule;
+
+  constructor(options: InvalidThreadIdErrorOptions) {
+    const { rule, cause } = options;
+    super(`Not a thread id (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`, { cause, details: { rule } });
+    this.rule = rule;
   }
 }

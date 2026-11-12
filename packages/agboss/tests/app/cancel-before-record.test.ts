@@ -56,7 +56,7 @@ describe("#807 AC2: a cancel saved before the execution's record exists", () => 
           CANCEL_REQUEST_KEY,
         ),
     ).toBeUndefined();
-    const records = (await stores.records?.lastTerns("default", THREAD, 5)) ?? [];
+    const records = (await stores.records?.lastTurns("default", THREAD, 5)) ?? [];
     expect(records.map(({ runId, status, stopReason }) => ({ runId, status, stopReason }))).toEqual(
       [{ runId: "execution-1", status: "failed", stopReason: `thread "${THREAD}" was cancelled` }],
     );

@@ -9,7 +9,7 @@ import type { AssembledGuardrails } from "../../guardrails/assembly.js";
 import type { AssembledPii } from "../../pii/assembly.js";
 import { isCustomPolicy } from "../../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../../pii/policy-checks.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import type { ArbiterClass } from "../ast.js";
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { DecidedBy } from "../decorators/router.js";

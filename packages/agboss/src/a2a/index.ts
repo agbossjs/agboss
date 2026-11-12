@@ -66,6 +66,7 @@ export {
 } from "@a2a-js/sdk";
 export {
   A2ACallerRejectedError,
+  type A2ACallerRejectedErrorOptions,
   A2ACallerResolution,
   A2ACallerResolutionKind,
   A2AOperation,
@@ -108,6 +109,7 @@ export {
   A2AFileRefusal,
   A2AFileRefusedError,
   A2AFileUnavailableError,
+  type A2AFileUnavailableErrorOptions,
   A2AFileUnavailableReason,
   type A2AFileRefusedErrorOptions,
 } from "./files/a2a-file-errors.js";
@@ -120,6 +122,7 @@ export {
 export type { A2ADownloadOptions } from "./client/a2a-download.js";
 export {
   A2AFileConflictError,
+  type A2AFileConflictErrorOptions,
   A2AFileRepository,
   type A2AFileKey,
   type A2AFileMetadata,

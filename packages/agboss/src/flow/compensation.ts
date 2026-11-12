@@ -69,14 +69,13 @@ export interface CompensationRecord {
   readonly endedAt: string;
 }
 
-const listOf = (failures: readonly CompensationRecord[]): string =>
-  failures
-    .map(
-      (failure) =>
-        `${failure.compensator.name} (compensates ${failure.compensated.component.name}): ` +
-        (failure.error?.message ?? "failed"),
-    )
-    .join("; ");
+/** What a failed automatic undo takes (#906): the undos that threw, and the error that started it. */
+export interface CompensationFailedErrorOptions {
+  /** The undo actions that threw. */
+  readonly failures: readonly CompensationRecord[];
+  /** The error that started the undo (`toFailWith(Original)` matches through it). */
+  readonly cause?: unknown;
+}
 
 /**
  * An automatic undo failed (#340 Q4): every other undo still ran, then the execution fails with
@@ -86,12 +85,18 @@ const listOf = (failures: readonly CompensationRecord[]): string =>
 export class CompensationFailedError extends AGBossError {
   /** `compensation.failed`. */
   static override readonly code = "compensation.failed" as const;
+  declare readonly code: typeof CompensationFailedError.code;
   override name = "CompensationFailedError";
   /** The undo actions that failed, newest first (each `CompensationStatus.Failed`). */
   readonly failures: readonly CompensationRecord[];
 
-  constructor(failures: readonly CompensationRecord[], cause: unknown) {
-    super(`An automatic undo failed — ${listOf(failures)}; the others ran`, { cause });
+  constructor(options: CompensationFailedErrorOptions) {
+    const { failures, cause } = options;
+    const undone = failures.map(
+      (f) =>
+        `${f.compensator.name} (compensates ${f.compensated.component.name}): ${f.error?.message ?? "failed"}`,
+    );
+    super(`An automatic undo failed — ${undone.join("; ")}; the others ran`, { cause });
     this.failures = failures;
   }
 }

@@ -42,15 +42,15 @@ function limitOf(options: object, key: keyof ReadOptions, call: string): number 
   const value: unknown = Reflect.get(options, key);
   if (value === undefined) return undefined;
   if (!isPositiveInteger(value))
-    throw new FlowSyntaxError(`${call}(…, { ${key} }) takes a positive integer`);
+    throw new FlowSyntaxError({ message: `${call}(…, { ${key} }) takes a positive integer` });
   return value;
 }
 
 function optionsOf(last: unknown, call: string): ReadOptions {
   if (typeof last !== "object" || last === null)
-    throw new FlowSyntaxError(
-      `${call}(…) takes component classes, then { maxConcurrency, maxItems }`,
-    );
+    throw new FlowSyntaxError({
+      message: `${call}(…) takes component classes, then { maxConcurrency, maxItems }`,
+    });
   const maxConcurrency = limitOf(last, "maxConcurrency", call);
   const maxItems = limitOf(last, "maxItems", call);
   const placement = placementOptionOf(last, `${call}(…, { placement })`);
@@ -104,12 +104,14 @@ export function launchStepOf(
   const hasOptions = args.length > 0 && typeof last !== "function";
   const targets = hasOptions ? args.slice(0, -1) : args;
   if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
-    throw new FlowSyntaxError(`${call}(…) takes one or more component classes`);
+    throw new FlowSyntaxError({ message: `${call}(…) takes one or more component classes` });
   const problem = siteProblem(targetKind, targets, site);
-  if (problem !== undefined) throw new FlowSyntaxError(problem);
+  if (problem !== undefined) throw new FlowSyntaxError({ message: problem });
   const options = hasOptions ? optionsOf(last, call) : {};
   if (options.placement !== undefined && targetKind !== NodeKind.Workflow)
-    throw new FlowSyntaxError(`${call}(…, { placement }): only a child workflow has a placement`);
+    throw new FlowSyntaxError({
+      message: `${call}(…, { placement }): only a child workflow has a placement`,
+    });
   return Object.freeze({
     kind: StepKind.Launch,
     targetKind,

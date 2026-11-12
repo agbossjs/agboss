@@ -6,7 +6,7 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { describe, expect, it } from "vitest";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
-import { UninterpretableReplyError } from "../../src/channels/channel-role.decorator.js";
+import { UninterpretableReplyError } from "../../src/channels/decision.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind, PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
@@ -75,7 +75,7 @@ describe("#267 PR 3: a reply read without budgets", () => {
   });
 
   it("an unreadable reply throws the reader's error", async () => {
-    const error = new UninterpretableReplyError("no answer", { reason: "no answer" });
+    const error = new UninterpretableReplyError({ message: "no answer", reason: "no answer" });
     const reader = (): Promise<ReplyReading> =>
       Promise.resolve({ kind: "unreadable", error, usage: [] });
 

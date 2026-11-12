@@ -39,7 +39,8 @@ export function testFenceLeaseOf(options: TestFenceOptions, site: TestFenceSite)
   const trustedUntil = (
     options.trustedUntil ?? new Date(site.clock.now().getTime() + EXECUTION_LEASE)
   ).getTime();
-  const lost = (): ExecutionLeaseLostError => new ExecutionLeaseLostError(leaseExecutionId);
+  const lost = (): ExecutionLeaseLostError =>
+    new ExecutionLeaseLostError({ rootExecutionId: leaseExecutionId });
   return Object.freeze({
     tenantId: site.tenantId,
     leaseExecutionId,

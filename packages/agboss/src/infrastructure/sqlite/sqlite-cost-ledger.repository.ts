@@ -4,7 +4,6 @@ import { Injectable } from "../../components/decorators.js";
 import { totalCost } from "../../finops/usage.js";
 import { usd, type Usd } from "../../units/index.js";
 import {
-  CostLedgerEntryExpiredError,
   CostLedgerRepository,
   expiredEntriesOf,
   invalidLedgerCutoffErrorOf,
@@ -14,6 +13,7 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../cost-ledger.repository.js";
+import { CostLedgerEntryExpiredError } from "../../finops/ledger-mark.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /** One counter per budget, scope key and period; the last `maxSpend()` per budget and scope key. */

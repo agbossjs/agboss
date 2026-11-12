@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executionVersions } from "../../src/index.js";
-import { NonJsonValueError, shortVersion, stableJson, versionOf } from "../../src/terns/index.js";
+import { NonJsonValueError, shortVersion, stableJson, versionOf } from "../../src/turns/index.js";
 import { fakeDeps } from "../helpers.js";
 import { outputOf } from "../helpers/process.js";
 
@@ -78,7 +78,7 @@ describe("canonical JSON (RFC 8785)", () => {
   });
 
   it("AC2: the same object gives byte-identical output under different locales", async () => {
-    const module = new URL("../../src/terns/versions.ts", import.meta.url).href;
+    const module = new URL("../../src/turns/versions.ts", import.meta.url).href;
     const script = `import { stableJson } from ${JSON.stringify(module)};
       process.stdout.write(stableJson({ t: 1, z: 2, ä: 3, a: { "10": 1, "9": 2 } }));`;
     const outputs = await Promise.all(

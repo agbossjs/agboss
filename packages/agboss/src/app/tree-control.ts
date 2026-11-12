@@ -114,7 +114,7 @@ export function runIdOf(
 /** A built workflow of an instance: its records (whose threads it has) and its trees by id. */
 export interface ControlledWorkflow extends TreeControl {
   readonly deps: {
-    readonly terns: Pick<AppDeps["terns"], "hasThread">;
+    readonly turns: Pick<AppDeps["turns"], "hasThread">;
     readonly config: Pick<AppDeps["config"], "name">;
   };
 }
@@ -132,8 +132,8 @@ export function instanceExecutionControlOf(
     definedOf(workflows[0], "an instance has a workflow once it is built");
   const ofThread = async (tenantId: string, threadId: string): Promise<TreeControl> => {
     for (const workflow of workflows) {
-      const { terns, config } = workflow.deps;
-      if (await terns.hasThread(config.name, tenantId, threadId)) return workflow;
+      const { turns, config } = workflow.deps;
+      if (await turns.hasThread(config.name, tenantId, threadId)) return workflow;
     }
     return first();
   };

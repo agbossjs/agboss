@@ -833,10 +833,10 @@ export class WorkflowSettings {
 // src/llm/decisions.ts:70:1 - (ae-undocumented) Missing documentation for "DecisionAnswer".
 // src/llm/decisions.ts:87:3 - (ae-undocumented) Missing documentation for "state".
 // src/llm/decisions.ts:88:3 - (ae-undocumented) Missing documentation for "questions".
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:138:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
+// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 

@@ -23,9 +23,9 @@ export function checkedStart(
   const name = declarationOf(start)?.options.name ?? start.name;
   const node = startNamed(graph, name);
   if (node.component !== start) {
-    throw new NotAWorkflowStartError(
-      `${start.name} is not a workflow start of "${graph.workflow}"`,
-    );
+    throw new NotAWorkflowStartError({
+      message: `${start.name} is not a workflow start of "${graph.workflow}"`,
+    });
   }
   return { name, input: validStartInput(node, input) };
 }

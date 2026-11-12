@@ -20,13 +20,13 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
-import { TernStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
+import { TurnStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import {
-  createSqliteTernStore,
+  createSqliteTurnStore,
   type NewTurn,
   type Turn,
   type TurnOutcome,
-} from "../../../src/terns/index.js";
+} from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { start } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -195,31 +195,31 @@ export class HookedPausedExecutionRepository extends InMemoryPausedExecutionRepo
 
 /** The application's execution records: in memory, every write seen. */
 @Injectable()
-export class SeenExecutionRecordRepository extends TernStoreRecordRepository {
+export class SeenExecutionRecordRepository extends TurnStoreRecordRepository {
   constructor() {
-    super(createSqliteTernStore(":memory:", () => new Date()));
+    super(createSqliteTurnStore(":memory:", () => new Date()));
     seen.records.push(this);
   }
 
   override async completeIfStatus(
-    ternId: string,
+    turnId: string,
     expected: ExecutionRecordStatus,
     outcome: TurnOutcome,
   ): Promise<boolean> {
     await hooks.beforeGuardedWrite?.();
-    const landed = await super.completeIfStatus(ternId, expected, outcome);
+    const landed = await super.completeIfStatus(turnId, expected, outcome);
     seen.guarded.push({ status: outcome.status, landed });
     return landed;
   }
 
-  override append(tern: NewTurn): Promise<Turn> {
-    seen.appended.push(tern.status);
-    return super.append(tern);
+  override append(turn: NewTurn): Promise<Turn> {
+    seen.appended.push(turn.status);
+    return super.append(turn);
   }
 
-  override complete(ternId: string, outcome: TurnOutcome): Promise<void> {
+  override complete(turnId: string, outcome: TurnOutcome): Promise<void> {
     seen.completed.push(outcome.status);
-    return super.complete(ternId, outcome);
+    return super.complete(turnId, outcome);
   }
 }
 

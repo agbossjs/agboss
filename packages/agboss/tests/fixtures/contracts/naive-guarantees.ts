@@ -6,7 +6,6 @@
 import {
   accountKeyOf,
   assertLedgerEntries,
-  CostLedgerEntryExpiredError,
   CostLedgerRepository,
   counterKeyOf,
   expiredEntriesOf,
@@ -17,6 +16,7 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
+import { CostLedgerEntryExpiredError } from "../../../src/finops/ledger-mark.js";
 import { totalCost } from "../../../src/finops/usage.js";
 import {
   treeKeyOf,

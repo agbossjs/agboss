@@ -430,7 +430,7 @@ describe("#533: a yield, its store's answers, and the reclaim", () => {
     await settled();
     end();
     await waiting;
-    const error = new ExecutionLeaseLostError(TREE.rootExecutionId);
+    const error = new ExecutionLeaseLostError({ rootExecutionId: TREE.rootExecutionId });
 
     lease.recordHandOver?.({ event: nodeEventOf(testFrame()), error, site: HandOverSite.Step });
     await lease.release();

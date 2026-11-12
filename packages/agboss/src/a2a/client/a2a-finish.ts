@@ -37,6 +37,7 @@ export interface A2AUnexpectedFinishErrorOptions {
   /** The finishes the client takes (`target.finishes`). */
   readonly finishes: readonly string[];
   readonly taskId: string | undefined;
+  readonly cause?: unknown;
 }
 
 /**
@@ -46,6 +47,7 @@ export interface A2AUnexpectedFinishErrorOptions {
  */
 export class A2AUnexpectedFinishError extends AGBossError {
   static override readonly code = "a2a.unexpected-finish" as const;
+  declare readonly code: typeof A2AUnexpectedFinishError.code;
   override name = "A2AUnexpectedFinishError";
   readonly agent: string;
   readonly finish: string | undefined;
@@ -57,6 +59,7 @@ export class A2AUnexpectedFinishError extends AGBossError {
     super(
       `A2A agent ${options.agent} ended at ${ended}, not one of the finishes the client takes (${options.finishes.join(", ")})`,
       {
+        cause: options.cause,
         details: {
           agent: options.agent,
           ...(options.finish === undefined ? {} : { finish: options.finish }),

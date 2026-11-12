@@ -89,7 +89,7 @@ describe("#626: the outbound call's errors", () => {
   });
 
   it("OutboundCallUnmaskedError", () => {
-    expect(new OutboundCallUnmaskedError("charge")).toMatchObject({
+    expect(new OutboundCallUnmaskedError({ call: "charge" })).toMatchObject({
       name: "OutboundCallUnmaskedError",
       code: "outbound-call.unmasked",
       message:

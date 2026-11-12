@@ -89,7 +89,7 @@ export async function storedJson<TRequest, TResult>(
 ): Promise<string> {
   const mask = run.frame.execution.observability;
   if (mask === undefined && run.parts.settings.requiresMask)
-    throw new OutboundCallUnmaskedError(run.key.name);
+    throw new OutboundCallUnmaskedError({ call: run.key.name });
   const text = JSON.stringify(mask === undefined ? value : await mask.value(value));
   const size = Buffer.byteLength(text, "utf8");
   const { maxPayloadSize } = run.parts.settings;

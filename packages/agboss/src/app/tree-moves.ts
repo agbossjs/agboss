@@ -74,8 +74,8 @@ class TreeMover implements TreeMoves {
       // answer's own mark made it so (#850): again here only for a recovery that rested it meanwhile,
       // and only while it is still `paused`: a holder that took the decision may have ended it (S66 h)
       if (run !== undefined) {
-        await deps.terns.completeIfStatus(
-          run.ternId,
+        await deps.turns.completeIfStatus(
+          run.turnId,
           ExecutionRecordStatus.Paused,
           runningOutcome(run.path, run.cost.totalUsd),
         );
@@ -115,7 +115,7 @@ class TreeMover implements TreeMoves {
     const { Recovered } = LeaseTakeoverReason;
     const take = {
       ...rootTakeOf(this.parts.deps.pause, state.runId, Recovered, true),
-      isOver: recordEndedOf(this.parts.deps.terns, interrupted.ternId),
+      isOver: recordEndedOf(this.parts.deps.turns, interrupted.turnId),
     };
     const lease = await this.parts.leases.tryHold(treeOf(state), take);
     if (lease === undefined) return undefined;

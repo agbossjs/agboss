@@ -232,7 +232,7 @@ export async function createWorkflowDeps(
   parts: WorkflowDepsParts,
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
-  const { clock, records: terns, checkpointer } = parts.infrastructure;
+  const { clock, records: turns, checkpointer } = parts.infrastructure;
   const contexts =
     parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
   const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
@@ -255,20 +255,20 @@ export async function createWorkflowDeps(
     modelProviders: bundle.modelProviders, // configHash: its transport providers (#385)
     ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
-    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, terns),
+    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns),
     ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),
     ...components,
     pii,
     budgets,
-    terns,
-    evaluation: evaluationFor(bundle, { terns, budgets }, gateway),
+    turns,
+    evaluation: evaluationFor(bundle, { turns, budgets }, gateway),
     tracing,
     contexts,
     clock,
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure, parts),
-    ...historyKeeperOf(parts, { clock, contexts, pii, answers: terns }),
+    ...historyKeeperOf(parts, { clock, contexts, pii, answers: turns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   const snapshot = configKeeperOf(deps);

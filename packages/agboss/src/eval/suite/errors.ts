@@ -9,6 +9,14 @@ export interface EvalCaseIssue {
   readonly reason: string;
 }
 
+/** What invalid cases take (#906): the suite and every issue. */
+export interface EvalCaseInvalidErrorOptions {
+  /** The suite's `name`. */
+  readonly suite: string;
+  readonly issues: readonly EvalCaseIssue[];
+  readonly cause?: unknown;
+}
+
 /**
  * Cases of an eval suite whose values do not fit (`eval.case-invalid`, #396): their tenant or
  * execution values (validated like `app.execute`'s), a turn's input (the suite's start), a past
@@ -16,21 +24,27 @@ export interface EvalCaseIssue {
  */
 export class EvalCaseInvalidError extends AGBossError {
   static override readonly code = "eval.case-invalid" as const;
+  declare readonly code: typeof EvalCaseInvalidError.code;
   override name = "EvalCaseInvalidError";
 
-  constructor(
-    /** The suite's `name`. */
-    readonly suite: string,
-    readonly issues: readonly EvalCaseIssue[],
-  ) {
+  /** The suite's `name`. */
+  readonly suite: string;
+  /** Every invalid value, by case and path. */
+  readonly issues: readonly EvalCaseIssue[];
+
+  constructor(options: EvalCaseInvalidErrorOptions) {
+    const { suite, issues, cause } = options;
     const lines = issues.map(
       (issue) => `  - case "${issue.case}": ${issue.path} — ${issue.reason}`,
     );
     super(
       `${suite}: ${String(issues.length)} invalid value(s) in its cases:\n${lines.join("\n")}`,
       {
+        cause,
         details: { suite, issues: issues.map((issue) => ({ ...issue })) },
       },
     );
+    this.suite = suite;
+    this.issues = issues;
   }
 }

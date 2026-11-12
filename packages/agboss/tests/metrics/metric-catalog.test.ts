@@ -115,7 +115,7 @@ describe("#485 AC4: the catalog", () => {
     await observer.onStepHandedOver?.(
       eventOf<StepHandedOverEvent>({ ...ids, workflow, reason: HandOverReason.Fenced }),
     );
-    const cancelled = new ExecutionCancelledError("cancelled");
+    const cancelled = new ExecutionCancelledError({ message: "cancelled" });
     await observer.onExecutionError?.(
       eventOf<ExecutionErrorEvent>({ ...ids, workflow, error: cancelled }),
     );
@@ -158,7 +158,10 @@ describe("#875: the lost passes of unknown cost", () => {
       eventOf<ExecutionEndEvent>({ workflow, spend: { unknownCalls: 2 } as never }),
     );
     await observer.onExecutionError?.(
-      eventOf<ExecutionErrorEvent>({ workflow, error: new ExecutionCancelledError("cancelled") }),
+      eventOf<ExecutionErrorEvent>({
+        workflow,
+        error: new ExecutionCancelledError({ message: "cancelled" }),
+      }),
     );
 
     const unknown = (await collect({ provider, reader })).get("agboss.instance.costs.unknown");

@@ -235,7 +235,7 @@ describe("#633: hand-overs", () => {
   });
 
   it("a hand-over outside any frame, or under a lease that records none: as it is", () => {
-    const lost = new ExecutionLeaseLostError("root-1");
+    const lost = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
 
     expect(recordedHandOver(lost, HandOverSite.Step, undefined)).toBe(lost);
     expect(recordedHandOver(lost, HandOverSite.Step, { execution: { lease: {} } } as never)).toBe(

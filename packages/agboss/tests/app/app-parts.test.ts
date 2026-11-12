@@ -16,7 +16,7 @@ import {
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { buildCostReport } from "../../src/finops/usage.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { Desk, OrderBook, Reply } from "../testing/fixtures/desk.workflow.js";
@@ -28,7 +28,7 @@ import { EmptyEnvironment } from "../../src/index.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
-  stores: { terns: createSqliteTernStore(":memory:", () => new Date()) },
+  stores: { turns: createSqliteTurnStore(":memory:", () => new Date()) },
 });
 
 class TicketDto {
@@ -90,7 +90,7 @@ describe("AC12: the app's parts", () => {
       cost: buildCostReport([]),
       threadId: "t",
       tenantId: "default",
-      ternId: "tern",
+      turnId: "tern",
       runId: "r",
       data: { scope: {}, outdatedValues: [], lastError: null },
       compacted: [

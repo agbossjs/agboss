@@ -2,7 +2,7 @@ import type { Message, Part } from "@a2a-js/sdk";
 import { keyTextRuleOf } from "../../core/errors.js";
 import { DtoValidationError } from "../../dto/errors.js";
 import { validInputOf } from "../../flow/runtime/start-input.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 import { contentTypeNotSupported, invalidParams } from "./a2a-wire-errors.js";

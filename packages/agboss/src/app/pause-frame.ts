@@ -39,7 +39,7 @@ export async function withdrawalTreeOf(
   pause: PauseRecord,
   state: TreeState,
 ): Promise<WithdrawalTree> {
-  const owner = await deps.terns.threadOwner(deps.config.name, pause.tenantId, pause.threadId);
+  const owner = await deps.turns.threadOwner(deps.config.name, pause.tenantId, pause.threadId);
   return {
     contexts: contextsOf(state, pause.tenantId),
     ownerId: owner?.owner,

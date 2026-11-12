@@ -20,24 +20,26 @@ class CodedUserError extends BookingError {
   static override readonly code: string = "booking.flight";
 }
 
-const budget = new BudgetExceededError(
-  {
-    budget: { name: "shop-execution-budget" },
-    scope: BudgetScope.Execution,
-    key: "run-1",
-    maxSpend: usd(0.01),
-    spent: usd(0.02),
-  },
-  ["order", "buyer"],
-  0.02,
-);
+const budget = new BudgetExceededError({
+  budget: { name: "shop-execution-budget" },
+  scope: BudgetScope.Execution,
+  key: "run-1",
+  maxSpend: usd(0.01),
+  spent: usd(0.02),
+  path: ["order", "buyer"],
+  spentUsd: 0.02,
+});
 
 /** What a serialising checkpointer gives back. */
 const roundTrip = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 describe("#194: error records", () => {
   it("a record is plain JSON with the class code, the details and the cause chain", () => {
-    const agent = new AgentFailedError("buyer", [], new FlightApiDown("down"));
+    const agent = new AgentFailedError({
+      agent: "buyer",
+      usage: [],
+      cause: new FlightApiDown("down"),
+    });
 
     expect(roundTrip(errorRecordOf(budget))).toEqual({
       name: "BudgetExceededError",
@@ -69,7 +71,9 @@ describe("#194: error records", () => {
 
   it("matches by code after a JSON round trip: the class, its parents, its causes", () => {
     const record = roundTrip(errorRecordOf(budget));
-    const wrapped = roundTrip(errorRecordOf(new AgentFailedError("buyer", [], budget)));
+    const wrapped = roundTrip(
+      errorRecordOf(new AgentFailedError({ agent: "buyer", usage: [], cause: budget })),
+    );
 
     expect(recordMatches(record, codeOfErrorClass(BudgetExceededError))).toBe(true);
     expect(recordMatches(record, codeOfErrorClass(LimitExceededError))).toBe(true);

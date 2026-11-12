@@ -10,7 +10,7 @@ import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { routerPromptTexts } from "../routers/index.js";
-import { versionOf } from "../terns/index.js";
+import { versionOf } from "../turns/index.js";
 import { byComponentName, flowLines } from "../flow/print.js";
 import type { AgentExecutionDeps } from "./types.js";
 

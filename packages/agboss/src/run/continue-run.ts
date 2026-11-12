@@ -4,7 +4,7 @@ import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf, type ExecutionGraph } from "../flow/runtime/build.js";
 import { startLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
-import { failedOutcome, outcomeError, recordFailure, type TernBase } from "./execute.js";
+import { failedOutcome, outcomeError, recordFailure, type TurnBase } from "./execute.js";
 import { continuedExecutionBudgets, recorder } from "./run-budgets.js";
 import { finishRun } from "./finish.js";
 import { streamConfig } from "./stream-config.js";
@@ -18,7 +18,7 @@ export interface ContinuedRun {
   /** The tenant of its thread (#261); its context values come back from its checkpoint. */
   readonly tenantId: string;
   /** Its record (a Turn), completed when this pass ends. */
-  readonly ternId: string;
+  readonly turnId: string;
   readonly start: string;
   readonly startInput: unknown;
   readonly budgetUsd: number;
@@ -57,7 +57,7 @@ export async function continueRun<TName extends string>(
   const budgets = await continuedExecutionBudgets(deps, run.budgets, run.spent, run.deadline);
   const graph = executionGraphOf(deps, { budgets: budgets.meter });
   const record = recorder(budgets.meter, spent);
-  const base: TernBase = {
+  const base: TurnBase = {
     runId: run.runId,
     threadId: run.threadId,
     tenantId: run.tenantId,
@@ -82,12 +82,12 @@ export async function continueRun<TName extends string>(
       takenPauseIds: run.takenPauseIds,
       callbacks: streaming.callbacks,
     };
-    return await finishRun(context, state, run.ternId);
+    return await finishRun(context, state, run.turnId);
   } catch (error) {
     const cause = outcomeError(error, options.signal);
     throw await recordFailure(
       cause,
-      (ended) => deps.terns.complete(run.ternId, failedOutcome(ended, [...run.spent, ...spent])),
+      (ended) => deps.turns.complete(run.turnId, failedOutcome(ended, [...run.spent, ...spent])),
       deps.compensation?.rootUnwind,
     );
   }

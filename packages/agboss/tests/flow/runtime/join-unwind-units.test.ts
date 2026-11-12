@@ -8,11 +8,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMPENSATION_TIMEOUT,
   CompensationEntryStatus,
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
   type CompensationEntry,
 } from "../../../src/flow/compensation.js";
+import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import {
   unwoundJoin,
   type JoinUnwindSite,

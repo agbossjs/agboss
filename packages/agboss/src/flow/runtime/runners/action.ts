@@ -36,9 +36,9 @@ function variantOf(
   const dto = variantClassOf(value);
   if (dto === undefined || !oneOf.variants.includes(dto)) {
     const classes = oneOf.variants.map((variant) => variant.name).join(", ");
-    throw new OutputInvalidError(
-      `${node} has output oneOf(${classes}) — return variant(XDto, value) with one of them`,
-    );
+    throw new OutputInvalidError({
+      message: `${node} has output oneOf(${classes}) — return variant(XDto, value) with one of them`,
+    });
   }
   return { dto, value: validate(dto, value) };
 }
@@ -51,7 +51,7 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
     return { value, variant: dto.name };
   }
   if (!Array.isArray(result))
-    throw new OutputInvalidError(`${node} has a list output — return an array`);
+    throw new OutputInvalidError({ message: `${node} has a list output — return an array` });
   const { element } = output;
   const items = (result as readonly unknown[]).map((item) => {
     if (typeof element === "function") return validate(element, item);
@@ -63,7 +63,7 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
 
 /** A failure of the action's code; a limit, a cancel or a pause passes as it is (S22). */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) ? error : new ActionFailedError(node, error);
+  passesThrough(error) ? error : new ActionFailedError({ action: node, cause: error });
 
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;
@@ -78,7 +78,8 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
   const { output } = declaration.options;
   return async (state) => {
     const instance: unknown = deps.container.get(node.component);
-    if (!isAction(instance)) throw new OutputInvalidError(`${node.id} has no execute(input)`);
+    if (!isAction(instance))
+      throw new OutputInvalidError({ message: `${node.id} has no execute(input)` });
     const input = readInput(deps.graph, node, state);
     const name = stepNodeIdOf(node);
     await reportNodeEvent((base) =>

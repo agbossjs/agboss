@@ -6,10 +6,7 @@
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
 import { isDecisionModel } from "../models/decision-models.js";
-import {
-  ReplyInterpreterMissingError,
-  UninterpretableReplyError,
-} from "./channel-role.decorator.js";
+import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
@@ -71,7 +68,7 @@ export async function readReplyBy(
   const unreadable = (declined: Declined): ReplyReading => {
     const message = `${call.label}: ${interpreter.name} could not read the reply — ${declined.reason}`;
     const { reason, cause } = declined;
-    const error = new UninterpretableReplyError(message, { reason, cause });
+    const error = new UninterpretableReplyError({ message, reason, cause });
     return { kind: "unreadable", error, usage: interpreted.usage };
   };
   if (interpreted.kind === "declined") return unreadable(interpreted);
@@ -88,9 +85,9 @@ export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
     const { pause, ...rest } = call;
     const interpreter = parts.interpreters.find((found) => found.channel === pause.channel);
     if (interpreter === undefined) {
-      throw new ReplyInterpreterMissingError(
-        `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
-      );
+      throw new ReplyInterpreterMissingError({
+        message: `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
+      });
     }
     return readReplyBy(
       interpreter,

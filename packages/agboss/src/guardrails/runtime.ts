@@ -126,7 +126,8 @@ function modelDecisionOf(
       questions: [{ target: GUARDRAIL_QUESTION, prompt }],
     });
     if (outcome.usage !== undefined) spent.push(outcome.usage);
-    if (outcome.kind === "failed") throw new GuardFailedError(name, [...spent], outcome.reason);
+    if (outcome.kind === "failed")
+      throw new GuardFailedError({ guard: name, usage: [...spent], reason: outcome.reason });
     const probability = outcome.probabilities[GUARDRAIL_QUESTION] ?? 0;
     return { isBlocked: probability >= threshold, probability };
   };
@@ -204,7 +205,7 @@ export async function runGuardrails(
     const threshold = isModelGuardrail(guardrail) ? guardrail.threshold : CODE_GUARDRAIL_THRESHOLD;
     const refusal = await runtime.refusal();
     const blocked = { probability: outcome.probability, threshold };
-    const error = new GuardrailBlockedError(name, refusal, spent, blocked);
+    const error = new GuardrailBlockedError({ guard: name, refusal, usage: spent, ...blocked });
     carryRecords(error, { guardrailDecisions: decisions }); // the blocking one last (#395 S6)
     throw error;
   }

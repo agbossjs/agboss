@@ -27,7 +27,7 @@ function invokeOf(
 ): JudgeModel["invoke"] {
   return async (input: string | readonly BaseMessageLike[]) => {
     if (binding.kind !== ModelKind.Chat) {
-      throw new ModelKindError(binding.model, ModelKind.Decisions, "invoke");
+      throw new ModelKindError({ model: binding.model, kind: ModelKind.Decisions, call: "invoke" });
     }
     const { model, settings } = binding.chat;
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
@@ -49,7 +49,7 @@ function decideOf(
     request: DecisionRequest<Q>,
   ): Promise<AnswersOf<Q>> => {
     if (binding.kind !== ModelKind.Decisions) {
-      throw new ModelKindError(binding.model, ModelKind.Chat, "decide");
+      throw new ModelKindError({ model: binding.model, kind: ModelKind.Chat, call: "decide" });
     }
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const sent = reading === undefined ? request : await reading.request(request);

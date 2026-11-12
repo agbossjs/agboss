@@ -5,11 +5,11 @@ import {
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
 import type { RegistryGateway } from "../llm/registry.js";
-import type { Turn, TernRecords } from "../terns/index.js";
+import type { Turn, TurnRecords } from "../turns/index.js";
 import { ADEQUATE, INADEQUATE, JUDGE_INSTRUCTIONS } from "./prompts.js";
 
 export interface EvalDeps {
-  readonly terns: TernRecords;
+  readonly turns: TurnRecords;
   /** A two-option router (adequate / inadequate); Jev by default. */
   readonly judge: RouterEngine;
   /**
@@ -33,9 +33,9 @@ export interface ScoringReport {
   readonly stoppedBy?: string;
 }
 
-export const judgeRequest = (tern: Turn): RouteRequest => ({
+export const judgeRequest = (turn: Turn): RouteRequest => ({
   instructions: JUDGE_INSTRUCTIONS,
-  input: `Task:\n${tern.task}\n\nAnswer:\n${tern.replyWith}`,
+  input: `Task:\n${turn.task}\n\nAnswer:\n${turn.replyWith}`,
   options: [
     { name: "adequate", description: ADEQUATE },
     { name: "inadequate", description: INADEQUATE },
@@ -50,21 +50,21 @@ export function scoreOf(outcome: RouteOutcome): number | undefined {
 }
 
 /** Scores the given Terns within the eval budget; a judge failure leaves a Turn unscored. */
-export async function scoreTerns(deps: EvalDeps, terns: readonly Turn[]): Promise<ScoringReport> {
+export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promise<ScoringReport> {
   let scored = 0;
   let costUsd = 0;
-  for (const tern of terns) {
+  for (const turn of turns) {
     if (await isApplicationSpendExhausted(deps.budgets)) {
       return { scored, costUsd, stoppedBy: BUDGET_EXHAUSTED };
     }
-    const outcome = await deps.judge.route(judgeRequest(tern));
+    const outcome = await deps.judge.route(judgeRequest(turn));
     if (outcome.usage !== undefined) {
       await recordApplicationSpend(deps.budgets, [outcome.usage]);
       costUsd += outcome.usage.costUsd;
     }
     const score = scoreOf(outcome);
     if (score === undefined) continue;
-    await deps.terns.saveScore(tern.id, deps.judge.name, score);
+    await deps.turns.saveScore(turn.id, deps.judge.name, score);
     scored += 1;
   }
   return { scored, costUsd };
@@ -76,5 +76,5 @@ export async function evaluate(
   bundle: string,
   options: { readonly promptVersion?: string; readonly limit: number },
 ): Promise<ScoringReport> {
-  return scoreTerns(deps, await deps.terns.unscored(bundle, options.promptVersion, options.limit));
+  return scoreTurns(deps, await deps.turns.unscored(bundle, options.promptVersion, options.limit));
 }

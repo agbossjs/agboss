@@ -52,12 +52,22 @@ export interface NewA2AFile extends A2AFileMetadata {
   readonly bytes: Uint8Array;
 }
 
+/** What a conflicting save knows (#906): the file's id. */
+export interface A2AFileConflictErrorOptions {
+  readonly fileId: string;
+  readonly cause?: unknown;
+}
+
 /** A save of a key already kept with other bytes: a file never changes (`a2a.file-conflict`). */
 export class A2AFileConflictError extends AGBossError {
   static override readonly code = "a2a.file-conflict" as const;
+  declare readonly code: typeof A2AFileConflictError.code;
 
-  constructor(readonly fileId: string) {
-    super("a file is saved once: another file is kept under this id");
+  readonly fileId: string;
+
+  constructor(options: A2AFileConflictErrorOptions) {
+    super("a file is saved once: another file is kept under this id", { cause: options.cause });
+    this.fileId = options.fileId;
   }
 }
 

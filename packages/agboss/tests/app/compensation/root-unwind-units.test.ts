@@ -11,10 +11,10 @@ import { markTreeUnwinding, unwoundTree } from "../../../src/app/compensation/ro
 import { NodeKind } from "../../../src/flow/ast.js";
 import {
   COMPENSATION_TIMEOUT,
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
 } from "../../../src/flow/compensation.js";
+import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import type { UnwindSite } from "../../../src/flow/runtime/compensation/unwind.js";
 import {
   markUndone,
@@ -100,7 +100,7 @@ function depsOf(options: DepsOptions) {
       options.compensation === false
         ? undefined
         : { timeout: seconds(4), registry: { entriesOf: () => [] }, trees },
-    terns: {
+    turns: {
       threadOwner: () =>
         Promise.resolve(options.owner === undefined ? undefined : { owner: options.owner }),
     },

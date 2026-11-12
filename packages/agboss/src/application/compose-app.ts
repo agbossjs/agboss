@@ -103,8 +103,8 @@ export function composeApp(
   /** The workflow a tenant's thread belongs to; an unknown thread goes to the first, which rejects it. */
   const ofThread = async (thread: string, tenantId = DEFAULT_TENANT_ID): Promise<BuiltApp> => {
     for (const workflow of workflows) {
-      const { terns, config } = workflow.deps;
-      if (await terns.hasThread(config.name, tenantId, thread)) return workflow;
+      const { turns, config } = workflow.deps;
+      if (await turns.hasThread(config.name, tenantId, thread)) return workflow;
     }
     return first;
   };

@@ -385,7 +385,7 @@ export class BedrockSdkClient {
     });
     if (response.status === 429) {
       const retryAfter = seconds(Number(response.headers.get("retry-after") ?? "1"));
-      throw new ModelProviderFailureError(ModelFailure.RateLimited, { retryAfter });
+      throw new ModelProviderFailureError({ failure: ModelFailure.RateLimited, retryAfter });
     }
     return (await response.json()) as ModelProviderResponse; // { text, toolCalls?, usage, cost? }
   }
@@ -459,7 +459,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
 name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
 cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
   `costSource: CostSource.Api`; else the table), `finishReason?` (`FinishReason.Length`).
-- **Failures**: throw `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })` — the
+- **Failures**: throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })` — the
   retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
   `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.
 - **Its lifecycle** is a component's (#385 S4): created on its first call, its `onInit` → `onStart`

@@ -85,7 +85,7 @@ export function routerSlice(built: BuiltApp, target: Class): RouterSlice {
       const chosen = built.bundle.graph.nodes.get(outcome.decision.next);
       if (chosen === undefined) {
         const reason = `"${outcome.decision.next}" is not one of its routes`;
-        throw new RouterDecisionError(step, reason);
+        throw new RouterDecisionError({ ...step, reason });
       }
       return chosen.component;
     },

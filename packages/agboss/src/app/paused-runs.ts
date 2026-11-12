@@ -16,7 +16,7 @@ import { ExecutionRecordStatus } from "../infrastructure/execution-record.reposi
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { runningOutcome } from "../run/execute.js";
 import { NotPausedError } from "../run/resume-agent.js";
-import type { TernStore } from "../terns/index.js";
+import type { TurnStore } from "../turns/index.js";
 
 /**
  * A paused run and the workflow version / config hash it paused under (checked on resume). Its
@@ -107,13 +107,13 @@ export interface AnsweredRootParts {
   readonly pauses: PausedExecutionRepository;
   readonly paused: PausedRunBook;
   /** The roots' records: a resting one is `running` again before its answer is recorded. */
-  readonly terns: Pick<TernStore, "completeIfStatus">;
+  readonly turns: Pick<TurnStore, "completeIfStatus">;
   /** Where a resume refused after its mark is told (a warning: recovery rests the tree again). */
   readonly log: Pick<FrameworkLog, "warn">;
 }
 
 export const notPaused = (pauseId: string): NotPausedError =>
-  new NotPausedError(`pause ${pauseId} is not waiting for an answer`);
+  new NotPausedError({ message: `pause ${pauseId} is not waiting for an answer` });
 
 /**
  * The root of a pause about to be answered, `running` again: the pause read once more (a resume
@@ -132,7 +132,7 @@ export async function markAnswered(
   const stored = await parts.paused.find({ tenantId: pause.tenantId, threadId: pause.threadId });
   const run = stored?.run.runId === rested.runId ? stored.run : rested;
   const outcome = runningOutcome(run.path, run.cost.totalUsd);
-  return parts.terns.completeIfStatus(run.ternId, ExecutionRecordStatus.Paused, outcome);
+  return parts.turns.completeIfStatus(run.turnId, ExecutionRecordStatus.Paused, outcome);
 }
 
 /** A resume refused after its mark: told, since its root stays `running` until recovery rests it. */

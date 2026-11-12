@@ -13,20 +13,31 @@ import { ComponentKind } from "../records.js";
 const describe = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
+/** What an arbiter that could not judge takes (#906). */
+export interface ArbiterErrorOptions {
+  /** The arbiter's `name` (`valid-score-arbiter`). */
+  readonly arbiter: string;
+  readonly usage?: readonly UsageRecord[];
+  /** What the arbiter threw, or why its model did not answer. */
+  readonly cause?: unknown;
+}
+
 /**
  * An arbiter threw, or its model did not answer (#279 AC12): the branch's step fails with it, the
  * original error as its `cause`; the launch's other branches are cancelled.
  */
 export class ArbiterError extends StepFailedError {
   static override readonly code = "step.arbiter" as const;
+  declare readonly code: typeof ArbiterError.code;
   override name = "ArbiterError";
   /** The arbiter's `name` (`valid-score-arbiter`). */
   readonly arbiter: string;
 
-  constructor(arbiter: string, cause: unknown, usage: readonly UsageRecord[] = []) {
+  constructor(options: ArbiterErrorOptions) {
+    const { arbiter, usage = [], cause } = options;
     const step = stepCoordinatesOf(arbiter, ComponentKind.Arbiter);
     const message = `Arbiter "${arbiter}" failed on the answer of ${step.nodeId}: ${describe(cause)}`;
-    super(message, usage, cause, step, { arbiter });
+    super({ message, usage, cause, ...step, details: { arbiter } });
     this.arbiter = arbiter;
   }
 }
@@ -34,11 +45,18 @@ export class ArbiterError extends StepFailedError {
 /** How far a quorum got: what it needed and what it counted. */
 export interface QuorumShortfall {
   /** `.joinQuorum({ min })`; undefined for `.joinQuorumGroups(…)`. */
-  readonly min?: number;
+  readonly min?: number | undefined;
   /** How many answers were counted. */
   readonly counted: number;
   /** Why it stopped: `the deadline passed`, `min can no longer be reached`, … */
   readonly reason: string;
+}
+
+/** What a quorum that was not reached takes (#906): the launch, its step and the shortfall. */
+export interface QuorumNotReachedErrorOptions extends QuorumShortfall, StepCoordinates {
+  /** The launch: `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
+  readonly launch: string;
+  readonly cause?: unknown;
 }
 
 /**
@@ -48,6 +66,7 @@ export interface QuorumShortfall {
  */
 export class QuorumNotReachedError extends StepFailedError {
   static override readonly code = "step.quorum" as const;
+  declare readonly code: typeof QuorumNotReachedError.code;
   override name = "QuorumNotReachedError";
   /** The launch: `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
   readonly launch: string;
@@ -55,18 +74,23 @@ export class QuorumNotReachedError extends StepFailedError {
   readonly min: number | undefined;
   /** How many answers were counted. */
   readonly counted: number;
+  /** Why it stopped: `the deadline passed`, `min can no longer be reached`, … */
+  readonly reason: string;
 
-  constructor(launch: string, step: StepCoordinates, shortfall: QuorumShortfall) {
-    const needed =
-      shortfall.min === undefined ? "no group complete" : `need ${String(shortfall.min)}`;
-    const message = `The quorum of ${step.nodeId}'s launch was not reached: ${String(shortfall.counted)} counted, ${needed} — ${shortfall.reason}`;
-    super(message, [], undefined, step, {
-      launch,
-      counted: shortfall.counted,
-      ...(shortfall.min === undefined ? {} : { min: shortfall.min }),
+  constructor(options: QuorumNotReachedErrorOptions) {
+    const { launch, min, counted, reason, cause, ...step } = options;
+    const needed = min === undefined ? "no group complete" : `need ${String(min)}`;
+    const message = `The quorum of ${step.nodeId}'s launch was not reached: ${String(counted)} counted, ${needed} — ${reason}`;
+    super({
+      message,
+      usage: [],
+      cause,
+      ...step,
+      details: { launch, counted, ...(min === undefined ? {} : { min }) },
     });
     this.launch = launch;
-    this.min = shortfall.min;
-    this.counted = shortfall.counted;
+    this.min = min;
+    this.counted = counted;
+    this.reason = reason;
   }
 }

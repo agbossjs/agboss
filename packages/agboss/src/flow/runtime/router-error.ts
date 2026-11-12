@@ -34,24 +34,40 @@ function routerRecordOf(step: RouterVisit): ComponentRecord {
 const describe = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
+/** What a router's failure takes (#906): its visit, the spend and what failed. */
+export interface RouterFailedErrorOptions extends RouterVisit {
+  readonly usage?: readonly UsageRecord[];
+  /** What failed: `route()`'s error, or the model call's. */
+  readonly cause?: unknown;
+  /** A subclass's own sentence; `Router "<nodeId>" failed: <cause>` by default. */
+  readonly message?: string;
+}
+
 /** A router could not decide: `route()` threw, or its model call failed (`cause` = the original). */
 export class RouterFailedError extends StepFailedError {
   static override readonly code: string = "step.router";
+  declare readonly code: "step.router" | "step.router.invalid-decision";
   override name = "RouterFailedError";
 
-  constructor(
-    step: RouterVisit,
-    cause: unknown,
-    usage: readonly UsageRecord[] = [],
-    message = `Router "${step.nodeId}" failed: ${describe(cause)}`,
-  ) {
-    const coordinates = {
-      component: routerRecordOf(step),
-      nodeId: step.nodeId,
-      visitNumber: step.visitNumber,
-    };
-    super(message, usage, cause, coordinates);
+  constructor(options: RouterFailedErrorOptions) {
+    const { nodeId, visitNumber, usage = [], cause } = options;
+    super({
+      message: options.message ?? `Router "${nodeId}" failed: ${describe(cause)}`,
+      usage,
+      cause,
+      component: routerRecordOf(options),
+      nodeId,
+      visitNumber,
+    });
   }
+}
+
+/** What a router's decision that is not allowed takes (#906). */
+export interface RouterDecisionErrorOptions extends RouterVisit {
+  /** What was wrong with the answer. */
+  readonly reason: string;
+  readonly usage?: readonly UsageRecord[];
+  readonly cause?: unknown;
 }
 
 /**
@@ -60,12 +76,14 @@ export class RouterFailedError extends StepFailedError {
  */
 export class RouterDecisionError extends RouterFailedError {
   static override readonly code = "step.router.invalid-decision" as const;
+  declare readonly code: typeof RouterDecisionError.code;
   override name = "RouterDecisionError";
   /** What was wrong with the answer. */
   readonly reason: string;
 
-  constructor(step: RouterVisit, reason: string, usage: readonly UsageRecord[] = []) {
-    super(step, undefined, usage, `Router "${step.nodeId}" decided wrongly: ${reason}`);
+  constructor(options: RouterDecisionErrorOptions) {
+    const { reason, ...visit } = options;
+    super({ ...visit, message: `Router "${options.nodeId}" decided wrongly: ${reason}` });
     this.reason = reason;
   }
 }
@@ -78,6 +96,6 @@ export function routerFailureOf(
 ): RouterFailedError {
   const usage = [...spent, ...(outcome.usage === undefined ? [] : [outcome.usage])];
   return outcome.cause === undefined
-    ? new RouterDecisionError(step, outcome.reason, usage)
-    : new RouterFailedError(step, outcome.cause, usage);
+    ? new RouterDecisionError({ ...step, reason: outcome.reason, usage })
+    : new RouterFailedError({ ...step, cause: outcome.cause, usage });
 }

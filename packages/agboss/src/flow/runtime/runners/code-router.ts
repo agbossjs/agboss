@@ -48,20 +48,23 @@ function chosenRoute(
   const routes = [...node.exits.routes.keys()];
   const name = isClass(answer) ? declarationOf(answer)?.options.name : undefined;
   if (name !== undefined && unready.includes(name))
-    throw new RouterDecisionError(
-      step,
-      `route() returned ${name}: on the last level (depth = maxDepth) a route that launches ThisWorkflow is not ready`,
-    );
+    throw new RouterDecisionError({
+      ...step,
+      reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches ThisWorkflow is not ready`,
+    });
   if (name !== undefined && node.exits.routes.has(name)) return name;
   const why = Array.isArray(answer)
     ? "after .chooseOne(…) it returns one target, not a list"
     : `not one of its routes (${routes.join(", ")})`;
-  throw new RouterDecisionError(step, `route() returned ${answerLabel(answer)}: ${why}`);
+  throw new RouterDecisionError({
+    ...step,
+    reason: `route() returned ${answerLabel(answer)}: ${why}`,
+  });
 }
 
 /** What `route()` throws fails the step as `RouterFailedError` (its cause); a limit, cancel, pause pass. */
 const failure = (step: RouterVisit, error: unknown): unknown =>
-  passesThrough(error) ? error : new RouterFailedError(step, error);
+  passesThrough(error) ? error : new RouterFailedError({ ...step, cause: error });
 
 /**
  * A code router (`DecidedBy.Code`, #280): its instance from the container runs `route(input)` with
@@ -74,7 +77,10 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
     const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const instance: unknown = deps.container.get(node.component);
     if (!isCodeRouter(instance)) {
-      throw new RouterFailedError(step, new TypeError(`${node.id} has no route(input)`));
+      throw new RouterFailedError({
+        ...step,
+        cause: new TypeError(`${node.id} has no route(input)`),
+      });
     }
     const input = readInput(deps.graph, node, state);
     const name = node.id;

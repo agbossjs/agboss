@@ -27,7 +27,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
 ModelProviderMessage[]`, `tools: ModelProviderToolDefinition[]`, `temperature`, `maxTokens`,
   `reasoning`, `promptCaching` — off when unset —, `signal`) → `ModelProviderResponse` (`text`,
   `toolCalls?`, `usage`, `cost?`, `finishReason?`), a failure thrown as
-  `ModelProviderFailureError(ModelFailure.…, { retryAfter?, cause? })`; its `deps` injected by the
+  `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })`; its `deps` injected by the
   application's container on its first call (one instance; `TenantContext` reads the calling
   execution; its `onInit` → `onStart` awaited before that call, once, a failure failing the call
   and retried by the next, `onStop` / `onDestroy` at `app.close()` only once created, #385 S4); `description`, `timeout`, `cost` required, `capabilities?` optional (absent → its
@@ -2724,7 +2724,18 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
-  class gets a `static code`. `.onError` matches by class, so a subclass is caught by its parent's
+  class gets a `static code`, and **one shape (#906, #890 G8)**: it is made from one options object
+  whose keys are its own properties — `new BusinessKeyConflictError({ effect, businessKeyHash, cause })`,
+  an error with only its text `new UnknownPauseError({ message, cause })` — and every one takes a
+  `cause` (kept as `.cause`; `tests/public-api/error-options.test.ts` walks every entry's exports and
+  fails for a class without a fixture, with positional facts, or one that drops its `cause`; only
+  the base `new AGBossError(message, { cause, details })` is positional). Its instance `code` is its
+  class's literal — `static override readonly code = "…" as const;` and `declare readonly code:
+typeof X.code;` — so `switch (error.code)` over a union of errors narrows
+  (`tests/public-api/error-codes.test-d.ts`); the seven parents with subclasses (`PaidStepError`,
+  `StepFailedError`, `AgentFailedError`, `LimitExceededError`, `RouterFailedError`, `DecisionError`,
+  `ExecutionLeaseLostError`) declare the literal union of their family on the instance — a new
+  subclass must be listed there (the compiler says so) — while their `static code` stays `string`. `.onError` matches by class, so a subclass is caught by its parent's
   side path — by the class's code line (its `static code`, else its class name — give a routed class a
   `static code`: a name may change with a bundler), so a failure that crosses a takeover or an instance routes the same
   way on every holder (#598): a child's claimed failure (#596), an undo's mark (#340) and a remote

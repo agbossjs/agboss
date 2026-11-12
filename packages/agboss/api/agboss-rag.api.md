@@ -148,6 +148,8 @@ export class RerankFailedError extends StepFailedError {
     // (undocumented)
     static readonly code = "step.rerank-failed";
     // (undocumented)
+    readonly code: "step.rerank-failed";
+    // (undocumented)
     name: string;
     readonly rag: string;
     readonly reranker: string;
@@ -155,7 +157,7 @@ export class RerankFailedError extends StepFailedError {
 
 // @public
 export interface RerankFailedErrorOptions {
-    readonly cause: unknown;
+    readonly cause?: unknown;
     readonly rag: string;
     readonly reranker: string;
     // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
@@ -203,7 +205,8 @@ export interface SqliteFtsOptions {
 // src/dto/standard/framework.ts:119:3 - (ae-undocumented) Missing documentation for "source".
 // src/dto/standard/framework.ts:122:3 - (ae-undocumented) Missing documentation for "score".
 // src/rag/rerank.ts:60:3 - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts:61:12 - (ae-undocumented) Missing documentation for "name".
+// src/rag/rerank.ts:61:3 - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts:62:12 - (ae-undocumented) Missing documentation for "name".
 // src/rag/reranker.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "deps".
 // src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".

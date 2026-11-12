@@ -28,6 +28,7 @@ export interface A2ATaskFailedErrorOptions {
   readonly end: A2ATaskEnd;
   /** The peer's stable error code (an AGBoss peer's, read from the mesh extension); none: `undefined`. */
   readonly remoteCode: string | undefined;
+  readonly cause?: unknown;
 }
 
 /**
@@ -37,6 +38,7 @@ export interface A2ATaskFailedErrorOptions {
  */
 export class A2ATaskFailedError extends AGBossError {
   static override readonly code = "a2a.task-failed" as const;
+  declare readonly code: typeof A2ATaskFailedError.code;
   override name = "A2ATaskFailedError";
   readonly agent: string;
   readonly taskId: string;
@@ -47,6 +49,7 @@ export class A2ATaskFailedError extends AGBossError {
   constructor(options: A2ATaskFailedErrorOptions) {
     const code = options.remoteCode === undefined ? "" : ` (${options.remoteCode})`;
     super(`the task ${options.taskId} of A2A agent ${options.agent} ended ${options.end}${code}`, {
+      cause: options.cause,
       details: {
         agent: options.agent,
         taskId: options.taskId,
@@ -67,11 +70,13 @@ export interface A2ATaskErrorOptions {
   readonly agent: string;
   readonly taskId: string;
   readonly contextId: string;
+  readonly cause?: unknown;
 }
 
 /** The remote task ended CANCELED (#809): by its agent, by `cancel(taskId)` or a deadline's cancel. */
 export class A2ATaskCanceledError extends AGBossError {
   static override readonly code = "a2a.task-canceled" as const;
+  declare readonly code: typeof A2ATaskCanceledError.code;
   override name = "A2ATaskCanceledError";
   readonly agent: string;
   readonly taskId: string;
@@ -79,6 +84,7 @@ export class A2ATaskCanceledError extends AGBossError {
 
   constructor(options: A2ATaskErrorOptions) {
     super(`the task ${options.taskId} of A2A agent ${options.agent} was canceled`, {
+      cause: options.cause,
       details: { agent: options.agent, taskId: options.taskId },
     });
     this.agent = options.agent;
@@ -105,6 +111,7 @@ export interface A2ATaskInterruptedErrorOptions extends A2ATaskErrorOptions {
  */
 export class A2ATaskInterruptedError extends AGBossError {
   static override readonly code = "a2a.task-interrupted" as const;
+  declare readonly code: typeof A2ATaskInterruptedError.code;
   override name = "A2ATaskInterruptedError";
   readonly agent: string;
   readonly taskId: string;
@@ -115,6 +122,7 @@ export class A2ATaskInterruptedError extends AGBossError {
     super(
       `the task ${options.taskId} of A2A agent ${options.agent} waits for its caller (${options.interruption}): reply(taskId, …) continues it`,
       {
+        cause: options.cause,
         details: {
           agent: options.agent,
           taskId: options.taskId,
@@ -155,6 +163,7 @@ export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
  */
 export class A2ACallDeadlineError extends AGBossError {
   static override readonly code = "a2a.deadline" as const;
+  declare readonly code: typeof A2ACallDeadlineError.code;
   override name = "A2ACallDeadlineError";
   readonly agent: string;
   readonly taskId: string;
@@ -168,7 +177,10 @@ export class A2ACallDeadlineError extends AGBossError {
     const canceled = `the cancel asked: ${options.cancel}`;
     super(
       `the task ${options.taskId} of A2A agent ${options.agent} did not end by ${options.deadlineAt}: ${canceled}`,
-      { details: { agent: options.agent, taskId: options.taskId, deadlineAt: options.deadlineAt } },
+      {
+        cause: options.cause,
+        details: { agent: options.agent, taskId: options.taskId, deadlineAt: options.deadlineAt },
+      },
     );
     this.agent = options.agent;
     this.taskId = options.taskId;

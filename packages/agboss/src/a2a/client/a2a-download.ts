@@ -22,7 +22,7 @@ export interface A2ADownload extends A2ADownloadOptions {
   readonly fetcher: typeof fetch;
 }
 
-const unavailable = (reason: A2AFileUnavailableReason) => new A2AFileUnavailableError(reason);
+const unavailable = (reason: A2AFileUnavailableReason) => new A2AFileUnavailableError({ reason });
 
 /** The body of a response, at most `max` bytes: the read cancelled at the first byte past it. */
 async function boundedBodyOf(response: Response, max: number): Promise<Uint8Array> {

@@ -104,7 +104,7 @@ export class ModelChaos {
         this.count(failure);
         const modelFailure =
           failure === ChaosFailure.RateLimited ? ModelFailure.RateLimited : ModelFailure.Timeout;
-        throw new ModelProviderFailureError(modelFailure);
+        throw new ModelProviderFailureError({ failure: modelFailure });
       }
       const answer = await complete(request);
       if (failure === undefined) return answer;

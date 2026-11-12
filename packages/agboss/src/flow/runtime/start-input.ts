@@ -1,4 +1,4 @@
-import { AGBossError } from "../../core/errors.js";
+import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import { DtoValidationError } from "../../dto/errors.js";
 import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -21,7 +21,10 @@ const elementClass = (list: ListWrapper): DtoClass | undefined =>
 function validList(list: ListWrapper, value: unknown, field: string): unknown[] {
   const dto = elementClass(list);
   if (!Array.isArray(value) || dto === undefined) {
-    throw new DtoValidationError(field, [{ path: "(root)", reason: "expected a list" }]);
+    throw new DtoValidationError({
+      dto: field,
+      issues: [{ path: "(root)", reason: "expected a list" }],
+    });
   }
   return (value as readonly unknown[]).map((item) => validate(dto, item));
 }
@@ -74,14 +77,21 @@ export function textStartOf(graph: RuntimeGraph): RuntimeNode | undefined {
 /** `app.execute` from a class (or a name) that is not a `@WorkflowStart` of the app's workflow. */
 export class NotAWorkflowStartError extends AGBossError {
   static override readonly code = "workflow.not-a-start" as const;
+  declare readonly code: typeof NotAWorkflowStartError.code;
   override name = "NotAWorkflowStartError";
+
+  constructor(options: MessageErrorOptions) {
+    super(options.message, options);
+  }
 }
 
 /** The start of the graph by its `name`; anything else is a `NotAWorkflowStartError`. */
 export function startNamed(graph: RuntimeGraph, name: string): RuntimeNode {
   const node = graph.nodes.get(name);
   if (node?.kind !== NodeKind.Start) {
-    throw new NotAWorkflowStartError(`${name} is not a workflow start of "${graph.workflow}"`);
+    throw new NotAWorkflowStartError({
+      message: `${name} is not a workflow start of "${graph.workflow}"`,
+    });
   }
   return node;
 }
@@ -96,9 +106,9 @@ export interface StartRequest {
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest {
   const start = textStartOf(graph);
   if (start === undefined) {
-    throw new NotAWorkflowStartError(
-      `"${graph.workflow}" has no workflow start with input WorkflowStartTextDto — a text cannot start it`,
-    );
+    throw new NotAWorkflowStartError({
+      message: `"${graph.workflow}" has no workflow start with input WorkflowStartTextDto — a text cannot start it`,
+    });
   }
   return { start: start.id, input: { text } };
 }

@@ -9,11 +9,15 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   LimitExceededError,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type LimitExceededErrorOptions,
+  /** @deprecated Import from "@agboss/core" (#195). */
   optional,
   /** @deprecated Import from "@agboss/core" (#195). */
   Router,
   /** @deprecated Import from "@agboss/core" (#195). */
   RouterDecisionError,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type RouterDecisionErrorOptions,
   /** @deprecated Import from "@agboss/core" (#195). */
   type RouterOptions,
   /** @deprecated Import from "@agboss/core" (#195). */

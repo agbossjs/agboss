@@ -172,7 +172,7 @@ async function decideOf(
   if (!cassette.records(spec.caller)) return cassette.decide(spec.caller, hash);
   const decide = real().decide;
   if (decide === undefined)
-    throw new DecisionError(`the recording gateway cannot decide (${model})`);
+    throw new DecisionError({ message: `the recording gateway cannot decide (${model})` });
   const outcome = await decide(spec);
   cassette.record({ kind: "decide", key: spec.caller, request: hash, outcome });
   return outcome;

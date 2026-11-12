@@ -52,7 +52,7 @@ export const toolLookup = (tools: readonly AnyTool[]): ((name: string) => AnyToo
 /** Eval / replay: a Jev judge, its spend counted in the application's budgets. */
 export const evaluationFor = (
   bundle: AssembledWorkflow,
-  stores: Pick<EvalDeps, "terns" | "budgets">,
+  stores: Pick<EvalDeps, "turns" | "budgets">,
   gateway: ModelGateway,
 ): EvalDeps => ({
   ...stores,

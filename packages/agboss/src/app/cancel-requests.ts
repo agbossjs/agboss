@@ -2,7 +2,7 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
-import type { Turn } from "../terns/index.js";
+import type { Turn } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
 import { CompensationFailedError } from "../flow/compensation.js";
@@ -135,7 +135,7 @@ export async function endIfCancelledAtRest(
 
 /** A root the recovery sweep found `running`: its record (#520: ended → no takeover). */
 export interface SweptRoot {
-  readonly ternId: string;
+  readonly turnId: string;
 }
 
 /**
@@ -153,7 +153,7 @@ async function endHeld(
   // once its record ended (#520)
   const take = {
     ...rootTakeOf(parts.deps.pause, state.runId, LeaseTakeoverReason.Cancelled, !isWaiting),
-    ...(sweep === undefined ? {} : { isOver: recordEndedOf(parts.deps.terns, sweep.ternId) }),
+    ...(sweep === undefined ? {} : { isOver: recordEndedOf(parts.deps.turns, sweep.turnId) }),
   };
   const lease = isWaiting
     ? await parts.leases.hold(tree, undefined, take)
@@ -218,7 +218,7 @@ export async function remoteCancel(
   ownerId: string | undefined,
 ): Promise<boolean> {
   const { deps, trees, clock } = parts;
-  const records = await deps.terns.lastTerns(thread.tenantId, thread.threadId, RECORDS);
+  const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
   const running = records.filter(
     (record) => record.status === "running" && record.bundle === deps.config.name,
   );
@@ -229,7 +229,7 @@ export async function remoteCancel(
     await trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, request);
   }
   let isCancelled = false;
-  const now = running.length === 0 ? [] : await deps.terns.byIds(running.map(({ id }) => id));
+  const now = running.length === 0 ? [] : await deps.turns.byIds(running.map(({ id }) => id));
   for (const record of now) isCancelled = (await settled(parts, record)) || isCancelled;
   return isCancelled;
 }

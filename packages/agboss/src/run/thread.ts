@@ -1,11 +1,11 @@
 import {
-  AGBossError,
-  KEY_TEXT_RULE_TEXT,
+  InvalidThreadIdError,
   keyTextRuleOf,
-  type KeyTextRule,
+  ThreadOwnerError,
+  UnknownThreadError,
 } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
-import type { Summary, Turn, TernRecords, TernStore } from "../terns/index.js";
+import type { Summary, Turn, TurnRecords, TurnStore } from "../turns/index.js";
 import { isTurn, toTurns } from "./turns.js";
 import { CompactionStrategy, type UncompactedTurns } from "../compaction/compaction.decorator.js";
 import { TurnLimit } from "../config/types.js";
@@ -28,34 +28,9 @@ export function isThreadId(threadId: string): boolean {
   return keyTextRuleOf(threadId) === undefined;
 }
 
-export class UnknownThreadError extends AGBossError {
-  static override readonly code = "run.unknown-thread" as const;
-  override name = "UnknownThreadError";
-}
-
-/** A thread used by a caller that is not its owner (`execute`, `resume`, `cancel` with `ownerId`). */
-export class ThreadOwnerError extends AGBossError {
-  static override readonly code = "run.thread-owner" as const;
-  override name = "ThreadOwnerError";
-}
-
-/**
- * A thread id a caller picked that cannot be one (#538): the rule of a key's text it breaks
- * (`rule`), named in the message — never the id.
- */
-export class InvalidThreadIdError extends AGBossError {
-  static override readonly code = "run.invalid-thread-id" as const;
-  override name = "InvalidThreadIdError";
-  readonly rule: KeyTextRule;
-
-  constructor(rule: KeyTextRule) {
-    super(`Not a thread id (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`, { details: { rule } });
-    this.rule = rule;
-  }
-}
-
 const notTheOwner = (threadId: string): ThreadOwnerError =>
-  new ThreadOwnerError(`Thread "${threadId}" belongs to another owner`, {
+  new ThreadOwnerError({
+    message: `Thread "${threadId}" belongs to another owner`,
     details: { thread: threadId },
   });
 
@@ -80,11 +55,11 @@ export interface NewThreadAccess extends Omit<ThreadAccess, "threadId"> {
  * message names neither owner. A thread the store does not know is left to the caller's own check.
  */
 export async function checkThreadOwner(
-  terns: Pick<TernStore, "threadOwner">,
+  turns: Pick<TurnStore, "threadOwner">,
   bundle: string,
   access: ThreadAccess,
 ): Promise<void> {
-  const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
+  const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined || thread.owner === access.ownerId) return;
   throw notTheOwner(access.threadId);
 }
@@ -95,13 +70,13 @@ export async function checkThreadOwner(
  * (a refused execution creates nothing). An id that cannot be one is `InvalidThreadIdError`.
  */
 export async function isNewThread(
-  terns: Pick<TernStore, "threadOwner">,
+  turns: Pick<TurnStore, "threadOwner">,
   bundle: string,
   access: ThreadAccess,
 ): Promise<boolean> {
   const rule = keyTextRuleOf(access.threadId);
-  if (rule !== undefined) throw new InvalidThreadIdError(rule);
-  const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
+  if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+  const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) return true;
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
   return false;
@@ -109,18 +84,18 @@ export async function isNewThread(
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
 const unknownThread = (bundle: string, threadId: string): UnknownThreadError =>
-  new UnknownThreadError(`Unknown thread "${threadId}" for "${bundle}"`);
+  new UnknownThreadError({ message: `Unknown thread "${threadId}" for "${bundle}"` });
 
 /**
  * `execute` or `cancel` on a given thread: it must exist in the caller's tenant for this workflow —
  * another tenant's thread does not exist for it — and belong to the caller's owner.
  */
 export async function checkThreadAccess(
-  terns: Pick<TernStore, "threadOwner">,
+  turns: Pick<TurnStore, "threadOwner">,
   bundle: string,
   access: ThreadAccess,
 ): Promise<void> {
-  const thread = await terns.threadOwner(bundle, access.tenantId, access.threadId);
+  const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) throw unknownThread(bundle, access.threadId);
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
 }
@@ -144,7 +119,7 @@ const readableSummaries = (compaction: CompactionInUse, stored: readonly Summary
     : [...stored];
 
 async function compactionStatesOf(
-  terns: TernRecords,
+  turns: TurnRecords,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
   plan: MemoryPlan,
 ): Promise<ReadonlyMap<string, CompactionState>> {
@@ -153,10 +128,10 @@ async function compactionStatesOf(
     plan.compactions.map(async (compaction): Promise<[string, CompactionState]> => [
       compaction.name,
       {
-        uncovered: (await terns.uncovered(tenantId, threadId, compaction.name)).filter(isTurn),
+        uncovered: (await turns.uncovered(tenantId, threadId, compaction.name)).filter(isTurn),
         summaries: readableSummaries(
           compaction,
-          await terns.latestSummaries(
+          await turns.latestSummaries(
             tenantId,
             threadId,
             compaction.name,
@@ -184,9 +159,9 @@ function readerMemory(
   state: CompactionState | undefined,
 ): ReaderMemory {
   const raw = depth === 0 ? [] : turns.slice(-depth);
-  const seen = new Set(raw.map((tern) => tern.id));
+  const seen = new Set(raw.map((turn) => turn.id));
   const summaries = (state?.summaries ?? [])
-    .filter((summary) => !seen.has(summary.fromTernId))
+    .filter((summary) => !seen.has(summary.fromTurnId))
     .map((summary) => summary.text);
   return { turns: raw.length, summaries };
 }
@@ -196,16 +171,16 @@ function readerMemory(
  * them are turns (a failed or paused record is not one) or the thread has no more.
  */
 async function lastTurnsOf(
-  terns: TernRecords,
+  turns: TurnRecords,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
   count: number,
 ): Promise<readonly Turn[]> {
   if (count === 0) return [];
   for (let page = count; ; page = Math.min(page * 2, Number.MAX_SAFE_INTEGER)) {
-    const records = await terns.lastTerns(thread.tenantId, thread.threadId, page);
-    const turns = records.filter(isTurn);
+    const records = await turns.lastTurns(thread.tenantId, thread.threadId, page);
+    const found = records.filter(isTurn);
     const isAll = records.length < page || page === Number.MAX_SAFE_INTEGER;
-    if (turns.length >= count || isAll) return turns.slice(-count);
+    if (found.length >= count || isAll) return found.slice(-count);
   }
 }
 
@@ -230,7 +205,7 @@ export async function threadMemoryOf<TName extends string>(
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<ThreadMemory> {
   const plan = memoryPlanOf(deps.config, deps.compactions);
-  const states = await compactionStatesOf(deps.terns, thread, plan);
+  const states = await compactionStatesOf(deps.turns, thread, plan);
   const readers = readersOf(deps, plan);
   const depths = new Map(
     readers.map(([name, reader]) => [
@@ -239,7 +214,7 @@ export async function threadMemoryOf<TName extends string>(
     ]),
   );
   const deepest = Math.max(0, depthOf(plan.fallback.window), ...depths.values());
-  const turns = await lastTurnsOf(deps.terns, thread, deepest);
+  const turns = await lastTurnsOf(deps.turns, thread, deepest);
   const memory = Object.fromEntries(
     readers.map(([name, reader]) => [
       name,
@@ -269,9 +244,9 @@ export async function openThread<TName extends string>(
 ): Promise<{ readonly threadId: string }> {
   const bundle = deps.config.name;
   if (requested === undefined) {
-    return { threadId: await deps.terns.createThread({ workflow: bundle, tenantId }) };
+    return { threadId: await deps.turns.createThread({ workflow: bundle, tenantId }) };
   }
-  if (!(await deps.terns.hasThread(bundle, tenantId, requested))) {
+  if (!(await deps.turns.hasThread(bundle, tenantId, requested))) {
     throw unknownThread(bundle, requested);
   }
   return { threadId: requested };

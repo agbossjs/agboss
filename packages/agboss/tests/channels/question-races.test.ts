@@ -5,9 +5,9 @@
  */
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { UnknownPauseError } from "../../src/app/resume.js";
+import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { NotPausedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { ThreadOwnerError } from "../../src/run/thread.js";
+import { ThreadOwnerError } from "../../src/core/errors.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";

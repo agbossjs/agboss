@@ -76,7 +76,8 @@ function answerOf(
   model: string,
 ): DecisionAnswer {
   const fail = (why: string): DecisionResponseError =>
-    new DecisionResponseError(`Decisions API (${model}) answer to "${id}": ${why}`, {
+    new DecisionResponseError({
+      message: `Decisions API (${model}) answer to "${id}": ${why}`,
       details: { model, question: id },
     });
   if (raw === undefined) throw fail("missing");
@@ -95,7 +96,8 @@ function answerOf(
 export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcome {
   const parsed = ResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new DecisionResponseError(`Decisions API (${asked.model}): malformed response`, {
+    throw new DecisionResponseError({
+      message: `Decisions API (${asked.model}): malformed response`,
       details: { model: asked.model },
     });
   }

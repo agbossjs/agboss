@@ -11,11 +11,11 @@ import { LedgerState, writtenLedgerIdOf } from "../../src/finops/ledger-mark.js"
 import { recordToolCost } from "../../src/finops/usage.js";
 import { ledgerEntryOf } from "../helpers.js";
 import {
-  CostLedgerEntryExpiredError,
   InMemoryCostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
+import { CostLedgerEntryExpiredError } from "../../src/finops/ledger-mark.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
 import { VirtualClock } from "../../src/testing/clock.js";

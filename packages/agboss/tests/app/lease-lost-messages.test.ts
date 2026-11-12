@@ -34,7 +34,7 @@ const STOPS = /this instance stops, the (next take of the lease|holder of token 
 
 describe("#551 / #567: the messages of the ways a lease ends, built", () => {
   it.each([
-    ["a renewal refused", new ExecutionLeaseLostError("execution-1")],
+    ["a renewal refused", new ExecutionLeaseLostError({ rootExecutionId: "execution-1" })],
     ["the holder's own expiry (frozen or cut off)", leaseExpiredError("execution-1")],
     ["a reclaim after a remote-child wait", leaseTakenWhileYieldedError("execution-1")],
     ["a fenced write, no token named", ExecutionFencedError.of({ scopeKey: "a:b", token: 2 })],

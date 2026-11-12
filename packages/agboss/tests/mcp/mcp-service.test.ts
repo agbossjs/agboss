@@ -16,7 +16,7 @@ import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/m
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text } from "../../src/dto/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
-import { createSqliteTernStore } from "../../src/terns/index.js";
+import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

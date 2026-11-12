@@ -111,7 +111,7 @@ const MIGRATIONS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS terns_run ON terns(tenant_id, run_id);`, // 16 — a run's record (#808)
 ];
 
-const TernRow = z.object({
+const TurnRow = z.object({
   id: z.string(),
   run_id: z.string().nullable(),
   thread_id: z.string(),
@@ -145,8 +145,8 @@ export const storedTextOf = (text: string): string => JSON.stringify(text);
 export const textOf = (stored: string): string => z.string().parse(JSON.parse(stored));
 
 /** A database row → a typed Turn; rows are validated, never trusted. */
-export function toTern(row: unknown): Turn {
-  const r = TernRow.parse(row);
+export function toTurn(row: unknown): Turn {
+  const r = TurnRow.parse(row);
   return {
     id: r.id,
     runId: r.run_id,
@@ -210,7 +210,7 @@ function migrateInTransaction(db: DatabaseSync): void {
 }
 
 /** Migrates the Turn tables of an open database (a connection shared with other stores, #265). */
-export const migrateTernDatabase = (db: DatabaseSync): void => {
+export const migrateTurnDatabase = (db: DatabaseSync): void => {
   migrate(db);
 };
 
@@ -218,7 +218,7 @@ export const migrateTernDatabase = (db: DatabaseSync): void => {
  * Opens (creating directories) and migrates the database. `node:sqlite` is loaded here, on first
  * use, so importing `@agboss/core` never loads it (#195).
  */
-export function openTernDatabase(path: string): DatabaseSync {
+export function openTurnDatabase(path: string): DatabaseSync {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const { DatabaseSync: Database } = process.getBuiltinModule("node:sqlite");
   const db = new Database(path);

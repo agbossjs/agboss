@@ -8,11 +8,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMPENSATION_TIMEOUT,
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
   type CompensationEntry,
 } from "../../../src/flow/compensation.js";
+import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import {
   unwoundChild,
@@ -151,7 +151,7 @@ describe("#633: where the child's undo runs", () => {
     const parent = { execution: {} };
     const { site, signal } = siteOf({ tree: { parent, itemIndex: 2 }, lease });
 
-    await unwoundChild(site, new ExecutionCancelledError("fail-fast"));
+    await unwoundChild(site, new ExecutionCancelledError({ message: "fail-fast" }));
     const undo = unwindAsked().undoSiteOf(ofChild("x"));
 
     expect(undo.execution).toStrictEqual({

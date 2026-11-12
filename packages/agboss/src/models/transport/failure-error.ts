@@ -2,8 +2,10 @@ import { AGBossError } from "../../core/errors.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { ModelFailure } from "../model-failure.js";
 
-/** What a transport's failure may add: how long the provider asks to wait, and the SDK's error. */
+/** What a transport's failure takes (#906): why it failed, and what it may add. */
 export interface ModelProviderFailureOptions {
+  /** Why the call failed, as an HTTP status says it. */
+  readonly failure: ModelFailure;
   /** A 429's `Retry-After` (or the SDK's own hint): pauses the provider's whole queue that long. */
   readonly retryAfter?: Milliseconds;
   readonly cause?: unknown;
@@ -17,15 +19,14 @@ export interface ModelProviderFailureOptions {
  */
 export class ModelProviderFailureError extends AGBossError {
   static override readonly code = "model.provider-failure" as const;
+  declare readonly code: typeof ModelProviderFailureError.code;
   readonly failure: ModelFailure;
   readonly retryAfter: Milliseconds | undefined;
 
-  constructor(failure: ModelFailure, options: ModelProviderFailureOptions = {}) {
-    super(
-      `model.provider-failure: ${failure}`,
-      options.cause === undefined ? {} : { cause: options.cause },
-    );
+  constructor(options: ModelProviderFailureOptions) {
+    const { failure, retryAfter, cause } = options;
+    super(`model.provider-failure: ${failure}`, { cause });
     this.failure = failure;
-    this.retryAfter = options.retryAfter;
+    this.retryAfter = retryAfter;
   }
 }

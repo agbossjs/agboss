@@ -2,12 +2,12 @@ import type { FrameLease } from "../../flow/context/frame.js";
 import { meterOf } from "../../budgets/execution-budgets.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
-  CompensationFailedError,
   compensationRecordsOf,
   hasUndoableActions,
   type CompensationEntry,
   type CompensationRecord,
 } from "../../flow/compensation.js";
+import { CompensationFailedError } from "../../flow/compensation.js";
 import { entriesInCheckpoint } from "../../flow/runtime/compensation/checkpoint-entries.js";
 import { mergedEntries, unwound } from "../../flow/runtime/compensation/unwind.js";
 import {
@@ -136,7 +136,7 @@ export async function unwoundTree<TCause>(
   const known = await withUndoneMarks(marks, stored.entries);
   // Stryker disable next-line ArrayDeclaration: the records list the root's own entries only, and a stray string names no execution
   const mirrored = deps.compensation?.registry.entriesOf(tree, () => true) ?? [];
-  const owner = await deps.terns.threadOwner(deps.config.name, state.tenantId, state.threadId);
+  const owner = await deps.turns.threadOwner(deps.config.name, state.tenantId, state.threadId);
   const sites: TreeUndoSites = {
     ...{ deps, state, checkpoint, ownerId: owner?.owner, signal: call.signal, lease: call.lease },
     reason: reasonOfCause(call.cause),
@@ -163,6 +163,6 @@ export async function unwoundTree<TCause>(
   const error =
     done.failures.length === 0
       ? call.cause
-      : new CompensationFailedError(done.failures, call.cause);
+      : new CompensationFailedError({ failures: done.failures, cause: call.cause });
   return { error, compensations };
 }

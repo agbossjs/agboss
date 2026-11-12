@@ -444,7 +444,7 @@ describe("misuse from untyped code fails with FlowSyntaxError", () => {
   });
 
   it("FlowSyntaxError has a stable code", () => {
-    expect(new FlowSyntaxError("x").code).toBe("flow.syntax");
+    expect(new FlowSyntaxError({ message: "x" }).code).toBe("flow.syntax");
   });
 });
 

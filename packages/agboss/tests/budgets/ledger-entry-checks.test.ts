@@ -10,14 +10,16 @@ import {
   assertLedgerCutoff,
   assertLedgerEntries,
   assertValidDate,
-  CostLedgerCutoffInvalidError,
-  CostLedgerEntryInvalidError,
   expiredEntriesOf,
   invalidDateErrorOf,
   InMemoryCostLedgerRepository,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
 } from "../../src/infrastructure/cost-ledger.repository.js";
+import {
+  CostLedgerCutoffInvalidError,
+  CostLedgerEntryInvalidError,
+} from "../../src/finops/ledger-mark.js";
 import { SqliteCostLedgerRepository } from "../../src/infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 import { connectionTo, temporarySqlitePath } from "../infrastructure/contracts/store-kinds.js";
 
@@ -169,7 +171,7 @@ describe("#817, #869: a store refuses a cutoff that is no date, naming it, with 
     const ledger = ledgerOf();
 
     await expect(ledger.deleteByMadeAtBefore(new Date(Number.NaN))).rejects.toThrow(
-      new CostLedgerCutoffInvalidError("the cutoff is no valid Date: Invalid Date"),
+      new CostLedgerCutoffInvalidError({ reason: "the cutoff is no valid Date: Invalid Date" }),
     );
   });
 });

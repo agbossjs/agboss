@@ -12,7 +12,7 @@ function workflowOf(name: string, threads: readonly string[], asked: string[]): 
   return {
     deps: {
       config: { name },
-      terns: {
+      turns: {
         hasThread: (workflow: string, tenantId: string, threadId: string) => {
           asked.push(`${name} has ${workflow} ${tenantId} ${threadId}`);
           return Promise.resolve(threads.includes(threadId));

@@ -1,5 +1,5 @@
 import { inputJsonSchema, type JsonSchema } from "../../dto/schema.js";
-import { versionOf } from "../../terns/index.js";
+import { versionOf } from "../../turns/index.js";
 import type { AnyTool } from "../../tools/index.js";
 import { ComponentKind, type ComponentRecord } from "./records.js";
 

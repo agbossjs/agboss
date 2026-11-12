@@ -85,7 +85,7 @@ describe("pause seam", () => {
     });
     expect(sent).toEqual([]);
     expect(alpha.sent).toHaveLength(1);
-    expect((await deps.terns.byIds([paused.ternId]))[0]?.status).toBe(ExecutionStatus.Paused);
+    expect((await deps.turns.byIds([paused.turnId]))[0]?.status).toBe(ExecutionStatus.Paused);
   });
 
   it("resumes after approval: the tool runs once, same run and Turn", async () => {
@@ -98,10 +98,10 @@ describe("pause seam", () => {
       status: ExecutionStatus.Finished,
       output: { text: "Sent it to your boss." },
       runId: paused.runId,
-      ternId: paused.ternId,
+      turnId: paused.turnId,
     });
     expect(sent).toEqual(["boss@example.com"]);
-    expect((await deps.terns.byIds([paused.ternId]))[0]?.status).toBe("answered");
+    expect((await deps.turns.byIds([paused.turnId]))[0]?.status).toBe("answered");
   });
 
   it("#148 AC2, #267: resumes with { approved, reason }; who answered and why reach the agent", async () => {
@@ -167,7 +167,7 @@ describe("pause seam", () => {
     // alpha's script ends with the call: its next model call fails the resumed run
     await expect(resumeWith(paused, { approved: true }, deps)).rejects.toThrow();
 
-    expect((await deps.terns.byIds([paused.ternId]))[0]).toMatchObject({ status: "failed" });
+    expect((await deps.turns.byIds([paused.turnId]))[0]).toMatchObject({ status: "failed" });
   });
 });
 
