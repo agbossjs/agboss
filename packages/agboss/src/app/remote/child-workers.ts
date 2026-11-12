@@ -15,6 +15,7 @@ import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-regi
 import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
 import { announcePass } from "./child-end-event.js";
 import { ChildQueueWatch } from "./child-queue-watch.js";
+import { LookPacing, requeueIfStillClaimed } from "./look-pacing.js";
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
@@ -52,8 +53,10 @@ class Workers implements ChildWorkers {
   #looking: Promise<void> | undefined;
   #asked = 0;
   readonly #watch: ChildQueueWatch;
+  readonly #pacing: LookPacing;
 
   constructor(private readonly parts: ChildWorkerParts) {
+    this.#pacing = new LookPacing(parts.clock, this.#stopped.signal);
     this.#onQueued = () => void this.#look();
     const unq = remoteChildSignals.onQueued(this.#onQueued);
     const unr = remoteChildSignals.onRunning((row) => void this.#reclaim(row));
@@ -86,7 +89,10 @@ class Workers implements ChildWorkers {
     return claimRoomOf(this.parts.capacity, this.#running.values());
   }
 
-  #look(): Promise<void> {
+  /** A look now, or — within the backoff of a refused take — one when it ends (a wake-up is never skipped). */
+  #look(force = false): Promise<void> {
+    const deferred = force ? undefined : this.#pacing.deferred(() => this.#look());
+    if (deferred !== undefined) return deferred;
     this.#asked += 1;
     this.#looking ??= this.#drainLooks().finally(() => {
       this.#looking = undefined;
@@ -148,26 +154,12 @@ class Workers implements ChildWorkers {
       stopClaiming();
     }
     if (lease === undefined) {
-      await this.#requeueIfStillClaimed(row);
+      this.#pacing.refused(key);
+      await requeueIfStillClaimed(this.parts.queue, row, this.#onQueued);
       return false;
     }
     await this.#executeClaimed(row, lease);
     return true;
-  }
-
-  /**
-   * Puts a claim whose lease was not free back in the queue — only while the row is still this
-   * claim (#520): a child another worker ended, paused or claimed meanwhile, or one whose tree ended,
-   * stays as it is. A read that fails puts it back (the queue refuses anything but this claim).
-   */
-  async #requeueIfStillClaimed(row: QueuedChildExecution): Promise<void> {
-    const { queue } = this.parts;
-    const current = await queue
-      .findByTenantIdAndExecutionId(row.tenantId, row.executionId)
-      .catch(() => row);
-    if (!isSameRunningClaim(current, row)) return;
-    await queue.saveIfAbsent({ ...row, status: ExecutionRecordStatus.Queued });
-    remoteChildSignals.queued(this.#onQueued);
   }
 
   async #executeClaimed(row: QueuedChildExecution, lease: HeldExecutionLease): Promise<void> {
@@ -227,7 +219,7 @@ class Workers implements ChildWorkers {
         return;
       }
       this.#preHeld.set(key, lease);
-      await this.#look();
+      await this.#look(true);
       // #720: kept for this look's own claim only — a child it did not start gets its lease back
       if (this.#preHeld.get(key) === lease && this.#preHeld.delete(key)) await lease.release();
     } finally {

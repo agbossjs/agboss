@@ -84,6 +84,12 @@ export interface StepsAtStop extends StopDeadline {
    * `app.step-still-running` warning per body still running.
    */
   settled(): Promise<void>;
+  /**
+   * Awaits `stopping` (what an instance's stop waits for) until the stop's end, the shutdown
+   * timeout (#923): a stop not done by then goes on without it — a store call that is never
+   * answered holds nothing — and logs `app.stop-store-call-pending`.
+   */
+  within(stopping: Promise<unknown>): Promise<void>;
 }
 
 function stepsAtStopOf(
@@ -96,7 +102,42 @@ function stepsAtStopOf(
     settled: async () => {
       warnStillRunning(log, await entries.allClosed(deadline.signal));
     },
+    within: async (stopping) => {
+      const ended = await untilInterrupted(
+        stopping.then(() => true),
+        deadline.signal,
+      );
+      if (ended !== true)
+        log.warn(
+          "app.stop-store-call-pending",
+          "the recovery sweep or the child workers did not stop within the shutdown timeout: a store call has not been answered — the instance stops without it",
+        );
+    },
   };
+}
+
+/**
+ * `work`'s answer — or `undefined` once `signal` aborts first: the work is left running and its
+ * late answer or failure dropped (the call's own timeout is the store's).
+ */
+function untilInterrupted<TValue>(
+  work: Promise<TValue>,
+  signal: AbortSignal,
+): Promise<TValue | undefined> {
+  if (signal.aborted) {
+    work.catch((): undefined => undefined);
+    return Promise.resolve(undefined);
+  }
+  return new Promise<TValue | undefined>((resolve, reject) => {
+    const interrupted = (): void => {
+      work.catch((): undefined => undefined);
+      resolve(undefined);
+    };
+    signal.addEventListener("abort", interrupted, { once: true });
+    work.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", interrupted);
+    });
+  });
 }
 
 /**
