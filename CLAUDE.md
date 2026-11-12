@@ -1822,7 +1822,7 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
   **A2A (#387, #398 PR 3, #809) — declared contracts:** a call to an A2A v1.0 agent (another AGBoss
   application or a foreign one, on the official `@a2a-js/sdk`, exact pin) is an
-  `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill? }, input?, output?, price?, mesh?, allowedOrigins?, deps })`
+  `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill?, finishes? }, input?, output?, price?, mesh?, allowedOrigins?, deps })`
   on a `…A2AAgent` class that `extends A2AClient<In, Out>` (`a2a/*.a2a-agent.ts`; `[name.kind-suffix]`),
   in `providers` — `execute(input)` is typed and validated both ways (one data part, text for
   `WorkflowStartTextDto`; the COMPLETED task's artifact), `send(message)` untyped (`A2ATaskResult`),
@@ -1830,7 +1830,12 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   (`<url>/.well-known/agent-card.json`, read on first use) is checked before anything is sent: an A2A
   1.0 interface (a v0.3-only card → `A2AProtocolError` naming its version), the skill
   (`[a2a.unknown-skill]`), an AGBoss peer's skill schemas against the DTOs (`[a2a.schema-mismatch]`,
-  `A2AContractError`), every interface on the `url`'s origin or `allowedOrigins` (`A2AOriginError`;
+  `A2AContractError`; the output against every finish of the skill — or, #916, only the ones
+  `target.finishes` names, each a finish of the skill, `[a2a.unknown-finish]`, also at assembly for
+  a name no `@WorkflowFinish` could have, an empty list or an untyped agent; a task that ends at
+  another finish is `A2AUnexpectedFinishError`, `a2a.unexpected-finish`, for `.onError`, before its
+  output is read; `describe` / `--json` show the list, `check --federation` compares only those,
+  `[federation.unknown-finish]`), every interface on the `url`'s origin or `allowedOrigins` (`A2AOriginError`;
   no request, no header goes elsewhere, a redirect elsewhere refused). Inside an execution the accept
   (`SendMessage`, `returnImmediately`, a messageId derived from the step's key) goes through
   `OutboundCalls` (`a2a.<agent>[.reply][.<call.key>]`; `[a2a.repeated-call]`): a send of unknown
@@ -2993,7 +2998,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     runtime/ (the StateGraph per workflow: build.ts, state.ts, scope, runners/,
                     limits, onError, input messages, records)
     graph/          the agent loop (agent-loop/: its subgraph, tools, approval, judges), knowledge,
-                    rule-error.ts, limits.ts, settings.ts, studio-graph.ts
+                    rule-error.ts + rule-codes.ts, limits.ts, settings.ts, studio-graph.ts
     llm/  routers/  tools/  guardrails/  compaction/  terns/  run/  pause/  finops/  tracing/
     prompts/  types/
     loader/, describe/   loadWorkflow (tsx); describeApplication (`agboss describe`, through @agboss/core/internal)

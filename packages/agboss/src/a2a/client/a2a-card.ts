@@ -4,7 +4,12 @@ import { DefaultAgentCardResolver } from "@a2a-js/sdk/client";
 import { millisecondsOf } from "../../mesh/mesh-durations.js";
 import type { Milliseconds } from "../../units/index.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import { schemaDifferencesOf, skillSchemasOf, type SchemaExpectation } from "./a2a-card-schemas.js";
+import {
+  schemaDifferencesOf,
+  skillSchemasOf,
+  unknownFinishesOf,
+  type SchemaExpectation,
+} from "./a2a-card-schemas.js";
 import {
   A2AClientOperation,
   A2AContractError,
@@ -194,8 +199,9 @@ function skillEntryOf(
  * Checks a card against what the client declares, before anything is sent: the named skill must be
  * in the card (`[a2a.unknown-skill]`), and — when an AGBoss peer declares the skill's schemas — the
  * skill's input must accept the client's input DTO and the client's output DTO every finish output
- * (`[a2a.schema-mismatch]`). A card without schemas leaves the input to the local check before
- * sending and the output to the check on arrival.
+ * — or, with `target.finishes`, each of those, every one a finish of the skill (#916,
+ * `[a2a.unknown-finish]`) — (`[a2a.schema-mismatch]`). A card without schemas leaves the input to
+ * the local check before sending and the output to the check on arrival.
  */
 export function checkCard(card: AgentCard, expected: CardExpectation): void {
   const skill = skillOf(card, expected);
@@ -209,11 +215,13 @@ export function checkCard(card: AgentCard, expected: CardExpectation): void {
   }
   const entry = skillEntryOf(card, skill);
   if (entry === undefined) return;
-  const differences = schemaDifferencesOf(skillSchemasOf(entry), expected);
+  const schemas = skillSchemasOf(entry);
+  const unknown = unknownFinishesOf(schemas, expected.finishes);
+  const differences = unknown.length > 0 ? unknown : schemaDifferencesOf(schemas, expected);
   if (differences.length === 0) return;
   throw new A2AContractError({
     agent: expected.agent,
-    rule: A2AContractRule.SchemaMismatch,
+    rule: unknown.length > 0 ? A2AContractRule.UnknownFinish : A2AContractRule.SchemaMismatch,
     skill,
     differences,
   });

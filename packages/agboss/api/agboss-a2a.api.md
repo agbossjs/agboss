@@ -194,6 +194,7 @@ export interface A2AClientCall {
 // @public
 export interface A2AClientContract {
     readonly application?: string;
+    readonly finishes?: readonly string[];
     // (undocumented)
     readonly input?: DtoClass;
     readonly mesh?: A2AMesh;
@@ -276,6 +277,7 @@ export interface A2AContractErrorOptions {
 export enum A2AContractRule {
     RepeatedCall = "a2a.repeated-call",
     SchemaMismatch = "a2a.schema-mismatch",
+    UnknownFinish = "a2a.unknown-finish",
     UnknownSkill = "a2a.unknown-skill"
 }
 
@@ -856,6 +858,7 @@ export type A2AStreamEvent = StreamResponse;
 // @public
 export interface A2ATarget {
     readonly application?: string;
+    readonly finishes?: readonly string[];
     readonly skill?: string;
 }
 
@@ -968,6 +971,33 @@ export interface A2ATaskResult {
     readonly task: Task | undefined;
     // (undocumented)
     readonly text: string | undefined;
+}
+
+// @public
+export class A2AUnexpectedFinishError extends AGBossError {
+    constructor(options: A2AUnexpectedFinishErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "a2a.unexpected-finish";
+    // (undocumented)
+    readonly finish: string | undefined;
+    // (undocumented)
+    readonly finishes: readonly string[];
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly taskId: string | undefined;
+}
+
+// @public
+export interface A2AUnexpectedFinishErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    readonly finish: string | undefined;
+    readonly finishes: readonly string[];
+    // (undocumented)
+    readonly taskId: string | undefined;
 }
 
 export { AgentCard }
@@ -1178,16 +1208,16 @@ export class WorkflowFinishFilesDto {
 // src/a2a/a2a-caller.ts:69:3 - (ae-undocumented) Missing documentation for "peer".
 // src/a2a/a2a-caller.ts:93:3 - (ae-undocumented) Missing documentation for "kind".
 // src/a2a/a2a-caller.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-decorator.ts:63:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
-// src/a2a/a2a-decorator.ts:71:3 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/a2a-decorator.ts:72:3 - (ae-undocumented) Missing documentation for "url".
-// src/a2a/a2a-decorator.ts:73:3 - (ae-undocumented) Missing documentation for "target".
-// src/a2a/a2a-decorator.ts:74:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/a2a-decorator.ts:75:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-decorator.ts:76:3 - (ae-undocumented) Missing documentation for "price".
-// src/a2a/a2a-decorator.ts:77:3 - (ae-undocumented) Missing documentation for "mesh".
-// src/a2a/a2a-decorator.ts:78:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
-// src/a2a/a2a-decorator.ts:79:3 - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/a2a-decorator.ts:69:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
+// src/a2a/a2a-decorator.ts:77:3 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-decorator.ts:78:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-decorator.ts:79:3 - (ae-undocumented) Missing documentation for "target".
+// src/a2a/a2a-decorator.ts:80:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/a2a-decorator.ts:81:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/a2a-decorator.ts:82:3 - (ae-undocumented) Missing documentation for "price".
+// src/a2a/a2a-decorator.ts:83:3 - (ae-undocumented) Missing documentation for "mesh".
+// src/a2a/a2a-decorator.ts:84:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
+// src/a2a/a2a-decorator.ts:85:3 - (ae-undocumented) Missing documentation for "deps".
 // src/a2a/client/a2a-client-errors.ts:32:3 - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/client/a2a-client-errors.ts:43:3 - (ae-undocumented) Missing documentation for "code".
 // src/a2a/client/a2a-client-errors.ts:44:12 - (ae-undocumented) Missing documentation for "name".
@@ -1209,27 +1239,35 @@ export class WorkflowFinishFilesDto {
 // src/a2a/client/a2a-client-errors.ts:111:3 - (ae-undocumented) Missing documentation for "rpcCode".
 // src/a2a/client/a2a-client-errors.ts:112:3 - (ae-undocumented) Missing documentation for "httpStatus".
 // src/a2a/client/a2a-client-errors.ts:113:3 - (ae-undocumented) Missing documentation for "protocolVersions".
-// src/a2a/client/a2a-client-errors.ts:151:3 - (ae-undocumented) Missing documentation for "agent".
-// src/a2a/client/a2a-client-errors.ts:152:3 - (ae-undocumented) Missing documentation for "rule".
-// src/a2a/client/a2a-client-errors.ts:153:3 - (ae-undocumented) Missing documentation for "skill".
-// src/a2a/client/a2a-client-errors.ts:165:3 - (ae-undocumented) Missing documentation for "code".
-// src/a2a/client/a2a-client-errors.ts:166:12 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/client/a2a-client-errors.ts:167:3 - (ae-undocumented) Missing documentation for "agent".
-// src/a2a/client/a2a-client-errors.ts:168:3 - (ae-undocumented) Missing documentation for "rule".
-// src/a2a/client/a2a-client-errors.ts:169:3 - (ae-undocumented) Missing documentation for "skill".
-// src/a2a/client/a2a-client-errors.ts:170:3 - (ae-undocumented) Missing documentation for "differences".
+// src/a2a/client/a2a-client-errors.ts:153:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:154:3 - (ae-undocumented) Missing documentation for "rule".
+// src/a2a/client/a2a-client-errors.ts:155:3 - (ae-undocumented) Missing documentation for "skill".
+// src/a2a/client/a2a-client-errors.ts:169:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-client-errors.ts:170:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-client-errors.ts:171:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-client-errors.ts:172:3 - (ae-undocumented) Missing documentation for "rule".
+// src/a2a/client/a2a-client-errors.ts:173:3 - (ae-undocumented) Missing documentation for "skill".
+// src/a2a/client/a2a-client-errors.ts:174:3 - (ae-undocumented) Missing documentation for "differences".
 // src/a2a/client/a2a-client-files.ts:30:3 - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/client/a2a-client-files.ts:31:3 - (ae-undocumented) Missing documentation for "filename".
-// src/a2a/client/a2a-client-options.ts:27:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/client/a2a-client-options.ts:28:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/client/a2a-client-options.ts:35:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
-// src/a2a/client/a2a-client-options.ts:82:3 - (ae-undocumented) Missing documentation for "task".
-// src/a2a/client/a2a-client-options.ts:83:3 - (ae-undocumented) Missing documentation for "message".
-// src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "text".
-// src/a2a/client/a2a-client-options.ts:85:3 - (ae-undocumented) Missing documentation for "data".
-// src/a2a/client/a2a-client-options.ts:88:3 - (ae-undocumented) Missing documentation for "peer".
+// src/a2a/client/a2a-client-options.ts:29:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/client/a2a-client-options.ts:30:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/client/a2a-client-options.ts:37:1 - (ae-undocumented) Missing documentation for "A2AClientOptions".
+// src/a2a/client/a2a-client-options.ts:84:3 - (ae-undocumented) Missing documentation for "task".
+// src/a2a/client/a2a-client-options.ts:85:3 - (ae-undocumented) Missing documentation for "message".
+// src/a2a/client/a2a-client-options.ts:86:3 - (ae-undocumented) Missing documentation for "text".
+// src/a2a/client/a2a-client-options.ts:87:3 - (ae-undocumented) Missing documentation for "data".
+// src/a2a/client/a2a-client-options.ts:90:3 - (ae-undocumented) Missing documentation for "peer".
 // src/a2a/client/a2a-client.ts:61:3 - (ae-undocumented) Missing documentation for "url".
 // src/a2a/client/a2a-download.ts:15:3 - (ae-undocumented) Missing documentation for "signal".
+// src/a2a/client/a2a-finish.ts:34:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-finish.ts:39:3 - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/client/a2a-finish.ts:48:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/client/a2a-finish.ts:49:12 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/client/a2a-finish.ts:50:3 - (ae-undocumented) Missing documentation for "agent".
+// src/a2a/client/a2a-finish.ts:51:3 - (ae-undocumented) Missing documentation for "finish".
+// src/a2a/client/a2a-finish.ts:52:3 - (ae-undocumented) Missing documentation for "finishes".
+// src/a2a/client/a2a-finish.ts:53:3 - (ae-undocumented) Missing documentation for "taskId".
 // src/a2a/client/a2a-guard-errors.ts:20:3 - (ae-undocumented) Missing documentation for "agent".
 // src/a2a/client/a2a-guard-errors.ts:21:3 - (ae-undocumented) Missing documentation for "origin".
 // src/a2a/client/a2a-guard-errors.ts:22:3 - (ae-undocumented) Missing documentation for "site".

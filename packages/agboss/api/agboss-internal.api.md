@@ -1093,6 +1093,7 @@ export enum FederationProblemCode {
     MissingTarget = "federation.missing-target",
     // (undocumented)
     SnapshotSchema = "federation.snapshot-schema",
+    UnknownFinish = "federation.unknown-finish",
     // (undocumented)
     VersionNotBumped = "federation.version-not-bumped"
 }
@@ -1768,10 +1769,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:44:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:49:3 - (ae-undocumented) Missing documentation for "reason".
-// src/describe/contracts-types.ts:71:3 - (ae-undocumented) Missing documentation for "exports".
-// src/describe/contracts-types.ts:72:3 - (ae-undocumented) Missing documentation for "imports".
-// src/describe/contracts-types.ts:73:3 - (ae-undocumented) Missing documentation for "schemas".
-// src/describe/contracts-types.ts:74:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
+// src/describe/contracts-types.ts:76:3 - (ae-undocumented) Missing documentation for "exports".
+// src/describe/contracts-types.ts:77:3 - (ae-undocumented) Missing documentation for "imports".
+// src/describe/contracts-types.ts:78:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/contracts-types.ts:79:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".
@@ -1839,15 +1840,15 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts:17:3 - (ae-undocumented) Missing documentation for "DuplicateApplication".
 // src/federation/federation-types.ts:18:3 - (ae-undocumented) Missing documentation for "SnapshotSchema".
 // src/federation/federation-types.ts:19:3 - (ae-undocumented) Missing documentation for "VersionNotBumped".
-// src/federation/federation-types.ts:24:3 - (ae-undocumented) Missing documentation for "application".
-// src/federation/federation-types.ts:25:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/federation/federation-types.ts:26:3 - (ae-undocumented) Missing documentation for "tool".
-// src/federation/federation-types.ts:31:3 - (ae-undocumented) Missing documentation for "code".
-// src/federation/federation-types.ts:34:3 - (ae-undocumented) Missing documentation for "consumer".
-// src/federation/federation-types.ts:35:3 - (ae-undocumented) Missing documentation for "message".
-// src/federation/federation-types.ts:38:3 - (ae-undocumented) Missing documentation for "blastRadius".
-// src/federation/federation-types.ts:45:3 - (ae-undocumented) Missing documentation for "applications".
-// src/federation/federation-types.ts:52:3 - (ae-undocumented) Missing documentation for "problems".
+// src/federation/federation-types.ts:26:3 - (ae-undocumented) Missing documentation for "application".
+// src/federation/federation-types.ts:27:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/federation/federation-types.ts:28:3 - (ae-undocumented) Missing documentation for "tool".
+// src/federation/federation-types.ts:33:3 - (ae-undocumented) Missing documentation for "code".
+// src/federation/federation-types.ts:36:3 - (ae-undocumented) Missing documentation for "consumer".
+// src/federation/federation-types.ts:37:3 - (ae-undocumented) Missing documentation for "message".
+// src/federation/federation-types.ts:40:3 - (ae-undocumented) Missing documentation for "blastRadius".
+// src/federation/federation-types.ts:47:3 - (ae-undocumented) Missing documentation for "applications".
+// src/federation/federation-types.ts:54:3 - (ae-undocumented) Missing documentation for "problems".
 // src/finops/cost-category.ts:3:3 - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts:4:3 - (ae-undocumented) Missing documentation for "Routing".
 // src/finops/cost-category.ts:5:3 - (ae-undocumented) Missing documentation for "Guards".

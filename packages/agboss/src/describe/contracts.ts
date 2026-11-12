@@ -127,7 +127,12 @@ function a2aImportsOf(
       {
         kind: "a2a",
         client: name,
-        target: { application: target.application, start: target.skill ?? "" },
+        target: {
+          application: target.application,
+          start: target.skill ?? "",
+          // #916: present only when the client takes some of the skill's finishes
+          ...(target.finishes === undefined ? {} : { finishes: [...target.finishes] }),
+        },
         usedBy: usesOf(client, parts),
         input: dtos.of(input),
         output: dtos.of(output),

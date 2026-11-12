@@ -7,15 +7,21 @@ import type { A2AMesh } from "./client/a2a-guard-errors.js";
 
 /**
  * Whom an `@A2AAgent` calls (#809, design §4.4): an AGBoss application, named for `describe`,
- * federation and the mesh's audience, and the skill — the receiver's exported start — that a
- * message names. Both optional: a foreign agent has no application, an agent with one skill needs
- * no name for it.
+ * federation and the mesh's audience, the skill — the receiver's exported start — that a message
+ * names, and the skill's finishes the client takes (#916). All optional: a foreign agent has no
+ * application, an agent with one skill needs no name for it, a client of every finish lists none.
  */
 export interface A2ATarget {
   /** The receiver's `@Application({ name })`, when it is an AGBoss application. */
   readonly application?: string;
   /** The agent's skill id (an AGBoss application's exported `@WorkflowStart` name; was `start`). */
   readonly skill?: string;
+  /**
+   * The skill's finishes a typed client takes (#916, `@WorkflowFinish` names): its `output` must
+   * accept each one's, and a task that ends at another is `A2AUnexpectedFinishError`. Unset: every
+   * finish of the skill — the output must accept them all (`[a2a.schema-mismatch]` otherwise).
+   */
+  readonly finishes?: readonly string[];
 }
 
 /** The parts of an `@A2AAgent` beside its DTOs. */

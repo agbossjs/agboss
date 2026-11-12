@@ -23,7 +23,8 @@ export * from "./federation-types.js";
  * `describe --json` snapshots and the current project — compared without running anything. Every
  * consumed contract whose target is among them is checked against its export: the export must
  * exist (`[federation.missing-target]`), its input must accept every value the consumer sends and
- * the consumer's output every value the export gives over each of its finishes
+ * the consumer's output every value the export gives over each of its finishes — or each of those
+ * it names (`target.finishes`, #916; one it names that the start lacks `[federation.unknown-finish]`)
  * (`[federation.incompatible-schema]`, structural — an equal `schemaHash` is only the fast path).
  * Each problem names its blast radius: the consumer's workflows that use the contract. An export
  * whose schema changed since the project's own earlier snapshot without a new version warns
@@ -97,6 +98,26 @@ function problemOf(
   };
 }
 
+/** #916: the finishes a consumer takes (`target.finishes`) that its target's start does not have. */
+function unknownFinishProblems(
+  pairing: Pairing,
+  where: string,
+  exported: A2AExportContract,
+): FederationProblem[] {
+  if (pairing.contract.kind !== "a2a") return [];
+  const listed = exported.outputs.map((output) => output.finish);
+  return (pairing.contract.target.finishes ?? [])
+    .filter((finish) => !listed.includes(finish))
+    .map((finish) =>
+      problemOf(
+        pairing,
+        FederationProblemCode.UnknownFinish,
+        where,
+        `${finish} is not a finish of ${exported.start} (its finishes: ${listed.join(", ")})`,
+      ),
+    );
+}
+
 /** The schema problems of one consumed contract against its export. */
 function schemaProblems(
   pairing: Pairing,
@@ -121,8 +142,13 @@ function schemaProblems(
         ),
       );
   }
-  if (exported.kind !== "a2a") return problems;
-  for (const output of exported.outputs) {
+  if (exported.kind !== "a2a" || contract.kind !== "a2a") return problems;
+  problems.push(...unknownFinishProblems(pairing, where, exported));
+  const finishes = contract.target.finishes;
+  const taken = exported.outputs.filter(
+    (output) => finishes === undefined || finishes.includes(output.finish),
+  );
+  for (const output of taken) {
     const reasons = differences(
       { member: consumer, dto: contract.output },
       { member: producer, dto: output },

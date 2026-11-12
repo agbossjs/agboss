@@ -21,6 +21,8 @@ import {
 export interface SchemaExpectation {
   readonly input: DtoClass | undefined;
   readonly output: DtoClass | undefined;
+  /** The skill's finishes the output takes (#916); unset: every one. */
+  readonly finishes?: readonly string[] | undefined;
 }
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -70,15 +72,37 @@ export function schemaDifferencesOf(
     found.push(...incompatibilitiesOf(accepted, sent).map((reason) => `input: ${reason}`));
     found.push(...fileFieldDifferencesOf(expected.input, schemas.files));
   }
-  if (expected.output !== undefined) found.push(...outputDifferencesOf(schemas, expected.output));
+  if (expected.output !== undefined)
+    found.push(...outputDifferencesOf(schemas, expected.output, expected.finishes));
   return found;
 }
 
-/** #916 item 4: each finish's data compared without the file fields, each side's; the files apart. */
-function outputDifferencesOf(schemas: SkillSchemas, output: DtoClass): readonly string[] {
+/** The finishes a client names (#916) that the skill's card does not list (`[a2a.unknown-finish]`). */
+export function unknownFinishesOf(
+  schemas: SkillSchemas,
+  finishes: readonly string[] | undefined,
+): readonly string[] {
+  const listed = Object.keys(schemas.outputs);
+  return (finishes ?? [])
+    .filter((finish) => !Object.hasOwn(schemas.outputs, finish))
+    .map((finish) => `${finish} is not a finish of the skill (its finishes: ${listed.join(", ")})`);
+}
+
+/**
+ * #916: each finish the client takes — those it names, else every one — its data compared without
+ * the file fields, each side's (item 4); the files apart.
+ */
+function outputDifferencesOf(
+  schemas: SkillSchemas,
+  output: DtoClass,
+  finishes: readonly string[] | undefined,
+): readonly string[] {
   const own = new Set(fileFieldsOf(output).map((field) => field.name));
   const accepted = withoutFileFields(jsonSchemaOf(output), own);
-  return Object.entries(schemas.outputs).flatMap(([finish, given]) => [
+  const taken = Object.entries(schemas.outputs).filter(
+    ([finish]) => finishes === undefined || finishes.includes(finish),
+  );
+  return taken.flatMap(([finish, given]) => [
     ...incompatibilitiesOf(
       accepted,
       withoutFileFields(given.schema, new Set(given.files.keys())),

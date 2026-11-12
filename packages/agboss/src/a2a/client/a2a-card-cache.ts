@@ -75,6 +75,7 @@ export class CardCache {
     checkCard(checked.card, {
       agent,
       skill: contract?.skill,
+      finishes: contract?.finishes,
       input: contract?.input,
       output: contract?.output,
     });

@@ -1168,6 +1168,15 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **A typed A2A client can take some of its skill's finishes** (#916): by default an `@A2AAgent`'s
+  `output` must accept every finish of the skill (`[a2a.schema-mismatch]` names each one it does
+  not, before anything is sent). `target: { finishes: ["answer-workflow-finish"] }` narrows the card
+  check to those finishes — each must be one of the skill's (`[a2a.unknown-finish]`; at assembly a
+  name no `@WorkflowFinish` could have, an empty list or an untyped agent) — and a task that ends at
+  another finish fails with `A2AUnexpectedFinishError` (`a2a.unexpected-finish`: `agent`, `finish`,
+  `finishes`, `taskId`) before its output is read, for `.onError`. `agboss describe` and `--json`
+  show the list; `check --federation` compares only the listed finishes (`[federation.unknown-finish]`).
+
 - **`provide(TOKEN, Class)`, `EXECUTION_ID_STORE`, `SchemaSetup`** (#891, API review G11): a class
   the container creates for an `InjectionToken` (`ClassProvider`), registered under the token only —
   no `new`, no second implementation of a contract it extends; `EXECUTION_ID_STORE` /

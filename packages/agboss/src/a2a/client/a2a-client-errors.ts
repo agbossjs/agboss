@@ -139,6 +139,8 @@ export enum A2AContractRule {
   UnknownSkill = "a2a.unknown-skill",
   /** `[a2a.schema-mismatch]`: the skill's schemas do not accept the client's DTOs. */
   SchemaMismatch = "a2a.schema-mismatch",
+  /** `[a2a.unknown-finish]` (#916): a finish the client names (`target.finishes`) is not the skill's. */
+  UnknownFinish = "a2a.unknown-finish",
   /**
    * `[a2a.repeated-call]`: one step called the client twice with different messages under one name
    * — each call of a step is one outbound call, so the second would replay the first's answer.
@@ -158,8 +160,10 @@ export interface A2AContractErrorOptions {
 /**
  * The agent's Agent Card does not serve what the client declares (#809, design §4.2), found before
  * anything is sent: the skill is unknown (`[a2a.unknown-skill]`), or the skill's input does not
- * accept the client's input DTO or one of its finish outputs is not accepted by the client's output
- * DTO (`[a2a.schema-mismatch]`, compared structurally as `check --federation` does).
+ * accept the client's input DTO or one of its finish outputs — every one, or those
+ * `target.finishes` names (#916) — is not accepted by the client's output DTO
+ * (`[a2a.schema-mismatch]`, compared structurally as `check --federation` does), or a finish it
+ * names is not the skill's (`[a2a.unknown-finish]`).
  */
 export class A2AContractError extends AGBossError {
   static override readonly code = "a2a.contract" as const;
@@ -175,6 +179,7 @@ export class A2AContractError extends AGBossError {
     const what = {
       [A2AContractRule.UnknownSkill]: `its Agent Card has no skill "${options.skill}"`,
       [A2AContractRule.SchemaMismatch]: `the schemas of its skill "${options.skill}" do not match the client's DTOs`,
+      [A2AContractRule.UnknownFinish]: `its skill "${options.skill}" has no finish the client names`,
       [A2AContractRule.RepeatedCall]:
         "this step already called it with another message — give each call of one step its own key ({ key })",
     }[options.rule];
