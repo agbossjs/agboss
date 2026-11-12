@@ -7583,6 +7583,9 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
+export function toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SideHead>;
+
+// @public
 export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public

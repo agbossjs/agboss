@@ -464,6 +464,7 @@ describe("AC4 / AC8: removed forms do not exist", () => {
       "toAction",
       "toAgent",
       "toFinish",
+      "toQuestion",
       "toRouter",
       "toWorkflow",
       "workflow",
