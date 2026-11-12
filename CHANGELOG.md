@@ -930,6 +930,17 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   lookup, no proxy, whatever the environment or `https.globalAgent` say — so such a name is refused
   `-32602 a2a.file-address-denied` and the proxy is never asked to tunnel to it. A deployment whose
   egress must go through a proxy cannot take files by url (raw file parts are unaffected).
+- **A file fetch holds against a patched HTTP client, and its connected address is re-checked**
+  (#916, after the acceptance of the above) — `global-agent` (and any code that patches
+  `https.request` and forces its own agent) swapped the fetch's agent for a proxying or unguarded
+  one, so the guarded lookup never ran. The fetch no longer goes through `https.request`: it builds
+  a `ClientRequest` with its own agent and refuses unless the request really uses it, and, as soon
+  as the socket connects and before a byte is sent, checks the remote address again — a denied
+  address (embedded IPv4 forms included), an address the guarded lookup did not answer for that
+  connection (a proxy in the way), or a socket that did not come through the file agent is
+  destroyed and refused `a2a.file-address-denied`. File fetches bypass any HTTP(S) proxy and global
+  agent. One thing the guard cannot stand against: code that replaces `node:net` / `node:tls` or
+  the file agent's own methods in the process.
 - **The card describes the file fields of a skill's outputs too, and a `Marker` card declares each
   one** (#916): a finish's file fields are out of its output schema and declared in the skills
   extension's `outputFiles` by finish (`Extension`), or marked in it (`Marker`); a `Marker` is now
