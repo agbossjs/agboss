@@ -3,6 +3,7 @@
  * store and an execution control of the test's, every branch of each.
  */
 import { describe, expect, it } from "vitest";
+import { InvalidA2APageTokenError } from "../../src/index.js";
 import {
   DurableExecutionStatus,
   ExecutionCancelOutcome,
@@ -626,5 +627,13 @@ describe("#810: the mesh's statuses", () => {
       output: 1,
       spentUsd: 0.5,
     });
+  });
+});
+
+describe("#906: an invalid page token keeps its cause", () => {
+  it("InvalidA2APageTokenError({ cause })", () => {
+    const cause = new Error("why");
+
+    expect(new InvalidA2APageTokenError({ cause }).cause).toBe(cause);
   });
 });

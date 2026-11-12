@@ -156,6 +156,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
       unwindingMarkOf(new ExecutionCancelledError({ message: "stop" })),
     );
     expect(cancelled).toBeInstanceOf(ExecutionCancelledError);
+    expect(cancelled.message).toBe("stop");
   });
 
   it("a mark written before #598 (no record) is an AGBossError with the message on every instance", () => {

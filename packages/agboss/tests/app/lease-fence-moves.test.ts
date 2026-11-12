@@ -82,3 +82,12 @@ describe("#533: the background renewal", () => {
     await expect(renewalsWhile(new Error("the lease store is down"))).resolves.toBe(3);
   });
 });
+
+describe("#906: a lost fence says whose lease it was", () => {
+  it("lose() without a reason aborts with an ExecutionLeaseLostError naming the root execution", () => {
+    const { fence, lost } = fenceOf(new VirtualClock(), seconds(30));
+
+    expect(() => fence.lose()).toThrow(ExecutionLeaseLostError);
+    expect(lost.signal.reason).toMatchObject({ rootExecutionId: "root-1" });
+  });
+});
