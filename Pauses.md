@@ -402,6 +402,13 @@ value for the steps after it. Everything else is a pause like an approval's:
   before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
   is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`; `question`
   the step, also in `details`) — `.onError(E, …)` right after `.toQuestion(Role)` takes it.
+- **As an `.onError` side-path start (#933):** `.onError(E, toQuestion(Role).returns(AnswerDto)…)` — a
+  question role's step handles the failure (the escalation "the manager did not answer, ask the
+  director"); it reads its `ask` from the path as it stood before the failed step, and its answer goes
+  on the path. One role is one node: its `maxVisits` counts the main path and the side path together.
+  A side path that can catch a limit (`LimitExceededError`, `BudgetExceededError`, `AGBossError`, …)
+  still leads only to actions and finishes: a question there is `[graph.limit-handler-uses-model]`
+  (a reply interpreter may call a model).
 - `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
   `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
   its `OutputOf` `AnswerDto`. The step's own `InputOf<Role>` is `{ ask: … }` (#802), the role's

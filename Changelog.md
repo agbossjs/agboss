@@ -5,6 +5,7 @@ Breaking changes and notable additions, newest first. The API reports
 
 ## Unreleased — 0.1.1: one shape for every error, literal codes, the last Tern names (#906, completing #890)
 
+- **Added (flow)**: `toQuestion(Q)` as an `.onError` side-path start (#933, #910): `.onError(E, toQuestion(Role).returns(AnswerDto)…)` — a question role's step handles a failure; after a limit a side path still leads only to actions and finishes (`[graph.limit-handler-uses-model]`).
 - **Changed — breaking (errors)**: every exported `AGBossError` subclass is made from **one options
   object** whose keys are its own properties, `cause` among them (kept as `.cause`):
   `new DtoValidationError({ dto, issues })`, `new ActionFailedError({ action, cause })`,
