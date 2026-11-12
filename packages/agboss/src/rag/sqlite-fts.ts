@@ -6,7 +6,8 @@ import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { checkedTenantId } from "../flow/context/context-values.js";
 import { OncePerTenant } from "./once-per-tenant.js";
-import { inTransaction, openSchema } from "./sqlite-fts-schema.js";
+import { openSchema } from "./sqlite-fts-schema.js";
+import { writeTenant } from "./sqlite-fts-write.js";
 import type {
   RagConnector,
   RagIndexOptions,
@@ -63,13 +64,6 @@ export function ftsQuery(query: string): string | undefined {
   return terms.length === 0 ? undefined : terms.map((term) => `"${term}"`).join(" OR ");
 }
 
-/** One document of one tenant as the index keeps it; no hash: the document is gone. */
-interface StoredFile {
-  readonly tenantId: string;
-  readonly source: string;
-  readonly hash: string | undefined;
-}
-
 /** One document as read from the folder: its text and the hash it is indexed at. */
 interface ReadDocument {
   readonly source: string;
@@ -114,7 +108,9 @@ export class SqliteFtsConnector implements RagConnector {
   /**
    * The tenant's index brought up to its folder whole or not at all (#891): every document is read
    * first, then every change — a changed document's chunks, a gone one's removal — is written in one
-   * transaction. An abort, an unreadable document or a failure midway leaves the index as it was.
+   * transaction on a connection of its own that gives the event loop back every few milliseconds
+   * (`writeTenant`): a Ctrl+C stops a long write at once, rolled back. An abort, an unreadable
+   * document or a failure midway leaves the index as it was.
    */
   async index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
     checkedTenantId(tenantId);
@@ -126,10 +122,14 @@ export class SqliteFtsConnector implements RagConnector {
     const sources = new Set(documents.map(({ source }) => source));
     const gone = [...known.keys()].filter((source) => !sources.has(source));
     signal.throwIfAborted();
-    inTransaction(db, () => {
-      for (const { source, hash, text } of changed)
-        this.write(db, { tenantId, source, hash }, this.chunksOf(text));
-      for (const source of gone) this.write(db, { tenantId, source, hash: undefined }, []);
+    await writeTenant(this.options.sqlitePath, signal, {
+      tenantId,
+      put: changed.map(({ source, hash, text }) => ({
+        source,
+        hash,
+        chunks: () => this.chunksOf(text),
+      })),
+      remove: gone,
     });
     const chunks = Count.parse(
       db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE tenant_id = ?").get(tenantId),
@@ -171,12 +171,17 @@ export class SqliteFtsConnector implements RagConnector {
   private async buildIfEmpty(tenantId: string, signal: AbortSignal): Promise<void> {
     if (this.fileCount(tenantId) > 0) return;
     const documents = await this.documentsOf(tenantId, signal);
-    const db = this.open();
-    inTransaction(db, () => {
-      // another connection may have built it meanwhile: its index stands
-      if (this.fileCount(tenantId) > 0) return;
-      for (const { source, hash, text } of documents)
-        this.write(db, { tenantId, source, hash }, this.chunksOf(text));
+    this.open();
+    await writeTenant(this.options.sqlitePath, signal, {
+      tenantId,
+      // another connection (or run) may have built it meanwhile: its index stands
+      onlyIfEmpty: true,
+      put: documents.map(({ source, hash, text }) => ({
+        source,
+        hash,
+        chunks: () => this.chunksOf(text),
+      })),
+      remove: [],
     });
   }
 
@@ -221,17 +226,6 @@ export class SqliteFtsConnector implements RagConnector {
   private folderOf(tenantId: string): string | undefined {
     const { folder } = this.options;
     return typeof folder === "string" ? folder : folder(tenantId);
-  }
-
-  /** One document's chunks of one tenant written in place of its old ones, inside a transaction. */
-  private write(db: DatabaseSync, file: StoredFile, chunks: readonly string[]): void {
-    const { tenantId, source, hash } = file;
-    db.prepare("DELETE FROM chunks WHERE tenant_id = ? AND source = ?").run(tenantId, source);
-    db.prepare("DELETE FROM files WHERE tenant_id = ? AND source = ?").run(tenantId, source);
-    if (hash === undefined) return;
-    const insert = db.prepare("INSERT INTO chunks (tenant_id, source, text) VALUES (?, ?, ?)");
-    for (const chunk of chunks) insert.run(tenantId, source, chunk);
-    db.prepare("INSERT INTO files VALUES (?, ?, ?)").run(tenantId, source, hash);
   }
 
   private open(): DatabaseSync {

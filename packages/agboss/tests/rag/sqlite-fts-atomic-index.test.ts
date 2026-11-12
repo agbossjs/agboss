@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { SqliteFtsConnector } from "../../src/rag/sqlite-fts.js";
 
@@ -102,5 +103,52 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
 
     expect(report).toEqual({ documents: 1, chunks: 1, skipped: 0, costUsd: 0 });
     expect(await sourcesOf(connector, "secret")).toEqual(["a.md: Alpha secret is azure now."]);
+  });
+
+  it("AC5/D1: an abort that arrives while the write phase runs stops it at once and rolls it back", async () => {
+    const body = (version: string): string =>
+      Array.from(
+        { length: 40 },
+        (_, n) => `## Part ${String(n)}\n\n${version} secret ${String(n)}`,
+      ).join("\n\n");
+    const files = Object.fromEntries(
+      Array.from({ length: 400 }, (_, n) => [`d${String(n)}.md`, body("old")]),
+    );
+    const { root, connector } = await folderWith(files);
+    const sqlitePath = join(root, "i", "f.sqlite");
+    await connector.index({ tenantId, signal });
+    const oldChunks = (await sourcesOf(connector, "old")).length;
+    for (const name of Object.keys(files)) await writeFile(join(root, name), body("new"));
+    const caller = new AbortController();
+    const probe = new DatabaseSync(sqlitePath);
+    probe.exec("PRAGMA busy_timeout = 0");
+    const writing = (): boolean => {
+      try {
+        probe.exec("BEGIN IMMEDIATE; ROLLBACK");
+        return false;
+      } catch {
+        return true; // the write lock is held: the write phase runs
+      }
+    };
+
+    const run = connector.index({ tenantId, signal: caller.signal });
+    const settled = run.then(
+      () => "done",
+      () => "aborted",
+    );
+    // each turn of this loop is the write phase giving the event loop back; the old code never did
+    while (!writing()) await new Promise((resolve) => setImmediate(resolve));
+    // a retrieval beside the write phase reads the committed index, none of the new run's rows
+    expect(await sourcesOf(connector, "new")).toEqual([]);
+    caller.abort(new Error("interrupted"));
+
+    await expect(run).rejects.toThrow("interrupted");
+    expect(await settled).toBe("aborted");
+    expect(probe.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
+    probe.exec("BEGIN IMMEDIATE; ROLLBACK"); // no transaction is left open: the next writer is not locked out
+    probe.close();
+    expect((await sourcesOf(connector, "old")).length).toBe(oldChunks);
+    expect(await sourcesOf(connector, "new")).toEqual([]);
+    await expect(connector.index({ tenantId, signal })).resolves.toMatchObject({ documents: 400 });
   });
 });
