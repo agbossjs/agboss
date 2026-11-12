@@ -39,7 +39,9 @@ const ENTRIES: Readonly<Record<string, object>> = Object.fromEntries(
   ),
 );
 
-type ErrorClass = (new (options: never) => Error) & { readonly code?: unknown };
+type ErrorClass = (new (options: object) => Error & { readonly code?: unknown }) & {
+  readonly code?: unknown;
+};
 
 /** Every `Error` subclass any entry exports, by name (`AGBossError` itself, the base, is not one). */
 const exportedErrors = (): ReadonlyMap<string, ErrorClass> => {
@@ -70,9 +72,7 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
   it.each([...classes.keys()].sort())(
     "AC1: %s — one parameter, keys are own properties, the cause is kept, the code is a string",
     (name) => {
-      const ErrorClass = classes.get(name) as unknown as new (options: object) => Error & {
-        readonly code?: unknown;
-      };
+      const ErrorClass = classes.get(name) as ErrorClass;
       const options = fixtures[name] ?? {};
       const cause = new Error(`the cause of ${name}`);
 
@@ -85,7 +85,7 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
       expect(missing, `${name}: option keys that are no own property`).toEqual([]);
       expect(typeof error.code, `${name}: a literal code on the instance`).toBe("string");
       // the class's own code, or a sub-code of it (`model` → `model.circuit-open`)
-      const own = (classes.get(name) as ErrorClass).code;
+      const own = ErrorClass.code;
       if (own !== undefined) {
         const code = String(error.code);
         expect(code === own || code.startsWith(`${String(own)}.`), `${name}: ${code}`).toBe(true);
@@ -96,9 +96,7 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
 
   it("AC1: a cause is optional: every error is made without one", () => {
     for (const [name, ErrorClass] of classes) {
-      const error = new (ErrorClass as unknown as new (options: object) => Error)(
-        fixtures[name] ?? {},
-      );
+      const error = new ErrorClass(fixtures[name] ?? {});
       expect(error, name).toBeInstanceOf(Error);
     }
   });
