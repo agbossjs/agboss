@@ -46,7 +46,7 @@ task · answer · status (`answered` | `guarded` | `failed` | `paused`) · stop 
   (built-in `node:sqlite`, `:memory:`), gone on restart; nothing is written to the home folder any
   more, so `agboss eval` / `replay` see the records of their own process only until the SQLite
   repository (#265) is listed. Schema migrations are versioned with `PRAGMA user_version`.
-- Module `src/terns` depends on nothing else in `src` (ESLint).
+- Module `src/turns` depends on nothing else in `src` (ESLint).
 
 ## Scoring quality
 

@@ -49,14 +49,14 @@ flowchart LR
 | `src/llm`            | OpenRouter chat factory, Jev client, cache, registry       | config                                           |
 | `src/routers`        | routing strategies (Jev, LLM)                              | config, finops, llm — **only**                   |
 | `src/tools`          | typed tools, registry, MCP facades, LangChain adapter      | config, finops, llm — **only**                   |
-| `src/terns`          | run records, threads, scores (SQLite)                      | nothing in `src` — **isolated**                  |
+| `src/turns`          | run records, threads, scores (SQLite)                      | nothing in `src` — **isolated**                  |
 | `src/guardrails`     | `@InputGuardrail` / `@OutputGuardrail`: levels, rules, run | components, flow, llm, finops                    |
 | `src/pause`          | pause seam types and policy                                | tools (types)                                    |
 | `src/prompts`        | agent, agent-loop, routing, guardrail texts                | config                                           |
 | `src/tracing`        | optional run tracing (Langfuse)                            | —                                                |
 | `src/graph`          | flow DSL, rules, decorators, engine, nodes, limits         | everything above; routers via `routers/index.ts` |
-| `src/run`            | executeAgent / resumeAgent: threads, Terns                     | graph, finops, terns, prompts, routers, tracing  |
-| `src/eval`           | Jev judge, eval, replay                                    | run, routers, terns, finops                      |
+| `src/run`            | executeAgent / resumeAgent: threads, Terns                     | graph, finops, turns, prompts, routers, tracing  |
+| `src/eval`           | Jev judge, eval, replay                                    | run, routers, turns, finops                      |
 | `src/workflow.ts`    | workflow (flow + limits + config + prompts + tools + MCP)  | config, graph, prompts, tools, routers (types)   |
 | `src/application`, `src/app` | `@Application`, `createApp`, one workflow's wiring (`createAppDeps`, `@agboss/core/internal`) | all of the above              |
 | `src/testing`        | `@agboss/core/testing`: testWith, scripted models, matchers | app, graph, llm (gateway), tools — tests only   |

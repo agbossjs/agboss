@@ -521,12 +521,15 @@ const { status, result } = await this.fencedEffects.runOnce(
   leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
   not at assembly — an application that never uses an effect is not refused. A unit runner holds its
   lease in the lease store of the store's backend: its own, a listed one, or the core's SQLite one.
-- **The connection is not listed (#526):** a component that injects a store's own class, or
-  `OutboundCalls`, reaches `SqliteConnection` (`PostgresConnection`) through the store — the
+- **The connection is not listed (#526):** a component that injects `FencedEffects` or
+  `OutboundCalls` reaches `SqliteConnection` (`PostgresConnection`) through the store — the
   workflow's graph check takes an unlisted class under an infrastructure implementation as its own
   registration, as the container creates it, once for the instance.
-- **Typed transaction:** inject the listed store's own class (`deps: [SqliteFencedEffectRepository]`);
-  the contract token gives `FencedEffectRepository<unknown>`.
+- **Typed transaction:** inject `FencedEffects` (`deps: [ExecutionContext, FencedEffects]`) — never
+  the listed store's own class — and name the transaction in the work's parameter
+  (`(database: DatabaseSync) => …`, `runOnce<TResult, TTransaction>`): the store is infrastructure,
+  `FencedEffects` hands the work the listed store's transaction; a work that writes no rows of its
+  own ignores it.
 - **What it does not do:** exactly-once for systems outside that database (HTTP APIs, email,
   webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
   results are not logged; what reaches a record or a trace is the step's output, masked as always.

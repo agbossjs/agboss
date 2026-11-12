@@ -3,6 +3,49 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: one shape for every error, literal codes, the last Tern names (#906, completing #890)
+
+- **Changed — breaking (errors)**: every exported `AGBossError` subclass is made from **one options
+  object** whose keys are its own properties, `cause` among them (kept as `.cause`):
+  `new DtoValidationError({ dto, issues })`, `new ActionFailedError({ action, cause })`,
+  `new LimitExceededError({ key, limit, actual, path, spentUsd })`,
+  `new BudgetExceededError({ budget, scope, period, key, maxSpend, spent, path, spentUsd })`,
+  `new StepFailedError({ message, usage, cause, component, nodeId, visitNumber })`,
+  `new AgentFailedError({ agent, usage, cause })`, `new RouterFailedError({ nodeId, visitNumber, cause })`,
+  `new A2AProtocolError({ agent, operation, …, cause })`,
+  `new A2ACallerRejectedError({ httpStatus, wireCode, reason })`,
+  `new ModelProviderFailureError({ failure, retryAfter })`, `new ToolTimeoutError({ timeout })`, …;
+  an error with only its text: `new UnknownPauseError({ message, cause })` (`FlowSyntaxError`,
+  `NotPausedError`, `ExecutionCancelledError({ message? })`, the `DecisionError` family, …). `cause`
+  was refused or dropped on ten of them (`BusinessKeyConflictError`, `ThreadIdsExhaustedError`,
+  `InvalidMintedIdError`, `FingerprintNotJsonError`, `InvalidBusinessKeyError`,
+  `OutboundCallInFlightError`, `OutboundCallResultNotStoredError`, `OutboundCallPayloadTooLargeError`,
+  `FencedEffectResultTooLargeError`, `ExecutionFencedError`). Only the base
+  `AGBossError(message, { cause, details })` is positional — the base of your own errors.
+  `FingerprintRequiredError({ effect, reason, cause })`: its option was `name`, shadowing
+  `Error.name`. Facts that only the message said are fields now: `GuardFailedError.reason`,
+  `QuorumNotReachedError.reason`, `ActionFailedError.action`, `BudgetExceededError.period`,
+  `A2ACallerRejectedError.reason`, `InvalidFencedEffectNameError.length`,
+  `FencedEffectStoreMismatchError.expectedLeaseRepository`, `ModelKindError.model` / `.kind` / `.call`,
+  `ToolTimeoutError.timeout`. A test walks every entry's exports (`error-options.test.ts`).
+- **Changed — breaking (codes)**: the instance `code` of every error is its class's literal, so
+  `switch (error.code)` over a union of errors **narrows**. The seven parents with subclasses carry
+  the literal union of their family — `PaidStepError`, `StepFailedError`, `AgentFailedError`,
+  `LimitExceededError`, `RouterFailedError`, `DecisionError`, `ExecutionLeaseLostError`; their
+  `static code` stays `string`. A class of yours extending one of them keeps its `static code` and
+  an instance `code` assignable to the union — or extend `AGBossError`.
+- **Changed — breaking (names)**: `ExecutionRecordRepository.lastTerns` → `lastTurns`,
+  `Summary.fromTernId` / `toTernId` → `fromTurnId` / `toTurnId`, `AgentExecutionDeps.terns` →
+  `turns` (`TurnRecords`), `TernStoreRecordRepository` → `TurnStoreRecordRepository`, `AgentExecutionOutput.ternId` →
+    `turnId`, the contract's
+  parameters `ternId` → `turnId` — in the core, `@agboss/postgres` and `@agboss/mongodb`; no `Tern`
+  stays in an API report but the five deprecated aliases. The stored names stay: the core's SQLite
+  tables and columns (`terns`, `tern_id`, `from_tern`, `to_tern`) — a rename is a data migration —,
+  and a paused run stored by 0.1.0 with `ternId` (now `AgentExecutionOutput.turnId`) is read as
+  `turnId`, no migration.
+- **Fixed — docs**: [Several instances](Several-instances) told a component to inject the listed
+  store's own class for a typed transaction; it is `FencedEffects` (the work names the transaction).
+
 ## Unreleased — 0.1.1: a typed A2A client takes some of its skill's finishes (#916)
 
 - **Added**: `@A2AAgent({ target: { finishes } })` — the card check compares the output with those
