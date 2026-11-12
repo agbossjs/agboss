@@ -69,6 +69,9 @@ function migrateFromVersion0(db: DatabaseSync): void {
 /** Creates or migrates the schema, in one transaction; a later version is refused. */
 export function openSchema(db: DatabaseSync): void {
   db.exec("PRAGMA busy_timeout = 5000");
+  // a current file is opened without a write lock: a writer of this process may hold it, yielding
+  if (Version.parse(db.prepare("PRAGMA user_version").get()).user_version === FTS_SCHEMA_VERSION)
+    return;
   inTransaction(db, () => {
     const version = Version.parse(db.prepare("PRAGMA user_version").get()).user_version;
     if (version > FTS_SCHEMA_VERSION) {
