@@ -1,5 +1,8 @@
 import { expect } from "vitest";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import {
+  FencedEffectStatus,
+  type FencedEffectWork,
+} from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   failing,
@@ -7,7 +10,9 @@ import {
   leaseOf,
   rejectionOf,
   writing,
+  type FencedEffectBusinessRows,
   type FencedEffectTarget,
+  type Receipt,
   type WriteCount,
 } from "./fenced-effect-data.js";
 
@@ -38,21 +43,46 @@ const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
+/**
+ * A write that inserts `row`, and — still in the effect's transaction, before the effect commits —
+ * has `reader` read the rows it sees, into `seen`. A write that may wait (a promise from the
+ * insert) waits for the read's answer, so the read has taken its snapshot before the commit — not
+ * merely been sent (#898: on PostgreSQL the reader's connection is not ordered with the writer's
+ * `COMMIT`). A write that must be synchronous (SQLite) cannot wait: its store answers the read in
+ * the call, on the one thread, before the write returns.
+ */
+const writingSeenBy =
+  <TTransaction>(
+    rows: FencedEffectBusinessRows<TTransaction>,
+    reader: FencedEffectBusinessRows<TTransaction>,
+    row: string,
+    seen: { rows: readonly string[] | undefined },
+  ): FencedEffectWork<TTransaction, Receipt> =>
+  (transaction) => {
+    const receipt: Receipt = { receipt: row };
+    const inserted = rows.insert(transaction, row);
+    if (inserted === undefined) {
+      void reader.committed().then((found) => (seen.rows = found));
+      return receipt;
+    }
+    return inserted
+      .then(() => reader.committed())
+      .then((found) => {
+        seen.rows = found;
+        return receipt;
+      });
+  };
+
 const rowSeenAfterCommit = <TTransaction>(): Case<TTransaction> => ({
   name: "a business row is seen by another instance only once the effect committed",
   run: async ({ first, second }) => {
-    const count: WriteCount = { runs: 0 };
     const key = keyOf(await leaseOf(first));
-    const write = writing(first.rows, "r1", count);
-    let during: Promise<readonly string[]> = Promise.resolve(["not read"]);
+    const seen: { rows: readonly string[] | undefined } = { rows: undefined };
 
-    await first.effects.runOnce(key, (transaction) => {
-      const receipt = write(transaction);
-      during = second.rows.committed();
-      return receipt;
-    });
+    await first.effects.runOnce(key, writingSeenBy(first.rows, second.rows, "r1", seen));
+    await Promise.resolve();
 
-    expect(await during).toEqual([]);
+    expect(seen.rows).toEqual([]);
     expect(await second.rows.committed()).toEqual(["r1"]);
   },
 });
