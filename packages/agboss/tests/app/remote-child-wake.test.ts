@@ -69,7 +69,7 @@ async function runHeld(apps: readonly TestApp[], isRetireHeld: boolean, isAnnoun
 }
 
 describe("#917: the child's end is announced before the parent continues", () => {
-  test("AC1: its lease retire held — the parent ends the tree, the child's end came first, once", async ({
+  test("AC1: its lease retire held, the clock never advances (the in-process wake only) — the parent ends the tree, the child's end came first, once", async ({
     apps,
   }) => {
     const { call, hold, rootOf } = await runHeld(apps, true, false);
@@ -83,7 +83,7 @@ describe("#917: the child's end is announced before the parent continues", () =>
     expect(yieldSeen.ends).toEqual(endsBefore);
   });
 
-  test("AC1: its announcement held — the parent waits for it, then the child's end precedes the root's", async ({
+  test("AC1: its announcement held, the clock never advances (the in-process wake only) — the parent waits for it, then the child's end precedes the root's", async ({
     apps,
   }) => {
     const { call, hold, releaseAnnounce, rootOf } = await runHeld(apps, false, true);
@@ -96,6 +96,28 @@ describe("#917: the child's end is announced before the parent continues", () =>
     expect(early).toBeUndefined();
     expect(yieldSeen.ends).toHaveLength(2);
     expect(yieldSeen.ends.at(-1)).toBe(`yield-one-workflow ${rootOf() ?? ""}`);
+  });
+});
+
+describe("#917: no order is promised once the parent's fallback look runs", () => {
+  test("its announcement held and the clock advanced — the parent's 1 s look reads the finished row and ends the root before the child's end is announced, which comes once, later", async ({
+    apps,
+    clock,
+  }) => {
+    const { call, hold, releaseAnnounce, rootOf } = await runHeld(apps, false, true);
+    await until(() => announceHold.entered === 1, "the child's end in its announcement");
+    for (let step = 0; step < 20 && yieldSeen.ends.length === 0; step += 1) {
+      await clock.advance(seconds(1));
+      await settle();
+    }
+    await call;
+    const endsWhileHeld = [...yieldSeen.ends];
+    releaseAnnounce();
+    await until(() => yieldSeen.ends.length === 2, "the child's end, announced");
+    hold.release();
+
+    expect(endsWhileHeld).toEqual([`yield-one-workflow ${rootOf() ?? ""}`]);
+    expect(yieldSeen.ends).toHaveLength(2);
   });
 });
 

@@ -1480,9 +1480,15 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   is announced** (#917): the worker signalled the waiting parent only after the lease's cleanup, so
   a slow store left it to the 1 s fallback look — and a test on a virtual clock, which nobody
   advances, hung. The worker now announces the child's end while it still holds the child's lease
-  (#562: once, by the completion that won), then signals the parent, then retires the lease: the
-  parent never continues before the child's end is announced, and the lease's cleanup no longer
-  delays it. The fallback stays the safety net.
+  (#562: at most once, by the completion that won), then signals the parent, then retires the
+  lease: on the same instance the in-process wake comes after the announcement, and the lease's
+  cleanup no longer delays it. The fallback stays the safety net. The guarantee is exactly that
+  (corrected by #917's follow-up): a parent's 1 s fallback look, or a parent on another instance,
+  can read the finished row and end the root before the child's end is announced — no order between
+  the child's end event and the parent's continuation is promised across instances or via the
+  fallback, as before #922. The fault checker `children-once` now holds a finished child's end to
+  at most once, never twice (a pod killed between completion and announcement leaves it
+  unannounced).
 - **`agboss rag index` is atomic per tenant and stops on Ctrl+C; the terminal answers questions
   in an explicit mode** (#891, API review G11): `SqliteFtsConnector.index()` reads every document
   first and writes every change in one transaction — an interrupted run (an abort, an unreadable

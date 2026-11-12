@@ -678,7 +678,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
   });
 
-  it("a child lost, a child run twice, a child completed twice in the queue, a child heard ending twice or never (#562)", () => {
+  it("a child lost, a child run twice, a child completed twice in the queue, a child heard ending twice (#562)", () => {
     const { run, history } = healthy();
     operation(history, {
       process: "a",
@@ -730,13 +730,13 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ).toEqual([
       expect.stringContaining("has children o-1, o-1, o-2"),
       expect.stringContaining("child c-2 of batch batch-1 is cancelled"),
-      "child c-1 was heard ending 2 times, not once",
-      "child c-1 was heard ending 2 times, not once",
+      "child c-1 was heard ending 2 times, at most once",
+      "child c-1 was heard ending 2 times, at most once",
       "child c-1 was completed 2 times in the queue",
     ]);
   });
 
-  it("a finished child heard ending once is no violation; one never heard is (#562)", () => {
+  it("a finished child heard ending once is no violation; one never heard is none either — a pod killed between its completion and its announcement (#562)", () => {
     const { run } = healthy();
     const batch = orderRecord("o-1", "batch-1", {
       start: { name: "fault-batch-workflow-start" } as never,
@@ -759,8 +759,11 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
         .filter((found) => found.invariant === FaultInvariant.ChildrenOnce)
         .map((found) => found.message);
     expect(childrenOnce(once)).toEqual([]);
-    expect(childrenOnce({ ...once, events: run.events })).toEqual([
-      "child c-1 was heard ending 0 times, not once",
+    // the kill case: the child finished (its row completed), its pod died before the announcement
+    expect(childrenOnce({ ...once, events: run.events })).toEqual([]);
+    // never twice
+    expect(childrenOnce({ ...once, events: [...once.events, { ...ended, pod: "a" }] })).toEqual([
+      "child c-1 was heard ending 2 times, at most once",
     ]);
   });
 
