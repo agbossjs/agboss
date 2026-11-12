@@ -61,6 +61,8 @@ export interface PendingPauseBase {
    */
   readonly pauseId?: string;
   /** Who may answer it: the thread's owner, or whoever the channel's side authenticates. */
+  readonly answerer: PauseAnswerer;
+  /** @deprecated 0.1.0's name of `answerer`, the same value, until 0.2: use `answerer`. */
   readonly answeredBy: PauseAnswerer;
   /**
    * The step that asks: the agent whose tool call waits (or that asks a question role through its

@@ -32,7 +32,7 @@ const pause: PauseRecord = {
   kind: PauseKind.Approval,
   step: "clerk-agent",
   channel: "refund-approval-channel",
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },
   status: PauseStatus.Cancelled,
   isSent: true,
@@ -82,7 +82,7 @@ describe("#337: a withdrawal is told best-effort", () => {
       channelOf: () => ({
         name: "refund-approval-channel",
         sender,
-        answeredBy: PauseAnswerer.Channel,
+        answerer: PauseAnswerer.Channel,
       }),
       frameOf: () => Promise.reject(new Error("the checkpoint is gone")),
     });
@@ -99,7 +99,7 @@ describe("#337: a withdrawal is told best-effort", () => {
       channelOf: () => ({
         name: "terminal-user-channel",
         sender,
-        answeredBy: PauseAnswerer.ThreadOwner,
+        answerer: PauseAnswerer.ThreadOwner,
       }),
     });
 

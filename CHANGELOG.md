@@ -393,6 +393,34 @@ index` (as before) — a running instance does not re-read a folder on its own.
   (`if (pause.kind === PauseKind.Approval) pause.ask.arguments`); read `pending[i].step` for
   `pending[i].agent`.
 
+- **One meaning per name: `answeredBy` is who answered, `answerer` is who may** (#934, API review Q3)
+  — `answeredBy` meant two things on the 0.1.0 surface; now it is always the person (a string) and
+  who may answer is `answerer: PauseAnswerer`, everywhere:
+
+  | Where                                                            | 0.1.0                                        | Now                                                  | Until 0.2                                                                              |
+  | ---------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+  | `@ChannelRole` options                                           | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy` accepted, `@deprecated`; both given and different → `[channel.role-form]` |
+  | `PendingPause` (`result.pending`, `ExecutionPauseEvent.pending`) | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy`, the same value, `@deprecated`                                            |
+  | `PauseRecord` (store contract)                                   | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy?` read-only, `@deprecated`                                                 |
+  | `PauseAnswer` (`PauseRecord.answer`)                             | `answerer: string \| undefined` (the person) | `answeredBy`                                         | none: a 0.1.0 reader gets a compile error, not a wrong value                           |
+  | `PauseAnswerRecord` (`result.record.pauses`)                     | `answeredBy: PauseAnswerer`, `responder`     | `answerer: PauseAnswerer`, `answeredBy` (the person) | `responder`, the same value as `answeredBy`, `@deprecated`                             |
+  | `EvalPauseTrace` (`@agboss/core/eval`)                           | `responder?`                                 | `answeredBy?`                                        | `responder`, `@deprecated`; a saved run artifact reads with either key                 |
+  | `describe` JSON, `DescribedChannel`                              | `answeredBy`                                 | `answerer`                                           | `answeredBy` emitted too                                                               |
+
+  **Breaking (silent):** `PauseAnswerRecord.answeredBy` keeps its name and changes its meaning — before:
+  the kind (`"channel"` or `"thread-owner"`), now: the person who answered (`"manager-17"`, or
+  `undefined`). Nothing fails to compile (`PauseAnswerer` is a string enum) and no alias can keep the
+  old meaning: an audit filter `pause.answeredBy === PauseAnswerer.Channel`, or the `answeredBy` column
+  of an export of `result.record.pauses` or of `agboss records export`, reads the person now; read
+  `answerer` for the kind. **Stored data:** nothing is migrated; every store reads what 0.1.0 wrote
+  with the new names (SQLite including `pauses.answer` and its answer log, PostgreSQL, MongoDB, the kept
+  execution history records and their children's pauses, a saved eval run artifact), through
+  `pauseRecordOfStored`, `pauseAnswerOfStored`, `pauseAnswerRecordOfStored` and
+  `executionHistoryRecordOfStored` in `@agboss/core/stores`: a store of your own returns their result,
+  never the value it parsed. **Migration:** `@ChannelRole({ answerer })`; `pending[i].answerer`;
+  `record.pauses[i].answerer` for the kind and `.answeredBy` for the person; `answer.answeredBy` for
+  `answer.answerer`.
+
 ### Changed — breaking for stores outside the core
 
 - **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
@@ -662,6 +690,9 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
 
 ### Deprecated
 
+- **`answeredBy` as who may answer** (#934) — on `@ChannelRole` options, `PendingPause` and
+  `PauseRecord`; and `PauseAnswerRecord.responder` and `EvalPauseTrace.responder`: `@deprecated`
+  aliases of `answerer` / `answeredBy`, removed in 0.2 (table in **Changed — breaking**).
 - **`VCRMode` → `VcrMode`** (#802) — the cased-as-a-word name, as `VcrConfig` and the `vcr` option.
   `VCRMode` stays a deprecated alias of the same enum until 0.2 (its value, its type, a member as a
   type); `npx agboss migrate imports` rewrites the import.

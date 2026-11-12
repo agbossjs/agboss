@@ -5,6 +5,7 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
+import { executionHistoryRecordOfStored } from "./stored-step.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
@@ -138,6 +139,10 @@ const startedBetween = (record: ExecutionHistoryRecord, from: Date, to: Date): b
   return at >= from.getTime() && at < to.getTime();
 };
 
+/** A copy of a kept record, read the way a store reads one (#934: 0.1.0's pause names too). */
+const copyOf = (record: ExecutionHistoryRecord): ExecutionHistoryRecord =>
+  executionHistoryRecordOfStored(structuredClone(record));
+
 /** The built-in default: the records in this instance's memory, a copy of each. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class InMemoryExecutionHistoryRepository extends ExecutionHistoryRepository {
@@ -160,7 +165,7 @@ export class InMemoryExecutionHistoryRepository extends ExecutionHistoryReposito
     executionId: string,
   ): Promise<ExecutionHistoryRecord | undefined> {
     const record = this.database.executionHistory.get(historyKeyOf(tenantId, executionId));
-    return Promise.resolve(record === undefined ? undefined : structuredClone(record));
+    return Promise.resolve(record === undefined ? undefined : copyOf(record));
   }
 
   findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]> {
@@ -205,6 +210,6 @@ export class InMemoryExecutionHistoryRepository extends ExecutionHistoryReposito
   /** The records that match, oldest start first, copies. */
   #where(matches: (record: ExecutionHistoryRecord) => boolean): Promise<ExecutionHistoryRecord[]> {
     const found = [...this.database.executionHistory.values()].filter(matches).sort(byStart);
-    return Promise.resolve(found.map((record) => structuredClone(record)));
+    return Promise.resolve(found.map(copyOf));
   }
 }

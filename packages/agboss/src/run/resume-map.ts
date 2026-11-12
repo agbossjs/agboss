@@ -17,7 +17,7 @@ export interface TreeResume {
   /** The decisions it takes, for `onExecutionResume`. */
   readonly decisions: readonly unknown[];
   /** Who answered them (`answeredBy` / the owner), in the same order. */
-  readonly answerers: readonly (string | undefined)[];
+  readonly answeredBy: readonly (string | undefined)[];
 }
 
 const isAnswered = (pause: PauseRecord | undefined): pause is PauseRecord =>
@@ -47,7 +47,7 @@ export function treeResumeOf(
     pauseIds: answered.map(({ pause }) => pause.pauseId),
     taken,
     decisions: taken.map((pause) => pause.answer?.decision),
-    answerers: taken.map((pause) => pause.answer?.answerer),
+    answeredBy: taken.map((pause) => pause.answer?.answeredBy),
   };
 }
 

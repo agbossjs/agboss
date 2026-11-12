@@ -405,7 +405,7 @@ import { RefundOrderDto } from "../dto/refund-order.dto.js";
   name: "refund-sign-off-channel",
   description: "A supervisor signs off a large refund before it is issued",
   approves: RefundOrderDto, // the input of the tool that names the role
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class RefundSignOffChannel extends ChannelOf<RefundSignOffChannel> {}
 ```

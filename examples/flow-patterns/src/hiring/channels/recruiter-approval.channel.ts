@@ -6,6 +6,6 @@ import { LetterDelivery } from "../dto/send-offer-letter.dto.js";
   name: "recruiter-approval-channel",
   description: "The recruiter approves an offer letter",
   approves: LetterDelivery,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class RecruiterApprovalChannel extends ChannelOf<RecruiterApprovalChannel> {}

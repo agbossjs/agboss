@@ -31,7 +31,7 @@ const pause: PauseRecord = {
   kind: PauseKind.Approval,
   step: "clerk-agent",
   channel: "refund-approval-channel",
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },
   status: PauseStatus.Pending,
   isSent: true,

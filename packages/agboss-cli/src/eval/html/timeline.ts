@@ -25,7 +25,7 @@ function partsOf(trace: EvalExecutionTrace): (HtmlElement | undefined)[] {
       "Pauses",
       trace.pauses.map(
         (pause) =>
-          `${pause.nodeId} asked ${pause.role}: ${pause.resolution}${pause.responder === undefined ? "" : ` by ${pause.responder}`}${pause.decision === undefined ? "" : ` — ${JSON.stringify(pause.decision)}`}`,
+          `${pause.nodeId} asked ${pause.role}: ${pause.resolution}${pause.answeredBy === undefined ? "" : ` by ${pause.answeredBy}`}${pause.decision === undefined ? "" : ` — ${JSON.stringify(pause.decision)}`}`,
       ),
     ),
     listOf(

@@ -156,7 +156,7 @@ export class TckReplyInterpreter {
   description: "Asks the task's caller for its next message",
   ask: TckAskDto,
   answer: TckReplyDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: TckReplyInterpreter,
 })
 export abstract class TckInputQuestion extends ChannelOf<TckInputQuestion> {}

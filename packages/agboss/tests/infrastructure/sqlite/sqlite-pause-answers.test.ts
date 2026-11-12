@@ -64,10 +64,10 @@ describe("#267 S107: a SQLite file written before the pause answer records", () 
     expect(await pauses.findByTenantIdAndPauseId("default", "taken-pause")).toMatchObject({
       status: PauseStatus.Taken,
       resolution: PauseResolution.Replied,
-      answer: { decision: { approved: true }, answerer: "manager-17" },
+      answer: { decision: { approved: true }, answeredBy: "manager-17" },
       copyNumber: 1,
     });
-    const answer = { decision: { approved: false }, answerer: "manager-18" };
+    const answer = { decision: { approved: false }, answeredBy: "manager-18" };
     const resolved = await pauses.resolveByTenantIdAndPauseId(
       "default",
       "pending-pause",

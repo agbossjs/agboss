@@ -91,7 +91,7 @@ export class ApproverReplyInterpreter implements ReplyInterpreterHandler<Approve
   description: "Asks the approver for the most this purchase may cost",
   ask: PurchaseQuestionDto,
   answer: ApproverAnswerDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: ApproverReplyInterpreter,
   maxVisits: 2,
 })

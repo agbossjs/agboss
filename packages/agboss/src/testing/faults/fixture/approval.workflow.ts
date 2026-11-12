@@ -73,7 +73,7 @@ export class FaultApprovedAction {
   description: "Asks the task's caller to approve its order",
   ask: FaultApprovalAskDto,
   answer: FaultApprovalDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
 })
 export abstract class FaultApprovalQuestion extends ChannelOf<FaultApprovalQuestion> {}
 

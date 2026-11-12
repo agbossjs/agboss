@@ -38,6 +38,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
     const byItem = [...paused.pending].sort((a, b) => (a.itemIndex ?? 0) - (b.itemIndex ?? 0));
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
+        answerer: PauseAnswerer.Channel,
         answeredBy: PauseAnswerer.Channel,
         kind: PauseKind.Approval,
         step: "batch-refund-agent",

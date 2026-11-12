@@ -1083,12 +1083,12 @@ step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, neve
 **Pauses (#267).** An execution may wait for several answers at once — one per tool call whose
 channel replied `ChannelOutcome.awaitReply()`, in parallel branches too: a paused branch does not
 stop its siblings, the execution pauses only when nothing else can move, and `result.pending`
-lists every waiting pause (`PendingPause`: `kind`, `answeredBy`, `step`, `channel`, `itemIndex`,
+lists every waiting pause (`PendingPause`: `kind`, `answerer`, `step`, `channel`, `itemIndex`,
 `childExecutionId`, the question `ask` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
-the pause's channel role's `answeredBy`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
+the pause's channel role's `answerer`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
 `PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
 (`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ answeredBy:
@@ -1164,7 +1164,7 @@ export class RefundReplyInterpreter {}
   name: "refund-approval-channel",
   description: "Approves card refunds",
   approves: RefundCardInputDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: RefundReplyInterpreter,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
@@ -1196,7 +1196,7 @@ export class DepositReplyInterpreter {}
   name: "deposit-approval-channel",
   description: "A clerk approves deposit returns",
   approves: DepositReturnDto, // an approval role: a decision model may read its replies
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: DepositReplyInterpreter,
 })
 export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
@@ -1209,7 +1209,7 @@ anything else (Wiki → Pauses has the whole class).
 **Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
 `PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
-execution it waited in: the root's or a child's), step, role, answeredBy, responder, resolution,
+execution it waited in: the root's or a child's), step, role, answerer, answeredBy (the person; `responder` is its deprecated alias), resolution,
 askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by

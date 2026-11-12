@@ -7,6 +7,7 @@ import {
 } from "../infrastructure/paused-execution.repository.js";
 import { PauseKind, type WaitingPause } from "../pause/index.js";
 import { isApprovalPause, type QuestionAsk } from "../infrastructure/pause-record.js";
+import { pauseAnswererOf } from "../infrastructure/stored-step.js";
 import { runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
@@ -70,7 +71,8 @@ export async function waitingInterruptsOf(
 export function waitingPauseOf(pause: PauseRecord): WaitingPause {
   const site = {
     pauseId: pause.pauseId,
-    answeredBy: pause.answeredBy,
+    answerer: pauseAnswererOf(pause),
+    answeredBy: pauseAnswererOf(pause),
     step: pause.step,
     channel: pause.channel,
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,

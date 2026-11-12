@@ -40,7 +40,7 @@ const KEY = { tenantId: "default", taskId: "task-1" };
 const pause = (overrides: Partial<PendingPause> = {}): PendingPause =>
   ({
     pauseId: "p-1",
-    answeredBy: PauseAnswerer.ThreadOwner,
+    answerer: PauseAnswerer.ThreadOwner,
     step: "clerk-agent",
     channel: "terminal-user-channel",
     childExecutionId: undefined,
@@ -123,7 +123,7 @@ describe("#807: an execution's state as its task's status", () => {
 
   it("pauses only channels answer → WORKING, naming each channel once (G13)", () => {
     const channelOnly = (channel: string) =>
-      pause({ pauseId: undefined, answeredBy: PauseAnswerer.Channel, channel });
+      pause({ pauseId: undefined, answerer: PauseAnswerer.Channel, channel });
 
     expect(pausedStatusOf([channelOnly("a"), channelOnly("b"), channelOnly("a")])).toEqual({
       state: A2ATaskState.Working,

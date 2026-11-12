@@ -586,7 +586,7 @@ import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
   name: "purchase-approval-channel",
   description: "The buyer approves every purchase order",
   approves: PurchaseOrderDto, // the input of the tool that names the role
-  answeredBy: PauseAnswerer.ThreadOwner, // app.resume(…, { ownerId }); the pauseId is in result.pending
+  answerer: PauseAnswerer.ThreadOwner, // app.resume(…, { ownerId }); the pauseId is in result.pending
 })
 export abstract class PurchaseApprovalChannel extends ChannelOf<PurchaseApprovalChannel> {}
 ```

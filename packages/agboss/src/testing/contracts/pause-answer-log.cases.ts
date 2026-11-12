@@ -35,7 +35,8 @@ const answerOf = (responder: string, approved: boolean): PauseAnswerRecord => ({
     validationAttempts: 0,
   },
   role: "refund-approval-channel",
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
+  answeredBy: responder,
   responder,
   resolution: PauseResolution.Replied,
   askedAt: "2026-01-05T09:00:00.000Z",
@@ -48,7 +49,7 @@ const respondersOf = async (
   rootExecutionId: string,
 ): Promise<readonly (string | undefined)[]> =>
   (await records.findPauseAnswersByTenantIdAndRootExecutionId("acme", rootExecutionId)).map(
-    (answer) => answer.responder,
+    (answer) => answer.answeredBy,
   );
 
 const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [

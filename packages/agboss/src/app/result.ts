@@ -11,7 +11,7 @@ import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/i
 
 /** A pause as callers see it: a `Channel` pause's id stays with its channel (#267 AC3). */
 const visiblePauseOf = (pause: WaitingPause): PendingPause =>
-  pendingPauseOf(pause, pause.answeredBy === PauseAnswerer.ThreadOwner);
+  pendingPauseOf(pause, pause.answerer === PauseAnswerer.ThreadOwner);
 
 /**
  * The full record of an execution (`{ record: true }`, #270 AC16); its `pauses`, and its children's,

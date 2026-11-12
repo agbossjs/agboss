@@ -26,8 +26,10 @@ export interface ChannelRoleBaseOptions {
   /** Kebab-case, unique in the application (`refund-approval-channel`). */
   readonly name: string;
   readonly description: string;
-  /** Who may answer its pauses — required. */
-  readonly answeredBy: PauseAnswerer;
+  /** Who may answer its pauses — required (this, or its 0.1.0 spelling `answeredBy`). */
+  readonly answerer?: PauseAnswerer;
+  /** @deprecated 0.1.0's spelling of `answerer`, kept until 0.2: use `answerer`. */
+  readonly answeredBy?: PauseAnswerer;
   /** Who turns a free-text reply into the role's typed answer; one interpreter belongs to one role. */
   readonly replyInterpreter?: Class;
 }
@@ -57,29 +59,58 @@ export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
 }
 
 /** The two forms of a role, never both. */
-export type ChannelRoleOptions = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+export type ChannelRoleForm = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+
+/** What `@ChannelRole({ … })` takes: a form, and who may answer as `answerer` (or `answeredBy`). */
+export type ChannelRoleOptions = ChannelRoleForm &
+  ({ readonly answerer: PauseAnswerer } | { readonly answeredBy: PauseAnswerer });
+
+/** A role as it is kept: its options with `answerer` settled, whichever spelling was given. */
+export type StoredChannelRole = ChannelRoleForm & { readonly answerer: PauseAnswerer };
 
 /** Whether a role asks a workflow question (`ask` / `answer`, #659) rather than approving a tool. */
-export const isQuestionRole = (
-  options: ChannelRoleOptions,
-): options is ChannelQuestionRoleOptions => options.approves === undefined;
+export const isQuestionRole = (options: ChannelRoleForm): options is ChannelQuestionRoleOptions =>
+  options.approves === undefined;
 
-const roles = new WeakMap<Class, ChannelRoleOptions>();
+const roles = new WeakMap<Class, StoredChannelRole>();
 
 const PAUSE_ANSWERERS: ReadonlySet<string> = new Set(Object.values(PauseAnswerer));
 
-/** The form problem of a role's options (both forms, neither, no `answeredBy`); none → `undefined`. */
-function formProblem(options: ChannelRoleOptions): string | undefined {
-  // read as an untyped (JS) caller may pass them: the types rule these forms out already
-  const fields: Partial<Record<"approves" | "ask" | "answer" | "answeredBy", unknown>> = options;
+const isAnswerer = (value: unknown): value is PauseAnswerer => PAUSE_ANSWERERS.has(String(value));
+
+const CONFLICT =
+  "gives answerer and answeredBy (its 0.1.0 spelling) different values — keep answerer";
+const MISSING =
+  "has no answerer — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
+
+type RoleFields = Partial<
+  Record<"approves" | "ask" | "answer" | "answerer" | "answeredBy", unknown>
+>;
+
+/** The form problem of a role's options (both forms, neither); none → `undefined`. */
+function formProblem(fields: RoleFields): string | undefined {
   const isApproval = fields.approves !== undefined;
   const isQuestion = fields.ask !== undefined || fields.answer !== undefined;
   if (isApproval && isQuestion) return "declares both approves and ask / answer — keep one form";
   if (!isApproval && (fields.ask === undefined || fields.answer === undefined))
     return "declares neither approves nor both ask and answer";
-  if (typeof fields.answeredBy !== "string" || !PAUSE_ANSWERERS.has(fields.answeredBy))
-    return "has no answeredBy — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
   return undefined;
+}
+
+/** What a role's options declare: a problem with them, or who may answer (`answerer` or its alias). */
+type Declared = { readonly problem: string } | { readonly answerer: PauseAnswerer };
+
+function declaredOf(options: ChannelRoleOptions): Declared {
+  // read as an untyped (JS) caller may pass them: the types rule these forms out already
+  const fields: RoleFields = options;
+  const problem = formProblem(fields);
+  if (problem !== undefined) return { problem };
+  const { answerer, answeredBy } = fields;
+  if (answerer !== undefined && answeredBy !== undefined && answerer !== answeredBy)
+    return { problem: CONFLICT };
+  const declared = answerer ?? answeredBy;
+  if (!isAnswerer(declared)) return { problem: MISSING };
+  return { answerer: declared };
 }
 
 /**
@@ -100,13 +131,13 @@ export interface QuestionNodeOptions {
 export function ChannelRole(options: ChannelRoleOptions) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    const problem = formProblem(options);
-    if (problem !== undefined) {
+    const declared = declaredOf(options);
+    if ("problem" in declared) {
       throw new ComponentError({
-        message: `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${problem}`,
+        message: `[channel.role-form] @ChannelRole "${options.name}" (${value.name}) ${declared.problem}`,
       });
     }
-    roles.set(value, options);
+    roles.set(value, { ...options, answerer: declared.answerer });
     if (isQuestionRole(options)) recordDeclaration(value, questionDeclarationOf(options, source));
     return value;
   };
@@ -127,12 +158,12 @@ function questionDeclarationOf(options: ChannelQuestionRoleOptions, source: stri
 }
 
 /** The options `@ChannelRole` recorded on this very class; `undefined` for any other class. */
-export const channelRoleOptionsOf = (cls: Class): ChannelRoleOptions | undefined => roles.get(cls);
+export const channelRoleOptionsOf = (cls: Class): StoredChannelRole | undefined => roles.get(cls);
 
 /** A role class and its options. */
 export interface FoundChannelRole {
   readonly role: Class;
-  readonly options: ChannelRoleOptions;
+  readonly options: StoredChannelRole;
 }
 
 /** The role a channel class is or extends (the nearest one); `undefined` for a role-less channel. */

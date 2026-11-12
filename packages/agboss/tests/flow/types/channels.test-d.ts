@@ -76,7 +76,7 @@ describe("#267 AC6: approves types arguments", () => {
     const role = {
       name: "clarification-question",
       description: "A question",
-      answeredBy: PauseAnswerer.Channel,
+      answerer: PauseAnswerer.Channel,
     };
     const question = { ...role, ask: ShortlistDto, answer: OfferDraftDto };
     const both = { ...question, approves: RefundCardInputDto };
@@ -91,7 +91,7 @@ describe("#267 AC6: approves types arguments", () => {
       maxVisits: 2,
     }).not.toExtend<RoleOptions>();
     expectTypeOf({ ...role, approves: RefundCardInputDto }).toExtend<RoleOptions>();
-    // @ts-expect-error — answeredBy is required: who may answer is never a default
+    // @ts-expect-error — answerer is required: who may answer is never a default
     ChannelRole({ name: "open-channel", description: "Open", approves: RefundCardInputDto });
     expectTypeOf(ChannelRole).toBeFunction();
   });

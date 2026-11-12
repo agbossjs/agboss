@@ -55,11 +55,11 @@ export const channelComponentClassesOf = (
   );
 
 /**
- * Who may answer a channel's pauses: its role's `answeredBy`; a concrete `@Channel` named as is
+ * Who may answer a channel's pauses: its role's `answerer`; a concrete `@Channel` named as is
  * (`TerminalUserChannel`) asks whoever runs the thread — its owner.
  */
-const answeredByOf = (cls: Class): PauseAnswerer =>
-  channelRoleOf(cls)?.options.answeredBy ?? PauseAnswerer.ThreadOwner;
+const answererOf = (cls: Class): PauseAnswerer =>
+  channelRoleOf(cls)?.options.answerer ?? PauseAnswerer.ThreadOwner;
 
 /** The workflow's channels by name (a role's name for a role), created by its container. */
 export function channelPartsOf(
@@ -74,7 +74,7 @@ export function channelPartsOf(
           const name = channelNameOf(cls);
           // the container gives a role's implementation (by inheritance): a channel, checked at assembly
           const sender = containerFor(bundle, services).get(cls) as ChannelSender;
-          return [name, { name, sender, answeredBy: answeredByOf(cls) }];
+          return [name, { name, sender, answerer: answererOf(cls) }];
         }),
       ),
   };

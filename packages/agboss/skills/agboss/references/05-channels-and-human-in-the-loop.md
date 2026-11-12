@@ -8,7 +8,7 @@ Tools themselves: `03-components-di-and-lifecycle.md`; durable stores: `09-persi
 ## How a pause works
 
 1. A `@Tool({ channel })` (or `@McpTool`) names a **channel role** — a project's abstract class
-   `@ChannelRole({ approves: ToolInputDto, answeredBy })` that `extends ChannelOf<Self>`.
+   `@ChannelRole({ approves: ToolInputDto, answerer })` that `extends ChannelOf<Self>`.
 2. Before every call of that tool the framework creates a pause record (`PausedExecutionRepository`,
    keyed by the step's idempotency key) and calls the role's one implementation —
    `send(ask: ChannelAsk<Role>)`, `ask = { pauseId, value }` (`value.arguments` typed by the tool's input).
@@ -92,7 +92,7 @@ import { RefundReplyInterpreter } from "../reply-interpreters/refund/refund.repl
   name: "refund-approval-channel",
   description: "A manager approves refunds",
   approves: RefundRequestDto, // must be the input of every tool naming the role ([channel.wrong-tool])
-  answeredBy: PauseAnswerer.Channel, // required: Slack authenticates who answers
+  answerer: PauseAnswerer.Channel, // required: Slack authenticates who answers
   replyInterpreter: RefundReplyInterpreter, // one interpreter belongs to one role
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
@@ -300,7 +300,7 @@ declare const pauseId: string;
 // the Slack webhook: the button's reply key is the pauseId the channel was sent
 const result = await app.resume(
   { pauseId, decision: { approved: true } }, // a ToolCallApprovalDecisionDto, validated first
-  { tenantId: "acme", answeredBy: "manager-17", record: true }, // Channel role → answeredBy
+  { tenantId: "acme", answeredBy: "manager-17", record: true }, // Channel role → answeredBy (who answered)
 );
 console.log(result.status, result.pending.length, result.record?.pauses); // who answered what
 
@@ -314,7 +314,7 @@ await app.resume(
 await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", answeredBy: "manager-17" });
 ```
 
-| `answeredBy` of the role    | `app.resume` takes                                       | Where the `pauseId` is              |
+| `answerer` of the role      | `app.resume` takes                                       | Where the `pauseId` is              |
 | --------------------------- | -------------------------------------------------------- | ----------------------------------- |
 | `PauseAnswerer.ThreadOwner` | `ownerId` — the thread's owner (else `ThreadOwnerError`) | `result.pending[i].pauseId`         |
 | `PauseAnswerer.Channel`     | `answeredBy` — non-empty, recorded                       | only in the channel's `ask.pauseId` |
@@ -327,7 +327,7 @@ tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat`
 
 ## Questions: the workflow asks, the answer goes on the path
 
-A **question role** (#659) is `@ChannelRole({ ask, answer, answeredBy })` — its name ends with
+A **question role** (#659) is `@ChannelRole({ ask, answer, answerer })` — its name ends with
 `-question` — and a flow step asks it: the step reads one `ask` value from the path, pauses on the
 role's channel like an approval, and puts the typed `answer` on the path for the steps after it.
 
@@ -366,7 +366,7 @@ import { SpendingLimitDto } from "../dto/spending-limit.dto.js";
   description: "Asks the budget owner for this purchase's limit",
   ask: PurchaseDto,
   answer: SpendingLimitDto,
-  answeredBy: PauseAnswerer.ThreadOwner, // the thread's owner answers, by the listed pauseId
+  answerer: PauseAnswerer.ThreadOwner, // the thread's owner answers, by the listed pauseId
   maxVisits: 3, // the step's limit when it is asked again on a cycle
 })
 export abstract class SpendingLimitQuestion extends ChannelOf<SpendingLimitQuestion> {}
@@ -481,7 +481,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 ## The pause's life and its records
 
 - **`PendingPause`** (`result.pending`): `kind` (`PauseKind.Approval` | `PauseKind.Question`),
-  `pauseId?` (ThreadOwner roles only), `answeredBy`, `step` (the agent whose call waits, or the
+  `pauseId?` (ThreadOwner roles only), `answerer`, `step` (the agent whose call waits, or the
   question step), `channel`, `ask` (an approval's `ToolCallApprovalAskDto`: `tool`, `arguments`,
   `summary`, `callId`; a question's `QuestionAsk` — its ask DTO, `sensitive` fields masked,
   opaque), `itemIndex`, `childExecutionId` (a pause in a child workflow is the root's); the fields
@@ -493,7 +493,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   click); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ record: true }`) — the permanent history:
-  `pauseId`, `executionId`, `step`, `role`, `answeredBy`, `responder`, `resolution`
+  `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`. A child's own are in its `ChildExecutionRecord.pauses`.
 - **`withdraw(withdrawal)`** is called once when a sent pause closes without an answer

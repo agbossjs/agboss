@@ -90,7 +90,7 @@ describe("#644: testReplyInterpreter — what it refuses", () => {
       description: "Answered with a decision only",
       ask: PurchaseQuestionDto,
       answer: SpendingLimitAnswerDto,
-      answeredBy: PauseAnswerer.ThreadOwner,
+      answerer: PauseAnswerer.ThreadOwner,
     })
     abstract class TypedOnlyQuestion extends ChannelOf<TypedOnlyQuestion> {}
     class NotARole {
