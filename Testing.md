@@ -865,9 +865,10 @@ it("reminds after 30 seconds of the clock, at once", async () => {
 ```
 
 The framework reads no time any other way: `Date.now()`, `new Date()` and `Date()` without
-arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout` and the
+arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout`, `Atomics.wait` and the
 `node:timers` modules in its sources fail lint (`agboss/no-direct-time`, in `make check`) — the one
-real implementation, `SystemClock`, excepted.
+real implementation, `SystemClock`, excepted (its module also holds `pauseThread`, the one blocking
+wait: synchronous SQLite startup, bounded by the busy timeout, #911).
 
 A test does not read real time either, to assert on it (#509, #523): no test compares real elapsed
 time with a fixed number — on a loaded runner a 300 ms floor measures 299 ms. It advances a
