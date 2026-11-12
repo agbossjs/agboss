@@ -36,6 +36,7 @@ import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, Re
 import type { BatchSummaryAgent, BookExpenseTool, DepositApprovalChannel, DepositReplyInterpreter, DepositReturnDto, ExpenseApprovalChannel, ExpenseReplyInterpreter, ExpenseRequestDto, PayOutTool, PayoutApprovalChannel, PayoutReplyInterpreter, PayoutRequestDto, ReturnDepositTool, SplitRequestsAction, TransferApprovalChannel, TransferRequestDto, TransferTool, TreasurerAgent, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
+import type { EdgeOnceInterpreter, EdgeOnceQuestion, EdgeOnceStart, EdgeOnceWorkflow, EdgeTwiceInterpreter, EdgeTwiceQuestion, EdgeTwiceStart, EdgeTwiceWorkflow, FailFirstPlaceAction, PublicStarterWorkflow, PublicStarterWorkflowStart } from "../tests/flow/fixtures/side-question-edge.fixture.js";
 import type { FlakyCheckAction, SideQuestionWorkflow, SideQuestionWorkflowStart } from "../tests/flow/fixtures/side-question.fixture.js";
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
 import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
@@ -101,8 +102,13 @@ declare module "../src/flow/generated-types.js" {
     "draft-editor-agent": OfferDraftDto;
     "draft-question-action": PurchaseQuestionDto;
     "draft-reviewer-agent": ReviewDto;
+    "edge-once-question": SpendingLimitAnswerDto;
+    "edge-once-workflow-start": WorkflowStartTextDto;
+    "edge-twice-question": SpendingLimitAnswerDto;
+    "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": OfferDraftDto;
     "expert-answer-agent": ExpertDraftDto;
+    "fail-first-place-action": PurchasePlacedDto;
     "fail-topic-action": ResearchFailedDto;
     "fast-answer-agent": FastDraftDto;
     "fast-panel-agent": FastScreenDto;
@@ -163,6 +169,7 @@ declare module "../src/flow/generated-types.js" {
     "polish-agent": DraftDto;
     "price-quote-action": QuoteDto | QuoteRefusedDto;
     "profiler-agent": ProfileDto | ResumeMissingDto;
+    "public-starter-workflow-start": WorkflowStartTextDto;
     "publisher-agent": ArticleDto;
     "purchase-workflow-start": WorkflowStartTextDto;
     "quick-grade-workflow-start": CompanyDto;
@@ -312,14 +319,21 @@ declare module "../src/flow/generated-types.js" {
     "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
     "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
     "draft-history-workflow-finish": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
-    "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof OwnerPurchaseWorkflowStart | typeof PurchaseWorkflowStart | typeof SideQuestionWorkflowStart> };
+    "draft-question-action": { message: Produced<WorkflowStartTextDto, typeof EdgeOnceStart | typeof EdgeTwiceStart | typeof OwnerPurchaseWorkflowStart | typeof PublicStarterWorkflowStart | typeof PurchaseWorkflowStart | typeof SideQuestionWorkflowStart> };
     "draft-reviewer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent> };
     "due-diligence-report-workflow-finish": NoInput;
+    "edge-once-question": { ask: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
+    "edge-once-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
+    "edge-once-workflow-start": WorkflowStartTextDto;
+    "edge-twice-question": { ask: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
+    "edge-twice-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
+    "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewerAgent> };
     "expense-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly reply: string };
     "expert-answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty?: undefined };
+    "fail-first-place-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction>; answer: Produced<SpendingLimitAnswerDto, typeof EdgeOnceQuestion | typeof EdgeTwiceQuestion> };
     "fail-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart | typeof OutlineWorkflowStart> };
     "fast-answer-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent> };
     "fast-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
@@ -425,6 +439,7 @@ declare module "../src/flow/generated-types.js" {
     "polished-workflow-finish": NoInput;
     "price-quote-action": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
+    "public-starter-workflow-start": WorkflowStartTextDto;
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
     "purchase-unasked-workflow-finish": NoInput;
     "purchase-workflow-finish": NoInput;
@@ -547,7 +562,12 @@ declare module "../src/flow/generated-types.js" {
     "draft-history-workflow-finish": DraftChangesDto;
     "draft-question-action": PurchaseQuestionDto;
     "due-diligence-report-workflow-finish": DueDiligenceReportDto;
+    "edge-once-question": SpendingLimitAnswerDto;
+    "edge-once-reply-interpreter": SpendingLimitAnswerDto;
+    "edge-twice-question": SpendingLimitAnswerDto;
+    "edge-twice-reply-interpreter": SpendingLimitAnswerDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
+    "fail-first-place-action": PurchasePlacedDto;
     "fail-topic-action": ResearchFailedDto;
     "fit-summary-workflow-finish": FitSummaryDto;
     "flaky-check-action": PurchasePlacedDto;
@@ -645,6 +665,8 @@ declare module "../src/flow/generated-types.js" {
     "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto };
     "deep-research-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
     "desk-workflow-start": { input: WorkflowStartTextDto; output: DeskAnswerDto | HandOverDto; tenant: DeskTenantContext; execution: DeskExecutionContext };
+    "edge-once-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
+    "edge-twice-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "fit-review-workflow-start": { input: CandidateDto; output: FitSummaryDto };
     "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "help-desk-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -664,6 +686,7 @@ declare module "../src/flow/generated-types.js" {
     "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "public-starter-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto | PurchaseQuestionDto };
     "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "quote-workflow-start": { input: QuoteRequestDto; output: QuoteDto | QuoteRefusedDto | QuoteRequestDto };
@@ -745,6 +768,8 @@ declare module "../src/flow/generated-types.js" {
     "approver-question": { readonly ask: PurchaseQuestionDto; readonly answer: ApproverAnswerDto };
     "budget-owner-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "deposit-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto } };
+    "edge-once-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
+    "edge-twice-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "expense-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto } };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
@@ -2234,6 +2259,42 @@ declare module "../tests/flow/fixtures/review.fixture.js" {
   }
   interface StoryWriterAgent {
     readonly [agbossComponent]?: "story-writer-agent";
+  }
+}
+
+declare module "../tests/flow/fixtures/side-question-edge.fixture.js" {
+  interface EdgeOnceInterpreter {
+    readonly [agbossComponent]?: "edge-once-reply-interpreter";
+  }
+  interface EdgeOnceQuestion {
+    readonly [agbossComponent]?: "edge-once-question";
+  }
+  interface EdgeOnceStart {
+    readonly [agbossComponent]?: "edge-once-workflow-start";
+  }
+  interface EdgeOnceWorkflow {
+    readonly [agbossComponent]?: "edge-once-workflow";
+  }
+  interface EdgeTwiceInterpreter {
+    readonly [agbossComponent]?: "edge-twice-reply-interpreter";
+  }
+  interface EdgeTwiceQuestion {
+    readonly [agbossComponent]?: "edge-twice-question";
+  }
+  interface EdgeTwiceStart {
+    readonly [agbossComponent]?: "edge-twice-workflow-start";
+  }
+  interface EdgeTwiceWorkflow {
+    readonly [agbossComponent]?: "edge-twice-workflow";
+  }
+  interface FailFirstPlaceAction {
+    readonly [agbossComponent]?: "fail-first-place-action";
+  }
+  interface PublicStarterWorkflow {
+    readonly [agbossComponent]?: "public-starter-workflow";
+  }
+  interface PublicStarterWorkflowStart {
+    readonly [agbossComponent]?: "public-starter-workflow-start";
   }
 }
 
