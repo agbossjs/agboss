@@ -367,6 +367,15 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
    rejects once its tree's lease is released;
 5. `onDestroy`, then MCP connections and tracing are closed.
 
+**The stop never outlives its shutdown timeout, whatever a store does** (#923). What has not
+ended at the stop's end — the recovery sweep's look or a child worker's claim, a running execution
+blocked in a store call that ignores the interruption, an `onDestroy` (a connection's close) that a
+quiet server holds — is **abandoned**: `close()` returns, the work is left running, its late answer
+or failure dropped (no unhandled rejection), and one warning `app.stop-store-call-pending` names
+what is still pending. The store packages close their clients in order and, past a short grace
+(1 s on the `Clock`), destroy the socket where the driver allows it (`@agboss/redis`; the MongoDB
+driver finishes its close by itself once the server answers).
+
 Every hook runs; failures are collected into one `AggregateError`. Calling it again is fine — with
 a shorter `timeout` it interrupts sooner and ends sooner: the stop ends at the earliest end any call
 set, so it never outlives the timeout it was given. `seconds(0)` interrupts at once and stops

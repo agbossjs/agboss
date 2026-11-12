@@ -106,7 +106,10 @@ Breaking changes and notable additions, newest first. The API reports
   the sweep stays the safety net.
 - **Fixed**: `app.close()` ends within its shutdown timeout while the recovery sweep's look or a child
   worker's claim waits on a store call that is never answered: given up at the stop's end, logged
-  `app.stop-store-call-pending` ([App → close](App)).
+  `app.stop-store-call-pending` ([App → close](App)). The same bound now holds for a running execution
+  blocked in a store call that ignores the interruption and for an `onDestroy` a quiet server holds
+  (#923): the stop abandons it and names it in `app.stop-store-call-pending`; `@agboss/redis` and
+  `@agboss/mongodb` close their clients with a 1 s grace, then destroy the socket (Redis).
 - **`@agboss/redis`**: the claim of an execution id the id store hands out as new whose lease key
   already exists fails with `RedisLeaseKeyConflictError` (`redis.lease-key-conflict`) — a database
   replaced under a Redis that was not; give each database its own `redisKeyPrefix`.
