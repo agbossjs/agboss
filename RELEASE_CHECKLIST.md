@@ -26,12 +26,11 @@ commit is left alone, from another commit the run fails. Every pull request that
 workflow runs its dry run (`npm publish --dry-run`), and **Actions → Release → Run workflow** runs it
 by hand; neither ever publishes.
 
-Cars 1 and 2 have the workflow today. agbossjs/mongodb and agbossjs/redis
-ride once their repository has copied agbossjs/postgres's release path —
-`.github/workflows/release.yml`, `scripts/release/release-plan.mjs` and `ci-gate.mjs` (the tag
-prefix comes from the package's name), `scripts/pin-framework.mjs` and the registry mode of
-`scripts/pack-framework.mjs` — and its 0.1.1 issues are done; a car that is not ready waits for the
-next release, it never holds the train.
+Every car has the release path today: `.github/workflows/release.yml`,
+`scripts/release/release-plan.mjs` and `ci-gate.mjs` (the tag prefix comes from the package's
+name), `scripts/pin-framework.mjs` and the registry mode of `scripts/pack-framework.mjs` — in
+agbossjs/postgres, agbossjs/mongodb and agbossjs/redis alike. A car whose 0.1.1 issues are not done
+waits for the next release; it never holds the train.
 
 All commands start with `set -euo pipefail` and use `$WORKSPACE_ROOT`, the folder holding the
 clones; scratch work goes under `worktrees.noindex`:
@@ -234,8 +233,7 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
 
 ## Step 7 — ⚠️ [PUBLIC / IRREVERSIBLE] The next cars
 
-For each of agbossjs/mongodb and agbossjs/redis that has the release path (see the top) and
-whose issues are done: Step 6 in its repository, with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
+For each of agbossjs/mongodb and agbossjs/redis whose 0.1.1 issues are done: Step 6 in its repository, with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
 not ready; say so in the release notes.
 
 ## Step 8 — The release notes and the site
