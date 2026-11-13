@@ -2,10 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, copyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
 import { Injectable } from "../../components/decorators.js";
 import {
-  backfillStepsSql,
   CHECKPOINT_SCHEMA,
-  LATEST_BY_STEP_SQL,
-  STEP_INDEXES,
   TENANT_TAGGED_TABLES,
   CheckpointRow,
   checkpointOf,
@@ -19,6 +16,7 @@ import {
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
 import { stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
+import { latestRowOf, migrateSteps } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -39,12 +37,7 @@ export class SqliteCheckpointSaver
     connection.ensureSchema("checkpoints", CHECKPOINT_SCHEMA);
     for (const table of TENANT_TAGGED_TABLES)
       connection.addColumn(table, "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
-    // #962: the step of each checkpoint, indexed; a file written before gets it for its old rows
-    connection.addColumn("checkpoints", "step", "INTEGER");
-    connection.transaction(() => {
-      for (const index of STEP_INDEXES) connection.database.exec(index);
-      connection.database.exec(backfillStepsSql(""));
-    });
+    migrateSteps(connection);
   }
 
   /** One `SELECT 1` on the file (#300): what `app.checkReadiness()` asks of the checkpoint saver. */
@@ -65,26 +58,8 @@ export class SqliteCheckpointSaver
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
-  /**
-   * The newest checkpoint by `(step, id)` of the thread and namespace (#962): one read of the
-   * `(thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)` index. Rows written without a step
-   * (by an older version still on the file) are given one first, so none is passed over.
-   */
   async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    const { threadId, namespace } = keyOf(config, "latestByStep");
-    const { database } = this.connection;
-    const unstepped = database
-      .prepare(
-        "SELECT 1 FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND step IS NULL LIMIT 1",
-      )
-      .get(threadId, namespace);
-    if (unstepped !== undefined)
-      this.connection.transaction(() => {
-        database
-          .prepare(backfillStepsSql("AND thread_id = ? AND checkpoint_ns = ?"))
-          .run(threadId, namespace);
-      });
-    const row = database.prepare(LATEST_BY_STEP_SQL).get(threadId, namespace);
+    const row = latestRowOf(this.connection, keyOf(config, "latestByStep"));
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
