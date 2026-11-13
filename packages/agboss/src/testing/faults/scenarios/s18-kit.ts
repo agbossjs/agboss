@@ -45,12 +45,19 @@ export const movedBy = (
       : [],
   );
 
-/** A task of an approved order, accepted on `a`, resting at its approval. */
+/**
+ * A task of an approved order, accepted on `a`, resting at its approval — and its first pass done:
+ * a pass announces its rest (`INPUT_REQUIRED`) before it lets go of the tree's lease (#901), so a
+ * follow-up sent on that read could be taken by the first pass's drain, not by its own resume
+ * (#980: how long the window lasts is the machine's load). The release is held when it comes and
+ * let go once the rest is read: the follow-up finds the tree free, on any machine.
+ */
 export async function pausedTask(
   cluster: FaultCluster,
   a: FaultPod,
   orderId: string,
 ): Promise<string> {
+  await holdStore(a, StoreHoldPoint.LeaseRelease, undefined, { phase: HoldPhase.After });
   const accepted = await a2aCall(
     cluster,
     a,
@@ -70,6 +77,7 @@ export async function pausedTask(
     "INPUT_REQUIRED",
     (answer) => answer.state === A2ATaskState.InputRequired,
   );
+  await release(a, await heldAt(cluster, a, StoreHoldPoint.LeaseRelease, taskId));
   return taskId;
 }
 
