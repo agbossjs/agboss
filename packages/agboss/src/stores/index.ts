@@ -77,4 +77,3 @@ export {
   StoredNamesUnreadableError,
   type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";
-export { type StoredChild } from "../infrastructure/stored-step.js";
