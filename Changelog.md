@@ -3,6 +3,26 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the pause store contract v2 — deadlines, notices, not-taken answers (#935, part of #910)
+
+- **Changed — breaking, for stores outside the core**: `PausedExecutionRepository` — `resolve…` is refused at or after
+  `expiresAt` in the step that records it; `cancel…` returns the closed record (was `boolean`) and records `Expired`
+  at or after the deadline; `markSent…`, `resolve…` and `cancel…` take `recipients` (`NO_RECIPIENTS` keeps today's
+  behaviour); `markSent…` sets `isSent` whatever the status. `ExecutionRecordRepository` gains
+  `markPauseAnswerNotTaken` (abstract).
+- **Added**: `expire…`, `closeUntaken…`, `extend…`, `remind…`, `noticeOnce…`,
+  `findByTenantIdAndRootExecutionIdAndStepKey`, the scans (`findPendingByExpiresAtBefore`,
+  `findPendingByRemindAtBefore`, `findOpenAfter`, `findPageByTenantId`, `findClosedByResolvedAtBefore`),
+  `deleteByTenantIdAndThreadIdAndRunId`, and the notices (`claimNoticesDue`, `ackNotice`, `retryNotice`,
+  `setAsideNotices`, `setAsideStaleNoticesBefore`, `countNotices`) — one ordered mailbox per pause and receiver,
+  written in the same transaction as its change. `PauseResolution` gains `TreeEnded`, `Expired`,
+  `DecidedOnExpiry`, `Reassigned`; `PauseClosedReason`, `ExpiryProblem`, `pauseKeyOf` (root) and
+  `PauseExpiryBound`, `pauseClosedReasonOf`, `closedAtOf`, the notice types (`@agboss/core/stores`).
+- **Stored data**: the SQLite store adds `expires_at`, `remind_at`, `channel` and the `pause_notices` table to a file
+  written before; nothing else is migrated.
+- **Migration**: pass `NO_RECIPIENTS`, read the record `cancel…` returns, implement the new methods, run the contract
+  suite (`paused-execution-*.cases.ts`).
+
 ## Unreleased — 0.1.1: the fault suite's tails (#959)
 
 - **Added (fault suite, contracts)**: `faultSuite` measures the store's clock rate and refuses a `storeTime` declaration it contradicts (`[fault-suite.store-time-mismatch]`); the fenced-effect contract runs the take of an **expired** lease inside an open write (a store whose open write holds off a release but not an expiry fails it); scenario 19 kills a pod around a pause (paused, answering, resuming) on every store set; scenario 5e, its sabotage built from the set's own fenced-effect store, is one of the suite's built-in sabotages (`sabotages: false` still shows it skipped). `one-owner` fails on a stale write the store kept at the current epoch even though the new holder replayed it. [Your own store](Your-own-store), [Guarantees across processes](Guarantees-across-processes).
