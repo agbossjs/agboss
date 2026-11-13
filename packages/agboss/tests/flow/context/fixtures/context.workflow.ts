@@ -200,13 +200,17 @@ export class ReviewRouter {}
   version: "2.1.0",
   providers: [PublishAction],
   flow: [
-    start(ContextStart).returns(WorkflowStartTextDto).toAgent(WriterAgent),
+    start(ContextStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(WriterAgent),
     agent(WriterAgent)
       .returns(DraftDto)
       .toRouter(ReviewRouter)
       .chooseOne(
         route(WriterAgent),
-        route(PublishAction).returns(DraftDto).toFinish(PublishedFinish),
+        route(PublishAction)
+          .returns(DraftDto)
+          .toFinish(PublishedFinish),
       ),
   ],
 })

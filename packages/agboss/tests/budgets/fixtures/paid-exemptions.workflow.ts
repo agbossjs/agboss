@@ -1,9 +1,4 @@
-import {
-  BudgetExceededError,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-} from "../../../src/index.js";
+import { BudgetExceededError, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { action, start, toAction } from "../../helpers/flow.js";
 import {
   AuditOrderAction,
@@ -162,7 +157,8 @@ export class RefundStepWorkflowFinish {}
       .onError(OrderDeclinedError, toAction(RefundOrderAction))
       .returns(OrderDto)
       .toAction(RefundOrderAction),
-    action(RefundOrderAction).toFinish(RefundStepWorkflowFinish),
+    action(RefundOrderAction)
+      .toFinish(RefundStepWorkflowFinish),
   ],
 })
 export class RefundStepWorkflow {}
@@ -213,10 +209,9 @@ export class NestedLimitWorkflowFinish {}
       .onError(
         BudgetExceededError,
         toAction(RejectOrderAction)
-          .onError(
-            OrderDeclinedError,
-            toAction(NotifyOrderAction).returns(OrderNoteDto).toFinish(NestedLimitWorkflowFinish),
-          )
+          .onError(OrderDeclinedError, toAction(NotifyOrderAction)
+            .returns(OrderNoteDto)
+            .toFinish(NestedLimitWorkflowFinish))
           .returns(OrderDto)
           .toFinish(RefundStepWorkflowFinish),
       )
@@ -243,7 +238,8 @@ export class RefundToldWorkflowFinish {}
       .toAction(CheckOrderAction)
       .returns(OrderDto)
       .toAction(RefundOrderAction)
-      .onError(BudgetExceededError, toAction(TellOrderAction).toFinish(RefundToldWorkflowFinish))
+      .onError(BudgetExceededError, toAction(TellOrderAction)
+        .toFinish(RefundToldWorkflowFinish))
       .toFinish(RefundStepWorkflowFinish),
   ],
 })

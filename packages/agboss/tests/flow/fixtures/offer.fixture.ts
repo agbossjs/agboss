@@ -134,7 +134,8 @@ export const offerPaths = [
         .toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError,
-          toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
+          toAction(NotifyRecruiterAction)
+            .toFinish(OfferFailedWorkflowFinish),
         )
         .returns(OfferDraftDto)
         .toAgent(ReviewerAgent),

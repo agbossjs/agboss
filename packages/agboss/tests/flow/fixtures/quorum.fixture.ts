@@ -252,7 +252,8 @@ export class DueDiligenceArbiter {}
       .returns(DueDiligenceReportDto)
       .toFinish(DueDiligenceReportWorkflowFinish),
 
-    action(NotifyReviewerAction).toFinish(ReviewerNotifiedWorkflowFinish),
+    action(NotifyReviewerAction)
+      .toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })
 export class DueDiligenceWorkflow {}

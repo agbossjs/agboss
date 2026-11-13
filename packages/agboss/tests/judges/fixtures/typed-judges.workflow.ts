@@ -195,8 +195,10 @@ export class RefusalWorkflowFinish {}
       .toAgent(ScreenerAgent)
       .returns(oneOf(OfferDto, RefusalDto))
       .switch(
-        caseOf(OfferDto).toFinish(OfferWorkflowFinish),
-        caseOf(RefusalDto).toFinish(RefusalWorkflowFinish),
+        caseOf(OfferDto)
+          .toFinish(OfferWorkflowFinish),
+        caseOf(RefusalDto)
+          .toFinish(RefusalWorkflowFinish),
       ),
   ],
   defaults: DEFAULTS,
@@ -281,8 +283,11 @@ export class ListJudgedScoutAgent {}
       .toAgent(OfferJudgedScreenerAgent)
       .returns(oneOf(OfferDto, RefusalDto))
       .switch(
-        caseOf(OfferDto).toFinish(OfferWorkflowFinish),
-        caseOf(RefusalDto).toAgent(ReportJudgedWriterAgent).toFinish(Reply),
+        caseOf(OfferDto)
+          .toFinish(OfferWorkflowFinish),
+        caseOf(RefusalDto)
+          .toAgent(ReportJudgedWriterAgent)
+          .toFinish(Reply),
       ),
   ],
   defaults: DEFAULTS,

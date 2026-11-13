@@ -153,14 +153,18 @@ export const creditPaths = [
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
         .chooseOne(
-          route(ApprovalAgent).returns(CreditApprovalDto).toAction(ChargeCardAction),
+          route(ApprovalAgent)
+            .returns(CreditApprovalDto)
+            .toAction(ChargeCardAction),
           route(ChargeCardAction),
         ),
       route(NoOrderWorkflowFinish),
     ),
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
-  action(ChargeCardAction).returns(ChargeResultDto).toFinish(CreditWorkflowFinish),
+  action(ChargeCardAction)
+    .returns(ChargeResultDto)
+    .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
@@ -205,12 +209,16 @@ export const creditByModelPaths = [
         .returns(CreditOrderDto)
         .toRouter(CreditLimitByModelRouter)
         .chooseOne(
-          route(ApprovalAgent).returns(CreditApprovalDto).toAction(ChargeCardAction),
+          route(ApprovalAgent)
+            .returns(CreditApprovalDto)
+            .toAction(ChargeCardAction),
           route(ChargeCardAction),
         ),
       route(NoOrderWorkflowFinish),
     ),
-  action(ChargeCardAction).returns(ChargeResultDto).toFinish(CreditWorkflowFinish),
+  action(ChargeCardAction)
+    .returns(ChargeResultDto)
+    .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({

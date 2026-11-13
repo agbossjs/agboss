@@ -41,7 +41,10 @@ export class DraftingStart {}
   name: "drafting-workflow",
   version: "1.0.0",
   flow: [
-    start(DraftingStart).returns(WorkflowStartTextDto).toAgent(DraftingAgent).toFinish(NotesFinish),
+    start(DraftingStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(DraftingAgent)
+      .toFinish(NotesFinish),
   ],
   defaults,
   uncompactedTurns: 1,

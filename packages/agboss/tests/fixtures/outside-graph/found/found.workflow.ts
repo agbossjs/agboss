@@ -7,6 +7,10 @@ import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
 @Workflow({
   name: "found-probe-workflow",
   version: "1.0.0",
-  flow: [start(ProbeWorkflowStart).returns(WorkflowStartTextDto).toFinish(ProbeWorkflowFinish)],
+  flow: [
+    start(ProbeWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(ProbeWorkflowFinish),
+  ],
 })
 export class FoundProbeWorkflow {}

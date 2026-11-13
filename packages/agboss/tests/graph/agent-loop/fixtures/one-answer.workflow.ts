@@ -71,11 +71,7 @@ export class LegalReviewAgent {}
 })
 export class ClauseReaderAgent {}
 
-@WorkflowStart({
-  name: "review-workflow-start",
-  description: "A contract",
-  input: WorkflowStartTextDto,
-})
+@WorkflowStart({ name: "review-workflow-start", description: "A contract", input: WorkflowStartTextDto })
 export class ReviewWorkflowStart {}
 
 @WorkflowStart({
@@ -85,11 +81,7 @@ export class ReviewWorkflowStart {}
 })
 export class ReadingWorkflowStart {}
 
-@WorkflowFinish({
-  name: "review-workflow-finish",
-  description: "The review",
-  output: LegalReviewDto,
-})
+@WorkflowFinish({ name: "review-workflow-finish", description: "The review", output: LegalReviewDto })
 export class ReviewWorkflowFinish {}
 
 @WorkflowFinish({

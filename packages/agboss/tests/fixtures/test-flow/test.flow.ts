@@ -77,8 +77,10 @@ export const testPaths: readonly FlowPath[] = [
     .returns(WorkflowStartTextDto)
     .toRouter(TestMain)
     .chooseOne(
-      route(Alpha).toFinish(TestAnswer),
-      route(Beta).toFinish(TestAnswer),
+      route(Alpha)
+        .toFinish(TestAnswer),
+      route(Beta)
+        .toFinish(TestAnswer),
       route(NoAnswer),
     ),
 ];

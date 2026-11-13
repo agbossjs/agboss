@@ -60,7 +60,12 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
   @Workflow({
     name: "tools-workflow",
     version: "1.0.0",
-    flow: [start(TestChat).returns(WorkflowStartTextDto).toAgent(ToolAlpha).toFinish(TestAnswer)],
+    flow: [
+      start(TestChat)
+        .returns(WorkflowStartTextDto)
+        .toAgent(ToolAlpha)
+        .toFinish(TestAnswer),
+    ],
     defaults: {
       tools: { maxToolCalls: 3 },
       router: { model: "typesafe/jev-test" },

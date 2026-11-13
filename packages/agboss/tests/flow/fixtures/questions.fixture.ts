@@ -71,7 +71,9 @@ export class QuestionInbox {
   description: "Reads the owner's limit",
   decidedBy: DecidedBy.Code,
 })
-export class SpendingLimitReplyInterpreter implements ReplyInterpreterHandler<SpendingLimitReplyInterpreter> {
+export class SpendingLimitReplyInterpreter
+  implements ReplyInterpreterHandler<SpendingLimitReplyInterpreter>
+{
   interpret(
     input: InputOf<SpendingLimitReplyInterpreter>,
   ): ReplyInterpretation<OutputOf<SpendingLimitReplyInterpreter>> {
@@ -223,9 +225,7 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
 export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   execute({ question, answer }: InputOf<CheckLimitAction>): Promise<OutputOf<CheckLimitAction>> {
     if (answer.value.limitUsd >= question.value.priceUsd)
-      return Promise.resolve(
-        variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }),
-      );
+      return Promise.resolve(variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }));
     const { item, priceUsd, requester } = question.value;
     return Promise.resolve(variant(PurchaseQuestionDto, { item, priceUsd, requester }));
   }
@@ -250,18 +250,10 @@ export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
 })
 export class PurchaseWorkflow {}
 
-@WorkflowStart({
-  name: "owner-purchase-workflow-start",
-  description: "d",
-  input: WorkflowStartTextDto,
-})
+@WorkflowStart({ name: "owner-purchase-workflow-start", description: "d", input: WorkflowStartTextDto })
 export class OwnerPurchaseWorkflowStart {}
 
-@WorkflowFinish({
-  name: "owner-purchase-workflow-finish",
-  description: "d",
-  output: PurchasePlacedDto,
-})
+@WorkflowFinish({ name: "owner-purchase-workflow-finish", description: "d", output: PurchasePlacedDto })
 export class OwnerPurchaseWorkflowFinish {}
 
 @Workflow({
@@ -278,8 +270,10 @@ export class OwnerPurchaseWorkflowFinish {}
       .toAction(CheckLimitAction)
       .returns(oneOf(PurchasePlacedDto, PurchaseQuestionDto))
       .switch(
-        caseOf(PurchasePlacedDto).toFinish(OwnerPurchaseWorkflowFinish),
-        caseOf(PurchaseQuestionDto).toQuestion(BudgetOwnerQuestion),
+        caseOf(PurchasePlacedDto)
+          .toFinish(OwnerPurchaseWorkflowFinish),
+        caseOf(PurchaseQuestionDto)
+          .toQuestion(BudgetOwnerQuestion),
       ),
   ],
   providers: [QuestionInbox],

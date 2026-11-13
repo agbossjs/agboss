@@ -118,21 +118,26 @@ export function strippedNames({ program, root }) {
   const found = [];
   for (const source of program.getSourceFiles().filter((f) => own(f.fileName))) {
     const visit = (node) => {
-      const named = ts.isTypeReferenceNode(node)
-        ? node.typeName
-        : ts.isExpressionWithTypeArguments(node)
-          ? node.expression
-          : undefined;
-      const head = named && (ts.isQualifiedName(named) ? leftmost(named) : named);
+      const head = nameHeadOf(node);
       // a name nothing declares resolves to a symbol without declarations
-      const symbol = head && ts.isIdentifier(head) ? checker.getSymbolAtLocation(head) : undefined;
-      if (head && ts.isIdentifier(head) && !symbol?.declarations?.length)
+      if (head && !checker.getSymbolAtLocation(head)?.declarations?.length)
         found.push({ name: head.text, file: relative(root, source.fileName) });
       ts.forEachChild(node, visit);
     };
     visit(source);
   }
   return found;
+}
+
+/** The identifier a type reference or an `extends` clause starts with, `A` of `A.B<C>`. */
+function nameHeadOf(node) {
+  const named = ts.isTypeReferenceNode(node)
+    ? node.typeName
+    : ts.isExpressionWithTypeArguments(node)
+      ? node.expression
+      : undefined;
+  const head = named && ts.isQualifiedName(named) ? leftmost(named) : named;
+  return head && ts.isIdentifier(head) ? head : undefined;
 }
 
 const leftmost = (name) => (ts.isQualifiedName(name) ? leftmost(name.left) : name);

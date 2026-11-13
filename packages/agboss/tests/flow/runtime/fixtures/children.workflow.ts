@@ -214,7 +214,9 @@ export class ChecksSummaryWorkflowFinish {
   finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
     childLog.producers.push(...input.results.map((result) => result.producer));
     return {
-      text: input.results.map((result) => result.value.name).join(", "),
+      text: input.results
+        .map((result) => result.value.name)
+        .join(", "),
     };
   }
 }
@@ -425,7 +427,9 @@ export class RecheckedWorkflowFinish {}
       .toAction(CheckItemAction)
       .onError(
         StepFailedError,
-        toWorkflow(FallbackCheckWorkflow).returns(ItemResultDto).toFinish(RecheckedWorkflowFinish),
+        toWorkflow(FallbackCheckWorkflow)
+          .returns(ItemResultDto)
+          .toFinish(RecheckedWorkflowFinish),
       )
       .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
@@ -484,12 +488,16 @@ export class ItemReviewedWorkflowFinish {}
   version: "1.0.0",
   maxSteps: 2,
   flow: [
-    start(ItemReviewWorkflowStart).returns(ItemDto).toAgent(ItemReviewerAgent),
+    start(ItemReviewWorkflowStart)
+      .returns(ItemDto)
+      .toAgent(ItemReviewerAgent),
     agent(ItemReviewerAgent)
       .returns(oneOf(ItemResultDto, ItemNoteDto))
       .switch(
-        caseOf(ItemResultDto).toFinish(ItemReviewedWorkflowFinish),
-        caseOf(ItemNoteDto).toAgent(ItemReviewerAgent),
+        caseOf(ItemResultDto)
+          .toFinish(ItemReviewedWorkflowFinish),
+        caseOf(ItemNoteDto)
+          .toAgent(ItemReviewerAgent),
       ),
   ],
 })
@@ -528,7 +536,9 @@ export class ReviewsWorkflowFinish {}
 export class ReviewsSummaryWorkflowFinish {
   finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
     return {
-      text: input.results.map((result) => result.value.name).join(", "),
+      text: input.results
+        .map((result) => result.value.name)
+        .join(", "),
     };
   }
 }
@@ -545,7 +555,9 @@ export class ReviewsSummaryWorkflowFinish {
       .join()
       .onJoinError(
         ChildExecutionFailedError,
-        toAgent(ReviewRescueAgent).returns(SummaryDto).toFinish(ReviewsWorkflowFinish),
+        toAgent(ReviewRescueAgent)
+          .returns(SummaryDto)
+          .toFinish(ReviewsWorkflowFinish),
       )
       .returns(listOf(ItemResultDto))
       .toFinish(ReviewsSummaryWorkflowFinish),

@@ -94,7 +94,9 @@ export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWor
   finish(input: InputOf<DraftHistoryWorkflowFinish>): OutputOf<DraftHistoryWorkflowFinish> {
     const { current, previous } = input.drafts;
     return {
-      changes: [...previous, current].map((draft) => draft.value.text).join(" → "),
+      changes: [...previous, current]
+        .map((draft) => draft.value.text)
+        .join(" → "),
     };
   }
 }
@@ -112,7 +114,8 @@ export const historyPaths = [
         .toAgent(DraftEditorAgent)
         .returns(OfferDraftDto)
         .toAction(ReviewDraftAction),
-      caseOf(DraftApprovedDto).toFinish(DraftHistoryWorkflowFinish),
+      caseOf(DraftApprovedDto)
+        .toFinish(DraftHistoryWorkflowFinish),
     ),
 ] as const;
 

@@ -119,7 +119,8 @@ export class ResearchFailedWorkflowFinish {}
       .onError(StepFailedError, toAction(FailTopicAction))
       .returns(oneOf(ResearchReportDto, ResearchTooBroadDto))
       .switch(
-        caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
+        caseOf(ResearchReportDto)
+          .toFinish(ResearchReportWorkflowFinish),
         caseOf(ResearchTooBroadDto)
           .toAction(SplitTopicAction)
           .returns(listOf(ResearchTopicDto))
@@ -131,7 +132,9 @@ export class ResearchFailedWorkflowFinish {}
           .returns(ResearchReportDto)
           .toFinish(ResearchReportWorkflowFinish),
       ),
-    action(FailTopicAction).returns(ResearchFailedDto).toFinish(ResearchFailedWorkflowFinish),
+    action(FailTopicAction)
+      .returns(ResearchFailedDto)
+      .toFinish(ResearchFailedWorkflowFinish),
   ],
   maxDepth: 4,
 })
@@ -180,8 +183,10 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
         route(ThisWorkflow)
           .returns(oneOf(ResearchReportDto, ResearchFailedDto))
           .switch(
-            caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
-            caseOf(ResearchFailedDto).toFinish(ResearchFailedWorkflowFinish),
+            caseOf(ResearchReportDto)
+              .toFinish(ResearchReportWorkflowFinish),
+            caseOf(ResearchFailedDto)
+              .toFinish(ResearchFailedWorkflowFinish),
           ),
         route(OutlineAgent)
           .onError(

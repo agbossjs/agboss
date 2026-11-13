@@ -84,18 +84,25 @@ export class NoReplyWorkflowFinish {}
 export class MainRouter {}
 
 export const chatPaths = [
-  start(IntakeWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter),
+  start(IntakeWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toRouter(MainRouter),
 
-  router(MainRouter).chooseOne(
-    route(ProfilerAgent)
-      .returns(oneOf(ProfileDto, ResumeMissingDto))
-      .switch(
-        caseOf(ProfileDto).toRouter(MainRouter),
-        caseOf(ResumeMissingDto).toFinish(AskResumeWorkflowFinish),
-      ),
-    route(ScoutAgent).returns(OpeningsDto).toFinish(ChatWorkflowFinish),
-    route(NoReplyWorkflowFinish),
-  ),
+  router(MainRouter)
+    .chooseOne(
+      route(ProfilerAgent)
+        .returns(oneOf(ProfileDto, ResumeMissingDto))
+        .switch(
+          caseOf(ProfileDto)
+            .toRouter(MainRouter),
+          caseOf(ResumeMissingDto)
+            .toFinish(AskResumeWorkflowFinish),
+        ),
+      route(ScoutAgent)
+        .returns(OpeningsDto)
+        .toFinish(ChatWorkflowFinish),
+      route(NoReplyWorkflowFinish),
+    ),
 ] as const;
 
 @Workflow({

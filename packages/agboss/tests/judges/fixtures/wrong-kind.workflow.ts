@@ -60,7 +60,12 @@ export class DecisionJudged {}
 @Workflow({
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
-  flow: [start(TaskStart).returns(WorkflowStartTextDto).toAgent(ChatJudged).toFinish(Reply)],
+  flow: [
+    start(TaskStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(ChatJudged)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
@@ -78,7 +83,12 @@ export class ChatDeciderDeskApplication {}
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
-  flow: [start(TaskStart).returns(WorkflowStartTextDto).toAgent(DecisionJudged).toFinish(Reply)],
+  flow: [
+    start(TaskStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(DecisionJudged)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
@@ -138,7 +148,11 @@ export class Triage {}
       .toAgent(Intake)
       .returns(AskDto)
       .toRouter(Triage)
-      .chooseOne(route(Coder).toFinish(Reply), route(AsIs)),
+      .chooseOne(
+        route(Coder)
+          .toFinish(Reply),
+        route(AsIs),
+      ),
   ],
   defaults: DEFAULTS,
 })

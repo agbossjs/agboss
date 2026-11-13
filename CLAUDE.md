@@ -2876,7 +2876,13 @@ get the same refusal of `@agboss/core/internal` from `agboss/no-internal-import`
 `/tool`, `/channels` are deprecated re-exports; `agboss migrate imports` rewrites them. The root
 import has no side effects (load tracing, MCP, SQLite lazily), and each name has one meaning across
 entries. A public surface change updates the api-extractor reports (`npm run api:update` →
-`packages/agboss/api/*.api.md`). The framework never imports `examples/` (ESLint-enforced).
+`packages/agboss/api/*.api.md`). A public signature names only types a public entry exports (`npm run
+check:api` fails on one no entry exports, or one `@internal` that `stripInternal` removed, #895); the
+type machinery the DSL computes with (`Same`, `Member`, `KindOf`, …) is not spread over an entry: it is
+one `@beta` type namespace per entry — `FlowTypes` (root), `TestingTypes`, `DtoTypes`, `EvalTypes` —
+re-exported with `export type * as`. Zod schemas are internal; a settings type is written out as an
+interface (`config/settings-types.ts`), and `tests/config/settings-types.test-d.ts` keeps each equal to
+its schema's `z.infer`. The framework never imports `examples/` (ESLint-enforced).
 
 ### Quality gates
 

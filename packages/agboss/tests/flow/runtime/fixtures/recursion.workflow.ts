@@ -165,7 +165,8 @@ export class TopicFailedWorkflowFinish {}
       .onError(StepFailedError, toAction(MarkTopicFailedAction))
       .returns(oneOf(TopicReportDto, TopicTooBroadDto))
       .switch(
-        caseOf(TopicReportDto).toFinish(TopicReportWorkflowFinish),
+        caseOf(TopicReportDto)
+          .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto)
           .toAction(SubtopicsAction)
           .returns(listOf(TopicDto))
@@ -177,7 +178,9 @@ export class TopicFailedWorkflowFinish {}
           .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
       ),
-    action(MarkTopicFailedAction).returns(TopicFailedDto).toFinish(TopicFailedWorkflowFinish),
+    action(MarkTopicFailedAction)
+      .returns(TopicFailedDto)
+      .toFinish(TopicFailedWorkflowFinish),
   ],
   maxDepth: 3,
   maxSteps: 4,
@@ -264,10 +267,13 @@ const countdownPath = (from: typeof CountdownWorkflowStart) =>
         )
         .returns(oneOf(CountDoneDto, CountStoppedDto))
         .switch(
-          caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-          caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
+          caseOf(CountDoneDto)
+            .toFinish(CountDoneWorkflowFinish),
+          caseOf(CountStoppedDto)
+            .toFinish(CountStoppedWorkflowFinish),
         ),
-      caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
+      caseOf(CountDoneDto)
+        .toFinish(CountDoneWorkflowFinish),
     );
 
 @Workflow({
@@ -348,7 +354,9 @@ export class SumAction {
       .join()
       .onJoinError(
         LimitExceededError,
-        toAction(SplitStoppedAction).returns(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
+        toAction(SplitStoppedAction)
+          .returns(CountStoppedDto)
+          .toFinish(CountStoppedWorkflowFinish),
       )
       .returns(listOf(oneOf(CountDoneDto, CountStoppedDto)))
       .toAction(SumAction)
@@ -408,8 +416,12 @@ export class ChainDoneWorkflowFinish {}
       .returns(LinkDto)
       .toRouter(LinkRouter)
       .chooseOne(
-        route(ThisWorkflow).returns(LinkDoneDto).toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent).returns(LinkDoneDto).toFinish(ChainDoneWorkflowFinish),
+        route(ThisWorkflow)
+          .returns(LinkDoneDto)
+          .toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent)
+          .returns(LinkDoneDto)
+          .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,
@@ -442,8 +454,12 @@ export class DeeperRouter {
       .returns(LinkDto)
       .toRouter(DeeperRouter)
       .chooseOne(
-        route(ThisWorkflow).returns(LinkDoneDto).toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent).returns(LinkDoneDto).toFinish(ChainDoneWorkflowFinish),
+        route(ThisWorkflow)
+          .returns(LinkDoneDto)
+          .toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent)
+          .returns(LinkDoneDto)
+          .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,

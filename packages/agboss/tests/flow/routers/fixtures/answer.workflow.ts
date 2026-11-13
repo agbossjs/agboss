@@ -95,13 +95,7 @@ const answerOf = (answer: Answer): unknown => {
     case "crash":
       throw new TypeError("route() has a bug");
     case "limit":
-      throw new LimitExceededError({
-        key: "maxSteps",
-        limit: 1,
-        actual: 2,
-        path: ["ask-router"],
-        spentUsd: 0,
-      });
+      throw new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2, path: ["ask-router"], spentUsd: 0 });
   }
 };
 
@@ -128,8 +122,12 @@ export class AskRouter {
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
       .chooseOne(
-        route(LeftAction).returns(DoneDto).toFinish(DoneWorkflowFinish),
-        route(RightAction).returns(DoneDto).toFinish(DoneWorkflowFinish),
+        route(LeftAction)
+          .returns(DoneDto)
+          .toFinish(DoneWorkflowFinish),
+        route(RightAction)
+          .returns(DoneDto)
+          .toFinish(DoneWorkflowFinish),
       ),
   ],
 })
@@ -154,8 +152,12 @@ export class AskApplication {}
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
       .chooseOne(
-        route(LeftAction).returns(DoneDto).toFinish(DoneWorkflowFinish),
-        route(RightAction).returns(DoneDto).toFinish(DoneWorkflowFinish),
+        route(LeftAction)
+          .returns(DoneDto)
+          .toFinish(DoneWorkflowFinish),
+        route(RightAction)
+          .returns(DoneDto)
+          .toFinish(DoneWorkflowFinish),
       ),
   ],
 })

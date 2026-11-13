@@ -97,7 +97,9 @@ export class PlanLoopRouter {
   name: "plan-loop-workflow",
   version: "1.0.0",
   flow: [
-    start(PlanLoopWorkflowStart).returns(WorkflowStartTextDto).toAgent(LoopPlannerAgent),
+    start(PlanLoopWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(LoopPlannerAgent),
     agent(LoopPlannerAgent)
       .returns(PlanDto)
       .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
@@ -228,7 +230,9 @@ export class TiredLoopRouter {
   name: "tired-workflow",
   version: "1.0.0",
   flow: [
-    start(TiredWorkflowStart).returns(WorkflowStartTextDto).toAgent(TiredPlannerAgent),
+    start(TiredWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(TiredPlannerAgent),
     agent(TiredPlannerAgent)
       .returns(PlanDto)
       .toParallelAgents(TiredCriticAgent, TiredCriticAgent)

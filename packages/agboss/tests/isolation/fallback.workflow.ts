@@ -94,7 +94,12 @@ const defaults = {
 @Workflow({
   name: "fallback-workflow",
   version: "1.0.0",
-  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(Answerer).toFinish(Reply)],
+  flow: [
+    start(ChatStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(Answerer)
+      .toFinish(Reply),
+  ],
   defaults,
   uncompactedTurns: 1,
 })
@@ -113,7 +118,12 @@ export class WithFallbackApplication {}
 @Workflow({
   name: "unmapped-workflow",
   version: "1.0.0",
-  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(Answerer).toFinish(Reply)],
+  flow: [
+    start(ChatStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(Answerer)
+      .toFinish(Reply),
+  ],
   defaults,
   uncompactedTurns: 1,
 })

@@ -244,7 +244,10 @@ export class CashierFinish {}
   name: "cashier-workflow",
   version: "1.0.0",
   flow: [
-    start(CashierStart).returns(WorkflowStartTextDto).toAgent(CashierAgent).toFinish(CashierFinish),
+    start(CashierStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(CashierAgent)
+      .toFinish(CashierFinish),
   ],
   defaults: { models: { temperature: 0 } },
   providers: [PaymentGateway],
@@ -329,7 +332,9 @@ export class ChargesSentFinish {
     readonly results: readonly Produced<ChargeResultDto, unknown>[];
   }): ChargeSummaryDto {
     return {
-      chargeIds: input.results.map((result) => result.value.chargeId).join(", "),
+      chargeIds: input.results
+        .map((result) => result.value.chargeId)
+        .join(", "),
     };
   }
 }

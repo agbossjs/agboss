@@ -166,7 +166,9 @@ export class RemoteItemsWorkflowStart {}
 export class RemoteChecksWorkflowFinish {
   finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
     return {
-      text: input.results.map((result) => result.value.name).join(", "),
+      text: input.results
+        .map((result) => result.value.name)
+        .join(", "),
     };
   }
 }

@@ -41,11 +41,7 @@ export class FlakyCheckAction implements ActionHandler<FlakyCheckAction> {
   }
 }
 
-@WorkflowStart({
-  name: "side-question-workflow-start",
-  description: "d",
-  input: WorkflowStartTextDto,
-})
+@WorkflowStart({ name: "side-question-workflow-start", description: "d", input: WorkflowStartTextDto })
 export class SideQuestionWorkflowStart {}
 
 @Workflow({

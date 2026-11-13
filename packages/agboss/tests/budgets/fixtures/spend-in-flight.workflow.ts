@@ -80,7 +80,11 @@ export async function holdsParentPay(records: readonly UsageRecord[]): Promise<v
 
 /** Notes a checkpoint write that holds the parent's `parent-pay` before the ledger has it. */
 const watched = (kind: string, written: unknown): void => {
-  if (!inFlight.isParentPayWritten && JSON.stringify(written).includes("action:parent-pay-action"))
+  if (
+    !inFlight.isParentPayWritten &&
+    JSON.stringify(written)
+      .includes("action:parent-pay-action")
+  )
     inFlight.durableBeforeLedger.push(kind);
 };
 

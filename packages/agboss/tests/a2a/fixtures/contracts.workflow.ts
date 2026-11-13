@@ -179,7 +179,11 @@ export class QuoteWorkflow {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toFinish(RefundWorkflowFinish)],
+  flow: [
+    start(RefundWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toFinish(RefundWorkflowFinish),
+  ],
 })
 export class RefundWorkflow {}
 

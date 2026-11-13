@@ -46,9 +46,15 @@ export class CompanyGraderAgent {}
   name: "twin-grade-workflow",
   version: "1.0.0",
   flow: [
-    start(QuickGradeWorkflowStart).returns(CompanyDto).toAgent(CompanyGraderAgent),
-    start(FullGradeWorkflowStart).returns(CompanyDto).toAgent(CompanyGraderAgent),
-    agent(CompanyGraderAgent).returns(CompanyGradeDto).toFinish(CompanyGradedWorkflowFinish),
+    start(QuickGradeWorkflowStart)
+      .returns(CompanyDto)
+      .toAgent(CompanyGraderAgent),
+    start(FullGradeWorkflowStart)
+      .returns(CompanyDto)
+      .toAgent(CompanyGraderAgent),
+    agent(CompanyGraderAgent)
+      .returns(CompanyGradeDto)
+      .toFinish(CompanyGradedWorkflowFinish),
   ],
 })
 export class TwinGradeWorkflow {}

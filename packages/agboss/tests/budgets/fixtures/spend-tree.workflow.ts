@@ -124,7 +124,8 @@ export class SpendTreeWorkflowFinish {}
           .toAction(PayCloseAction)
           .returns(SpendNoteDto)
           .toFinish(SpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto).toFinish(SpendTreeWorkflowFinish),
+        caseOf(SpendNoteDto)
+          .toFinish(SpendTreeWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -173,7 +174,8 @@ export class RemoteSpendTreeWorkflowFinish {}
           .toAction(PayCloseAction)
           .returns(SpendNoteDto)
           .toFinish(RemoteSpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto).toFinish(RemoteSpendTreeWorkflowFinish),
+        caseOf(SpendNoteDto)
+          .toFinish(RemoteSpendTreeWorkflowFinish),
       ),
   ],
   maxDepth: 3,

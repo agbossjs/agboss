@@ -59,10 +59,13 @@ export class RemoteCountdownWorkflowStart {}
           )
           .returns(oneOf(CountDoneDto, CountStoppedDto))
           .switch(
-            caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-            caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
+            caseOf(CountDoneDto)
+              .toFinish(CountDoneWorkflowFinish),
+            caseOf(CountStoppedDto)
+              .toFinish(CountStoppedWorkflowFinish),
           ),
-        caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
+        caseOf(CountDoneDto)
+          .toFinish(CountDoneWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -87,7 +90,9 @@ export class RemoteChainWorkflowStart {}
         route(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
           .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent).returns(LinkDoneDto).toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent)
+          .returns(LinkDoneDto)
+          .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,

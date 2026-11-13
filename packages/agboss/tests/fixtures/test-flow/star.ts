@@ -28,6 +28,12 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
     start(TestChat)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
-      .chooseOne(route(NoAnswer), ...agents.map((agent) => route(agent).toFinish(TestAnswer))),
+      .chooseOne(
+        route(NoAnswer),
+        ...agents.map((agent) =>
+          route(agent)
+            .toFinish(TestAnswer),
+        ),
+      ),
   ];
 }
