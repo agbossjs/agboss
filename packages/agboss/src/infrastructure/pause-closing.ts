@@ -34,6 +34,7 @@ const isUntaken = (pause: PauseRecord): boolean =>
 
 /** Why a record that is not `Pending` closed, by its resolution (stored before them: by its status). */
 export function closedReasonOf(pause: PauseRecord): PauseClosedReason {
+  if (pause.closedFirst !== undefined) return REASON_OF[pause.closedFirst.resolution];
   if (pause.resolution === undefined)
     return pause.status === PauseStatus.Cancelled
       ? PauseClosedReason.Cancelled
@@ -53,6 +54,11 @@ export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedR
     : undefined;
 }
 
-/** When `pause` closed: its `expiresAt` for an expiry (D5), else `resolvedAt`; `undefined` while pending. */
-export const closedAtOf = (pause: PauseRecord): string | undefined =>
-  isExpiredResolution(pause.resolution) ? pause.expiresAt : pause.resolvedAt;
+/**
+ * When `pause` closed: its `expiresAt` for an expiry (D5), else `resolvedAt` — of its first close
+ * when an untaken one followed (`closedFirst`); `undefined` while pending.
+ */
+export const closedAtOf = (pause: PauseRecord): string | undefined => {
+  const first = pause.closedFirst ?? pause;
+  return isExpiredResolution(first.resolution) ? pause.expiresAt : first.resolvedAt;
+};

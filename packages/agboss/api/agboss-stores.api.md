@@ -1592,6 +1592,12 @@ export interface PauseFilter {
 }
 
 // @public
+export interface PauseFirstClose {
+    readonly resolution: PauseResolution;
+    readonly resolvedAt: string;
+}
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
@@ -1685,6 +1691,7 @@ export interface PauseRecord extends PauseSite {
     readonly askedAt: string;
     readonly boundAt?: string;
     readonly channel: string;
+    readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
@@ -2393,8 +2400,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts:136:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:212:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/infrastructure/pause-record.ts:218:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:220:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:226:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/stored-step.ts:138:3 - (ae-forgotten-export) The symbol "StoredChild" needs to be exported by the entry point index.d.ts
 // src/mesh/mesh-call.ts:23:3 - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".

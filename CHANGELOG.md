@@ -455,6 +455,16 @@ index` (as before) — a running instance does not re-read a folder on its own.
     file written before (new `pauses` columns, new `pause_notices` table). **Migration:** pass
     `NO_RECIPIENTS` to the three methods above, read the record `cancel…` returns, implement the new
     methods and run the suite.
+  - the first close of an answered pause is kept (#935 fix): `closeUntaken…` still sets `resolution`
+    (`Cancelled` / `TreeEnded`) and `resolvedAt` to the untaken close, and now also sets
+    `PauseRecord.closedFirst` (`{ resolution, resolvedAt }` of the answer: `Replied`, or
+    `DecidedOnExpiry`), never overwriting it. The `closed` a channel is told — reason
+    (`closedReasonOf`) and time (`closedAtOf`) — comes from it, so a pause told only at `markSent…`
+    gets `Expired` at the deadline for an expiry-decided answer and `Answered` at the answer's time
+    for a human one, as a pause sent first. **Migration:** store `closedFirst` as written. A page's
+    cursor is a never-reused insertion sequence (a contract case): the SQLite `pauses` table has
+    `seq INTEGER PRIMARY KEY AUTOINCREMENT` (a file written before is rebuilt, its order kept). The
+    built-in in-memory and SQLite pause stores load no logic lazily (plain classes again).
 
 - **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
   - `@agboss/core/testing/faults` publishes the suite and the hold points only (82 symbols → 27):

@@ -7,7 +7,7 @@ import { toPauseRecord } from "./sqlite-pause-row-statements.js";
 
 /**
  * The scans of `SqlitePausedExecutionRepository` (#935, #910 rules 9, 10, 14): the deadline and
- * reminder scans on their indexes, the pages by `rowid` — SQLite's insertion sequence, the cursor's
+ * reminder scans on their indexes, the pages by `seq` — the declared, never reused insertion sequence, the cursor's
  * text — and the retention's look and delete.
  */
 
@@ -46,8 +46,8 @@ export class SqlitePauseScans {
   ): PausePage {
     const rows = this.database
       .prepare(
-        `SELECT p.*, p.rowid AS seq FROM pauses p WHERE p.rowid > ? AND ${where.clause}
-           ORDER BY p.rowid LIMIT ?`,
+        `SELECT p.*, p.seq FROM pauses p WHERE p.seq > ? AND ${where.clause}
+           ORDER BY p.seq LIMIT ?`,
       )
       .all(from, ...where.values, limit + 1)
       .map(sequenced);
@@ -82,7 +82,7 @@ export class SqlitePauseScans {
   /** What `removeClosedBefore(cutoff)` removes, at most `limit`. */
   closedBefore(cutoff: Date, limit: number): readonly PauseRecord[] {
     return this.database
-      .prepare(`SELECT p.* FROM pauses p WHERE ${REMOVABLE} ORDER BY p.rowid LIMIT ?`)
+      .prepare(`SELECT p.* FROM pauses p WHERE ${REMOVABLE} ORDER BY p.seq LIMIT ?`)
       .all(cutoff.toISOString(), limit)
       .map(toPauseRecord);
   }

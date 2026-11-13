@@ -18,6 +18,8 @@ import { NOTICE_ORDER_CASES } from "./paused-execution-order.cases.js";
 import { RETENTION_CASES } from "./paused-execution-retention.cases.js";
 import { SCAN_CASES } from "./paused-execution-scan.cases.js";
 import { TRANSITION_CASES } from "./paused-execution-transitions.cases.js";
+import { CURSOR_CASES } from "./paused-execution-cursor.cases.js";
+import { LATE_CLOSE_CASES } from "./paused-execution-late-close.cases.js";
 import { NOTICE_WRITE_CASES } from "./paused-execution-notice.cases.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -175,6 +177,8 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       { title: "every transition writes its notices or nothing (notice)", cases: TRANSITION_CASES },
       { title: "delivery: claim, ack, retry, set aside (notice)", cases: DELIVERY_CASES },
       { title: "scans and pages", cases: SCAN_CASES },
+      { title: "a late closed names the first close (notice)", cases: LATE_CLOSE_CASES },
+      { title: "a cursor never reuses a number", cases: CURSOR_CASES },
       { title: "retention and stale mailboxes (notice)", cases: RETENTION_CASES },
     ],
     pingOf,

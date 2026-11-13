@@ -211,12 +211,13 @@ export function markSentChange(pause: PauseRecord, recipients: PauseRecipients):
     pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt },
   );
   if (pause.status === PauseStatus.Pending) return { pause: sent, notices: opened };
-  const closedAt = instantOf(closedAtOf(pause) ?? pause.askedAt);
+  const first = pause.closedFirst ?? pause;
+  const closedAt = instantOf(first.resolvedAt ?? pause.askedAt);
   const untaken =
     pause.answer !== undefined &&
     (pause.resolution === PauseResolution.Cancelled ||
       pause.resolution === PauseResolution.TreeEnded)
-      ? untakenNotices(pause.resolution, closedAt, recipients)
+      ? untakenNotices(pause.resolution, instantOf(pause.resolvedAt), recipients)
       : [];
   return {
     pause: sent,

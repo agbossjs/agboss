@@ -15,6 +15,7 @@ import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { SQLInputValue } from 'node:sqlite';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -5792,6 +5793,8 @@ export interface PauseRecord extends PauseSite {
     readonly askedAt: string;
     readonly boundAt?: string;
     readonly channel: string;
+    // Warning: (ae-forgotten-export) The symbol "PauseFirstClose" needs to be exported by the entry point index.d.ts
+    readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     // Warning: (ae-forgotten-export) The symbol "PauseExpiryBound" needs to be exported by the entry point index.d.ts
     readonly expiryBound?: PauseExpiryBound;
@@ -7087,15 +7090,11 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     static readonly store: StoreDescriptor;
 }
 
-// Warning: (ae-forgotten-export) The symbol "LazyPausedExecutionRepository" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "SqlitePauseStore" needs to be exported by the entry point index.d.ts
 //
 // @public
-export class SqlitePausedExecutionRepository extends LazyPausedExecutionRepository {
+export class SqlitePausedExecutionRepository extends SqlitePauseStore {
     constructor(connection: SqliteConnection, clock: Clock);
-    // (undocumented)
-    protected loadStore(): Promise<PausedExecutionRepository>;
-    // (undocumented)
-    ping(): Promise<void>;
 }
 
 // @public
@@ -9375,8 +9374,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts:136:3 - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:212:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/infrastructure/pause-record.ts:218:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:220:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:226:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
@@ -9445,8 +9444,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:28:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:32:3 - (ae-undocumented) Missing documentation for "loadStore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".

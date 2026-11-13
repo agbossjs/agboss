@@ -42,6 +42,8 @@ const StoredPause = z.object({
   expiryBound: z.enum(PauseExpiryBound).optional(),
   boundAt: z.string().optional(),
   expiryProblem: z.enum(ExpiryProblem).optional(),
+  // #935: how and when the answer first closed the pause, kept past an untaken close
+  closedFirst: z.object({ resolution: z.enum(PauseResolution), resolvedAt: z.string() }).optional(),
 });
 
 const PauseRow = z.object({
@@ -119,6 +121,7 @@ const storedOf = (pause: PauseRecord): string =>
     expiryBound: pause.expiryBound,
     boundAt: pause.boundAt,
     expiryProblem: pause.expiryProblem,
+    closedFirst: pause.closedFirst,
   });
 
 /** The statements of the pauses, on one connection's database. */
@@ -168,7 +171,7 @@ export class SqlitePauseRows {
 
   findAllByRoot(tenantId: string, rootExecutionId: string): readonly PauseRecord[] {
     return this.database
-      .prepare("SELECT * FROM pauses WHERE tenant_id = ? AND root_execution_id = ? ORDER BY rowid")
+      .prepare("SELECT * FROM pauses WHERE tenant_id = ? AND root_execution_id = ? ORDER BY seq")
       .all(tenantId, rootExecutionId)
       .map(toPauseRecord);
   }

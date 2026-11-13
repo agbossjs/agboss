@@ -33,24 +33,24 @@ export abstract class SqlitePausedRunRepository extends PausedExecutionRepositor
     return this.connection.ping();
   }
 
-  findByTenantIdAndThreadId(
+  async findByTenantIdAndThreadId(
     tenantId: string,
     threadId: string,
   ): Promise<PausedExecution | undefined> {
     return Promise.resolve(this.runs.find(tenantId, threadId));
   }
 
-  save(paused: PausedExecution): Promise<void> {
+  async save(paused: PausedExecution): Promise<void> {
     this.runs.save(paused, this.clock.now());
     return Promise.resolve();
   }
 
-  deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
+  async deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
     this.runs.delete(tenantId, threadId);
     return Promise.resolve();
   }
 
-  deleteByTenantIdAndThreadIdAndRunId(
+  async deleteByTenantIdAndThreadIdAndRunId(
     tenantId: string,
     threadId: string,
     runId: string,

@@ -28,7 +28,7 @@ import { oneRowChanged } from "./sqlite-connection.js";
 import { SqlitePauseQueryRepository } from "./sqlite-pause-queries.repository.js";
 
 /**
- * The SQLite pause store's logic: loaded by `SqlitePausedExecutionRepository` when it starts. One row
+ * The SQLite pause store's logic: behind `SqlitePausedExecutionRepository`. One row
  * per thread of a tenant (#261) — the paused run and the versions it paused under —, one row per
  * pause (`pauses`) and one row per pause and receiver (`pause_notices`, the notices). Every change
  * of a pause is one `BEGIN IMMEDIATE` transaction, the change planned by the same pure rules the
@@ -37,7 +37,7 @@ import { SqlitePauseQueryRepository } from "./sqlite-pause-queries.repository.js
  * change nor a change without its notice.
  */
 export class SqlitePauseStore extends SqlitePauseQueryRepository {
-  findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
+  async findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
     const found = this.connection.transaction((): PauseRecord => {
       const stored = this.pauses.findByStepKey(pause);
       if (stored !== undefined) return stored;
@@ -47,7 +47,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(found);
   }
 
-  findByTenantIdAndRootExecutionIdAndStepKey(
+  async findByTenantIdAndRootExecutionIdAndStepKey(
     tenantId: string,
     rootExecutionId: string,
     stepKey: string,
@@ -55,18 +55,21 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(this.pauses.findByTree(tenantId, rootExecutionId, stepKey));
   }
 
-  findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
+  async findByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+  ): Promise<PauseRecord | undefined> {
     return Promise.resolve(this.pauses.findById(tenantId, pauseId));
   }
 
-  findAllByTenantIdAndRootExecutionId(
+  async findAllByTenantIdAndRootExecutionId(
     tenantId: string,
     rootExecutionId: string,
   ): Promise<readonly PauseRecord[]> {
     return Promise.resolve(this.pauses.findAllByRoot(tenantId, rootExecutionId));
   }
 
-  markSentByTenantIdAndPauseId(
+  async markSentByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     recipients: PauseRecipients,
@@ -75,7 +78,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(sent?.status === PauseStatus.Pending);
   }
 
-  resolveByTenantIdAndPauseId(
+  async resolveByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     answer: PauseAnswer,
@@ -87,7 +90,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  decideByTenantIdAndPauseId(
+  async decideByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     answer: PauseAnswer,
@@ -101,7 +104,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(decided !== undefined);
   }
 
-  cancelByTenantIdAndPauseId(
+  async cancelByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     resolution: PauseCancellation,
@@ -113,7 +116,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  expireByTenantIdAndPauseId(
+  async expireByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     expiry: PauseExpiry,
@@ -125,7 +128,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  closeUntakenByTenantIdAndPauseId(
+  async closeUntakenByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     resolution: PauseUntakenResolution,
@@ -139,7 +142,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  extendByTenantIdAndPauseId(
+  async extendByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     change: PauseExtension,
@@ -151,7 +154,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  remindByTenantIdAndPauseId(
+  async remindByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     at: Date,
@@ -163,7 +166,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(reminded !== undefined);
   }
 
-  noticeOnceByTenantIdAndPauseId(
+  async noticeOnceByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     kind: PauseNoticeKind,
@@ -181,7 +184,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(wrote);
   }
 
-  markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
+  async markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
     this.#change(tenantId, pauseId, (pause) =>
       pause.status === PauseStatus.Resolved
         ? { pause: { ...pause, status: PauseStatus.Taken }, notices: [] }
