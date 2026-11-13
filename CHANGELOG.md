@@ -935,12 +935,14 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   `https.request` and forces its own agent) swapped the fetch's agent for a proxying or unguarded
   one, so the guarded lookup never ran. The fetch no longer goes through `https.request`: it builds
   a `ClientRequest` with its own agent and refuses unless the request really uses it, and, as soon
-  as the socket connects and before a byte is sent, checks the remote address again — a denied
+  as the socket's TCP connection is made, before TLS starts (no ClientHello, which names the host,
+  and no request byte reach a refused peer), checks the remote address again — a denied
   address (embedded IPv4 forms included), an address the guarded lookup did not answer for that
   connection (a proxy in the way), or a socket that did not come through the file agent is
   destroyed and refused `a2a.file-address-denied`. File fetches bypass any HTTP(S) proxy and global
-  agent. One thing the guard cannot stand against: code that replaces `node:net` / `node:tls` or
-  the file agent's own methods in the process.
+  agent. Patches below the request (a replaced `ClientRequest`, `Agent.prototype.createConnection` /
+  `addRequest`, `tls.connect`, `net.Socket.prototype.connect`) can still open the TCP connection
+  to a denied address, which then sends nothing and is closed; they cannot get a byte through it.
 - **The card describes the file fields of a skill's outputs too, and a `Marker` card declares each
   one** (#916): a finish's file fields are out of its output schema and declared in the skills
   extension's `outputFiles` by finish (`Extension`), or marked in it (`Marker`); a `Marker` is now

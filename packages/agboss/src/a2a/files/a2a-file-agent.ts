@@ -57,16 +57,19 @@ export function isExpectedPeer(
 }
 
 /**
- * Checks the peer of a request's socket as soon as it is connected, before a byte of the request
- * is sent (the TLS handshake follows the TCP connect): a socket that is not to an expected peer is
- * destroyed with an `ADDRESS_DENIED` error, which the request reports. A path that skipped the
- * guarded lookup — whatever replaced the request's agent or connection — is caught here.
+ * Checks the peer of a request's socket when its TCP connection is made: the check is the first
+ * `connect` listener (`prependOnceListener`), so it runs before the TLS layer's own — no
+ * ClientHello (which carries the host name) and no byte of the request goes to a peer that is not
+ * expected. A socket that is not to an expected peer is destroyed with an `ADDRESS_DENIED` error,
+ * which the request reports. What is not prevented is the TCP connection itself: a path that
+ * skipped the guarded lookup (whatever replaced the request's agent or connection) has already
+ * connected when the address is known, so the target sees a connection that sends nothing.
  */
 export function verifyPeerOf(socket: Socket, host: string): void {
   const verify = (): void => {
     if (!isExpectedPeer(socket.remoteAddress, ANSWERED.get(socket), host))
       socket.destroy(deniedError());
   };
-  if (socket.connecting) socket.once("connect", verify);
+  if (socket.connecting) socket.prependOnceListener("connect", verify);
   else verify();
 }

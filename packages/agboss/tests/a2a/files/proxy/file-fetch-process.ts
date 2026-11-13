@@ -4,18 +4,24 @@
 // `mode` in code: "global-agent" (https.globalAgent replaced by a proxying agent), "ga-before" /
 // "ga-after" / "ga-after-sync" (`global-agent`'s `bootstrap()` before the core is loaded, after it,
 // and after it with `syncBuiltinESMExports()`), "patch" (a hand-written `https.request` /
-// `http.request` patch that forces an agent without the guard). Prints one JSON line: the fetch's
+// `http.request` patch that forces an agent without the guard), and the deeper patches of
+// a2a-file-deep-patch.test.ts ("patch-client-request", "patch-create-connection",
+// "patch-add-request", "patch-tls-connect", "patch-socket-connect"). Prints one JSON line: the fetch's
 // outcome, and whether something replaced the HTTP client (so a test never passes vacuously). No
 // top-level await: a2a-file-global-agent.test.ts bundles this file to CommonJS.
 import type * as HttpModule from "node:http";
 import type * as HttpsModule from "node:https";
 import { createRequire, syncBuiltinESMExports } from "node:module";
+import type * as NetModule from "node:net";
+import type * as TlsModule from "node:tls";
 
 // `require`, not `import`: an ESM import of `node:https` would fix the named exports the core is
 // later loaded with before `bootstrap()` patched them
 const load = createRequire(import.meta.url);
 const http = load("node:http") as typeof HttpModule;
 const https = load("node:https") as typeof HttpsModule;
+const tls = load("node:tls") as typeof TlsModule;
+const net = load("node:net") as typeof NetModule;
 
 const [url = "", mode = "env", proxy = ""] = process.argv.slice(2);
 
@@ -43,6 +49,61 @@ function patchedRequests(): void {
   syncBuiltinESMExports();
 }
 
+type Method = (this: unknown, ...args: unknown[]) => unknown;
+
+/** Replaces `target[name]` by `replace(original, this, args)`. */
+function wrapMethod(
+  target: object,
+  name: string,
+  replace: (original: Method, self: unknown, args: unknown[]) => unknown,
+): void {
+  const original = Reflect.get(target, name) as Method;
+  Reflect.set(target, name, function (this: unknown, ...args: unknown[]) {
+    return replace(original, this, args);
+  });
+}
+
+/** Drops the guarded lookup from connection options: what a patch below the request layer does. */
+const withoutLookup = (options: unknown): unknown => {
+  if (typeof options !== "object" || options === null) return options;
+  return Object.fromEntries(Object.entries(options).filter(([key]) => key !== "lookup"));
+};
+
+/** The patches below `https.request` (#916): each ends in a connection with no guarded lookup. */
+function deepPatch(patched: string): boolean {
+  if (patched === "patch-client-request") {
+    // a replaced ClientRequest that honestly swaps the request's agent for an unguarded one
+    const Original = http.ClientRequest;
+    Reflect.set(
+      http,
+      "ClientRequest",
+      class extends Original {
+        constructor(options: HttpModule.ClientRequestArgs) {
+          super({ ...options, agent: unguarded });
+        }
+      },
+    );
+  } else if (patched === "patch-create-connection") {
+    wrapMethod(https.Agent.prototype, "createConnection", (create, self, [options, ...rest]) =>
+      Reflect.apply(create, self, [withoutLookup(options), ...rest]),
+    );
+  } else if (patched === "patch-add-request") {
+    wrapMethod(https.Agent.prototype, "addRequest", (add, self, [request, options]) =>
+      Reflect.apply(add, self === unguarded ? self : unguarded, [request, withoutLookup(options)]),
+    );
+  } else if (patched === "patch-tls-connect") {
+    wrapMethod(tls, "connect", (connect, self, [options, ...rest]) =>
+      Reflect.apply(connect, self, [withoutLookup(options), ...rest]),
+    );
+  } else if (patched === "patch-socket-connect") {
+    wrapMethod(net.Socket.prototype, "connect", (connect, self, [options, ...rest]) =>
+      Reflect.apply(connect, self, [withoutLookup(options), ...rest]),
+    );
+  } else return false;
+  syncBuiltinESMExports();
+  return true;
+}
+
 async function main(): Promise<void> {
   if (mode === "global-agent") {
     // Node >= 24: an agent that tunnels through `proxyEnv`'s proxy
@@ -52,6 +113,7 @@ async function main(): Promise<void> {
   }
   if (mode === "ga-before") bootstrapped();
   if (mode === "patch") patchedRequests();
+  const isDeeplyPatched = deepPatch(mode);
 
   const [{ fetchedFile }, { httpsFileTransport }, { systemClock }, { kilobytes, seconds }] =
     await Promise.all([
@@ -69,7 +131,8 @@ async function main(): Promise<void> {
   const isProxying =
     Reflect.get(Object(Reflect.get(https.globalAgent, "options")), "proxyEnv") !== undefined ||
     Reflect.get(globalThis, "GLOBAL_AGENT") !== undefined ||
-    https.request !== original.https;
+    https.request !== original.https ||
+    isDeeplyPatched;
 
   const outcome = await fetchedFile({
     url,
