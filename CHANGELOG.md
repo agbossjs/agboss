@@ -10,7 +10,7 @@ with every breaking change, its reason and the migration — is the Wiki's
 entry point is in `packages/agboss/api/*.api.md`. Security fixes are announced here too
 ([`SECURITY.md`](SECURITY.md)).
 
-## [0.1.1] — 2026-11-05
+## [0.1.1] — unreleased
 
 The release in one line: several instances of one application share their trees safely — on SQLite
 in the core, on PostgreSQL through `@agboss/postgres` and on MongoDB through `@agboss/mongodb`, with
@@ -421,6 +421,15 @@ index` (as before) — a running instance does not re-read a folder on its own.
   `record.pauses[i].answerer` for the kind and `.answeredBy` for the person; `answer.answeredBy` for
   `answer.answerer`.
 
+- **Under `CI`, the VCR refuses every mode that records against real models** (#839) — an explicit
+  `RECORD` or `RECORD_STALE`, or `AUTO` with no cassette (set by `vcr.mode` or `AGBOSS_VCR_MODE`),
+  fails the test app's start with `[vcr.record-in-ci]` (a `TestSetupError`, before any model is
+  asked) when the `CI` variable is set; before, it recorded against real models in a pipeline. The
+  message names where the mode came from, `CI`, the opt-in and the remedy. **Migration:** record
+  cassettes on a developer machine; a pipeline that must record sets `AGBOSS_VCR_RECORD_IN_CI=1` (or
+  `true`; any other value is refused and the message echoes it). `AUTO` with a cassette replays, as
+  `REPLAY` does. `VcrConfig.cassetteName` is documented.
+
 ### Changed — breaking for stores outside the core
 
 - **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
@@ -739,6 +748,59 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   `data:` URL is exempt from a judge's masking.
 
 ### Fixed — guarantees and safety
+
+- **A resume of a tree that a cancelled drain had ended ran the answer, charged and paid, after the
+  cancel** (#901, #907, #929) — an A2A follow-up (`SendMessage` after `INPUT_REQUIRED`) racing a
+  `CancelTask`: the pass that took the answer was stopped by the cancel, its tree was ended and its
+  keys (the cancel request among them) forgotten, and the follow-up's resume then took the free lease
+  and ran the answer on the ended tree, its record written `answered` over `failed`. A resume now
+  reads the root's record once it holds the lease: a failed root (a cancel too) or a guarded one is
+  final — the lease is given back and the resume is rejected with `NotPausedError` (`-32004` on A2A),
+  nothing charged, the record stays failed. A finished root keeps its path (the current output is
+  returned). Holds on every store; no contract changes. The fault suite proves it: scenario
+  `s18d-a2a-drain-took-answer-cancel` forces the interleaving with hold points and a kill, and a
+  store that reads an ended root as running fails it (`a2a-tasks-once`). Additive in
+  `@agboss/core/testing/faults`: `StoreHoldPoint.PauseMarkTaken` (`pause.markTaken`).
+- **A resume that died after recording its answer left the pause `Resolved` and the tree `paused`
+  for good** (#850, #857) — the resume recorded the answer (`Pending` → `Resolved`) while the root's
+  record still said `paused`, so the recovery sweep (which lists `running` roots) never saw the
+  tree and nothing took the answer. A resume now marks the resting root `running` before it records
+  the answer: if it dies in between, the sweep continues that root under its lease with the resolved
+  pause, exactly once, and the pause ends `Taken`. The pause is read once more right before the
+  mark, so a resume whose pause was answered meanwhile (during a reply interpreter's model call) is
+  refused before anything is marked; one refused after its mark logs `resume.refused-after-mark` and
+  the root rests at its pause again at the next recovery, the pause reused, nothing sent twice. No
+  store contract changes. The published fault suite has no pause workflow yet: the kill is proven by
+  two-instance interleavings on SQLite and a `kill -9` run on PostgreSQL.
+- **A call to an A2A agent that rejected it before anything ran charged the price** (#849) — an
+  `@A2AAgent` call whose task an AGBoss peer (reached over the mesh) answers `REJECTED` with a mesh
+  limit at the accept (a loop, past `maxMeshHops`: nothing ran there) is charged nothing, as in
+  0.1.0 — neither the price nor a report; the accept stores the refusal, so a takeover that replays
+  it charges nothing either. The refusal is the peer's word, so it fails closed: such a task is never
+  waited on and none of its output is used; `GetTask` reads it once more — still refused: the limit
+  error, no charge; anything else: the price is charged and `A2AProtocolError` is thrown; a failed
+  read: its error, no charge. Any other `REJECTED` (a foreign agent, an unmeshed call, no mesh-limit
+  code) is charged as accepted, and an accepted call that then fails is still charged its price. The
+  tool call's record says `remote: { application, executionId, refused: true }`
+  (`ToolCallRemote.refused`).
+- **A task completed by A2A read repair charged its caller the price alone** (#844) — read repair
+  completes a task whose end event was lost, but its status carried no spend, so the trusted caller
+  got no signed run report and was charged the contract price instead of what the run spent. A
+  finished tree's durable state now carries its spend (the root record's cost once it says
+  `answered`, else the last checkpoint's) and `A2ATaskStatus.spentUsd` is always set on a completed
+  status. For this the agents' memory strategies now update **before** the turn's record is written
+  (the record's cost is the whole spend the end event reports); a strategy whose `updateMemory`
+  throws fails the execution before its record says `answered`, where before the record said
+  answered and the execution then failed. A caller never silently loses the report: a meshed call
+  whose completed task carries no report it can verify (an untrusted caller, a peer that signs
+  nothing, a report of another body or task) is still charged the price alone, and its step record
+  says `remote: { application, executionId, report: false }` (`ToolCallRemote.report`).
+- **`app.close()` waited for the running executions and for every `onDestroy` while a store never
+  answered** (#923, #937, after #926) — within `close({ timeout })` the running executions awaited by
+  the stop (a lease release, a store call that ignores the interruption) and every `onDestroy` (a
+  connection's close) are now given up at the stop's end, and a workflow's `app.close()` does not wait
+  for them again. Each abandoned piece logs `app.stop-store-call-pending` naming what is pending;
+  late failures of abandoned work are dropped (no unhandled rejection). No per-call bound is added.
 
 - **`app.close()` ends within its shutdown timeout while a store call is never answered** (#923) —
   the recovery sweep's look at the running executions and a child worker's claim of the queue each
@@ -1282,6 +1344,128 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
 
 ### Added
 
+- **`toQuestion(…)` as an `.onError` side-path start** (#933, #950, #952; sub-issue of #910) — a
+  side path may start with a question to a person:
+  `.onError(StepFailedError, toQuestion(OwnerQuestion).returns(AnswerDto)…)`, exported from the root
+  like the other starters.
+  The question reads its `ask` from the path as `.toQuestion` does, the owner is asked with the
+  drafted request and the typed answer goes on along the path (`.returns(AnswerDto)` follows the
+  question; a class that is not a question role is a compile error). The same role may be on the
+  main path and a side path. A side path that can catch a limit error (`BudgetExceededError`) and
+  reaches a question is still `[graph.limit-handler-uses-model]`: a question is not among the steps
+  that spend nothing. Additive; nothing breaks. A pause's expiry as the trigger comes with #941.
+- **The A2A task store and the seams under it** (#807, phase P1 of epic #805; no wire change) —
+  `A2ATaskRepository` (the contract; `InMemoryA2ATaskRepository`, `SqliteA2ATaskRepository`,
+  `a2aTaskContract` in `@agboss/core/testing/contracts`, `storeConformance({ stores: { a2aTask } })`,
+  readiness `ping()`): tasks by `(tenantId, taskId)`, messages unique on `(tenantId, ownerId,
+messageId)`, a compare-and-set status with sticky terminal states, a paged list. `@Application({
+a2a: { taskRetention } })` (default `hours(24)`) is swept by the recovery sweep; unfinished tasks
+  never. Under it: a task id starts at most one execution, ever (a reserved execution id kept in
+  the lease store's id arbiter; a taken id is `DuplicateExecutionIdError` before anything is
+  written); a per-tree `cancelExecution` (the thread's other runs are never touched) and
+  `executionStateOf` (not started, running, paused, finished, failed, cancelled, from the root's
+  record, the paused run and the checkpoint thread); a projection observer, registered only when the
+  application exposes an `@A2AExpose`, that writes WORKING, INPUT_REQUIRED (a channel-only pause: WORKING
+  and "awaiting … out of band"), COMPLETED, FAILED and CANCELED, a terminal status only once the
+  durable records show that end; and read repair — a task row left non-terminal is corrected from
+  the records, and one whose execution never began past the start timeout is fenced and fails
+  `a2a.start-lost`. A FAILED task carries the stable `errorCode` and the code's fixed text, never
+  `error.message` (internal details, unmasked PII). It also tightens `app.cancel`: a run of the thread
+  that paused while a cancel waited for the lease is never dropped. A new mutation shard, `a2a-tasks`.
+  Shared by the instances, or no start: see #824 below.
+- **`executionContext.fence` — fencing external writes with the step's lease** (#471) — the lease
+  the current step runs under, to hand to a write the framework does not make (a SQL ledger, a
+  payment gateway): its `scopeKey`, `tenantId`, `leaseExecutionId`, `token` (the lease's epoch) and a
+  held-check, local and strict; a fence kept past its step refuses. A root, its `ParentInstance`
+  children and its `ThisWorkflow` levels share the root's lease, an `AnyInstance` child has its own;
+  a frame with no lease (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool)
+  and `parent.fence` / `root.fence` are `ExecutionContextUnavailableError`. A write refused at a
+  token the store has moved past is `ExecutionFencedError` (an `ExecutionLeaseLostError`), checked
+  before the signal's reason everywhere a step ends — the holder of the fenced token is aborted
+  with it, a tool's fence error runs no `onToolEnd` and no second model call, and a business error
+  still takes `.onError(Error, …)`. A held lease is yielded to a child only while no step of the
+  tree runs (#333). Testing: the `leases` fixture (`stall` / `resume`, a gate around the instance's
+  lease calls) and a held lease in every unit runner and `testExecutionContext`. The member names
+  were reviewed since: see #825 and #847.
+- **The fenced effect** (#500) — one call makes a protected write exactly once per step, however
+  many times the step runs: the lease, the scope's highest token, the key and the write are checked
+  and made in **one transaction** of the store (a lower token is refused even when the key exists —
+  the zombie writer; a key already stored replays the first result, `work` not called; two calls of
+  one key join). The first stores are `InMemoryFencedEffectRepository` (the default) and
+  `SqliteFencedEffectRepository` (the work gets the connection's `DatabaseSync` and must be
+  synchronous), beside the lease store of their database (`[application.fenced-effect-lease-store]`
+  names a mismatch, `FencedEffectStoreMismatchError` the unlisted default's first call). `@Application({
+fencedEffects: { maxResultSize, retention } })` (64 KB, 24 h; `[application.fenced-effects-invalid]`;
+  `FencedEffectResultTooLargeError`), swept by the recovery sweep. A unit runner holds its lease in
+  the store's own lease store. `fencedEffectContract` in `@agboss/core/testing/contracts`. Its names
+  were reviewed: see #890 (`FencedEffects.runOnce`) and #508 (business keys). The flow-patterns
+  credit desk charges through it.
+- **Calls that leave the system: an intent before the send, reconciled on recovery** (#505) —
+  `OutboundCalls`, a core service: `send(key, { target, operation, request, send, reconcile })`
+  records an intent in a fenced write, confirms the lease, sends under the step's signal and marks
+  the intent `Completed` or `Failed`. An intent left `Pending` (a crash, an abort: nobody knows
+  what arrived) is **never re-sent blindly**: `reconcile(lookup)` answers `completed(result)` (the
+  step goes on with it), `notSent()` (sent once more with the same key, attempt + 1) or
+  `unknown({ reason })` (`OutboundCallUnreconciledError`, the intent stays pending for the
+  operator). **One sender per attempt**: an attempt has an owner, and the move back to `Pending` is a
+  compare-and-set in the fenced transaction; a rival that loses sends nothing and replays the result
+  or gets `OutboundCallInFlightError`; a second send of a key this instance is sending joins it.
+  The request, the result and a failure's text are **masked when written**, by the calling frame's
+  mask, so every read shows what is stored; `reconcile` gets the stored request and the key;
+  an application with PII policies and a frame with no mask is refused
+  (`OutboundCallUnmaskedError`) before anything is stored or sent. `OutboundCallRepository`
+  (`InMemoryOutboundCallRepository` and `SqliteOutboundCallRepository`; `outboundCallContract`);
+  `app.outboundCallsOf({ tenantId, rootExecutionId })` and `app.pendingOutboundCalls({ tenantId })`;
+  `@Application({ outboundCalls: { maxPayloadSize, retention } })` (64 KB, 168 h; a `Pending`
+  intent is never swept). Every move is told, never with its payload: `onOutboundCall`, the lease
+  log's row and `ExecutionHistoryRecord.outboundCalls` (so `agboss records export` carries them).
+  An `AnyInstance` child's run context carried no mask and a `ParentInstance` child its parent's:
+  both carry the child workflow's own now. The flow-patterns travel desk books through it. The
+  reads and defaults were reviewed since: see #795 and #825.
+- **The store contract suites are published: `@agboss/core/testing/contracts`** (#481) — one
+  function per contract (the lease, record, tree, child queue, paused execution, history, cost
+  ledger, rate limit, mesh request and checkpoint saver contracts, later the fenced effect,
+  outbound call and A2A task ones) over a `ContractTarget` (`name`, `instance(seam)`, `reset?`,
+  `close?`) and a `StoreSeam` (`clock`, `instanceId`, `application`); each case runs on a fresh
+  virtual clock after `reset()` on two instances of the store, with the core's case names. A store
+  outside the core runs them on its own implementation; the core's in-memory and SQLite stores run
+  the same suites. `storeConformance` (#526) runs all of them at once.
+- **A lease can be retired for good** (#520) — `ExecutionLeaseRepository.retire` (first named
+  `finish`, renamed by #847; a new abstract member, breaking for a store outside the core): the work
+  under the lease is over, so no later take of that key gets a lease, from any instance, at any
+  time (it matches the lease as `release` does, so another holder's is kept; a retired lease cannot
+  be renewed, yielded or reclaimed; on SQLite `released = 3`, no migration). A child that answers or
+  fails retires its lease (a `Paused` one releases, `app.resume` runs it again); a root's lease is
+  never retired. Every take that could meet finished work looks twice, before it asks the store and
+  once the store gives the lease (a child's claim and reclaim read its queue row, a root's takes —
+  recovery, a cancel request, an undo — read its record); work over before the ask requests no
+  lease, over after it gives the lease back at once, and neither writes a `Takeover` row or calls
+  `onExecutionLeaseTakeover`. A failed read counts as not over. A claim whose lease was not free
+  goes back to the queue only while its row is still that claim (it could re-insert a child whose
+  tree had ended), and a reclaim whose re-queue fails releases its lease.
+- **The store-backend errors say what to fix** (#539, #549) — `[application.store-backend-mismatch]`
+  names what to list: a lease store declaring the fencing store's own backend (the core's when there
+  is one, else "a lease store declaring backend "postgres:billing""), or a fencing store on the
+  leases' backend; it no longer suggests SQLite stores for every backend. Two listed stores of one
+  fencing contract (two fenced-effect stores, two outbound-call stores, two lease stores) fail at
+  assembly with `[di.ambiguous-implementation]` naming both with their backends — before, only the
+  first was checked and the second failed at its first use. All violations of every contract are
+  reported together.
+- **`signedMeshEnvelope(options)` and `totalCost(records)`** (#521) — `signedMeshEnvelope` in
+  `@agboss/core/testing` builds the `agboss-mesh` header text a real client signs (same fields, same
+  order, byte for byte), from a `KeyObject` or a PKCS #8 PEM (a key that is not Ed25519 throws
+  `TestSetupError`); `totalCost` is exported from the root: the sum `CostLedgerRepository.saveAll`
+  adds to each counter.
+- **The fault suite's `one-owner` checks writes the pod never heard answered** (#840, #842, #876,
+  #882) — a fenced write a store let through at a token no lease grant gave (a forged or stale token
+  whose write found its key already there included) is a violation naming the token and the write,
+  and a write whose pod was killed between the write and the record is read back from the rows the
+  fixture reads at the end of the run (a fenced effect's stored token, an outbound call's row) and
+  checked against the grants. A store that accepts a stale token in that window now fails; the
+  published suite's checks got stricter, no API changed. Limits are in the code's comments: no store
+  reads fenced-effect rows back except by key, and a stale outbound write a later write moved the
+  row on from is out of reach (the later write is checked on its own).
+
 - **A typed A2A client can take some of its skill's finishes** (#916): by default an `@A2AAgent`'s
   `output` must accept every finish of the skill (`[a2a.schema-mismatch]` names each one it does
   not, before anything is sent). `target: { finishes: ["answer-workflow-finish"] }` narrows the card
@@ -1509,11 +1693,12 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   `RELEASE_CHECKLIST.md` is the maintainer's ordered runbook.
 
 - **Question roles: a workflow asks a typed question and goes on with the typed answer** (#659) —
-  `@ChannelRole({ ask, answer, answeredBy })` (a name ending with `-question`, optional
+  `@ChannelRole({ ask, answer, answerer })` (a name ending with `-question`, optional
   `replyInterpreter` and `maxVisits`) is back (#647 had removed the form, nothing could ask it), and a
   flow step asks it: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (`question(Role)` for
   its own path). The step pauses like any pause — `result.pending` (`kind: PauseKind.Question`,
-  the masked ask), `answeredBy`, the pause records and their retention, `result.record.pauses` —
+  the masked ask), `answerer` (who may answer; #934 — `answeredBy` is the person who did), the pause
+  records and their retention, `result.record.pauses` —
   and the answer goes on the path: `app.resume({ pauseId, decision })` validated as `AnswerDto`,
   `{ reply }` read by the role's `@ReplyInterpreter` into it (not understood → the pause stays
   pending), or the channel's `ChannelOutcome.decided(answer)` at once. Exactly one answer wins,
@@ -1584,6 +1769,56 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   runs graphify.
 
 ### Fixed — other
+
+- **A2A streaming: the model's text is chunks of the task's output artifact** (#833) — the server
+  streamed text into a separate `stream` artifact that `GetTask` never returns, so a client that
+  applied every event as A2A v1.0 says ended with other artifacts than `GetTask`'s. The text now
+  streams as `TaskArtifactUpdateEvent` chunks of the task's one artifact, `<taskId>:output`: the
+  first chunk of the stream (and of each run it hears, a resume's turn) starts it (`append: false`),
+  the next ones append (`append: true`, `lastChunk: false`), and the finish's output replaces it
+  (`append: false`, `lastChunk: true`, as before). A client that joins the artifacts' text reads the
+  answer once. The client is unchanged. A consumer that read the old `stream` artifact by its id
+  reads `<taskId>:output` now.
+- **An agent's own tool calls were never streamed** (#848) — an agent's loop calls each tool itself,
+  never as a LangChain tool, so the only source of `{ kind: "toolCall" }` never fired: neither
+  `app.execute(…, { onStream })` nor the A2A stream (`calling <tool>`) saw a tool call in a real run.
+  The loop now reports each call as it starts (through the run's callback manager: a listener that
+  throws is logged and never fails the step). The event carries the tool's name only, never its
+  arguments, which hold real values.
+- **The Unknown-cost metric counted a lost pass only at a successful end** (#875, after #853, #872) —
+  `agboss.instance.costs.unknown` (`{pass}`, `workflow`) is now counted as a pass records a lost
+  pass's Unknown-cost entries, so failed and cancelled executions count too (it was added at
+  `onExecutionEnd`); a re-run lost again before its checkpoint is recorded once in the ledger and
+  counted again by its taker. New `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`):
+  a takeover whose read of the lost passes failed (also logged as `cost.unknown-unrecorded`). A
+  counter that throws only logs `metrics.unknown-cost-uncounted`.
+- **`agboss rag index` ignored Ctrl+C in its write phase and was quadratic in it** (#891, #949) — the
+  write runs on its own connection in one `BEGIN IMMEDIATE` transaction and checks the signal every
+  2000 rows and right before `COMMIT`: an abort rolls back and the earlier index stays whole (readers
+  keep the committed snapshot). The slow part was a `DELETE … WHERE tenant_id = ? AND source = ?`
+  that scanned the whole FTS5 table once per file; one pass now (a re-index of 1500 files, 180 000
+  chunks: 88.9 s → 2.3 s).
+- **A root that failed in its own pass kept a record without the undos that ran** (#635, #650) — its
+  `onExecutionError` listed them but `ExecutionHistoryRecord.compensations` did not (the pass kept
+  the record with no undo records, and a cancel seen at rest overwrote a correct one). The kept
+  record now lists what the error event lists, row by row, on a failure in the pass, a cancel at
+  rest and a takeover.
+- **`agboss check --application <path>` overwrote the project's `.agboss/types.d.ts`** (#468, #473) —
+  checking an application other than the one `package.json` sets, outside its `src/`, generated types
+  from that module alone and replaced the shared file, so the IDE lost the generated types of the
+  project's own application. Such an application is typed in `.agboss/types.<module path inside the
+project, without its extension>.d.ts`; the project's own application, the other modules of its
+  `src/` and projects with no application in `package.json` are unchanged; a failed generation writes
+  neither file.
+- **A model provider without `circuitBreakerPolicy` crashed assembly; text with a NUL was cut on
+  SQLite** (#521, found by `@agboss/postgres`) — a `@ModelProvider` without the policy (a JS project,
+  a cast), or a breaker `fallback` without it, crashed `agboss check` and `createApp` with `Cannot
+read properties of undefined`; it now fails assembly with `[model-provider.circuit-breaker-required]`
+  (the policy stays required). And the in-memory and SQLite record stores cut a task, answer, stop
+  reason or summary at a NUL character (`node:sqlite` reads a TEXT value only up to a NUL): free text
+  in them is kept as JSON text now, and **migration 14** `json_quote`s the rows of an existing file —
+  nothing to do. Every published contract suite that stores text or JSON gained a NUL round-trip
+  case, so a store outside the core is checked for it.
 
 - **Several instances starting at once on a new SQLite file all start** (#911): the second one
   failed with `database is locked` while opening — SQLite answers the switch to WAL of a fresh
