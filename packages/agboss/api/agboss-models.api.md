@@ -467,7 +467,6 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
     capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
     // Warning: (ae-forgotten-export) The symbol "ModelEntry" needs to be exported by the entry point index.d.ts
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
-    // (undocumented)
     chat(request: ChatRequest): BaseChatModel;
     protected reasoningFields(reasoning: Reasoning): WireFields;
     // (undocumented)
@@ -848,11 +847,10 @@ export interface WireRequest {
 // src/models/model-provider.decorator.ts:105:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts:106:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/model-provider.decorator.ts:130:1 - (ae-undocumented) Missing documentation for "ModelProvider".
-// src/models/openai-compatible.provider.ts:17:3 - (ae-undocumented) Missing documentation for "caching".
-// src/models/openai-compatible.provider.ts:18:3 - (ae-undocumented) Missing documentation for "model".
-// src/models/openai-compatible.provider.ts:32:3 - (ae-undocumented) Missing documentation for "requestFields".
-// src/models/openai-compatible.provider.ts:35:3 - (ae-undocumented) Missing documentation for "chat".
-// src/models/openai-compatible.provider.ts:105:9 - (ae-undocumented) Missing documentation for "capabilities".
+// src/models/openai-compatible.provider.ts:18:3 - (ae-undocumented) Missing documentation for "caching".
+// src/models/openai-compatible.provider.ts:19:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/openai-compatible.provider.ts:33:3 - (ae-undocumented) Missing documentation for "requestFields".
+// src/models/openai-compatible.provider.ts:115:9 - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/openrouter-model.provider.ts:44:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openrouter-routing.ts:13:3 - (ae-undocumented) Missing documentation for "Price".
 // src/models/openrouter-routing.ts:14:3 - (ae-undocumented) Missing documentation for "Throughput".

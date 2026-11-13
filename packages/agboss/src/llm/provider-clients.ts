@@ -23,6 +23,7 @@ import {
   ProviderCapabilityError,
   registeredIn,
 } from "./provider-chat-of.js";
+import { loadChatOpenAI } from "../models/chat-openai.js";
 import { withFallbacks } from "../models/resolution.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
@@ -61,6 +62,8 @@ export async function chatExtensionsFor(
   directory: ModelProviderDirectory,
 ): Promise<ChatExtensions | undefined> {
   const classes = withFallbacks(directory.providers.map((provider) => provider.type));
+  // the HTTP providers' `chat` is synchronous: their client is loaded here, at assembly (#956)
+  if (!classes.every(isTransportClass)) await loadChatOpenAI();
   return classes.some(isTransportClass) ? lazyLoad(import("./provider-chat.js")) : undefined;
 }
 
