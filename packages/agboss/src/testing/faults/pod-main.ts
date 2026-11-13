@@ -32,7 +32,7 @@ import { commandDone, type PodParts } from "./pod-control.js";
 import { podA2AListenerOf } from "./pod-a2a.js";
 import { keepsA2ATasks as keepsA2ATasksOf } from "./fixture/fault.a2a.js";
 import { isClockProbeKey } from "./store-clock-probe.js";
-import { POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
+import { FaultStoreSabotage, POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
 
 /** The store set of the module at `path`. */
 async function storesOf(path: string): Promise<FaultStoreSet> {
@@ -95,6 +95,9 @@ const shutdownTimeout = numberOf(POD_VARIABLES.shutdownTimeout);
 const application = faultApplicationOf(stores, {
   shutdownTimeout: shutdownTimeout === undefined ? undefined : waitOf(shutdownTimeout),
   maxConcurrentSteps: numberOf(POD_VARIABLES.maxConcurrentSteps),
+  sabotage: Object.values(FaultStoreSabotage).find(
+    (one) => one === process.env[POD_VARIABLES.sabotage],
+  ),
 });
 const assembled = await applicationOf(application);
 const loaded = {

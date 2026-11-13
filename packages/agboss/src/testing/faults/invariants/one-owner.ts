@@ -152,8 +152,8 @@ function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
 
 /**
  * #876: a fenced write never answered — its pod died between the write and the record — that the
- * store's rows hold (written at its token, and no answered write of it at that token) is checked
- * as an accepted one. Several unanswered writes of it at that token: a violation only when none of
+ * store's rows hold (no write of it that ran answered at the row's token: a replay explains
+ * nothing, #959) is checked as an accepted one, whatever token the store kept its row at. Several unanswered writes of it at that token: a violation only when none of
  * them could have been let through rightly (any one of them is the row). A row no write of the
  * history explains is left alone: a dying pod's invoke may be lost on its way to the test.
  */
@@ -161,14 +161,16 @@ function unansweredViolations(
   run: FaultRun,
   keys: ReadonlyMap<string, readonly Grant[]>,
 ): FaultViolation[] {
-  const answered = acceptedWritesOf(run.history);
+  const answered = acceptedWritesOf(run.history).filter((write) => !write.isReplay);
   const unanswered = unansweredWritesOf(run.history);
   const found = new Map<string, FaultViolation[]>();
   for (const row of writtenRowsOf(run)) {
-    const atRow = (write: FencedWrite): boolean => write.token === row.token && row.holds(write);
-    if (answered.some(atRow)) continue;
+    // a write that ran at the row's token explains it; a replay wrote nothing (#959)
+    if (answered.some((write) => write.token === row.token && row.holds(write))) continue;
+    // else the row is an unanswered write's — stored at its own token, or (a store that lets a
+    // stale token through at the lease's current epoch) at the epoch it was let through at
     const candidates = unanswered
-      .filter(atRow)
+      .filter((write) => row.holds(write))
       .map((write) => ({ write, problems: writeProblems(write, keys) }));
     if (candidates.length === 0 || candidates.some(({ problems }) => problems.length === 0))
       continue;

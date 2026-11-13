@@ -1,3 +1,4 @@
+import type { FaultStoreSabotage } from "./pod-protocol.js";
 import type { Milliseconds } from "../../units/index.js";
 
 /** What a fault scenario's cluster runs on (#484): its database, its store set, its pods' settings. */
@@ -23,6 +24,8 @@ export interface FaultClusterOptions {
 export interface FaultPodOptions {
   readonly shutdownTimeout?: Milliseconds;
   readonly maxConcurrentSteps?: number;
+  /** The pod's fenced-effect store broken on purpose (#959): a sabotage scenario's. */
+  readonly sabotage?: FaultStoreSabotage;
   /**
    * The pod's clock off the run's (#533): `offset` ms ahead (negative: behind), running `drift`
    * faster — its wall time, monotonic time and sleeps; its stores keep the run's time.

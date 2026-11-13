@@ -17,6 +17,9 @@ import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
 import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
 import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
+import { FENCED_EFFECT_METHODS } from "../store-points.js";
+import { sabotagedStoreOf } from "../sabotage-stores.js";
+import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
 
 /**
@@ -54,15 +57,26 @@ export class FaultExecutionBudget implements BudgetHandler {
 
 /** What one pod sets of its application. */
 export interface FaultPodSettings {
+  /** A fenced-effect store broken on purpose (#959). */
+  readonly sabotage?: FaultStoreSabotage | undefined;
   readonly shutdownTimeout?: Milliseconds | undefined;
   readonly maxConcurrentSteps?: number | undefined;
 }
 
 /** The store classes as the pod lists them: each of a held contract with its hold points. */
-export const heldProvidersOf = (providers: readonly Class[]): Class[] =>
-  providers.map((provider) =>
-    heldMethodsOf(provider) === undefined ? provider : withHoldPoints(provider),
-  );
+export const heldProvidersOf = (
+  providers: readonly Class[],
+  sabotage?: FaultStoreSabotage,
+): Class[] =>
+  providers.map((provider) => {
+    const methods = heldMethodsOf(provider);
+    if (methods === undefined) return provider;
+    const broken =
+      sabotage !== undefined && methods === FENCED_EFFECT_METHODS
+        ? sabotagedStoreOf(provider, sabotage)
+        : provider;
+    return withHoldPoints(broken);
+  });
 
 /**
  * What the application adds to serve A2A (#811 AC4) on a store set that keeps A2A tasks: the
@@ -86,7 +100,7 @@ function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
 
 /** The fixture's application on `stores`, with the pod's `settings`. */
 export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSettings = {}): Class {
-  const { shutdownTimeout, maxConcurrentSteps } = settings;
+  const { shutdownTimeout, maxConcurrentSteps, sabotage } = settings;
   const a2a = a2aPartsOf(stores);
   return Application({
     name: "fault-application",
@@ -102,7 +116,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
     ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
     providers: [
-      ...heldProvidersOf(stores.providers),
+      ...heldProvidersOf(stores.providers, sabotage),
       FaultPodClock,
       FaultModelProvider,
       FaultPodLink,

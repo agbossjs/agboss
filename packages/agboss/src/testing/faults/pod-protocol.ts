@@ -36,6 +36,12 @@ export enum FaultPayment {
   EveryErrorDefinite = "every-error-definite",
 }
 
+/** A store sabotage a pod can be started with (#959 AC5): its fenced-effect store broken on purpose. */
+export enum FaultStoreSabotage {
+  /** A stale token let through at the lease's current epoch, the pod killed before the answer (#876). */
+  StaleThenKilled = "stale-then-killed",
+}
+
 /** An order of the fixture application. */
 export interface FaultOrder {
   readonly orderId: string;
@@ -128,6 +134,8 @@ export const POD_VARIABLES = {
   shutdownTimeout: "AGBOSS_FAULT_SHUTDOWN_TIMEOUT",
   /** `@Application({ maxConcurrentSteps })` of the pod. */
   maxConcurrentSteps: "AGBOSS_FAULT_MAX_CONCURRENT_STEPS",
+  /** The pod's store sabotage (`FaultStoreSabotage`), when it has one. */
+  sabotage: "AGBOSS_FAULT_SABOTAGE",
 } as const;
 
 /** What a pod's `ready` says of A2A (#811 AC4): whether its set keeps A2A tasks, its listener. */

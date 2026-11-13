@@ -77,9 +77,7 @@ export class FaultCluster {
       databaseUrl,
       timeScale: this.options.timeScale,
       timeOrigin: this.timeOrigin,
-      shutdownTimeout: options.shutdownTimeout,
-      maxConcurrentSteps: options.maxConcurrentSteps,
-      clockSkew: options.clockSkew,
+      ...options,
       onOperation: (event) => {
         this.history.record(event);
         this.#notify();

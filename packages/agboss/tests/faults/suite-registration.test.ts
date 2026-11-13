@@ -40,7 +40,7 @@ describe("#831 AC2: the suite shows what it leaves out", () => {
       cases.find((found) => found.name === titleOf(id));
 
     expect(cases.map((found) => found.name).slice(0, 2)).toEqual([
-      `runs 1 of ${String(TOTAL)} cases: 1 of ${String(SCENARIOS.length)} scenarios, 0 of 2 sabotages (selected by scenarios:, shard 2/2, sabotages: false)`,
+      `runs 1 of ${String(TOTAL)} cases: 1 of ${String(SCENARIOS.length)} scenarios, 0 of 3 sabotages (selected by scenarios:, shard 2/2, sabotages: false)`,
       ATOMIC_FENCING_CASE,
     ]);
     expect(cases.slice(0, 2).map((found) => found.state)).toEqual(["pass", "pass"]);
@@ -56,9 +56,11 @@ describe("#831 AC2: the suite shows what it leaves out", () => {
     });
     const sabotages = cases.filter((found) => found.name.startsWith("sabotage "));
     expect(sabotages.map((found) => found.name)).toEqual(
-      SABOTAGES.map((one) => `sabotage ${one.title}: fails effects-once`),
+      SABOTAGES.map((one) => `sabotage ${one.title}: fails ${one.violates}`),
     );
-    expect(sabotages[0]?.note).toMatch(/^sabotages: false — /u);
+    expect(sabotages.map((found) => found.note)).toContainEqual(
+      expect.stringMatching(/^sabotages: false — /u),
+    );
     expect(cases.filter((found) => found.state === "skip")).toHaveLength(TOTAL - 1);
   });
 });
