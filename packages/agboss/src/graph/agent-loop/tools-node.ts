@@ -1,7 +1,6 @@
 import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { streamedToolCall } from "../../run/stream-config.js";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
 import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
@@ -185,7 +184,7 @@ function runTask(
       deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
     );
     // the loop calls the tool itself, so no LangChain tool callback fires: stream it (#848)
-    await streamedToolCall(config, task.tool);
+    runCtx.run.stream?.emit({ kind: "toolCall", tool: task.tool });
     const startedAt = runCtx.clock.now();
     const mesh = toolMeshCallOf(tool, deps.budgets, startedAt); // its remote calls' (#398)
     const guarded = await inToolCallFrame(

@@ -20,6 +20,8 @@ import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { MaskedRequest } from "../../pii/model-boundary.js";
 import { maskedRequest, outgoingMove } from "./model-pii.js";
 import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
+import { AnswerTokenHandler, withAnswerHandler } from "../../run/stream/answer-handler.js";
+import type { RunStream } from "../../run/stream/run-stream.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -42,15 +44,33 @@ export function toolDefinitionsOf(agent: AgentDefinition): readonly ToolDefiniti
 const withExhausted = (signal: AbortSignal | undefined, deps: AgentLoopDeps): AbortSignal =>
   signal === undefined ? deps.budgets.exhausted : AbortSignal.any([signal, deps.budgets.exhausted]);
 
+/**
+ * The call of the agent's own answer, the one model call of the framework the user's stream hears
+ * (#1004): its tokens go to the sink through a handler added to this call alone. An agent with an
+ * output DTO answers with a tool call, not with text: it streams none.
+ */
+function answering(
+  config: RunnableConfig | undefined,
+  deps: AgentLoopDeps,
+  stream: RunStream | undefined,
+): RunnableConfig | undefined {
+  if (stream === undefined || deps.agent.answerTools.tools.length > 0) return config;
+  const handler = new AnswerTokenHandler((delta) => {
+    stream.emit({ kind: "textDelta", delta });
+  });
+  return { ...config, callbacks: withAnswerHandler(config?.callbacks, handler) };
+}
+
 /** One model turn: the agent's instructions and conversation (masked, #120), its tools bound. */
 async function callModel(
   messages: readonly BaseMessage[],
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
+  stream: RunStream | undefined,
 ): Promise<AIMessageChunk> {
   const { binding, name } = deps.agent;
   // an exhausted budget (#338) aborts the call in flight: its partial cost is unknown, unrecorded
-  const call = { ...config, signal: withExhausted(config?.signal, deps) };
+  const call = { ...answering(config, deps, stream), signal: withExhausted(config?.signal, deps) };
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
@@ -122,6 +142,7 @@ async function observedCall(
   request: MaskedRequest,
   config: RunnableConfig | undefined,
 ): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
+  const { stream } = extractRunContext(config, state.runId).run;
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
   // what the model was sent, masked: the conversation without the instructions
@@ -129,13 +150,15 @@ async function observedCall(
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
   );
-  const response = await callModel(request.messages, deps, config).catch((error: unknown) => {
-    throw new AgentFailedError({
-      agent: name,
-      usage: [...loopUsage(state), ...request.usage],
-      cause: error,
-    });
-  });
+  const response = await callModel(request.messages, deps, config, stream).catch(
+    (error: unknown) => {
+      throw new AgentFailedError({
+        agent: name,
+        usage: [...loopUsage(state), ...request.usage],
+        cause: error,
+      });
+    },
+  );
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {
     model: modelName,
