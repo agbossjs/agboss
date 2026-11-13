@@ -53,7 +53,8 @@ comment what is missing, and continue with the rest.
    A conflict with something merged earlier in the wave → rebase on `origin/main`, gate again;
    if it is not mechanical → `blocked` + comment, do not guess.
 10. **Wiki**: apply "Wiki to update" in `../<repo>.wiki`, then
-    `scripts/wiki.sh publish "docs(#<N>): <what changed>"`.
+    `scripts/wiki.sh publish "docs(#<N>): <what changed>" <page.md…>` — name your pages (the shared
+    checkout may hold other agents' edits); it pushes the Wiki and fast-forwards `docs/wiki-pending`.
 11. `scripts/ticket.sh status <N> Test`, then a handoff comment on the issue:
     - what was done, PR link, deviations;
     - **Acceptance by AC** — for every business AC: the automated tests that prove it (passed)

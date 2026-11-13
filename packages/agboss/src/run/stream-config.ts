@@ -1,54 +1,9 @@
-import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import { getCallbackManagerForConfig, type RunnableConfig } from "@langchain/core/runnables";
+import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
-import type { AgentExecutionDeps, AgentExecutionOptions, ExecutionStreamEvent } from "./types.js";
-
-/**
- * The custom LangChain event an agent's loop dispatches as a tool call starts (#848): its loop
- * (ADR-0015) calls a tool itself, so no LangChain tool callback fires. Its data: `{ tool }`.
- */
-const TOOL_CALL_EVENT = "agboss/tool-call";
-
-/**
- * The tool call as a LangChain custom event (#848), what `dispatchCustomEvent` does, through the
- * run's callback manager (a handler that throws is logged there, never fatal to the step).
- */
-export async function streamedToolCall(
-  config: RunnableConfig | undefined,
-  tool: string,
-): Promise<void> {
-  const manager = await getCallbackManagerForConfig(config);
-  const parentRunId = manager?.getParentRunId();
-  if (manager !== undefined && parentRunId !== undefined) {
-    await manager.handleCustomEvent?.(TOOL_CALL_EVENT, { tool }, parentRunId);
-  }
-}
-
-/** The tool a `TOOL_CALL_EVENT` names; `undefined` for any other event. */
-function toolCallOf(eventName: string, data: unknown): string | undefined {
-  if (eventName !== TOOL_CALL_EVENT || typeof data !== "object" || data === null) return undefined;
-  const tool: unknown = Reflect.get(data, "tool");
-  return typeof tool === "string" ? tool : undefined;
-}
-
-/** The model's tokens and the agents' tool calls as they come. */
-class StreamingCallbackHandler extends BaseCallbackHandler {
-  name = "StreamingCallbackHandler";
-  constructor(private readonly onStream: (event: ExecutionStreamEvent) => void) {
-    super();
-  }
-  override handleLLMNewToken(token: string) {
-    this.onStream({ kind: "textDelta", delta: token });
-  }
-  // an agent's tool call (#848): its loop calls the tool itself, so it dispatches this event —
-  // through the same callback manager as the tokens (a listener that throws is logged, never fatal)
-  override handleCustomEvent(eventName: string, data: unknown) {
-    const tool = toolCallOf(eventName, data);
-    if (tool !== undefined) this.onStream({ kind: "toolCall", tool });
-  }
-}
+import { RunStream } from "./stream/run-stream.js";
+import type { AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
 
 /** What a run streams with besides its options: its ids and its start's input. */
 export interface RunIdentity {
@@ -85,6 +40,8 @@ const runContextOf = (
   ...piiKeysOf(pii),
   // what a business key's fingerprint is keyed by (#825): the application's idempotency keys
   fingerprintKeys,
+  // the caller's stream (#1004): reached only by an agent's answer and its tool calls
+  ...(options.onStream === undefined ? {} : { stream: new RunStream(options.onStream) }),
 });
 
 /**
@@ -105,7 +62,7 @@ function objectInput(input: unknown): Readonly<Record<string, unknown>> | undefi
 /**
  * Stream config: checkpoint thread = run id, the run's context and services, every step
  * checkpointed before the next one starts (`durability: "sync"` — what a resume after a crash
- * continues from); tracing callbacks when on, token streaming when `onStream` is given.
+ * continues from); tracing callbacks when on, the run's stream sink when `onStream` is given.
  */
 export function streamConfig<TName extends string>(
   deps: AgentExecutionDeps<TName>,
@@ -122,10 +79,8 @@ export function streamConfig<TName extends string>(
 } {
   const { threadId, runId, tenantId } = identity;
   const trace = { bundle: deps.config.name, threadId, runId, tenantId };
+  // tracing only: the stream is no callback of the run (#1004), so no internal model call hears it
   const callbacks = deps.tracing?.callbacks(trace) ?? [];
-  if (options.onStream !== undefined) {
-    callbacks.push(new StreamingCallbackHandler(options.onStream));
-  }
   const run = runContextOf(identity, options, deps);
   const services = {
     run,

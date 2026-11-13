@@ -126,3 +126,16 @@ export function guardedLookupOf(
     });
   };
 }
+
+/**
+ * The addresses `hostname` resolves to, every one of them allowed (#916: the file transport makes
+ * its own connection to one of them). Fails with `ADDRESS_DENIED` as the guarded lookup does.
+ */
+export function addressesOf(hostname: string, resolve?: AddressLookup): Promise<readonly string[]> {
+  return new Promise((done, fail) => {
+    guardedLookupOf(resolve)(hostname, { all: true }, (error, answered) => {
+      if (error !== null) fail(error);
+      else done(typeof answered === "string" ? [answered] : answered.map(({ address }) => address));
+    });
+  });
+}

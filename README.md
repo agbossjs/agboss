@@ -542,7 +542,7 @@ Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTE
 
 `@agboss/core` ships its own guide for coding agents (#305), written for the installed version:
 `skills/agboss/` in the package — `SKILL.md` and 13 references, from composition and the flow DSL to
-tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes three things
+tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes four things
 for agents:
 
 - `AGENTS.md` (Cursor, Codex, …) — the project's instructions and a table routing each task to one
@@ -552,10 +552,12 @@ for agents:
   sha256 per file): one copy, committed with the project, which Codex, Cursor, GitHub Copilot, Gemini CLI,
   Antigravity and Windsurf read natively. `.claude/skills/agboss` is a local link to it (a symlink, on
   Windows a junction) for Claude Code and Cline, made on each machine by `agboss check` and git-ignored.
+- `.gitattributes` — `.agents/skills/agboss/** text eol=lf`, so the committed copy is the same bytes on every
+  machine (a Windows checkout with `core.autocrlf` stays `current`).
 
 `AGENTS.md` and `CLAUDE.md` are written once and never rewritten. The skills folder is the
 framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev` and
-`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
+`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `linked .claude/skills/agboss` on a fresh clone (the committed copy is current, only the link is made; `installed` when the folder is missing), `repaired` with
 `[skills.local-edit]` when a file was edited by hand. A 0.1.x project's `.claude/skills/agboss/` folder is
 moved to `.agents/skills/agboss/` once (`[skills.moved]`: commit the folder, and in `.gitignore` replace
 `.claude/skills/agboss/` with `.claude/skills/agboss`, no trailing slash); the link is checked on every run
@@ -1389,7 +1391,8 @@ Before its first step an execution reads each of its budgets (README → FinOps)
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
 `onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.
 
-`execute` and `resume` forward `signal`, `onStream` (token and tool-call events) and
+`execute` and `resume` forward `signal`, `onStream` (the answer's text and tool-call events — see
+_What `onStream` carries_ below) and
 `configurable` (extra LangGraph keys; the framework's own win). There is no untyped `metadata` or
 `executionContext` option (#261): what an execution carries is its typed context values — a
 channel, a guardrail or any component reads them through its injected `ExecutionContext`
@@ -1417,6 +1420,19 @@ output with its decision taken. An instance that lost the
 lease (frozen past it) stops and its call rejects with `ExecutionLeaseLostError`
 (`execution.lease-lost`) — no `onExecutionError`, no failed record: the new holder continues (Wiki →
 Several-instances).
+
+#### What `onStream` carries
+
+`onStream` carries the **user-facing answer** as it is produced, and nothing else: the text of an
+`@Agent`'s own answering model call (`{ kind: "textDelta", delta }`) and its tool calls (`{ kind:
+"toolCall", tool }`, the tool's name only, never its arguments). It **never carries** a model the
+framework calls for itself — routers, judges (`invoke` and `decide`), guardrails, arbiters, PII
+detection models, compaction and memory, rerankers, reply interpreters, launch deciders and eval
+judges are silent, and so is a model call any future component makes: the stream is no callback of
+the run, so a model does not hear it by inheriting one; only the agent's answering call is marked
+to stream (#1004). An agent with an `output` DTO answers with an answer tool, so it streams no
+text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
+fails the run.
 
 **Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
 wake and write after the new holder did. `executionContext.fence` is the lease the step runs under

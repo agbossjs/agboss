@@ -1,14 +1,5 @@
 import { randomBytes } from "node:crypto";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { MANIFEST_FILE, manifestOf, manifestText } from "./manifest.js";
 import type { SkillFile } from "./source.js";
@@ -54,7 +45,7 @@ const isHeld = (error: unknown): boolean =>
   error instanceof Error && "code" in error && (error.code === "EPERM" || error.code === "EBUSY");
 
 /** `rename`, retried while something holds the folder; the last error is thrown. */
-function renameRetrying(from: string, to: string, ops: ReplaceOps): void {
+export function renameRetrying(from: string, to: string, ops: ReplaceOps): void {
   for (let attempt = 0; ; attempt += 1) {
     try {
       ops.rename(from, to);
@@ -119,24 +110,5 @@ export function replaceSkillsFolder(
     swapIn(written, target, ops);
   } finally {
     ops.rm(written);
-  }
-}
-
-/** A temporary folder untouched this long belongs to a crashed run, not to one writing right now. */
-const LEFTOVER_AGE_MS = 5 * 60 * 1000;
-
-/**
- * Removes what a crashed swap left: `.agents/.agboss-skills-*`, and the same name in
- * `.claude/skills/` where 0.1.x wrote its temporary folder. Only names with our prefix, and only
- * ones idle for minutes: another `agboss check` (a `dev` pass beside `npm install`) may be mid-write.
- */
-export function removeLeftovers(root: string, ops: ReplaceOps = REAL_REPLACE_OPS): void {
-  for (const folder of [join(root, ".agents"), join(root, ".claude", "skills")]) {
-    if (!existsSync(folder)) continue;
-    for (const name of readdirSync(folder)) {
-      const path = join(folder, name);
-      if (name.startsWith(TEMP_PREFIX) && Date.now() - statSync(path).mtimeMs > LEFTOVER_AGE_MS)
-        ops.rm(path);
-    }
   }
 }

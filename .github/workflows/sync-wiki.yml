@@ -35,4 +35,16 @@ jobs:
           WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           wiki="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          git fetch -q "$wiki" master:refs/remotes/wiki/master
+          # `scripts/wiki.sh publish` pushes the Wiki directly and fast-forwards this branch too, so
+          # the Wiki usually holds the branch already: nothing to publish is a success.
+          if git merge-base --is-ancestor HEAD refs/remotes/wiki/master; then
+            echo "The Wiki already contains docs/wiki-pending ($(git rev-parse --short HEAD)); nothing to publish."
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor refs/remotes/wiki/master HEAD; then
+            echo "::error::The Wiki's master and docs/wiki-pending diverged; merge the Wiki's commits into docs/wiki-pending (never force):"
+            git log --oneline HEAD..refs/remotes/wiki/master
+            exit 1
+          fi
           git push "$wiki" HEAD:master

@@ -100,7 +100,12 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
   }
 }
 
-/** The bytes of a file by `url`, fetched as described above. */
+/**
+ * The bytes of a file by `url`, fetched as described above. The deadline and the request's end
+ * settle the fetch themselves (#916): the fetch is raced against them and the signal then aborts
+ * whatever is still open, so a transport that never answers — and ignores the signal — cannot hold
+ * it past the timeout.
+ */
 export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
   const timedOut = new AbortController();
   const done = new AbortController();
@@ -111,8 +116,17 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
     () => undefined, // the fetch ended first
   );
   const signal = AbortSignal.any([fetch.signal, timedOut.signal]);
+  const ended = new Promise<never>((_, reject) => {
+    const settle = (): void => {
+      reject(refused("a2a.file-fetch-failed", "the file could not be fetched in time"));
+    };
+    if (signal.aborted) settle();
+    else signal.addEventListener("abort", settle, { once: true });
+  });
+  const fetched = bodyAt(fetch, signal);
+  fetched.catch(() => undefined); // when `ended` wins, the fetch's own failure is not unhandled
   try {
-    return await bodyAt(fetch, signal);
+    return await Promise.race([fetched, ended]);
   } catch (error) {
     if (signal.aborted)
       throw refused("a2a.file-fetch-failed", "the file could not be fetched in time");
