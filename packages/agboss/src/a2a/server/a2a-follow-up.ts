@@ -7,7 +7,13 @@ import {
   type A2AMessageRecord,
   type A2ATaskRecord,
 } from "../../infrastructure/a2a-task.repository.js";
-import { isKeptReply, refusalOf, settledOutcome, type KeptReply } from "./a2a-follow-up-outcome.js";
+import {
+  isKeptReply,
+  PAUSE_CLOSED,
+  refusalOf,
+  settledOutcome,
+  type KeptReply,
+} from "./a2a-follow-up-outcome.js";
 import {
   answerOfMessage,
   checkedCallerKey,
@@ -184,7 +190,9 @@ export async function followedUpTask(
 /** Whether an outcome says the task waited for no answer when it was decided. */
 const isNoLongerWaiting = (outcome: KeptReply): boolean =>
   "refused" in outcome &&
-  (outcome.code === "a2a.no-pending-pause" || outcome.code === "a2a.already-answered");
+  (outcome.code === "a2a.no-pending-pause" ||
+    outcome.code === PAUSE_CLOSED ||
+    outcome.code === "a2a.already-answered");
 
 /** The answer's outcome: refused before anything moved, or the resume accepted. */
 async function answered(

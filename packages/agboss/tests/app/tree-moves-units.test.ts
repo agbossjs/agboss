@@ -6,7 +6,7 @@
  * forgets the tree only when it finished.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NotPausedError } from "../../src/run/resume-agent.js";
+import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
 import { treeMovesOf, type TreeMoveParts } from "../../src/app/tree-moves.js";
@@ -128,14 +128,25 @@ function partsOf(lease = leaseOf()) {
         completeIfStatus: vi.fn(() => Promise.resolve(true)),
         findByTenantIdAndRunId,
       },
-      pause: undefined,
+      // the pause the refusal reads its reason from: closed `cancelled` by the tree's end
+      pause: {
+        pauses: {
+          findByTenantIdAndPauseId: vi.fn(() =>
+            Promise.resolve({
+              status: "cancelled",
+              resolution: "cancelled",
+              resolvedAt: "2026-01-01T00:00:00.000Z",
+            }),
+          ),
+        },
+      },
       log: { warn },
     },
     live: { moving: <T>(move: Promise<T>) => move },
     paused,
     leases,
     trees: {},
-    clock: {},
+    clock: { now: () => new Date(0) },
   } as never;
   const turns = { findByTenantIdAndRunId };
   return { parts, lease, leases, paused, warn, turns, moves: treeMovesOf(parts) };
@@ -300,14 +311,14 @@ describe("#633: a root that is ending", () => {
 
 describe("#901: a resume whose tree failed after its answer was recorded", () => {
   it.each(["failed", "guarded"])(
-    "its root's record %s at the take: the lease given back, NotPausedError, no pass",
+    "its root's record %s at the take: the lease given back, PauseClosedError, no pass",
     async (status) => {
       const { moves, paused, lease, turns } = partsOf();
       turns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
       mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
       paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
 
-      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(NotPausedError);
+      await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(PauseClosedError);
       expect(lease.released()).toBe(1);
       expect(mocks.observedPass).not.toHaveBeenCalled();
       expect(mocks.treeResumeNow).not.toHaveBeenCalled();

@@ -1,13 +1,13 @@
 import type { MeterProvider } from "@opentelemetry/api";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
+import { newThreadOf } from "./new-thread.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
   checkThreadAccess,
   checkThreadOwner,
   isNewThread,
-  type NewThreadAccess,
   type ThreadAccess,
 } from "../run/thread.js";
 import { runOpenedAgent } from "../run/run-agent.js";
@@ -36,6 +36,7 @@ import { checkedStart, textStartOf } from "./starts.js";
 import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
+import { closeOrphanTreeOf, type CloseOrphanTree } from "./orphan-tree.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
@@ -87,6 +88,8 @@ export interface BuiltApp extends TreeControl {
   readonly settled: () => Promise<void>;
   readonly interrupt: (reason: ApplicationStoppingError) => void;
   readonly recover: RecoverRoot;
+  /** Finishes the end of one of its trees an instance died in (the orphan look, #939). */
+  readonly closeOrphan: CloseOrphanTree;
 }
 
 /** One workflow of an application over already assembled parts (a profile applied). */
@@ -103,16 +106,15 @@ export async function buildApp(
   };
   const policy = bundle.onIncompatibleResume;
   const { pausedExecutions: pauses, records: log } = parts.infrastructure;
-  const { executionTrees: trees, clock } = parts.infrastructure;
+  const { executionTrees: trees, clock, auditLog } = parts.infrastructure;
   // a cancel tells the channels of its sent pauses (#337)
-  const paused = pausedRunBook({ pauses, answers: log, withdrawn }, current, clock);
+  const paused = pausedRunBook({ pauses, answers: log, withdrawn }, deps, current, clock);
   const live = new LiveRuns();
   const leasing = leasingOf(parts.infrastructure);
   const leases = executionLeasesOf(leasing.repository, leasing.clock, {
     events: parts.auditLog,
     stopping: live.interruption,
   });
-  const { auditLog } = parts.infrastructure;
   const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog });
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.turns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.turns, deps.config.name, access);
@@ -125,13 +127,7 @@ export async function buildApp(
   const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
-  /** A new thread — the caller's own id, or one made now; two creating one id: the first owns it. */
-  const newThread = async (access: NewThreadAccess): Promise<string> => {
-    const { tenantId, threadId, ownerId } = access;
-    const id = await deps.turns.createThread({ workflow: deps.config.name, ...access });
-    if (threadId !== undefined) await owned({ tenantId, threadId: id, ownerId });
-    return id;
-  };
+  const newThread = newThreadOf(deps, owned);
   const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   let closed = false;
   let released = false;
@@ -246,6 +242,7 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
+    closeOrphan: closeOrphanTreeOf({ deps, trees, clock, leases }),
     ...byId,
   };
 }

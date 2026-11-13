@@ -82,6 +82,8 @@ export type PodCommand =
   | { readonly op: "outage"; readonly mode: StoreOutageMode | null }
   /** #959: answers the pause `pauseId` (approved) with `app.resume`, in the background; its end is an event. */
   | { readonly op: "resume"; readonly tag: string; readonly pauseId: string }
+  /** #939: the tree's pauses, its paused run and its answer log, as the pod's stores hold them. */
+  | { readonly op: "pause-state"; readonly rootExecutionId: string }
   /** #959: how far the store's time moves while `wait` ms of real time pass. */
   | { readonly op: "probe-store-clock"; readonly wait: number };
 

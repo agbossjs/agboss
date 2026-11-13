@@ -99,7 +99,7 @@ describe("#824: a resume that settled", () => {
           new ReplyInterpreterMissingError({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),
       ).toEqual([
-        { refused: "unsupported", code: "a2a.already-answered" },
+        { refused: "unsupported", code: "a2a.no-pending-pause" },
         { refused: "invalid-params", code: "a2a.unknown-pause" },
         { refused: "not-found", code: "a2a.not-owner" },
         { refused: "invalid-params", code: "a2a.reply-not-understood" },

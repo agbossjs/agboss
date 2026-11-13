@@ -1,7 +1,7 @@
 /**
  * #337 AC1: a quorum decided while a branch waits for an answer withdraws that branch's pause
  * (`Cancelled`, `PauseResolution.Withdrawn`) — the execution goes on to its join in the same call
- * instead of resting paused, nothing is left pending and a late answer gets `NotPausedError`. Decided
+ * instead of resting paused, nothing is left pending and a late answer gets `PauseClosedError`. Decided
  * by an answer, by an answer in a later pass, by a winning group, or found decided on restore after
  * a crash (the deadline passed while no instance moved the tree).
  */
@@ -10,7 +10,7 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import {
   ApplicationStoppingError,
   BranchStatus,
-  NotPausedError,
+  PauseClosedError,
   PauseResolution,
   PauseStatus,
 } from "../../src/index.js";
@@ -69,7 +69,7 @@ describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", ()
     expect(result.record?.pauses).toMatchObject([{ resolution: PauseResolution.Withdrawn }]);
     expect(result.launches[0]?.branches[1]).toMatchObject({ status: BranchStatus.Cancelled });
     expect((await storedPause("R"))?.status).toBe(PauseStatus.Cancelled);
-    await expect(app.resume(answerFor("R"), manager)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerFor("R"), manager)).rejects.toBeInstanceOf(PauseClosedError);
     expect(seen.refunds).toEqual([]);
   });
 

@@ -23,7 +23,8 @@ import {
   type PauseChannel,
 } from "../../src/flow/runtime/pause.js";
 import { testFrame } from "../helpers/frame.js";
-import { withdrawPauses } from "../../src/app/paused-runs.js";
+import { closeTreePauses } from "../../src/app/tree-end-pauses.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import type { WithdrawnPause } from "../../src/pause/index.js";
 
 const question = {
@@ -204,9 +205,17 @@ describe("#337: a channel told about its withdrawn pause", () => {
     };
     await pauseStep({ ...siteOf(pauses, channel), withdrawn }, question);
     const { execution } = testFrame();
-    const tree = { tenantId: execution.tenant.tenantId, rootExecutionId: execution.executionId };
+    const site = {
+      tenantId: execution.tenant.tenantId,
+      threadId: execution.threadId,
+      rootExecutionId: execution.executionId,
+    };
+    const ends = {
+      stores: { pauses, answers, withdrawn },
+      waiting: () => Promise.resolve(new Set<string>()),
+    };
 
-    await withdrawPauses({ pauses, answers, withdrawn }, tree, clock.now());
+    await closeTreePauses(ends, site, { cause: new ExecutionCancelledError() }, clock.now());
 
     expect(told).toEqual([]);
   });

@@ -3,7 +3,8 @@
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
  * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
- * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384).
+ * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384);
+ * `pause.closed` (`PauseClosedError`, #939) is a late answer to a closed pause, with its reason.
  */
 export {
   AGBossError,
@@ -124,6 +125,7 @@ export {
   type EvalCaseIssue,
 } from "./eval/suite/errors.js";
 export { NotPausedError } from "./run/resume-agent.js";
+export { PauseClosedError, type PauseClosedErrorOptions } from "./app/pause-closed-error.js";
 export { PauseAnswererError, UnknownPauseError } from "./run/resume-agent.js";
 export {
   ReplyInterpreterMissingError,

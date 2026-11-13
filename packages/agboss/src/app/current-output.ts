@@ -6,6 +6,9 @@ import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
+import { pauseClosed } from "./pause-closed.js";
+import { endOfRecord } from "./tree-end-pauses.js";
+import { forgetTree, type TreeEndParts } from "./tree-ends.js";
 import { runConfig } from "../run/paused.js";
 import { waitingPauseOf } from "../run/waiting-pauses.js";
 import { readingGraphOf } from "../run/run-budgets.js";
@@ -15,7 +18,6 @@ import type { ThreadKey } from "./live-runs.js";
 import { runResultOf, withPauseAnswers } from "./result.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
-import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import type { TreeState } from "./tree-move-types.js";
 
@@ -96,19 +98,26 @@ export interface ResumeTake {
  * A resume's take of a tree whose root's record ended without a finish — failed (a cancel too) or
  * guarded — is refused (#901): final, no pass moves the tree again, though the answer the resume
  * recorded may still be `Resolved` (a drain took it and its pass stopped on a cancel) — the lease
- * given back, `NotPausedError`, as for a resume that lost its pause to a cancel.
+ * held, so it first finishes the tree's end (`forgetTree`, idempotent: the answer no step took
+ * closed not taken, its paused run removed), gives the lease back and refuses with
+ * `PauseClosedError` and the reason the pause closed with.
  */
 export async function refusedIfFailed(
-  deps: AppDeps,
+  parts: TreeEndParts,
   state: TreeState,
   take: ResumeTake,
 ): Promise<void> {
+  const { deps } = parts;
   // the root's record by its id on its thread (`rootRecordOf`, whose module loads with an end)
   const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
   const status = record?.threadId === state.threadId ? record.status : undefined;
+  if (record === undefined || deps.pause === undefined) return;
   if (status !== ExecutionRecordStatus.Failed && status !== ExecutionRecordStatus.Guarded) return;
-  await take.lease.release();
-  throw new NotPausedError({
-    message: `pause ${take.pauseId} was answered, but its tree ended before its answer ran`,
-  });
+  try {
+    await forgetTree(parts, state, endOfRecord(record));
+    const pause = { tenantId: state.tenantId, pauseId: take.pauseId };
+    throw await pauseClosed(deps.pause.pauses, pause, parts.clock.now());
+  } finally {
+    await take.lease.release();
+  }
 }

@@ -14,7 +14,7 @@ import type { StepCapacity } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 import type { AuditLogWriter } from "../app/execution-leases.js";
 
-import { a2aExpiriesOf } from "./a2a-expiries.js";
+import { retentionSourcesOf } from "./retention-sources.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -213,24 +213,10 @@ export function stopOf(
   const sweep = startRecoverySweep({
     records: parts.infrastructure.records,
     workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
-    clock,
     log: parts.log,
     signal: interruption.signal,
-    pauses: parts.infrastructure.pausedExecutions,
-    pauseRecordRetention: assembled.pauseRecordRetention,
-    meshRequests: parts.infrastructure.meshRequests,
-    idempotencyRetention: assembled.meshAnswerRetention,
-    executionHistory: parts.infrastructure.executionHistory,
-    executionRecordRetention: assembled.executionRecordRetention,
-    fencedEffects: parts.infrastructure.fencedEffects,
-    fencedEffectRetention: assembled.fencedEffects.retention,
-    auditLog: parts.infrastructure.auditLog,
-    auditLogRetention: assembled.auditLogRetention,
-    expiries: a2aExpiriesOf(parts.infrastructure, assembled),
-    outboundCalls: parts.infrastructure.outboundCalls,
-    outboundCallRetention: assembled.outboundCalls.retention,
-    ledger: parts.infrastructure.costLedger,
-    ledgerEntryRetention: assembled.ledgerEntryRetention,
+    orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
+    ...retentionSourcesOf(parts.infrastructure, assembled),
     capacity: parts.stepSlots,
   });
   const { shutdownTimeout } = assembled;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { NotPausedError, UnknownThreadError } from "../../src/index.js";
+import { PauseClosedError, UnknownThreadError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   blocking,
@@ -33,7 +33,7 @@ function waitingRun(run: () => Promise<unknown>): {
 }
 
 describe("#187 AC1: after cancelling a paused run, approving it does not execute the tool", () => {
-  test("cancel drops the pause: resume throws NotPausedError and the tool never runs", async ({
+  test("cancel drops the pause: resume throws PauseClosedError and the tool never runs", async ({
     app,
     mockLlm,
   }) => {
@@ -46,7 +46,7 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(resumed).rejects.toBeInstanceOf(NotPausedError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseClosedError);
     expect(seen.charges).toEqual([]);
     expect(seen.payments).toEqual([]);
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: false });
@@ -65,7 +65,7 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     const restarted = await recoverApp();
 
     await expect(restarted.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
-      NotPausedError,
+      PauseClosedError,
     );
     expect(seen.charges).toEqual([]);
   });
@@ -115,6 +115,6 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(seen.charges).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
   });
 });

@@ -8,7 +8,7 @@ import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
-import { withdrawPauses } from "./paused-runs.js";
+import { closeTreePauses, waitingPauseIdsOf } from "./tree-end-pauses.js";
 import type { TreeMoveParts, TreeState } from "./tree-moves.js";
 
 /** The tree's key in the stores: its tenant and its root execution. */
@@ -57,14 +57,24 @@ export function leasedGraphDeps<TName extends string>(
 export const leasedDeps = (deps: AppDeps, lease: HeldExecutionLease): AppDeps =>
   leasedGraphDeps(deps, lease) as AppDeps;
 
+/** Why a tree that finished closes a pause it still had (none in practice, I13). */
+const TREE_FINISHED = new Error("the tree finished");
+
 /** What forgetting an ended tree needs from its workflow's app. */
 export type TreeEndParts = Pick<TreeMoveParts, "deps" | "trees" | "clock">;
 
 /**
  * The tree ended (finished, failed, cancelled): its keys removed — a cancel request among them —
- * and its waiting pauses withdrawn (#267 AC10).
+ * and its pauses closed last (#267 AC10, #939): the reason follows `end`. Idempotent, so the orphan
+ * look runs it again for a tree whose instance died in the middle. The root's record is terminal
+ * before this runs — never earlier: the cancel request goes with the keys, and a recovery of a
+ * still `running` root would run a cancelled tree's pass again (#901's class).
  */
-export async function forgetTree(parts: TreeEndParts, state: TreeState): Promise<void> {
+export async function forgetTree(
+  parts: TreeEndParts,
+  state: TreeState,
+  cause: unknown = TREE_FINISHED,
+): Promise<void> {
   await parts.trees.deleteAllInTree(treeOf(state));
   // its queued children (#333 PR 2): a worker still running one stops at its next look
   await parts.deps.remoteChildren?.queue.deleteAllByTenantIdAndRootExecutionId(
@@ -73,7 +83,11 @@ export async function forgetTree(parts: TreeEndParts, state: TreeState): Promise
   );
   parts.deps.branchErrors?.forgetExecution(state.runId);
   const { pause } = parts.deps;
-  if (pause !== undefined) await withdrawPauses(pause, treeOf(state), parts.clock.now());
+  if (pause === undefined) return;
+  const ends = { stores: pause, waiting: waitingPauseIdsOf(parts.deps) };
+  const site = { ...treeOf(state), threadId: state.threadId };
+  const end = { cause: cause instanceof Error ? cause : new Error(String(cause)) };
+  await closeTreePauses(ends, site, end, parts.clock.now());
 }
 
 /**

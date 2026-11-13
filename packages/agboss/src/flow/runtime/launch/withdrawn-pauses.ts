@@ -1,7 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
 import {
-  cancelledPause,
   logPauseAnswer,
   NO_RECIPIENTS,
   PauseResolution,
@@ -57,7 +56,8 @@ export async function withdrawPause(
     NO_RECIPIENTS,
   );
   if (cancelled === undefined) return false;
-  await logPauseAnswer(stores.answers, cancelledPause(pause, resolution, at), resolution);
+  // the store may record `Expired` for a close at or after the deadline (I3): logged as it did
+  await logPauseAnswer(stores.answers, cancelled, cancelled.resolution ?? resolution);
   const closed = await stores.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
   if (closed?.isSent === true && stores.withdrawn !== undefined)
     await stores.withdrawn({ pause: closed, resolution, ...(tree === undefined ? {} : { tree }) });

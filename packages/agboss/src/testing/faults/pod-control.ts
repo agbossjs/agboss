@@ -8,6 +8,7 @@ import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/orde
 import { sendToTest } from "./fixture/pod-link.js";
 import type { HeldStoreState } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
+import { pauseStateOf } from "./pod-pause-state.js";
 import { readStoreClock } from "./store-clock-probe.js";
 import { FaultPayment, FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
 import type { FaultFacts } from "./facts.js";
@@ -137,10 +138,24 @@ function holdDone(
   }
 }
 
+/** A read of the pod's stores, done (#939, #959); `undefined` for another command. */
+function readDone(app: App, command: PodCommand): Promise<unknown> | undefined {
+  switch (command.op) {
+    case "pause-state":
+      return pauseStateOf(app, command.rootExecutionId);
+    case "probe-store-clock":
+      return readStoreClock(app, command.wait);
+    default:
+      return undefined;
+  }
+}
+
 /** Does `command` and gives what its reply carries. */
 export async function commandDone(parts: PodParts, command: PodCommand): Promise<unknown> {
   const held = holdDone(parts.points, command);
   if (held !== undefined) return held.result;
+  const read = readDone(parts.app, command);
+  if (read !== undefined) return read;
   switch (command.op) {
     case "start":
       return started(parts.app, command.tag, command.workflow, command.orders);
@@ -157,8 +172,6 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
         "resume-failed",
       );
       return command.tag;
-    case "probe-store-clock":
-      return readStoreClock(parts.app, command.wait);
     case "close":
       await parts.app.close(
         command.timeout === undefined ? {} : { timeout: waitOf(command.timeout) },

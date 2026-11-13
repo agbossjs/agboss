@@ -3,20 +3,20 @@ import { ExecutionStatus } from "./types.js";
 import type { ResumeVersions } from "../run/resume-guard.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import {
-  PauseResolution,
   PauseStatus,
-  type PauseCancellation,
   type PausedExecutionRepository,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
+import { pauseClosed } from "./pause-closed.js";
+import { ExecutionCancelledError } from "../core/errors.js";
+import { closeTreePauses, waitingPauseIdsOf } from "./tree-end-pauses.js";
+import type { PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 import type { Clock } from "../infrastructure/clock.js";
-import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { ThreadKey } from "./live-runs.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { runningOutcome } from "../run/execute.js";
-import { NotPausedError } from "../run/resume-agent.js";
 import type { TurnStore } from "../turns/index.js";
 import { pausedRunOfValue } from "../infrastructure/stored-run.js";
 
@@ -36,16 +36,22 @@ export interface PausedRunBook {
    * Forgets the thread's paused run and cancels its pending pauses (a cancel) and returns it;
    * `undefined` when none waits — a later resume of one of its pauses gets `NotPausedError`.
    */
-  readonly drop: (thread: ThreadKey, runId?: string) => Promise<AgentExecutionOutput | undefined>;
+  readonly drop: (
+    thread: ThreadKey,
+    runId?: string,
+    cause?: Error,
+  ) => Promise<AgentExecutionOutput | undefined>;
   /** The thread's paused run as stored now (`undefined` when none). */
   readonly find: (thread: ThreadKey) => Promise<PausedExecution | undefined>;
 }
 
 export function pausedRunBook(
   stores: PauseStores,
+  deps: AgentExecutionDeps<string>,
   current: ResumeVersions,
   clock: Clock,
 ): PausedRunBook {
+  const ends = { stores, waiting: waitingPauseIdsOf(deps) };
   const repository = stores.pauses;
   const find = ({ tenantId, threadId }: ThreadKey): Promise<PausedExecution | undefined> =>
     repository.findByTenantIdAndThreadId(tenantId, threadId);
@@ -54,45 +60,19 @@ export function pausedRunBook(
       run.status === ExecutionStatus.Paused
         ? repository.save({ run, ...current })
         : repository.deleteByTenantIdAndThreadId(run.tenantId, run.threadId),
-    drop: async (thread, runId) => {
+    drop: async (thread, runId, why) => {
       const stored = await find(thread);
       // #807: the run the caller holds the lease of, never one its thread paused since
       if (stored === undefined || (runId !== undefined && stored.run.runId !== runId))
         return undefined;
-      const tree = { tenantId: thread.tenantId, rootExecutionId: stored.run.runId };
-      await withdrawPauses(stores, tree, clock.now());
-      await repository.deleteByTenantIdAndThreadId(thread.tenantId, thread.threadId);
+      const site = { ...thread, rootExecutionId: stored.run.runId };
+      // a cancel (`app.cancel` of a resting or a running tree): its paused run first, by run (#939)
+      const cause = why ?? new ExecutionCancelledError({ message: "the tree was cancelled" });
+      await closeTreePauses(ends, site, { cause }, clock.now());
       return stored.run;
     },
     find,
   };
-}
-
-/**
- * The pauses of a tree that ended (finished, failed, cancelled): the waiting ones are cancelled —
- * `Cancelled` (`PauseResolution.Cancelled`, `at`), so a late answer gets `NotPausedError`, like an
- * answer to one already taken; the channel of a sent one is told (#337). An answered one no step
- * took (`Resolved`: a resume recorded it, a cancel won before its pass ran, #811 s18c) is marked
- * `Taken`, its answer kept and no channel told, so `deleteByResolvedAtBefore` removes it after
- * `retention.pauseRecords` (#890 AC5).
- */
-export async function withdrawPauses(
-  stores: PauseStores,
-  tree: ExecutionTree,
-  at: Date,
-): Promise<void> {
-  const { tenantId, rootExecutionId } = tree;
-  const records = await stores.pauses.findAllByTenantIdAndRootExecutionId(
-    tenantId,
-    rootExecutionId,
-  );
-  const resolution: PauseCancellation = PauseResolution.Cancelled;
-  const closing = { resolution, at };
-  for (const pause of records) {
-    if (pause.status === PauseStatus.Pending) await withdrawPause(stores, pause, closing);
-    else if (pause.status === PauseStatus.Resolved)
-      await stores.pauses.markTakenByTenantIdAndPauseId(tenantId, pause.pauseId);
-  }
 }
 
 /**
@@ -112,10 +92,9 @@ export interface AnsweredRootParts {
   readonly turns: Pick<TurnStore, "completeIfStatus">;
   /** Where a resume refused after its mark is told (a warning: recovery rests the tree again). */
   readonly log: Pick<FrameworkLog, "warn">;
+  /** The application's clock: the refusal's reading of a deadline. */
+  readonly clock: Pick<Clock, "now">;
 }
-
-export const notPaused = (pauseId: string): NotPausedError =>
-  new NotPausedError({ message: `pause ${pauseId} is not waiting for an answer` });
 
 /**
  * The root of a pause about to be answered, `running` again: the pause read once more (a resume
@@ -129,7 +108,8 @@ export async function markAnswered(
   rested: AgentExecutionOutput | undefined,
 ): Promise<boolean> {
   const now = await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
-  if (now?.status !== PauseStatus.Pending) throw notPaused(pause.pauseId);
+  if (now?.status !== PauseStatus.Pending)
+    throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   if (rested === undefined) return false;
   const stored = await parts.paused.find({ tenantId: pause.tenantId, threadId: pause.threadId });
   const run = stored?.run.runId === rested.runId ? stored.run : rested;
@@ -138,11 +118,14 @@ export async function markAnswered(
 }
 
 /** A resume refused after its mark: told, since its root stays `running` until recovery rests it. */
-export function refusedAfterMark(parts: AnsweredRootParts, pause: PauseRecord): NotPausedError {
+export async function refusedAfterMark(
+  parts: AnsweredRootParts,
+  pause: PauseRecord,
+): Promise<Error> {
   const subject = { executionId: pause.rootExecutionId, tenantId: pause.tenantId };
   const text = `the resume of pause ${pause.pauseId} was refused after it made execution ${pause.rootExecutionId} running again: recovery rests it at its pause`;
   parts.log.warn("resume.refused-after-mark", text, subject);
-  return notPaused(pause.pauseId);
+  return pauseClosed(parts.pauses, pause, parts.clock.now());
 }
 
 /** JSON keeps no `Infinity` (a run without a cost limit has `budgetUsd: Infinity`): tagged. */
