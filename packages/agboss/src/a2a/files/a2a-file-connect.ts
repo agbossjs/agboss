@@ -2,7 +2,6 @@ import type { Socket } from "node:net";
 import { connect as netConnect, isIP } from "node:net";
 import { connect as tlsConnect, type TLSSocket } from "node:tls";
 import { ClientRequest } from "node:http";
-import { PassThrough } from "node:stream";
 import { urlToHttpOptions } from "node:url";
 import {
   ADDRESS_DENIED,
@@ -20,7 +19,11 @@ import {
  * before the peer is known: the guarded resolver names the addresses (any denied one refuses the
  * name); a raw TCP socket is connected to one of them; its remote address is checked against the
  * deny list and against the address connected to; only then TLS starts on that socket
- * (`servername` is the host) and the request goes over it.
+ * (`servername` is the host, unless it is an IP literal) and the request goes over it.
+ *
+ * What it does not do is probe whether `net`, `tls` or `ClientRequest` is patched: APM agents
+ * (dd-trace, New Relic, OpenTelemetry) wrap exactly these, and a refusal would fail every file fetch
+ * under them. The guarantee is the peer check, on the socket whatever made it.
  */
 
 /** The functions the connection is made with, as the module found them when the core loaded. */
@@ -55,54 +58,6 @@ export function isExpectedPeer(
   if (expected === undefined) return false;
   return [...expected].some((address) => canonicalOf(address) === canonicalOf(remote));
 }
-
-const sourceOf = (frame: string): string =>
-  frame
-    .replace(/^\s*at\s+/, "")
-    .replace(/^.*\(/, "")
-    .replace(/\)$/, "")
-    .replace(/:\d+:\d+$/, "");
-
-/** Whether the frames, from the throw down to this file (`here`), are all Node's own. */
-function isNodeBelow(stack: string, here: string): boolean {
-  for (const frame of stack.split("\n").slice(1)) {
-    const source = sourceOf(frame);
-    if (source === here) return true;
-    if (!source.startsWith("node:") && source !== "<anonymous>") return false;
-  }
-  return false;
-}
-
-/**
- * Whether `call` runs Node's own code and nothing else down to this module: it must throw `code`
- * synchronously, and every frame between the throw and this file must be a `node:` frame. A
- * replacement of the function (or of a method it calls) puts its own frame in between.
- */
-function isGenuine(call: () => unknown, code: string): boolean {
-  const limit = Error.stackTraceLimit;
-  Error.stackTraceLimit = Infinity;
-  try {
-    const here = sourceOf((new Error().stack ?? "").split("\n")[1] ?? "");
-    try {
-      call();
-    } catch (error) {
-      return (
-        error instanceof Error &&
-        Reflect.get(error, "code") === code &&
-        isNodeBelow(error.stack ?? "", here)
-      );
-    }
-    return false;
-  } finally {
-    Error.stackTraceLimit = limit;
-  }
-}
-
-/** Whether what the connection is made with is Node's own, not patched (probed on every call). */
-export const isUnpatched = (): boolean =>
-  isGenuine(() => NET_CONNECT({ host: "127.0.0.1", port: -1 }), "ERR_SOCKET_BAD_PORT") &&
-  isGenuine(() => TLS_CONNECT({ host: "127.0.0.1", port: -1 }), "ERR_SOCKET_BAD_PORT") &&
-  isGenuine(() => new REQUEST({ protocol: "ftp:" }), "ERR_INVALID_PROTOCOL");
 
 /** How long one TCP connection may take; the fetch's own deadline (the signal) is the tighter bound. */
 const CONNECT_TIMEOUT = 10_000;
@@ -181,7 +136,12 @@ export async function connectionTo(
     if (isDeniedAddress(address)) throw deniedError();
     try {
       const raw = await rawSocketTo(address, port, signal);
-      const secure = TLS_CONNECT({ socket: raw, host });
+      // a TLS socket made on an existing socket has no SNI unless it is given (an IP literal cannot be one)
+      const secure = TLS_CONNECT({
+        socket: raw,
+        host,
+        ...(isIP(host) === 0 ? { servername: host } : {}),
+      });
       OWN_SOCKETS.add(secure);
       return secure;
     } catch (error) {
@@ -192,13 +152,21 @@ export async function connectionTo(
   throw failure;
 }
 
+/** A request and the TLS socket it was made over (to destroy when the request is refused). */
+export interface FileRequest {
+  readonly request: ClientRequest;
+  readonly secure: TLSSocket;
+}
+
 /**
- * The `GET` of `url`, a `ClientRequest` with no agent and `connectionTo` as its connection. Refused
- * (`ADDRESS_DENIED`, nothing connected) when `net`, `tls` or `ClientRequest` is patched.
+ * The `GET` of `url`: the connection first (guarded lookup, peer check, TLS), and only then a
+ * `ClientRequest` that has no agent and that connection as its own — so a denied address never
+ * constructs a request, and a replaced `ClientRequest` that adds an agent has no connection of its
+ * own to make before it is refused (the request destroyed, the socket too: `ADDRESS_DENIED`).
  */
-export function requestTo(url: URL, signal: AbortSignal): ClientRequest {
-  if (!isUnpatched()) throw deniedError();
-  return new REQUEST({
+export async function requestTo(url: URL, signal: AbortSignal): Promise<FileRequest> {
+  const secure = await connectionTo(url, signal);
+  const request = new REQUEST({
     ...urlToHttpOptions(url),
     // a request with no agent expects `http:`; the TLS is `connectionTo`'s, and 443 is the Host's default
     protocol: "http:",
@@ -206,18 +174,14 @@ export function requestTo(url: URL, signal: AbortSignal): ClientRequest {
     method: "GET",
     headers: { accept: "*/*" },
     signal,
-    createConnection: (_options, done) => {
-      connectionTo(url, signal).then(
-        (socket) => {
-          done(null, socket);
-        },
-        (error: unknown) => {
-          done(error instanceof Error ? error : new Error(String(error)), new PassThrough());
-        },
-      );
-      return undefined;
-    },
+    createConnection: () => secure,
   });
+  if (Reflect.get(request, "agent") !== undefined) {
+    request.destroy();
+    secure.destroy();
+    throw deniedError();
+  }
+  return { request, secure };
 }
 
 /** Whether `socket` is one `requestTo`'s connection made. */

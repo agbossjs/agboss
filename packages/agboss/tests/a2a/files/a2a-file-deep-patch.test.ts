@@ -2,12 +2,13 @@
  * #916 D2 and D3 (the re-acceptances of #932): a patch of the HTTP stack below `https.request`,
  * applied before the core is loaded, does not get a connection to a denied address. Each case is a
  * child process with the patch, against a loopback "file server" that counts what it receives. The
- * file fetch has no agent and makes its own connection: it probes that `net.connect`,
- * `tls.connect` and `ClientRequest` are Node's own (a patched one is refused, nothing connected)
- * and it resolves the name with the guarded resolver, connecting to an address only after the
- * resolver allowed it. So for every patch below the target sees no connection at all and no byte —
- * whatever the speed of the resolver. (The check of the raw socket's peer, which would stop a
- * patch that evades the probe, is a unit test: a2a-file-own-connect.test.ts D3.5.)
+ * file fetch has no agent and makes its own connection, in this order: the name is resolved with the
+ * guarded resolver (`localhost` is a denied address: nothing is connected, no request is built),
+ * a raw socket is connected only to an allowed answer, its peer is checked, and only then TLS and
+ * the request. So for every patch below the target sees no connection and no byte. It does not
+ * probe whether `net`, `tls` or `ClientRequest` is patched (APM agents wrap them: a2a-file-sni.test.ts);
+ * a patch that redirects the connection is stopped by the peer check (a2a-file-own-connect.test.ts
+ * D3.2, D3.5, a2a-file-sni.test.ts S4).
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -47,7 +48,7 @@ describe("#916 D2: a patch below https.request gets no connection to a denied ad
     ["net.Socket.prototype.connect drops the lookup", "patch-socket-connect"],
     ["a replaced http.ClientRequest swaps the agent", "patch-client-request"],
   ])(
-    "D2.1 %s: refused a2a.file-address-denied, no connection and no byte reach the target",
+    "D2.1 %s: refused a2a.file-address-denied at the guarded lookup, no connection and no byte reach the target",
     async (_patch, mode) => {
       network.reset();
 

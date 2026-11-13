@@ -12,8 +12,6 @@ as the socket's TCP connection is made, before TLS starts (no ClientHello, which
 and no request byte reach a refused peer), checks the remote address again. A denied address
 (embedded IPv4 forms included), an address the guarded lookup did not answer for that connection
 (a proxy in the way), or a socket that did not come through the file agent is destroyed and
-refused `a2a.file-address-denied`. File fetches bypass any HTTP(S) proxy and global agent.
-Patches below the request (a replaced `ClientRequest`, `Agent.prototype.createConnection` /
-`addRequest`, `tls.connect`, `net.Socket.prototype.connect`) can still open the TCP connection
-to a denied address, which then sends nothing and is closed; they cannot get a byte through it.
-Both guards are pinned by child-process tests that go red when either is removed.
+refused `a2a.file-address-denied`. File fetches bypass any HTTP(S) proxy and global agent. (Superseded in part by 916-own-connect and
+916-sni: the fetch has no agent of its own any more, and the peer check is on a raw socket made
+before TLS; a patch below the request that redirects the TCP connection is stopped by that check.)
