@@ -302,7 +302,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/operation-history.ts:25:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/faults/scenario.ts:37:3 - (ae-undocumented) Missing documentation for "database".
+// src/testing/faults/scenario.ts:38:3 - (ae-undocumented) Missing documentation for "database".
 // src/testing/faults/store-points.ts:15:3 - (ae-undocumented) Missing documentation for "LeaseAcquire".
 // src/testing/faults/store-points.ts:16:3 - (ae-undocumented) Missing documentation for "LeaseRenew".
 // src/testing/faults/store-points.ts:17:3 - (ae-undocumented) Missing documentation for "LeaseRelease".
