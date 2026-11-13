@@ -116,7 +116,12 @@ const workflow = {
     tools: { maxToolCalls: 2 },
   },
   uncompactedTurns: 1,
-  flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Mailer).toFinish(Finish)],
+  flow: [
+    start(Start)
+      .returns(WorkflowStartTextDto)
+      .toAgent(Mailer)
+      .toFinish(Finish),
+  ],
 };
 
 /** The first deployment. */

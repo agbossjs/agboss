@@ -195,7 +195,11 @@ export class Typo {}
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   uncompactedTurns: 1,
   flow: [
-    start(SearchStart).returns(SearchInDto).toAgent(Typo).returns(ShortlistDto).toFinish(Done),
+    start(SearchStart)
+      .returns(SearchInDto)
+      .toAgent(Typo)
+      .returns(ShortlistDto)
+      .toFinish(Done),
   ],
 })
 export class TypoSearch {}
