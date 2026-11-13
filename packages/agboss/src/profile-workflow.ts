@@ -7,6 +7,7 @@ import {
   ProfileError,
   type Profile,
 } from "./config/profiles.js";
+import { checkModelsServed } from "./models/resolution.js";
 import { AgentsConfigSchema, type AgentsConfigOf } from "./config/types.js";
 
 const unknownKeys = (keys: readonly string[], known: object): string[] =>
@@ -70,5 +71,8 @@ export async function withProfile(
   if (profile === undefined || profile === "base") return bundle;
   const file = profileFile(root, bundle.config.name, profile);
   const loaded = await loadProfile(file);
-  return applyProfile(bundle, loaded, await profilePrompts(loaded, file), file);
+  const applied = applyProfile(bundle, loaded, await profilePrompts(loaded, file), file);
+  // a profile may name a model no listed provider serves (#895)
+  checkModelsServed(applied);
+  return applied;
 }

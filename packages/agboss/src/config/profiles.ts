@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { AgentsConfigSchema, AgentSettingsSchema, CompactionSettingsSchema } from "./types.js";
@@ -60,9 +60,33 @@ export function deepMerge(base: unknown, override: unknown): unknown {
   return merged;
 }
 
+/** The profiles of a workflow (the `*.yaml` files of its directory) and `base`, sorted. */
+async function availableProfiles(directory: string): Promise<string[]> {
+  const files = await readdir(directory).catch(() => [] as string[]);
+  const names = files.filter((name) => extname(name) === ".yaml").map((n) => basename(n, ".yaml"));
+  return ["base", ...names.filter((name) => name !== "base")].sort();
+}
+
+const isMissing = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+
+/** The file's text; a profile that does not exist is a `ProfileError` listing the ones that do (#895). */
+async function profileText(file: string): Promise<string> {
+  try {
+    return await readFile(file, "utf8");
+  } catch (error) {
+    if (!isMissing(error)) throw error;
+    const available = await availableProfiles(dirname(file));
+    throw new ProfileError({
+      message: `${file}: no profile "${basename(file, ".yaml")}" — available: ${available.join(", ")}`,
+      cause: error,
+    });
+  }
+}
+
 /** Reads and validates a profile file; errors name the file and the key. */
 export async function loadProfile(file: string): Promise<Profile> {
-  const raw: unknown = parseYaml(await readFile(file, "utf8"));
+  const raw: unknown = parseYaml(await profileText(file));
   const parsed = ProfileSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

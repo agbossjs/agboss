@@ -608,6 +608,18 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
   budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
   class instead of another — no instances, no `new`.
+- **A profile**: `testWith(App, { profile: "low-thinking", profileRoot })` runs every workflow of the
+  application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
+  as `createApp(App, { profile, profileRoot })` does, with the models still scripted. The test reads
+  what the profile applied from the read-only `app.settings` (by workflow name):
+  `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`, and
+  `.version` is the profile's. `profileRoot` defaults to `process.cwd()`; in a monorepo, or when the
+  tests run from the repository root, give the package directory:
+  `profileRoot: fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` — never
+  `.pathname`, which is no path on Windows. An unknown profile is a `ProfileError` listing the
+  profiles that exist (`base` is none), a model the profile switches to one no listed provider serves
+  fails the assembly with `[model.unserved]`, not the first call. Each workflow needs a file of that
+  profile (a child's too).
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
 - **A2A**: `const { url } = await a2aServer({ expose, callerResolver })` serves the test's `app` through

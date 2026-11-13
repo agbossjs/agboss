@@ -49,3 +49,6 @@ released version.
   `ListLimits`, `OneOfValues`.
 - **`npm run check:api` names a signature that uses an `@internal` type** (one `stripInternal`
   removes from the declarations) with the #895 message, no longer an api-extractor `InternalError`.
+- **`withProfile` has public replacements:** in a test `testWith(App, { profile, profileRoot })`
+  (`app.settings` shows what the profile applied), in production `createApp(App, { profile,
+profileRoot })`, on the command line `agboss describe --profile <name>`.

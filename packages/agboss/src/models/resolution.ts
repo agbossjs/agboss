@@ -110,6 +110,17 @@ function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
 }
 
 /**
+ * A workflow's models once more, after a profile changed them (#895): the models a profile names
+ * are resolved as the assembly resolves them, `[model.unserved]` at assembly, not on the first call.
+ */
+export function checkModelsServed(
+  workflow: Pick<WorkflowModels, "config" | "routers" | "modelProviders">,
+): void {
+  const found = modelResolutionViolations(workflow);
+  if (found.length > 0) throw new GraphRuleError({ violations: found });
+}
+
+/**
  * The model providers of a workflow — its application's (`providers`), else the built-ins — with
  * every model of it resolved to one of them; one that is not fails the workflow's assembly.
  */
