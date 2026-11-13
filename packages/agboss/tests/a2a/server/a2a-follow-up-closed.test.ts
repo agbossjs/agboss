@@ -5,17 +5,20 @@
  * reply was lost still gets the task; a kept reply of before (`a2a.already-answered`) still replays.
  */
 import { describe, expect, it } from "vitest";
-import { followedUpTask } from "../../src/a2a/server/a2a-follow-up.js";
-import { requestHashOf } from "../../src/a2a/server/a2a-message-input.js";
+import { followedUpTask } from "../../../src/a2a/server/a2a-follow-up.js";
+import { requestHashOf } from "../../../src/a2a/server/a2a-message-input.js";
 import {
   DurableExecutionStatus,
   type DurableExecutionState,
-} from "../../src/app/execution-control.js";
-import { PauseClosedError } from "../../src/app/pause-closed-error.js";
-import { A2ATaskState, type A2AMessageKey } from "../../src/infrastructure/a2a-task.repository.js";
-import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
-import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { PauseClosedReason } from "../../src/infrastructure/pause-record.js";
+} from "../../../src/app/execution-control.js";
+import { PauseClosedError } from "../../../src/app/pause-closed-error.js";
+import {
+  A2ATaskState,
+  type A2AMessageKey,
+} from "../../../src/infrastructure/a2a-task.repository.js";
+import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
+import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
+import { PauseClosedReason } from "../../../src/infrastructure/pause-record.js";
 import {
   callerOf,
   messageOf,
@@ -24,7 +27,7 @@ import {
   scriptOf,
   unitParts,
   type Script,
-} from "./server/support/unit-parts.js";
+} from "./support/unit-parts.js";
 
 const INPUT_REQUIRED = { state: A2ATaskState.InputRequired, pendingPauses: [] };
 const CLOSED_AT = "2026-01-05T08:30:00.000Z";

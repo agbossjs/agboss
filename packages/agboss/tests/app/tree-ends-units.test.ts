@@ -107,6 +107,26 @@ describe("#633: forgetTree and passEnded", () => {
     );
   });
 
+  it("a tree that finished closes a pause it still had with the finish as its cause; an end that is no Error is made one", async () => {
+    mocks.closeTreePauses.mockClear();
+    const parts = {
+      deps: { pause: { pauses: {} } },
+      trees: { deleteAllInTree: () => Promise.resolve() },
+      clock: { now: () => new Date(0) },
+    } as never;
+
+    await forgetTree(parts, STATE);
+    await forgetTree(parts, STATE, "boom");
+    await forgetTree(parts, STATE, END.cause);
+
+    const causes = mocks.closeTreePauses.mock.calls.map((call) => (call as unknown[])[2]);
+    expect(causes).toEqual([
+      { cause: new Error("the tree finished") },
+      { cause: new Error("boom") },
+      { cause: END.cause },
+    ]);
+  });
+
   it("a pass ended: its bodies awaited, its undo mirror forgotten — none without compensation", async () => {
     const stepsClosed = vi.fn(() => Promise.resolve());
     const forget = vi.fn();
