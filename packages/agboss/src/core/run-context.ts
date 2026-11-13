@@ -5,6 +5,7 @@ import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { Clock, systemClock } from "../infrastructure/clock.js";
 import type { FrameLease, ParentExecution } from "../flow/context/frame.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
+import type { RunStream } from "../run/stream/run-stream.js";
 
 /** The id of one run (one `execute`, kept by its resumes) — not the conversation thread. */
 export type ExecutionId = string & { readonly __brand: "ExecutionId" };
@@ -45,6 +46,11 @@ export interface RunContext {
    * business key's fingerprint is keyed by. None without `idempotencyKeyField`.
    */
   readonly fingerprintKeys?: FingerprintKeys | undefined;
+  /**
+   * The caller's `onStream` as a sink (#1004): only an agent's answering model call and its tool
+   * calls write to it. Absent without `onStream`; a child execution shares its parent's.
+   */
+  readonly stream?: RunStream | undefined;
 }
 
 /** Where a child execution stands (#263): the execution and step that launched it, its item. */
