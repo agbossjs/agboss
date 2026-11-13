@@ -5,7 +5,13 @@ import {
 } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { NotAWorkflowStartError } from "../../src/app/create-app.js";
-import { Agent, Workflow, NotPausedError, GraphRuleError, WorkflowStart } from "../../src/index.js";
+import {
+  Agent,
+  Workflow,
+  PauseClosedError,
+  GraphRuleError,
+  WorkflowStart,
+} from "../../src/index.js";
 import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
@@ -193,7 +199,7 @@ describe("AC12: createApp — the real app", () => {
       threadId: paused.threadId,
     });
     await expect(app.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      NotPausedError,
+      PauseClosedError,
     );
     await app.close();
   });

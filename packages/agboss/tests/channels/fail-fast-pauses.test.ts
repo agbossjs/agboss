@@ -1,11 +1,11 @@
 /**
  * #267 AC10: a `FailFast` failure cancels its launch, paused siblings too — their pauses are
  * withdrawn (`Cancelled`), the tree goes on to the join instead of waiting, and a late answer gets
- * `NotPausedError`; a join's deadline counts elapsed time, pauses included (#279:
+ * `PauseClosedError`; a join's deadline counts elapsed time, pauses included (#279:
  * `tests/flow/runtime/quorum-deadline.test.ts`).
  */
 import { beforeEach, describe, expect } from "vitest";
-import { NotPausedError, PauseStatus } from "../../src/index.js";
+import { PauseClosedReason, PauseStatus } from "../../src/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import { callTool, failWith, ModelFailure, testWith, waitFor } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -46,7 +46,10 @@ describe("#267 AC10: FailFast drops the paused siblings' pauses", () => {
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored?.status).toBe(PauseStatus.Cancelled);
     expect(seen.pauses).toEqual([]);
-    await expect(app.resume(answerFor("7"), manager)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerFor("7"), manager)).rejects.toMatchObject({
+      code: "pause.closed",
+      reason: PauseClosedReason.Withdrawn,
+    });
     expect(seen.refunds).toEqual([]);
   });
 });

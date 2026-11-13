@@ -55,7 +55,11 @@ export async function announceResume(
   reason: ResumeReason,
   resume: TreeResume | undefined,
 ): Promise<void> {
-  if (resume === undefined) {
+  // a recovery with nothing to name — no resume, or only answers a pass did not store — still says so
+  if (
+    resume === undefined ||
+    (resume.decisions.length === 0 && reason === ResumeReason.Recovered)
+  ) {
     if (reason !== ResumeReason.Recovered) return;
     await observer.onExecutionResume({
       ...event,

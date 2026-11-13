@@ -15,7 +15,7 @@ import {
  */
 export type PauseAnswerLog = Pick<
   ExecutionRecordRepository,
-  "savePauseAnswer" | "findPauseAnswersByTenantIdAndRootExecutionId"
+  "savePauseAnswer" | "markPauseAnswerNotTaken" | "findPauseAnswersByTenantIdAndRootExecutionId"
 >;
 
 /** Whether a pause was closed without an answer. */

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
   ExecutionLeaseLostError,
   ExecutionStatus,
-  NotPausedError,
+  PauseClosedError,
   PauseStatus,
   ResumeReason,
   SqlitePausedExecutionRepository,
@@ -232,7 +232,7 @@ describe("#850: a resume that died between recording its answer and moving the t
     // the store refuses the resolve, as when another resume answered between the mark and it
     atTheResolve(() => Promise.resolve(undefined));
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
     await clock.advance(seconds(31));
     await until(() => seen.resumes.length === 1, "the recovery of the root");
     const pending = await statusOfPause(answerOf(paused, approve).pauseId);
@@ -265,7 +265,7 @@ describe("#850: a resume that died between recording its answer and moving the t
       return found && { ...found, status: PauseStatus.Resolved };
     });
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
     await clock.advance(seconds(31));
     const resumed = await instance(apps, 1).resume(answerOf(paused, approve));
 

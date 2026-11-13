@@ -79,12 +79,9 @@ export class SqlitePauseScans {
     return this.page({ clause: clauses.join(" AND "), values }, from, limit);
   }
 
-  /** What `removeClosedBefore(cutoff)` removes, at most `limit`. */
-  closedBefore(cutoff: Date, limit: number): readonly PauseRecord[] {
-    return this.database
-      .prepare(`SELECT p.* FROM pauses p WHERE ${REMOVABLE} ORDER BY p.seq LIMIT ?`)
-      .all(cutoff.toISOString(), limit)
-      .map(toPauseRecord);
+  /** What `removeClosedBefore(cutoff)` removes: a page, after the cursor's sequence. */
+  closedBefore(cutoff: Date, from: number, limit: number): PausePage {
+    return this.page({ clause: REMOVABLE, values: [cutoff.toISOString()] }, from, limit);
   }
 
   /** Removes what `closedBefore` lists, and their mailboxes (call inside a transaction). */

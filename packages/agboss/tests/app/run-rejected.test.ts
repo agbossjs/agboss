@@ -3,7 +3,7 @@ import { DtoValidationError } from "../../src/dto/index.js";
 import {
   BudgetExceededError,
   InvalidThreadIdError,
-  NotPausedError,
+  PauseClosedError,
   ThreadOwnerError,
   UnknownPauseError,
   UnknownThreadError,
@@ -109,7 +109,7 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
 });
 
 describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → onExecutionRejected", () => {
-  test("#267: a second answer to a pause its run already took: run.not-paused", async ({
+  test("#267: a second answer to a pause its run already took: pause.closed", async ({
     app,
     mockLlm,
   }) => {
@@ -121,9 +121,9 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     const done = await app.resume(answerOf(paused, approve));
     resetEvents();
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);
     expectRejected(
-      { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "run.not-paused" },
+      { operation: ExecutionOperation.Resume, threadId: done.threadId, code: "pause.closed" },
       [done.executionId],
     );
     expect(workflowEvents()).toEqual([]);

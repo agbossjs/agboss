@@ -1,4 +1,4 @@
-import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import { INTERRUPT, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { ExecutionGraph } from "../flow/runtime/build.js";
 import type { AgentLoopStateType } from "../graph/agent-loop/state.js";
 import type { RunServices } from "../core/run-context.js";
@@ -58,6 +58,26 @@ interface PausedSearch {
   readonly isOpen: (interruptValue: unknown) => boolean;
 }
 
+/** The channels a task writes when it does not finish: its interrupt, the resume it was given, its error. */
+const UNFINISHED_WRITES: ReadonlySet<string> = new Set([INTERRUPT, "__resume__", "__error__"]);
+
+/**
+ * The tasks of the thread's pending superstep that already wrote their result to its checkpoint
+ * (#939): LangGraph keeps listing such a task's old interrupt until the whole superstep ends — a
+ * parallel branch that took its answer while its siblings still wait — but it waits for nothing.
+ */
+export async function finishedTaskIdsOf(
+  saver: BaseCheckpointSaver | boolean | undefined,
+  threadId: string,
+): Promise<ReadonlySet<string>> {
+  if (typeof saver !== "object") return new Set();
+  const tuple = await saver.getTuple(runConfig(threadId));
+  const writes = tuple?.pendingWrites ?? [];
+  return new Set(
+    writes.filter(([, channel]) => !UNFINISHED_WRITES.has(channel)).map(([taskId]) => taskId),
+  );
+}
+
 /** A checkpoint of a child execution: its state holds the child's identity (#263 S24). */
 const isChildState = (values: unknown): boolean =>
   typeof values === "object" && values !== null && "child" in values && values.child !== undefined;
@@ -85,8 +105,10 @@ async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readon
   const inChildren = await Promise.all(
     waited.flatMap((child) => (child === undefined ? [] : [loopsIn(child.snapshot, child.search)])),
   );
-  const tasks = snapshot.tasks.filter((candidate) =>
-    candidate.interrupts.some((pending) => isOpen(pending.value)),
+  const finished = await finishedTaskIdsOf(checkpointer, runId);
+  const tasks = snapshot.tasks.filter(
+    (candidate) =>
+      !finished.has(candidate.id) && candidate.interrupts.some((pending) => isOpen(pending.value)),
   );
   const parent = namespaceOf(snapshot);
   const loops = await Promise.all(

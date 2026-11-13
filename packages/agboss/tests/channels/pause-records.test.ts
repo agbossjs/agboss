@@ -4,7 +4,7 @@
  * `Withdrawn`, `Cancelled`), the decision masked by the application's PII policies and none for a
  * pause closed without an answer, no `pauseId` for a `PauseAnswerer.Channel` pause. Resolved records
  * are kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`) and then removed by the
- * recovery sweep on the `Clock`: within it a late answer is `NotPausedError`, after it
+ * recovery sweep on the `Clock`: within it a late answer is `PauseClosedError`, after it
  * `UnknownPauseError`; a pending pause is never removed.
  */
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
   AutoApproveChannel,
-  NotPausedError,
+  PauseClosedError,
   PauseAnswerer,
   PauseResolution,
   PauseStatus,
@@ -203,7 +203,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
   );
 
   testWith(PayoutsApplication)(
-    "a FailFast sibling failed: the paused branch's pause is Withdrawn, the failed one's Cancelled with the tree — no decision",
+    "a FailFast sibling failed: the paused branch's pause is Withdrawn, the failed one's TreeEnded with the tree (a failure, not a cancel) — no decision",
     async ({ app, clock, mockLlm }) => {
       hooks.refusals = new Map([["7", new PaymentDeclinedError("the card was declined")]]);
       mockLlm(PayoutConfirmAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
@@ -229,7 +229,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         {
           pauseId: undefined,
           role: "refund-approval-channel",
-          resolution: PauseResolution.Cancelled,
+          resolution: PauseResolution.TreeEnded,
           decision: undefined,
         },
       ]);
@@ -257,7 +257,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
 describe("#267 S107: resolved pause records are kept retention.pauseRecords, then removed", () => {
   testWith(BriefTreasuryApplication)(
-    "within it a late answer is NotPausedError, after it UnknownPauseError; a pending pause stays",
+    "within it a late answer is PauseClosedError, after it UnknownPauseError; a pending pause stays",
     async ({ app, clock, mockLlm }) => {
       mockLlm(TreasurerAgent)
         .when({ message: { text: "pay ann" } })
@@ -271,7 +271,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       await app.resume(answer, manager);
 
       await clock.advance(minutes(4));
-      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(NotPausedError);
+      await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(PauseClosedError);
       await clock.advance(minutes(2));
       await expect(app.resume(answer, manager)).rejects.toBeInstanceOf(UnknownPauseError);
 
@@ -316,9 +316,9 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
   });
 });
 
-describe("#890 AC5: an unconsumed Resolved pause of an ended tree is Taken, then swept", () => {
+describe("#939: an unconsumed Resolved pause of an ended tree is closed not taken, then swept", () => {
   testWith(BriefTreasuryApplication)(
-    "AC5: a pause answered while a cancel wins is marked Taken, its answer kept, and removed after retention.pauseRecords",
+    "a pause answered while a cancel wins is Cancelled, its answer kept, the log says not taken, and it is removed after retention.pauseRecords",
     async ({ app, clock, mockLlm }) => {
       mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
       const waiting = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
@@ -337,8 +337,8 @@ describe("#890 AC5: an unconsumed Resolved pause of an ended tree is Taken, then
       await app.cancel(waiting.threadId, { tenantId: waiting.tenantId });
 
       expect(await pauses.findByTenantIdAndPauseId(waiting.tenantId, pauseId)).toMatchObject({
-        status: PauseStatus.Taken,
-        resolution: PauseResolution.Replied,
+        status: PauseStatus.Cancelled,
+        resolution: PauseResolution.Cancelled,
         answer,
       });
       await clock.advance(minutes(6));

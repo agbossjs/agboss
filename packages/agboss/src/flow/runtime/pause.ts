@@ -21,6 +21,7 @@ import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { PauseWithdrawn } from "../../pause/index.js";
+import { sentTooLate } from "./pause-late.js";
 import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
@@ -193,13 +194,26 @@ async function sendOnce(
   return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
 }
 
-/** A pause that is no longer pending: its decision, or its withdrawal. */
-function settledAnswer(pause: PauseRecord, channel: string): StepAnswer {
+/**
+ * A pause that is no longer pending, as its step takes it: its decision, or its withdrawal. A
+ * `Resolved` answer is marked `Taken` here, durably, before the step acts on it (#939) — so a pass
+ * that fails after its tool ran leaves the audit saying the answer was taken, and a tree end never
+ * closes it not-taken. A recovery that finds a `Taken` pause whose interrupt still waits runs the
+ * step again with that answer.
+ */
+async function settledAnswer(
+  site: Pick<PauseStepSite, "pauses" | "signal">,
+  pause: PauseRecord,
+  channel: string,
+): Promise<StepAnswer> {
   const { answer } = pause;
-  if (pause.status === PauseStatus.Cancelled || answer === undefined) {
-    throw new PauseWithdrawnError({
-      message: `pause ${pause.pauseId} was withdrawn: its branch was cancelled`,
-    });
+  const message = `pause ${pause.pauseId} was withdrawn: its branch was cancelled`;
+  if (pause.status === PauseStatus.Cancelled || answer === undefined)
+    throw new PauseWithdrawnError({ message });
+  if (pause.status === PauseStatus.Resolved) {
+    // a pass that is stopped runs nothing: its tool never acts, so the answer is not taken
+    site.signal?.throwIfAborted();
+    await site.pauses.markTakenByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
   }
   // a re-entry of a step its channel decided at once: the channel's decision, its spend counted already
   if (pause.resolution === PauseResolution.Decided)
@@ -226,25 +240,13 @@ export interface PauseStepSite {
   readonly withdrawn?: PauseWithdrawn | undefined;
 }
 
-/**
- * A pause its channel sent that closed while `send` was still returning (#337): whoever closed it
- * saw it unsent, so its own step tells the channel, in its own frame.
- */
-async function sentTooLate(site: PauseStepSite, pause: PauseRecord): Promise<void> {
-  const { resolution } = pause;
-  const isWithdrawn =
-    resolution === PauseResolution.Withdrawn || resolution === PauseResolution.Cancelled;
-  if (pause.status === PauseStatus.Cancelled && isWithdrawn && site.withdrawn !== undefined)
-    await site.withdrawn({ pause, resolution, frame: site.frame });
-}
-
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */
 export async function pauseStep(site: PauseStepSite, question: PauseQuestion): Promise<StepAnswer> {
   const { pauses, channel, frame } = site;
   const { tenantId } = frame.execution.tenant;
   const made = newRecordOf(frame, channel, question, site.clock);
   let pause = await pauses.findOrCreateByStepKey(made);
-  if (pause.status !== PauseStatus.Pending) return settledAnswer(pause, channel.name);
+  if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause, channel.name);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {
     await site.onSend();
@@ -265,7 +267,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
       await sentTooLate(site, pause);
-      return settledAnswer(pause, channel.name);
+      return settledAnswer(site, pause, channel.name);
     }
   }
   site.signal?.throwIfAborted();

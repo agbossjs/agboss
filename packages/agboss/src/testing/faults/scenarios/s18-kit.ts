@@ -21,6 +21,7 @@ import {
 } from "./a2a-kit.js";
 import { FaultStepPoint } from "../fixture/pod-link.js";
 import { eventsOf, expectThat, heldAt, holdStore, release } from "./kit.js";
+import { pauseStateOn } from "./pause-kit.js";
 
 /**
  * What scenario 18 (#811 AC4) is written with: a task resting at its order's approval, the race of
@@ -169,4 +170,32 @@ export async function isStoppedWithin(
     `a's pass was not stopped within two leases of the cancel: its charge was let go`,
   );
   return stopped;
+}
+
+/**
+ * After a pod died holding a tree's end (#939): the resume that finished it was refused `-32004
+ * a2a.pause-closed`, `answered` (the pause was answered; its answer was not taken), and the tree left no `Resolved` pause and no paused run — its
+ * answer logged not taken.
+ */
+export async function expectEndFinished(
+  cluster: FaultCluster,
+  resumed: A2AAnswer,
+  pod: FaultPod,
+  taskId: string,
+): Promise<void> {
+  expectThat(
+    cluster,
+    resumed.errorCode === -32004 &&
+      resumed.errorMetadata?.code === "a2a.pause-closed" &&
+      resumed.errorMetadata.reason === "answered",
+    `the resume of the ended tree was to be -32004 a2a.pause-closed, answered: ${JSON.stringify(resumed)}`,
+  );
+  const state = await pauseStateOn(pod, taskId);
+  const open = state.pauses.filter((p) => p.status === "pending" || p.status === "resolved");
+  const notTaken = state.log.filter((entry) => !entry.isTaken && entry.resolution === "cancelled");
+  expectThat(
+    cluster,
+    open.length === 0 && !state.hasPausedRun && notTaken.length === 1,
+    `s18d: pauses open ${String(open.length)}, paused run ${state.hasPausedRun ? "kept" : "none"}, log not-taken ${String(notTaken.length)}: ${JSON.stringify(state)}`,
+  );
 }

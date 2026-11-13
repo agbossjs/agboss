@@ -14,6 +14,8 @@ export interface A2AAnswer {
   readonly state?: A2ATaskState;
   readonly code?: string;
   readonly errorCode?: number;
+  /** An error's `ErrorInfo` metadata: its stable `code`, and for a closed pause its `reason` (#939). */
+  readonly errorMetadata?: { readonly code?: string; readonly reason?: string };
 }
 
 /** A record of a JSON value, or `undefined`. */
@@ -56,12 +58,36 @@ export function answerOf(status: number, body: unknown, id: number): A2AAnswer |
   return hasResult ? toldOf(answer.result) : errorOf(answer.error);
 }
 
-/** A JSON-RPC error as told: its whole-number code — else what is wrong. */
+/** The `metadata` an error carries, wherever its `ErrorInfo` sits (a details list or an object). */
+function metadataOf(value: unknown): Record<string, unknown> | undefined {
+  const record = recordOf(value);
+  if (record === undefined && Array.isArray(value)) {
+    for (const item of value as unknown[]) {
+      const found = metadataOf(item);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  const own = recordOf(record?.metadata);
+  if (own !== undefined) return own;
+  for (const item of Object.values(record ?? {})) {
+    const found = metadataOf(item);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+/** A JSON-RPC error as told: its whole-number code and metadata — else what is wrong. */
 function errorOf(error: unknown): A2AAnswer | string {
   const code = recordOf(error)?.code;
-  return typeof code === "number" && Number.isInteger(code)
-    ? { errorCode: code }
-    : `an error whose code is ${JSON.stringify(code)}`;
+  if (typeof code !== "number" || !Number.isInteger(code))
+    return `an error whose code is ${JSON.stringify(code)}`;
+  const metadata = metadataOf(recordOf(error)?.data);
+  const told = {
+    ...(typeof metadata?.code === "string" ? { code: metadata.code } : {}),
+    ...(typeof metadata?.reason === "string" ? { reason: metadata.reason } : {}),
+  };
+  return { errorCode: code, ...(metadata === undefined ? {} : { errorMetadata: told }) };
 }
 
 /** The task a call names: a read's or a cancel's `id`, a follow-up's `message.taskId`. */

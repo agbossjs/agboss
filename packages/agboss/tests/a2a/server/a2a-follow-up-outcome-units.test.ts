@@ -12,6 +12,7 @@ import {
   type KeptReply,
 } from "../../../src/a2a/server/a2a-follow-up-outcome.js";
 import { UnknownPauseError } from "../../../src/run/resume-agent.js";
+import { PauseClosedReason } from "../../../src/infrastructure/pause-record.js";
 import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
@@ -58,6 +59,41 @@ describe("#824: a follow-up's refusal on the wire", () => {
     ]);
   });
 
+  it("a closed pause's refusal needs its code, its reason and its time: without any, the generic one; with all, the reason's text and metadata", () => {
+    const CLOSED_AT = "2026-01-05T09:00:00.000Z";
+    const wire = (refusal: Refusal) => {
+      const error = wireRefusalOf(refusal);
+      return { message: error.message, metadata: Reflect.get(error, "metadata") as unknown };
+    };
+    const base = { refused: "unsupported", code: "a2a.pause-closed" } as const;
+
+    expect(wire({ ...base, reason: PauseClosedReason.Expired, closedAt: CLOSED_AT })).toEqual({
+      message: "the pause expired",
+      metadata: { code: "a2a.pause-closed", reason: "expired", closedAt: CLOSED_AT },
+    });
+    for (const incomplete of [
+      base,
+      { ...base, reason: PauseClosedReason.Expired },
+      { ...base, closedAt: CLOSED_AT },
+    ])
+      expect(wire(incomplete)).toEqual({
+        message: "the answer was refused",
+        metadata: { code: "a2a.pause-closed" },
+      });
+    // another code with a reason and a time is no closed pause
+    expect(
+      wire({
+        refused: "unsupported",
+        code: "a2a.task-over",
+        reason: PauseClosedReason.Expired,
+        closedAt: CLOSED_AT,
+      }),
+    ).toEqual({
+      message: "the task is over: it takes no more input",
+      metadata: { code: "a2a.task-over" },
+    });
+  });
+
   it("another owner's task is not found, like none", () => {
     expect(shown({ refused: "not-found", code: "a2a.not-owner" })).toBe(
       "TaskNotFoundError undefined: task not found",
@@ -99,7 +135,7 @@ describe("#824: a resume that settled", () => {
           new ReplyInterpreterMissingError({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),
       ).toEqual([
-        { refused: "unsupported", code: "a2a.already-answered" },
+        { refused: "unsupported", code: "a2a.no-pending-pause" },
         { refused: "invalid-params", code: "a2a.unknown-pause" },
         { refused: "not-found", code: "a2a.not-owner" },
         { refused: "invalid-params", code: "a2a.reply-not-understood" },

@@ -88,7 +88,7 @@ class TreeMover implements TreeMoves {
       // the tree failed after the answer was recorded (#901): its holder's drain took the answer and
       // its pass stopped (a cancel request, gone with the tree's keys), the pause left `Resolved`
       // and the paused run of the rest before still stored — no pass moves an ended tree
-      await refusedIfFailed(deps, state, { lease, pauseId: pause.pauseId });
+      await refusedIfFailed(this.parts, state, { lease, pauseId: pause.pauseId });
       const call = await callWithLostPasses(this.parts, state, given);
       const next = await this.nextPass(state, call).catch(async (error: unknown) => {
         await lease.release();
@@ -243,7 +243,7 @@ class TreeMover implements TreeMoves {
     } catch (error) {
       if (!isHandedOver(error)) {
         await keepExecutionRecord(deps, state, historyEndOf(error, undo.compensations));
-        await forgetTree(this.parts, state);
+        await forgetTree(this.parts, state, error);
       }
       throw error;
     } finally {

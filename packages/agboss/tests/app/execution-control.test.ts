@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DuplicateExecutionIdError } from "../../src/errors.js";
-import { NotPausedError } from "../../src/run/resume-agent.js";
+import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import {
   DurableExecutionStatus,
@@ -236,7 +236,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(outcome).toBe(ExecutionCancelOutcome.Ended);
     await expect(first.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-      NotPausedError,
+      PauseClosedError,
     );
     expect(seen.charges).toEqual([]);
     expect(await controlOf(first).executionStateOf(tree())).toEqual({
@@ -380,7 +380,7 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
     await controlOf(second).cancelExecution(tree());
     const resumed = first.resume(answerOf(paused, { approved: true }));
 
-    await expect(resumed).rejects.toBeInstanceOf(NotPausedError);
+    await expect(resumed).rejects.toBeInstanceOf(PauseClosedError);
     expect(seen.charges).toEqual([]);
   });
 

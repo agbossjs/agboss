@@ -1535,7 +1535,7 @@ export abstract class PausedExecutionRepository {
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
-    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number, after?: string): Promise<PausePage>;
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
@@ -2162,7 +2162,7 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
-// src/app/paused-runs.ts:28:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/components/policy-decorators.ts:20:3 - (ae-undocumented) Missing documentation for "Input".

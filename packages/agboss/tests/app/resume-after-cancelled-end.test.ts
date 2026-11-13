@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import { NotPausedError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
+import { PauseClosedError, PauseStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { execute } from "../helpers/flow.js";
@@ -90,7 +90,7 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
     await expect(moved).rejects.toBeInstanceOf(ExecutionCancelledError);
     expect(cancels).toEqual([ExecutionCancelOutcome.Requested]);
     // the waiting resume takes the lease the drain released: the tree ended, its answer runs nowhere
-    await expect(resumed.call).rejects.toBeInstanceOf(NotPausedError);
+    await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual([]);
     expect(seen.completed).toEqual(["paused", "failed"]);

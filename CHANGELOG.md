@@ -37,6 +37,14 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
   - **Exported** the types the signatures name (the flow DSL's helper types, the options and meta of
     the decorators, `StartEvent` / `EndEvent`, `RagResultCount`, the model providers' wire types,
     the scripted turns of `/testing`, …) and the zod schemas their types are inferred from.
+- **A late answer is a `PauseClosedError`, not a `NotPausedError`** (#939, part of #910): `app.resume`
+  of a pause that is not waiting — answered already, cancelled, withdrawn, its tree ended — throws
+  `PauseClosedError` (`code: "pause.closed"`; `pauseId`, `tenantId`, `reason: PauseClosedReason`,
+  `closedAt`) before a reply's interpreter is asked; its message names the pause by its `pauseKey`,
+  never its id. `NotPausedError` stays for the thread-level paths only. Over A2A the refusal is a
+  fixed `-32004` with `metadata { code: "a2a.pause-closed", reason, closedAt }` and a constant text
+  per reason; `a2a.already-answered` is no longer written (a kept reply of before still replays).
+  The `agboss/stores` contract is unchanged; `PausedRunBook.drop` and `forgetTree` take the end's cause.
 
 - **The store entry, the fenced effect's service, the errors, `Turn`, the prune verbs** (#890, API
   review G8):
@@ -833,6 +841,16 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
   task a resend had just created (two instances sweeping at once), and the next resend was a second
   task, charged twice: fixed in `@agboss/mongodb` (the delete re-checks what the sweep read).
   `src/infrastructure/sqlite/sqlite-a2a-task-sweep.ts` is now in the `a2a-tasks` mutation shard.
+- **A tree's end closes its pauses** (#939, the original #910): when a tree ends its stored paused
+  run is removed (only the ended run's, never a later run of the thread) and every pause it still has
+  is closed — a waiting one `Cancelled` (a cancel) or `TreeEnded`, an answer no step took (its
+  answer no step consumed) closed _not taken_ with the answer kept and the
+  answer log saying so; a step marks its answer `Taken` the moment it consumes it, before it acts, so
+  an answer whose tool ran stays `Taken` whatever fails after (a recovery runs such a step again). A pod that dies in the middle of it is finished by
+  another instance: each recovery sweep reads a page of open pauses and, under the tree's lease, runs
+  the whole idempotent end of a tree whose root's record ended. Before a closed pause's record is
+  removed by `retention.pauseRecords`, its log entry is written if a crash lost it.
+
 - **A resume of a tree that a cancelled drain had ended ran the answer, charged and paid, after the
   cancel** (#901, #907, #929) — an A2A follow-up (`SendMessage` after `INPUT_REQUIRED`) racing a
   `CancelTask`: the pass that took the answer was stopped by the cancel, its tree was ended and its

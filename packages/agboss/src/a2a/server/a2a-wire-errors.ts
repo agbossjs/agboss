@@ -33,6 +33,13 @@ export const taskNotCancelable = (): A2AError =>
 export const unsupportedOperation = (code: string, message: string): A2AError =>
   new UnsupportedOperationError({ message, metadata: { code } });
 
+/** `-32004` for a follow-up to a closed pause: its code, the reason and when it closed (#939). */
+export const pauseClosedRefusal = (reason: string, message: string, closedAt: string): A2AError =>
+  new UnsupportedOperationError({
+    message,
+    metadata: { code: "a2a.pause-closed", reason, closedAt },
+  });
+
 /** `-32005`: a part this agent does not read (a file: `raw`, `url`). */
 export const contentTypeNotSupported = (): A2AError =>
   new ContentTypeNotSupportedError({

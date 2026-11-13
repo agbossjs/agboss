@@ -8,7 +8,7 @@ import { describe, expect } from "vitest";
 import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
-import { NotPausedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
+import { PauseClosedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { ThreadOwnerError } from "../../src/core/errors.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
@@ -51,12 +51,12 @@ const statusOf = async (app: TestApp, pauseId: string): Promise<PauseStatus | un
     ?.status;
 
 describe("#712 AC4: exactly one answer wins", () => {
-  test("AC4: a second answer after the first is NotPausedError", async ({ app, mockLlm }) => {
+  test("AC4: a second answer after the first is PauseClosedError", async ({ app, mockLlm }) => {
     mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("done"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const done = await app.resume(answerOf(paused, yes), owner);
 
-    await expect(app.resume(answerOf(paused, no), owner)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, no), owner)).rejects.toBeInstanceOf(PauseClosedError);
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "done" });
     expect(mockLlm(BuyerAgent).requests).toHaveLength(2);
   });
@@ -78,7 +78,7 @@ describe("#712 AC4: exactly one answer wins", () => {
     const lost = settled.flatMap((each): unknown[] =>
       each.status === "rejected" ? [each.reason] : [],
     );
-    expect(lost).toEqual([expect.any(NotPausedError)]);
+    expect(lost).toEqual([expect.any(PauseClosedError)]);
     // the model read the answer once: its second turn, after exactly one answer
     expect(mockLlm(BuyerAgent).requests).toHaveLength(2);
   });
@@ -111,7 +111,7 @@ describe("#712 AC4: cancel, tenants and owners", () => {
     await app.cancel("buy-1", owner);
 
     expect(await statusOf(app, pauseId)).toBe(PauseStatus.Cancelled);
-    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(NotPausedError);
+    await expect(app.resume(answerOf(paused, yes), owner)).rejects.toBeInstanceOf(PauseClosedError);
   });
 
   test("AC4: another tenant's id is unknown; another owner is refused; it stays pending", async ({

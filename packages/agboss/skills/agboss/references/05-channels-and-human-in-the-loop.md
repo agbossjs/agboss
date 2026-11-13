@@ -441,7 +441,7 @@ DTO (a chat model gets one answer tool, `answer-<answer dto>`, and the not-under
 interpreter returns `ReplyInterpretation.understood(answer)`; a decision model cannot answer a
 question, `[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.Question`,
 `step` the question step, `ask` the masked question (opaque: read it after narrowing on `kind`, as
-`const fields: Readonly<Record<string, unknown>> = pending.ask`). Exactly one answer wins (`NotPausedError` for the
+`const fields: Readonly<Record<string, unknown>> = pending.ask`). Exactly one answer wins (`PauseClosedError` for the
 second), another instance continues it, a cancel withdraws it — as any pause. The step is no model
 call and no step of `maxSteps`; the execution's budgets are checked before it asks. A tool that
 names a question role is `[channel.wrong-tool]`.
@@ -489,8 +489,10 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   does not compile until `pending[0].kind === PauseKind.Approval`. Parallel branches pause on their own; the execution rests when nothing else can move,
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
-  on), or `Cancelled` (withdrawn). An answer to anything but `Pending` → `NotPausedError` (a double
-  click); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
+  on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed _not taken_).
+  An answer to anything but `Pending` → `PauseClosedError` with its `reason` and `closedAt` (a double
+  click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
+  only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ record: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`

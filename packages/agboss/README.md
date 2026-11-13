@@ -1223,9 +1223,13 @@ below never changes it; the pause records are operational state. A resolved paus
 record (`Taken`, `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` — default
 `hours(24)` — after it was resolved, then removed by the recovery sweep
 (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): within it a late answer
-is `NotPausedError`, after it `UnknownPauseError`; a pending pause is never removed. An answered
-(`Resolved`) pause no step took when its tree ended — a cancel that won over the answer — is marked
-`Taken` then, its answer kept, and goes the same way (#890).
+is `PauseClosedError` (its `reason` and `closedAt`), after it `UnknownPauseError`; a pending pause is never removed. When a tree
+ends, its stored paused run is removed and every pause it still has is closed: a waiting one
+`Cancelled` (a cancel) or `TreeEnded`; an answered (`Resolved`) one no step took — a cancel that won
+over the answer — closed the same way with its answer kept, and the answer log says _not taken_; one
+a step marks its answer `Taken` the moment it consumes it, before it acts — so an answer whose tool ran is `Taken`, whatever fails after (#910). A pod that dies in the middle of that is finished by
+another instance's sweep; before a closed pause's record is removed, its log entry is written if a
+crash lost it.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
@@ -1241,16 +1245,17 @@ channel, a guardrail or any component reads them through its injected `Execution
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with
 `ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn: their `resume` then
-throws `NotPausedError`;
+throws `PauseClosedError` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
 write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
-Resolved`, atomic) — of two resumes of one pause the second gets `NotPausedError`, as does an
-answer to a pause its step already took (`Taken`) or one withdrawn (`Cancelled`: the thread was
-cancelled, or a sibling branch failed under `FailFast`) — then waits while another call or instance
+Resolved`, atomic) — of two resumes of one pause the second gets `PauseClosedError`
+(`reason: "answered"`), as does an answer to a pause its step already took (`Taken`) or one closed
+(`Cancelled`: the thread was cancelled, a sibling branch failed under `FailFast`, its tree ended) —
+with the reason and when it closed, never the pause's id — then waits while another call or instance
 holds the lease; the holder continues with every recorded answer of the tree in one pass and, before
 the tree rests, takes the answers recorded meanwhile, so the waiting call returns the tree's current
 output with its decision taken. An instance that lost the

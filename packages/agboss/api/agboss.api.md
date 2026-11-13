@@ -6446,6 +6446,35 @@ export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
 
 // @public
+export class PauseClosedError extends AGBossError {
+    constructor(options: PauseClosedErrorOptions);
+    // (undocumented)
+    readonly closedAt: string;
+    // (undocumented)
+    static readonly code: "pause.closed";
+    // (undocumented)
+    readonly code: typeof PauseClosedError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly pauseId: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface PauseClosedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly closedAt: string;
+    readonly pauseId: string;
+    readonly reason: PauseClosedReason;
+    readonly tenantId: string;
+}
+
+// @public
 export enum PauseClosedReason {
     // (undocumented)
     Answered = "answered",
@@ -6484,7 +6513,7 @@ export abstract class PausedExecutionRepository {
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
-    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number, after?: string): Promise<PausePage>;
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
@@ -7996,7 +8025,7 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     // (undocumented)
     deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
-    findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    findClosedByResolvedAtBefore(cutoff: Date, limit: number, after?: string): Promise<PausePage>;
     // (undocumented)
     findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     // (undocumented)
@@ -8030,7 +8059,7 @@ export class SqlitePauseRows {
 // @public (undocumented)
 export class SqlitePauseScans {
     constructor(database: DatabaseSync);
-    closedBefore(cutoff: Date, limit: number): readonly PauseRecord[];
+    closedBefore(cutoff: Date, from: number, limit: number): PausePage;
     ofTenant(tenantId: string, filter: PauseFilter, from: number, limit: number): PausePage;
     open(from: number, limit: number): PausePage;
     page(where: {
@@ -9392,7 +9421,7 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 
 // Warnings were encountered during analysis:
 //
-// src/app/create-app.ts:62:3 - (ae-undocumented) Missing documentation for "profileRoot".
+// src/app/create-app.ts:63:3 - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts:19:3 - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts:22:12 - (ae-undocumented) Missing documentation for "name".
@@ -9486,7 +9515,15 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/outbound-calls.ts:274:3 - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-calls.ts:275:3 - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-calls.ts:276:3 - (ae-undocumented) Missing documentation for "reason".
-// src/app/paused-runs.ts:28:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/pause-closed-error.ts:14:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/pause-closed-error.ts:24:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/pause-closed-error.ts:25:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/pause-closed-error.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/pause-closed-error.ts:27:3 - (ae-undocumented) Missing documentation for "pauseId".
+// src/app/pause-closed-error.ts:28:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/pause-closed-error.ts:29:3 - (ae-undocumented) Missing documentation for "reason".
+// src/app/pause-closed-error.ts:30:3 - (ae-undocumented) Missing documentation for "closedAt".
+// src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts:103:3 - (ae-undocumented) Missing documentation for "reply".
@@ -10748,13 +10785,13 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:29:9 - (ae-undocumented) Missing documentation for "findOpenAfter".
 // src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:34:9 - (ae-undocumented) Missing documentation for "findPageByTenantId".
 // src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:45:9 - (ae-undocumented) Missing documentation for "findClosedByResolvedAtBefore".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:50:9 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:57:9 - (ae-undocumented) Missing documentation for "claimNoticesDue".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:70:9 - (ae-undocumented) Missing documentation for "ackNotice".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:74:9 - (ae-undocumented) Missing documentation for "retryNotice".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:84:9 - (ae-undocumented) Missing documentation for "setAsideNotices".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:90:9 - (ae-undocumented) Missing documentation for "setAsideStaleNoticesBefore".
-// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:104:9 - (ae-undocumented) Missing documentation for "countNotices".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:54:9 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:61:9 - (ae-undocumented) Missing documentation for "claimNoticesDue".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:74:9 - (ae-undocumented) Missing documentation for "ackNotice".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:78:9 - (ae-undocumented) Missing documentation for "retryNotice".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:88:9 - (ae-undocumented) Missing documentation for "setAsideNotices".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:94:9 - (ae-undocumented) Missing documentation for "setAsideStaleNoticesBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:108:9 - (ae-undocumented) Missing documentation for "countNotices".
 // src/infrastructure/sqlite/sqlite-pause-row-statements.ts:106:3 - (ae-undocumented) Missing documentation for "insert".
 // src/infrastructure/sqlite/sqlite-pause-row-statements.ts:125:3 - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/sqlite/sqlite-pause-row-statements.ts:132:3 - (ae-undocumented) Missing documentation for "findAllByRoot".

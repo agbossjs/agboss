@@ -1,4 +1,8 @@
-import { PauseStatus, type PauseRecord } from "../infrastructure/paused-execution.repository.js";
+import {
+  PauseResolution,
+  PauseStatus,
+  type PauseRecord,
+} from "../infrastructure/paused-execution.repository.js";
 import type { WaitingInterrupt } from "./waiting-pauses.js";
 
 /**
@@ -20,8 +24,15 @@ export interface TreeResume {
   readonly answeredBy: readonly (string | undefined)[];
 }
 
+/**
+ * An answer a step is to take: `Resolved`, `Cancelled` (withdrawn), or `Taken` by a step whose pass
+ * did not store it (#939: the answer is marked taken when the step consumes it; the interrupt still
+ * waiting in the checkpoint means a crash or failure came after, and the step runs again with it).
+ */
 const isAnswered = (pause: PauseRecord | undefined): pause is PauseRecord =>
-  pause?.status === PauseStatus.Resolved || pause?.status === PauseStatus.Cancelled;
+  pause?.status === PauseStatus.Resolved ||
+  pause?.status === PauseStatus.Cancelled ||
+  (pause?.status === PauseStatus.Taken && pause.resolution !== PauseResolution.Decided);
 
 /**
  * The tree's resume from its waiting interrupts and its pauses; `undefined` when none has an answer.

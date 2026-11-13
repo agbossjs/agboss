@@ -195,8 +195,8 @@ npm run answer -- <first pause id> <second pause id>   # --decline to refuse bot
 Expect two lines `taken — finished at offsite-booking-workflow-finish: {"summary":"venue Lakeside
 Lodge: booked; flights TLV → LIS: booked"}`: both answers taken, the run went on, no question
 printed again. Now press the same answer again — in the first terminal answer `y`
-(`agboss run: pause … is not waiting for an answer`), or `npm run answer -- <first pause id>` in
-the second (`NotPausedError — pause … is not waiting for an answer`). In Langfuse each buyer's
+(`agboss run: pause <key> is closed: answered at <time>`), or `npm run answer -- <first pause id>` in
+the second (`PauseClosedError: pause <key> is closed: answered at <time>`). In Langfuse each buyer's
 `place-purchase-tool` ran once.
 
 Answering in the first terminal only (`y`, then `y`) takes the two answers one after the other.

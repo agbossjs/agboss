@@ -11,7 +11,7 @@ import {
   pauseAnswererOf,
   type QuestionAsk,
 } from "../infrastructure/pause-record.js";
-import { runConfig } from "./paused.js";
+import { finishedTaskIdsOf, runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
 /**
@@ -43,7 +43,9 @@ async function interruptsIn(
   found: Map<string, WaitingInterrupt>,
 ): Promise<void> {
   const snapshot = await graph.getState(runConfig(threadId));
-  for (const { id, value } of snapshot.tasks.flatMap((task) => task.interrupts)) {
+  const finished = await finishedTaskIdsOf(graph.checkpointer, threadId);
+  const waitingTasks = snapshot.tasks.filter((task) => !finished.has(task.id));
+  for (const { id, value } of waitingTasks.flatMap((task) => task.interrupts)) {
     if (id === undefined) continue;
     const carried = PauseInterrupt.safeParse(value);
     if (carried.success) {
@@ -112,7 +114,8 @@ export interface PassPauses {
 /** A pause its loop still waits in: no decision yet, one recorded that no pass took, or answered now. */
 const isOpenPause = (record: PauseRecord, pass: PassPauses): boolean =>
   record.status === PauseStatus.Pending ||
-  (record.status === PauseStatus.Resolved && pass.taken?.has(record.pauseId) !== true) ||
+  ((record.status === PauseStatus.Resolved || record.status === PauseStatus.Taken) &&
+    pass.taken?.has(record.pauseId) !== true) ||
   pass.answering?.has(record.pauseId) === true;
 
 /**

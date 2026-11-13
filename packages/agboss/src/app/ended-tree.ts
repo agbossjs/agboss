@@ -84,7 +84,7 @@ export async function endedWithoutPass(
     await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, running);
   }
   const stored = await paused.find(state);
-  if (stored?.run.runId === state.runId) await paused.drop(state);
+  if (stored?.run.runId === state.runId) await paused.drop(state, state.runId, end.cause);
   const undo: EndedTreeUndo = end.undo ?? {};
   const failure = { error: end.cause, signal: end.signal, lease: end.lease };
   const ended = await undoneTreeEnd(deps, state, failure, undo);
@@ -95,7 +95,7 @@ export async function endedWithoutPass(
   const { compensations } = undo;
   if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
   if (isEnded) tallyLostRun(deps, state, lost);
-  await forgetTree(parts, state);
+  await forgetTree(parts, state, error);
   if (isEnded) {
     const event = executionEventAt(state, deps);
     await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });

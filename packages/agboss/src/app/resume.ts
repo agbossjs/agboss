@@ -18,7 +18,6 @@ import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import {
   logPauseAnswer,
-  NO_RECIPIENTS,
   pauseAnswererOf,
   PauseResolution,
 } from "../infrastructure/pause-record.js";
@@ -28,7 +27,9 @@ import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
-import { markAnswered, notPaused, refusedAfterMark } from "./paused-runs.js";
+import { markAnswered, refusedAfterMark } from "./paused-runs.js";
+import { recipientsOf } from "./pause-notices.js";
+import { pauseClosed } from "./pause-closed.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
@@ -194,7 +195,8 @@ export async function recordAnswer(
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
   const answeredBy = await answeredByOf(parts, pause, call);
-  if (pause.status !== PauseStatus.Pending) throw notPaused(pause.pauseId);
+  if (pause.status !== PauseStatus.Pending)
+    throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
   const answer = {
     decision: read.decision,
@@ -209,10 +211,12 @@ export async function recordAnswer(
     pause.pauseId,
     answer,
     at,
-    NO_RECIPIENTS,
+    recipientsOf(pause),
   );
   if (resolved === undefined) {
-    throw isMarked ? refusedAfterMark(parts, pause) : notPaused(pause.pauseId);
+    throw await (isMarked
+      ? refusedAfterMark(parts, pause)
+      : pauseClosed(parts.pauses, pause, parts.clock.now()));
   }
   await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };

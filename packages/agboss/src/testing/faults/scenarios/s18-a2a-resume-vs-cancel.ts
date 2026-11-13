@@ -11,6 +11,7 @@ import {
   isAccepted,
   isCanceled,
   isResumedFirst,
+  expectEndFinished,
   isStoppedWithin,
   movedBy,
   pausedTask,
@@ -40,9 +41,11 @@ import {
  *   `WORKING` write (the answered pass announced, not begun); b's cancel finds the tree running and
  *   requests its cancel; a's next background renewal reads it before the drain's pass moves, so
  *   that pass stops before it stores a step (its checkpoint still at the pause); the tree ends
- *   `CANCELED` and its keys go — the request with them —, and a dies before the end marks the
- *   answer `Taken`. b's resume then takes the lease: the answer `Resolved`, the first rest's paused
- *   run stored, no request — it reads the root's failed record and moves nothing (`-32004`).
+ *   `CANCELED` and its keys go — the request with them —, and a dies holding the tree's end at
+ *   its first write (#939: `pausedRun.delete`, before), so the answer is `Resolved` and the first
+ *   rest's paused run stored. b's resume takes the lease: it finishes the end (the answer no step
+ *   took closed not taken, the paused run removed) and refuses — `-32004 a2a.pause-closed`,
+ *   `answered`: the answer was recorded, no step took it — moving nothing; no `Resolved` pause or paused run is left, the log says not taken.
  * Never both resumed with effects and canceled (`a2a-tasks-once`).
  */
 
@@ -105,6 +108,12 @@ export const s18bCancelFirst: RunnableFaultScenario = {
     );
     expectThat(
       cluster,
+      resume.errorMetadata?.code === "a2a.pause-closed" &&
+        resume.errorMetadata.reason === "cancelled",
+      `the refusal was to be a2a.pause-closed, cancelled: ${JSON.stringify(resume)}`,
+    );
+    expectThat(
+      cluster,
       movedBy(cluster, b, StoreHoldPoint.PauseCancel).includes(true) &&
         !movedBy(cluster, a, StoreHoldPoint.PauseResolve).includes(true),
       `the cancel was to withdraw the pause first: ${transitionsOf(cluster, a, b)}`,
@@ -159,11 +168,11 @@ export const s18cResumedNotRun: RunnableFaultScenario = {
 export const s18dDrainTookAnswer: RunnableFaultScenario = {
   id: "s18d-a2a-drain-took-answer-cancel",
   title:
-    "18d: an A2A task answered while its first pass still holds it; the drain takes the answer, a cancel stops that pass and its pod dies before the answer is marked taken — the waiting resume runs nothing, -32004, CANCELED",
+    "18d: an A2A task answered while its first pass still holds it; the drain takes the answer, a cancel stops that pass and its pod dies holding the tree's end — the waiting resume finishes the end and runs nothing, -32004 a2a.pause-closed, CANCELED",
   run: async (cluster) => {
     const a = await a2aPod(cluster, "a");
     const b = await a2aPod(cluster, "b");
-    const { A2ATaskStatusWrite, LeaseRenew, PauseMarkTaken, PauseResolve } = StoreHoldPoint;
+    const { A2ATaskStatusWrite, LeaseRenew, PausedRunDelete, PauseResolve } = StoreHoldPoint;
     // a's status writes, each held once it is durable: the start's WORKING, the rest's
     // INPUT_REQUIRED, the drained pass's WORKING
     await holdStore(a, A2ATaskStatusWrite, undefined, { phase: HoldPhase.After, times: 3 });
@@ -197,21 +206,17 @@ export const s18dDrainTookAnswer: RunnableFaultScenario = {
     await holdStore(a, LeaseRenew, taskId);
     await release(a, renewal);
     await release(a, await heldAt(cluster, a, LeaseRenew, taskId, 2));
-    // the pass stops, the tree ends: its record failed, CANCELED, its keys gone (the request
-    // with them); a dies before the answer no step took is marked `Taken` (#890 marks it at the end)
-    const pauseId = typeof resolved.key === "string" ? resolved.key : undefined;
-    await holdStore(a, PauseMarkTaken, pauseId);
+    // the pass stops, the tree ends: its record failed, CANCELED, its keys gone (the request with
+    // them); a dies holding the end's first write — the paused run's removal, before it runs
+    await holdStore(a, PausedRunDelete, undefined, { phase: HoldPhase.Before });
     await release(a, drained);
-    await heldAt(cluster, a, PauseMarkTaken);
+    await heldAt(cluster, a, PausedRunDelete);
     await a.kill();
     // b's resume takes the lease once a's expires: a `Resolved` answer, the first rest's paused run
-    // and no cancel request — only the root's failed record tells it the tree is over
+    // and no cancel request — only the root's failed record tells it the tree is over; it finishes
+    // the end and refuses
     const resumed = await resume;
-    expectThat(
-      cluster,
-      resumed.errorCode === -32004,
-      `the resume of the ended tree was to be -32004: ${JSON.stringify(resumed)}`,
-    );
+    await expectEndFinished(cluster, resumed, b, taskId);
     const ended = await a2aCall(cluster, b, "GetTask", { id: taskId });
     expectThat(cluster, isCanceled(ended), `the task ended ${JSON.stringify(ended)}`);
     await canceledOnBoth(cluster, [b], taskId);

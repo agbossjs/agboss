@@ -3,6 +3,7 @@ import type { FaultCluster } from "../cluster.js";
 import type { PodEventFact } from "../facts.js";
 import type { FaultPod } from "../pod.js";
 import { FaultWorkflow } from "../pod-protocol.js";
+import { FaultPauseStateSchema, type FaultPauseState } from "../pod-pause-state.js";
 import { expectThat } from "./kit.js";
 
 /**
@@ -56,4 +57,12 @@ export async function resumeFinished(cluster: FaultCluster, tag: string): Promis
     `the resume ${tag} finished`,
     (event) => event.type === "finished" && event.tag === tag,
   );
+}
+
+/** The tree's pauses, paused run and answer log, read on `pod` (#939). */
+export async function pauseStateOn(
+  pod: FaultPod,
+  rootExecutionId: string,
+): Promise<FaultPauseState> {
+  return FaultPauseStateSchema.parse(await pod.command({ op: "pause-state", rootExecutionId }));
 }

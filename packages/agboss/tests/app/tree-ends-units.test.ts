@@ -10,12 +10,14 @@ import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import { forgetTree, leasedGraphDeps, passEnded } from "../../src/app/tree-ends.js";
 import type { GraphDeps } from "../../src/graph/deps.js";
 
-const mocks = vi.hoisted(() => ({ withdrawPauses: vi.fn(() => Promise.resolve()) }));
+const mocks = vi.hoisted(() => ({ closeTreePauses: vi.fn(() => Promise.resolve()) }));
 
-vi.mock("../../src/app/paused-runs.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../src/app/paused-runs.js")>()),
-  withdrawPauses: mocks.withdrawPauses,
+vi.mock("../../src/app/tree-end-pauses.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/app/tree-end-pauses.js")>()),
+  closeTreePauses: mocks.closeTreePauses,
 }));
+
+const END = { cause: new Error("ended") };
 
 const yieldWhile = vi.fn(<T>(wait: () => Promise<T>) => wait());
 const lease = { yieldWhile } as never;
@@ -62,22 +64,23 @@ describe("#633: leasedGraphDeps", () => {
 describe("#633: forgetTree and passEnded", () => {
   it("an application without queue, branch errors or pauses: only its keys go", async () => {
     const deleteAllInTree = vi.fn(() => Promise.resolve());
-    mocks.withdrawPauses.mockClear();
+    mocks.closeTreePauses.mockClear();
 
     await forgetTree(
       { deps: {}, trees: { deleteAllInTree }, clock: { now: () => new Date(0) } } as never,
       STATE,
+      END.cause,
     );
 
     expect(deleteAllInTree).toHaveBeenCalledWith({ tenantId: "acme", rootExecutionId: "root-1" });
-    expect(mocks.withdrawPauses).not.toHaveBeenCalled();
+    expect(mocks.closeTreePauses).not.toHaveBeenCalled();
   });
 
   it("with all of them: the queued children, branch errors and waiting pauses go too", async () => {
     const deleteAllByTenantIdAndRootExecutionId = vi.fn(() => Promise.resolve());
     const forgetExecution = vi.fn();
     const pause = { pauses: {} };
-    mocks.withdrawPauses.mockClear();
+    mocks.closeTreePauses.mockClear();
     const deps = {
       remoteChildren: { queue: { deleteAllByTenantIdAndRootExecutionId } },
       branchErrors: { forgetExecution },
@@ -91,15 +94,37 @@ describe("#633: forgetTree and passEnded", () => {
         clock: { now: () => new Date(0) },
       } as never,
       STATE,
+      END.cause,
     );
 
     expect(deleteAllByTenantIdAndRootExecutionId).toHaveBeenCalledWith("acme", "root-1");
     expect(forgetExecution).toHaveBeenCalledWith("root-1");
-    expect(mocks.withdrawPauses).toHaveBeenCalledWith(
-      pause,
-      { tenantId: "acme", rootExecutionId: "root-1" },
+    expect(mocks.closeTreePauses).toHaveBeenCalledWith(
+      expect.objectContaining({ stores: pause }),
+      { tenantId: "acme", rootExecutionId: "root-1", threadId: "thread-1" },
+      END,
       new Date(0),
     );
+  });
+
+  it("a tree that finished closes a pause it still had with the finish as its cause; an end that is no Error is made one", async () => {
+    mocks.closeTreePauses.mockClear();
+    const parts = {
+      deps: { pause: { pauses: {} } },
+      trees: { deleteAllInTree: () => Promise.resolve() },
+      clock: { now: () => new Date(0) },
+    } as never;
+
+    await forgetTree(parts, STATE);
+    await forgetTree(parts, STATE, "boom");
+    await forgetTree(parts, STATE, END.cause);
+
+    const causes = mocks.closeTreePauses.mock.calls.map((call) => (call as unknown[])[2]);
+    expect(causes).toEqual([
+      { cause: new Error("the tree finished") },
+      { cause: new Error("boom") },
+      { cause: END.cause },
+    ]);
   });
 
   it("a pass ended: its bodies awaited, its undo mirror forgotten — none without compensation", async () => {
