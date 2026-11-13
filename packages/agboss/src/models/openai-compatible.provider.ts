@@ -1,6 +1,7 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { TokenLimit } from "../config/types.js";
-import { chatOpenAIClass } from "./chat-openai.js";
+import { loadChatOpenAI } from "./chat-openai.js";
+import { LateModel, LazyChatModel } from "./lazy-chat-model.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
 import { ModelListCache, type ModelEntry } from "./model-list.js";
@@ -33,20 +34,24 @@ export abstract class OpenAiCompatibleProvider<
 
   chat(request: ChatRequest): BaseChatModel {
     const { settings, connection } = request;
-    const ChatOpenAI = chatOpenAIClass();
-    return new ChatOpenAI({
-      apiKey: connection.apiKey ?? "none",
-      model: settings.model,
-      temperature: settings.temperature,
-      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
-      // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
-      maxRetries: 0,
-      configuration: {
-        baseURL: connection.baseUrl,
-        fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
-        defaultHeaders: { "X-Title": "AGBoss" },
-      },
-    });
+    return new LazyChatModel(
+      new LateModel(async () => {
+        const ChatOpenAI = await loadChatOpenAI();
+        return new ChatOpenAI({
+          apiKey: connection.apiKey ?? "none",
+          model: settings.model,
+          temperature: settings.temperature,
+          ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
+          // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
+          maxRetries: 0,
+          configuration: {
+            baseURL: connection.baseUrl,
+            fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
+            defaultHeaders: { "X-Title": "AGBoss" },
+          },
+        });
+      }),
+    );
   }
 
   /** Everything this provider adds to a request of `request`'s model. */
