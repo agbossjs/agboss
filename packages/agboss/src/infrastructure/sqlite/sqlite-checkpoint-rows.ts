@@ -20,6 +20,32 @@ CREATE TABLE IF NOT EXISTS checkpoint_writes (
   value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
   PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
 
+/**
+ * The newest checkpoint of a thread's namespace by `(step, id)` is one index read (#962): `step` is
+ * `metadata.step` written with the row (a file written before has it `NULL` until the backfill).
+ * The indexes are made after the column exists; the backfill reads the step from the JSON the saver's
+ * serde dumps the metadata as, and counts a missing or non-number one as -2.
+ */
+export const STEP_INDEXES = [
+  `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
+   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`,
+  // the rows still without a step: empty once backfilled, so looking for them reads nothing
+  `CREATE INDEX IF NOT EXISTS checkpoints_without_step
+   ON checkpoints (thread_id, checkpoint_ns) WHERE step IS NULL`,
+];
+
+/** The read of `latestByStep`: one walk of `checkpoints_latest_by_step`, no sort. */
+export const LATEST_BY_STEP_SQL = `SELECT * FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ?
+  ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
+
+/** Gives every row without a step the one its metadata names; `WHERE` narrows it (a thread). */
+export const backfillStepsSql = (where: string): string => `UPDATE checkpoints SET step = COALESCE(
+  CASE WHEN metadata_type = 'json'
+    AND json_valid(CAST(metadata AS TEXT))
+    AND json_type(CAST(metadata AS TEXT), '$.step') IN ('integer', 'real')
+    THEN json_extract(CAST(metadata AS TEXT), '$.step') END, -2)
+  WHERE step IS NULL ${where}`;
+
 /** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
 export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
 

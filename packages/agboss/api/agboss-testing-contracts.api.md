@@ -178,6 +178,7 @@ export interface SabotageRun {
 
 // @public
 export enum StoreCapability {
+    LatestByStep = "latestByStep",
     WatchQueued = "watchQueued"
 }
 

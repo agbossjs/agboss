@@ -6,6 +6,7 @@ import {
   type CheckpointMetadata,
   type CheckpointTuple,
 } from "@langchain/langgraph";
+import { hasLatestByStep, newestFirstOrder, stepOf } from "../infrastructure/latest-by-step.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { withUsageRead, withUsageReadOf } from "./restored-usage.js";
 
@@ -86,6 +87,9 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
   async #tupleOf(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     if (idOf(config) !== undefined) return this.saver.getTuple(config);
     if (await this.#isMarked(config)) {
+      // a saver that reads its newest checkpoint by an index (#962) answers in one read
+      if (hasLatestByStep(this.saver))
+        return this.saver.latestByStep(threadOf(config, namespaceOf(config)));
       const [newest] = await this.#ordered(threadOf(config, namespaceOf(config)));
       return newest === undefined ? undefined : this.saver.getTuple(newest.config);
     }
@@ -114,8 +118,11 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
     metadata: CheckpointMetadata,
     newVersions: Parameters<BaseCheckpointSaver["put"]>[3],
   ): Promise<RunnableConfig> {
-    const floor = await this.#greatestOf(config);
-    if (floor !== undefined && checkpoint.id < floor) await this.#mark(config);
+    // a marked thread needs no floor: its order is by step, not by id
+    if (!this.#marked.has(threadIdOf(config))) {
+      const floor = await this.#greatestOf(config);
+      if (floor !== undefined && checkpoint.id < floor) await this.#mark(config);
+    }
     this.#see(config, checkpoint.id);
     return this.saver.put(config, checkpoint, metadata, newVersions);
   }
@@ -183,10 +190,15 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
 /** The namespace of a thread's mark: a checkpoint id of it sorted out of order once. */
 export const OUT_OF_ORDER = "agboss-out-of-order";
 
-/** Newest first: by LangGraph's step (each run continues at its last step + 1), then by id. */
+/**
+ * Newest first: by LangGraph's step (each run continues at its last step + 1; none or not a number
+ * counts as -2), then by id by code unit — the order `latestByStep` reads (#962).
+ */
 const newestFirst = (first: CheckpointTuple, second: CheckpointTuple): number =>
-  (second.metadata?.step ?? -2) - (first.metadata?.step ?? -2) ||
-  second.checkpoint.id.localeCompare(first.checkpoint.id);
+  newestFirstOrder(
+    { step: stepOf(first.metadata), id: first.checkpoint.id },
+    { step: stepOf(second.metadata), id: second.checkpoint.id },
+  );
 
 function* limited(tuples: readonly CheckpointTuple[], limit: number | undefined) {
   yield* limit === undefined ? tuples : tuples.slice(0, limit);

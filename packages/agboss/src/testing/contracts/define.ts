@@ -47,6 +47,7 @@ export interface CapabilityCheck<TStore> {
 /** Each capability as a message names it (`StoreCapability.WatchQueued`). */
 const CAPABILITY_NAMES: Readonly<Record<StoreCapability, string>> = {
   [StoreCapability.WatchQueued]: "StoreCapability.WatchQueued",
+  [StoreCapability.LatestByStep]: "StoreCapability.LatestByStep",
 };
 
 /** `StoreCapability.WatchQueued`, as a message names it. */

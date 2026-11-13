@@ -11,6 +11,12 @@ export enum StoreCapability {
    * instance queues a child. Without it a child queued elsewhere waits for the 30 s sweep.
    */
   WatchQueued = "watchQueued",
+  /**
+   * `LatestByStepCheckpointSaver.latestByStep` (#962): the newest checkpoint of a thread's
+   * namespace by `(step, id)` as one indexed read. Without it a marked thread's latest read lists
+   * its whole namespace and sorts it in memory.
+   */
+  LatestByStep = "latestByStep",
 }
 
 const CAPABILITIES: ReadonlySet<string> = new Set(Object.values(StoreCapability));

@@ -7356,12 +7356,13 @@ export abstract class SpendRecorder {
 }
 
 // @public
-export class SqliteCheckpointSaver extends BaseCheckpointSaver {
+export class SqliteCheckpointSaver extends BaseCheckpointSaver implements LatestByStepCheckpointSaver {
     constructor(connection: SqliteConnection);
     // (undocumented)
     deleteThread(threadId: string): Promise<void>;
     // (undocumented)
     getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
     // (undocumented)
     list(config: RunnableConfig, options?: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]>): AsyncGenerator<CheckpointTuple>;
     ping(): Promise<void>;
@@ -10132,11 +10133,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts:138:3 - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts:223:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts:229:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:42:9 - (ae-undocumented) Missing documentation for "getTuple".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:55:10 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:73:9 - (ae-undocumented) Missing documentation for "put".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:101:9 - (ae-undocumented) Missing documentation for "putWrites".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:142:3 - (ae-undocumented) Missing documentation for "deleteThread".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:55:9 - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:91:10 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:109:9 - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:138:9 - (ae-undocumented) Missing documentation for "putWrites".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:179:3 - (ae-undocumented) Missing documentation for "deleteThread".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:92:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:136:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".

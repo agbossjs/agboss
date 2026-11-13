@@ -30,7 +30,7 @@ import { SqliteMeshRequestRepository } from "../../../src/infrastructure/sqlite/
 import { SqliteA2ATaskRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { SqliteRateLimitRepository } from "../../../src/infrastructure/sqlite/sqlite-rate-limit.repository.js";
-import type { StoreSet } from "../../../src/testing/contracts/index.js";
+import { StoreCapability, type StoreSet } from "../../../src/testing/contracts/index.js";
 import { inMemoryFencedEffects, sqliteFencedEffects } from "./fenced-effect-stores.js";
 import { inMemoryOutboundCalls, sqliteOutboundCalls } from "./outbound-call-stores.js";
 import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
@@ -49,9 +49,12 @@ export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => (
     messages: new InMemoryA2ADirectMessageRepository(database),
     tasks: new InMemoryA2ATaskRepository(database),
   })),
-  checkpointSaver: inMemoryTarget((seam) =>
-    sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
-  ),
+  checkpointSaver: {
+    ...inMemoryTarget((seam) =>
+      sharedInMemory(seam, "checkpoints", () => new InMemoryCheckpointSaver()),
+    ),
+    capabilities: [StoreCapability.LatestByStep],
+  },
   childExecutionQueue: inMemoryTarget(
     ({ clock, application, database }) =>
       new InMemoryChildExecutionQueueRepository(clock, application, database),
@@ -96,7 +99,10 @@ export const sqliteStores = (): StoreSet<DatabaseSync> => ({
     messages: new SqliteA2ADirectMessageRepository(connection()),
     tasks: new SqliteA2ATaskRepository(connection()),
   })),
-  checkpointSaver: sqliteTarget(({ connection }) => new SqliteCheckpointSaver(connection())),
+  checkpointSaver: {
+    ...sqliteTarget(({ connection }) => new SqliteCheckpointSaver(connection())),
+    capabilities: [StoreCapability.LatestByStep],
+  },
   childExecutionQueue: sqliteTarget(
     ({ clock, application, connection }) =>
       new SqliteChildExecutionQueueRepository(connection(), clock, application),
