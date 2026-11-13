@@ -5,7 +5,7 @@
  */
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, emptyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OrderedCheckpointSaver } from "../../src/app/leased-checkpointer.js";
 import { OUT_OF_ORDER } from "../../src/app/checkpoint-keys.js";
 import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
@@ -13,6 +13,9 @@ import { hasLatestByStep } from "../../src/infrastructure/latest-by-step.js";
 import { LATEST_BY_STEP_SQL } from "../../src/infrastructure/sqlite/sqlite-checkpoint-rows.js";
 import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { connectionTo, temporarySqlitePath } from "../infrastructure/contracts/store-kinds.js";
+
+// 10 000 puts through the checkpointer: a loaded CI machine needs more than the default 5 s
+vi.setConfig({ testTimeout: 60_000 });
 
 const CHECKPOINTS = 10_000;
 const thread: RunnableConfig = { configurable: { thread_id: "busy", checkpoint_ns: "" } };

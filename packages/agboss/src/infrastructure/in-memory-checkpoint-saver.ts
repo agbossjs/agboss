@@ -17,12 +17,17 @@ class StepIndex {
     return this.#newest;
   }
 
-  /** Notes `id` put at `step` (again: at its new one, so the newest may be another). */
+  /** Notes `id` put at `step`; the newest is found again only when the newest was put again. */
   note(id: string, step: number): void {
     this.#steps.set(id, step);
-    this.#newest = [...this.#steps.keys()].reduce((best, each) =>
-      newestFirstOrder(this.#entry(each), this.#entry(best)) < 0 ? each : best,
-    );
+    const known = this.#newest;
+    if (known === undefined || newestFirstOrder(this.#entry(id), this.#entry(known)) < 0)
+      this.#newest = id;
+    else if (known === id)
+      // the newest was put again, maybe lower: the best of the namespace's ids is the newest now
+      this.#newest = [...this.#steps.keys()].reduce((best, each) =>
+        newestFirstOrder(this.#entry(each), this.#entry(best)) < 0 ? each : best,
+      );
   }
 
   #entry(id: string): { step: number; id: string } {
