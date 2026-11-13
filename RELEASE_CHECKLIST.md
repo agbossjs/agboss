@@ -85,15 +85,17 @@ gh pr list -R agbossjs/agboss --state open && gh pr list -R agbossjs/postgres --
 
 ## Step 2 — The release-prep PRs: versions and changelogs, merged last
 
-The version bump waits on its branch until everything else is on `main` (#691): `chore/691-version-<version>`
+The version bump waits on its branch until everything else is on `main` (#691): `release/<version>`
 in agbossjs/agboss (`packages/agboss`, `packages/agboss-cli` and the CLI's `@agboss/core`
 dependency at the version, the root `package.json`, `package-lock.json`, `CHANGELOG.md` — the
-version's section dated).
+version's section dated), assembled from the `changes/` fragments by
+`node scripts/changelog-assemble.mjs <version>` (#981; a branch `release/*` is the one CI lets edit
+`CHANGELOG.md`).
 
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && git fetch origin && \
-  git switch "chore/691-version-$RELEASE_VERSION" && git rebase origin/main && \
+  git switch "release/$RELEASE_VERSION" && git rebase origin/main && \
   npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && npm run check:packed && \
   node scripts/release/release-plan.mjs --tag "v$RELEASE_VERSION" && \
   git push --force-with-lease origin HEAD
@@ -188,7 +190,7 @@ rm -rf "$SCRATCH/core-app" && cd "$SCRATCH" && \
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/postgres" && git fetch origin && \
-  git switch "chore/691-version-$RELEASE_VERSION" && git rebase origin/main && \
+  git switch "release/$RELEASE_VERSION" && git rebase origin/main && \
   node scripts/pin-framework.mjs --registry "$RELEASE_VERSION" && \
   test "$(node -p "require('./.agboss-version.json').source")" = registry && \
   npm ci && npm run pack:framework && npm run install:packed && \

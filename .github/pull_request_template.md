@@ -11,6 +11,10 @@ Refs #
   - AC1 — <tests / manual check>
 - Test cases from the spec: all covered / exceptions:
 
+## Changelog
+
+- Fragment `changes/<issue>-<slug>.md` added (never an edit of `CHANGELOG.md`) / none: no user-visible change
+
 ## Wiki to update after merge
 
 None

@@ -10,6 +10,7 @@
 .root-allowlist
 .suppressions.json
 CHANGELOG.md
+changes
 CLAUDE.md
 CONTRIBUTING.md
 LICENSE
