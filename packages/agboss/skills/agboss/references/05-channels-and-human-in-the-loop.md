@@ -491,7 +491,8 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed *not taken*).
   An answer to anything but `Pending` → `PauseClosedError` with its `reason` and `closedAt` (a double
-  click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
+  click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
+  only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ record: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`
