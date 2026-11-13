@@ -8,6 +8,8 @@
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { FingerprintNotJsonError } from "../../src/index.js";
+import { InvalidFencedEffectKeyError, keyProblemOf } from "../../src/infrastructure/issued-keys.js";
+import { SyncWorkRequiredError } from "../../src/infrastructure/fenced-effect-errors.js";
 import { runInFrame, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   BUSINESS_KEY_HANDLE_LABEL,
@@ -235,6 +237,77 @@ describe("#626: the key errors", () => {
     expect(refused).toMatchObject({
       name: "InvalidBusinessKeyError",
       code: "fenced-effect.invalid-business-key",
+    });
+  });
+});
+
+describe("#909: the tree a key's cancel fences, and an undo's key", () => {
+  const contextOf = (extra: object) =>
+    ({
+      executionId: "child-7",
+      root: { executionId: "execution-1" },
+      step: {
+        nodeId: "charge-action",
+        visitNumber: 1,
+        idempotencyKey: "child-7:charge-action:1",
+        ...extra,
+      },
+      fence: {
+        scopeKey: "default:child-7",
+        tenantId: "default",
+        leaseExecutionId: "child-7",
+        token: 1,
+      },
+    }) as never;
+
+  it("a key carries its root's execution id (not the child's lease); a step that compensates marks it", async () => {
+    const forward = await inFrame(frameWith({}), () => effectKeyOf(contextOf({}), "charge"));
+    const undo = await inFrame(frameWith({}), () =>
+      effectKeyOf(
+        contextOf({ compensates: { nodeId: "charge-action", visitNumber: 1 } }),
+        "refund",
+      ),
+    );
+
+    expect(forward.rootExecutionId).toBe("execution-1");
+    expect(forward.leaseExecutionId).toBe("child-7");
+    expect(Object.keys(forward)).not.toContain("isCompensation");
+    expect(undo.rootExecutionId).toBe("execution-1");
+    expect(undo.isCompensation).toBe(true);
+  });
+});
+
+describe("#825/#909: why a key made by hand is refused", () => {
+  const good = keyMadeBy(ORIGIN);
+
+  it("a key of its scope, a whole token from 1 and an idempotency key has no problem", () => {
+    expect(keyProblemOf(good)).toBeUndefined();
+  });
+
+  it.each([
+    [
+      { scopeKey: "other:scope" },
+      `its scopeKey "other:scope" is not the scope of tenant ${good.tenantId} and execution ${good.leaseExecutionId}`,
+    ],
+    [{ token: 0 }, "its token 0 is not a lease epoch (a whole number from 1)"],
+    [{ token: 1.5 }, "its token 1.5 is not a lease epoch (a whole number from 1)"],
+    [{ token: -3 }, "its token -3 is not a lease epoch (a whole number from 1)"],
+    [{ idempotencyKey: "" }, "its idempotencyKey must not be empty"],
+  ])("%j is named", (change, why) => {
+    expect(keyProblemOf(effectKeyForTesting(good, change))).toBe(why);
+  });
+
+  it("the errors are named and keep their text and cause", () => {
+    const cause = new Error("driver");
+
+    expect(new InvalidFencedEffectKeyError("not a key").name).toBe("InvalidFencedEffectKeyError");
+    expect(new SyncWorkRequiredError({ effect: "charge", cause })).toMatchObject({
+      name: "SyncWorkRequiredError",
+      code: "fenced-effect.sync-work-required",
+      effect: "charge",
+      cause,
+      message:
+        'fenced effect "charge" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call',
     });
   });
 });

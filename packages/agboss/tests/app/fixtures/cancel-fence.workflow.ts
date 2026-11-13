@@ -37,7 +37,12 @@ export const seen = {
   released: [] as string[],
   refusals: [] as unknown[],
   fenced: [] as { readonly name: string; readonly outcome: string }[],
-  calls: [] as { readonly name: string; readonly outcome: string }[],
+  calls: [] as {
+    readonly name: string;
+    readonly outcome: string;
+    readonly status: string;
+    readonly attempt: number;
+  }[],
 };
 
 export function resetSeen(): void {
@@ -63,8 +68,18 @@ export class CancelFenceObserver implements OnFencedEffect, OnOutboundCall {
   onFencedEffect(event: { readonly name: string; readonly outcome: string }): void {
     seen.fenced.push({ name: event.name, outcome: event.outcome });
   }
-  onOutboundCall(event: { readonly name: string; readonly outcome: string }): void {
-    seen.calls.push({ name: event.name, outcome: event.outcome });
+  onOutboundCall(event: {
+    readonly name: string;
+    readonly outcome: string;
+    readonly status: string;
+    readonly attempt: number;
+  }): void {
+    seen.calls.push({
+      name: event.name,
+      outcome: event.outcome,
+      status: event.status,
+      attempt: event.attempt,
+    });
   }
 }
 

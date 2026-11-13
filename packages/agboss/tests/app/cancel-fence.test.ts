@@ -106,7 +106,9 @@ describe("#909 AC1/AC3: a live holder between the cancel request and its next re
 
     expect(error).toBeInstanceOf(ExecutionCancelledError);
     expect(seen.requests).toEqual([]);
-    expect(seen.calls).toEqual([{ name: "pay", outcome: "cancelled" }]);
+    expect(seen.calls).toEqual([
+      { name: "pay", outcome: "cancelled", status: "pending", attempt: 0 },
+    ]);
     expect(seen.released).toEqual(["reservation-order-1"]);
   });
 
