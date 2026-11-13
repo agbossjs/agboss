@@ -1,7 +1,21 @@
 import { z } from "zod";
 import type { ProviderConnection } from "./handler.js";
 
-/** One model in an OpenAI-compatible `GET /models` replyWith; OpenRouter adds what each model supports. */
+/** One model in an OpenAI-compatible `GET /models` reply; OpenRouter adds what each model supports. */
+export interface ModelEntry {
+  readonly id: string;
+  readonly supported_parameters?: string[] | undefined;
+  readonly reasoning?:
+    | {
+        readonly mandatory?: boolean | undefined;
+        readonly supported_efforts?: string[] | undefined;
+        readonly [key: string]: unknown;
+      }
+    | undefined;
+  readonly pricing?: Record<string, unknown> | undefined;
+  readonly [key: string]: unknown;
+}
+
 const ModelEntrySchema = z.looseObject({
   id: z.string(),
   supported_parameters: z.array(z.string()).optional(),
@@ -12,11 +26,9 @@ const ModelEntrySchema = z.looseObject({
     })
     .optional(),
   pricing: z.record(z.string(), z.unknown()).optional(),
-});
+}) satisfies z.ZodType<ModelEntry>;
 
 const ModelListSchema = z.looseObject({ data: z.array(ModelEntrySchema) });
-
-export type ModelEntry = z.infer<typeof ModelEntrySchema>;
 
 export class ModelListError extends Error {
   override name = "ModelListError";

@@ -2804,9 +2804,9 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `agbossVitest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\//`
   (#891: every `@agboss` package — a store package external to vitest loads a core of its own, its
   classes undecorated for the test's) — installed from npm the core is external to vitest, and every file it loads by path (the
-  application `workflowOf(W)` finds next to `W`, environments, eval suites) would bypass vite: no
+  application `testWith(W)` finds next to `W`, environments, eval suites) would bypass vite: no
   decorators, a second module graph — and `setupFiles` gains `@agboss/core/testing/setup` (once;
-  the user's arrays merged, the rest passed through). Without it `workflowOf(W)` throws
+  the user's arrays merged, the rest passed through). Without it `testWith(W)` throws
   `TestSetupError` naming the fix when the application's import fails or lists another class named
   `W`; `npm run check:packed` (CI's `packed-project` job) proves both on the packed tarballs in a
   project of its own — and that the packages ship the `src/` their source maps name (#645: no

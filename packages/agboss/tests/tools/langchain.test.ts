@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toolOf } from "../../src/testing/index.js";
+import { toolOf } from "../../src/components/runtime.js";
 import { renderToolResult, toolDefinitionOf } from "../../src/tools/index.js";
 import { Clock } from "../fixtures/test-workflow/test.workflow.js";
 

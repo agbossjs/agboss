@@ -3,7 +3,7 @@ import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { costCategoryOf, recordReportedCost } from "../../src/finops/usage.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import type { AgentExecutionDeps } from "../../src/index.js";
+import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { createModelRegistry, type ModelFactory } from "../../src/llm/registry.js";
 import { CITE_INSTRUCTION } from "../../src/prompts/rag.js";
 import type { KnowledgeSource } from "../../src/rag/types.js";

@@ -26,7 +26,7 @@ import {
   WorkflowStart,
   pii,
 } from "../src/index.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../src/workflow.js";
 import type { Class } from "../src/components/injection.js";
 import { TEST_BUDGETS } from "./flow/fixtures/budgets.js";

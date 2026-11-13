@@ -24,8 +24,16 @@ export interface A2ATarget {
   readonly finishes?: readonly string[];
 }
 
-/** The parts of an `@A2AAgent` beside its DTOs. */
-interface A2AAgentBase<D extends readonly Token[]> {
+/**
+ * What `@A2AAgent({ … })` takes: the agent's parts beside its DTOs, and either both `input` and
+ * `output` (a typed agent: `execute(input)` sends `input` and gives `output`, both validated) or
+ * neither (an untyped one: `send(message)` only).
+ */
+export type A2AAgentConfig<
+  TIn extends DtoClass = DtoClass,
+  TOut extends DtoClass = DtoClass,
+  D extends readonly Token[] = [],
+> = {
   /** `billing-desk-a2a-agent` — kebab-case, ending with `-a2a-agent` (`[name.kind-suffix]`). */
   readonly name: string;
   /** The agent's base URL; its card is read from `<url>/.well-known/agent-card.json`. */
@@ -50,27 +58,18 @@ interface A2AAgentBase<D extends readonly Token[]> {
   readonly allowedOrigins?: readonly string[];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
-}
-
-/** A typed agent: `execute(input)` sends `input` and gives `output`, both validated. */
-interface A2AAgentTyped<TIn extends DtoClass, TOut extends DtoClass> {
-  /** What `execute(input)` takes: the skill's input, validated before it is sent. */
-  readonly input: TIn;
-  /** What `execute` gives back: the task's output, validated when it comes. */
-  readonly output: TOut;
-}
-
-/** An untyped agent: `send(message)` only. */
-interface A2AAgentUntyped {
-  readonly input?: undefined;
-  readonly output?: undefined;
-}
-
-export type A2AAgentConfig<
-  TIn extends DtoClass = DtoClass,
-  TOut extends DtoClass = DtoClass,
-  D extends readonly Token[] = [],
-> = A2AAgentBase<D> & (A2AAgentTyped<TIn, TOut> | A2AAgentUntyped);
+} & (
+  | {
+      /** What `execute(input)` takes: the skill's input, validated before it is sent. */
+      readonly input: TIn;
+      /** What `execute` gives back: the task's output, validated when it comes. */
+      readonly output: TOut;
+    }
+  | {
+      readonly input?: undefined;
+      readonly output?: undefined;
+    }
+);
 
 /** What `@A2AAgent` records of its class. */
 export interface A2AAgentMeta {

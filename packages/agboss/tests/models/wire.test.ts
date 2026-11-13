@@ -27,7 +27,7 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
 } from "../../src/index.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { parseWireRequest, wireFetch } from "../../src/models/wire.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";

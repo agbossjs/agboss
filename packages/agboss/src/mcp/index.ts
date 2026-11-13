@@ -14,3 +14,11 @@ export {
 export { McpExpose, type McpExposeOptions } from "./mcp-expose.decorator.js";
 export { McpService, createMcpService, type McpSession } from "./mcp-service.js";
 export type { McpSessionOptions } from "./mcp-tool-registry.js";
+export {
+  type ArgumentsOf,
+  type ResultOf,
+  type ServerToolCallable,
+} from "../components/mcp-client.js";
+export { type McpServerConfig } from "../config/types.js";
+export { McpServerConfigSchema } from "../config/types.js";
+export { type ToolInvocationContext } from "../tools/index.js";

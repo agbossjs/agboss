@@ -77,7 +77,7 @@ export const MediaType = scalar<string>("media-type");
 /** An IANA time zone: `"Asia/Jerusalem"`. */
 export const TimeZone = scalar<string>("time-zone");
 
-type OneOfOptions<V extends readonly string[]> = OneOfValues<V> & FieldOptions<V[number]>;
+export type OneOfOptions<V extends readonly string[]> = OneOfValues<V> & FieldOptions<V[number]>;
 
 /** One of `values`; the field's type must be exactly their union. */
 export function OneOf<const V extends readonly [string, ...string[]]>(
@@ -102,7 +102,7 @@ const elementOf = (item: object): ElementSpec => {
     : { kind: "scalar", scalar: kind };
 };
 
-type ListOptions<T> = ListLimits & FieldOptions<T[]>;
+export type ListOptions<T> = ListLimits & FieldOptions<T[]>;
 
 /** `@ListOf`: `optional: true` ↔ `name?: T[]`; the last signature is the required one. */
 export interface ListOfFactory {

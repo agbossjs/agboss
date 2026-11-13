@@ -65,7 +65,7 @@ export type ToolClass<TInput extends object> = Class<{
 }>;
 
 /** The input a tool's `run` takes: what `callTool(Tool, args)` checks `args` by. */
-export type ToolInputOf<TInstance> = TInstance extends {
+export type CalledToolArguments<TInstance> = TInstance extends {
   run(input: infer TInput extends object): Promise<unknown>;
 }
   ? TInput
@@ -95,7 +95,7 @@ export function toolNameOf(tool: Class): string {
  */
 export function callTool<TTool extends ToolClass<never>>(
   tool: TTool,
-  args: NoInfer<ToolInputOf<InstanceType<TTool>>>,
+  args: NoInfer<CalledToolArguments<InstanceType<TTool>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 /** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
 export function callTool<TRag extends Class<RagConnector>>(
@@ -119,7 +119,7 @@ export function callTool(tool: Class, args: object): ToolCallTurn {
 }
 
 /** The search tool a knowledge base gives its agents (#703, #679): `search-<rag>-tool`. */
-type SearchToolNameOf<TRag> =
+export type SearchToolNameOf<TRag> =
   string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
 
 /**

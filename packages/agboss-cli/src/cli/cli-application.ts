@@ -1,4 +1,5 @@
-import type { AssembledWorkflow, Class, Environment } from "@agboss/core";
+import type { Class, Environment } from "@agboss/core";
+import type { AssembledWorkflow } from "@agboss/core/internal";
 import {
   applicationOf,
   environmentFor,

@@ -10,7 +10,7 @@ import type { RetryPolicy } from "./retry-policy.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** What every `@ModelProvider` says, HTTP or a transport (#385). */
-interface ModelProviderBaseOptions {
+export interface ModelProviderBaseOptions {
   /**
    * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
    * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
@@ -87,11 +87,11 @@ export type KeptModelProviderOptions = ModelProviderOptions & {
 export type ModelProviderType = abstract new (...args: never[]) => ModelProviderHandler;
 
 /** An HTTP provider's class: no arguments, `chat` / `routeTo` and `capabilities`, no `complete`. */
-type HttpModelProviderType = abstract new () => ModelProviderHandler &
+export type HttpModelProviderType = abstract new () => ModelProviderHandler &
   Required<Pick<ModelProviderHandler, "capabilities">> & { readonly complete?: never };
 
 /** A transport provider's class: its `deps` as constructor parameters, `complete`, no `chat`. */
-type TransportModelProviderType<D extends readonly Token[]> = abstract new (
+export type TransportModelProviderType<D extends readonly Token[]> = abstract new (
   ...args: ResolvedAll<D>
 ) => ModelProviderHandler &
   Required<Pick<ModelProviderHandler, "complete">> & {

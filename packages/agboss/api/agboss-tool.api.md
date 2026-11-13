@@ -4,10 +4,6 @@
 
 ```ts
 
-// Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
 
@@ -19,8 +15,6 @@ export interface ToolHandler<TInput, TOutput> {
 
 // @public (undocumented)
 export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly channel?: Class;
     readonly deps?: D;
@@ -29,7 +23,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly excludeToolInterceptors?: readonly Class[];
     // (undocumented)
     readonly input: In;
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxResultSize?: Bytes;
     // (undocumented)
     readonly name: string;
@@ -40,7 +33,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly readOnly?: boolean;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeout?: Milliseconds;
     readonly toolInterceptors?: readonly Class[];
 }

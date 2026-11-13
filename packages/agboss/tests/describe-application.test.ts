@@ -21,7 +21,7 @@ import {
   type OnExecutionEnd,
 } from "../src/index.js";
 import { ImplementationReason } from "../src/application/implementations.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import { usd, type Usd } from "../src/units/index.js";
 import { start } from "./helpers/flow.js";
 import { RecordingCostLedgerRepository } from "./application/fixtures/desks.application.js";

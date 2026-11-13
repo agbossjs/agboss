@@ -69,21 +69,20 @@ export class DateTimeRangeDto {
     to: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "NumberLimits" needs to be exported by the entry point index.d.ts
-//
 // @public
 export const Decimal: FieldFactory<number, NumberLimits>;
 
-// Warning: (ae-forgotten-export) The symbol "DecimalStringLimits" needs to be exported by the entry point index.d.ts
-//
 // @public
 export const DecimalString: FieldFactory<string, DecimalStringLimits>;
+
+// @public (undocumented)
+export interface DecimalStringLimits {
+    readonly scale?: number;
+}
 
 // @public
 export type DtoClass<T = object> = abstract new () => T;
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class DtoError extends AGBossError {
     constructor(options: DtoErrorOptions);
@@ -144,8 +143,6 @@ export const Duration: FieldFactory<string, object>;
 // @public (undocumented)
 export const Email: FieldFactory<string, object>;
 
-// Warning: (ae-forgotten-export) The symbol "PlainFieldContext" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type FieldDecorator<T> = <This>(value: undefined, context: ClassFieldDecoratorContext<This, T> & PlainFieldContext<This>) => (initial: T) => T;
 
@@ -189,8 +186,6 @@ export interface HistoryOptions {
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
     // (undocumented)
     readonly dto: TDto;
-    // Warning: (ae-forgotten-export) The symbol "Wrapper" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kind: Wrapper.History;
     // (undocumented)
@@ -211,17 +206,35 @@ export function isVariant<TItem extends {
 }>;
 
 // @public
+export type ListElementShape = DtoClass | OneOfWrapper;
+
+// @public
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
 
-// Warning: (ae-forgotten-export) The symbol "ListOfFactory" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export interface ListLimits {
+    // (undocumented)
+    readonly maxItems?: number;
+    // (undocumented)
+    readonly minItems?: number;
+}
+
 // @public
 export const ListOf: ListOfFactory;
 
-// Warning: (ae-forgotten-export) The symbol "ListElementShape" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
+
+// @public
+export interface ListOfFactory {
+    // (undocumented)
+    <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): FieldDecorator<T[] | undefined>;
+    // (undocumented)
+    <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): FieldDecorator<T[]>;
+}
+
+// @public (undocumented)
+export type ListOptions<T> = ListLimits & FieldOptions<T[]>;
 
 // @public
 export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
@@ -252,18 +265,34 @@ export function Nested<T extends object>(dto: DtoClass<T>, options?: FieldOption
 export class NoInputDto extends Object {
 }
 
-// Warning: (ae-forgotten-export) The symbol "OneOfOptions" needs to be exported by the entry point index.d.ts
-//
+// @public (undocumented)
+export interface NumberLimits {
+    // (undocumented)
+    readonly max?: number;
+    // (undocumented)
+    readonly min?: number;
+}
+
 // @public
 export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & OptionalField): FieldDecorator<V[number] | undefined>;
 
 // @public (undocumented)
 export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & RequiredField<V[number]>): FieldDecorator<V[number]>;
 
-// Warning: (ae-forgotten-export) The symbol "OneOfVariants" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
+
+// @public (undocumented)
+export type OneOfOptions<V extends readonly string[]> = OneOfValues<V> & FieldOptions<V[number]>;
+
+// @public (undocumented)
+export interface OneOfValues<V extends readonly string[]> {
+    // (undocumented)
+    readonly values: V;
+}
+
+// @public
+export type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
 
 // @public
 export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
@@ -273,8 +302,6 @@ export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
     readonly variants: TVariants;
 }
 
-// Warning: (ae-forgotten-export) The symbol "OptionalInnerShape" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
 
@@ -285,6 +312,9 @@ export interface OptionalField {
     // (undocumented)
     readonly optional: true;
 }
+
+// @public
+export type OptionalInnerShape = DtoClass | ListWrapper;
 
 // @public
 export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
@@ -298,6 +328,11 @@ export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInn
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
+export type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
+    readonly [variantClass]: TDto;
+};
+
+// @public
 export class PersonNameDto {
     // (undocumented)
     family?: string;
@@ -307,6 +342,16 @@ export class PersonNameDto {
 
 // @public
 export const PhoneNumber: FieldFactory<string, object>;
+
+// @public
+export interface PlainFieldContext<This> {
+    // (undocumented)
+    readonly name: keyof This;
+    // (undocumented)
+    readonly private: false;
+    // (undocumented)
+    readonly static: false;
+}
 
 // @public
 export class PlainTextDto {
@@ -359,23 +404,32 @@ export interface RequiredField<T> {
     readonly optional?: false;
 }
 
-// Warning: (ae-forgotten-export) The symbol "MaskingPiiAction" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type Sensitivity = MaskingPiiAction;
 
-// Warning: (ae-forgotten-export) The symbol "TextLimits" needs to be exported by the entry point index.d.ts
-//
 // @public
 export const Text: FieldFactory<string, TextLimits>;
+
+// @public (undocumented)
+export interface TextLimits {
+    // (undocumented)
+    readonly maxLength?: number;
+    // (undocumented)
+    readonly minLength?: number;
+    readonly pattern?: RegExp;
+}
 
 // @public
 export const TimeZone: FieldFactory<string, object>;
 
 // @public
+export class ToolArguments {
+    // (undocumented)
+    readonly [name: string]: unknown;
+}
+
+// @public
 export class ToolCallApprovalAskDto {
-    // Warning: (ae-forgotten-export) The symbol "ToolArguments" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     arguments: ToolArguments;
     // (undocumented)
@@ -416,8 +470,6 @@ export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
 
-// Warning: (ae-forgotten-export) The symbol "PartialVariant" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
@@ -455,12 +507,28 @@ export class WorkflowStartTextDto {
     text: string;
 }
 
+// @public
+export enum Wrapper {
+    // (undocumented)
+    History = "history",
+    // (undocumented)
+    List = "list",
+    // (undocumented)
+    OneOf = "one-of",
+    // (undocumented)
+    Optional = "optional"
+}
+
 // Warnings were encountered during analysis:
 //
 // src/dto/decorators.ts:57:14 - (ae-undocumented) Missing documentation for "Email".
 // src/dto/decorators.ts:58:14 - (ae-undocumented) Missing documentation for "Url".
 // src/dto/decorators.ts:59:14 - (ae-undocumented) Missing documentation for "Uuid".
+// src/dto/decorators.ts:80:1 - (ae-undocumented) Missing documentation for "OneOfOptions".
 // src/dto/decorators.ts:86:1 - (ae-undocumented) Missing documentation for "OneOf".
+// src/dto/decorators.ts:105:1 - (ae-undocumented) Missing documentation for "ListOptions".
+// src/dto/decorators.ts:109:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts:110:3 - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts:125:1 - (ae-undocumented) Missing documentation for "Nested".
 // src/dto/errors.ts:7:3 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:8:3 - (ae-undocumented) Missing documentation for "message".
@@ -504,6 +572,7 @@ export class WorkflowStartTextDto {
 // src/dto/standard/framework.ts:28:3 - (ae-undocumented) Missing documentation for "question".
 // src/dto/standard/framework.ts:35:3 - (ae-undocumented) Missing documentation for "options".
 // src/dto/standard/framework.ts:41:3 - (ae-undocumented) Missing documentation for "replyWith".
+// src/dto/standard/framework.ts:46:3 - (ae-undocumented) Missing documentation for "__index".
 // src/dto/standard/framework.ts:53:3 - (ae-undocumented) Missing documentation for "callId".
 // src/dto/standard/framework.ts:56:3 - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts:59:3 - (ae-undocumented) Missing documentation for "arguments".
@@ -522,8 +591,27 @@ export class WorkflowStartTextDto {
 // src/dto/types.ts:49:3 - (ae-undocumented) Missing documentation for "default".
 // src/dto/types.ts:54:3 - (ae-undocumented) Missing documentation for "optional".
 // src/dto/types.ts:55:3 - (ae-undocumented) Missing documentation for "default".
+// src/dto/types.ts:58:1 - (ae-undocumented) Missing documentation for "TextLimits".
+// src/dto/types.ts:59:3 - (ae-undocumented) Missing documentation for "minLength".
+// src/dto/types.ts:60:3 - (ae-undocumented) Missing documentation for "maxLength".
+// src/dto/types.ts:65:1 - (ae-undocumented) Missing documentation for "NumberLimits".
+// src/dto/types.ts:66:3 - (ae-undocumented) Missing documentation for "min".
+// src/dto/types.ts:67:3 - (ae-undocumented) Missing documentation for "max".
+// src/dto/types.ts:70:1 - (ae-undocumented) Missing documentation for "DecimalStringLimits".
+// src/dto/types.ts:75:1 - (ae-undocumented) Missing documentation for "ListLimits".
+// src/dto/types.ts:76:3 - (ae-undocumented) Missing documentation for "minItems".
+// src/dto/types.ts:77:3 - (ae-undocumented) Missing documentation for "maxItems".
+// src/dto/types.ts:80:1 - (ae-undocumented) Missing documentation for "OneOfValues".
+// src/dto/types.ts:81:3 - (ae-undocumented) Missing documentation for "values".
+// src/dto/types.ts:114:3 - (ae-undocumented) Missing documentation for "name".
+// src/dto/types.ts:115:3 - (ae-undocumented) Missing documentation for "private".
+// src/dto/types.ts:116:3 - (ae-undocumented) Missing documentation for "static".
 // src/dto/types.ts:130:3 - (ae-undocumented) Missing documentation for "__call".
 // src/dto/types.ts:131:3 - (ae-undocumented) Missing documentation for "__call".
+// src/flow/dto-wrappers.ts:12:3 - (ae-undocumented) Missing documentation for "Optional".
+// src/flow/dto-wrappers.ts:13:3 - (ae-undocumented) Missing documentation for "List".
+// src/flow/dto-wrappers.ts:14:3 - (ae-undocumented) Missing documentation for "OneOf".
+// src/flow/dto-wrappers.ts:15:3 - (ae-undocumented) Missing documentation for "History".
 // src/flow/dto-wrappers.ts:23:3 - (ae-undocumented) Missing documentation for "kind".
 // src/flow/dto-wrappers.ts:24:3 - (ae-undocumented) Missing documentation for "variants".
 // src/flow/dto-wrappers.ts:32:3 - (ae-undocumented) Missing documentation for "kind".

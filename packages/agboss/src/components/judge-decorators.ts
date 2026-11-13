@@ -16,19 +16,13 @@ import type { Class, ResolvedAll, Token } from "./injection.js";
  */
 export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
-/** What every `@Judge` declares, whoever decides. */
-interface JudgeBaseMeta<TReply extends JudgeReplyShape> {
+/** A judge that judges with its own model (`DecidedBy.Model`, the default). */
+export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
   /** Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller (`judge:<name>`). */
   readonly name: string;
   /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
   readonly reply: TReply;
   readonly description?: string;
-}
-
-/** A judge that judges with its own model (`DecidedBy.Model`, the default). */
-export interface ModelJudgeMeta<
-  TReply extends JudgeReplyShape = JudgeReplyShape,
-> extends JudgeBaseMeta<TReply> {
   /** Who decides (#396): the judge's model — the default when absent. */
   readonly decidedBy?: DecidedBy.Model;
   /**
@@ -43,9 +37,12 @@ export interface ModelJudgeMeta<
  * 0 — a `model` does not compile (`[judge.model-on-code-judge]` at assembly), nor does injecting
  * `JudgeModel`. Its services and the execution come through `deps`.
  */
-export interface CodeJudgeMeta<
-  TReply extends JudgeReplyShape = JudgeReplyShape,
-> extends JudgeBaseMeta<TReply> {
+export interface CodeJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
+  /** Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller (`judge:<name>`). */
+  readonly name: string;
+  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
+  readonly reply: TReply;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Code;
   readonly model?: never;
 }
@@ -119,20 +116,19 @@ export type JudgeMetrics = Readonly<Record<string, number | string | boolean>>;
 
 declare const judgeVerdict: unique symbol;
 
-/** Only `JudgeVerdict.passed(…)` / `JudgeVerdict.failed(…)` build a verdict (one way, S115). */
-interface BuiltVerdict {
-  readonly [judgeVerdict]: true;
-}
-
 /** A passed verdict: the reply stands. */
-export interface PassedJudgeVerdict extends BuiltVerdict {
+export interface PassedJudgeVerdict {
+  /** A mark only `JudgeVerdict.passed` / `.failed` give. */
+  readonly [judgeVerdict]: true;
   readonly passed: true;
   /** What the judge measured, for reports. */
   readonly metrics?: JudgeMetrics;
 }
 
 /** A failed verdict: its `reason` goes back to the agent for its retry. */
-export interface FailedJudgeVerdict extends BuiltVerdict {
+export interface FailedJudgeVerdict {
+  /** A mark only `JudgeVerdict.passed` / `.failed` give. */
+  readonly [judgeVerdict]: true;
   readonly passed: false;
   /** What is wrong with the reply: the agent reads it before its retry. */
   readonly reason: string;

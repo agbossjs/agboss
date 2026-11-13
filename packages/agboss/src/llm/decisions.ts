@@ -93,54 +93,54 @@ export const MAX_DECISION_QUESTIONS = 200;
 
 const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/;
 
-function choice<const C extends Readonly<Record<string, string | null>>>(
-  instructions: string,
-  criteria: C,
-): ChoiceQuestion<keyof C & string> {
-  if (Object.keys(criteria).length < 2) {
-    throw new DecisionRequestError({
-      message: `Decision.choice("${instructions}"): needs at least 2 options`,
-    });
-  }
-  return { type: "choice", instructions, criteria };
-}
-
-function noul(
-  instructions: string,
-  criteria?: { readonly true: string; readonly false: string },
-): NoulQuestion {
-  return criteria === undefined
-    ? { type: "noul", instructions }
-    : { type: "noul", instructions, criteria };
-}
-
-function score(instructions: string, levels: readonly string[]): ScoreQuestion {
-  if (levels.length < 2) {
-    throw new DecisionRequestError({
-      message: `Decision.score("${instructions}"): needs at least 2 levels`,
-    });
-  }
-  return { type: "score", instructions, criteria: [...levels] };
-}
-
-function image(dataUrl: string, detail?: ImageDetail): DecisionImage {
-  if (!IMAGE_DATA_URL.test(dataUrl)) {
-    throw new DecisionRequestError({
-      message:
-        "Decision.image: only data URLs of png, jpeg or webp images (data:image/png;base64,…)",
-    });
-  }
-  return {
-    type: "image_url",
-    image_url: detail === undefined ? { url: dataUrl } : { url: dataUrl, detail },
-  };
-}
-
 /**
  * Builders of decision questions (`ctx.model.decide({ state, questions })`) and image parts of a
  * state; the answers are typed from them.
  */
-export const Decision = { choice, noul, score, image } as const;
+export const Decision = {
+  choice<const C extends Readonly<Record<string, string | null>>>(
+    instructions: string,
+    criteria: C,
+  ): ChoiceQuestion<keyof C & string> {
+    if (Object.keys(criteria).length < 2) {
+      throw new DecisionRequestError({
+        message: `Decision.choice("${instructions}"): needs at least 2 options`,
+      });
+    }
+    return { type: "choice", instructions, criteria };
+  },
+
+  noul(
+    instructions: string,
+    criteria?: { readonly true: string; readonly false: string },
+  ): NoulQuestion {
+    return criteria === undefined
+      ? { type: "noul", instructions }
+      : { type: "noul", instructions, criteria };
+  },
+
+  score(instructions: string, levels: readonly string[]): ScoreQuestion {
+    if (levels.length < 2) {
+      throw new DecisionRequestError({
+        message: `Decision.score("${instructions}"): needs at least 2 levels`,
+      });
+    }
+    return { type: "score", instructions, criteria: [...levels] };
+  },
+
+  image(dataUrl: string, detail?: ImageDetail): DecisionImage {
+    if (!IMAGE_DATA_URL.test(dataUrl)) {
+      throw new DecisionRequestError({
+        message:
+          "Decision.image: only data URLs of png, jpeg or webp images (data:image/png;base64,…)",
+      });
+    }
+    return {
+      type: "image_url",
+      image_url: detail === undefined ? { url: dataUrl } : { url: dataUrl, detail },
+    };
+  },
+} as const;
 
 /** The checks the Decisions API would fail a request with, made before the call. */
 export function checkDecisionRequest(request: DecisionRequest): void {

@@ -248,7 +248,7 @@ export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
 export type RouterAnswerOf<TInstance> = GeneratedEntry<RouterAnswers, TInstance>;
 
 /** The generated entry of a start: `{ input; output }`. */
-type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
+export type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
 
 /** What `app.execute(Start, input)` takes: the start's input as plain DTOs (#270). */
 export type ExecutionInputOf<TInstance> =
@@ -264,20 +264,20 @@ export type ExecutionOutputOf<TInstance> =
  * The context classes of a start's application (#261), from its generated entry: `tenant` and
  * `execution` are there only when the application declares its own subclass.
  */
-type StartTenantOf<TInstance> =
+export type StartTenantOf<TInstance> =
   WorkflowStartEntry<TInstance> extends { readonly tenant: infer TTenant } ? TTenant : never;
-type StartExecutionOf<TInstance> =
+export type StartExecutionOf<TInstance> =
   WorkflowStartEntry<TInstance> extends { readonly execution: infer TExecution }
     ? TExecution
     : never;
 
 /** `tenant`: the declared subclass's values, required; else the built-in `{ tenantId?, weight? }`. */
-type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never]
+export type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never]
   ? { readonly tenant?: TenantValues }
   : { readonly tenant: ContextValues<StartTenantOf<TInstance>> };
 
 /** `execution`: the declared subclass's values, required; with the built-in class it does not compile. */
-type ExecutionOptionOf<TInstance> = [StartExecutionOf<TInstance>] extends [never]
+export type ExecutionOptionOf<TInstance> = [StartExecutionOf<TInstance>] extends [never]
   ? { readonly execution?: never }
   : { readonly execution: ContextValues<StartExecutionOf<TInstance>> };
 

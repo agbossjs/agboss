@@ -10,7 +10,8 @@ import {
   ComponentError,
   Tool,
 } from "../../src/index.js";
-import { workflowOf, toolOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
+import { toolOf } from "../../src/components/runtime.js";
 import { createContainer } from "../../src/components/container/container.js";
 import { checkGraph } from "../../src/components/container/graph-check.js";
 import { recordComponent } from "../../src/components/metadata.js";

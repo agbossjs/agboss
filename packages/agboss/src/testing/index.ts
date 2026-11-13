@@ -183,10 +183,8 @@ export {
   type ToolCallMatchers,
 } from "./tool-call-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
-export { workflowOf } from "./workflow-of.js";
 // #818: the graphs `agboss studio` serves, for a test that renders or inspects them
-export { studioOf, type StudioGraphs, type StudioOptions } from "../studio.js";
-export { toolOf } from "../components/runtime.js";
+export { studioOf, type StudioGraph, type StudioGraphs, type StudioOptions } from "../studio.js";
 export {
   testExecutionContext,
   type TestApplicationOptions,
@@ -200,3 +198,4 @@ export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envel
 
 export { VcrMode, type VcrConfig } from "./vcr.js";
 export * from "./vcr-deprecated.js";
+export * from "./public-types.js";

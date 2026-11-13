@@ -99,7 +99,7 @@ export interface ReturnsOptions {
 }
 
 /** How a message names each kind. */
-interface KindLabels {
+export interface KindLabels {
   [NodeKind.Start]: "a workflow start";
   [NodeKind.Finish]: "a workflow finish";
   [NodeKind.Agent]: "an agent";
@@ -147,7 +147,7 @@ export type KindCheck<TClass extends Class, TKind extends NodeKind, TLabel exten
  * The generated input of a target, when it reports a problem (`[input.missing-on-path]`, …);
  * `ThisWorkflow`'s is its workflow's own, checked by `@Workflow({ name, flow })` (#264 S112).
  */
-type InputCheck<TInstance> =
+export type InputCheck<TInstance> =
   ThisWorkflowName extends NameOf<TInstance>
     ? unknown
     : [InputOf<TInstance>] extends [GeneratedTypeError]
@@ -163,8 +163,8 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
     : never;
 
 /** The values of the cases of a `.switch(…)`. */
-type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer TValue, unknown> }
-  ? TValue
+export type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer T, unknown> }
+  ? T
   : never;
 
 /** The group a path was built from (`group(…)…`, #279); `never` for any other path. */
@@ -198,7 +198,9 @@ export type AfterValue<
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> &
   StepContinuation<TInstance, THead>;
 
-type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [never]
+export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
+  never,
+]
   ? Returning<StepValues<TInstance>, MissingGeneratedTypes, THead>
   : [KindOf<TInstance>] extends [NodeKind.Router]
     ? RouterStep<THead, TInstance>
@@ -213,7 +215,7 @@ type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] e
  * A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`; one
  * without goes on at once, with a transition or a launch (#273).
  */
-type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
+export type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
   GeneratedTypeError,
 ]
   ? Returning<StepValues<TInstance>, TOutput, THead>

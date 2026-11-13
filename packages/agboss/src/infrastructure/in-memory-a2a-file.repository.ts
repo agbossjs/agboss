@@ -23,6 +23,9 @@ const rowOf = (key: A2AFileKey): string => `${key.tenantId}\u0000${key.fileId}`;
 export class InMemoryA2AFileRepository extends A2AFileRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
+  /**
+   * @internal The container injects the instance's in-memory database: left out of the declarations.
+   */
   constructor(private readonly database: InMemoryDatabase) {
     super();
   }

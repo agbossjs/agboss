@@ -26,6 +26,14 @@ export enum Backoff {
 }
 
 // @public
+export interface CacheControl {
+    // (undocumented)
+    readonly ttl?: string;
+    // (undocumented)
+    readonly type: "ephemeral";
+}
+
+// @public
 export enum CachedPart {
     // (undocumented)
     History = "history",
@@ -61,8 +69,6 @@ export interface ChatRequest {
     readonly promptCaching: PromptCaching;
     // (undocumented)
     readonly reasoning: Reasoning;
-    // Warning: (ae-forgotten-export) The symbol "ResolvedModelSettings" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly settings: ResolvedModelSettings;
 }
@@ -79,33 +85,23 @@ export class CircuitBreaker {
 export interface CircuitBreakerPolicy {
     // (undocumented)
     readonly failureThreshold: number;
-    // Warning: (ae-forgotten-export) The symbol "ModelProviderClass" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly fallback?: ModelProviderClass;
     readonly fallbackModels?: Readonly<Record<string, string>>;
     // (undocumented)
     readonly openFor: Milliseconds;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly window: Milliseconds;
 }
 
 // @public
 export interface CircuitBreakerStore {
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly clock: Clock;
-    // Warning: (ae-forgotten-export) The symbol "RateLimitRepository" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly rateLimits: RateLimitRepository;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class ConfigurationError extends AGBossError {
     constructor(options: ConfigurationErrorOptions);
@@ -131,8 +127,6 @@ export interface ConfigurationErrorOptions {
 export interface DecideRequest {
     // (undocumented)
     readonly connection: ProviderConnection;
-    // Warning: (ae-forgotten-export) The symbol "JevDecisionRequest" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly decision: JevDecisionRequest;
 }
@@ -183,16 +177,53 @@ export interface FixedRetryOptions {
 }
 
 // @public
+export interface HttpModelProviderOptions extends ModelProviderBaseOptions {
+    readonly apiKey?: string;
+    readonly baseUrl: string;
+    readonly baseUrlField?: string;
+    // (undocumented)
+    readonly deps?: never;
+    readonly promptCaching: PromptCaching;
+    readonly reasoning: Reasoning;
+}
+
+// @public
+export type HttpModelProviderType = abstract new () => ModelProviderHandler & Required<Pick<ModelProviderHandler, "capabilities">> & {
+    readonly complete?: never;
+};
+
+// @public
 export const isDecisionModel: (model: string) => boolean;
 
 // @public
 export const JEV_MODELS: readonly string[];
+
+// @public
+export interface JevDecisionRequest {
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly questions: DecisionQuestions;
+    readonly state: DecisionState;
+}
 
 // @public @deprecated (undocumented)
 export const JevModelProvider: typeof DecisionsModelProvider;
 
 // @public @deprecated (undocumented)
 export type JevModelProvider = DecisionsModelProvider;
+
+// @public
+export type KeptModelProviderOptions = ModelProviderOptions & {
+    readonly reasoning: Reasoning;
+    readonly promptCaching: PromptCaching;
+};
+
+// @public (undocumented)
+export type MaxTokens = z.infer<typeof MaxTokensSchema>;
+
+// @public (undocumented)
+export const MaxTokensSchema: z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {
@@ -251,6 +282,24 @@ export const ModelCost: {
 };
 
 // @public
+export interface ModelEntry {
+    // (undocumented)
+    readonly [key: string]: unknown;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly pricing?: Record<string, unknown> | undefined;
+    // (undocumented)
+    readonly reasoning?: {
+        readonly mandatory?: boolean | undefined;
+        readonly supported_efforts?: string[] | undefined;
+        readonly [key: string]: unknown;
+    } | undefined;
+    // (undocumented)
+    readonly supported_parameters?: string[] | undefined;
+}
+
+// @public
 export enum ModelFailure {
     // (undocumented)
     NetworkError = "network-error",
@@ -266,8 +315,6 @@ export enum ModelFailure {
 export interface ModelPrice {
     // (undocumented)
     readonly cachedInputPerMillion?: Usd;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly inputPerMillion: Usd;
     // (undocumented)
@@ -294,29 +341,35 @@ export interface ModelProblem {
 // @public
 export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint";
 
-// Warning: (ae-forgotten-export) The symbol "HttpModelProviderOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "HttpModelProviderType" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function ModelProvider(options: HttpModelProviderOptions): <C extends HttpModelProviderType>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TransportModelProviderOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TransportModelProviderType" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;
+
+// @public
+export interface ModelProviderBaseOptions {
+    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+    // (undocumented)
+    readonly cost: ModelCost;
+    // (undocumented)
+    readonly description: string;
+    readonly name: string;
+    readonly rateLimitPolicy?: RateLimitPolicy;
+    readonly retryPolicy: RetryPolicy;
+    readonly serves: readonly RegExp[];
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export type ModelProviderClass = abstract new (...args: never[]) => object;
 
 // @public
 export class ModelProviderDirectory {
     constructor(providers: readonly RegisteredModelProvider[]);
     static of(classes: readonly ModelProviderType[]): ModelProviderDirectory;
-    // Warning: (ae-forgotten-export) The symbol "RegisteredModelProvider" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly providers: readonly RegisteredModelProvider[];
-    // Warning: (ae-forgotten-export) The symbol "ProviderQuery" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ProviderResolution" needs to be exported by the entry point index.d.ts
     resolve(query: ProviderQuery): ProviderResolution;
 }
 
@@ -360,7 +413,6 @@ export interface ModelProviderHandler {
     readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
     // (undocumented)
     readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
-    // Warning: (ae-forgotten-export) The symbol "RoutingProblem" needs to be exported by the entry point index.d.ts
     readonly routingProblems?: (model: string, connection: ProviderConnection) => Promise<readonly RoutingProblem[]>;
 }
 
@@ -465,14 +517,12 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
     protected cachingPlan(input: CachingRequest): WirePlan;
     // (undocumented)
     capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "ModelEntry" needs to be exported by the entry point index.d.ts
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
     chat(request: ChatRequest): BaseChatModel;
     protected reasoningFields(reasoning: Reasoning): WireFields;
     // (undocumented)
     abstract readonly requestFields: TFields;
     protected responseFetch(send: typeof fetch): typeof fetch;
-    // Warning: (ae-forgotten-export) The symbol "WireFields" needs to be exported by the entry point index.d.ts
     protected wireFieldsOf(fields: TFields): WireFields;
     wirePlanOf(request: Pick<ChatRequest, "settings" | "reasoning" | "promptCaching">): WirePlan;
 }
@@ -534,6 +584,17 @@ export interface PlainErrorOptions {
     readonly message: string;
 }
 
+// @public (undocumented)
+export type Price = z.infer<typeof PriceSchema>;
+
+// @public
+export const PriceSchema: z.ZodObject<{
+    inputPerMTok: z.ZodNumber;
+    outputPerMTok: z.ZodNumber;
+    cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+    cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+
 // @public
 export type PromptCaching = ({
     readonly kind: "where-supported";
@@ -583,11 +644,32 @@ export interface ProviderConnection {
     readonly apiKey: string | undefined;
     // (undocumented)
     readonly baseUrl: string;
-    // Warning: (ae-forgotten-export) The symbol "ProviderFetch" needs to be exported by the entry point index.d.ts
     readonly fetch: ProviderFetch;
     // (undocumented)
     readonly provider: string;
 }
+
+// @public
+export type ProviderFetch = typeof fetch;
+
+// @public
+export interface ProviderQuery {
+    // (undocumented)
+    readonly key: string;
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly purpose: ModelPurpose;
+}
+
+// @public
+export type ProviderResolution = {
+    readonly kind: "resolved";
+    readonly provider: RegisteredModelProvider;
+} | {
+    readonly kind: "problem";
+    readonly problem: ModelProblem;
+};
 
 // @public
 export enum ProviderSort {
@@ -730,6 +812,31 @@ export interface ReasoningSupport {
 }
 
 // @public
+export interface RegisteredModelProvider {
+    // (undocumented)
+    readonly handler: ModelProviderHandler | undefined;
+    // (undocumented)
+    readonly options: KeptModelProviderOptions;
+    // (undocumented)
+    readonly type: ModelProviderType;
+}
+
+// @public
+export interface ResolvedModelSettings {
+    // (undocumented)
+    readonly maxTokens: MaxTokens;
+    // (undocumented)
+    readonly model: string;
+    readonly price?: Price | undefined;
+    // (undocumented)
+    readonly promptCaching?: PromptCaching | undefined;
+    // (undocumented)
+    readonly reasoning?: Reasoning | undefined;
+    // (undocumented)
+    readonly temperature: number;
+}
+
+// @public
 export type RetryPolicy = ({
     readonly backoff: Backoff.Exponential;
 } & ExponentialRetryOptions) | ({
@@ -757,15 +864,66 @@ export class RetryPolicyError extends RangeError {
 }
 
 // @public
+export interface RoutingProblem {
+    readonly supported: string;
+    readonly value: string;
+}
+
+// @public
 export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest;
 
 // @public
 export const TRANSIENT_FAILURES: readonly ModelFailure[];
 
 // @public
+export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> extends ModelProviderBaseOptions {
+    // (undocumented)
+    readonly apiKey?: never;
+    // (undocumented)
+    readonly baseUrl?: never;
+    // (undocumented)
+    readonly baseUrlField?: never;
+    readonly deps?: D;
+    readonly promptCaching?: PromptCaching;
+    readonly reasoning?: Reasoning;
+}
+
+// @public
+export type TransportModelProviderType<D extends readonly Token[]> = abstract new (...args: ResolvedAll<D>) => ModelProviderHandler & Required<Pick<ModelProviderHandler, "complete">> & {
+    readonly chat?: never;
+};
+
+// @public (undocumented)
+export interface WireContentPart {
+    // (undocumented)
+    readonly cache_control?: CacheControl;
+    // (undocumented)
+    readonly text?: string;
+    // (undocumented)
+    readonly type: string;
+}
+
+// @public
+export type WireFields = Readonly<Record<string, unknown>>;
+
+// @public (undocumented)
+export interface WireFunction {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly parameters?: Readonly<Record<string, unknown>>;
+}
+
+// @public (undocumented)
+export interface WireMessage {
+    // (undocumented)
+    readonly content?: string | readonly WireContentPart[] | null;
+    // (undocumented)
+    readonly role: string;
+}
+
+// @public
 export interface WirePlan {
-    // Warning: (ae-forgotten-export) The symbol "CacheControl" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly cacheControl: CacheControl;
     // (undocumented)
@@ -778,25 +936,39 @@ export interface WirePlan {
 export interface WireRequest {
     // (undocumented)
     readonly [field: string]: unknown;
-    // Warning: (ae-forgotten-export) The symbol "WireMessage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly messages?: readonly WireMessage[];
     // (undocumented)
     readonly model: string;
-    // Warning: (ae-forgotten-export) The symbol "WireTool" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly tools?: readonly WireTool[];
 }
 
+// @public (undocumented)
+export interface WireTool {
+    // (undocumented)
+    readonly function: WireFunction;
+    // (undocumented)
+    readonly type: string;
+}
+
 // Warnings were encountered during analysis:
 //
+// src/config/types.ts:32:14 - (ae-undocumented) Missing documentation for "MaxTokensSchema".
+// src/config/types.ts:218:1 - (ae-undocumented) Missing documentation for "Price".
+// src/config/types.ts:219:1 - (ae-undocumented) Missing documentation for "MaxTokens".
+// src/config/types.ts:255:3 - (ae-undocumented) Missing documentation for "model".
+// src/config/types.ts:256:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/config/types.ts:257:3 - (ae-undocumented) Missing documentation for "maxTokens".
+// src/config/types.ts:258:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/config/types.ts:259:3 - (ae-undocumented) Missing documentation for "promptCaching".
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
+// src/llm/jev-client.ts:14:3 - (ae-undocumented) Missing documentation for "model".
+// src/llm/jev-client.ts:17:3 - (ae-undocumented) Missing documentation for "questions".
 // src/models/capabilities.ts:6:3 - (ae-undocumented) Missing documentation for "supported".
 // src/models/capabilities.ts:7:3 - (ae-undocumented) Missing documentation for "efforts".
 // src/models/capabilities.ts:8:3 - (ae-undocumented) Missing documentation for "budget".
@@ -842,6 +1014,17 @@ export interface WireRequest {
 // src/models/model-failure.ts:4:3 - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts:5:3 - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts:6:3 - (ae-undocumented) Missing documentation for "NetworkError".
+// src/models/model-list.ts:6:3 - (ae-undocumented) Missing documentation for "id".
+// src/models/model-list.ts:7:3 - (ae-undocumented) Missing documentation for "supported_parameters".
+// src/models/model-list.ts:8:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/models/model-list.ts:15:3 - (ae-undocumented) Missing documentation for "pricing".
+// src/models/model-list.ts:16:3 - (ae-undocumented) Missing documentation for "__index".
+// src/models/model-provider.decorator.ts:19:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts:24:3 - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts:56:3 - (ae-undocumented) Missing documentation for "deps".
+// src/models/model-provider.decorator.ts:66:3 - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/model-provider.decorator.ts:67:3 - (ae-undocumented) Missing documentation for "baseUrlField".
+// src/models/model-provider.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "apiKey".
 // src/models/model-provider.decorator.ts:103:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
 // src/models/model-provider.decorator.ts:104:3 - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts:105:3 - (ae-undocumented) Missing documentation for "code".
@@ -916,6 +1099,12 @@ export interface WireRequest {
 // src/models/reasoning.ts:44:14 - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/resolve.ts:15:3 - (ae-undocumented) Missing documentation for "Chat".
 // src/models/resolve.ts:16:3 - (ae-undocumented) Missing documentation for "Decision".
+// src/models/resolve.ts:24:3 - (ae-undocumented) Missing documentation for "options".
+// src/models/resolve.ts:25:3 - (ae-undocumented) Missing documentation for "type".
+// src/models/resolve.ts:26:3 - (ae-undocumented) Missing documentation for "handler".
+// src/models/resolve.ts:36:3 - (ae-undocumented) Missing documentation for "key".
+// src/models/resolve.ts:37:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/resolve.ts:38:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/models/resolve.ts:77:15 - (ae-undocumented) Missing documentation for "providers".
 // src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "Fixed".
@@ -955,6 +1144,21 @@ export interface WireRequest {
 // src/models/transport/transport.ts:76:3 - (ae-undocumented) Missing documentation for "toolCalls".
 // src/models/transport/transport.ts:77:3 - (ae-undocumented) Missing documentation for "usage".
 // src/models/transport/transport.ts:83:3 - (ae-undocumented) Missing documentation for "finishReason".
+// src/models/wire.ts:7:3 - (ae-undocumented) Missing documentation for "type".
+// src/models/wire.ts:8:3 - (ae-undocumented) Missing documentation for "ttl".
+// src/models/wire.ts:11:1 - (ae-undocumented) Missing documentation for "WireContentPart".
+// src/models/wire.ts:12:3 - (ae-undocumented) Missing documentation for "type".
+// src/models/wire.ts:13:3 - (ae-undocumented) Missing documentation for "text".
+// src/models/wire.ts:14:3 - (ae-undocumented) Missing documentation for "cache_control".
+// src/models/wire.ts:17:1 - (ae-undocumented) Missing documentation for "WireMessage".
+// src/models/wire.ts:18:3 - (ae-undocumented) Missing documentation for "role".
+// src/models/wire.ts:19:3 - (ae-undocumented) Missing documentation for "content".
+// src/models/wire.ts:22:1 - (ae-undocumented) Missing documentation for "WireFunction".
+// src/models/wire.ts:23:3 - (ae-undocumented) Missing documentation for "name".
+// src/models/wire.ts:24:3 - (ae-undocumented) Missing documentation for "parameters".
+// src/models/wire.ts:27:1 - (ae-undocumented) Missing documentation for "WireTool".
+// src/models/wire.ts:28:3 - (ae-undocumented) Missing documentation for "type".
+// src/models/wire.ts:29:3 - (ae-undocumented) Missing documentation for "function".
 // src/models/wire.ts:34:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/wire.ts:35:3 - (ae-undocumented) Missing documentation for "messages".
 // src/models/wire.ts:36:3 - (ae-undocumented) Missing documentation for "tools".

@@ -9,20 +9,16 @@ import type { DeepPartial } from "./script-types.js";
  * the chain. The testing API never creates the error: it comes from the real cause.
  */
 
-/** `cause` in `toFailWith`'s fields: a class the matched error was caused by, below it in the chain. */
-interface ExpectedCause {
-  readonly cause?: ErrorClass;
-}
-
 /**
- * The fields `toFailWith` checks: deep partials of the error's own, `cause` as a class. Through
+ * The fields `toFailWith` checks: deep partials of the error's own, `cause` as a class (a class the
+ * matched error was caused by, below it in the chain). Through
  * `.rejects` Vitest erases the matcher's generic to `Error`: the fields are then any fields.
  */
 export type ExpectedErrorFields<TError extends Error> = Error extends TError
-  ? Readonly<Record<string, unknown>> & ExpectedCause
+  ? Readonly<Record<string, unknown>> & { readonly cause?: ErrorClass }
   : {
       readonly [TKey in Exclude<keyof TError, "cause" | "stack">]?: DeepPartial<TError[TKey]>;
-    } & ExpectedCause;
+    } & { readonly cause?: ErrorClass };
 
 /** An error and every error it was caused by, outermost first. */
 function chainOf(error: unknown): readonly Error[] {

@@ -971,10 +971,10 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
 
 It loads AGBoss through vite, in the test's own module graph (`server.deps.inline` gains
 `/@agboss\/core/`): installed from npm, the core is external to vitest, and the files it loads by path —
-the application `workflowOf(W)` finds next to `W`, its environments, eval suites — would bypass vite,
+the application `testWith(W)` finds next to `W`, its environments, eval suites — would bypass vite,
 without their decorators and as a second set of classes. It also registers the matchers (`setupFiles`
 gains `@agboss/core/testing/setup`, once). Your own `setupFiles` and `server.deps.inline` are merged,
-never replaced; every other option passes through. Without it, `workflowOf(W)` fails with
+never replaced; every other option passes through. Without it, `testWith(W)` fails with
 `TestSetupError`: `the application of <workflow> was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`
 (the original error as its `cause`). `agboss create` writes this config.
 

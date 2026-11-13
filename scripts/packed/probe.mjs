@@ -12,7 +12,8 @@ export const OUTSIDE_GRAPH =
  * one: `workflowOf` has to load it itself. (AC5, `testWith` and the environments: the project's own
  * workflow test.)
  */
-export const WORKFLOW_OF_TEST = `import { workflowOf } from "@agboss/core/testing";
+export const WORKFLOW_OF_TEST = `// the assembly itself (#895: workflowOf is in @agboss/core/internal)
+import { workflowOf } from "@agboss/core/internal";
 import { expect, test } from "vitest";
 import { OpenRouterModelProvider } from "../../src/model-providers/openrouter.model-provider.js";
 import { PackedProbeWorkflow } from "../../src/workflows/packed-probe/packed-probe.workflow.js";

@@ -103,3 +103,28 @@ export type {
 export { ModelPurpose, ModelProviderDirectory } from "./resolve.js";
 export { DEFAULT_MODEL_PROVIDERS } from "./workflow-models.js";
 export { toWireRequest, type WirePlan, type WireRequest } from "./wire.js";
+export { type ResolvedModelSettings } from "../config/types.js";
+export { type JevDecisionRequest } from "../llm/jev-client.js";
+export { type ProviderFetch } from "./calls/model-call.js";
+export { type ModelProviderClass } from "./circuit-breaker.js";
+export { type RoutingProblem } from "./handler.js";
+export { type ModelEntry } from "./model-list.js";
+export {
+  type HttpModelProviderOptions,
+  type HttpModelProviderType,
+  type TransportModelProviderOptions,
+  type TransportModelProviderType,
+} from "./model-provider.decorator.js";
+export {
+  type ProviderQuery,
+  type ProviderResolution,
+  type RegisteredModelProvider,
+} from "./resolve.js";
+export { type CacheControl, type WireFields, type WireMessage, type WireTool } from "./wire.js";
+export { type MaxTokens, type Price } from "../config/types.js";
+export {
+  type KeptModelProviderOptions,
+  type ModelProviderBaseOptions,
+} from "./model-provider.decorator.js";
+export { type WireContentPart, type WireFunction } from "./wire.js";
+export { MaxTokensSchema, PriceSchema } from "../config/types.js";

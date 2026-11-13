@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { ModelCostError, recordUsage } from "../../src/finops/usage.js";
 import { ModelCost } from "../../src/models/index.js";
 import { costLabel, priceOf } from "../../src/models/cost.js";

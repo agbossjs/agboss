@@ -54,13 +54,13 @@ export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[]
     : TValue;
 
 /** The turns of a case for a start: its input, typed by the generated `.agboss/types.d.ts`. */
-interface EvalTurnsOf<TStart> {
+export interface EvalTurnsOf<TStart> {
   readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
   readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
 }
 
 /** `tenant` / `execution` of a case for a start: required where its application declares them. */
-type EvalContextsOf<TStart> = {
+export type EvalContextsOf<TStart> = {
   readonly [TKey in keyof Pick<ExecutionOptionsOf<TStart>, "tenant" | "execution">]: EvalValueOf<
     ExecutionOptionsOf<TStart>[TKey]
   >;

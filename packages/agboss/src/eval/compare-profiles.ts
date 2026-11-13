@@ -1,5 +1,8 @@
+import type { MeterProvider } from "@opentelemetry/api";
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "../app/app-deps.js";
 import type { Class } from "../components/injection.js";
+import type { Environment } from "../flow/generated-types.js";
+import type { ModelGateway } from "../llm/gateway.js";
 import { ProfileError } from "../config/profiles.js";
 import { environmentFor } from "../environments/load.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
@@ -21,10 +24,22 @@ export interface ProfileComparison {
 }
 
 /**
- * `compareProfiles` options: the start whose workflow is compared, the profiles, the tasks, and any
- * app part instead of its default.
+ * `compareProfiles` options: the start whose workflow is compared, the profiles, the tasks, and the
+ * parts of the app a run may replace (`AppDepsOptions` of `@agboss/core/internal` has the rest).
  */
-export interface CompareProfilesOptions extends AppDepsOptions {
+export interface CompareProfilesOptions {
+  /** The process environment: model provider keys, MCP servers, stores. Default: process.env. */
+  readonly processEnv?: NodeJS.ProcessEnv;
+  /** The app's environment values, resolved; absent = none — an empty environment. */
+  readonly environment?: Environment;
+  /** The chosen environment's name; default `dev`. */
+  readonly environmentName?: string;
+  /** Every model call goes through it. Default: the workflow's model providers. */
+  readonly gateway?: ModelGateway;
+  /** The raw HTTP client under every model provider (default: global fetch; tests: a stub). */
+  readonly providerFetch?: typeof fetch;
+  /** Where the runs publish their metrics: an OpenTelemetry `MeterProvider`; absent = none. */
+  readonly meterProvider?: MeterProvider;
   /** A start of the application: its workflow is the one compared (#396 PR 5). */
   readonly start: Class;
   /** At least two; the first is the baseline; `base` is the workflow without a profile. */

@@ -29,6 +29,9 @@ const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
 export class InMemoryA2ATaskRepository extends A2ATaskRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
+  /**
+   * @internal The container injects the instance's in-memory database: left out of the declarations.
+   */
   constructor(private readonly database: InMemoryDatabase) {
     super();
   }

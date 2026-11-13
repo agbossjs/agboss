@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { createAppDeps } from "../../src/app/app-deps.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { ConfigurationError, ModelProviderDirectory } from "../../src/models/index.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { modelSummaryOf } from "../../src/models/workflow-models.js";

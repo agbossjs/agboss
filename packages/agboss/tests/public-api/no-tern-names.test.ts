@@ -35,7 +35,7 @@ describe("#906 AC3: no Tern in any API report but the deprecated aliases", () =>
     expect(stores).toContain("abstract lastTurns(");
     expect(stores).toContain("readonly fromTurnId: string;");
     expect(stores).toContain("readonly toTurnId: string;");
-    expect(readFileSync(join(API, "agboss.api.md"), "utf8")).toContain(
+    expect(readFileSync(join(API, "agboss-internal.api.md"), "utf8")).toContain(
       "readonly turns: TurnRecords;",
     );
   });

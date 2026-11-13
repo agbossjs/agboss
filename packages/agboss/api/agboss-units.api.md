@@ -4,8 +4,6 @@
 
 ```ts
 
-// Warning: (ae-forgotten-export) The symbol "Brand" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type Bytes = Brand<number, "Bytes">;
 

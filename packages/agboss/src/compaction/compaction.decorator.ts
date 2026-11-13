@@ -36,8 +36,8 @@ export type UncompactedTurns = number | TurnLimit;
 /** The token limit of one summary: the call's `max_tokens`, or `TokenLimit.MODEL_MAX` — what the model allows. */
 export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
-/** What a compaction that writes summaries declares. */
-interface SummarisingOptions {
+/** `CompactionStrategy.SummaryQueue`: a queue of the latest `summaryQueueLength` summaries. */
+export interface SummaryQueueCompactionOptions {
   /** Ends with `-compaction` (`conversation-compaction`). */
   readonly name: string;
   readonly description: string;
@@ -53,17 +53,28 @@ interface SummarisingOptions {
    * model allows. A summary cut at the limit is asked once more, shorter, then `CompactionError`.
    */
   readonly summaryMaxTokens: SummaryMaxTokens;
-}
-
-/** `CompactionStrategy.SummaryQueue`: a queue of the latest `summaryQueueLength` summaries. */
-export interface SummaryQueueCompactionOptions extends SummarisingOptions {
   readonly strategy: CompactionStrategy.SummaryQueue;
   /** How many summaries are kept; the oldest leaves first (from 1). */
   readonly summaryQueueLength: number;
 }
 
 /** `CompactionStrategy.SingleSummary`: one summary, rewritten at every compaction. */
-export interface SingleSummaryCompactionOptions extends SummarisingOptions {
+export interface SingleSummaryCompactionOptions {
+  /** Ends with `-compaction` (`conversation-compaction`). */
+  readonly name: string;
+  readonly description: string;
+  /** How to summarise; inline, and / or files next to the class. None → the built-in prompt. */
+  readonly prompt?: string;
+  readonly promptUrls?: readonly string[];
+  /** The chat model that writes the summaries (its provider is resolved by `serves`, #266). */
+  readonly model: string;
+  /** How many turns older than the window gather before they are summarised (from 1). */
+  readonly turnsBetweenCompactions: number;
+  /**
+   * The summarising call's `max_tokens`, counted by the model's server; `TokenLimit.MODEL_MAX` = what the
+   * model allows. A summary cut at the limit is asked once more, shorter, then `CompactionError`.
+   */
+  readonly summaryMaxTokens: SummaryMaxTokens;
   readonly strategy: CompactionStrategy.SingleSummary;
   readonly summaryQueueLength?: never;
 }
@@ -100,12 +111,12 @@ export interface CustomCompactionOptions<TDeps extends readonly Token[] = readon
   readonly summaryMaxTokens?: never;
 }
 
-/** The options of a compaction the framework runs: every strategy but `Custom`. */
-export type BuiltInCompactionOptions =
-  SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions;
-
 /** The options of `@Compaction`, by strategy. */
-export type CompactionOptions = BuiltInCompactionOptions | CustomCompactionOptions;
+export type CompactionOptions =
+  | SummaryQueueCompactionOptions
+  | SingleSummaryCompactionOptions
+  | NoSummaryCompactionOptions
+  | CustomCompactionOptions;
 
 /** One turn a custom compaction compacts: its start and input, its finish and output (#382). */
 export interface CompactionTurn {
@@ -135,11 +146,18 @@ export interface CompactionHandler {
 
 /** What `@Compaction` recorded: its options, its dependencies and the file it is declared in. */
 export type CompactionMeta = (
-  BuiltInCompactionOptions | (CustomCompactionOptions & { readonly deps: readonly Token[] })
+  | SummaryQueueCompactionOptions
+  | SingleSummaryCompactionOptions
+  | NoSummaryCompactionOptions
+  | (CustomCompactionOptions & { readonly deps: readonly Token[] })
 ) & { readonly source?: string };
 
 /** `@Compaction({ name, description, strategy, … })` — an empty class carrying its options. */
-export function Compaction(options: BuiltInCompactionOptions): <C extends Class>(value: C) => C;
+/** The strategies the framework runs: every one but `Custom`. */
+export function Compaction(
+  options:
+    SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions,
+): <C extends Class>(value: C) => C;
 /** `CompactionStrategy.Custom`: the class implements `CompactionHandler`, its constructor takes `deps`. */
 export function Compaction<const TDeps extends readonly Token[] = []>(
   options: CustomCompactionOptions<TDeps>,

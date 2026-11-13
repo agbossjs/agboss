@@ -29,17 +29,13 @@ export interface GuardrailRefusal {
   readonly refusal: () => string | Promise<string>;
 }
 
-/** What every guardrail declares. */
-interface GuardrailBaseOptions<D extends readonly Token[]> {
+/** A model guardrail with a fixed refusal. */
+export interface GuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
   /** Ends with `-guardrail` (`legal-advice-guardrail`). */
   readonly name: string;
   readonly description: string;
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
-}
-
-/** A guardrail its model decides (`DecidedBy.Model`, the default): a yes / no question. */
-interface ModelGuardrailFields<D extends readonly Token[]> extends GuardrailBaseOptions<D> {
   /** Who decides (#383): its model — the default when absent. */
   readonly decidedBy?: DecidedBy.Model;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
@@ -49,44 +45,57 @@ interface ModelGuardrailFields<D extends readonly Token[]> extends GuardrailBase
   readonly model?: string;
   /** Blocks when the model is at least this sure, P(yes) ≥ threshold (0 < threshold ≤ 1). */
   readonly threshold: number;
-}
-
-/** A guardrail its class decides (`DecidedBy.Code`, #383): `check(text)`, no model, no question. */
-interface CodeGuardrailFields<D extends readonly Token[]> extends GuardrailBaseOptions<D> {
-  readonly decidedBy: DecidedBy.Code;
-  readonly prompt?: never;
-  readonly promptUrls?: never;
-  readonly model?: never;
-  readonly threshold?: never;
-}
-
-/** A model guardrail with a fixed refusal. */
-export interface GuardrailTextOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends ModelGuardrailFields<D> {
   /** The text sent instead when it blocks. */
   readonly refusal: string;
 }
 
 /** A model guardrail whose class computes its refusal (`implements GuardrailRefusal`). */
-export interface GuardrailComputedOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends ModelGuardrailFields<D> {
+export interface GuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
+  readonly name: string;
+  readonly description: string;
+  /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
+  readonly deps?: D;
+  /** Who decides (#383): its model — the default when absent. */
+  readonly decidedBy?: DecidedBy.Model;
+  /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
+  readonly prompt?: string;
+  readonly promptUrls?: readonly string[];
+  /** A decision model (Jev, …) or a chat model; `defaults.guardrail.model` when absent. */
+  readonly model?: string;
+  /** Blocks when the model is at least this sure, P(yes) ≥ threshold (0 < threshold ≤ 1). */
+  readonly threshold: number;
   readonly refusal?: never;
 }
 
 /** A code guardrail with a fixed refusal (`implements GuardrailHandler`). */
-export interface CodeGuardrailTextOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends CodeGuardrailFields<D> {
+export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
+  readonly name: string;
+  readonly description: string;
+  /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
+  readonly deps?: D;
+  readonly decidedBy: DecidedBy.Code;
+  readonly prompt?: never;
+  readonly promptUrls?: never;
+  readonly model?: never;
+  readonly threshold?: never;
   /** The text sent instead when it blocks. */
   readonly refusal: string;
 }
 
 /** A code guardrail whose class computes its refusal too (`implements GuardrailHandler, GuardrailRefusal`). */
-export interface CodeGuardrailComputedOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends CodeGuardrailFields<D> {
+export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
+  readonly name: string;
+  readonly description: string;
+  /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
+  readonly deps?: D;
+  readonly decidedBy: DecidedBy.Code;
+  readonly prompt?: never;
+  readonly promptUrls?: never;
+  readonly model?: never;
+  readonly threshold?: never;
   /** None: the class's `refusal()` gives it. */
   readonly refusal?: never;
 }
@@ -115,7 +124,7 @@ export const isCodeGuardrail = (options: GuardrailOptions): options is CodeGuard
   options.decidedBy === DecidedBy.Code;
 
 /** The class decorator of a guardrail: its constructor takes its `deps`, its instance is `T`. */
-type GuardrailDecorator<D extends readonly Token[], T> = <
+export type GuardrailDecorator<D extends readonly Token[], T> = <
   C extends new (...args: ResolvedAll<D>) => T,
 >(
   value: C,

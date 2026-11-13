@@ -35,3 +35,4 @@ export {
 } from "./reranker.decorator.js";
 export { RerankFailedError, type RerankFailedErrorOptions } from "./rerank.js";
 export { SqliteFtsConnector, type SqliteFtsOptions } from "./sqlite-fts.js";
+export { type RagResultCount } from "../components/decorators.js";

@@ -65,22 +65,17 @@ export interface HealthReport {
 
 declare const healthCheckResult: unique symbol;
 
-/**
- * What a `@HealthCheck`'s `check()` resolves with (#300): built only with
- * `HealthCheckResult.healthy()`, `.degraded({ reason })` or `.unhealthy({ reason })` — branded and
- * frozen, so a plain object does not compile.
- */
-interface BuiltHealthCheckResult {
-  readonly [healthCheckResult]: true;
-}
-
 /** The checked dependency works. */
-export interface HealthyCheckResult extends BuiltHealthCheckResult {
+export interface HealthyCheckResult {
+  /** A mark only the `HealthCheckResult` factories give. */
+  readonly [healthCheckResult]: true;
   readonly status: HealthStatus.Healthy;
 }
 
 /** The checked dependency works with less, or is not working: `reason` says why. */
-export interface FailedHealthCheckResult extends BuiltHealthCheckResult {
+export interface FailedHealthCheckResult {
+  /** A mark only the `HealthCheckResult` factories give. */
+  readonly [healthCheckResult]: true;
   readonly status: HealthStatus.Degraded | HealthStatus.Unhealthy;
   readonly reason: string;
 }

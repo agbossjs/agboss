@@ -25,7 +25,7 @@ export type ExecutionContextClass<T extends ExecutionContext = ExecutionContext>
   abstract new () => T;
 
 /** The data fields of `T`: its members that are not methods. */
-type DataKeysOf<T> = {
+export type DataKeysOf<T> = {
   [K in keyof T]-?: T[K] extends (...args: never[]) => unknown ? never : K;
 }[keyof T];
 

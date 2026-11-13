@@ -17,14 +17,14 @@ import type { RagRetrieval } from "../rag/types.js";
  */
 
 /** The start of a named part of a step (agent, router, knowledge base, guardrail, policy, action, channel). */
-interface StartEvent<I> extends NodeEvent {
+export interface StartEvent<I> extends NodeEvent {
   /** What starts: the agent, router or action (`step.component.name`), or the part inside it. */
   readonly name: string;
   readonly input: I;
 }
 
 /** The end of a named part of a step, with what it produced. */
-interface EndEvent<U> extends NodeEvent {
+export interface EndEvent<U> extends NodeEvent {
   readonly name: string;
   readonly update: U;
 }

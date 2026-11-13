@@ -10,7 +10,7 @@ import { Agent, RagMode, Tool, type ToolHandler } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
-import { workflowOf } from "../../../src/testing/index.js";
+import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { workflowWith } from "../../components/fixture/deps-contract.workflow.js";
 import { RagTenancy } from "../../../src/rag/types.js";
 

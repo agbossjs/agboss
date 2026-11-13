@@ -3,12 +3,6 @@
  * budgets, the health checks (#300), the infrastructure contracts, the workflow's dependencies,
  * resuming, profiles, comparisons and the public configuration and run types.
  */
-export {
-  resolveTools,
-  type AssembledWorkflow,
-  type WorkflowServices,
-  type WorkflowTools,
-} from "../workflow.js";
 export type { AppOptions } from "../app/create-app.js";
 export { Application, type ApplicationOptions } from "../application/application.js";
 export { createApp } from "../application/create-app.js";
@@ -146,8 +140,7 @@ export type {
   TenantContextClass,
   TenantValues,
 } from "../flow/context/context-values.js";
-export { loadWorkflow, loadWorkflowClass, WorkflowLoadError } from "../loader/load-workflow.js";
-export { withProfile } from "../profile-workflow.js";
+export { loadWorkflowClass, WorkflowLoadError } from "../loader/load-workflow.js";
 export {
   compareProfiles,
   type CompareProfilesOptions,
@@ -155,17 +148,13 @@ export {
 } from "../eval/compare-profiles.js";
 export type { ProfileReport } from "../eval/compare-report.js";
 export type { PairwiseResult } from "../eval/compare.js";
-export { resumeAgent } from "../run/resume-agent.js";
-export { executeAgent } from "../run/run-agent.js";
-export type {
-  AgentExecutionOutput,
-  AgentExecutionDeps,
-  AgentExecutionOptions,
-} from "../run/types.js";
-export { executionVersions } from "../run/versions.js";
+export type { AgentExecutionOutput } from "../run/types.js";
 export type { UsageRecord } from "../finops/usage.js";
 
 export {
+  AgentSettingsSchema,
+  AgentsConfigSchema,
+  CompactionSettingsSchema,
   type AgentsConfig,
   type AgentsConfigOf,
   type CompactionSettings,

@@ -6,7 +6,7 @@ import { standaloneInfrastructure } from "../src/application/application-contain
 import { TurnStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
 import { providerStub } from "./models/stub.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import { createSqliteTurnStore } from "../src/turns/index.js";
 import { executionVersions } from "../src/run/versions.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";

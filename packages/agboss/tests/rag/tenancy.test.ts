@@ -21,7 +21,8 @@ import {
 import { knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
 import type { BoundReranker } from "../../src/rag/rerank.js";
 import { inTenantFrame } from "../helpers/frame.js";
-import { testRag, workflowOf } from "../../src/testing/index.js";
+import { testRag } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
 

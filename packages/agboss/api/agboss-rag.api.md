@@ -4,17 +4,17 @@
 
 ```ts
 
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "RerankerBaseMeta" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> extends RerankerBaseMeta {
+export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     // (undocumented)
     readonly deps?: D;
     // (undocumented)
+    readonly description: string;
+    // (undocumented)
     readonly model?: never;
+    readonly name: string;
 }
 
 // @public
@@ -31,17 +31,17 @@ export abstract class ModelReranker {
 }
 
 // @public
-export interface ModelRerankerMeta extends RerankerBaseMeta {
+export interface ModelRerankerMeta {
     // (undocumented)
     readonly decidedBy?: DecidedBy.Model;
     // (undocumented)
     readonly deps?: never;
+    // (undocumented)
+    readonly description: string;
     readonly model?: string;
+    readonly name: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "RagResultCount" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Rag<const D extends readonly Token[] = []>(options: {
     readonly name: string;
@@ -89,6 +89,15 @@ export interface RagRerank {
     readonly onFailure?: RerankFailurePolicy;
     readonly topK: number;
 }
+
+// @public
+export type RagResultCount = {
+    readonly topK: number;
+    readonly rerank?: never;
+} | {
+    readonly topK?: never;
+    readonly rerank: RagRerank;
+};
 
 // @public
 export interface RagRetrieval {
@@ -140,8 +149,6 @@ export interface RerankerHandler {
 // @public
 export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
 
-// Warning: (ae-forgotten-export) The symbol "StepFailedError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class RerankFailedError extends StepFailedError {
     constructor(input: RerankFailedErrorOptions);
@@ -160,7 +167,6 @@ export interface RerankFailedErrorOptions {
     readonly cause?: unknown;
     readonly rag: string;
     readonly reranker: string;
-    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
     readonly usage: readonly UsageRecord[];
 }
 
@@ -207,11 +213,13 @@ export interface SqliteFtsOptions {
 // src/rag/rerank.ts:60:3 - (ae-undocumented) Missing documentation for "code".
 // src/rag/rerank.ts:61:3 - (ae-undocumented) Missing documentation for "code".
 // src/rag/rerank.ts:62:12 - (ae-undocumented) Missing documentation for "name".
-// src/rag/reranker.decorator.ts:22:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/rag/reranker.decorator.ts:25:3 - (ae-undocumented) Missing documentation for "deps".
-// src/rag/reranker.decorator.ts:32:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/rag/reranker.decorator.ts:33:3 - (ae-undocumented) Missing documentation for "model".
-// src/rag/reranker.decorator.ts:34:3 - (ae-undocumented) Missing documentation for "deps".
+// src/rag/reranker.decorator.ts:17:3 - (ae-undocumented) Missing documentation for "description".
+// src/rag/reranker.decorator.ts:18:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts:21:3 - (ae-undocumented) Missing documentation for "deps".
+// src/rag/reranker.decorator.ts:28:3 - (ae-undocumented) Missing documentation for "description".
+// src/rag/reranker.decorator.ts:29:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts:30:3 - (ae-undocumented) Missing documentation for "model".
+// src/rag/reranker.decorator.ts:31:3 - (ae-undocumented) Missing documentation for "deps".
 // src/rag/sqlite-fts.ts:145:9 - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts:6:3 - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts:13:3 - (ae-undocumented) Missing documentation for "documents".

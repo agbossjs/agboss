@@ -10,15 +10,11 @@ import { DEFAULT_RERANKER_MODEL, type ModelReranker, type RerankerHandler } from
  * (`implements RerankerHandler`), a dedicated rerank API on its official SDK.
  */
 
-/** What every `@Reranker` declares. */
-interface RerankerBaseMeta {
+/** The core's LLM reranker on `model` (`DecidedBy.Model`, the default). */
+export interface ModelRerankerMeta {
   /** `docs-reranker` — kebab-case ending with `-reranker` (`[name.kind-suffix]`). */
   readonly name: string;
   readonly description: string;
-}
-
-/** The core's LLM reranker on `model` (`DecidedBy.Model`, the default). */
-export interface ModelRerankerMeta extends RerankerBaseMeta {
   readonly decidedBy?: DecidedBy.Model;
   /** A chat model of the application's providers; default `DEFAULT_RERANKER_MODEL`. */
   readonly model?: string;
@@ -26,9 +22,10 @@ export interface ModelRerankerMeta extends RerankerBaseMeta {
 }
 
 /** Your own reranker: the class's `rerank()` (`DecidedBy.Code`), its services through `deps`. */
-export interface CodeRerankerMeta<
-  D extends readonly Token[] = readonly Token[],
-> extends RerankerBaseMeta {
+export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
+  /** `docs-reranker` — kebab-case ending with `-reranker` (`[name.kind-suffix]`). */
+  readonly name: string;
+  readonly description: string;
   readonly decidedBy: DecidedBy.Code;
   readonly model?: never;
   readonly deps?: D;

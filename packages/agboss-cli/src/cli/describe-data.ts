@@ -1,4 +1,4 @@
-import { resolveTools, type AssembledWorkflow } from "@agboss/core";
+import { resolveTools, type AssembledWorkflow } from "@agboss/core/internal";
 import {
   childLines,
   contractsOf,

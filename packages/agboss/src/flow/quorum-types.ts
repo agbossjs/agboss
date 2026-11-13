@@ -58,7 +58,7 @@ export type IsWholeQuorum<TMin, TCount extends number> = number extends TCount
       : false;
 
 /** A single value a quorum may leave out: `optional(…)`; a list stays a list. */
-type MayBeLeftOut<TValue> = TValue extends readonly unknown[] ? TValue : TValue | undefined;
+export type MayBeLeftOut<TValue> = TValue extends readonly unknown[] ? TValue : TValue | undefined;
 
 /** What a quorum's counted answers give: the join's entry, singles optional unless the quorum is whole. */
 export type QuorumOutput<TOutput, TWhole extends boolean> = TWhole extends true
@@ -77,9 +77,9 @@ export interface QuorumValues<TKey extends string> extends ValuesSource {
   readonly canLaunch: false;
 }
 
-type QuorumContinuation<TOutput, TKey extends string, THead extends PathHead> = [TOutput] extends [
-  GeneratedTypeError,
-]
+export type QuorumContinuation<TOutput, TKey extends string, THead extends PathHead> = [
+  TOutput,
+] extends [GeneratedTypeError]
   ? Returning<QuorumValues<TKey>, TOutput, THead>
   : [TOutput] extends [NoOutput]
     ? Transitions<THead>
@@ -125,7 +125,7 @@ export type GroupArguments =
 /** The `JoinOutputs` key of a group: `<launch> group(<agents as listed>)`. */
 export type GroupKey<TKey extends string, TNames extends string> = `${TKey} group(${TNames})`;
 
-type GroupValuesCheck<TOutput, TGiven extends readonly unknown[], TKey extends string> = [
+export type GroupValuesCheck<TOutput, TGiven extends readonly unknown[], TKey extends string> = [
   TOutput,
 ] extends [GeneratedTypeError]
   ? TOutput
@@ -136,7 +136,7 @@ type GroupValuesCheck<TOutput, TGiven extends readonly unknown[], TKey extends s
       };
 
 /** One group checked against its entry; anything but a continued `group(…)` is refused. */
-type GroupCheck<TKey extends string, TPath> = [GroupOfPath<TPath>] extends [never]
+export type GroupCheck<TKey extends string, TPath> = [GroupOfPath<TPath>] extends [never]
   ? { readonly __error: ".joinQuorumGroups(…) takes group(…).returns(…).to…(…) paths" }
   : GroupOfPath<TPath> extends GroupHead<
         infer TNames extends string,

@@ -16,4 +16,7 @@ export * from "./public/observers.js";
 export * from "./public/app.js";
 export * from "./public/infrastructure.js";
 export * from "./public/mesh.js";
+export type * from "./public/runtime-types.js";
+export type * from "./public/component-types.js";
+export type * from "./public/flow-types.js";
 export * from "./errors.js";

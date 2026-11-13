@@ -67,7 +67,7 @@ export type TargetNames<TTargets extends readonly unknown[]> = TTargets extends 
   : never;
 
 /** The value the chain carries last: the `.returns(…)` right before the launch. */
-type LastValue<TValue> =
+export type LastValue<TValue> =
   IsSeveral<TValue> extends true
     ? TValue extends readonly [...unknown[], infer TLast]
       ? TLast
@@ -109,7 +109,7 @@ export type AgentsLaunched<
 > = Launched<TKey, THead> & Quorums<TKey, THead, TCount>;
 
 /** How many agents a launch runs: as listed, repeats included; unknown per item. */
-type LaunchCount<
+export type LaunchCount<
   TTargets extends readonly unknown[],
   TPerItem extends boolean,
 > = TPerItem extends true ? number : TTargets["length"];
@@ -123,9 +123,9 @@ export interface JoinErrorHandling<TKey extends string, THead extends PathHead> 
 }
 
 /** What follows a join: its values named with `.returns(…)`, or — when it gives none — `.to…(…)`. */
-type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [TOutput] extends [
-  GeneratedTypeError,
-]
+export type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [
+  TOutput,
+] extends [GeneratedTypeError]
   ? Returning<JoinValues<TKey>, TOutput, THead>
   : [TOutput] extends [NoOutput]
     ? Transitions<THead>
