@@ -208,7 +208,9 @@ CLI's own:
 $ npx agboss check                # skills current: nothing extra
 $ npx agboss check                # after an agboss upgrade
 skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)
-$ npx agboss check                # the folder missing (a fresh clone)
+$ npx agboss check                # a fresh clone (the committed folder is current, the link is made)
+skills: linked .claude/skills/agboss
+$ npx agboss check                # the folder missing
 skills: .agents/skills/agboss installed for agboss 0.2.0 (14 files) · linked .claude/skills/agboss
 $ npx agboss check                # a managed file edited by hand
 warning: [skills.local-edit] .agents/skills/agboss/references/02-flow-dsl-all-combinations.md was edited — replaced by agboss 0.2.0's; put project rules in AGENTS.md
