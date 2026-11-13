@@ -16,6 +16,7 @@ import { replyWith, SequentialIdGenerator, testWith } from "../../src/testing/in
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { execute } from "../helpers/flow.js";
+import { until } from "../helpers/until.js";
 import {
   ChildRefundAgent,
   SingleChildWorkflowStart,
@@ -72,17 +73,12 @@ function expectRefusedMint(error: unknown, method: string, rule: KeyTextRule, id
   expect(JSON.stringify((error as InvalidMintedIdError).details)).not.toContain("x\\ud8");
 }
 
-/**
- * The rows of every table of the test's SQLite file but the ledger's prune mark: the startup retention
- * sweep writes that one on its own schedule, whatever an id does.
- */
+/** The rows of every table of the test's SQLite file. */
 function rowsOnFile(): Record<string, number> {
   const database = new DatabaseSync(file.path, { readOnly: true });
   try {
     const tables = database
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name <> 'cost_ledger_entries_pruned' ORDER BY name",
-      )
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
       .all() as { name: string }[];
     return Object.fromEntries(
       tables.map(({ name }) => {
@@ -94,6 +90,18 @@ function rowsOnFile(): Record<string, number> {
     database.close();
   }
 }
+
+/**
+ * Waits for the startup retention sweep's first look, which writes the ledger's prune mark on its own
+ * schedule: once it has, nothing else moves on the file until the next look (30 s later on the
+ * virtual clock), so a snapshot taken after it covers every table — the mark included — and only
+ * an id can change it.
+ */
+const untilSweepMarked = (): Promise<void> =>
+  until(
+    () => rowsOnFile().cost_ledger_entries_pruned === 1,
+    "the startup retention sweep wrote the ledger's prune mark",
+  );
 
 /** The child's agent: the customer confirms the order first (a pause), then it answers. */
 const confirmer = (request: ModelRequest) =>
@@ -107,6 +115,7 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
     async ({ app, mockLlm }) => {
       mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
+      await untilSweepMarked();
       const before = rowsOnFile();
       minting.executions = ["x\uD800", "x\uDFFF"];
 
@@ -127,6 +136,7 @@ describe("#578 AC1: on SQLite, a minted id that is no key fails the execution be
     async ({ app, mockLlm }) => {
       mockLlm(Clerk).thenReturn(replyWith(ReceiptDto, { text: "One." }));
       await app.ready();
+      await untilSweepMarked();
       const before = rowsOnFile();
       minting.threads = ["x\uD800"];
 
