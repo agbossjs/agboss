@@ -538,16 +538,18 @@ A skill that needs no task — a lookup, a classification — answers `SendMessa
 directly: `reply: A2AReply.Message` in `@A2AExpose({ skills })`. `defaultSkill` is the skill a
 message that names none runs (a foreign caller that knows nothing of the skills extension):
 
-<!-- snippet-context
+```ts file=src/support/workflows/lookup/lookup.workflow-start.ts
 import { WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
-import { SupportWorkflowStart } from "./src/support/workflows/support/support.workflow-start.js";
-@WorkflowStart({ name: "lookup-workflow-start", description: "A lookup", input: WorkflowStartTextDto })
-class LookupWorkflowStart {}
--->
 
-```ts
+@WorkflowStart({ name: "lookup-workflow-start", description: "A lookup", input: WorkflowStartTextDto })
+export class LookupWorkflowStart {}
+```
+
+```ts file=src/support/a2a/lookup.a2a-expose.ts
 import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+import { LookupWorkflowStart } from "../workflows/lookup/lookup.workflow-start.js";
+import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 
 @A2AExpose({
   name: "support-a2a-expose",
@@ -586,13 +588,10 @@ A start's input or a finish's output may hold files: an `A2AFileDto` field (`@Ne
 a data part (`-32602 a2a.file-field-in-data`) — and a finish's file fields leave as file parts of its
 artifact. A step reads and writes them through `A2AFiles` (`read`, `save`, `fromUrl`):
 
-<!-- snippet-context
-import { Injectable } from "@agboss/core";
-import { A2AFileDto, A2AFiles } from "@agboss/core/a2a";
+```ts file=src/support/dto/review-request.dto.ts
+import { A2AFileDto } from "@agboss/core/a2a";
 import { Nested, Text } from "@agboss/core/dto";
--->
 
-```ts
 export class ReviewRequestDto {
   @Nested(A2AFileDto, { prompt: "the document to review" })
   document!: A2AFileDto;
@@ -600,6 +599,12 @@ export class ReviewRequestDto {
   @Text({ prompt: "a note to the reviewer", optional: true })
   note?: string;
 }
+```
+
+```ts file=src/support/services/document-reader.service.ts
+import { Injectable } from "@agboss/core";
+import { A2AFileDto, A2AFiles } from "@agboss/core/a2a";
+import { ReviewRequestDto } from "../dto/review-request.dto.js";
 
 @Injectable({ deps: [A2AFiles] })
 export class DocumentReader {
