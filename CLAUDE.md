@@ -1420,7 +1420,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   answer taken by the first pass's drain, whose pass a cancel request stops, its pod killed before
   the tree's end marks that answer `Taken` — the waiting resume on the other pod reads the tree's
   failed record at its take and moves nothing (`-32004`, nothing charged), though its pause is
-  still `Resolved` (a record store blind to the end no longer charges — the cancel's mark fences it, #909 — but never reads CANCELED); `s19-cancel-at-charge` / `s19b-cancel-at-payment` (#909), a live holder between its task's cancel request and its next renewal reaches the charge's fenced write / the payment's intent — refused, no gateway request, undone once, `CANCELED` (a lease store whose mark never lands fails them: `no-effect-after-cancel`); held at `StoreHoldPoint.LeaseRequestCancel`, `StoreHoldPoint.A2ATaskSaveIfAbsent`,
+  still `Resolved` (a record store blind to the end no longer charges — the cancel's mark fences it, #909 — but never reads CANCELED); `s20-cancel-at-charge` / `s20b-cancel-at-payment` (#909), a live holder between its task's cancel request and its next renewal reaches the charge's fenced write / the payment's intent — refused, no gateway request, undone once, `CANCELED` (a lease store whose mark never lands fails them: `no-effect-after-cancel`); held at `StoreHoldPoint.LeaseRequestCancel`, `StoreHoldPoint.A2ATaskSaveIfAbsent`,
   `LeaseClaimExecutionId`, `PauseFind` (a resume before its mark, #850), `PauseResolve`,
   `A2ATaskStatusWrite`, `LeaseRenew`, `PauseMarkTaken`; a set that keeps no A2A tasks skips them with the reason; #720:
   `s16-claim-answer-lost`, a pod's claims of a child answered by the store and never heard, twice —

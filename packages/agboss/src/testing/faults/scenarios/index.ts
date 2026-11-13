@@ -25,7 +25,7 @@ import {
 } from "./s18-a2a-resume-vs-cancel.js";
 import { s19Paused, s19bAnswering, s19cResuming } from "./s19-pause.js";
 
-import { s19bCancelAtPayment, s19CancelAtCharge } from "./s19-cancel-at-payment.js";
+import { s20bCancelAtPayment, s20CancelAtCharge } from "./s20-cancel-at-payment.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -64,8 +64,8 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s19Paused,
   s19bAnswering,
   s19cResuming,
-  s19CancelAtCharge,
-  s19bCancelAtPayment,
+  s20CancelAtCharge,
+  s20bCancelAtPayment,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

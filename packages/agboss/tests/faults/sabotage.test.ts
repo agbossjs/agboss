@@ -70,9 +70,9 @@ import {
   s18ResumeFirst,
 } from "../../src/testing/faults/scenarios/s18-a2a-resume-vs-cancel.js";
 import {
-  s19bCancelAtPayment,
-  s19CancelAtCharge,
-} from "../../src/testing/faults/scenarios/s19-cancel-at-payment.js";
+  s20bCancelAtPayment,
+  s20CancelAtCharge,
+} from "../../src/testing/faults/scenarios/s20-cancel-at-payment.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
 import {
   expectThat,
@@ -233,7 +233,7 @@ describe("#909 AC2/AC3: a cancel that fences nothing fails the scenarios that ta
     /^tree \S+ committed (fencedEffect\.write|outboundCall\.saveIfAbsent) \(a\) after its cancel was durable$/u;
 
   it("a cancel mark that never lands: 19's charge runs after the cancel — no-effect-after-cancel", async () => {
-    const failure = await failureOf(s19CancelAtCharge, unmarked);
+    const failure = await failureOf(s20CancelAtCharge, unmarked);
     expect(failure.invariants).toContain(FaultInvariant.NoEffectAfterCancel);
     expect(failure.violations.map((found) => found.message)).toContainEqual(
       expect.stringMatching(UNFENCED),
@@ -241,7 +241,7 @@ describe("#909 AC2/AC3: a cancel that fences nothing fails the scenarios that ta
   }, 180_000);
 
   it("a cancel mark that never lands: 19b's payment is sent after the cancel — no-effect-after-cancel", async () => {
-    const failure = await failureOf(s19bCancelAtPayment, unmarked);
+    const failure = await failureOf(s20bCancelAtPayment, unmarked);
     expect(failure.invariants).toContain(FaultInvariant.NoEffectAfterCancel);
     expect(failure.notes.join("\n")).toMatch(
       /was to be refused \(ExecutionCancelFencedError\); it was accepted/u,

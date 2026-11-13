@@ -16,7 +16,7 @@ import { eventsOf, expectThat, heldAt, holdStore, release } from "./kit.js";
 import { isAccepted, isCanceled } from "./s18-kit.js";
 
 /**
- * Scenario 19 (#909, design §4.3.2 "cancel is a fence"): a live holder between its tree's cancel
+ * Scenario 20 (#909, design §4.3.2 "cancel is a fence"): a live holder between its tree's cancel
  * request and its next lease renewal — a window of up to a lease, which the holder never reads —
  * reaches a fenced write. Pod a runs an order's task and is held at the write, before the store is
  * asked; a `CancelTask` on pod b answers once the tree's mark (`lease.requestCancel`) is durable;
@@ -109,8 +109,8 @@ async function cancelledAt(
   return b;
 }
 
-export const s19CancelAtCharge: RunnableFaultScenario = {
-  id: "s19-cancel-at-charge",
+export const s20CancelAtCharge: RunnableFaultScenario = {
+  id: "s20-cancel-at-charge",
   title:
     "19: a live holder between its task's cancel request and its next renewal reaches the charge's fenced write — refused, nothing charged or paid, the reservation undone once, CANCELED",
   run: async (cluster) => {
@@ -121,8 +121,8 @@ export const s19CancelAtCharge: RunnableFaultScenario = {
   },
 };
 
-export const s19bCancelAtPayment: RunnableFaultScenario = {
-  id: "s19b-cancel-at-payment",
+export const s20bCancelAtPayment: RunnableFaultScenario = {
+  id: "s20b-cancel-at-payment",
   title:
     "19b: a live holder between its task's cancel request and its next renewal reaches the payment's intent — refused, no gateway request, the reservation undone once, CANCELED",
   run: async (cluster) => {
