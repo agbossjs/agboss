@@ -187,12 +187,13 @@ export async function followedUpTask(
   return { task: after, answered: task.version };
 }
 
-/** Whether an outcome says the task waited for no answer when it was decided. */
+/**
+ * Whether an outcome says the task waited for no answer when it was decided (a kept reply of before,
+ * `a2a.already-answered`, is replayed, never decided again).
+ */
 const isNoLongerWaiting = (outcome: KeptReply): boolean =>
   "refused" in outcome &&
-  (outcome.code === "a2a.no-pending-pause" ||
-    outcome.code === PAUSE_CLOSED ||
-    outcome.code === "a2a.already-answered");
+  (outcome.code === "a2a.no-pending-pause" || outcome.code === PAUSE_CLOSED);
 
 /** The answer's outcome: refused before anything moved, or the resume accepted. */
 async function answered(
