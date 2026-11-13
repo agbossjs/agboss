@@ -38,7 +38,15 @@ prompts:
   when it is stale) → autocomplete and validation in editors with the YAML language server.
 
 Use a profile anywhere: `agboss chat --profile scout-low-thinking` (also `agboss run`,
-`agboss eval`, `agboss replay`, `agboss compare --profiles`). `base` means no profile.
+`agboss eval`, `agboss replay`, `agboss compare --profiles`), in code `createApp(App, { profile,
+profileRoot })` and in a test `testWith(App, { profile, profileRoot })` (#895). `base` means no
+profile. An unknown name is a `ProfileError` that lists the profiles that exist; a model a profile
+switches to one no listed provider serves is `[model.unserved]` at assembly. Every workflow of the
+application, the child workflows too, takes the profile, so each needs a file of that name.
+`profileRoot` is where `profiles/` is (default `process.cwd()`); in a monorepo or when the tests run
+from the repository root give the package directory with
+`fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` — not `.pathname`, which is
+no path on Windows. See [Testing](Testing#a-profile-in-a-test).
 
 ## Golden sets
 

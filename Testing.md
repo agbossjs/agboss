@@ -21,9 +21,10 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
 
 - `server.deps.inline` gains `/@agboss\//`. Installed from npm, `@agboss/core` is an external
   dependency of vitest: Node loads it, and every project file the core loads by path — the
-  `*.application.ts` `workflowOf(W)` finds next to `W`, the application's environments, eval suites —
-  bypasses vite. Node cannot run their decorators, and even through tsx they would be a second module
-  graph, whose application lists another class object than the test's `W`. Inlined, the core and
+  `*.application.ts` the framework's own `workflowOf(W)` (`@agboss/core/internal`) finds next to `W`,
+  the application's environments, eval suites — bypasses vite. Node cannot run their decorators, and
+  even through tsx they would be a second module graph, whose application lists another class object
+  than the test's `W`. Inlined, the core and
   every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
   is inlined anyway, which is why only the published package showed it.) #891: the pattern is
   `/@agboss\//`, every `@agboss` package — a store package (`@agboss/mongodb`, `@agboss/redis`,
@@ -37,7 +38,8 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
   it is); every other option passes through, and calling it twice adds nothing twice. The entry
   imports only vitest's types.
 
-Without it, `workflowOf(W)` (testing only; the CLI loads everything through tsx in one graph) throws
+Without it, `workflowOf(W)` (`@agboss/core/internal`, no API for a project: its tests use
+`testWith(App)`; the CLI loads everything through tsx in one graph) throws
 `TestSetupError` when the application file's import fails, or when the file's application lists a
 class named like `W` but not `W` itself:
 `the application of <workflow> was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`,
@@ -47,7 +49,8 @@ the original error as its `cause`. The older form — a raw `setupFiles: ["@agbo
 The guard: `npm run check:packed` (CI's `packed-project` job, on every pull request) packs
 `@agboss/core` and `@agboss/cli`, creates a project outside the workspace with the packed CLI
 (`agboss create`), installs the tarballs (checked: installed, not linked), runs its tests with a
-`workflowOf` test of its own, `agboss describe` and `agboss check` — then the same `workflowOf` test
+test of its own that assembles a workflow through `workflowOf` of `@agboss/core/internal` (the
+guard's probe, not what a project writes), `agboss describe` and `agboss check` — then the same probe
 under a plain config, which must fail with that `TestSetupError`. It also fails (#645) when a shipped
 `dist/**/*.js.map` names a source the tarball lacks, when the test run prints vite's missing-sources
 warning, or when a test failing inside the core names a frame the installed package does not have.
@@ -178,7 +181,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
 Components are referenced **by class** everywhere; strings only for data.
 
-## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides? })`
+## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides?, profile?, profileRoot? })`
 
 A Vitest `test` whose fixtures are:
 
@@ -217,6 +220,20 @@ the next.
 A blocked call fails with **`test.live-call-blocked`** and a message naming the class, the server
 tool or the host — even when the run swallowed it (a tool error the agent read): the call that ran
 it (`app.execute`, `app.resume`, a slice) throws it.
+
+### A profile in a test
+
+`testWith(App, { profile: "scout-low-thinking", profileRoot })` runs every workflow of the
+application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
+as `createApp(App, { profile, profileRoot })` does, with the models still scripted and no keys
+(#895). The read-only `app.settings` (by workflow name) is what the profile applied:
+`expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`; its `version`
+is the profile's. `profileRoot` defaults to `process.cwd()`; from a test in `tests/` of a package
+(a monorepo, or tests run from the repository root) use
+`profileRoot: fileURLToPath(new URL("..", import.meta.url))` — never `.pathname`, which is no path on
+Windows. An unknown profile is a `ProfileError` listing the profiles that exist (`base` means none),
+and a model the profile switches to one no listed provider serves fails the assembly with
+`[model.unserved]`, not the first call. See [Profiles](Profiles-and-comparisons#profiles-spring-boot-like).
 
 ## Scripted models
 

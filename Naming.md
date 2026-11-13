@@ -81,8 +81,9 @@ Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.
 | | the hooks `onExecutionStart`, `onExecutionPause`, `onExecutionResume`, `onExecutionEnd`, `onExecutionError`, `onExecutionRejected`; `ExecutionCancelledError` |
 
 Nothing execution-time is named `run…`: `result.executionId` (not `runId`), `IncompatibleResume`
-`{ threadId, executionId }`, `executeAgent` / `AgentExecutionDeps` / `AgentExecutionOptions` /
-`executionVersions` for the lower-level loop.
+`{ threadId, executionId }`. The lower-level agent loop (`executeAgent`, `AgentExecutionDeps`,
+`AgentExecutionOptions`, `executionVersions`) is internal since #895 (`@agboss/core/internal`), no
+public API.
 
 ## Values with units
 

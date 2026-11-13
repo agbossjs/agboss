@@ -591,7 +591,7 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
   `InjectionToken` — `provide(AuditRepository, new MemoryAuditRepository())` fails with
   `[di.instance-provider]`. One token with two different values (in two workflows, or twice in one)
   fails with `[di.conflicting-values]` — use different tokens or an environment value.
-- **Assembly** (`workflowOf` / `createApp`, before the first request): the dependency graph is checked
+- **Assembly** (`testWith` / `createApp`, before the first request): the dependency graph is checked
   and every instance is created once, dependencies first. A cycle, an unregistered provider
   (`Consumer: "TOKEN" is not registered …`), an undecorated class in `providers`
   (`[di.undecorated-provider]`), a channel role with no or two implementations in

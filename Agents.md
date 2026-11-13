@@ -28,7 +28,7 @@ flowchart LR
 | Node | Does |
 | --- | --- |
 | `input` | once per call of the agent: the thread's memory as a message of its own, then the **input message** — its `input` fields from the path's scope, context-mode knowledge, the decisions on its own calls in this execution |
-| `model` | one model turn through `ModelGateway.chatModel(…)` with the agent's tools bound; checks the run budget and `modelCalls` before, records usage and checks `toolCalls` after |
+| `model` | one model turn (through the internal model gateway) with the agent's tools bound; checks the run budget and `modelCalls` before, records usage and checks `toolCalls` after |
 | `boundary` | the move joins the conversation; for each call, in order: tool judges → agent judges `beforeToolCall`; a call to a tool the agent does not have is answered `Tool error: there is no tool "…"` |
 | `approval` | asks about **one** call that waits (pause seam) and records the decision by `callId` |
 | `tool` | one task (`Send`) per allowed call: runs the tool with the run's signal + its `timeout`; stores the result (or `Tool error: …`) under its `callId`; reported costs join the loop's usage |

@@ -429,7 +429,7 @@ a generated project writes it on install (`npm run types`) and `agboss generate`
 
 ## Assembly rules
 
-Checked by `workflowOf` / `createApp` / `agboss check` before any model call; all violations are
+Checked by `testWith` / `createApp` / `agboss check` before any model call; all violations are
 reported together in a `GraphRuleError` with stable codes: names end with their kind and are unique
 in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths end
 with `Dto` (`[dto.name]`); `.returns` matches the output (`[flow.returns-mismatch]`); every input is
