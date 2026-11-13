@@ -7,7 +7,6 @@ import { describe, expect, it, vi } from "vitest";
 import { cancelMet } from "../../src/app/handed-over.js";
 import { CancelFoundHooks } from "../../src/app/lease-yields.js";
 import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
-import type { FrameLease } from "../../src/flow/context/frame.js";
 
 const REFUSAL = ExecutionCancelFencedError.of({
   scopeKey: "default:execution-1",
@@ -23,7 +22,7 @@ describe("#909: cancelMet", () => {
     const order: string[] = [];
     const cancelFound = vi.fn(() => order.push("stopped"));
 
-    cancelMet(REFUSAL, { cancelFound } as unknown as FrameLease, () => order.push("told"));
+    cancelMet(REFUSAL, { cancelFound }, () => order.push("told"));
 
     expect(order).toEqual(["told", "stopped"]);
     expect(cancelFound).toHaveBeenCalledWith(REFUSAL);
@@ -32,11 +31,7 @@ describe("#909: cancelMet", () => {
   it("the refusal under a wrapper's cause is found too", () => {
     const cancelFound = vi.fn();
 
-    cancelMet(
-      new Error("driver", { cause: REFUSAL }),
-      { cancelFound } as unknown as FrameLease,
-      () => undefined,
-    );
+    cancelMet(new Error("driver", { cause: REFUSAL }), { cancelFound }, () => undefined);
 
     expect(cancelFound).toHaveBeenCalledWith(REFUSAL);
   });
@@ -45,7 +40,7 @@ describe("#909: cancelMet", () => {
     const cancelFound = vi.fn();
     const tell = vi.fn();
 
-    cancelMet(new Error("a store error"), { cancelFound } as unknown as FrameLease, tell);
+    cancelMet(new Error("a store error"), { cancelFound }, tell);
 
     expect(tell).not.toHaveBeenCalled();
     expect(cancelFound).not.toHaveBeenCalled();
@@ -55,7 +50,7 @@ describe("#909: cancelMet", () => {
     const tell = vi.fn();
 
     expect(() => {
-      cancelMet(REFUSAL, {} as FrameLease, tell);
+      cancelMet(REFUSAL, {}, tell);
     }).not.toThrow();
     expect(tell).toHaveBeenCalledTimes(1);
   });

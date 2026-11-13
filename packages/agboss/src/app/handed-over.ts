@@ -50,7 +50,11 @@ export const cancelFencedErrorOf = (error: unknown): ExecutionCancelFencedError 
  * A step under `lease` met its tree's cancel in `error` (#909): `tell` it (the audit row and the
  * observer first), then the holder stops the tree as cancelled; nothing for any other error.
  */
-export function cancelMet(error: unknown, lease: FrameLease, tell: () => void): void {
+export function cancelMet(
+  error: unknown,
+  lease: Pick<FrameLease, "cancelFound">,
+  tell: () => void,
+): void {
   const cancelled = cancelFencedErrorOf(error);
   if (cancelled === undefined) return;
   tell();
