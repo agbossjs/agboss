@@ -33,6 +33,6 @@ describe("#1004: a throwing onStream listener", () => {
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(sent).toHaveLength(1);
     expect(heard).toContainEqual({ kind: "toolCall", tool: "send-email-tool" });
-    expect(heard).toContainEqual({ kind: "textDelta", delta: "Sent." });
+    expect(heard).toContainEqual(expect.objectContaining({ kind: "textDelta", delta: "Sent." }));
   });
 });

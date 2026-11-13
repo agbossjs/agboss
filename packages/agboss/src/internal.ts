@@ -156,7 +156,7 @@ export { modelUsesOf, type ModelUse } from "./models/uses.js";
 export { directoryOf, modelSummaryOf } from "./models/workflow-models.js";
 export { applicationModelUsesOf, resolvedModelUsesOf } from "./models/resolution.js";
 export { frameworkPackageJson } from "./package-json.js";
-export { type ExecutionStreamEvent } from "./run/types.js";
+export { type DiscardReason, type ExecutionStreamEvent, type StreamStep } from "./run/types.js";
 export { childSourcesIn, configSnapshot, type ChildSnapshotSources } from "./run/versions.js";
 export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";

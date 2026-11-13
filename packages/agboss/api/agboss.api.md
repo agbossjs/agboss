@@ -2126,6 +2126,9 @@ export interface DepthLimitExceededErrorOptions {
 }
 
 // @public
+export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+
+// @public
 export interface DtoBrands {
     // (undocumented)
     readonly [notGenerated]?: never;
@@ -2930,6 +2933,13 @@ export interface ExecutionStepRecord {
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
+    readonly step: StreamStep;
+}
+/** The text streamed for `step` is retracted (#1006): show it no more. */
+| {
+    readonly kind: "discarded";
+    readonly step: StreamStep;
+    readonly reason: DiscardReason;
 }
 /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
 | {
@@ -7896,6 +7906,14 @@ export enum StoreTimeSource {
 }
 
 // @public
+export interface StreamStep {
+    readonly agent: string;
+    readonly attempt: number;
+    readonly branch: string;
+    readonly visit: number;
+}
+
+// @public
 export interface SubPath {
     // (undocumented)
     readonly steps: readonly Step[];
@@ -10442,17 +10460,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/run/resume-guard.ts:51:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:52:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:53:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/types.ts:63:3 - (ae-undocumented) Missing documentation for "scope".
-// src/run/types.ts:64:3 - (ae-undocumented) Missing documentation for "outdatedValues".
-// src/run/types.ts:65:3 - (ae-undocumented) Missing documentation for "lastError".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:87:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:92:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:93:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:95:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "turnId".
-// src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "scope".
+// src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "outdatedValues".
+// src/run/types.ts:100:3 - (ae-undocumented) Missing documentation for "lastError".
+// src/run/types.ts:119:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:122:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:127:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:128:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:129:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:130:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:133:3 - (ae-undocumented) Missing documentation for "turnId".
+// src/run/types.ts:134:3 - (ae-undocumented) Missing documentation for "data".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts:35:3 - (ae-undocumented) Missing documentation for "timeout".
 // src/tools/define-tool.ts:36:3 - (ae-undocumented) Missing documentation for "cause".

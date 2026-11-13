@@ -45,3 +45,22 @@ describe.each(READMES)("#1004 AC5: %s", (file) => {
     expect(section).toContain("output");
   });
 });
+
+describe.each(READMES)("#1006 AC5: %s", (file) => {
+  it("says streamed text is provisional, when it is retracted and what is held back", () => {
+    const text = readFileSync(join(repo, file), "utf8").replace(/\s+/g, " ");
+    expect(text).toContain("Streamed text is **provisional**");
+    for (const reason of [
+      "judge-rejected",
+      "tool-turn",
+      "invalid-answer",
+      "stream-broken",
+      "failed",
+    ]) {
+      expect(text, reason).toContain(reason);
+    }
+    expect(text).toContain("blocking output check");
+    expect(text).toContain("cannot be switched off");
+    expect(text).toContain("append: false");
+  });
+});

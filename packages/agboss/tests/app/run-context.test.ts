@@ -97,7 +97,9 @@ describe("#181: execute and resume forward onStream", () => {
 
       await execute(app, MailStart, { text: "hi" }, { onStream: (event) => events.push(event) });
 
-      expect(events).toContainEqual({ kind: "textDelta", delta: "Hello there." });
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "textDelta", delta: "Hello there." }),
+      );
     },
   );
 
@@ -114,6 +116,6 @@ describe("#181: execute and resume forward onStream", () => {
     );
     await app.resume(answerOf(paused, approve), { onStream: (event) => events.push(event) });
 
-    expect(events).toContainEqual({ kind: "textDelta", delta: "Sent." });
+    expect(events).toContainEqual(expect.objectContaining({ kind: "textDelta", delta: "Sent." }));
   });
 });
