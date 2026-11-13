@@ -62,6 +62,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 | `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard at most once, never twice, by the pods' observers (#562; a pod killed between a child's completion and its announcement leaves the end unannounced, which is allowed). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
 | `no-undo-on-hand-over` | A hand-over undoes nothing. A real failure undoes once. |
+| `no-effect-after-cancel` (#909) | Once a tree's `requestCancel` answered (`lease.requestCancel`), no fenced write that ran, no intent recorded and no attempt claimed by a store operation **invoked after it** — except the tree's undo's (`isCompensation`); a write already open when it was asked may commit. |
 | `trees-finish` | Every order finished (a declined one failed), and every batch finished, within the scenario's bound. |
 | `linearizable` | The history has an order the sequential model of the fencing stores explains (#533). See below. |
 
@@ -130,6 +131,9 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 16 | The pod that hosts a batch hears no answer to two of its claims of a child: the store claimed the child for it, `Running`, and the answer was lost (#720; on PostgreSQL a claim statement that marked several rows and returned one) | The parent's watch has the pod reclaim the child; the lease it keeps for its own next claim goes back when that claim is lost too, and the next reclaim and claim run the child: once, and the batch ends. Before #720 the kept lease was renewed for ever with nothing running, and the batch never ended (with the fix reverted, 16 fails on `trees-finish`) | `s16-claim-answer-lost` |
 | 19 | A pod killed (`SIGKILL`) around its order's pause (#959): while the tree is paused; right after its resume recorded the answer; while the resumed pass runs | A resume on another pod finishes the paused tree; another pod's recovery continues the answered one with the recorded answer; another pod takes the resumed pass over from its expired lease. Each order is reserved once, charged once and paid once | `s19-pause-kill-paused`, `s19b-pause-kill-answering`, `s19c-pause-kill-resuming` (`s19-pause.test.ts`) |
 
+| 20 | A live holder between its A2A task's cancel request and its next lease renewal (the window of up to a lease the holder never read) reaches the charge's fenced write, held at `fencedEffect.write` while a `CancelTask` on another pod answers (#909) | The store refuses the write in the lease's transaction (`ExecutionCancelFencedError`): nothing charged or paid, no gateway request, the tree unwinds as cancelled, the reservation undone once, the task `CANCELED` | `s20-cancel-at-charge` (`s20-cancel-at-payment.test.ts`) |
+| 20b | The same at the payment: the charge committed before the cancel, the holder held at `outboundCall.saveIfAbsent` (#909) | The intent is refused, none recorded: the gateway got no request; the charge stands, the reservation is undone once | `s20b-cancel-at-payment` |
+
 **The scenarios bite.** A broken store — a sabotage — must fail the scenario that targets it.
 These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
 - A fenced-effect store with **no fencing check on the business write**: its writes go in at the
@@ -167,6 +171,10 @@ These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
   (`FAULT_SABOTAGE_SCENARIOS`, `@agboss/core/testing/faults`): `faultSuite` runs them after its
   scenarios on every set (#831), each case passing only when the run breaks `effects-once` —
   `sabotages: false` shows them skipped, never passed.
+
+- A lease store whose **cancel mark never lands** (`requestCancel` answers and writes nothing, #909 —
+  the fence reverted): 19 and 19b fail on `no-effect-after-cancel`, because the held write or
+  intent was accepted after the cancel answered.
 
 **A set that opts out fails the suite.** Before its scenarios `faultSuite` runs `fences atomically:
 no store declares LeaseCheck.WithoutDoubleChargeProtection` (#584): a set whose fenced-effect or

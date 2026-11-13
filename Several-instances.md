@@ -1134,10 +1134,13 @@ moves it (#360) — behind a load balancer a cancel lands on a random instance. 
 always (`UnknownThreadError` for another tenant's or an unknown thread, `ThreadOwnerError` for
 another owner, `onExecutionRejected`), then:
 
-1. **this instance runs it** — it is aborted at once, as before; nothing is written;
+1. **this instance runs it** — it is aborted at once; before the abort the tree's durable **cancel
+   mark** is written (below, #909), so `app.cancel` resolves only once the cancel is fenced on every
+   instance, and rejects with the store's error — nothing aborted, a retry is idempotent — when the
+   mark cannot be written;
 2. **it is paused** — it is dropped through the shared `PausedExecutionRepository`, its pauses
    withdrawn, as before;
-3. **otherwise** every `running` root record of the thread gets a **cancel request**: the reserved
+3. **otherwise** every `running` root record of the thread gets the mark and a **cancel request**: the reserved
    tree key `@agboss/cancel-request` of the shared `ExecutionTreeRepository` (`{ requestedAt,
    ownerId }`, `saveIfAbsentInTree`, so two cancels write it once). The records are then read
    again: still `running` → `{ cancelled: true }`; paused meanwhile → the cancel waits for the
@@ -1151,6 +1154,26 @@ request aborts the pass with `ExecutionCancelledError` (`thread "…" was cancel
 a local cancel): the tool loop starts no further model or tool call, the record is failed,
 `onExecutionError` fires once (on the holder's instance) and the holder's `execute` / `resume`
 rejects. A store error reading the request is not a failure: it is read again at the next renewal.
+
+**Cancel is a hard fence (#909, [ADR-0030](ADR-0030-A-cancel-is-a-fence)).** Every path that
+cancels a tree — a local `app.cancel`, a remote one, a paused tree's, an A2A `CancelTask` — first
+writes the tree's cancel mark with `ExecutionLeaseRepository.requestCancel(tree)`: durable on the
+lease store's database, keyed by the tree's root, idempotent, changing no lease. From then on every
+fencing store of that database refuses, in the transaction that checks the lease, a **new**
+fenced effect (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
+tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
+nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 10 s —
+cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
+step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a
+child's key is fenced by its **root's** cancel; the end of an attempt claimed before the cancel
+(`markCompleted`, `markFailed`) and every read are accepted. A stale token is still
+`ExecutionFencedError` — a hand-over first. The step that met the refusal stops the tree as
+cancelled **at once** (not at the next renewal): it is told (`onFencedEffect` / `onOutboundCall`
+with outcome `cancelled`, and the audit log), the holder aborts its own pass, the open undos run
+under its lease and the moving call rejects with `ExecutionCancelledError`. The guarantee is P7 on
+[Guarantees](Guarantees): once `app.cancel` has resolved no effect runs for the tree but its undo's;
+a write already inside its transaction may finish first, and a send already claimed may still be
+answered and recorded. The marks are pruned by the fencing stores' retention.
 
 **The request is durable.** An instance that takes a tree's lease reads it first: a waiting
 `resume` ends the tree as cancelled and rejects with `ExecutionCancelledError`; recovery ends a
@@ -1289,6 +1312,9 @@ export class LeaseTableService {
   insertIdIfAbsent(_identity: ExecutionIdentity): Promise<boolean> {
     return Promise.resolve(true);
   }
+  insertCancelIfAbsent(_tree: ExecutionTree): Promise<void> {
+    return Promise.resolve();
+  }
   selectOne(): Promise<void> {
     return Promise.resolve();
   }
@@ -1301,6 +1327,7 @@ import {
   Injectable,
   type ExecutionIdentity,
   type ExecutionLease,
+  type ExecutionTree,
 } from "@agboss/core";
 import type { Milliseconds } from "@agboss/core/units";
 
@@ -1352,6 +1379,11 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
     duration: Milliseconds,
   ): Promise<ExecutionLease | undefined> {
     return this.leaseTableService.nextEpochIfHeld(executionLease, duration);
+  }
+
+  // #909: the tree's cancel mark, durable on the fencing backend, idempotent, changing no lease
+  override requestCancel(tree: ExecutionTree): Promise<void> {
+    return this.leaseTableService.insertCancelIfAbsent(tree);
   }
 
   override ping(): Promise<void> {

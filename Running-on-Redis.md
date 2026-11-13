@@ -47,6 +47,11 @@ combination cannot meet P1 and is **refused**: a Redis lease store beside a fenc
 outbound-call store of another backend fails assembly with `[application.store-backend-mismatch]`.
 The rule is not relaxed for Redis.
 
+Redis keeps no fencing stores, so it keeps no cancel mark either (#909): its `requestCancel`
+resolves and writes nothing. The cancel's mark is written by the lease store of the backend the
+fenced-effect and outbound-call stores share (A2 puts their leases there): a layout with Redis leases
+has no fenced write to refuse, and its holder sees a cancel at its next renewal, as before.
+
 The layouts that hold:
 
 - **The Redis queue and rate limits, everything else on PostgreSQL or MongoDB** — leases included.

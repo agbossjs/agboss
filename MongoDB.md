@@ -81,6 +81,17 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   a close of that lease either committed before the touch, which conflicts (`WriteConflict`, a
   `TransientTransactionError`: the driver runs the transaction again and reads it), or waits for
   the transaction to end. A business key is locked the same way, before the work runs.
+- **The cancel's fence** (#909, [ADR-0030](ADR-0030-A-cancel-is-a-fence)) — `requestCancel` is one
+  upsert (a pipeline keeping the first `requestedAt`) of the tree's document in
+  `agboss_execution_cancel_requests`, outside any transaction; the fenced effect and the outbound
+  call (`saveIfAbsent`, `markPending`) check it in their transaction as the lease: the document is
+  *written* first (`touchedAt`, `touches` counted up), then read, and a set `requestedAt` refuses
+  the write with `ExecutionCancelFencedError`. The cancel either waits for a transaction that
+  already touched the document or commits first, and the transaction's later touch conflicts and
+  runs again on a snapshot that holds it; the price is that fenced writes of one tree's
+  `AnyInstance` children conflict and retry. It is **schema version 2** — run `agboss-mongodb
+  migrate` before rolling out the version that writes it (an older instance neither writes nor
+  reads the collection). Documents older than the fencing stores' retention are pruned with them.
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not

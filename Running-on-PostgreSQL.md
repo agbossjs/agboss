@@ -183,6 +183,18 @@ back, so roll the application forward, or run the newer image.
   past `trustedUntil` aborts the execution's signal and hands the tree over, so a pod never moves a
   tree whose lease it could not renew.
 
+## The cancel's fence (#909)
+
+Migration `0032_execution_cancel_requests` adds `agboss_execution_cancel_requests` (the cancel's mark
+per tree: tenant, root, `requested_at`) — additive, so run `agboss-postgres migrate` **before** rolling
+out the version that writes it (an older instance neither writes nor reads it). The mark is written
+by `PostgresExecutionLeaseRepository.requestCancel` and read by the fenced-effect and outbound-call
+stores in their own transactions, each under a pair of advisory locks of the tree's identity
+(namespace 909, beside the business key's 508): the cancel takes the exclusive one, so it waits for
+the tree's open fencing transactions; a fencing transaction takes the shared one after its lease and
+key checks and reads the committed mark. A long fenced `work` therefore delays a cancel of its tree,
+never the other way round. Rows older than the fencing stores' retention are pruned with them.
+
 ## What the guarantees assume of PostgreSQL
 
 [Guarantees](Guarantees) lists every assumption; on PostgreSQL they read:

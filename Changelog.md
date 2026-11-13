@@ -3,6 +3,31 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: cancel is a hard fence for effects (#909)
+
+- **Added — store contract (breaking for a store of your own)**: `ExecutionLeaseRepository` has one
+  more abstract method, `requestCancel(tree: ExecutionTree): Promise<void>` — the tree's durable
+  cancel mark on the fencing backend, keyed by `(tenantId, rootExecutionId)`, idempotent, changing no
+  lease; a store that keeps no fencing stores (Redis) resolves and writes nothing. Every fencing
+  store reads it in the transaction that checks the lease, after the lease, the scope's mark and the
+  key's lookup: `FencedEffectRepository.runOnce` (a new effect), `OutboundCallRepository.saveIfAbsent`
+  (a new intent) and `markPending` (a new attempt) of a cancelled tree are refused with the new
+  `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`; `of(key)`
+  builds it, `cancelFencedErrorOf(error)` finds it in a cause chain, both also in
+  `@agboss/core/stores`) — nothing written or sent; a stored result replays, an undo's key and the end
+  of a claimed attempt are never refused. `EffectKeyFields` has two optional fields, `rootExecutionId`
+  (the tree whose cancel fences the key, set by `effectKeyOf`; a child's lease is its own) and
+  `isCompensation` (a step that compensates another), read with `cancelTreeOf(key)`
+  (`@agboss/core/stores`). PostgreSQL: migration `0032_execution_cancel_requests`; MongoDB: schema
+  version 2 — migrate before rolling out.
+- **Changed**: every path that cancels a tree writes the mark first (a local `app.cancel` too:
+  it resolves only once the cancel is durable and rejects with the store's error when it cannot
+  write it), so P7 — no effect after a durable cancel, with no window of a renewal — holds on every
+  instance. The step that met the refusal stops the tree as cancelled at once (`FencedEffectEventOutcome.Cancelled`,
+  `OutboundCallEventOutcome.Cancelled`). The contract suites, the interleaving explorer (a `cancel`
+  action, `no-effect-after-cancel`) and the fault suite (scenarios 19 and 19b, the invariant on every
+  run, `StoreHoldPoint.LeaseRequestCancel`) cover it; `a2a-tasks-once` no longer tolerates an effect
+  within a lease of a cancel. See [ADR-0030](ADR-0030-A-cancel-is-a-fence), Guarantees P7 and A18.
 ## Unreleased — 0.1.1: project skills in `.agents/skills/agboss/` (#983)
 
 - **Changed**: the project skills are one committed copy in `.agents/skills/agboss/`, which Codex, Cursor, GitHub Copilot, Gemini CLI, Antigravity and Windsurf read natively; `.claude/skills/agboss` is a local, git-ignored link to it (a symlink, on Windows a junction) for Claude Code and Cline, made by `npm install` / `agboss check` / `agboss create`. A 0.1.x project's real `.claude/skills/agboss/` is moved on the first `agboss check` (`[skills.moved]`: commit the folder; in `.gitignore` replace `.claude/skills/agboss/` with `.claude/skills/agboss`). Migration: nothing else.
