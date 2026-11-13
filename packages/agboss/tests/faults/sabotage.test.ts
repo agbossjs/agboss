@@ -318,7 +318,7 @@ describe("#811 AC4: a broken store fails the A2A scenario that targets it", () =
   // invariant), but the blind read keeps the task WORKING: the scenario's own checks bite
   it("a record store that reads a failed root as running: 18d's late resume is not refused -32004 and the task never reads CANCELED", async () => {
     await expect(runFaultScenario(s18dDrainTookAnswer, endBlind)).rejects.toThrow(
-      /^s18d-a2a-drain-took-answer-cancel: the resume of the ended tree was to be -32004:/u,
+      /^s18d-a2a-drain-took-answer-cancel: the resume of the ended tree was to be -32004 a2a\.pause-closed, answered: /u,
     );
   }, 120_000);
 });
