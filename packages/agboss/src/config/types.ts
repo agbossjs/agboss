@@ -1,4 +1,5 @@
 import type { PromptInput } from "../components/prompt-input.js";
+import type { AgentSettings, AgentsConfig, MaxTokens, Price } from "./settings-types.js";
 
 import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
@@ -215,17 +216,19 @@ export const AgentsConfigSchema = z.object({
   agents: z.record(z.string(), AgentSettingsSchema),
 });
 
-export type Price = z.infer<typeof PriceSchema>;
-export type MaxTokens = z.infer<typeof MaxTokensSchema>;
-export type Thinking = z.infer<typeof ThinkingSchema>;
 export type ChatDefaults = z.infer<typeof ChatDefaultsSchema>;
-export type CacheSetting = z.infer<typeof CacheSettingSchema>;
-export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
-export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
 export type RouterModel = z.infer<typeof RouterModelSchema>;
-export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
-export type CompactionSettings = z.infer<typeof CompactionSettingsSchema>;
-export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
+export type {
+  AgentSettings,
+  AgentsConfig,
+  CacheSetting,
+  CompactionSettings,
+  MaxTokens,
+  McpServerConfig,
+  ModelSettings,
+  Price,
+  Thinking,
+} from "./settings-types.js";
 
 /** An agent whose tool names are a literal union — a typo does not compile. */
 export type AgentSettingsOf<TTool extends string> = Omit<AgentSettings, "tools"> & {

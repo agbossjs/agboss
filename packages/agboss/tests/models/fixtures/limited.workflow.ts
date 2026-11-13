@@ -61,12 +61,7 @@ export class LimitedAgent {}
 @Workflow({
   name: "limited-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(LimitedAgent)
-      .toFinish(Reply),
-  ],
+  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(LimitedAgent).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
     tools: { maxToolCalls: 1 },

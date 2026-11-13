@@ -115,9 +115,7 @@ export class ChildBatchWorkflowFinish {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
   }): BatchSummaryDto {
     return {
-      text: input.refunds
-        .map((refund) => refund.value.orderId)
-        .join(", "),
+      text: input.refunds.map((refund) => refund.value.orderId).join(", "),
     };
   }
 }

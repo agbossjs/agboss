@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { ProviderConnection, RoutingProblem } from "./handler.js";
-import type { WireFields } from "./wire.js";
 
 /**
  * OpenRouter's host routing (#269, #395 PR 6): which upstream hosts may serve a model and at which
@@ -50,7 +49,7 @@ export interface OpenRouterRouting {
 }
 
 /** The routing as OpenRouter's request body takes it: snake_case, fields not set left out. */
-export function routingWireFieldsOf(routing: OpenRouterRouting): WireFields {
+export function routingWireFieldsOf(routing: OpenRouterRouting): Readonly<Record<string, unknown>> {
   const { allowFallbacks, ...rest } = routing;
   return {
     ...Object.fromEntries(Object.entries(rest)),

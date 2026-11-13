@@ -7,7 +7,7 @@ import {
 } from "./openai-compatible.provider.js";
 import { CachedPart, CacheRetention } from "./prompt-caching.js";
 import { ReasoningEffort, type Reasoning } from "./reasoning.js";
-import type { WireFields, WirePlan } from "./wire.js";
+import type { WirePlan } from "./wire.js";
 import type { ProviderConnection, RoutingProblem } from "./handler.js";
 import {
   endpointsOf,
@@ -67,7 +67,7 @@ export abstract class OpenRouterProvider<
   TFields extends OpenRouterFields = OpenRouterFields,
 > extends OpenAiCompatibleProvider<TFields> {
   /** The routing in camelCase becomes OpenRouter's snake_case `provider` field (#395 PR 6). */
-  protected override wireFieldsOf(fields: TFields): WireFields {
+  protected override wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>> {
     const { provider, ...rest } = fields;
     return {
       ...Object.fromEntries(Object.entries(rest)),
@@ -91,7 +91,7 @@ export abstract class OpenRouterProvider<
     return routingProblemsOf(routing, await endpointsOf(model, connection));
   }
 
-  protected override reasoningFields(reasoning: Reasoning): WireFields {
+  protected override reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>> {
     switch (reasoning.kind) {
       case "model-decides":
         return {};

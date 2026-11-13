@@ -31,7 +31,7 @@ export abstract class McpServerClient<TTools extends ServerTools> {
 
   #tools: ReadonlyMap<string, ServerToolCallable> = new Map();
 
-  /** Framework wiring: the connected tools of this server. */
+  /** @internal Framework wiring: the connected tools of this server. */
   attachServerTools(tools: ReadonlyMap<string, ServerToolCallable>): void {
     this.#tools = tools;
   }

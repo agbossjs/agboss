@@ -123,12 +123,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as c
 @Workflow({
   name: "tenant-desk-workflow",
   version: "1.0.0",
-  flow: [
-    start(TenantAskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [start(TenantAskStart).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(DeskAnswer)],
   defaults,
   providers: [ApiKeyDirectory, KeyCallerResolver, FailingCallerResolver],
 })
@@ -165,12 +160,7 @@ export class ListedAskStart {}
 @Workflow({
   name: "listed-desk-workflow",
   version: "1.0.0",
-  flow: [
-    start(ListedAskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [start(ListedAskStart).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(DeskAnswer)],
   defaults,
 })
 export class ListedDeskWorkflow {}

@@ -78,12 +78,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       tools: { maxToolCalls: 2 },
     },
     uncompactedTurns: 1,
-    flow: [
-      start(Start)
-        .returns(WorkflowStartTextDto)
-        .toAgent(Worker)
-        .toFinish(Finish),
-    ],
+    flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Worker).toFinish(Finish)],
     providers: [AuditService, ...providers],
   })
   class ObservedWorkflow {}

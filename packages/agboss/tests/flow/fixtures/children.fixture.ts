@@ -122,13 +122,9 @@ export class CompanyReviewFailedWorkflowFinish {}
   name: "company-review-workflow",
   version: "1.0.0",
   flow: [
-    start(CompanyReviewWorkflowStart)
-      .returns(CompanyDto)
-      .toAgent(CompanyReviewerAgent),
+    start(CompanyReviewWorkflowStart).returns(CompanyDto).toAgent(CompanyReviewerAgent),
 
-    start(CompanyLinkReviewWorkflowStart)
-      .returns(CompanyLinkDto)
-      .toAgent(CompanyReviewerAgent),
+    start(CompanyLinkReviewWorkflowStart).returns(CompanyLinkDto).toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
     agent(CompanyReviewerAgent)
@@ -142,8 +138,7 @@ export class CompanyReviewFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(MarkReviewFailedAction))
           .returns(CompanyGradeDto)
           .toFinish(CompanyGradedWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(CompanyRejectedWorkflowFinish),
+        caseOf(CompanyRejectedDto).toFinish(CompanyRejectedWorkflowFinish),
       ),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
@@ -221,8 +216,7 @@ export class ScreeningStoppedWorkflowFinish {}
       .join()
       .onJoinError(
         LimitExceededError,
-        toAction(NotifyReviewStoppedAction)
-          .toFinish(ScreeningStoppedWorkflowFinish),
+        toAction(NotifyReviewStoppedAction).toFinish(ScreeningStoppedWorkflowFinish),
       )
       .returns(listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)))
       .toAgent(ReviewRankerAgent)
@@ -305,10 +299,8 @@ export class ReviewErrorWorkflowFinish {}
           .toAgent(JobOfferAgent)
           .returns(JobOfferDto)
           .toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto)
-          .toFinish(NoOfferFailedWorkflowFinish),
+        caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
+        caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
       ),
   ],
 })
@@ -354,10 +346,8 @@ export class LinkOfferWorkflowStart {}
           .toAgent(JobOfferAgent)
           .returns(JobOfferDto)
           .toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto)
-          .toFinish(NoOfferFailedWorkflowFinish),
+        caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
+        caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
       ),
   ],
 })

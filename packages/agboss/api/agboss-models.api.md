@@ -5,7 +5,6 @@
 ```ts
 
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { z } from 'zod';
 
 // @public
 export interface AGBossErrorOptions {
@@ -85,8 +84,7 @@ export class CircuitBreaker {
 export interface CircuitBreakerPolicy {
     // (undocumented)
     readonly failureThreshold: number;
-    // (undocumented)
-    readonly fallback?: ModelProviderClass;
+    readonly fallback?: abstract new (...args: never[]) => object;
     readonly fallbackModels?: Readonly<Record<string, string>>;
     // (undocumented)
     readonly openFor: Milliseconds;
@@ -177,14 +175,24 @@ export interface FixedRetryOptions {
 }
 
 // @public
-export interface HttpModelProviderOptions extends ModelProviderBaseOptions {
+export interface HttpModelProviderOptions {
     readonly apiKey?: string;
     readonly baseUrl: string;
     readonly baseUrlField?: string;
+    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+    // (undocumented)
+    readonly cost: ModelCost;
     // (undocumented)
     readonly deps?: never;
+    // (undocumented)
+    readonly description: string;
+    readonly name: string;
     readonly promptCaching: PromptCaching;
+    readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning: Reasoning;
+    readonly retryPolicy: RetryPolicy;
+    readonly serves: readonly RegExp[];
+    readonly timeout: Milliseconds;
 }
 
 // @public
@@ -214,16 +222,7 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 export type JevModelProvider = DecisionsModelProvider;
 
 // @public
-export type KeptModelProviderOptions = ModelProviderOptions & {
-    readonly reasoning: Reasoning;
-    readonly promptCaching: PromptCaching;
-};
-
-// @public (undocumented)
-export type MaxTokens = z.infer<typeof MaxTokensSchema>;
-
-// @public (undocumented)
-export const MaxTokensSchema: z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>;
+export type MaxTokens = number | TokenLimit.MODEL_MAX;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {
@@ -346,32 +345,6 @@ export function ModelProvider(options: HttpModelProviderOptions): <C extends Htt
 
 // @public (undocumented)
 export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;
-
-// @public
-export interface ModelProviderBaseOptions {
-    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
-    // (undocumented)
-    readonly cost: ModelCost;
-    // (undocumented)
-    readonly description: string;
-    readonly name: string;
-    readonly rateLimitPolicy?: RateLimitPolicy;
-    readonly retryPolicy: RetryPolicy;
-    readonly serves: readonly RegExp[];
-    readonly timeout: Milliseconds;
-}
-
-// @public
-export type ModelProviderClass = abstract new (...args: never[]) => object;
-
-// @public
-export class ModelProviderDirectory {
-    constructor(providers: readonly RegisteredModelProvider[]);
-    static of(classes: readonly ModelProviderType[]): ModelProviderDirectory;
-    // (undocumented)
-    readonly providers: readonly RegisteredModelProvider[];
-    resolve(query: ProviderQuery): ProviderResolution;
-}
 
 // @public (undocumented)
 export class ModelProviderError extends AGBossError {
@@ -519,11 +492,11 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
     capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
     chat(request: ChatRequest): BaseChatModel;
-    protected reasoningFields(reasoning: Reasoning): WireFields;
+    protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>>;
     // (undocumented)
     abstract readonly requestFields: TFields;
     protected responseFetch(send: typeof fetch): typeof fetch;
-    protected wireFieldsOf(fields: TFields): WireFields;
+    protected wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>>;
     wirePlanOf(request: Pick<ChatRequest, "settings" | "reasoning" | "promptCaching">): WirePlan;
 }
 
@@ -551,10 +524,10 @@ export abstract class OpenRouterProvider<TFields extends OpenRouterFields = Open
     // (undocumented)
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
     // (undocumented)
-    protected reasoningFields(reasoning: Reasoning): WireFields;
+    protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>>;
     protected responseFetch(send: typeof fetch): typeof fetch;
     routingProblems(model: string, connection: ProviderConnection): Promise<readonly RoutingProblem[]>;
-    protected wireFieldsOf(fields: TFields): WireFields;
+    protected wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>>;
 }
 
 // @public
@@ -584,16 +557,17 @@ export interface PlainErrorOptions {
     readonly message: string;
 }
 
-// @public (undocumented)
-export type Price = z.infer<typeof PriceSchema>;
-
 // @public
-export const PriceSchema: z.ZodObject<{
-    inputPerMTok: z.ZodNumber;
-    outputPerMTok: z.ZodNumber;
-    cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
-    cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
-}, z.core.$strip>;
+export interface Price {
+    // (undocumented)
+    cacheReadPerMTok?: number | undefined;
+    // (undocumented)
+    cacheWritePerMTok?: number | undefined;
+    // (undocumented)
+    inputPerMTok: number;
+    // (undocumented)
+    outputPerMTok: number;
+}
 
 // @public
 export type PromptCaching = ({
@@ -644,32 +618,10 @@ export interface ProviderConnection {
     readonly apiKey: string | undefined;
     // (undocumented)
     readonly baseUrl: string;
-    readonly fetch: ProviderFetch;
+    readonly fetch: typeof fetch;
     // (undocumented)
     readonly provider: string;
 }
-
-// @public
-export type ProviderFetch = typeof fetch;
-
-// @public
-export interface ProviderQuery {
-    // (undocumented)
-    readonly key: string;
-    // (undocumented)
-    readonly model: string;
-    // (undocumented)
-    readonly purpose: ModelPurpose;
-}
-
-// @public
-export type ProviderResolution = {
-    readonly kind: "resolved";
-    readonly provider: RegisteredModelProvider;
-} | {
-    readonly kind: "problem";
-    readonly problem: ModelProblem;
-};
 
 // @public
 export enum ProviderSort {
@@ -812,16 +764,6 @@ export interface ReasoningSupport {
 }
 
 // @public
-export interface RegisteredModelProvider {
-    // (undocumented)
-    readonly handler: ModelProviderHandler | undefined;
-    // (undocumented)
-    readonly options: KeptModelProviderOptions;
-    // (undocumented)
-    readonly type: ModelProviderType;
-}
-
-// @public
 export interface ResolvedModelSettings {
     // (undocumented)
     readonly maxTokens: MaxTokens;
@@ -876,16 +818,26 @@ export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest
 export const TRANSIENT_FAILURES: readonly ModelFailure[];
 
 // @public
-export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> extends ModelProviderBaseOptions {
+export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly apiKey?: never;
     // (undocumented)
     readonly baseUrl?: never;
     // (undocumented)
     readonly baseUrlField?: never;
+    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+    // (undocumented)
+    readonly cost: ModelCost;
     readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    readonly name: string;
     readonly promptCaching?: PromptCaching;
+    readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;
+    readonly retryPolicy: RetryPolicy;
+    readonly serves: readonly RegExp[];
+    readonly timeout: Milliseconds;
 }
 
 // @public
@@ -902,9 +854,6 @@ export interface WireContentPart {
     // (undocumented)
     readonly type: string;
 }
-
-// @public
-export type WireFields = Readonly<Record<string, unknown>>;
 
 // @public (undocumented)
 export interface WireFunction {
@@ -929,7 +878,7 @@ export interface WirePlan {
     // (undocumented)
     readonly cacheMarkers: readonly CachedPart[];
     // (undocumented)
-    readonly fields: WireFields;
+    readonly fields: Readonly<Record<string, unknown>>;
 }
 
 // @public
@@ -954,14 +903,15 @@ export interface WireTool {
 
 // Warnings were encountered during analysis:
 //
-// src/config/types.ts:32:14 - (ae-undocumented) Missing documentation for "MaxTokensSchema".
-// src/config/types.ts:218:1 - (ae-undocumented) Missing documentation for "Price".
-// src/config/types.ts:219:1 - (ae-undocumented) Missing documentation for "MaxTokens".
-// src/config/types.ts:255:3 - (ae-undocumented) Missing documentation for "model".
-// src/config/types.ts:256:3 - (ae-undocumented) Missing documentation for "temperature".
-// src/config/types.ts:257:3 - (ae-undocumented) Missing documentation for "maxTokens".
-// src/config/types.ts:258:3 - (ae-undocumented) Missing documentation for "reasoning".
-// src/config/types.ts:259:3 - (ae-undocumented) Missing documentation for "promptCaching".
+// src/config/settings-types.ts:15:3 - (ae-undocumented) Missing documentation for "inputPerMTok".
+// src/config/settings-types.ts:16:3 - (ae-undocumented) Missing documentation for "outputPerMTok".
+// src/config/settings-types.ts:17:3 - (ae-undocumented) Missing documentation for "cacheReadPerMTok".
+// src/config/settings-types.ts:18:3 - (ae-undocumented) Missing documentation for "cacheWritePerMTok".
+// src/config/types.ts:258:3 - (ae-undocumented) Missing documentation for "model".
+// src/config/types.ts:259:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/config/types.ts:260:3 - (ae-undocumented) Missing documentation for "maxTokens".
+// src/config/types.ts:261:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/config/types.ts:262:3 - (ae-undocumented) Missing documentation for "promptCaching".
 // src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
@@ -978,33 +928,32 @@ export interface WireTool {
 // src/models/capabilities.ts:27:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/capabilities.ts:30:3 - (ae-undocumented) Missing documentation for "reasoning".
 // src/models/capabilities.ts:31:3 - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/circuit-breaker.ts:14:3 - (ae-undocumented) Missing documentation for "failureThreshold".
-// src/models/circuit-breaker.ts:15:3 - (ae-undocumented) Missing documentation for "window".
-// src/models/circuit-breaker.ts:16:3 - (ae-undocumented) Missing documentation for "openFor".
-// src/models/circuit-breaker.ts:17:3 - (ae-undocumented) Missing documentation for "fallback".
-// src/models/circuit-breaker.ts:35:3 - (ae-undocumented) Missing documentation for "message".
-// src/models/circuit-breaker.ts:36:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/circuit-breaker.ts:11:3 - (ae-undocumented) Missing documentation for "failureThreshold".
+// src/models/circuit-breaker.ts:12:3 - (ae-undocumented) Missing documentation for "window".
+// src/models/circuit-breaker.ts:13:3 - (ae-undocumented) Missing documentation for "openFor".
+// src/models/circuit-breaker.ts:33:3 - (ae-undocumented) Missing documentation for "message".
+// src/models/circuit-breaker.ts:34:3 - (ae-undocumented) Missing documentation for "cause".
+// src/models/circuit-breaker.ts:39:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts:40:12 - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts:41:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:42:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/circuit-breaker.ts:43:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker.ts:57:3 - (ae-undocumented) Missing documentation for "rateLimits".
-// src/models/circuit-breaker.ts:58:3 - (ae-undocumented) Missing documentation for "clock".
+// src/models/circuit-breaker.ts:55:3 - (ae-undocumented) Missing documentation for "rateLimits".
+// src/models/circuit-breaker.ts:56:3 - (ae-undocumented) Missing documentation for "clock".
 // src/models/cost.ts:6:3 - (ae-undocumented) Missing documentation for "inputPerMillion".
 // src/models/cost.ts:7:3 - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts:8:3 - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
 // src/models/cost.ts:19:14 - (ae-undocumented) Missing documentation for "ModelCost".
-// src/models/handler.ts:15:3 - (ae-undocumented) Missing documentation for "provider".
-// src/models/handler.ts:16:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/handler.ts:17:3 - (ae-undocumented) Missing documentation for "apiKey".
-// src/models/handler.ts:24:3 - (ae-undocumented) Missing documentation for "settings".
-// src/models/handler.ts:25:3 - (ae-undocumented) Missing documentation for "reasoning".
-// src/models/handler.ts:26:3 - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/handler.ts:27:3 - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts:32:3 - (ae-undocumented) Missing documentation for "decision".
-// src/models/handler.ts:33:3 - (ae-undocumented) Missing documentation for "connection".
-// src/models/handler.ts:50:1 - (ae-undocumented) Missing documentation for "ModelProviderHandler".
-// src/models/handler.ts:51:3 - (ae-undocumented) Missing documentation for "chat".
-// src/models/handler.ts:52:3 - (ae-undocumented) Missing documentation for "routeTo".
+// src/models/handler.ts:14:3 - (ae-undocumented) Missing documentation for "provider".
+// src/models/handler.ts:15:3 - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/handler.ts:16:3 - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/handler.ts:23:3 - (ae-undocumented) Missing documentation for "settings".
+// src/models/handler.ts:24:3 - (ae-undocumented) Missing documentation for "reasoning".
+// src/models/handler.ts:25:3 - (ae-undocumented) Missing documentation for "promptCaching".
+// src/models/handler.ts:26:3 - (ae-undocumented) Missing documentation for "connection".
+// src/models/handler.ts:31:3 - (ae-undocumented) Missing documentation for "decision".
+// src/models/handler.ts:32:3 - (ae-undocumented) Missing documentation for "connection".
+// src/models/handler.ts:49:1 - (ae-undocumented) Missing documentation for "ModelProviderHandler".
+// src/models/handler.ts:50:3 - (ae-undocumented) Missing documentation for "chat".
+// src/models/handler.ts:51:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/models/jev-alias.ts:4:14 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev-alias.ts:6:1 - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts:14:14 - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
@@ -1021,32 +970,34 @@ export interface WireTool {
 // src/models/model-list.ts:16:3 - (ae-undocumented) Missing documentation for "__index".
 // src/models/model-provider.decorator.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts:24:3 - (ae-undocumented) Missing documentation for "cost".
-// src/models/model-provider.decorator.ts:56:3 - (ae-undocumented) Missing documentation for "deps".
-// src/models/model-provider.decorator.ts:66:3 - (ae-undocumented) Missing documentation for "baseUrl".
-// src/models/model-provider.decorator.ts:67:3 - (ae-undocumented) Missing documentation for "baseUrlField".
-// src/models/model-provider.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "apiKey".
-// src/models/model-provider.decorator.ts:103:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
-// src/models/model-provider.decorator.ts:104:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts:105:3 - (ae-undocumented) Missing documentation for "code".
-// src/models/model-provider.decorator.ts:106:12 - (ae-undocumented) Missing documentation for "name".
-// src/models/model-provider.decorator.ts:130:1 - (ae-undocumented) Missing documentation for "ModelProvider".
+// src/models/model-provider.decorator.ts:52:3 - (ae-undocumented) Missing documentation for "deps".
+// src/models/model-provider.decorator.ts:65:3 - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts:70:3 - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/model-provider.decorator.ts:81:3 - (ae-undocumented) Missing documentation for "baseUrlField".
+// src/models/model-provider.decorator.ts:82:3 - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/model-provider.decorator.ts:117:1 - (ae-undocumented) Missing documentation for "ModelProviderError".
+// src/models/model-provider.decorator.ts:118:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/model-provider.decorator.ts:119:3 - (ae-undocumented) Missing documentation for "code".
+// src/models/model-provider.decorator.ts:120:12 - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts:144:1 - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openai-compatible.provider.ts:18:3 - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts:19:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/openai-compatible.provider.ts:33:3 - (ae-undocumented) Missing documentation for "requestFields".
 // src/models/openai-compatible.provider.ts:115:9 - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/openrouter-model.provider.ts:44:3 - (ae-undocumented) Missing documentation for "requestFields".
-// src/models/openrouter-routing.ts:13:3 - (ae-undocumented) Missing documentation for "Price".
-// src/models/openrouter-routing.ts:14:3 - (ae-undocumented) Missing documentation for "Throughput".
-// src/models/openrouter-routing.ts:15:3 - (ae-undocumented) Missing documentation for "Latency".
-// src/models/openrouter-routing.ts:20:3 - (ae-undocumented) Missing documentation for "Int4".
-// src/models/openrouter-routing.ts:21:3 - (ae-undocumented) Missing documentation for "Int8".
-// src/models/openrouter-routing.ts:22:3 - (ae-undocumented) Missing documentation for "Fp4".
-// src/models/openrouter-routing.ts:23:3 - (ae-undocumented) Missing documentation for "Fp6".
-// src/models/openrouter-routing.ts:24:3 - (ae-undocumented) Missing documentation for "Fp8".
-// src/models/openrouter-routing.ts:25:3 - (ae-undocumented) Missing documentation for "Fp16".
-// src/models/openrouter-routing.ts:26:3 - (ae-undocumented) Missing documentation for "Bf16".
-// src/models/openrouter-routing.ts:27:3 - (ae-undocumented) Missing documentation for "Fp32".
-// src/models/openrouter-routing.ts:45:3 - (ae-undocumented) Missing documentation for "sort".
+// src/models/openrouter-routing.ts:12:3 - (ae-undocumented) Missing documentation for "Price".
+// src/models/openrouter-routing.ts:13:3 - (ae-undocumented) Missing documentation for "Throughput".
+// src/models/openrouter-routing.ts:14:3 - (ae-undocumented) Missing documentation for "Latency".
+// src/models/openrouter-routing.ts:19:3 - (ae-undocumented) Missing documentation for "Int4".
+// src/models/openrouter-routing.ts:20:3 - (ae-undocumented) Missing documentation for "Int8".
+// src/models/openrouter-routing.ts:21:3 - (ae-undocumented) Missing documentation for "Fp4".
+// src/models/openrouter-routing.ts:22:3 - (ae-undocumented) Missing documentation for "Fp6".
+// src/models/openrouter-routing.ts:23:3 - (ae-undocumented) Missing documentation for "Fp8".
+// src/models/openrouter-routing.ts:24:3 - (ae-undocumented) Missing documentation for "Fp16".
+// src/models/openrouter-routing.ts:25:3 - (ae-undocumented) Missing documentation for "Bf16".
+// src/models/openrouter-routing.ts:26:3 - (ae-undocumented) Missing documentation for "Fp32".
+// src/models/openrouter-routing.ts:44:3 - (ae-undocumented) Missing documentation for "sort".
 // src/models/openrouter.provider.ts:24:3 - (ae-undocumented) Missing documentation for "provider".
 // src/models/openrouter.provider.ts:25:3 - (ae-undocumented) Missing documentation for "transforms".
 // src/models/openrouter.provider.ts:87:40 - (ae-undocumented) Missing documentation for "reasoningFields".
@@ -1099,13 +1050,6 @@ export interface WireTool {
 // src/models/reasoning.ts:44:14 - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/resolve.ts:15:3 - (ae-undocumented) Missing documentation for "Chat".
 // src/models/resolve.ts:16:3 - (ae-undocumented) Missing documentation for "Decision".
-// src/models/resolve.ts:24:3 - (ae-undocumented) Missing documentation for "options".
-// src/models/resolve.ts:25:3 - (ae-undocumented) Missing documentation for "type".
-// src/models/resolve.ts:26:3 - (ae-undocumented) Missing documentation for "handler".
-// src/models/resolve.ts:36:3 - (ae-undocumented) Missing documentation for "key".
-// src/models/resolve.ts:37:3 - (ae-undocumented) Missing documentation for "model".
-// src/models/resolve.ts:38:3 - (ae-undocumented) Missing documentation for "purpose".
-// src/models/resolve.ts:77:15 - (ae-undocumented) Missing documentation for "providers".
 // src/models/retry-policy.ts:7:3 - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts:8:3 - (ae-undocumented) Missing documentation for "Fixed".
 // src/models/retry-policy.ts:9:3 - (ae-undocumented) Missing documentation for "None".
@@ -1163,9 +1107,9 @@ export interface WireTool {
 // src/models/wire.ts:35:3 - (ae-undocumented) Missing documentation for "messages".
 // src/models/wire.ts:36:3 - (ae-undocumented) Missing documentation for "tools".
 // src/models/wire.ts:37:3 - (ae-undocumented) Missing documentation for "__index".
-// src/models/wire.ts:45:3 - (ae-undocumented) Missing documentation for "fields".
-// src/models/wire.ts:46:3 - (ae-undocumented) Missing documentation for "cacheMarkers".
-// src/models/wire.ts:47:3 - (ae-undocumented) Missing documentation for "cacheControl".
+// src/models/wire.ts:42:3 - (ae-undocumented) Missing documentation for "fields".
+// src/models/wire.ts:43:3 - (ae-undocumented) Missing documentation for "cacheMarkers".
+// src/models/wire.ts:44:3 - (ae-undocumented) Missing documentation for "cacheControl".
 
 // (No @packageDocumentation comment for this package)
 

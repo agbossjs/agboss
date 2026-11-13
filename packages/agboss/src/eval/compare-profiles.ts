@@ -34,8 +34,6 @@ export interface CompareProfilesOptions {
   readonly environment?: Environment;
   /** The chosen environment's name; default `dev`. */
   readonly environmentName?: string;
-  /** Every model call goes through it. Default: the workflow's model providers. */
-  readonly gateway?: ModelGateway;
   /** The raw HTTP client under every model provider (default: global fetch; tests: a stub). */
   readonly providerFetch?: typeof fetch;
   /** Where the runs publish their metrics: an OpenTelemetry `MeterProvider`; absent = none. */
@@ -129,16 +127,10 @@ function workflowOfStart(
   return workflow;
 }
 
-/**
- * A/B of profiles of the workflow a start opens, on the given tasks —
- * `compareProfiles(JobScoutApplication, { start: ScreeningWorkflowStart, profiles: ["base",
- * "scout-low-thinking"], tasks })` (#396 PR 5: on the application, as `createApp` builds it — its
- * providers, defaults and environment): the same app parts as `createApp` (pass `gateway`, `stores`,
- * `processEnv`… to replace them, e.g. scripted models in a test).
- */
-export async function compareProfiles<TApplication extends Class>(
+/** `compareProfiles` with the model gateway replaced: a test's scripted models (`@agboss/core/internal`). */
+export async function compareProfilesWith<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
-  options: CompareProfilesOptions,
+  options: CompareProfilesOptions & { readonly gateway?: ModelGateway },
 ): Promise<ProfileComparison> {
   const assembled = await applicationOf(application, {}, WHERE);
   const workflow = workflowOfStart(application, assembled, options.start);
@@ -153,4 +145,18 @@ export async function compareProfiles<TApplication extends Class>(
     { ...options, ...(environment === undefined ? {} : { environment }) },
     () => Promise.resolve(options.tasks),
   );
+}
+
+/**
+ * A/B of profiles of the workflow a start opens, on the given tasks —
+ * `compareProfiles(JobScoutApplication, { start: ScreeningWorkflowStart, profiles: ["base",
+ * "scout-low-thinking"], tasks })` (#396 PR 5: on the application, as `createApp` builds it — its
+ * providers, defaults and environment): the same app parts as `createApp` (pass `processEnv`,
+ * `providerFetch`… to replace them, e.g. a stub HTTP client in a test).
+ */
+export async function compareProfiles<TApplication extends Class>(
+  application: ApplicationClass<TApplication>,
+  options: CompareProfilesOptions,
+): Promise<ProfileComparison> {
+  return compareProfilesWith(application, options);
 }

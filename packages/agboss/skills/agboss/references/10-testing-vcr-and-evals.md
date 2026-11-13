@@ -16,8 +16,8 @@ unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 | quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
 
 `vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
-through vite, in the test's module graph (so `workflowOf(W)` loads the application next to `W` with its
-decorators), and the matchers registered. A project made by
+through vite, in the test's module graph (so `testWith(App)` loads the application next to its workflows, with
+their decorators), and the matchers registered. A project made by
 `npx agboss create` has three Vitest projects by file name, in `tests/` mirroring `src/`: `tests/**/*.test.ts`
 (unit: scripts and fakes), `*.integration.test.ts` (recorded answers, real MCP servers) and
 `*.suite.test.ts` (real models, budget-capped); `npm test` runs the first two.
@@ -724,8 +724,8 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   whose step fails (`QualityGateError`, a blocked call, a guardrail, a limit) are in
   `result.toolCalls` and its `steps` entry (with `error`) when a side path takes the failure, and in
   the `ChildExecutionRecord` (`toolCalls`, `steps`) of a child it ends.
-- The trajectory matchers (`ToolCallMatchers`, registered by `@agboss/core/testing/setup` as
-  `toolCallMatchers`) read the root's `result.toolCalls`: `toHaveCalledTools([A, B])` passes when
+- The trajectory matchers (`ToolCallMatchers`, registered by `@agboss/core/testing/setup`)
+  read the root's `result.toolCalls`: `toHaveCalledTools([A, B])` passes when
   each was called at least once, in any order and whatever its status (`.not`: none of them was);
   `toHaveToolCallMatching(Tool, expected)` when some call matches — `expected` a
   `ToolCallExpectation<TInput>`: a deep partial of the input, or a check `(input) => boolean` run on

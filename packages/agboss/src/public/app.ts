@@ -151,14 +151,7 @@ export type { PairwiseResult } from "../eval/compare.js";
 export type { AgentExecutionOutput } from "../run/types.js";
 export type { UsageRecord } from "../finops/usage.js";
 
-export {
-  AgentSettingsSchema,
-  AgentsConfigSchema,
-  CompactionSettingsSchema,
-  type AgentsConfig,
-  type AgentsConfigOf,
-  type CompactionSettings,
-} from "../config/types.js";
+export type { AgentsConfig, AgentsConfigOf, CompactionSettings } from "../config/types.js";
 export {
   BranchStatus,
   BranchVerdict,

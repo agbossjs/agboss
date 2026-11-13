@@ -13,7 +13,6 @@ import { createTestApp, type TestApp } from "./test-app.js";
 import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { withA2ATestServers, type A2AServerFixture } from "./a2a-server.js";
-import type { ModelTarget } from "./scripted-gateway.js";
 import { withTestLeases, type TestLeases } from "./leases.js";
 import "./vitest-types.js";
 
@@ -41,7 +40,7 @@ export interface WorkflowFixtures {
    * The script of an agent, a router or a `@Judge`'s model (by class):
    * `mockLlm(Scout).thenReturn(replyWith("…"))`, `mockLlm(AnswerGrounded).thenReturn(replyWith("PASS"))`.
    */
-  readonly mockLlm: <TComponent extends ModelTarget>(
+  readonly mockLlm: <TComponent extends Class>(
     component: TComponent,
   ) => ModelScript<InstanceType<TComponent>>;
   /**

@@ -17,8 +17,6 @@ import { studioGraph } from "./graph/studio-graph.js";
 
 /** How `agboss studio` builds the graphs: the environment (`--env`, default `dev`). */
 export interface StudioOptions {
-  /** Every model call goes through it: a test's scripted gateway; default the model providers. */
-  readonly gateway?: ModelGateway;
   /** `environments/<env>.environment.ts` next to the application file; default `dev`. */
   readonly env?: string | undefined;
   /** The process environment the environment reads; default `process.env`. */
@@ -44,17 +42,24 @@ export interface StudioGraphs {
 }
 
 /** A test's scripted gateway; Studio itself calls the application's model providers. */
-const gatewayOf = ({ gateway }: StudioOptions): Pick<AppDepsOptions, "gateway"> =>
-  gateway === undefined ? {} : { gateway };
+const gatewayOf = ({
+  gateway,
+}: {
+  readonly gateway?: ModelGateway;
+}): Pick<AppDepsOptions, "gateway"> => (gateway === undefined ? {} : { gateway });
 
 /**
  * The application assembled as `createApp` assembles it, every workflow's graph built on its
  * environment: `const studio = await studioOf(JobScoutApplication, { env: "dev" })`, then
  * `studio.graph("job-scout-workflow")`.
  */
-export async function studioOf(
+export const studioOf = (application: Class, options: StudioOptions = {}): Promise<StudioGraphs> =>
+  studioOfWith(application, options);
+
+/** `studioOf` with the model gateway replaced: a test's scripted models (`@agboss/core/internal`). */
+export async function studioOfWith(
   application: Class,
-  options: StudioOptions = {},
+  options: StudioOptions & { readonly gateway?: ModelGateway } = {},
 ): Promise<StudioGraphs> {
   const processEnv = options.processEnv ?? process.env;
   const assembled = await applicationOf(application, {}, "agboss studio");

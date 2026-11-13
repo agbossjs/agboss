@@ -4,9 +4,9 @@ import { providerClients, ProviderCapabilityError } from "../../src/llm/provider
 import {
   ConfigurationError,
   DecisionsModelProvider,
-  ModelProviderDirectory,
   ModelPurpose,
 } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
 import { request } from "../routers/fixtures.js";

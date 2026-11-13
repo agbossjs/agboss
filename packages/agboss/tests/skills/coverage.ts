@@ -161,7 +161,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ],
     ...["ToolCallRecord", "ToolCallStatus", "TypedToolCall", "toolCallsOf", "JudgeInput"],
     ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
-    ...["toolCallMatchers", "ToolCallMatchers", "ToolCallExpectation"],
+    ...["ToolCallMatchers", "ToolCallExpectation"],
     ...["callToolWithInvalidArguments", "callToolWithTruncatedArguments", "replyWithInvalidAnswer"],
     ...["VcrMode", "CassetteMissingError", "StaleCassetteError", "CassetteChange"],
     ...["testCompaction", "CompactionRunner", "CompactionResult", "CompactionInput"],

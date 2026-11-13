@@ -3,9 +3,6 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { RateLimitRepository } from "../infrastructure/rate-limit.repository.js";
 import type { Milliseconds } from "../units/index.js";
 
-/** A class decorated with `@ModelProvider` (the fallback of a breaker). */
-export type ModelProviderClass = abstract new (...args: never[]) => object;
-
 /**
  * `circuitBreakerPolicy`: `failureThreshold` failed calls within `window` open the breaker for
  * `openFor`; while open, calls go to `fallback` or fail fast with `model.circuit-open`.
@@ -14,7 +11,8 @@ export interface CircuitBreakerPolicy {
   readonly failureThreshold: number;
   readonly window: Milliseconds;
   readonly openFor: Milliseconds;
-  readonly fallback?: ModelProviderClass;
+  /** A class decorated with `@ModelProvider`. */
+  readonly fallback?: abstract new (...args: never[]) => object;
   /**
    * With a `fallback`: the fallback's model for each model of this provider the workflow uses
    * (`{ "moonshotai/kimi-k2.6": "backup/kimi" }`). Checked at startup: every used model is mapped

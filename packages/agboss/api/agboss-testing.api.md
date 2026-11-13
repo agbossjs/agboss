@@ -5,7 +5,6 @@
 ```ts
 
 import type { Assertion } from 'vitest';
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { Graph } from '@langchain/core/runnables/graph';
 import type { IncomingMessage } from 'node:http';
 import { KeyObject } from 'node:crypto';
@@ -15,7 +14,6 @@ import { Mocked } from 'vitest';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
-import { z } from 'zod';
 
 // @public
 export type A2AServerFixture = <TStart extends Class>(options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & {
@@ -56,7 +54,7 @@ export interface AgentSlice {
 }
 
 // @public
-export type AgentTurnFor<TSelf> = ReplyTurn | ToolCallTurn<AgentToolNamesOf<TSelf>> | ToolCallsTurn<AgentToolNamesOf<TSelf>> | InvalidToolCallTurn<AgentToolNamesOf<TSelf>> | TruncatedToolCallTurn<AgentToolNamesOf<TSelf>> | FailureTurn | WaitTurn | AnswerFor<ProducerOutputOf<TSelf>> | InvalidAnswerFor<ProducerOutputOf<TSelf>>;
+type AgentTurnFor<TSelf> = ReplyTurn | ToolCallTurn<AgentToolNamesOf<TSelf>> | ToolCallsTurn<AgentToolNamesOf<TSelf>> | InvalidToolCallTurn<AgentToolNamesOf<TSelf>> | TruncatedToolCallTurn<AgentToolNamesOf<TSelf>> | FailureTurn | WaitTurn | AnswerFor<ProducerOutputOf<TSelf>> | InvalidAnswerFor<ProducerOutputOf<TSelf>>;
 
 // @public
 export interface AnswerDetails {
@@ -65,7 +63,7 @@ export interface AnswerDetails {
 }
 
 // @public
-export type AnswerFor<TOutput> = [TOutput] extends [NoOutput] ? never : [TOutput] extends [GeneratedTypeError] ? AnswerTurn : TOutput extends readonly (infer TElement)[] ? AnswerTurn<TElement, true> : AnswerTurn<TOutput, false>;
+type AnswerFor<TOutput> = [TOutput] extends [NoOutput] ? never : [TOutput] extends [GeneratedTypeError] ? AnswerTurn : TOutput extends readonly (infer TElement)[] ? AnswerTurn<TElement, true> : AnswerTurn<TOutput, false>;
 
 // @public
 export interface AnswerGiven<TValue, TIsList extends boolean> {
@@ -123,7 +121,7 @@ export type CallAssertion<TReceived, TSelf> = Omit<Assertion<TReceived>, keyof C
 };
 
 // @public
-export type CalledToolArguments<TInstance> = TInstance extends {
+type CalledToolArguments<TInstance> = TInstance extends {
     run(input: infer TInput extends object): Promise<unknown>;
 } ? TInput : never;
 
@@ -143,7 +141,9 @@ export function callTool<TRag extends Class<RagConnector>>(rag: TRag, args: {
 }): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 
 // @public
-export function callTool<TRole extends QuestionRoleClass>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
+export function callTool<TRole extends Class<{
+    send(ask: never): Promise<unknown>;
+}>>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
 
 // @public
 export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(...calls: TCalls): ToolCallsTurn<TCalls[number]["tool"]>;
@@ -187,12 +187,6 @@ export interface ChildMatchers<R = unknown> {
 }
 
 // @public
-export const childMatchers: {
-    toHaveChildExecutions(this: MatcherContext, received: unknown, workflow: Class, expected: readonly ExpectedChildExecution[]): Verdict;
-    toHaveHandledError(this: MatcherContext, received: unknown, error: ErrorClass, handling?: ExpectedHandling): Verdict;
-};
-
-// @public
 export type ClockDuration = `${number}${"ms" | "s" | "m" | "h" | "d"}`;
 
 // @public
@@ -232,19 +226,7 @@ export interface CompensationMatchers<R = unknown> {
 }
 
 // @public
-export const compensationMatchers: {
-    toHaveCompensated(this: MatcherContext, received: unknown, action: Class, expected: ExpectedCompensation): Verdict;
-};
-
-// @public
-export enum ConcurrencyMode {
-    // (undocumented)
-    InOrder = "in-order",
-    // (undocumented)
-    Real = "real",
-    // (undocumented)
-    Sequential = "sequential"
-}
+export type ConcurrencyMode = "sequential" | "real" | "in-order";
 
 // @public
 export interface DecideDetails {
@@ -444,7 +426,7 @@ export interface FakePaymentGatewayOptions {
 }
 
 // @public
-export type FieldPartial<TField> = TField extends undefined ? undefined : TField extends HistoryOf<infer TVersion> ? {
+type FieldPartial<TField> = TField extends undefined ? undefined : TField extends HistoryOf<infer TVersion> ? {
     readonly current?: ValuePartial<TVersion>;
     readonly previous?: readonly ValuePartial<TVersion>[];
 } : TField extends readonly (infer TElement)[] ? readonly ValuePartial<TElement>[] : ValuePartial<TField>;
@@ -530,7 +512,7 @@ export interface GuardrailRunner extends UnitClock {
 export type InputMatcherOf<TSelf> = IsKnown<TSelf> extends true ? PartialValues<InputOf<TSelf>> : Readonly<Record<string, unknown>>;
 
 // @public
-export type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput] ? never : [TOutput] extends [GeneratedTypeError] ? InvalidAnswerTurn : TOutput extends readonly (infer TElement)[] ? InvalidAnswerTurn<TElement, true> : InvalidAnswerTurn<TOutput, false>;
+type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput] ? never : [TOutput] extends [GeneratedTypeError] ? InvalidAnswerTurn : TOutput extends readonly (infer TElement)[] ? InvalidAnswerTurn<TElement, true> : InvalidAnswerTurn<TOutput, false>;
 
 // @public
 export interface InvalidAnswerTurn<TValue = unknown, TIsList extends boolean = boolean> {
@@ -558,7 +540,7 @@ export interface InvalidToolCallTurn<TName extends string = string> {
 }
 
 // @public
-export type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
+type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
 
 // @public
 export interface JudgeRunner<TReply> extends UnitClock {
@@ -580,14 +562,6 @@ export class LiveCallBlockedError extends TestFailure {
     readonly code: typeof LiveCallBlockedError.code;
     // (undocumented)
     name: string;
-}
-
-// @public
-export interface MatcherContext {
-    // (undocumented)
-    readonly equals: (a: unknown, b: unknown) => boolean;
-    // (undocumented)
-    readonly isNot: boolean;
 }
 
 // @public
@@ -678,12 +652,9 @@ export interface ModelScript<TSelf = unknown> {
 }
 
 // @public
-export type ModelTarget = Class;
-
-// @public
 export interface OrderedStep {
     // (undocumented)
-    readonly input?: RecordedInput;
+    readonly input?: Readonly<Record<string, unknown>>;
     // (undocumented)
     readonly node: Class;
 }
@@ -745,9 +716,6 @@ export interface RagRunner extends UnitClock {
 }
 
 // @public
-export type RecordedInput = Readonly<Record<string, unknown>>;
-
-// @public
 export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
 
 // @public
@@ -774,7 +742,7 @@ export interface ReplyInterpreterRunnerInput<TRole> {
 }
 
 // @public
-export type ReplyInterpreterTurnFor<TSelf> = AgentTurnFor<TSelf> | DecideTurn | AnswerTurn<ReplyInterpreterNotUnderstoodDto, false>;
+type ReplyInterpreterTurnFor<TSelf> = AgentTurnFor<TSelf> | DecideTurn | AnswerTurn<ReplyInterpreterNotUnderstoodDto, false>;
 
 // @public
 export interface ReplyTurn {
@@ -807,13 +775,13 @@ export type ReturnedCheckOf<TSelf, TDto extends DtoClass> = IsKnown<TSelf> exten
 };
 
 // @public
-export type ReturnedOf<TSelf> = KindOf<TSelf> extends NodeKind.Agent ? ProducerOutputOf<TSelf> : KindOf<TSelf> extends NodeKind.Action ? OutputOf<TSelf> : unknown;
+type ReturnedOf<TSelf> = KindOf<TSelf> extends NodeKind.Agent ? ProducerOutputOf<TSelf> : KindOf<TSelf> extends NodeKind.Action ? OutputOf<TSelf> : unknown;
 
 // @public
-export type ReturnedValueOf<TReturned> = [TReturned] extends [NoOutput] ? WorkflowFinishTextDto : TReturned extends readonly (infer TElement)[] ? TElement : TReturned;
+type ReturnedValueOf<TReturned> = [TReturned] extends [NoOutput] ? WorkflowFinishTextDto : TReturned extends readonly (infer TElement)[] ? TElement : TReturned;
 
 // @public
-export type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError] ? RouteTurn<readonly [TRoute]> : TAnswer extends readonly unknown[] ? RouteTurn<TAnswer> : RouteTurn<readonly [TAnswer]>;
+type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError] ? RouteTurn<readonly [TRoute]> : TAnswer extends readonly unknown[] ? RouteTurn<TAnswer> : RouteTurn<readonly [TAnswer]>;
 
 // @public
 export interface RouterRunner<TInput, TOutput> extends UnitClock {
@@ -828,7 +796,7 @@ export interface RouterSlice {
 }
 
 // @public
-export type RouterTurnFor<TSelf> = FailureTurn | WaitTurn | DecideTurn | RouteFor<RouterAnswerOf<TSelf>, Route<TSelf>>;
+type RouterTurnFor<TSelf> = FailureTurn | WaitTurn | DecideTurn | RouteFor<RouterAnswerOf<TSelf>, Route<TSelf>>;
 
 // @public
 export function routeTo<const TTargets extends readonly Class[]>(...targets: TTargets): RouteTurn<TTargets>;
@@ -855,7 +823,7 @@ export type ScriptedAnswer = number | string;
 export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | ToolCallsTurn | InvalidToolCallTurn | TruncatedToolCallTurn | InvalidAnswerTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
 
 // @public
-export type SearchToolNameOf<TRag> = string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
+type SearchToolNameOf<TRag> = string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
 
 // @public
 export class SequentialIdGenerator extends IdGenerator {
@@ -941,12 +909,11 @@ export interface StudioGraphs {
 }
 
 // @public
-export function studioOf(application: Class, options?: StudioOptions): Promise<StudioGraphs>;
+export const studioOf: (application: Class, options?: StudioOptions) => Promise<StudioGraphs>;
 
 // @public
 export interface StudioOptions {
     readonly env?: string | undefined;
-    readonly gateway?: ModelGateway;
     readonly processEnv?: NodeJS.ProcessEnv;
 }
 
@@ -1062,6 +1029,24 @@ export interface TestFenceOptions {
 // @public
 export function testGuardrail<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(guardrail: Class, options?: UnitModelOptions<unknown, TExecution, TTenant>): GuardrailRunner;
 
+declare namespace TestingTypes {
+    export {
+        CalledToolArguments,
+        SearchToolNameOf,
+        AgentTurnFor,
+        AnswerFor,
+        FieldPartial,
+        InvalidAnswerFor,
+        IsKnown,
+        ReplyInterpreterTurnFor,
+        ReturnedOf,
+        ReturnedValueOf,
+        RouteFor,
+        RouterTurnFor,
+        ValuePartial
+    }
+}
+
 // @public
 export interface TestInstanceOptions {
     readonly clockSkew?: ClockSkew;
@@ -1140,12 +1125,6 @@ export interface ToolCallMatchers<R = unknown> {
     toHaveCalledTools(tools: readonly ToolClass<object>[]): R;
     toHaveToolCallMatching<TInput extends object>(tool: ToolClass<TInput>, expected: ToolCallExpectation<TInput>): R;
 }
-
-// @public
-export const toolCallMatchers: {
-    toHaveCalledTools(this: MatcherContext, received: unknown, tools: readonly ToolClass<object>[]): Verdict;
-    toHaveToolCallMatching<TInput extends object>(this: MatcherContext, received: unknown, tool: ToolClass<TInput>, expected: ToolCallExpectation<TInput>): Verdict;
-};
 
 // @public
 export interface ToolCallsTurn<TName extends string = string> {
@@ -1302,7 +1281,7 @@ export interface UnsettledWorkErrorOptions {
 }
 
 // @public
-export type ValuePartial<TField> = TField extends ProducedValue<infer TValue, unknown> ? DeepPartial<TValue> : DeepPartial<TField>;
+type ValuePartial<TField> = TField extends ProducedValue<infer TValue, unknown> ? DeepPartial<TValue> : DeepPartial<TField>;
 
 // @public
 export interface VcrConfig {
@@ -1320,14 +1299,6 @@ enum VcrMode {
 }
 export { VcrMode as VCRMode }
 export { VcrMode }
-
-// @public
-export interface Verdict {
-    // (undocumented)
-    readonly message: () => string;
-    // (undocumented)
-    readonly pass: boolean;
-}
 
 // @public
 export class VirtualClock extends Clock {
@@ -1371,7 +1342,7 @@ export interface WorkflowFixtures {
     readonly leases: TestLeases;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
     readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
-    readonly mockLlm: <TComponent extends ModelTarget>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
+    readonly mockLlm: <TComponent extends Class>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
     readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
     readonly mockTool: (tool: Class) => ToolScript;
     readonly recoverApp: () => Promise<TestApp>;
@@ -1391,16 +1362,6 @@ export interface WorkflowMatchers<R = unknown> {
     toHaveScriptedToolCalls(tools: readonly Class[]): R;
 }
 
-// @public
-export const workflowMatchers: {
-    toFollowPath(this: MatcherContext, received: unknown, path: readonly Class[]): Verdict;
-    toFinishWith(this: MatcherContext, received: unknown, finish: Class, output?: unknown): Verdict;
-    toHavePausedAt(this: MatcherContext, received: unknown, agent: Class): Verdict;
-    toFailWith(this: MatcherContext, received: unknown, error: ErrorClass, fields?: Readonly<Record<string, unknown>>): Verdict;
-    toHaveScriptedToolCalls(this: MatcherContext, received: unknown, tools: readonly Class[]): Verdict;
-    toHaveBeenAskedWith(this: MatcherContext, received: unknown, request: ExpectedRequest): Verdict;
-};
-
 // Warnings were encountered during analysis:
 //
 // src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
@@ -1412,13 +1373,10 @@ export const workflowMatchers: {
 // src/testing/clock-skew.ts:71:3 - (ae-undocumented) Missing documentation for "now".
 // src/testing/clock-skew.ts:76:12 - (ae-undocumented) Missing documentation for "monotonicNow".
 // src/testing/compensation-matchers.ts:28:3 - (ae-undocumented) Missing documentation for "reason".
-// src/testing/concurrency/test-concurrency.ts:15:3 - (ae-undocumented) Missing documentation for "Sequential".
-// src/testing/concurrency/test-concurrency.ts:16:3 - (ae-undocumented) Missing documentation for "Real".
-// src/testing/concurrency/test-concurrency.ts:17:3 - (ae-undocumented) Missing documentation for "InOrder".
-// src/testing/concurrency/test-concurrency.ts:26:3 - (ae-undocumented) Missing documentation for "node".
-// src/testing/concurrency/test-concurrency.ts:27:3 - (ae-undocumented) Missing documentation for "input".
-// src/testing/concurrency/test-concurrency.ts:47:5 - (ae-undocumented) Missing documentation for "mode".
-// src/testing/concurrency/test-concurrency.ts:48:5 - (ae-undocumented) Missing documentation for "steps".
+// src/testing/concurrency/test-concurrency.ts:22:3 - (ae-undocumented) Missing documentation for "node".
+// src/testing/concurrency/test-concurrency.ts:23:3 - (ae-undocumented) Missing documentation for "input".
+// src/testing/concurrency/test-concurrency.ts:43:5 - (ae-undocumented) Missing documentation for "mode".
+// src/testing/concurrency/test-concurrency.ts:44:5 - (ae-undocumented) Missing documentation for "steps".
 // src/testing/errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/errors.ts:22:3 - (ae-undocumented) Missing documentation for "message".
 // src/testing/errors.ts:23:3 - (ae-undocumented) Missing documentation for "cause".
@@ -1506,10 +1464,6 @@ export const workflowMatchers: {
 // src/testing/matchers.ts:13:3 - (ae-undocumented) Missing documentation for "input".
 // src/testing/matchers.ts:14:3 - (ae-undocumented) Missing documentation for "instructions".
 // src/testing/matchers.ts:15:3 - (ae-undocumented) Missing documentation for "options".
-// src/testing/matchers.ts:20:3 - (ae-undocumented) Missing documentation for "isNot".
-// src/testing/matchers.ts:21:3 - (ae-undocumented) Missing documentation for "equals".
-// src/testing/matchers.ts:26:3 - (ae-undocumented) Missing documentation for "pass".
-// src/testing/matchers.ts:27:3 - (ae-undocumented) Missing documentation for "message".
 // src/testing/matchers.ts:143:3 - (ae-undocumented) Missing documentation for "toFollowPath".
 // src/testing/matchers.ts:144:3 - (ae-undocumented) Missing documentation for "toFinishWith".
 // src/testing/matchers.ts:145:3 - (ae-undocumented) Missing documentation for "toHavePausedAt".
@@ -1519,16 +1473,16 @@ export const workflowMatchers: {
 // src/testing/model-script.ts:9:3 - (ae-undocumented) Missing documentation for "role".
 // src/testing/model-script.ts:10:3 - (ae-undocumented) Missing documentation for "text".
 // src/testing/model-script.ts:46:3 - (ae-undocumented) Missing documentation for "thenReturn".
-// src/testing/script.ts:39:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:44:1 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/script.ts:146:1 - (ae-undocumented) Missing documentation for "routeTo".
-// src/testing/script.ts:182:3 - (ae-undocumented) Missing documentation for "failure".
-// src/testing/script.ts:183:3 - (ae-undocumented) Missing documentation for "component".
-// src/testing/script.ts:184:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/script.ts:38:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:43:1 - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/script.ts:145:1 - (ae-undocumented) Missing documentation for "routeTo".
+// src/testing/script.ts:181:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:182:3 - (ae-undocumented) Missing documentation for "component".
+// src/testing/script.ts:183:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/script.ts:188:3 - (ae-undocumented) Missing documentation for "code".
 // src/testing/script.ts:189:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/script.ts:190:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/script.ts:191:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/script.ts:192:3 - (ae-undocumented) Missing documentation for "failure".
+// src/testing/script.ts:190:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/script.ts:191:3 - (ae-undocumented) Missing documentation for "failure".
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".

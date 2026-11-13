@@ -214,9 +214,7 @@ export class UnwindManyWorkflowStart {}
 export class RoomsReservedWorkflowFinish {
   finish(input: { readonly rooms: readonly Produced<RoomDto, unknown>[] }): ReservedDto {
     return {
-      summary: input.rooms
-        .map((room) => room.value.roomId)
-        .join(", "),
+      summary: input.rooms.map((room) => room.value.roomId).join(", "),
     };
   }
 }
@@ -253,11 +251,7 @@ export class UnwindParentWorkflowStart {}
       .toAction(ReserveSeatAction)
       .returns(SeatDto)
       .toWorkflow(UnwindRoomWorkflow)
-      .onError(
-        StepFailedError,
-        toAction(ReleaseSeatAction)
-          .toFinish(NotReservedWorkflowFinish),
-      )
+      .onError(StepFailedError, toAction(ReleaseSeatAction).toFinish(NotReservedWorkflowFinish))
       .returns(RoomDto)
       .toFinish(ReservedWorkflowFinish),
   ],

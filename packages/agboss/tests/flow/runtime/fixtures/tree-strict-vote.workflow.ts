@@ -74,12 +74,8 @@ export class StrictMixedWorkflowStart {}
       .returns(TaskDto)
       .toRouter(StrictTaskKindRouter)
       .chooseOne(
-        route(TaskWorkflow)
-          .returns(TaskDoneDto)
-          .toFinish(TaskDoneWorkflowFinish),
-        route(StrictVoteWorkflow)
-          .returns(VotedDto)
-          .toFinish(MixedVotedWorkflowFinish),
+        route(TaskWorkflow).returns(TaskDoneDto).toFinish(TaskDoneWorkflowFinish),
+        route(StrictVoteWorkflow).returns(VotedDto).toFinish(MixedVotedWorkflowFinish),
       ),
   ],
 })

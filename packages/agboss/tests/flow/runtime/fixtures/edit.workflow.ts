@@ -79,9 +79,7 @@ export class GateRouter {}
   name: "edit-workflow",
   version: "1.0.0",
   flow: [
-    start(EditStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(EditorAgent),
+    start(EditStart).returns(WorkflowStartTextDto).toAgent(EditorAgent),
     agent(EditorAgent)
       .returns(DraftDto)
       .toRouter(GateRouter)
@@ -122,9 +120,7 @@ export class PatientGateRouter {}
   name: "patient-edit-workflow",
   version: "1.0.0",
   flow: [
-    start(EditStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(PatientEditorAgent),
+    start(EditStart).returns(WorkflowStartTextDto).toAgent(PatientEditorAgent),
     agent(PatientEditorAgent)
       .onError(VisitsLimitExceededError, toFinish(GaveUpFinish))
       .returns(DraftDto)
@@ -144,9 +140,7 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  start(EditStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(EditorAgent),
+  start(EditStart).returns(WorkflowStartTextDto).toAgent(EditorAgent),
   agent(EditorAgent)
     .returns(DraftDto)
     .toRouter(GateRouter)

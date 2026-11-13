@@ -112,17 +112,11 @@ export const supportPaths = [
     .returns(OrderStatusDto)
     .toRouter(AnswerRouter)
     .chooseOne(
-      route(FastAnswerAgent)
-        .returns(FastDraftDto)
-        .toFinish(SupportWorkflowFinish),
-      route(LoyaltyAgent)
-        .returns(LoyaltyOfferDto)
-        .toAgent(ExpertAnswerAgent),
+      route(FastAnswerAgent).returns(FastDraftDto).toFinish(SupportWorkflowFinish),
+      route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(ExpertAnswerAgent),
       route(ExpertAnswerAgent),
     ),
-  agent(ExpertAnswerAgent)
-    .returns(ExpertDraftDto)
-    .toFinish(SupportWorkflowFinish),
+  agent(ExpertAnswerAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
 ];
 
 @Workflow({

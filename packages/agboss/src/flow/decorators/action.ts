@@ -21,12 +21,12 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
    * (`[action.invalid-compensator-input]`), is no model call and undoes nothing itself. A side path
    * after it that ends at a finish runs it, newest first (`[flow.uncompensated-action]`).
    */
-  readonly compensateWith?: ActionClass;
+  readonly compensateWith?: Class<ExecuteMethod>;
   /**
    * The `@Action` after which nothing undoes it any more (#339); without it, a finish commits it.
    * Every path from it to a finish runs this one or its undo (`[flow.uncommitted-action]`).
    */
-  readonly committedBy?: ActionClass;
+  readonly committedBy?: Class<ExecuteMethod>;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: TDeps;
 }
@@ -38,9 +38,6 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
 export interface ExecuteMethod {
   execute(input: never): Promise<unknown>;
 }
-
-/** An `@Action` class: what `compensateWith` and `committedBy` name (#339). */
-export type ActionClass = Class<ExecuteMethod>;
 
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>) {
   const source = callerFile();

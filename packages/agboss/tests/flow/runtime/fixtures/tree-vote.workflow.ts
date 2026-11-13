@@ -143,16 +143,12 @@ export class MixedNotVotedWorkflowFinish {}
       .returns(TaskDto)
       .toRouter(TaskKindRouter)
       .chooseOne(
-        route(TaskWorkflow)
-          .returns(TaskDoneDto)
-          .toFinish(TaskDoneWorkflowFinish),
+        route(TaskWorkflow).returns(TaskDoneDto).toFinish(TaskDoneWorkflowFinish),
         route(VoteWorkflow)
           .returns(oneOf(NotVotedDto, VotedDto))
           .switch(
-            caseOf(NotVotedDto)
-              .toFinish(MixedNotVotedWorkflowFinish),
-            caseOf(VotedDto)
-              .toFinish(MixedVotedWorkflowFinish),
+            caseOf(NotVotedDto).toFinish(MixedNotVotedWorkflowFinish),
+            caseOf(VotedDto).toFinish(MixedVotedWorkflowFinish),
           ),
       ),
   ],

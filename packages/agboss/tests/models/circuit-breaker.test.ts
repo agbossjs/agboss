@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { ModelCallError, ModelProviderDirectory, RetryPolicy } from "../../src/models/index.js";
+import { ModelCallError, RetryPolicy } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { connectionOf } from "../../src/models/connections.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";

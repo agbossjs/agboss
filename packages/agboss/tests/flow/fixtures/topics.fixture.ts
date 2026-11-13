@@ -97,15 +97,9 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
       .returns(SupportIntentDto)
       .toRouter(TopicsRouter)
       .chooseOne(
-        route(OrderTopicAgent)
-          .returns(TopicAnswerDto)
-          .toFinish(TopicsWorkflowFinish),
-        route(RefundTopicAgent)
-          .returns(TopicAnswerDto)
-          .toFinish(TopicsWorkflowFinish),
-        route(DeliveryTopicAgent)
-          .returns(TopicAnswerDto)
-          .toFinish(TopicsWorkflowFinish),
+        route(OrderTopicAgent).returns(TopicAnswerDto).toFinish(TopicsWorkflowFinish),
+        route(RefundTopicAgent).returns(TopicAnswerDto).toFinish(TopicsWorkflowFinish),
+        route(DeliveryTopicAgent).returns(TopicAnswerDto).toFinish(TopicsWorkflowFinish),
       ),
   ],
 })

@@ -11,7 +11,8 @@ import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js
 import { resolveEnvironment } from "../../src/environments/resolve.js";
 import { secret } from "../../src/environments/secret.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { ModelProviderDirectory, OpenRouterModelProvider } from "../../src/models/index.js";
+import { OpenRouterModelProvider } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { instanceCalls } from "../models/gateway.js";
 

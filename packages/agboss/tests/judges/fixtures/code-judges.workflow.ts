@@ -89,10 +89,7 @@ export class PromiseFinish {}
   name: "promise-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(PromiseStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(PromiseAgent)
-      .toFinish(PromiseFinish),
+    start(PromiseStart).returns(WorkflowStartTextDto).toAgent(PromiseAgent).toFinish(PromiseFinish),
   ],
   defaults: DEFAULTS,
   uncompactedTurns: 4,
@@ -142,8 +139,7 @@ export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
     const tries = await Promise.allSettled([
       this.secondOpinion.ask(reply.text),
       this.secondOpinion.decide(),
-      Promise.resolve()
-        .then(() => this.secondOpinion.model()),
+      Promise.resolve().then(() => this.secondOpinion.model()),
     ]);
     const outcomes = tries.map((tried) =>
       tried.status === "rejected" && tried.reason instanceof Error

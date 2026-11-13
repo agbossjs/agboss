@@ -126,12 +126,7 @@ const DEFAULTS = {
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
-  flow: [
-    start(ClerkStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ClerkAgent)
-      .toFinish(ClerkFinish),
-  ],
+  flow: [start(ClerkStart).returns(WorkflowStartTextDto).toAgent(ClerkAgent).toFinish(ClerkFinish)],
   defaults: DEFAULTS,
   providers: [TrajectoryLog],
 })

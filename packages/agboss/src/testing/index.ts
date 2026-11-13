@@ -165,23 +165,14 @@ export {
   type UnsettledWorkErrorOptions,
 } from "./errors.js";
 export type { PlainErrorOptions } from "../core/errors.js";
-export { workflowMatchers, type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";
+export { type ExpectedRequest, type WorkflowMatchers } from "./matchers.js";
 export {
-  childMatchers,
   type ChildMatchers,
   type ExpectedChildExecution,
   type ExpectedHandling,
 } from "./child-matchers.js";
-export {
-  compensationMatchers,
-  type CompensationMatchers,
-  type ExpectedCompensation,
-} from "./compensation-matchers.js";
-export {
-  toolCallMatchers,
-  type ToolCallExpectation,
-  type ToolCallMatchers,
-} from "./tool-call-matchers.js";
+export { type CompensationMatchers, type ExpectedCompensation } from "./compensation-matchers.js";
+export { type ToolCallExpectation, type ToolCallMatchers } from "./tool-call-matchers.js";
 export { UNSCRIPTED_SUMMARY } from "./scripted-gateway.js";
 // #818: the graphs `agboss studio` serves, for a test that renders or inspects them
 export { studioOf, type StudioGraph, type StudioGraphs, type StudioOptions } from "../studio.js";
@@ -198,4 +189,6 @@ export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envel
 
 export { VcrMode, type VcrConfig } from "./vcr.js";
 export * from "./vcr-deprecated.js";
-export * from "./public-types.js";
+export type * from "./public-types.js";
+/** @beta Type machinery of the scripted turns and the matchers: not a contract, names may change. */
+export type * as TestingTypes from "./testing-types.js";

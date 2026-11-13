@@ -8,7 +8,7 @@ import type {
   ExecutionOptionsArgs,
   ExecutionOutputOf,
 } from "../flow/generated-types.js";
-import type { ContextFields, TenantValues } from "../flow/context/context-values.js";
+import type { TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
@@ -72,7 +72,7 @@ export interface ExecutionOptions extends CallOptions {
    */
   readonly tenant?: TenantValues;
   /** The values of the declared `ExecutionContext` subclass; with the built-in class none. */
-  readonly execution?: ContextFields;
+  readonly execution?: Readonly<Record<string, unknown>>;
   /**
    * How long the execution may take (#398 PR 2), `seconds(30)`: fixed on the application's `Clock`
    * at its start (a pause counts as time); past it the execution fails with

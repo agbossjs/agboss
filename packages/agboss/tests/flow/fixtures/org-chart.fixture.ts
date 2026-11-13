@@ -120,8 +120,7 @@ export class OrgChartFailedWorkflowFinish {}
       .toAgent(OrgMapperAgent)
       .returns(oneOf(TeamChartDto, OrgSplitDto))
       .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
+        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
         caseOf(OrgSplitDto)
           .toAction(SplitUnitAction)
           .returns(listOf(OrgUnitDto))
@@ -186,10 +185,8 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
         route(UnitPickerAgent)
           .returns(oneOf(TeamChartDto, OrgUnitDto))
           .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgUnitDto)
-              .toWorkflow(ThisWorkflow),
+            caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+            caseOf(OrgUnitDto).toWorkflow(ThisWorkflow),
           ),
       ),
     workflow(ThisWorkflow)
@@ -201,10 +198,8 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
       )
       .returns(oneOf(TeamChartDto, OrgChartFailedDto))
       .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgChartFailedDto)
-          .toFinish(OrgChartFailedWorkflowFinish),
+        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+        caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -240,10 +235,8 @@ export class UnitCharterAgent {}
         toWorkflow(ThisWorkflow)
           .returns(oneOf(TeamChartDto, OrgChartFailedDto))
           .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgChartFailedDto)
-              .toFinish(OrgChartFailedWorkflowFinish),
+            caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+            caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
           ),
       )
       .returns(TeamChartDto)

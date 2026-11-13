@@ -184,10 +184,8 @@ export class HandOverWorkflowFinish {}
       .toAgent(DeskAgent)
       .returns(oneOf(DeskAnswerDto, HandOverDto))
       .switch(
-        caseOf(DeskAnswerDto)
-          .toFinish(DeskWorkflowFinish),
-        caseOf(HandOverDto)
-          .toFinish(HandOverWorkflowFinish),
+        caseOf(DeskAnswerDto).toFinish(DeskWorkflowFinish),
+        caseOf(HandOverDto).toFinish(HandOverWorkflowFinish),
       ),
   ],
   uncompactedTurns: 5,

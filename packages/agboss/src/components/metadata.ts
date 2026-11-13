@@ -3,7 +3,7 @@ import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
-import type { ChannelMeta } from "./meta-types.js";
+import type { ChannelOptions } from "./decorators.js";
 import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
@@ -53,7 +53,10 @@ export type ComponentMeta =
       readonly kind: "a2a-expose";
       readonly meta: import("../a2a/a2a-expose.decorator.js").A2AExposeOptions;
     }
-  | { readonly kind: "channel"; readonly meta: ChannelMeta & { readonly deps: readonly Token[] } }
+  | {
+      readonly kind: "channel";
+      readonly meta: ChannelOptions & { readonly deps: readonly Token[] };
+    }
   | { readonly kind: "injectable"; readonly meta: { readonly deps: readonly Token[] } }
   | {
       readonly kind: "rag";

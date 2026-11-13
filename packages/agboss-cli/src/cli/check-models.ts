@@ -5,10 +5,11 @@ import {
   modelSummaryOf,
   problemLine,
   type AssembledApplication,
+  type ModelProviderDirectory,
   type ModelUse,
   type ProviderFetch,
 } from "@agboss/core/internal";
-import type { ModelProblem, ModelProviderDirectory } from "@agboss/core/models";
+import type { ModelProblem } from "@agboss/core/models";
 
 /** What `agboss check --models` prints and the exit code it ends with. */
 export interface ModelCheckReport {

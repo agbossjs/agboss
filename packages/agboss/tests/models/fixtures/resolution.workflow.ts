@@ -100,10 +100,7 @@ export class NowhereCompaction {}
     start(ResolutionStart)
       .returns(WorkflowStartTextDto)
       .toRouter(NowhereRouter)
-      .chooseOne(
-        route(NowhereAgent)
-          .toFinish(ResolutionFinish),
-      ),
+      .chooseOne(route(NowhereAgent).toFinish(ResolutionFinish)),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
@@ -139,10 +136,7 @@ export class LocalStart {}
   name: "local-workflow",
   version: "1.0.0",
   flow: [
-    start(LocalStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
+    start(LocalStart).returns(WorkflowStartTextDto).toAgent(LocalAgent).toFinish(ResolutionFinish),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
@@ -192,10 +186,7 @@ export class NotInfrastructure {}
   name: "misplaced-provider-workflow",
   version: "1.0.0",
   flow: [
-    start(LocalStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(LocalAgent)
-      .toFinish(ResolutionFinish),
+    start(LocalStart).returns(WorkflowStartTextDto).toAgent(LocalAgent).toFinish(ResolutionFinish),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },

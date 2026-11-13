@@ -336,6 +336,11 @@ export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
 
 // @public
+export function compareProfilesWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options: CompareProfilesOptions & {
+    readonly gateway?: ModelGateway;
+}): Promise<ProfileComparison>;
+
+// @public
 export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
 
 // @public
@@ -1188,6 +1193,15 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 }
 
 // @public
+export class ModelProviderDirectory {
+    constructor(providers: readonly RegisteredModelProvider[]);
+    static of(classes: readonly ModelProviderType[]): ModelProviderDirectory;
+    // (undocumented)
+    readonly providers: readonly RegisteredModelProvider[];
+    resolve(query: ProviderQuery): ProviderResolution;
+}
+
+// @public
 export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProviderDirectory): readonly string[];
 
 // @public
@@ -1388,12 +1402,16 @@ export interface StudioGraphs {
 }
 
 // @public
-export function studioOf(application: Class, options?: StudioOptions): Promise<StudioGraphs>;
+export const studioOf: (application: Class, options?: StudioOptions) => Promise<StudioGraphs>;
+
+// @public
+export function studioOfWith(application: Class, options?: StudioOptions & {
+    readonly gateway?: ModelGateway;
+}): Promise<StudioGraphs>;
 
 // @public
 export interface StudioOptions {
     readonly env?: string | undefined;
-    readonly gateway?: ModelGateway;
     readonly processEnv?: NodeJS.ProcessEnv;
 }
 
@@ -1763,6 +1781,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/loader/load-eval-suites.ts:22:3 - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts:23:3 - (ae-undocumented) Missing documentation for "name".
 // src/models/problems.ts:22:14 - (ae-undocumented) Missing documentation for "problemLine".
+// src/models/resolve.ts:77:15 - (ae-undocumented) Missing documentation for "providers".
 // src/models/uses.ts:33:3 - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts:34:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/rag/types.ts:153:3 - (ae-undocumented) Missing documentation for "name".

@@ -8,7 +8,6 @@ import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseMessageLike } from '@langchain/core/messages';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
-import { z } from 'zod';
 
 // @public
 export type ActionEndEvent = EndEvent<unknown>;
@@ -51,9 +50,7 @@ export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorato
 export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
 
 // @public
-export function Channel<const D extends readonly Token[] = []>(options: ChannelMeta & {
-    readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => {
+export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): Promise<unknown>;
 }>(value: C) => C;
 
@@ -678,9 +675,9 @@ export class WorkflowSettings {
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/metadata.ts:128:3 - (ae-undocumented) Missing documentation for "code".
-// src/components/metadata.ts:129:3 - (ae-undocumented) Missing documentation for "code".
-// src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/metadata.ts:131:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:132:3 - (ae-undocumented) Missing documentation for "code".
+// src/components/metadata.ts:133:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:3 - (ae-undocumented) Missing documentation for "problems".

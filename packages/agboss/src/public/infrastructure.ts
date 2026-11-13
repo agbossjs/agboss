@@ -34,8 +34,6 @@ export type { LedgerKey } from "../finops/ledger-mark.js";
 // the store helpers of the ledger (#817, #869) are in `@agboss/core/stores` (#890)
 export { SqliteExecutionLeaseRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionRecordRepository } from "../infrastructure/sqlite/sqlite-execution-record.repository.js";
-// what the SQLite records and the built-in default extend (#906 D5): a records store over a `TurnStore`
-export { TurnStoreRecordRepository } from "../infrastructure/execution-record.repository.js";
 export { SqliteExecutionAuditLogRepository } from "../infrastructure/sqlite/sqlite-execution-lease.repository.js";
 export { SqliteExecutionHistoryRepository } from "../infrastructure/sqlite/sqlite-execution-history.repository.js";
 export { SqliteExecutionTreeRepository } from "../infrastructure/sqlite/sqlite-execution-tree.repository.js";
@@ -97,7 +95,6 @@ export type {
   Summary,
   Turn,
   TurnOutcome,
-  TurnRecords,
   TurnStatus,
   TurnStep,
   VersionScore,

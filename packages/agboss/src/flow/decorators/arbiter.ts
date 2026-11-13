@@ -2,7 +2,7 @@ import "../../polyfills/symbol-metadata.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import { METADATA_KEY } from "../../polyfills/symbol-metadata.js";
-import type { ComponentClass, NodeKind } from "../ast.js";
+import type { NodeKind } from "../ast.js";
 import type { KindCheck, KindLabel } from "../builder-types.js";
 import type { ProducerOutputOf } from "../generated-types.js";
 import { FlowSyntaxError } from "../launch-step.js";
@@ -19,7 +19,7 @@ import { DecidedBy } from "./router.js";
 
 /** What a model arbiter checks in one agent's answers (every copy, every item). */
 export interface ArbiterCriterion {
-  readonly agent: ComponentClass;
+  readonly agent: Class;
   readonly prompt: string;
 }
 
@@ -55,7 +55,7 @@ export type ArbiterOptions = ModelArbiterOptions | CodeArbiterOptions;
 /** One `@OnAnswer(Agent)` method as recorded: its name and the agent whose answers it judges. */
 export interface AnswerMethod {
   readonly method: string;
-  readonly agent: ComponentClass;
+  readonly agent: Class;
 }
 
 /** What `@Arbiter` recorded on a class: its options and the file it is declared in. */

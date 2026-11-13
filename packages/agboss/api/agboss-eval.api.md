@@ -175,7 +175,7 @@ export interface EvalConfusionMatrix {
 }
 
 // @public
-export type EvalContextsOf<TStart> = {
+type EvalContextsOf<TStart> = {
     readonly [TKey in keyof Pick<ExecutionOptionsOf<TStart>, "tenant" | "execution">]: EvalValueOf<ExecutionOptionsOf<TStart>[TKey]>;
 };
 
@@ -574,7 +574,7 @@ export interface EvalToolCallTrace {
 
 // @public
 export interface EvalToolExpectations {
-    readonly forbidden?: readonly ToolHandlerClass[];
+    readonly forbidden?: readonly Class<ToolHandler<never, unknown>>[];
     readonly invariants?: readonly ToolInvariant[];
     readonly required?: readonly ExpectedToolCall[];
 }
@@ -594,11 +594,18 @@ export interface EvalTurn<TInput = unknown> {
 }
 
 // @public
-export interface EvalTurnsOf<TStart> {
+interface EvalTurnsOf<TStart> {
     // (undocumented)
     readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
     // (undocumented)
     readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+}
+
+declare namespace EvalTypes {
+    export {
+        EvalContextsOf,
+        EvalTurnsOf
+    }
 }
 
 // @public
@@ -607,7 +614,7 @@ export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[] ? read
 } : TValue;
 
 // @public
-export interface ExpectedToolCall<TTool extends ToolHandlerClass = ToolHandlerClass> {
+export interface ExpectedToolCall<TTool extends Class<ToolHandler<never, unknown>> = Class<ToolHandler<never, unknown>>> {
     readonly arguments?: ToolArgumentsOf<TTool>;
     // (undocumented)
     readonly tool: TTool;
@@ -626,23 +633,20 @@ export interface JudgeEvalCheck {
 export function pastTurn<TStart extends Class, TFinish extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, finish: TFinish, output: OutputOf<InstanceType<TFinish>>): EvalPastTurn;
 
 // @public
-export type ToolArgumentsOf<TTool extends ToolHandlerClass> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
+export type ToolArgumentsOf<TTool extends Class<ToolHandler<never, unknown>>> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
 
 // @public
-export function toolCall<const TTool extends ToolHandlerClass>(tool: TTool, args?: ToolArgumentsOf<TTool>): ExpectedToolCall<TTool>;
+export function toolCall<const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, args?: ToolArgumentsOf<TTool>): ExpectedToolCall<TTool>;
 
 // @public
-export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
-
-// @public
-export interface ToolInvariant<TTool extends ToolHandlerClass = ToolHandlerClass> {
+export interface ToolInvariant<TTool extends Class<ToolHandler<never, unknown>> = Class<ToolHandler<never, unknown>>> {
     readonly holds: (input: ToolInputOf<InstanceType<TTool>>) => boolean;
     // (undocumented)
     readonly tool: TTool;
 }
 
 // @public
-export const toolInvariant: <const TTool extends ToolHandlerClass>(tool: TTool, holds: (input: ToolInputOf<InstanceType<TTool>>) => boolean) => ToolInvariant<TTool>;
+export const toolInvariant: <const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, holds: (input: ToolInputOf<InstanceType<TTool>>) => boolean) => ToolInvariant<TTool>;
 
 // @public
 export interface TrajectoryEvalCheck {
@@ -796,8 +800,8 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/suite/checks.ts:33:3 - (ae-undocumented) Missing documentation for "judge".
 // src/eval/suite/eval-suite.decorator.ts:16:3 - (ae-undocumented) Missing documentation for "description".
 // src/eval/suite/eval-suite.decorator.ts:29:3 - (ae-undocumented) Missing documentation for "cases".
-// src/eval/suite/tool-expectations.ts:18:3 - (ae-undocumented) Missing documentation for "tool".
-// src/eval/suite/tool-expectations.ts:25:3 - (ae-undocumented) Missing documentation for "tool".
+// src/eval/suite/tool-expectations.ts:21:3 - (ae-undocumented) Missing documentation for "tool".
+// src/eval/suite/tool-expectations.ts:30:3 - (ae-undocumented) Missing documentation for "tool".
 
 // (No @packageDocumentation comment for this package)
 

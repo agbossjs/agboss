@@ -131,10 +131,8 @@ export const quotePaths = [
       route(PriceQuoteAction)
         .returns(oneOf(QuoteDto, QuoteRefusedDto))
         .switch(
-          caseOf(QuoteDto)
-            .toFinish(QuoteWorkflowFinish),
-          caseOf(QuoteRefusedDto)
-            .toFinish(QuoteRefusedWorkflowFinish),
+          caseOf(QuoteDto).toFinish(QuoteWorkflowFinish),
+          caseOf(QuoteRefusedDto).toFinish(QuoteRefusedWorkflowFinish),
         ),
       route(ManualQuoteWorkflowFinish),
     ),

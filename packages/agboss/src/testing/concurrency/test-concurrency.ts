@@ -11,11 +11,7 @@ import type { RecordedInput } from "../input-match.js";
  */
 
 /** Which way a test schedules branches. */
-export enum ConcurrencyMode {
-  Sequential = "sequential",
-  Real = "real",
-  InOrder = "in-order",
-}
+export type ConcurrencyMode = "sequential" | "real" | "in-order";
 
 /**
  * One step of `TestConcurrency.inOrder(…)`: a branch of `node` whose input matches `input` (the same
@@ -24,7 +20,7 @@ export enum ConcurrencyMode {
  */
 export interface OrderedStep {
   readonly node: Class;
-  readonly input?: RecordedInput;
+  readonly input?: Readonly<Record<string, unknown>>;
 }
 
 /** `step(CultureScoreAgent)`, `step(CompanyCheckAgent, { company: { name: "Acme" } })`. */
@@ -39,9 +35,9 @@ export function step(node: Class, input?: RecordedInput): OrderedStep {
 /** A test's schedule of launch branches: one of three, made by its statics. */
 export class TestConcurrency {
   /** One branch at a time, in listed / item order (the default). */
-  static readonly Sequential: TestConcurrency = new TestConcurrency(ConcurrencyMode.Sequential, []);
+  static readonly Sequential: TestConcurrency = new TestConcurrency("sequential", []);
   /** The real scheduler: every branch within `maxConcurrency`, no gates. */
-  static readonly Real: TestConcurrency = new TestConcurrency(ConcurrencyMode.Real, []);
+  static readonly Real: TestConcurrency = new TestConcurrency("real", []);
 
   private constructor(
     readonly mode: ConcurrencyMode,
@@ -55,6 +51,6 @@ export class TestConcurrency {
    * test fails at once; a step never reached fails the test at its end.
    */
   static inOrder(steps: readonly OrderedStep[]): TestConcurrency {
-    return new TestConcurrency(ConcurrencyMode.InOrder, [...steps]);
+    return new TestConcurrency("in-order", [...steps]);
   }
 }

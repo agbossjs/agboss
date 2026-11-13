@@ -3,10 +3,10 @@ import {
   DECISION_MODELS,
   DecisionsModelProvider,
   ModelProvider,
-  ModelProviderDirectory,
   ModelProviderError,
   ModelPurpose,
 } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
 import {

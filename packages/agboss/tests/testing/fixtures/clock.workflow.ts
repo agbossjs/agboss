@@ -68,9 +68,7 @@ export class StampService {
   constructor(private readonly clock: Clock) {}
 
   stamp(): string {
-    return this.clock
-      .now()
-      .toISOString();
+    return this.clock.now().toISOString();
   }
 }
 

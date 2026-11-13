@@ -110,9 +110,3 @@ export interface WorkflowMeta {
   readonly providers?: readonly Provider[];
   readonly promptVariables?: Readonly<Record<string, string>>;
 }
-
-/** `@Channel` — settings of a channel. */
-export interface ChannelMeta {
-  readonly name: string;
-  readonly description?: string;
-}

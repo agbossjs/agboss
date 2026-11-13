@@ -61,10 +61,8 @@ export const verdictPaths = [
     .toAgent(VerdictAgent)
     .returns(oneOf(ApprovedVerdictDto, RejectedVerdictDto))
     .switch(
-      caseOf(ApprovedVerdictDto)
-        .toFinish(ApprovedWorkflowFinish),
-      caseOf(RejectedVerdictDto)
-        .toFinish(RejectedWorkflowFinish),
+      caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
+      caseOf(RejectedVerdictDto).toFinish(RejectedWorkflowFinish),
     ),
 ] as const;
 

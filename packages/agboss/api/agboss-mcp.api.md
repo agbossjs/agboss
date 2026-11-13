@@ -7,7 +7,6 @@
 import type { IncomingMessage } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { z } from 'zod';
 
 // @public
 export type ArgumentsOf<TTool extends ServerTool> = InstanceType<TTool["input"]>;
@@ -36,34 +35,30 @@ export function McpServer<const TTools extends ServerTools>(options: {
 
 // @public
 export abstract class McpServerClient<TTools extends ServerTools> {
-    attachServerTools(tools: ReadonlyMap<string, ServerToolCallable>): void;
     // (undocumented)
     call<K extends keyof TTools & string>(name: K, args: ArgumentsOf<TTools[K]>, signal?: AbortSignal): Promise<ResultOf<TTools[K]>>;
     readonly declaredTools?: TTools;
 }
 
-// @public (undocumented)
-export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
-
-// @public (undocumented)
-export const McpServerConfigSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
-    transport: z.ZodLiteral<"stdio">;
-    target: z.ZodOptional<z.ZodObject<{
-        application: z.ZodString;
-        expose: z.ZodString;
-    }, z.core.$strip>>;
-    command: z.ZodString;
-    args: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    env: z.ZodOptional<z.ZodArray<z.ZodString>>;
-}, z.core.$strip>, z.ZodObject<{
-    transport: z.ZodLiteral<"http">;
-    target: z.ZodOptional<z.ZodObject<{
-        application: z.ZodString;
-        expose: z.ZodString;
-    }, z.core.$strip>>;
-    url: z.ZodURL;
-    headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-}, z.core.$strip>], "transport">;
+// @public
+export type McpServerConfig = {
+    transport: "stdio";
+    target?: {
+        application: string;
+        expose: string;
+    } | undefined;
+    command: string;
+    args?: string[] | undefined;
+    env?: string[] | undefined;
+} | {
+    transport: "http";
+    target?: {
+        application: string;
+        expose: string;
+    } | undefined;
+    url: string;
+    headers?: Record<string, string> | undefined;
+};
 
 // @public
 export class McpService {
@@ -103,22 +98,8 @@ export interface ServerTool {
     readonly output: DtoClass;
 }
 
-// @public
-export interface ServerToolCallable {
-    // (undocumented)
-    invoke(raw: unknown, ctx: ToolInvocationContext): Promise<ToolOutput<unknown>>;
-}
-
 // @public (undocumented)
 export type ServerTools = Readonly<Record<string, ServerTool>>;
-
-// @public
-export interface ToolInvocationContext {
-    readonly clock?: Clock;
-    readonly reportCost: (usd: number) => void;
-    // (undocumented)
-    readonly signal: AbortSignal;
-}
 
 // @public
 export type ToolsOf<TServer> = TServer extends {
@@ -131,10 +112,7 @@ export type ToolsOf<TServer> = TServer extends {
 // src/components/mcp-client.ts:8:3 - (ae-undocumented) Missing documentation for "output".
 // src/components/mcp-client.ts:13:1 - (ae-undocumented) Missing documentation for "ResultOf".
 // src/components/mcp-client.ts:14:1 - (ae-undocumented) Missing documentation for "ServerTools".
-// src/components/mcp-client.ts:18:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/components/mcp-client.ts:39:9 - (ae-undocumented) Missing documentation for "call".
-// src/config/types.ts:170:14 - (ae-undocumented) Missing documentation for "McpServerConfigSchema".
-// src/config/types.ts:226:1 - (ae-undocumented) Missing documentation for "McpServerConfig".
 // src/mcp/mcp-expose.decorator.ts:4:1 - (ae-undocumented) Missing documentation for "McpExposeOptions".
 // src/mcp/mcp-expose.decorator.ts:5:3 - (ae-undocumented) Missing documentation for "name".
 // src/mcp/mcp-expose.decorator.ts:6:3 - (ae-undocumented) Missing documentation for "version".
@@ -143,7 +121,6 @@ export type ToolsOf<TServer> = TServer extends {
 // src/mcp/mcp-service.ts:20:3 - (ae-undocumented) Missing documentation for "sessionId".
 // src/mcp/mcp-service.ts:21:3 - (ae-undocumented) Missing documentation for "close".
 // src/mcp/mcp-service.ts:144:1 - (ae-undocumented) Missing documentation for "createMcpService".
-// src/tools/types.ts:13:3 - (ae-undocumented) Missing documentation for "signal".
 
 // (No @packageDocumentation comment for this package)
 

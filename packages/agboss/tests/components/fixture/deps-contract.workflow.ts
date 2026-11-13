@@ -94,12 +94,7 @@ export function workflowWith(
 ): Class {
   @Workflow({
     name,
-    flow: [
-      start(Chat)
-        .returns(WorkflowStartTextDto)
-        .toAgent(agent)
-        .toFinish(Done),
-    ],
+    flow: [start(Chat).returns(WorkflowStartTextDto).toAgent(agent).toFinish(Done)],
     ...base,
     ...extra,
   })

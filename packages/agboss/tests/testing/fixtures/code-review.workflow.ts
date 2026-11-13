@@ -90,9 +90,7 @@ export class Unused {}
   name: "code-review-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Coder),
+    start(TaskStart).returns(WorkflowStartTextDto).toAgent(Coder),
     agent(Coder)
       .returns(CodeDto)
       .toAgent(Reviewer)

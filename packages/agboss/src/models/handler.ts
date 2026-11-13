@@ -4,7 +4,6 @@ import type { JevDecisionRequest } from "../llm/jev-client.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
-import type { ProviderFetch } from "./resilient-fetch.js";
 import type { ModelProviderRequest, ModelProviderResponse } from "./transport/transport.js";
 
 /**
@@ -16,7 +15,7 @@ export interface ProviderConnection {
   readonly baseUrl: string;
   readonly apiKey: string | undefined;
   /** `fetch` with the provider's timeout, retry policy and circuit breaker. */
-  readonly fetch: ProviderFetch;
+  readonly fetch: typeof fetch;
 }
 
 /** A chat model request: the settings with reasoning and caching resolved over the provider's own. */

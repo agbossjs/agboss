@@ -84,20 +84,14 @@ const defaults = {
 @Workflow({
   name: "payments-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Cashier)
-      .toFinish(Reply),
-  ],
+  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(Cashier).toFinish(Reply)],
   defaults,
   uncompactedTurns: 2,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 

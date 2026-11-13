@@ -77,7 +77,11 @@ export class DeclinableChargeAction {
 @WorkflowStart({ name: "decline-check-workflow-start", description: "An item", input: ItemDto })
 export class DeclineCheckWorkflowStart {}
 
-@WorkflowFinish({ name: "decline-checked-workflow-finish", description: "Charged", output: ItemResultDto })
+@WorkflowFinish({
+  name: "decline-checked-workflow-finish",
+  description: "Charged",
+  output: ItemResultDto,
+})
 export class DeclineCheckedWorkflowFinish {}
 
 @Workflow({
@@ -96,7 +100,11 @@ export class DeclineCheckWorkflow {}
 @WorkflowStart({ name: "decline-booking-workflow-start", description: "An item", input: ItemDto })
 export class DeclineBookingWorkflowStart {}
 
-@WorkflowFinish({ name: "decline-booked-workflow-finish", description: "Booked, charged", output: ItemResultDto })
+@WorkflowFinish({
+  name: "decline-booked-workflow-finish",
+  description: "Booked, charged",
+  output: ItemResultDto,
+})
 export class DeclineBookedWorkflowFinish {}
 
 /** The child with an undo: booked first (undone by a cancel), then charged. */
@@ -116,10 +124,18 @@ export class DeclineBookedWorkflowFinish {}
 })
 export class DeclineBookingWorkflow {}
 
-@WorkflowFinish({ name: "declined-workflow-finish", description: "The declined item", output: ItemDto })
+@WorkflowFinish({
+  name: "declined-workflow-finish",
+  description: "The declined item",
+  output: ItemDto,
+})
 export class DeclinedWorkflowFinish {}
 
-@WorkflowFinish({ name: "paid-workflow-finish", description: "The item paid", output: ItemResultDto })
+@WorkflowFinish({
+  name: "paid-workflow-finish",
+  description: "The item paid",
+  output: ItemResultDto,
+})
 export class PaidWorkflowFinish {}
 
 /** A parent of `child` placed `placement`, its side path on the child's own error class. */
@@ -143,13 +159,28 @@ function parentOf(name: string, child: object, placement: ChildPlacement) {
 }
 
 export const PARENTS = [
-  { child: "ParentInstance", ...parentOf("pay-local", DeclineCheckWorkflow, ChildPlacement.ParentInstance) },
-  { child: "AnyInstance", ...parentOf("pay-remote", DeclineCheckWorkflow, ChildPlacement.AnyInstance) },
-  { child: "ParentInstance with an undo", ...parentOf("book-local", DeclineBookingWorkflow, ChildPlacement.ParentInstance) },
-  { child: "AnyInstance with an undo", ...parentOf("book-remote", DeclineBookingWorkflow, ChildPlacement.AnyInstance) },
+  {
+    child: "ParentInstance",
+    ...parentOf("pay-local", DeclineCheckWorkflow, ChildPlacement.ParentInstance),
+  },
+  {
+    child: "AnyInstance",
+    ...parentOf("pay-remote", DeclineCheckWorkflow, ChildPlacement.AnyInstance),
+  },
+  {
+    child: "ParentInstance with an undo",
+    ...parentOf("book-local", DeclineBookingWorkflow, ChildPlacement.ParentInstance),
+  },
+  {
+    child: "AnyInstance with an undo",
+    ...parentOf("book-remote", DeclineBookingWorkflow, ChildPlacement.AnyInstance),
+  },
 ] as const;
 
-const CHILDREN: ReadonlySet<string> = new Set(["decline-check-workflow", "decline-booking-workflow"]);
+const CHILDREN: ReadonlySet<string> = new Set([
+  "decline-check-workflow",
+  "decline-booking-workflow",
+]);
 
 /** Every root finish and every failure, with the instance that announced it. */
 @Injectable({ deps: [ApplicationContext] })

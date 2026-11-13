@@ -52,27 +52,17 @@ export const returnsEach = <TBuilder extends PathBuilder>(
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 
-export const toAction = (target: Class): PathBuilder =>
-  side()
-    .toAction(target);
+export const toAction = (target: Class): PathBuilder => side().toAction(target);
 
-export const toAgent = (target: Class): PathBuilder =>
-  side()
-    .toAgent(target);
+export const toAgent = (target: Class): PathBuilder => side().toAgent(target);
 
-export const toFinish = (target: Class): PathBuilder =>
-  side()
-    .toFinish(target);
+export const toFinish = (target: Class): PathBuilder => side().toFinish(target);
 
 /** The side path `.onError(E, toQuestion(Q)…)` (#910). */
-export const toQuestion = (target: Class): PathBuilder =>
-  side()
-    .toQuestion(target);
+export const toQuestion = (target: Class): PathBuilder => side().toQuestion(target);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
-export const toWorkflow = (target: Class): PathBuilder =>
-  side()
-    .toWorkflow(target);
+export const toWorkflow = (target: Class): PathBuilder => side().toWorkflow(target);
 
 /** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279). */
 export const group = (...agents: readonly Class[]): PathBuilder => groupFrom(agents);

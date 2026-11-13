@@ -64,9 +64,7 @@ export class PickAgainRouter {
   name: "pick-loop-workflow",
   version: "1.0.0",
   flow: [
-    start(PickLoopWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ItemPickerAgent),
+    start(PickLoopWorkflowStart).returns(WorkflowStartTextDto).toAgent(ItemPickerAgent),
     agent(ItemPickerAgent)
       .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)

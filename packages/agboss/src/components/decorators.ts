@@ -2,7 +2,6 @@ import type { McpServerConfig } from "../config/types.js";
 import type { RagConnector, RagRerank, RagTenancy } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
-import type { ChannelMeta } from "./meta-types.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { recordComponent } from "./metadata.js";
@@ -178,14 +177,20 @@ export function Rag<const D extends readonly Token[] = []>(
   };
 }
 
+/** What `@Channel({ … })` takes: the channel's name and description, and its `deps`. */
+export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
+  readonly name: string;
+  readonly description?: string;
+  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+  readonly deps?: D;
+}
+
 /**
  * A channel (#267): a role's implementation (`extends` a `@ChannelRole` class), or a concrete
  * channel a tool names as is. The container creates it with its `deps`; the execution comes
  * through an injected `ExecutionContext`. One instance per application, shared by all workflows.
  */
-export function Channel<const D extends readonly Token[] = []>(
-  options: ChannelMeta & { readonly deps?: D },
-) {
+export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>) {
   // any role's `send` (`ChannelHandler<Role>`): the ask's type is the role's, checked by `implements`
   return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): Promise<unknown> }>(
     value: C,
