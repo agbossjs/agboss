@@ -1,86 +1,68 @@
-import { z } from "zod";
-import { decodePausedRun, encodePausedRun, type PausedExecution } from "../../app/paused-runs.js";
 import { Injectable } from "../../components/decorators.js";
+import type { OnInit } from "../../components/container/lifecycle.js";
 import { Clock } from "../clock.js";
-import {
-  PausedExecutionRepository,
-  type PauseAnswer,
-  type PauseCancellation,
-  type PauseRecord,
-} from "../paused-execution.repository.js";
-import { cancelledPause, decidedPause, resolvedPause } from "../pause-record.js";
+import { lazyLoad } from "../clock.js";
+import { PausedExecutionRepository } from "../paused-execution.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { migratePauses, PAUSES_SCHEMA, SqlitePauseRows } from "./sqlite-pause-rows.js";
 
-/** One row per thread of a tenant (#261: the key is tenant + thread). */
-const SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
-  tenant_id TEXT NOT NULL, thread_id TEXT NOT NULL, run_id TEXT NOT NULL, run TEXT NOT NULL,
-  workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, paused_at TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, thread_id));`;
+/** The store behind each repository: loaded on its first use (or at start), then called directly. */
+const loading = new WeakMap<object, Promise<PausedExecutionRepository>>();
+const loaded = new WeakMap<object, PausedExecutionRepository>();
 
-/**
- * The migration of a file written before tenants (#261, #265 S69 e): the table keyed by the thread
- * alone is rebuilt keyed by tenant + thread, its rows in the tenant `"default"`.
- */
-const TENANT_MIGRATION = `ALTER TABLE paused_executions RENAME TO paused_executions_before_tenants;
-${SCHEMA}
-INSERT INTO paused_executions SELECT 'default', thread_id, run_id, run, workflow_version,
-  config_hash, paused_at FROM paused_executions_before_tenants;
-DROP TABLE paused_executions_before_tenants;`;
-
-/**
- * The migration of a file written before pauses had records of their own (#267 S35): a thread's
- * pause kept its status and decision in its row; they now live in `pauses`, one row per pause.
- */
-const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN status;
-ALTER TABLE paused_executions DROP COLUMN decision;`;
-
-const PausedRow = z.object({
-  // the row's own key columns: they name a run whose text cannot be parsed
-  thread_id: z.string().optional(),
-  run_id: z.string().optional(),
-  run: z.string(),
-  workflow_version: z.string(),
-  config_hash: z.string(),
-});
-
-function toPausedExecution(row: unknown): PausedExecution {
-  const r = PausedRow.parse(row);
-  const run = decodePausedRun(r.run, { threadId: r.thread_id, runId: r.run_id });
-  const tenantId: unknown = Reflect.get(run, "tenantId");
-  return {
-    run: typeof tenantId === "string" ? run : { ...run, tenantId: "default" },
-    workflowVersion: r.workflow_version,
-    configHash: r.config_hash,
-  };
+/** `use(store)`, a store's synchronous failure a rejection: no method of a contract throws. */
+function attempt<T>(
+  use: (store: PausedExecutionRepository) => Promise<T>,
+  store: PausedExecutionRepository,
+): Promise<T> {
+  try {
+    return use(store);
+  } catch (error) {
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
 }
 
+/** `use` on the store of `owner`; `load` runs once, and a loaded store adds no wait of its own. */
+function usingStore<T>(
+  owner: object,
+  load: () => Promise<PausedExecutionRepository>,
+  use: (store: PausedExecutionRepository) => Promise<T>,
+): Promise<T> {
+  const ready = loaded.get(owner);
+  if (ready !== undefined) return attempt(use, ready);
+  const pending = loading.get(owner) ?? load();
+  loading.set(owner, pending);
+  return pending.then((store) => {
+    loaded.set(owner, store);
+    return use(store);
+  });
+}
+
+/** What a pause store's method takes and answers: handed on unchanged to the store that loads on first use. */
+type Args<K extends keyof PausedExecutionRepository> = Parameters<PausedExecutionRepository[K]>;
+type Returns<K extends keyof PausedExecutionRepository> = ReturnType<PausedExecutionRepository[K]>;
+
 /**
- * `PausedExecutionRepository` on the application's SQLite file (#265 S32, #267 S35): one row per
- * thread of a tenant (#261) — the paused run and the versions it paused under — and one row per
- * pause (`pauses`). Every change of a pause is one `BEGIN IMMEDIATE` transaction, so of two resumes
- * on two instances exactly one records its decision. With `SqliteCheckpointSaver` a pause survives
- * a restart. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * `PausedExecutionRepository` on the application's SQLite file (#265 S32, #267 S35, #910): one row
+ * per thread of a tenant (#261) — the paused run and the versions it paused under —, one row per
+ * pause (`pauses`) and one row per pause and receiver (`pause_notices`, the notices). Every change
+ * of a pause is one `BEGIN IMMEDIATE` transaction with its notices (`sqlite-pause-store.ts`, loaded
+ * at start: the root import stays lean): of two resumes on two instances exactly one records its
+ * decision, and a notice is never without its change nor a change without its notice. With
+ * `SqliteCheckpointSaver` a pause survives a restart. Listed in `@Application({ providers })`;
+ * needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, Clock] })
-export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
-  readonly #pauses: SqlitePauseRows;
-
+export class SqlitePausedExecutionRepository extends PausedExecutionRepository implements OnInit {
   constructor(
     private readonly connection: SqliteConnection,
     private readonly clock: Clock,
   ) {
     super();
-    connection.transaction(() => {
-      const columns = connection.columnsOf("paused_executions");
-      if (columns.length > 0 && !columns.includes("tenant_id"))
-        connection.database.exec(TENANT_MIGRATION);
-      else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
-      migratePauses(connection);
-    });
-    connection.ensureSchema("paused_executions", SCHEMA);
-    connection.ensureSchema("pauses", PAUSES_SCHEMA);
-    this.#pauses = new SqlitePauseRows(connection.database);
+  }
+
+  /** Opens the tables (and migrates a file an older version wrote) when the application starts. */
+  async onInit(): Promise<void> {
+    await this.#run(() => Promise.resolve());
   }
 
   ping(): Promise<void> {
@@ -88,107 +70,173 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   }
 
   findByTenantIdAndThreadId(
-    tenantId: string,
-    threadId: string,
-  ): Promise<PausedExecution | undefined> {
-    const row = this.connection.database
-      .prepare("SELECT * FROM paused_executions WHERE tenant_id = ? AND thread_id = ?")
-      .get(tenantId, threadId);
-    return Promise.resolve(row === undefined ? undefined : toPausedExecution(row));
+    ...args: Args<"findByTenantIdAndThreadId">
+  ): Returns<"findByTenantIdAndThreadId"> {
+    return this.#run((store) => store.findByTenantIdAndThreadId(...args));
   }
 
-  save(paused: PausedExecution): Promise<void> {
-    const { run } = paused;
-    this.connection.database
-      .prepare("INSERT OR REPLACE INTO paused_executions VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(
-        run.tenantId,
-        run.threadId,
-        run.runId,
-        encodePausedRun(run),
-        paused.workflowVersion,
-        paused.configHash,
-        this.clock.now().toISOString(),
-      );
-    return Promise.resolve();
+  save(...args: Args<"save">): Returns<"save"> {
+    return this.#run((store) => store.save(...args));
   }
 
-  deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void> {
-    this.connection.database
-      .prepare("DELETE FROM paused_executions WHERE tenant_id = ? AND thread_id = ?")
-      .run(tenantId, threadId);
-    return Promise.resolve();
+  deleteByTenantIdAndThreadId(
+    ...args: Args<"deleteByTenantIdAndThreadId">
+  ): Returns<"deleteByTenantIdAndThreadId"> {
+    return this.#run((store) => store.deleteByTenantIdAndThreadId(...args));
   }
 
-  findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
-    const found = this.connection.transaction((): PauseRecord => {
-      const stored = this.#pauses.findByStepKey(pause);
-      if (stored !== undefined) return stored;
-      this.#pauses.insert(pause);
-      return pause;
-    });
-    return Promise.resolve(found);
+  deleteByTenantIdAndThreadIdAndRunId(
+    ...args: Args<"deleteByTenantIdAndThreadIdAndRunId">
+  ): Returns<"deleteByTenantIdAndThreadIdAndRunId"> {
+    return this.#run((store) => store.deleteByTenantIdAndThreadIdAndRunId(...args));
   }
 
-  findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
-    return Promise.resolve(this.#pauses.findById(tenantId, pauseId));
+  findOrCreateByStepKey(...args: Args<"findOrCreateByStepKey">): Returns<"findOrCreateByStepKey"> {
+    return this.#run((store) => store.findOrCreateByStepKey(...args));
+  }
+
+  findByTenantIdAndPauseId(
+    ...args: Args<"findByTenantIdAndPauseId">
+  ): Returns<"findByTenantIdAndPauseId"> {
+    return this.#run((store) => store.findByTenantIdAndPauseId(...args));
   }
 
   findAllByTenantIdAndRootExecutionId(
-    tenantId: string,
-    rootExecutionId: string,
-  ): Promise<readonly PauseRecord[]> {
-    return Promise.resolve(this.#pauses.findAllByRoot(tenantId, rootExecutionId));
+    ...args: Args<"findAllByTenantIdAndRootExecutionId">
+  ): Returns<"findAllByTenantIdAndRootExecutionId"> {
+    return this.#run((store) => store.findAllByTenantIdAndRootExecutionId(...args));
   }
 
-  markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
-    return Promise.resolve(this.#pauses.markSent(tenantId, pauseId));
+  findByTenantIdAndRootExecutionIdAndStepKey(
+    ...args: Args<"findByTenantIdAndRootExecutionIdAndStepKey">
+  ): Returns<"findByTenantIdAndRootExecutionIdAndStepKey"> {
+    return this.#run((store) => store.findByTenantIdAndRootExecutionIdAndStepKey(...args));
+  }
+
+  markSentByTenantIdAndPauseId(
+    ...args: Args<"markSentByTenantIdAndPauseId">
+  ): Returns<"markSentByTenantIdAndPauseId"> {
+    return this.#run((store) => store.markSentByTenantIdAndPauseId(...args));
   }
 
   resolveByTenantIdAndPauseId(
-    tenantId: string,
-    pauseId: string,
-    answer: PauseAnswer,
-    at: Date,
-  ): Promise<PauseRecord | undefined> {
-    const resolved = this.connection.transaction(() =>
-      this.#pauses.close(tenantId, pauseId, (pending) => resolvedPause(pending, answer, at)),
-    );
-    return Promise.resolve(resolved);
+    ...args: Args<"resolveByTenantIdAndPauseId">
+  ): Returns<"resolveByTenantIdAndPauseId"> {
+    return this.#run((store) => store.resolveByTenantIdAndPauseId(...args));
   }
 
   decideByTenantIdAndPauseId(
-    tenantId: string,
-    pauseId: string,
-    answer: PauseAnswer,
-    at: Date,
-  ): Promise<boolean> {
-    const decided = this.connection.transaction(() =>
-      this.#pauses.close(tenantId, pauseId, (pending) => decidedPause(pending, answer, at)),
-    );
-    return Promise.resolve(decided !== undefined);
+    ...args: Args<"decideByTenantIdAndPauseId">
+  ): Returns<"decideByTenantIdAndPauseId"> {
+    return this.#run((store) => store.decideByTenantIdAndPauseId(...args));
   }
 
   cancelByTenantIdAndPauseId(
-    tenantId: string,
-    pauseId: string,
-    resolution: PauseCancellation,
-    at: Date,
-  ): Promise<boolean> {
-    const cancelled = this.connection.transaction(() =>
-      this.#pauses.close(tenantId, pauseId, (pending) => cancelledPause(pending, resolution, at)),
-    );
-    return Promise.resolve(cancelled !== undefined);
+    ...args: Args<"cancelByTenantIdAndPauseId">
+  ): Returns<"cancelByTenantIdAndPauseId"> {
+    return this.#run((store) => store.cancelByTenantIdAndPauseId(...args));
   }
 
-  markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
-    this.#pauses.markTaken(tenantId, pauseId);
-    return Promise.resolve();
+  expireByTenantIdAndPauseId(
+    ...args: Args<"expireByTenantIdAndPauseId">
+  ): Returns<"expireByTenantIdAndPauseId"> {
+    return this.#run((store) => store.expireByTenantIdAndPauseId(...args));
   }
 
-  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
-    this.#pauses.deleteByResolvedAtBefore(cutoff);
-    return Promise.resolve();
+  closeUntakenByTenantIdAndPauseId(
+    ...args: Args<"closeUntakenByTenantIdAndPauseId">
+  ): Returns<"closeUntakenByTenantIdAndPauseId"> {
+    return this.#run((store) => store.closeUntakenByTenantIdAndPauseId(...args));
+  }
+
+  extendByTenantIdAndPauseId(
+    ...args: Args<"extendByTenantIdAndPauseId">
+  ): Returns<"extendByTenantIdAndPauseId"> {
+    return this.#run((store) => store.extendByTenantIdAndPauseId(...args));
+  }
+
+  remindByTenantIdAndPauseId(
+    ...args: Args<"remindByTenantIdAndPauseId">
+  ): Returns<"remindByTenantIdAndPauseId"> {
+    return this.#run((store) => store.remindByTenantIdAndPauseId(...args));
+  }
+
+  noticeOnceByTenantIdAndPauseId(
+    ...args: Args<"noticeOnceByTenantIdAndPauseId">
+  ): Returns<"noticeOnceByTenantIdAndPauseId"> {
+    return this.#run((store) => store.noticeOnceByTenantIdAndPauseId(...args));
+  }
+
+  markTakenByTenantIdAndPauseId(
+    ...args: Args<"markTakenByTenantIdAndPauseId">
+  ): Returns<"markTakenByTenantIdAndPauseId"> {
+    return this.#run((store) => store.markTakenByTenantIdAndPauseId(...args));
+  }
+
+  findPendingByExpiresAtBefore(
+    ...args: Args<"findPendingByExpiresAtBefore">
+  ): Returns<"findPendingByExpiresAtBefore"> {
+    return this.#run((store) => store.findPendingByExpiresAtBefore(...args));
+  }
+
+  findPendingByRemindAtBefore(
+    ...args: Args<"findPendingByRemindAtBefore">
+  ): Returns<"findPendingByRemindAtBefore"> {
+    return this.#run((store) => store.findPendingByRemindAtBefore(...args));
+  }
+
+  findOpenAfter(...args: Args<"findOpenAfter">): Returns<"findOpenAfter"> {
+    return this.#run((store) => store.findOpenAfter(...args));
+  }
+
+  findPageByTenantId(...args: Args<"findPageByTenantId">): Returns<"findPageByTenantId"> {
+    return this.#run((store) => store.findPageByTenantId(...args));
+  }
+
+  findClosedByResolvedAtBefore(
+    ...args: Args<"findClosedByResolvedAtBefore">
+  ): Returns<"findClosedByResolvedAtBefore"> {
+    return this.#run((store) => store.findClosedByResolvedAtBefore(...args));
+  }
+
+  deleteByResolvedAtBefore(
+    ...args: Args<"deleteByResolvedAtBefore">
+  ): Returns<"deleteByResolvedAtBefore"> {
+    return this.#run((store) => store.deleteByResolvedAtBefore(...args));
+  }
+
+  claimNoticesDue(...args: Args<"claimNoticesDue">): Returns<"claimNoticesDue"> {
+    return this.#run((store) => store.claimNoticesDue(...args));
+  }
+
+  ackNotice(...args: Args<"ackNotice">): Returns<"ackNotice"> {
+    return this.#run((store) => store.ackNotice(...args));
+  }
+
+  retryNotice(...args: Args<"retryNotice">): Returns<"retryNotice"> {
+    return this.#run((store) => store.retryNotice(...args));
+  }
+
+  setAsideNotices(...args: Args<"setAsideNotices">): Returns<"setAsideNotices"> {
+    return this.#run((store) => store.setAsideNotices(...args));
+  }
+
+  setAsideStaleNoticesBefore(
+    ...args: Args<"setAsideStaleNoticesBefore">
+  ): Returns<"setAsideStaleNoticesBefore"> {
+    return this.#run((store) => store.setAsideStaleNoticesBefore(...args));
+  }
+
+  countNotices(...args: Args<"countNotices">): Returns<"countNotices"> {
+    return this.#run((store) => store.countNotices(...args));
+  }
+
+  #run<T>(use: (store: PausedExecutionRepository) => Promise<T>): Promise<T> {
+    const load = (): Promise<PausedExecutionRepository> =>
+      lazyLoad(import("./sqlite-pause-store.js")).then(
+        ({ SqlitePauseStore }) => new SqlitePauseStore(this.connection, this.clock),
+      );
+    return usingStore(this, load, use);
   }
 }
 

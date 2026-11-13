@@ -180,8 +180,11 @@ describe("#663 on SQLite: a ParentInstance child of before that paused", () => {
       },
     ]);
     expect(pauseIndexesOnFile()).toEqual([
+      "status,expires_at (pauses_pending_by_expiry)",
+      "status,remind_at (pauses_pending_by_remind)",
       "status,resolved_at (pauses_by_resolved_at)",
       "tenant_id,root_execution_id (pauses_by_root)",
+      "tenant_id,status,channel (pauses_by_tenant)",
       "unique tenant_id,pause_id",
       "unique tenant_id,root_execution_id,step_key",
     ]);

@@ -16,7 +16,7 @@ import {
   infrastructureContractOf,
 } from "../infrastructure/contracts.js";
 import { InMemoryCostLedgerRepository } from "../infrastructure/cost-ledger.repository.js";
-import { InMemoryPausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../infrastructure/in-memory-paused-execution.repository.js";
 import { InMemoryExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import { InMemoryChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
 

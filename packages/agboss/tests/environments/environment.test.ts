@@ -11,7 +11,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
 import { EnvironmentFieldType, requireEnvironmentFields } from "../../src/environments/contract.js";
 import { EnvironmentErrorCode, GraphRuleError, Injectable, env, secret } from "../../src/index.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

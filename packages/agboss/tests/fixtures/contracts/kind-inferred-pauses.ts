@@ -5,10 +5,8 @@
  */
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { PauseKind } from "../../../src/infrastructure/pause-record.js";
-import {
-  InMemoryPausedExecutionRepository,
-  type PauseRecord,
-} from "../../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
+import type { PauseRecord } from "../../../src/infrastructure/paused-execution.repository.js";
 
 /** The stored pause with its kind told by its component, as before 0.1.1. */
 const inferred = (pause: PauseRecord): PauseRecord => ({

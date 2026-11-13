@@ -3,10 +3,8 @@
  * row check @agboss/postgres and @agboss/mongodb shipped (`ask: { callId, tool, summary }`), written
  * before question roles (#659) made an ask the role's own DTO. Every approval's pause passes.
  */
-import {
-  InMemoryPausedExecutionRepository,
-  type PauseRecord,
-} from "../../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
+import type { PauseRecord } from "../../../src/infrastructure/paused-execution.repository.js";
 
 const isToolCallAsk = (ask: unknown): boolean =>
   typeof ask === "object" &&

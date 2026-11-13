@@ -1,11 +1,11 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
+import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import {
   PauseKind,
   questionAskOf,
-  type PauseAnswerLog,
   type PauseCancellation,
   type PauseRecord,
   type QuestionAsk,

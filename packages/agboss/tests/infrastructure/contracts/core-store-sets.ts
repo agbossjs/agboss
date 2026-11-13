@@ -14,7 +14,7 @@ import type { InMemoryFencedEffectTransaction } from "../../../src/infrastructur
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../../src/infrastructure/mesh-request.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
-import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqliteChildExecutionQueueRepository } from "../../../src/infrastructure/sqlite/sqlite-child-execution-queue.repository.js";

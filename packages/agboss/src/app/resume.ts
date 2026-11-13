@@ -15,11 +15,8 @@ import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
-import {
-  logPauseAnswer,
-  PauseResolution,
-  type PauseAnswerLog,
-} from "../infrastructure/pause-record.js";
+import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
+import { logPauseAnswer, NO_RECIPIENTS, PauseResolution } from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
@@ -208,6 +205,7 @@ export async function recordAnswer(
     pause.pauseId,
     answer,
     at,
+    NO_RECIPIENTS,
   );
   if (resolved === undefined) {
     throw isMarked ? refusedAfterMark(parts, pause) : notPaused(pause.pauseId);

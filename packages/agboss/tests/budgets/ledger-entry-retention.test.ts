@@ -16,7 +16,7 @@ import {
   type LedgerEntry,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { CostLedgerEntryExpiredError } from "../../src/finops/ledger-mark.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, minutes, type Milliseconds } from "../../src/units/index.js";

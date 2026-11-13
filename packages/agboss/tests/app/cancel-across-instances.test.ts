@@ -12,7 +12,7 @@ import {
   UnknownThreadError,
 } from "../../src/index.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";

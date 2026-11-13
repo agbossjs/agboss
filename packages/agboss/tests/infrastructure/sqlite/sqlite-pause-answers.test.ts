@@ -4,6 +4,7 @@
  * pause still answered, its taken one read as `Replied`, and both kept by the retention, which
  * counts from `resolved_at` only.
  */
+import { NO_RECIPIENTS } from "../../../src/infrastructure/pause-notices.js";
 import { describe, expect, it } from "vitest";
 import { PauseResolution, PauseStatus } from "../../../src/index.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
@@ -73,6 +74,7 @@ describe("#267 S107: a SQLite file written before the pause answer records", () 
       "pending-pause",
       answer,
       clock.now(),
+      NO_RECIPIENTS,
     );
     expect(resolved).toMatchObject({
       status: PauseStatus.Resolved,

@@ -210,6 +210,11 @@ export interface TurnStore extends MemoryStore, ConfigStore {
   readonly summary: (bundle: string) => Promise<VersionScore[]>;
   /** Keeps a resolved pause's entry once: a second one for its tenant and step key is ignored. */
   readonly appendPauseAnswer: (entry: PauseAnswerEntry) => Promise<void>;
+  /**
+   * Writes a pause's entry as *not taken* (I12): over an entry of its tenant, tree and step key,
+   * which keeps its place in the order (`askedAt`, then kept order); a first entry when none is.
+   */
+  readonly markNotTaken: (entry: PauseAnswerEntry) => Promise<void>;
   /** The `record`s of a tree's entries, in the order asked (ties in the order kept). */
   readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
   readonly close: () => void;
@@ -221,5 +226,5 @@ export interface TurnStore extends MemoryStore, ConfigStore {
  */
 export type TurnRecords = Omit<
   TurnStore,
-  "close" | "byStatus" | "appendPauseAnswer" | "pauseAnswersOf"
+  "close" | "byStatus" | "appendPauseAnswer" | "markNotTaken" | "pauseAnswersOf"
 >;

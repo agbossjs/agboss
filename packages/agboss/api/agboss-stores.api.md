@@ -394,6 +394,9 @@ export interface ChildLaunchRecord {
 }
 
 // @public
+export const closedAtOf: (pause: PauseRecord) => string | undefined;
+
+// @public
 export interface Compacted {
     readonly compaction: string;
     readonly fromTurn: number;
@@ -840,6 +843,7 @@ export abstract class ExecutionRecordRepository {
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
+    abstract markPauseAnswerNotTaken(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
     abstract ping(): Promise<void>;
@@ -917,6 +921,16 @@ export type ExecutionTreeValue = string | number | boolean | null | readonly Exe
 
 // @public
 export function expiredEntriesOf(entries: readonly LedgerEntry[], prunedBefore: Date | undefined, isHeld: (ledgerId: string) => boolean): readonly string[];
+
+// @public
+export enum ExpiryProblem {
+    // (undocumented)
+    AnswerInvalid = "answer-invalid",
+    // (undocumented)
+    HandlerFailed = "handler-failed",
+    // (undocumented)
+    HandlerTimeout = "handler-timeout"
+}
 
 // @public
 export enum FencedEffectEventOutcome {
@@ -1244,6 +1258,9 @@ export interface NewThread {
 export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 // @public
+export const NO_RECIPIENTS: PauseRecipients;
+
+// @public
 export interface OutboundCallClaim {
     // (undocumented)
     readonly attempt: number;
@@ -1461,6 +1478,7 @@ export interface PauseAnswerRecord {
     readonly askedAt: string;
     readonly decision: unknown;
     readonly executionId: string;
+    readonly isTaken?: false;
     readonly pauseId: string | undefined;
     // (undocumented)
     readonly resolution: PauseResolution;
@@ -1479,7 +1497,26 @@ export function pauseAnswerRecordOfStored(stored: StoredAnswerRecord): PauseAnsw
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
 // @public
-export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled;
+export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
+
+// @public
+export enum PauseClosedReason {
+    // (undocumented)
+    Answered = "answered",
+    // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
+    Expired = "expired",
+    // (undocumented)
+    Reassigned = "reassigned",
+    // (undocumented)
+    TreeEnded = "tree-ended",
+    // (undocumented)
+    Withdrawn = "withdrawn"
+}
+
+// @public
+export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedReason | undefined;
 
 // @public
 export interface PausedExecution extends ResumeVersions {
@@ -1489,25 +1526,153 @@ export interface PausedExecution extends ResumeVersions {
 
 // @public
 export abstract class PausedExecutionRepository {
-    abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date): Promise<boolean>;
+    abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
+    abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
+    abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract countNotices(): Promise<PauseNoticeCounts>;
     abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
     abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
+    abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
+    abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseExtension, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
+    abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
+    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
-    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
+    abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
+    abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
+    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean>;
     abstract save(paused: PausedExecution): Promise<void>;
+    abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;
+    abstract setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
 }
+
+// @public
+export interface PauseExpiry {
+    // (undocumented)
+    readonly answer?: PauseAnswer;
+    // (undocumented)
+    readonly problem?: ExpiryProblem;
+}
+
+// @public
+export enum PauseExpiryBound {
+    // (undocumented)
+    Pause = "pause",
+    // (undocumented)
+    Quorum = "quorum",
+    // (undocumented)
+    RunDeadline = "run-deadline"
+}
+
+// @public
+export interface PauseExtension {
+    readonly expiresAt: string;
+    readonly remindAt?: string;
+}
+
+// @public
+export interface PauseFilter {
+    // (undocumented)
+    readonly channel?: string;
+    readonly expiresBefore?: Date;
+    readonly statuses: readonly PauseStatus[];
+}
+
+// @public
+export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
 export enum PauseKind {
     Approval = "approval",
     Question = "question"
+}
+
+// @public
+export interface PauseMailbox {
+    readonly attempts: number;
+    readonly delivered: number;
+    readonly headWrittenAt?: string;
+    readonly isDead: boolean;
+    // (undocumented)
+    readonly nextAttemptAt: Date;
+    readonly notices: readonly PauseNotice[];
+    // (undocumented)
+    readonly pauseId: string;
+    readonly problem?: string;
+    readonly recipient: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface PauseNotice {
+    readonly closedAt?: string;
+    readonly errorCode?: string;
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly kind: PauseNoticeKind;
+    readonly launch?: string;
+    readonly previousExpiresAt?: string;
+    readonly reason?: PauseClosedReason;
+    readonly seq: number;
+    readonly writtenAt: string;
+}
+
+// @public
+export interface PauseNoticeClaim {
+    // (undocumented)
+    readonly mailbox: PauseMailbox;
+    // (undocumented)
+    readonly token: string;
+    // (undocumented)
+    readonly until: Date;
+}
+
+// @public
+export interface PauseNoticeCounts {
+    // (undocumented)
+    readonly dead: number;
+    readonly live: number;
+}
+
+// @public
+export type PauseNoticeFacts = Omit<PauseNotice, "seq" | "kind" | "writtenAt">;
+
+// @public
+export enum PauseNoticeKind {
+    AnswerNotTaken = "answer-not-taken",
+    Closed = "closed",
+    Expiring = "expiring",
+    Extended = "extended",
+    JoinFailed = "join-failed",
+    Opened = "opened"
+}
+
+// @public
+export interface PausePage {
+    // (undocumented)
+    readonly next?: string;
+    // (undocumented)
+    readonly pauses: readonly PauseRecord[];
+}
+
+// @public
+export interface PauseRecipients {
+    readonly channel?: string;
+    readonly listeners: readonly string[];
 }
 
 // @public
@@ -1518,10 +1683,15 @@ export interface PauseRecord extends PauseSite {
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
+    readonly boundAt?: string;
     readonly channel: string;
+    readonly expiresAt?: string;
+    readonly expiryBound?: PauseExpiryBound;
+    readonly expiryProblem?: ExpiryProblem;
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
+    readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
     // (undocumented)
@@ -1536,7 +1706,11 @@ export function pauseRecordOfStored(stored: StoredPause): PauseRecord;
 export enum PauseResolution {
     Cancelled = "cancelled",
     Decided = "decided",
+    DecidedOnExpiry = "decided-on-expiry",
+    Expired = "expired",
+    Reassigned = "reassigned",
     Replied = "replied",
+    TreeEnded = "tree-ended",
     Withdrawn = "withdrawn"
 }
 
@@ -1569,6 +1743,9 @@ export enum PauseStatus {
     Resolved = "resolved",
     Taken = "taken"
 }
+
+// @public
+export type PauseUntakenResolution = PauseResolution.Cancelled | PauseResolution.TreeEnded;
 
 // @public
 export interface PendingApproval extends PendingPauseBase {
@@ -1660,6 +1837,9 @@ export abstract class RateLimitRepository {
 }
 
 // @public
+export function recipientKeysOf(recipients: PauseRecipients, kind: PauseNoticeKind): readonly string[];
+
+// @public
 export interface RecordedElsewhereLedgerMark {
     // (undocumented)
     readonly state: LedgerState.RecordedElsewhere;
@@ -1699,6 +1879,16 @@ export interface ScopeValueRecord {
     readonly value: unknown;
     readonly valueId: string;
     readonly variant?: string;
+}
+
+// @public
+export interface SetAsideMailbox {
+    // (undocumented)
+    readonly pauseId: string;
+    // (undocumented)
+    readonly recipient: string;
+    // (undocumented)
+    readonly tenantId: string;
 }
 
 // @public
@@ -2130,12 +2320,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts:86:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:127:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:150:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/fenced-effect-fingerprint.ts:159:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/fenced-effect-fingerprint.ts:160:3 - (ae-undocumented) Missing documentation for "cause".
 // src/infrastructure/fenced-effect-fingerprint.ts:170:3 - (ae-undocumented) Missing documentation for "code".
@@ -2170,13 +2360,41 @@ export interface WrittenLedgerMark {
 // src/infrastructure/outbound-call-record.ts:102:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/outbound-call-record.ts:103:3 - (ae-undocumented) Missing documentation for "attempt".
 // src/infrastructure/outbound-call-record.ts:104:3 - (ae-undocumented) Missing documentation for "attemptOwner".
-// src/infrastructure/pause-record.ts:54:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:70:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:71:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:83:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:158:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/infrastructure/pause-record.ts:164:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-notices.ts:36:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/pause-notices.ts:58:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-notices.ts:59:3 - (ae-undocumented) Missing documentation for "pauseId".
+// src/infrastructure/pause-notices.ts:68:3 - (ae-undocumented) Missing documentation for "nextAttemptAt".
+// src/infrastructure/pause-notices.ts:79:3 - (ae-undocumented) Missing documentation for "mailbox".
+// src/infrastructure/pause-notices.ts:80:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/pause-notices.ts:81:3 - (ae-undocumented) Missing documentation for "until".
+// src/infrastructure/pause-notices.ts:86:3 - (ae-undocumented) Missing documentation for "pauses".
+// src/infrastructure/pause-notices.ts:87:3 - (ae-undocumented) Missing documentation for "next".
+// src/infrastructure/pause-notices.ts:94:3 - (ae-undocumented) Missing documentation for "channel".
+// src/infrastructure/pause-notices.ts:103:3 - (ae-undocumented) Missing documentation for "dead".
+// src/infrastructure/pause-notices.ts:108:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-notices.ts:109:3 - (ae-undocumented) Missing documentation for "pauseId".
+// src/infrastructure/pause-notices.ts:110:3 - (ae-undocumented) Missing documentation for "recipient".
+// src/infrastructure/pause-record.ts:17:3 - (ae-undocumented) Missing documentation for "Pause".
+// src/infrastructure/pause-record.ts:18:3 - (ae-undocumented) Missing documentation for "RunDeadline".
+// src/infrastructure/pause-record.ts:19:3 - (ae-undocumented) Missing documentation for "Quorum".
+// src/infrastructure/pause-record.ts:24:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
+// src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
+// src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
+// src/infrastructure/pause-record.ts:31:3 - (ae-undocumented) Missing documentation for "Answered".
+// src/infrastructure/pause-record.ts:32:3 - (ae-undocumented) Missing documentation for "Expired".
+// src/infrastructure/pause-record.ts:33:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/pause-record.ts:34:3 - (ae-undocumented) Missing documentation for "Withdrawn".
+// src/infrastructure/pause-record.ts:35:3 - (ae-undocumented) Missing documentation for "TreeEnded".
+// src/infrastructure/pause-record.ts:36:3 - (ae-undocumented) Missing documentation for "Reassigned".
+// src/infrastructure/pause-record.ts:102:3 - (ae-undocumented) Missing documentation for "answer".
+// src/infrastructure/pause-record.ts:103:3 - (ae-undocumented) Missing documentation for "problem".
+// src/infrastructure/pause-record.ts:108:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:124:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:136:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:212:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:218:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/stored-step.ts:138:3 - (ae-forgotten-export) The symbol "StoredChild" needs to be exported by the entry point index.d.ts
 // src/mesh/mesh-call.ts:23:3 - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".

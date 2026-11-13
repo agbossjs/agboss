@@ -1,0 +1,228 @@
+import { Injectable } from "../components/decorators.js";
+import type { OnInit } from "../components/container/lifecycle.js";
+import { lazyLoad } from "./clock.js";
+import { PausedExecutionRepository } from "./paused-execution.repository.js";
+
+/** The store behind each repository: loaded on its first use (or at start), then called directly. */
+const loading = new WeakMap<object, Promise<PausedExecutionRepository>>();
+const loaded = new WeakMap<object, PausedExecutionRepository>();
+
+/** `use(store)`, a store's synchronous failure a rejection: no method of a contract throws. */
+function attempt<T>(
+  use: (store: PausedExecutionRepository) => Promise<T>,
+  store: PausedExecutionRepository,
+): Promise<T> {
+  try {
+    return use(store);
+  } catch (error) {
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/** `use` on the store of `owner`; `load` runs once, and a loaded store adds no wait of its own. */
+function usingStore<T>(
+  owner: object,
+  load: () => Promise<PausedExecutionRepository>,
+  use: (store: PausedExecutionRepository) => Promise<T>,
+): Promise<T> {
+  const ready = loaded.get(owner);
+  if (ready !== undefined) return attempt(use, ready);
+  const pending = loading.get(owner) ?? load();
+  loading.set(owner, pending);
+  return pending.then((store) => {
+    loaded.set(owner, store);
+    return use(store);
+  });
+}
+
+/** What a pause store's method takes and answers: handed on unchanged to the store that loads on first use. */
+type Args<K extends keyof PausedExecutionRepository> = Parameters<PausedExecutionRepository[K]>;
+type Returns<K extends keyof PausedExecutionRepository> = ReturnType<PausedExecutionRepository[K]>;
+
+/**
+ * The built-in default: paused executions in memory — another application instance cannot resume
+ * them, and they are lost on restart. Every operation is one synchronous step of the store behind
+ * it (`in-memory-pause-store.ts`, loaded when the first call comes: the root import stays lean), so
+ * it is atomic.
+ */
+@Injectable()
+export class InMemoryPausedExecutionRepository extends PausedExecutionRepository implements OnInit {
+  /** Loads the store when the application starts: no call waits for it. */
+  async onInit(): Promise<void> {
+    await this.#run(() => Promise.resolve());
+  }
+
+  ping(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  findByTenantIdAndThreadId(
+    ...args: Args<"findByTenantIdAndThreadId">
+  ): Returns<"findByTenantIdAndThreadId"> {
+    return this.#run((store) => store.findByTenantIdAndThreadId(...args));
+  }
+
+  save(...args: Args<"save">): Returns<"save"> {
+    return this.#run((store) => store.save(...args));
+  }
+
+  deleteByTenantIdAndThreadId(
+    ...args: Args<"deleteByTenantIdAndThreadId">
+  ): Returns<"deleteByTenantIdAndThreadId"> {
+    return this.#run((store) => store.deleteByTenantIdAndThreadId(...args));
+  }
+
+  deleteByTenantIdAndThreadIdAndRunId(
+    ...args: Args<"deleteByTenantIdAndThreadIdAndRunId">
+  ): Returns<"deleteByTenantIdAndThreadIdAndRunId"> {
+    return this.#run((store) => store.deleteByTenantIdAndThreadIdAndRunId(...args));
+  }
+
+  findOrCreateByStepKey(...args: Args<"findOrCreateByStepKey">): Returns<"findOrCreateByStepKey"> {
+    return this.#run((store) => store.findOrCreateByStepKey(...args));
+  }
+
+  findByTenantIdAndPauseId(
+    ...args: Args<"findByTenantIdAndPauseId">
+  ): Returns<"findByTenantIdAndPauseId"> {
+    return this.#run((store) => store.findByTenantIdAndPauseId(...args));
+  }
+
+  findAllByTenantIdAndRootExecutionId(
+    ...args: Args<"findAllByTenantIdAndRootExecutionId">
+  ): Returns<"findAllByTenantIdAndRootExecutionId"> {
+    return this.#run((store) => store.findAllByTenantIdAndRootExecutionId(...args));
+  }
+
+  findByTenantIdAndRootExecutionIdAndStepKey(
+    ...args: Args<"findByTenantIdAndRootExecutionIdAndStepKey">
+  ): Returns<"findByTenantIdAndRootExecutionIdAndStepKey"> {
+    return this.#run((store) => store.findByTenantIdAndRootExecutionIdAndStepKey(...args));
+  }
+
+  markSentByTenantIdAndPauseId(
+    ...args: Args<"markSentByTenantIdAndPauseId">
+  ): Returns<"markSentByTenantIdAndPauseId"> {
+    return this.#run((store) => store.markSentByTenantIdAndPauseId(...args));
+  }
+
+  resolveByTenantIdAndPauseId(
+    ...args: Args<"resolveByTenantIdAndPauseId">
+  ): Returns<"resolveByTenantIdAndPauseId"> {
+    return this.#run((store) => store.resolveByTenantIdAndPauseId(...args));
+  }
+
+  decideByTenantIdAndPauseId(
+    ...args: Args<"decideByTenantIdAndPauseId">
+  ): Returns<"decideByTenantIdAndPauseId"> {
+    return this.#run((store) => store.decideByTenantIdAndPauseId(...args));
+  }
+
+  cancelByTenantIdAndPauseId(
+    ...args: Args<"cancelByTenantIdAndPauseId">
+  ): Returns<"cancelByTenantIdAndPauseId"> {
+    return this.#run((store) => store.cancelByTenantIdAndPauseId(...args));
+  }
+
+  expireByTenantIdAndPauseId(
+    ...args: Args<"expireByTenantIdAndPauseId">
+  ): Returns<"expireByTenantIdAndPauseId"> {
+    return this.#run((store) => store.expireByTenantIdAndPauseId(...args));
+  }
+
+  closeUntakenByTenantIdAndPauseId(
+    ...args: Args<"closeUntakenByTenantIdAndPauseId">
+  ): Returns<"closeUntakenByTenantIdAndPauseId"> {
+    return this.#run((store) => store.closeUntakenByTenantIdAndPauseId(...args));
+  }
+
+  extendByTenantIdAndPauseId(
+    ...args: Args<"extendByTenantIdAndPauseId">
+  ): Returns<"extendByTenantIdAndPauseId"> {
+    return this.#run((store) => store.extendByTenantIdAndPauseId(...args));
+  }
+
+  remindByTenantIdAndPauseId(
+    ...args: Args<"remindByTenantIdAndPauseId">
+  ): Returns<"remindByTenantIdAndPauseId"> {
+    return this.#run((store) => store.remindByTenantIdAndPauseId(...args));
+  }
+
+  noticeOnceByTenantIdAndPauseId(
+    ...args: Args<"noticeOnceByTenantIdAndPauseId">
+  ): Returns<"noticeOnceByTenantIdAndPauseId"> {
+    return this.#run((store) => store.noticeOnceByTenantIdAndPauseId(...args));
+  }
+
+  markTakenByTenantIdAndPauseId(
+    ...args: Args<"markTakenByTenantIdAndPauseId">
+  ): Returns<"markTakenByTenantIdAndPauseId"> {
+    return this.#run((store) => store.markTakenByTenantIdAndPauseId(...args));
+  }
+
+  findPendingByExpiresAtBefore(
+    ...args: Args<"findPendingByExpiresAtBefore">
+  ): Returns<"findPendingByExpiresAtBefore"> {
+    return this.#run((store) => store.findPendingByExpiresAtBefore(...args));
+  }
+
+  findPendingByRemindAtBefore(
+    ...args: Args<"findPendingByRemindAtBefore">
+  ): Returns<"findPendingByRemindAtBefore"> {
+    return this.#run((store) => store.findPendingByRemindAtBefore(...args));
+  }
+
+  findOpenAfter(...args: Args<"findOpenAfter">): Returns<"findOpenAfter"> {
+    return this.#run((store) => store.findOpenAfter(...args));
+  }
+
+  findPageByTenantId(...args: Args<"findPageByTenantId">): Returns<"findPageByTenantId"> {
+    return this.#run((store) => store.findPageByTenantId(...args));
+  }
+
+  findClosedByResolvedAtBefore(
+    ...args: Args<"findClosedByResolvedAtBefore">
+  ): Returns<"findClosedByResolvedAtBefore"> {
+    return this.#run((store) => store.findClosedByResolvedAtBefore(...args));
+  }
+
+  deleteByResolvedAtBefore(
+    ...args: Args<"deleteByResolvedAtBefore">
+  ): Returns<"deleteByResolvedAtBefore"> {
+    return this.#run((store) => store.deleteByResolvedAtBefore(...args));
+  }
+
+  claimNoticesDue(...args: Args<"claimNoticesDue">): Returns<"claimNoticesDue"> {
+    return this.#run((store) => store.claimNoticesDue(...args));
+  }
+
+  ackNotice(...args: Args<"ackNotice">): Returns<"ackNotice"> {
+    return this.#run((store) => store.ackNotice(...args));
+  }
+
+  retryNotice(...args: Args<"retryNotice">): Returns<"retryNotice"> {
+    return this.#run((store) => store.retryNotice(...args));
+  }
+
+  setAsideNotices(...args: Args<"setAsideNotices">): Returns<"setAsideNotices"> {
+    return this.#run((store) => store.setAsideNotices(...args));
+  }
+
+  setAsideStaleNoticesBefore(
+    ...args: Args<"setAsideStaleNoticesBefore">
+  ): Returns<"setAsideStaleNoticesBefore"> {
+    return this.#run((store) => store.setAsideStaleNoticesBefore(...args));
+  }
+
+  countNotices(...args: Args<"countNotices">): Returns<"countNotices"> {
+    return this.#run((store) => store.countNotices(...args));
+  }
+
+  #run<T>(use: (store: PausedExecutionRepository) => Promise<T>): Promise<T> {
+    const load = (): Promise<PausedExecutionRepository> =>
+      lazyLoad(import("./in-memory-pause-store.js")).then(
+        ({ InMemoryPauseStore }) => new InMemoryPauseStore(),
+      );
+    return usingStore(this, load, use);
+  }
+}

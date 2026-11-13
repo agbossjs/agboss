@@ -1,23 +1,59 @@
-import { randomBytes } from "node:crypto";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
+import { createHash, randomBytes } from "node:crypto";
+import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
-import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import type { ExecutionRecordRepository } from "./execution-record.repository.js";
-import { bareRecordOf, ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
-import { z } from "zod";
-import {
-  componentOfStored,
-  pauseAnswerRecordOfStored,
-  pauseAnswererOf,
-  StoredStep,
-} from "./stored-step.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
+import { lazyLoad } from "./clock.js";
+import type { PauseAnswerLog } from "./pause-answer-log.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
  * step — keyed by the step's idempotency key — before its channel is asked, so a retried `send`
  * and a re-entry after a sibling's answer find the same `pauseId`.
  */
+
+/** What bound a pause's deadline: its own `expiresIn`, the run's deadline, or a quorum's. */
+export enum PauseExpiryBound {
+  Pause = "pause",
+  RunDeadline = "run-deadline",
+  Quorum = "quorum",
+}
+
+/** Why an expiry decision fell back to failing the step (#941). */
+export enum ExpiryProblem {
+  HandlerFailed = "handler-failed",
+  HandlerTimeout = "handler-timeout",
+  AnswerInvalid = "answer-invalid",
+}
+
+/** Why a pause closed, as an error or a notice names it; derived by `pauseClosedReasonOf`. */
+export enum PauseClosedReason {
+  Answered = "answered",
+  Expired = "expired",
+  Cancelled = "cancelled",
+  Withdrawn = "withdrawn",
+  TreeEnded = "tree-ended",
+  Reassigned = "reassigned",
+}
+
+/** Who hears of a pause's changes: the channel it asked (when it listens) and the listeners. */
+export interface PauseRecipients {
+  /** The channel's name; set only when its channel overrides at least one hook (#940). */
+  readonly channel?: string;
+  /** Every listener's name (kebab-case). */
+  readonly listeners: readonly string[];
+}
+
+/** No one: a transition that tells nobody — what a call that predates notices passes. */
+export const NO_RECIPIENTS: PauseRecipients = { listeners: [] };
+
+/**
+ * A pause as a metric, a log or an error names it where its id may not appear (I14): the first 128
+ * bits of the SHA-256 of the tenant, a NUL and the pause id, in hex — one-way, so it answers nothing.
+ * Neither part can hold a NUL (the key-text rules).
+ */
+export const pauseKeyOf = (tenantId: string, pauseId: string): string =>
+  createHash("sha256").update(`${tenantId}\0${pauseId}`).digest("hex").slice(0, 32);
 
 /** Where a pause is (#265, Q58; #267 AC10). */
 export enum PauseStatus {
@@ -42,12 +78,30 @@ export enum PauseResolution {
   Replied = "replied",
   /** A `FailFast` sibling failed, or its launch's quorum was decided, before an answer. */
   Withdrawn = "withdrawn",
-  /** `app.cancel`, or its tree ended, before an answer. */
+  /** `app.cancel` before an answer. */
   Cancelled = "cancelled",
+  /** Its tree finished or failed before an answer was taken (#910). */
+  TreeEnded = "tree-ended",
+  /** Its deadline passed with no answer: the step fails, or a run deadline or a quorum bound it. */
+  Expired = "expired",
+  /** Its deadline passed and its channel decided the answer. */
+  DecidedOnExpiry = "decided-on-expiry",
+  /** Moved to a new pause (#946; the value is reserved here). */
+  Reassigned = "reassigned",
 }
 
-/** The two ways a pause closes without an answer. */
-export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled;
+/** The ways a pause closes without an answer by a cancel: what `cancel…` takes. */
+export type PauseCancellation =
+  PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
+
+/** What a resolved pause whose answer no step took is closed as. */
+export type PauseUntakenResolution = PauseResolution.Cancelled | PauseResolution.TreeEnded;
+
+/** How an expiry closes a pause: with the channel's answer, or without; why it fell back to fail. */
+export interface PauseExpiry {
+  readonly answer?: PauseAnswer;
+  readonly problem?: ExpiryProblem;
+}
 
 /** What answered a pause: the validated decision, who gave it, and what reading a reply cost. */
 export interface PauseAnswer {
@@ -172,6 +226,16 @@ export interface PauseRecord extends PauseSite {
   readonly resolution?: PauseResolution;
   /** When it was resolved (ISO 8601); a resolved record is kept `retention.pauseRecords` after it. */
   readonly resolvedAt?: string;
+  /** Its deadline: ISO 8601, absolute, on the application's `Clock` (D9); absent: none. */
+  readonly expiresAt?: string;
+  /** Which of the three bounds set `expiresAt`. */
+  readonly expiryBound?: PauseExpiryBound;
+  /** When its reminder is due (ISO 8601); absent once reminded, or none. */
+  readonly remindAt?: string;
+  /** Why an expiry decision fell back to failing the step (#941). */
+  readonly expiryProblem?: ExpiryProblem;
+  /** The smaller of the run's and a quorum's deadline at creation: an extension never passes it (#942). */
+  readonly boundAt?: string;
 }
 
 /**
@@ -241,94 +305,12 @@ export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean =>
   pause.resolvedAt !== undefined &&
   pause.resolvedAt < cutoff.toISOString();
 
-/**
- * Where a resolved pause is written (#267 S107): the execution records — the permanent history
- * behind `ExecutionRecord.pauses` — never the pause records, which the retention removes.
- */
-export type PauseAnswerLog = Pick<
-  ExecutionRecordRepository,
-  "savePauseAnswer" | "findPauseAnswersByTenantIdAndRootExecutionId"
->;
-
-/** Whether a pause was closed without an answer. */
-const isWithoutAnswer = (resolution: PauseResolution): boolean =>
-  resolution === PauseResolution.Withdrawn || resolution === PauseResolution.Cancelled;
-
-/** A resolved pause as the execution record lists it (unmasked: the record is masked when read). */
-export function answerRecordOf(pause: PauseRecord, resolution: PauseResolution): PauseAnswerRecord {
-  const hasAnswer = !isWithoutAnswer(resolution);
-  const answerer = pauseAnswererOf(pause);
-  const answeredBy = hasAnswer ? pause.answer?.answeredBy : undefined;
-  return {
-    pauseId: answerer === PauseAnswerer.Channel ? undefined : pause.pauseId,
-    executionId: pause.executionId,
-    step: {
-      component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
-      nodeId: pause.nodeId,
-      visitNumber: pause.visitNumber,
-      idempotencyKey: pause.stepKey,
-      callId: callIdOfPause(pause),
-      itemIndex: pause.itemIndex,
-      copyNumber: pause.copyNumber,
-      toolLoopIteration: pause.toolLoopIteration,
-      validationAttempts: pause.validationAttempts ?? 0,
-    },
-    role: pause.channel,
-    answerer,
-    answeredBy,
-    responder: answeredBy,
-    resolution,
-    askedAt: pause.askedAt,
-    resolvedAt: pause.resolvedAt,
-    decision: hasAnswer ? pause.answer?.decision : undefined,
-    asked: pause.ask,
-  };
-}
-
-/** Writes how a pause was resolved into its tree's execution records. */
-export const logPauseAnswer = (
+/** Writes how a pause was resolved into its tree's execution records (the log loads on first use). */
+export const logPauseAnswer = async (
   log: PauseAnswerLog,
   pause: PauseRecord,
   resolution: PauseResolution,
-): Promise<void> =>
-  log.savePauseAnswer(pause.tenantId, pause.rootExecutionId, answerRecordOf(pause, resolution));
-
-const optionalText = z.string().optional();
-const StoredPauseAnswer = z.object({
-  pauseId: optionalText,
-  executionId: z.string(),
-  step: StoredStep,
-  role: z.string(),
-  // 0.1.0's entry has no `answerer`: its `answeredBy` is the kind, `responder` the person (#934)
-  answerer: z.enum(PauseAnswerer).optional(),
-  answeredBy: optionalText,
-  responder: optionalText,
-  resolution: z.enum(PauseResolution),
-  askedAt: z.string(),
-  resolvedAt: optionalText,
-  decision: z.unknown().optional(),
-  asked: z.unknown().optional(),
-});
-
-/** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
-export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
-  const stored = StoredPauseAnswer.parse(JSON.parse(text));
-  const { step } = stored;
-  return pauseAnswerRecordOfStored({
-    ...stored,
-    pauseId: stored.pauseId,
-    step: {
-      ...step,
-      component: componentOfStored(step.component),
-      callId: step.callId,
-      itemIndex: step.itemIndex,
-      toolLoopIteration: step.toolLoopIteration,
-    },
-    answerer: stored.answerer,
-    answeredBy: stored.answeredBy,
-    responder: stored.responder,
-    resolvedAt: stored.resolvedAt,
-    decision: stored.decision,
-    ...(stored.asked === undefined ? {} : { asked: stored.asked }),
-  });
-}
+): Promise<void> => {
+  const { logPauseAnswer: write } = await lazyLoad(import("./pause-answer-log.js"));
+  await write(log, pause, resolution);
+};

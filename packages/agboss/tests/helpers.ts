@@ -1,3 +1,4 @@
+import { NO_RECIPIENTS } from "../src/infrastructure/pause-notices.js";
 import type { ChatResult } from "@langchain/core/outputs";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { createAppDeps, type AppDeps } from "../src/app/app-deps.js";
@@ -252,6 +253,7 @@ export async function resumeWith(
       pending.pauseId,
       answer,
       (deps.clock ?? systemClock).now(),
+      NO_RECIPIENTS,
     );
   }
   const none = { values: {}, pauseIds: [], taken: [], decisions: [], answeredBy: [] };

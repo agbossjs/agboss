@@ -26,7 +26,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { start } from "../../helpers/flow.js";
