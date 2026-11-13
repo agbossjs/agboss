@@ -14,6 +14,7 @@ import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { SQLInputValue } from 'node:sqlite';
 import { z } from 'zod';
 
 // @public
@@ -920,6 +921,9 @@ export interface AlwaysRouterRoute {
     // (undocumented)
     readonly target: ComponentClass;
 }
+
+// @public
+export type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
 
 // @public
 export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: ArbiterAnswerOf<TAgent>) => boolean | Promise<boolean>;
@@ -3281,6 +3285,7 @@ export abstract class ExecutionRecordRepository {
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
+    abstract markPauseAnswerNotTaken(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
     abstract ping(): Promise<void>;
@@ -3393,6 +3398,16 @@ export abstract class ExecutionTreeRepository {
 export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
     readonly [field: string]: ExecutionTreeValue;
 };
+
+// @public
+export enum ExpiryProblem {
+    // (undocumented)
+    AnswerInvalid = "answer-invalid",
+    // (undocumented)
+    HandlerFailed = "handler-failed",
+    // (undocumented)
+    HandlerTimeout = "handler-timeout"
+}
 
 // @public
 export interface FailedHealthCheckResult {
@@ -4813,6 +4828,72 @@ export interface LaunchStep {
 
 // @public
 export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow;
+
+// @public
+export abstract class LazyPausedExecutionRepository extends PausedExecutionRepository implements OnInit {
+    // (undocumented)
+    ackNotice(...args: Parameters<PausedExecutionRepository["ackNotice"]>): ReturnType<PausedExecutionRepository["ackNotice"]>;
+    // (undocumented)
+    cancelByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["cancelByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["cancelByTenantIdAndPauseId"]>;
+    // (undocumented)
+    claimNoticesDue(...args: Parameters<PausedExecutionRepository["claimNoticesDue"]>): ReturnType<PausedExecutionRepository["claimNoticesDue"]>;
+    // (undocumented)
+    closeUntakenByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["closeUntakenByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["closeUntakenByTenantIdAndPauseId"]>;
+    // (undocumented)
+    countNotices(...args: Parameters<PausedExecutionRepository["countNotices"]>): ReturnType<PausedExecutionRepository["countNotices"]>;
+    // (undocumented)
+    decideByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["decideByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["decideByTenantIdAndPauseId"]>;
+    // (undocumented)
+    deleteByResolvedAtBefore(...args: Parameters<PausedExecutionRepository["deleteByResolvedAtBefore"]>): ReturnType<PausedExecutionRepository["deleteByResolvedAtBefore"]>;
+    // (undocumented)
+    deleteByTenantIdAndThreadId(...args: Parameters<PausedExecutionRepository["deleteByTenantIdAndThreadId"]>): ReturnType<PausedExecutionRepository["deleteByTenantIdAndThreadId"]>;
+    // (undocumented)
+    deleteByTenantIdAndThreadIdAndRunId(...args: Parameters<PausedExecutionRepository["deleteByTenantIdAndThreadIdAndRunId"]>): ReturnType<PausedExecutionRepository["deleteByTenantIdAndThreadIdAndRunId"]>;
+    // (undocumented)
+    expireByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["expireByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["expireByTenantIdAndPauseId"]>;
+    // (undocumented)
+    extendByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["extendByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["extendByTenantIdAndPauseId"]>;
+    // (undocumented)
+    findAllByTenantIdAndRootExecutionId(...args: Parameters<PausedExecutionRepository["findAllByTenantIdAndRootExecutionId"]>): ReturnType<PausedExecutionRepository["findAllByTenantIdAndRootExecutionId"]>;
+    // (undocumented)
+    findByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["findByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["findByTenantIdAndPauseId"]>;
+    // (undocumented)
+    findByTenantIdAndRootExecutionIdAndStepKey(...args: Parameters<PausedExecutionRepository["findByTenantIdAndRootExecutionIdAndStepKey"]>): ReturnType<PausedExecutionRepository["findByTenantIdAndRootExecutionIdAndStepKey"]>;
+    // (undocumented)
+    findByTenantIdAndThreadId(...args: Parameters<PausedExecutionRepository["findByTenantIdAndThreadId"]>): ReturnType<PausedExecutionRepository["findByTenantIdAndThreadId"]>;
+    // (undocumented)
+    findClosedByResolvedAtBefore(...args: Parameters<PausedExecutionRepository["findClosedByResolvedAtBefore"]>): ReturnType<PausedExecutionRepository["findClosedByResolvedAtBefore"]>;
+    // (undocumented)
+    findOpenAfter(...args: Parameters<PausedExecutionRepository["findOpenAfter"]>): ReturnType<PausedExecutionRepository["findOpenAfter"]>;
+    // (undocumented)
+    findOrCreateByStepKey(...args: Parameters<PausedExecutionRepository["findOrCreateByStepKey"]>): ReturnType<PausedExecutionRepository["findOrCreateByStepKey"]>;
+    // (undocumented)
+    findPageByTenantId(...args: Parameters<PausedExecutionRepository["findPageByTenantId"]>): ReturnType<PausedExecutionRepository["findPageByTenantId"]>;
+    // (undocumented)
+    findPendingByExpiresAtBefore(...args: Parameters<PausedExecutionRepository["findPendingByExpiresAtBefore"]>): ReturnType<PausedExecutionRepository["findPendingByExpiresAtBefore"]>;
+    // (undocumented)
+    findPendingByRemindAtBefore(...args: Parameters<PausedExecutionRepository["findPendingByRemindAtBefore"]>): ReturnType<PausedExecutionRepository["findPendingByRemindAtBefore"]>;
+    protected abstract loadStore(): Promise<PausedExecutionRepository>;
+    // (undocumented)
+    markSentByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["markSentByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["markSentByTenantIdAndPauseId"]>;
+    // (undocumented)
+    markTakenByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["markTakenByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["markTakenByTenantIdAndPauseId"]>;
+    // (undocumented)
+    noticeOnceByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["noticeOnceByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["noticeOnceByTenantIdAndPauseId"]>;
+    onInit(): Promise<void>;
+    // (undocumented)
+    remindByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["remindByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["remindByTenantIdAndPauseId"]>;
+    // (undocumented)
+    resolveByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["resolveByTenantIdAndPauseId"]>): ReturnType<PausedExecutionRepository["resolveByTenantIdAndPauseId"]>;
+    // (undocumented)
+    retryNotice(...args: Parameters<PausedExecutionRepository["retryNotice"]>): ReturnType<PausedExecutionRepository["retryNotice"]>;
+    // (undocumented)
+    save(...args: Parameters<PausedExecutionRepository["save"]>): ReturnType<PausedExecutionRepository["save"]>;
+    // (undocumented)
+    setAsideNotices(...args: Parameters<PausedExecutionRepository["setAsideNotices"]>): ReturnType<PausedExecutionRepository["setAsideNotices"]>;
+    // (undocumented)
+    setAsideStaleNoticesBefore(...args: Parameters<PausedExecutionRepository["setAsideStaleNoticesBefore"]>): ReturnType<PausedExecutionRepository["setAsideStaleNoticesBefore"]>;
+}
 
 // @public
 export enum LeaseCheck {
@@ -6414,6 +6495,7 @@ export interface PauseAnswerRecord {
     readonly askedAt: string;
     readonly decision: unknown;
     readonly executionId: string;
+    readonly isTaken?: false;
     readonly pauseId: string | undefined;
     // (undocumented)
     readonly resolution: PauseResolution;
@@ -6429,7 +6511,23 @@ export interface PauseAnswerRecord {
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
 // @public
-export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled;
+export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
+
+// @public
+export enum PauseClosedReason {
+    // (undocumented)
+    Answered = "answered",
+    // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
+    Expired = "expired",
+    // (undocumented)
+    Reassigned = "reassigned",
+    // (undocumented)
+    TreeEnded = "tree-ended",
+    // (undocumented)
+    Withdrawn = "withdrawn"
+}
 
 // @public
 export interface PausedExecution extends ResumeVersions {
@@ -6439,20 +6537,41 @@ export interface PausedExecution extends ResumeVersions {
 
 // @public
 export abstract class PausedExecutionRepository {
-    abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date): Promise<boolean>;
+    abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
+    abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
+    abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract countNotices(): Promise<PauseNoticeCounts>;
     abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
     abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
+    abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
+    abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseExtension, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
+    abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
+    abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
-    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
+    abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
+    abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
+    abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
+    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean>;
     abstract save(paused: PausedExecution): Promise<void>;
+    abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;
+    abstract setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
 }
+
+// @public
+export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
 export enum PauseKind {
@@ -6468,10 +6587,16 @@ export interface PauseRecord extends PauseSite {
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
+    readonly boundAt?: string;
     readonly channel: string;
+    readonly closedFirst?: PauseFirstClose;
+    readonly expiresAt?: string;
+    readonly expiryBound?: PauseExpiryBound;
+    readonly expiryProblem?: ExpiryProblem;
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
+    readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
     // (undocumented)
@@ -6483,7 +6608,11 @@ export interface PauseRecord extends PauseSite {
 export enum PauseResolution {
     Cancelled = "cancelled",
     Decided = "decided",
+    DecidedOnExpiry = "decided-on-expiry",
+    Expired = "expired",
+    Reassigned = "reassigned",
     Replied = "replied",
+    TreeEnded = "tree-ended",
     Withdrawn = "withdrawn"
 }
 
@@ -7850,34 +7979,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
 }
 
 // @public
-export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
+export class SqlitePausedExecutionRepository extends SqlitePauseStore {
     constructor(connection: SqliteConnection, clock: Clock);
-    // (undocumented)
-    cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date): Promise<boolean>;
-    // (undocumented)
-    decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
-    // (undocumented)
-    deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
-    // (undocumented)
-    deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
-    // (undocumented)
-    findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
-    // (undocumented)
-    findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
-    // (undocumented)
-    findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
-    // (undocumented)
-    findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
-    // (undocumented)
-    markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean>;
-    // (undocumented)
-    markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<PauseRecord | undefined>;
-    // (undocumented)
-    save(paused: PausedExecution): Promise<void>;
 }
 
 // @public
@@ -8712,7 +8815,7 @@ export enum TurnLimit {
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
 // @public
-export type TurnRecords = Omit<TurnStore, "close" | "byStatus" | "appendPauseAnswer" | "pauseAnswersOf">;
+export type TurnRecords = Omit<TurnStore, "close" | "byStatus" | "appendPauseAnswer" | "markNotTaken" | "pauseAnswersOf">;
 
 // @public
 export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
@@ -8742,6 +8845,7 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Turn | undefined>;
     readonly hasThread: (bundle: string, tenantId: string, threadId: string) => Promise<boolean>;
     readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
+    readonly markNotTaken: (entry: PauseAnswerEntry) => Promise<void>;
     // (undocumented)
     readonly meanScore: (turnIds: readonly string[]) => Promise<number | null>;
     readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
@@ -8771,7 +8875,7 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
     // (undocumented)
     complete(turnId: string, outcome: TurnOutcome): Promise<void>;
     // (undocumented)
-    completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    completeIfStatus(...args: Parameters<TurnStore["completeIfStatus"]>): Promise<boolean>;
     // (undocumented)
     configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     // (undocumented)
@@ -8781,13 +8885,15 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
     // (undocumented)
     findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     // (undocumented)
-    findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
+    findPauseAnswersByTenantIdAndRootExecutionId(...args: Parameters<TurnStore["pauseAnswersOf"]>): Promise<PauseAnswerRecord[]>;
     // (undocumented)
     hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     // (undocumented)
     lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     // (undocumented)
     latestSummaries(...args: Parameters<TurnStore["latestSummaries"]>): Promise<Summary[]>;
+    // (undocumented)
+    markPauseAnswerNotTaken(...args: AnswerArgs): Promise<void>;
     // (undocumented)
     meanScore(turnIds: readonly string[]): Promise<number | null>;
     // (undocumented)
@@ -8799,7 +8905,7 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
         drift: boolean;
     }>;
     // (undocumented)
-    savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
+    savePauseAnswer(...args: AnswerArgs): Promise<void>;
     // (undocumented)
     saveScore(turnId: string, judge: string, score: number): Promise<void>;
     // (undocumented)
@@ -10297,39 +10403,40 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-history.repository.ts:86:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-record.repository.ts:78:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:93:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:118:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:128:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:151:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/execution-record.repository.ts:180:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/execution-record.repository.ts:184:3 - (ae-undocumented) Missing documentation for "createThread".
-// src/infrastructure/execution-record.repository.ts:187:3 - (ae-undocumented) Missing documentation for "hasThread".
-// src/infrastructure/execution-record.repository.ts:190:3 - (ae-undocumented) Missing documentation for "threadOwner".
-// src/infrastructure/execution-record.repository.ts:193:3 - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts:196:3 - (ae-undocumented) Missing documentation for "complete".
-// src/infrastructure/execution-record.repository.ts:199:3 - (ae-undocumented) Missing documentation for "completeIfStatus".
-// src/infrastructure/execution-record.repository.ts:206:3 - (ae-undocumented) Missing documentation for "lastTurns".
-// src/infrastructure/execution-record.repository.ts:209:3 - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts:212:3 - (ae-undocumented) Missing documentation for "findByStatus".
-// src/infrastructure/execution-record.repository.ts:215:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndRunId".
-// src/infrastructure/execution-record.repository.ts:218:3 - (ae-undocumented) Missing documentation for "byVersion".
-// src/infrastructure/execution-record.repository.ts:221:3 - (ae-undocumented) Missing documentation for "unscored".
-// src/infrastructure/execution-record.repository.ts:224:3 - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts:227:3 - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts:230:3 - (ae-undocumented) Missing documentation for "summary".
-// src/infrastructure/execution-record.repository.ts:233:3 - (ae-undocumented) Missing documentation for "rememberConfig".
-// src/infrastructure/execution-record.repository.ts:236:3 - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts:239:3 - (ae-undocumented) Missing documentation for "recentOriginals".
-// src/infrastructure/execution-record.repository.ts:242:3 - (ae-undocumented) Missing documentation for "uncovered".
-// src/infrastructure/execution-record.repository.ts:245:3 - (ae-undocumented) Missing documentation for "before".
-// src/infrastructure/execution-record.repository.ts:248:3 - (ae-undocumented) Missing documentation for "turnNumber".
-// src/infrastructure/execution-record.repository.ts:251:3 - (ae-undocumented) Missing documentation for "addSummary".
-// src/infrastructure/execution-record.repository.ts:254:3 - (ae-undocumented) Missing documentation for "latestSummaries".
-// src/infrastructure/execution-record.repository.ts:257:3 - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/execution-record.repository.ts:260:3 - (ae-undocumented) Missing documentation for "savePauseAnswer".
-// src/infrastructure/execution-record.repository.ts:267:9 - (ae-undocumented) Missing documentation for "findPauseAnswersByTenantIdAndRootExecutionId".
+// src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:117:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:127:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:150:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:190:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/execution-record.repository.ts:194:3 - (ae-undocumented) Missing documentation for "createThread".
+// src/infrastructure/execution-record.repository.ts:197:3 - (ae-undocumented) Missing documentation for "hasThread".
+// src/infrastructure/execution-record.repository.ts:200:3 - (ae-undocumented) Missing documentation for "threadOwner".
+// src/infrastructure/execution-record.repository.ts:203:3 - (ae-undocumented) Missing documentation for "append".
+// src/infrastructure/execution-record.repository.ts:206:3 - (ae-undocumented) Missing documentation for "complete".
+// src/infrastructure/execution-record.repository.ts:209:3 - (ae-undocumented) Missing documentation for "completeIfStatus".
+// src/infrastructure/execution-record.repository.ts:212:3 - (ae-undocumented) Missing documentation for "lastTurns".
+// src/infrastructure/execution-record.repository.ts:215:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record.repository.ts:218:3 - (ae-undocumented) Missing documentation for "findByStatus".
+// src/infrastructure/execution-record.repository.ts:221:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndRunId".
+// src/infrastructure/execution-record.repository.ts:224:3 - (ae-undocumented) Missing documentation for "byVersion".
+// src/infrastructure/execution-record.repository.ts:227:3 - (ae-undocumented) Missing documentation for "unscored".
+// src/infrastructure/execution-record.repository.ts:230:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record.repository.ts:233:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record.repository.ts:236:3 - (ae-undocumented) Missing documentation for "summary".
+// src/infrastructure/execution-record.repository.ts:239:3 - (ae-undocumented) Missing documentation for "rememberConfig".
+// src/infrastructure/execution-record.repository.ts:242:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record.repository.ts:245:3 - (ae-undocumented) Missing documentation for "recentOriginals".
+// src/infrastructure/execution-record.repository.ts:248:3 - (ae-undocumented) Missing documentation for "uncovered".
+// src/infrastructure/execution-record.repository.ts:251:3 - (ae-undocumented) Missing documentation for "before".
+// src/infrastructure/execution-record.repository.ts:254:3 - (ae-undocumented) Missing documentation for "turnNumber".
+// src/infrastructure/execution-record.repository.ts:257:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/infrastructure/execution-record.repository.ts:260:3 - (ae-undocumented) Missing documentation for "latestSummaries".
+// src/infrastructure/execution-record.repository.ts:263:3 - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record.repository.ts:266:3 - (ae-undocumented) Missing documentation for "savePauseAnswer".
+// src/infrastructure/execution-record.repository.ts:269:3 - (ae-undocumented) Missing documentation for "markPauseAnswerNotTaken".
+// src/infrastructure/execution-record.repository.ts:272:9 - (ae-undocumented) Missing documentation for "findPauseAnswersByTenantIdAndRootExecutionId".
 // src/infrastructure/fenced-effect-errors.ts:12:3 - (ae-undocumented) Missing documentation for "cause".
 // src/infrastructure/fenced-effect-errors.ts:20:3 - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-errors.ts:21:3 - (ae-undocumented) Missing documentation for "code".
@@ -10419,6 +10526,36 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-fenced-effect.repository.ts:238:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:239:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:240:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/lazy-paused-execution.repository.ts:62:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/lazy-paused-execution.repository.ts:68:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/lazy-paused-execution.repository.ts:74:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/lazy-paused-execution.repository.ts:80:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadIdAndRunId".
+// src/infrastructure/lazy-paused-execution.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/lazy-paused-execution.repository.ts:92:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:98:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/lazy-paused-execution.repository.ts:104:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndRootExecutionIdAndStepKey".
+// src/infrastructure/lazy-paused-execution.repository.ts:110:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:116:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:122:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:128:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:134:3 - (ae-undocumented) Missing documentation for "expireByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:140:3 - (ae-undocumented) Missing documentation for "closeUntakenByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:146:3 - (ae-undocumented) Missing documentation for "extendByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:152:3 - (ae-undocumented) Missing documentation for "remindByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:158:3 - (ae-undocumented) Missing documentation for "noticeOnceByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:164:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/lazy-paused-execution.repository.ts:170:3 - (ae-undocumented) Missing documentation for "findPendingByExpiresAtBefore".
+// src/infrastructure/lazy-paused-execution.repository.ts:176:3 - (ae-undocumented) Missing documentation for "findPendingByRemindAtBefore".
+// src/infrastructure/lazy-paused-execution.repository.ts:182:3 - (ae-undocumented) Missing documentation for "findOpenAfter".
+// src/infrastructure/lazy-paused-execution.repository.ts:188:3 - (ae-undocumented) Missing documentation for "findPageByTenantId".
+// src/infrastructure/lazy-paused-execution.repository.ts:194:3 - (ae-undocumented) Missing documentation for "findClosedByResolvedAtBefore".
+// src/infrastructure/lazy-paused-execution.repository.ts:200:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
+// src/infrastructure/lazy-paused-execution.repository.ts:206:3 - (ae-undocumented) Missing documentation for "claimNoticesDue".
+// src/infrastructure/lazy-paused-execution.repository.ts:212:3 - (ae-undocumented) Missing documentation for "ackNotice".
+// src/infrastructure/lazy-paused-execution.repository.ts:218:3 - (ae-undocumented) Missing documentation for "retryNotice".
+// src/infrastructure/lazy-paused-execution.repository.ts:224:3 - (ae-undocumented) Missing documentation for "setAsideNotices".
+// src/infrastructure/lazy-paused-execution.repository.ts:230:3 - (ae-undocumented) Missing documentation for "setAsideStaleNoticesBefore".
+// src/infrastructure/lazy-paused-execution.repository.ts:236:3 - (ae-undocumented) Missing documentation for "countNotices".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -10444,13 +10581,22 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/outbound-call.repository.ts:257:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
 // src/infrastructure/outbound-call.repository.ts:261:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/outbound-call.repository.ts:266:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/pause-record.ts:54:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:70:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:71:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:82:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:83:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:158:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/infrastructure/pause-record.ts:164:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-record.ts:24:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
+// src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
+// src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
+// src/infrastructure/pause-record.ts:31:3 - (ae-undocumented) Missing documentation for "Answered".
+// src/infrastructure/pause-record.ts:32:3 - (ae-undocumented) Missing documentation for "Expired".
+// src/infrastructure/pause-record.ts:33:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/pause-record.ts:34:3 - (ae-undocumented) Missing documentation for "Withdrawn".
+// src/infrastructure/pause-record.ts:35:3 - (ae-undocumented) Missing documentation for "TreeEnded".
+// src/infrastructure/pause-record.ts:36:3 - (ae-undocumented) Missing documentation for "Reassigned".
+// src/infrastructure/pause-record.ts:108:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:124:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:136:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:220:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:226:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:42:9 - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:55:10 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:73:9 - (ae-undocumented) Missing documentation for "put".
@@ -10519,19 +10665,6 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:90:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:100:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:116:3 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:123:3 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:133:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:137:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:144:3 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:148:3 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:160:3 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:172:3 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:184:3 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:189:3 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -10792,7 +10925,7 @@ export interface WrongKind<TName extends string, TLabel extends string> {
 // src/turns/types.ts:208:3 - (ae-undocumented) Missing documentation for "saveScore".
 // src/turns/types.ts:209:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/turns/types.ts:210:3 - (ae-undocumented) Missing documentation for "summary".
-// src/turns/types.ts:215:3 - (ae-undocumented) Missing documentation for "close".
+// src/turns/types.ts:220:3 - (ae-undocumented) Missing documentation for "close".
 
 // (No @packageDocumentation comment for this package)
 

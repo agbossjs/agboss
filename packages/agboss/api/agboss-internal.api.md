@@ -1192,7 +1192,6 @@ export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProvid
 
 // @public
 export interface ModelUse {
-    // Warning: (ae-forgotten-export) The symbol "ModelUseKey" needs to be exported by the entry point internal.d.ts
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;

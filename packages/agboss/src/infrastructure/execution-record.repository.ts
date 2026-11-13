@@ -179,7 +179,7 @@ export abstract class ExecutionRecordRepository {
 }
 
 /** What a pause answer is saved by: its tenant, its tree and the entry. */
-type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
+export type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
 
 /** The records kept in a Turn store: what the built-in default and the SQLite ones build on. */
 export class TurnStoreRecordRepository extends ExecutionRecordRepository {
