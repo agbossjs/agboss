@@ -3,7 +3,8 @@ import type {
   A2AMessageRecord,
   A2ATaskRepository,
 } from "../../infrastructure/a2a-task.repository.js";
-import { A2ATaskSaveStatus } from "../../infrastructure/a2a-task.repository.js";
+import { A2ATaskSaveStatus, A2ATaskState } from "../../infrastructure/a2a-task.repository.js";
+import { PauseKind } from "../../pause/types.js";
 import { DIRECT_MESSAGE_CLAIM } from "../../infrastructure/in-memory-a2a-direct-message.repository.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
@@ -42,6 +43,35 @@ export const A2A_TASK_STATUS_KEY_CASES: readonly ContractCase<A2ATaskRepository>
     run: async ({ first, second }: Instances): Promise<void> => {
       const future = { ...WORKING, futureField: { count: 1, tags: ["a"] } };
       const later = { ...COMPLETED, futureField: { count: 2, tags: [] } };
+      const key = keyOf(newTask("t-1"));
+      const query = { tenantId: "default", ownerId: "alice", pageSize: 10 };
+
+      await saved(first, newTask("t-1", { status: future }));
+      expect((await second.findById(key))?.status).toEqual(future);
+
+      const written = await second.compareAndSetStatus(key, 1, later, at(1));
+
+      expect(written?.status).toEqual(later);
+      expect((await first.findById(key))?.status).toEqual(later);
+      expect((await first.list(query)).tasks[0]?.status).toEqual(later);
+    },
+  },
+  {
+    name: "a key this version does not know inside a pending pause survives every round trip too: one rule at every level",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const pause = { pauseId: "p-1", kind: PauseKind.Approval, ask: { q: 1 } };
+      const future = {
+        state: A2ATaskState.InputRequired,
+        pendingPauses: [{ ...pause, futureKey: { count: 1 } }],
+        futureTop: 1,
+      };
+      const later = {
+        state: A2ATaskState.InputRequired,
+        pendingPauses: [
+          { ...pause, futureKey: { count: 2 } },
+          { ...pause, pauseId: "p-2" },
+        ],
+      };
       const key = keyOf(newTask("t-1"));
       const query = { tenantId: "default", ownerId: "alice", pageSize: 10 };
 

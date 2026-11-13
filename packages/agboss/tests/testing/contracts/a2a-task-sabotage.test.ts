@@ -24,8 +24,8 @@ const failedOf = (target: string): readonly string[] =>
     .map((found) => found.name);
 
 describe("#807 AC4: a task store that breaks a rule fails the A2A task contract", () => {
-  it("the sound store passes every case (32)", () => {
-    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(32).fill("pass"));
+  it("the sound store passes every case (33)", () => {
+    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(33).fill("pass"));
   });
 
   it.each([
@@ -42,6 +42,7 @@ describe("#807 AC4: a task store that breaks a rule fails the A2A task contract"
     ["keeps orphan messages", "the sweep removes a message whose task is gone"],
     ["keeps orphan messages", "a message id swept as an orphan is free again"],
     ["drops unknown status keys", "a status key this version does not know survives"],
+    ["drops unknown pause keys", "a key this version does not know inside a pending pause"],
     [
       "ignores the status time",
       "statusAtAfter keeps the tasks whose status changed strictly after it",

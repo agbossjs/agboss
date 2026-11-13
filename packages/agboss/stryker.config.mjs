@@ -186,6 +186,7 @@ const SHARDS = {
       "src/infrastructure/in-memory-a2a-task.repository.ts",
       "src/infrastructure/sqlite/sqlite-a2a-task.repository.ts",
       "src/infrastructure/sqlite/sqlite-a2a-task-rows.ts",
+      "src/infrastructure/sqlite/sqlite-a2a-task-sweep.ts",
       "src/infrastructure/sqlite/sqlite-a2a-task-pages.ts",
       "src/app/execution-control.ts",
       "src/app/tree-control.ts",
