@@ -144,9 +144,27 @@ class DropsStatusKeys extends InMemoryA2ATaskRepository {
 const knownOf = ({ futureField: _dropped, ...known }: A2ATaskStatus & { futureField?: unknown }) =>
   known;
 
+/** Keeps every status key but strips a pause's unknown ones, as a nested plain schema does (#960). */
+class DropsPauseKeys extends InMemoryA2ATaskRepository {
+  override async findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined> {
+    const task = await super.findById(key);
+    return task === undefined ? undefined : { ...task, status: pausesKnownOf(task.status) };
+  }
+}
+
+const pausesKnownOf = (status: A2ATaskStatus): A2ATaskStatus => ({
+  ...status,
+  pendingPauses: status.pendingPauses.map(({ pauseId, kind, ask }) => ({
+    ...(pauseId === undefined ? {} : { pauseId }),
+    kind,
+    ask,
+  })),
+});
+
 a2aTaskContract(target("sound", InMemoryA2ATaskRepository));
 a2aTaskContract(target("keeps orphan messages", KeepsOrphans));
 a2aTaskContract(target("drops unknown status keys", DropsStatusKeys));
+a2aTaskContract(target("drops unknown pause keys", DropsPauseKeys));
 a2aTaskContract(target("counts the page", CountsThePage));
 a2aTaskContract(target("ignores the status time", IgnoresStatusTime));
 a2aTaskContract(target("checks then writes", CheckThenWrite));

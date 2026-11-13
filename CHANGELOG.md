@@ -823,6 +823,16 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
 
 ### Fixed — guarantees and safety
 
+- **An unknown key inside a pending pause was dropped on SQLite, PostgreSQL and MongoDB** (#960) —
+  the task status kept the keys it does not know at its top level, but each `pendingPauses` item
+  was still a plain schema that strips them, while the in-memory store kept them. One rule now holds
+  at every nesting level of a status: an unknown key round-trips, a known field stays validated.
+  The `a2aTask` contract has a case for a key inside a pause (`@agboss/core/testing`), so a store
+  that strips it fails; SQLite is fixed here, `@agboss/postgres` and `@agboss/mongodb` with their
+  next pin. A MongoDB orphan sweep that deleted by `_id` alone could remove the message of a new
+  task a resend had just created (two instances sweeping at once), and the next resend was a second
+  task, charged twice: fixed in `@agboss/mongodb` (the delete re-checks what the sweep read).
+  `src/infrastructure/sqlite/sqlite-a2a-task-sweep.ts` is now in the `a2a-tasks` mutation shard.
 - **A resume of a tree that a cancelled drain had ended ran the answer, charged and paid, after the
   cancel** (#901, #907, #929) — an A2A follow-up (`SendMessage` after `INPUT_REQUIRED`) racing a
   `CancelTask`: the pass that took the answer was stopped by the cancel, its tree was ended and its

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { A2ATaskState } from "../../src/infrastructure/a2a-task.repository.js";
 import { SqliteA2ATaskRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
+import { PauseKind } from "../../src/pause/types.js";
 import { newTask } from "../../src/testing/contracts/a2a-task-data.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
 
@@ -31,12 +32,24 @@ describe("#960 AC3: the status column of the SQLite A2A task store", () => {
     expect((await (await withStatus(status)).findById(KEY))?.status).toEqual(status);
   });
 
+  it("a key this version does not know inside a pending pause is read back as written", async () => {
+    const pause = { pauseId: "p-1", kind: PauseKind.Approval, ask: { q: 1 }, grantedBy: { n: 5 } };
+    const status = { ...WORKING, pendingPauses: [pause] };
+
+    expect((await (await withStatus(status)).findById(KEY))?.status).toEqual(status);
+  });
+
   it.each([
     ["its pauses missing", { state: A2ATaskState.Working }],
     ["a spend that is no number", { ...WORKING, spentUsd: "3" }],
     ["a negative spend", { ...WORKING, spentUsd: -1 }],
     ["a state no task has", { state: "TASK_STATE_LOST", pendingPauses: [] }],
     ["a cancel time that is none", { ...WORKING, cancelRequestedAt: "soon" }],
+    ["a pause of a kind no pause has", { ...WORKING, pendingPauses: [{ kind: "wish", ask: 1 }] }],
+    [
+      "a pause whose id is no text",
+      { ...WORKING, pendingPauses: [{ pauseId: 1, kind: PauseKind.Question, ask: 1 }] },
+    ],
   ])("a status with %s is refused, never read", async (_name, status) => {
     await expect((await withStatus(status)).findById(KEY)).rejects.toThrow();
   });
