@@ -4,7 +4,13 @@ import { connect as tlsConnect, type TLSSocket } from "node:tls";
 import { ClientRequest } from "node:http";
 import { PassThrough } from "node:stream";
 import { urlToHttpOptions } from "node:url";
-import { ADDRESS_DENIED, addressesOf, deniedError, isDeniedAddress } from "./a2a-file-address.js";
+import {
+  ADDRESS_DENIED,
+  addressesOf,
+  type AddressLookup,
+  deniedError,
+  isDeniedAddress,
+} from "./a2a-file-address.js";
 
 /**
  * The file fetch's own connection (#916). It takes nothing of its behaviour from a patchable
@@ -98,12 +104,43 @@ export const isUnpatched = (): boolean =>
   isGenuine(() => TLS_CONNECT({ host: "127.0.0.1", port: -1 }), "ERR_SOCKET_BAD_PORT") &&
   isGenuine(() => new REQUEST({ protocol: "ftp:" }), "ERR_INVALID_PROTOCOL");
 
+/** How long one TCP connection may take; the fetch's own deadline (the signal) is the tighter bound. */
+const CONNECT_TIMEOUT = 10_000;
+
+/** Read on each call: TypeScript cannot narrow an abort that happens while a promise is awaited. */
+const isAborted = (signal: AbortSignal): boolean => signal.aborted;
+
+const abortedError = (): Error => new Error("the file fetch was aborted");
+
+/** `promise`, or a rejection as soon as `signal` aborts (a resolver that ignores it cannot hold the fetch). */
+function racedWith<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) reject(abortedError());
+    signal.addEventListener(
+      "abort",
+      () => {
+        reject(abortedError());
+      },
+      { once: true },
+    );
+    promise.then(resolve, reject);
+  });
+}
+
 /** A raw TCP socket connected to `address`, its remote address checked before anything is sent. */
 export function rawSocketTo(address: string, port: number, signal: AbortSignal): Promise<Socket> {
   return new Promise((resolve, reject) => {
+    // an abort that already fired is never seen by a listener added now: no socket is opened
+    if (signal.aborted) {
+      reject(abortedError());
+      return;
+    }
     const socket = NET_CONNECT({ host: address, port });
+    socket.setTimeout(CONNECT_TIMEOUT, () => {
+      socket.destroy(new Error("the connection timed out"));
+    });
     const onAbort = (): void => {
-      socket.destroy(new Error("the file fetch was aborted"));
+      socket.destroy(abortedError());
     };
     signal.addEventListener("abort", onAbort, { once: true });
     const onError = (error: Error): void => {
@@ -114,6 +151,7 @@ export function rawSocketTo(address: string, port: number, signal: AbortSignal):
     socket.once("connect", () => {
       signal.removeEventListener("abort", onAbort);
       socket.off("error", onError);
+      socket.setTimeout(0);
       if (isExpectedPeer(socket.remoteAddress, new Set([address]), address)) resolve(socket);
       else {
         socket.destroy();
@@ -128,12 +166,18 @@ export function rawSocketTo(address: string, port: number, signal: AbortSignal):
  * (a denied one anywhere among them refuses the name), checked, then secured. Nothing is sent
  * before the peer check. Registered as this module's own.
  */
-async function connectionTo(url: URL, signal: AbortSignal): Promise<TLSSocket> {
+export async function connectionTo(
+  url: URL,
+  signal: AbortSignal,
+  resolve?: AddressLookup,
+): Promise<TLSSocket> {
   const host = url.hostname.replace(/^\[|\]$/g, "");
   const port = url.port === "" ? 443 : Number(url.port);
-  const addresses = isIP(host) !== 0 ? [host] : await addressesOf(host);
+  const addresses = isIP(host) !== 0 ? [host] : await racedWith(addressesOf(host, resolve), signal);
   let failure: unknown = new Error("the file's host has no address");
   for (const address of addresses) {
+    // after an abort the loop does not go on to the next address
+    if (signal.aborted) throw abortedError();
     if (isDeniedAddress(address)) throw deniedError();
     try {
       const raw = await rawSocketTo(address, port, signal);
@@ -141,7 +185,7 @@ async function connectionTo(url: URL, signal: AbortSignal): Promise<TLSSocket> {
       OWN_SOCKETS.add(secure);
       return secure;
     } catch (error) {
-      if (Reflect.get(Object(error), "code") === ADDRESS_DENIED) throw error;
+      if (Reflect.get(Object(error), "code") === ADDRESS_DENIED || isAborted(signal)) throw error;
       failure = error;
     }
   }

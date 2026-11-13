@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FileTransport } from "../../../src/a2a/files/a2a-file-transport.js";
 import { fetchedFile } from "../../../src/a2a/files/a2a-file-fetch.js";
-import { rawSocketTo } from "../../../src/a2a/files/a2a-file-connect.js";
+import { connectionTo, rawSocketTo } from "../../../src/a2a/files/a2a-file-connect.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../../src/units/index.js";
 import { runNode } from "../../helpers/process.js";
@@ -128,5 +128,57 @@ describe("#916 D3: the raw socket's peer is checked before anything is sent", ()
     expect(bytes).toBe(0);
     for (const socket of open) socket.destroy();
     await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("D3.6 an abort that already fired opens no socket: 0 connections at the target", async () => {
+    let connections = 0;
+    const server = createServer((socket) => {
+      connections += 1;
+      socket.destroy();
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address !== null ? address.port : 0;
+    const aborted = AbortSignal.abort();
+
+    const connected = rawSocketTo("127.0.0.1", port, aborted);
+
+    await expect(connected).rejects.toThrow("aborted");
+    expect(connections).toBe(0);
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("D3.7 a name of several addresses after an abort: rejected at once, the next address is not tried", async () => {
+    const aborted = AbortSignal.abort();
+    const addresses = [93, 94, 95].map((last) => ({
+      address: `93.184.216.${String(last)}`,
+      family: 4,
+    }));
+    let asked = 0;
+
+    const connected = connectionTo(
+      new URL("https://files.example/a.pdf"),
+      aborted,
+      (_name, done) => {
+        asked += 1;
+        done(null, addresses);
+      },
+    );
+
+    await expect(connected).rejects.toThrow("aborted");
+    expect(asked).toBeLessThanOrEqual(1);
+  });
+
+  it("D3.8 a resolver that never answers cannot hold the connection past an abort", async () => {
+    const ended = new AbortController();
+
+    const connected = connectionTo(
+      new URL("https://files.example/a.pdf"),
+      ended.signal,
+      () => undefined,
+    );
+    ended.abort();
+
+    await expect(connected).rejects.toThrow("aborted");
   });
 });
