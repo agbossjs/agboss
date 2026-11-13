@@ -20,17 +20,31 @@ export class AttemptStream {
   #emitted = false;
   #discarded = false;
   readonly #held: string[] = [];
-  readonly #unmask: Unmasker | undefined;
-  readonly #trim = new Trimmer();
+  readonly #tokens: PiiTokenMap | undefined;
+  #unmask: Unmasker | undefined;
+  #trim = new Trimmer();
 
   /** `tokens`: the run's PII tokens, set when the agent's model reads through PII policies. */
   constructor(
     private readonly step: StreamStep,
     private readonly sink: RunStream,
-    private readonly isHeld: boolean,
+    readonly isHeld: boolean,
     tokens: PiiTokenMap | undefined,
   ) {
+    this.#tokens = tokens;
     this.#unmask = tokens === undefined ? undefined : new Unmasker(tokens);
+  }
+
+  /**
+   * The model answers again from the start inside this call (a fallback, #1005): what reached the
+   * consumer is retracted, what was held dropped, and the new text streams as this attempt's.
+   */
+  restart(reason: DiscardReason): void {
+    this.discard(reason);
+    this.#discarded = false;
+    this.#emitted = false;
+    this.#unmask = this.#tokens === undefined ? undefined : new Unmasker(this.#tokens);
+    this.#trim = new Trimmer();
   }
 
   /** One token of the model's text, revealed and trimmed as the reply will be (#1007). */

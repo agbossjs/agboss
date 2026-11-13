@@ -15,6 +15,10 @@ import { deltas } from "./writer.fixture.js";
 
 /** Every call writes its first scripted answer as one token, and notes which handlers it had. */
 class TokenModel extends FakeListChatModel {
+  // writes its tokens through `_generate`: an answering call asks for a stream (#1005), which would
+  // take the fake's own chunks instead
+  override disableStreaming = true;
+
   static readonly handlerNames: string[][] = [];
 
   override async _generate(

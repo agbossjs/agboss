@@ -1,14 +1,19 @@
+import type { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import {
   BaseChatModel,
   type BaseChatModelCallOptions,
   type BindToolsInput,
 } from "@langchain/core/language_models/chat_models";
-import type { BaseMessage } from "@langchain/core/messages";
-import type { ChatResult } from "@langchain/core/outputs";
+import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
+import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
+import { ChatGenerationChunk, type ChatResult } from "@langchain/core/outputs";
+import type { Runnable } from "@langchain/core/runnables";
 import { ModelCallError, type CircuitBreaker } from "./circuit-breaker.js";
 import type { ModelCost } from "./cost.js";
 import { markedFallbackMessage } from "./fallback.js";
 import { ModelProviderError } from "./model-provider.decorator.js";
+import { markedChunk, streamedAnswer } from "./fallback-stream.js";
+import { discardStreamedText } from "./stream-discard.js";
 
 /** Where calls go while the primary's breaker is open: its chat model, the model, its prices. */
 export interface FallbackTarget {
@@ -60,17 +65,25 @@ export class FallbackChatModel extends BaseChatModel {
     return new FallbackChatModel(this.parts, tools, binding);
   }
 
+  /** The chat model with the bound tools. */
+  private boundOf(model: BaseChatModel): Runnable<BaseLanguageModelInput, AIMessageChunk> {
+    const bound =
+      this.tools.length === 0 ? model : model.bindTools?.([...this.tools], this.binding);
+    if (bound === undefined)
+      throw new ModelProviderError({ message: "the fallback's chat model cannot call tools" });
+    return bound;
+  }
+
   /** One call of a chat model with the bound tools; untraced: this model's run is the call's. */
   private async callOf(
     model: BaseChatModel,
     messages: BaseMessage[],
     signal?: AbortSignal,
   ): Promise<BaseMessage> {
-    const bound =
-      this.tools.length === 0 ? model : model.bindTools?.([...this.tools], this.binding);
-    if (bound === undefined)
-      throw new ModelProviderError({ message: "the fallback's chat model cannot call tools" });
-    return bound.invoke(messages, { callbacks: [], ...(signal === undefined ? {} : { signal }) });
+    return this.boundOf(model).invoke(messages, {
+      callbacks: [],
+      ...(signal === undefined ? {} : { signal }),
+    });
   }
 
   private async viaFallback(messages: BaseMessage[], signal?: AbortSignal): Promise<BaseMessage> {
@@ -96,4 +109,54 @@ export class FallbackChatModel extends BaseChatModel {
     const message = await this.answerOf(messages, options.signal);
     return { generations: [{ text: message.text, message }] };
   }
+
+  /** The fallback's streamed answer, marked as the fallback's (accounted under its model and prices). */
+  private async streamedViaFallback(
+    messages: BaseMessage[],
+    runManager: CallbackManagerForLLMRun | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<AIMessageChunk> {
+    const { fallback } = this.parts;
+    const model = this.boundOf(fallback.chatModel());
+    const answer = await streamedAnswer(model, messages, runManager, signal, { text: false });
+    return markedChunk(answer, fallback.model, fallback.cost);
+  }
+
+  /**
+   * The streamed call (#1005): the primary's tokens, or — its breaker open — the fallback's. A
+   * primary that dies after text went out and opens its breaker is answered by the fallback from
+   * the start, after a `discarded` event: the text streamed so far is void.
+   */
+  override async *_streamResponseChunks(
+    messages: BaseMessage[],
+    options: this["ParsedCallOptions"],
+    runManager?: CallbackManagerForLLMRun,
+  ): AsyncGenerator<ChatGenerationChunk> {
+    const { signal } = options;
+    const told = { text: false };
+    const answered = async (): Promise<AIMessageChunk> => {
+      if (await this.parts.breaker.isOpen()) {
+        return this.streamedViaFallback(messages, runManager, signal);
+      }
+      try {
+        return await streamedAnswer(
+          this.boundOf(this.parts.primary),
+          messages,
+          runManager,
+          signal,
+          told,
+        );
+      } catch (error) {
+        const opened = isCircuitOpen(error) || (told.text && (await this.parts.breaker.isOpen()));
+        if (!opened) throw error;
+        if (told.text) await discardStreamedText(runManager, errorText(error));
+        return this.streamedViaFallback(messages, runManager, signal);
+      }
+    };
+    const message = await answered();
+    yield new ChatGenerationChunk({ message, text: message.text });
+  }
 }
+
+const errorText = (error: unknown): string =>
+  error instanceof Error ? error.message : "the provider's stream failed";

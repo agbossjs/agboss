@@ -14,9 +14,7 @@ export function answering(
   attempt: AttemptStream | undefined,
 ): RunnableConfig | undefined {
   if (attempt === undefined) return config;
-  const handler = new AnswerTokenHandler((token) => {
-    attempt.push(token);
-  });
+  const handler = new AnswerTokenHandler(attempt);
   return { ...config, callbacks: withAnswerHandler(config?.callbacks, handler) };
 }
 

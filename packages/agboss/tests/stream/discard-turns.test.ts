@@ -60,6 +60,10 @@ describe("#1006: text before a tool call", () => {
 
 /** A model that writes part of its answer and then breaks, as an SSE connection cut mid-answer. */
 class BreakingModel extends FakeListChatModel {
+  // writes its tokens through `_generate`: an answering call asks for a stream (#1005), which would
+  // take the fake's own chunks instead
+  override disableStreaming = true;
+
   override async _generate(
     _messages: BaseMessage[],
     _options: this["ParsedCallOptions"],

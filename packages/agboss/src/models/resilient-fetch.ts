@@ -1,4 +1,6 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
+import type { CircuitBreaker } from "./circuit-breaker.js";
+import { guardedEventStream, type StreamEnd } from "./calls/event-stream-guard.js";
 import { runModelCall, type ResilienceOptions } from "./calls/attempt-runner.js";
 import type { Attempt, AttemptCarrier, ProviderFetch } from "./calls/model-call.js";
 import { releasedAtBodyEnd } from "./calls/response-usage.js";
@@ -7,18 +9,55 @@ import { failureOfError, failureOfStatus, retryAfterOf } from "./model-failure.j
 export type { ProviderFetch } from "./calls/model-call.js";
 export type { ResilienceOptions } from "./calls/attempt-runner.js";
 
-/** One HTTP request as the attempts' carrier: its status says the failure, its headers `Retry-After`. */
+const isEventStream = (response: Response): boolean =>
+  (response.headers.get("content-type") ?? "").includes("text/event-stream");
+
+/** What a streamed call's end means to the breaker (#1005): its success or failure is told at the end. */
+const toldTo =
+  (breaker: CircuitBreaker | undefined) =>
+  async (end: StreamEnd): Promise<void> => {
+    if (end === "completed") await breaker?.recordSuccess();
+    if (end === "failed") await breaker?.recordFailure();
+  };
+
+/** A streamed answer's attempt (#1005): read up to its first content, then watched to its end. */
+async function streamedAttempt(
+  response: Response,
+  caller: AbortSignal | null | undefined,
+  breaker: CircuitBreaker | undefined,
+): Promise<Attempt<Response>> {
+  const guarded = await guardedEventStream(response, {
+    settle: toldTo(breaker),
+    aborted: () => caller?.aborted === true,
+  });
+  if (guarded.failure !== undefined) {
+    return { kind: "answered", answer: guarded.response, failure: guarded.failure };
+  }
+  return guarded.watched
+    ? { kind: "answered", answer: guarded.response, settledAtEnd: true }
+    : { kind: "answered", answer: guarded.response };
+}
+
+/**
+ * One HTTP request as the attempts' carrier: its status says the failure, its headers `Retry-After`;
+ * a streamed answer (#1005) is read up to its first content — an `{error}` there fails the attempt
+ * like the same status — and its end tells the breaker.
+ */
 function httpCarrier(
   send: ProviderFetch,
   input: Parameters<typeof fetch>[0],
   init: RequestInit | undefined,
   clock: Clock,
+  breaker: CircuitBreaker | undefined,
 ): AttemptCarrier<Response> {
   return {
     send: async (signal): Promise<Attempt<Response>> => {
       try {
         const response = await send(input, { ...init, signal });
         const failure = failureOfStatus(response.status);
+        if (failure === undefined && isEventStream(response)) {
+          return await streamedAttempt(response, init?.signal, breaker);
+        }
         if (failure === undefined) return { kind: "answered", answer: response };
         const retryAfter = retryAfterOf(response, clock.now().getTime());
         return retryAfter === undefined
@@ -43,5 +82,5 @@ function httpCarrier(
 export function resilientFetch(options: ResilienceOptions, send: ProviderFetch): ProviderFetch {
   const clock = options.clock ?? systemClock;
   return (input, init) =>
-    runModelCall(options, httpCarrier(send, input, init, clock), init?.signal);
+    runModelCall(options, httpCarrier(send, input, init, clock, options.breaker), init?.signal);
 }

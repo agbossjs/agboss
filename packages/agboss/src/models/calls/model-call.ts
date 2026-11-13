@@ -30,6 +30,11 @@ export type Attempt<TAnswer> =
       readonly answer: TAnswer;
       readonly failure?: ModelFailure;
       readonly retryAfter?: number;
+      /**
+       * A streamed answer whose end is told to the breaker by its own body (#1005): a stream that
+       * is cut after its text is no success, so the headers do not count as one.
+       */
+      readonly settledAtEnd?: true;
     }
   | {
       readonly kind: "threw";
@@ -104,7 +109,7 @@ export async function attemptOnce<TAnswer>(
     throw error;
   }
   if (attempt.kind === "answered" && attempt.failure === undefined && pass !== FREE_PASS) {
-    return { kind: "answered", answer: carrier.hold(attempt.answer, pass.release) };
+    return { ...attempt, answer: carrier.hold(attempt.answer, pass.release) };
   }
   await pass.release(0);
   return attempt;

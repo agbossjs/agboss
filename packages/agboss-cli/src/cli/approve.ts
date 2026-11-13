@@ -150,6 +150,14 @@ export function summaryLine(result: Pick<ExecutionOutput, "path" | "finish" | "s
   return `${path} · ${result.finish === undefined ? result.status : `finish ${result.finish.name}`}`;
 }
 
+/** The answer to print once the run is over: none when its text streamed, or when it has no output (#1005). */
+export function unstreamedAnswer(
+  result: Pick<ExecutionOutput, "output">,
+  streamed: boolean,
+): string | undefined {
+  return streamed || result.output === undefined ? undefined : outputText(result);
+}
+
 /** What an execution's output says, as the terminal shows it: its `text`, else its JSON. */
 export function outputText(result: Pick<ExecutionOutput, "output">): string {
   const { output } = result;
