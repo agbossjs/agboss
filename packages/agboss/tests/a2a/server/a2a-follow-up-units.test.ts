@@ -362,6 +362,31 @@ describe("#824: a follow-up sent again", () => {
     ]);
   });
 
+  it("AC4: its first outcome lost and its task over since: the task as it is, resumed nothing, kept nothing", async () => {
+    const script = scriptOf({ state: pausedOn("p-1") });
+    const tasks = new InMemoryA2ATaskRepository(new InMemoryDatabase());
+    await savedTask(tasks, {}, { state: A2ATaskState.Completed, pendingPauses: [] });
+    const message = decide("f-1");
+    await tasks.saveMessageIfAbsent({
+      ...keyOf("f-1"),
+      requestHash: requestHashOf("unit-workflow-start", message),
+      taskId: "task-1",
+      savedAt: NINE,
+    });
+
+    const resent = await followedUpTask(unitParts(script, tasks), callerOf(), message);
+    const fresh = await refusalOf(
+      followedUpTask(unitParts(script, tasks), callerOf(), decide("f-2")),
+    );
+
+    expect(resent.task.status.state).toBe(A2ATaskState.Completed);
+    expect((await tasks.findByMessage(keyOf("f-1")))?.reply).toBeUndefined();
+    expect(fresh).toBe(
+      "UnsupportedOperationError a2a.task-over: the task is over: it takes no more input",
+    );
+    expect(script.resumes).toEqual([]);
+  });
+
   it("its task swept once its answer was taken: not found", async () => {
     const script = scriptOf({ state: pausedOn("p-1") });
     const { tasks } = await setUp(script);

@@ -173,7 +173,7 @@ export async function followedUpTask(
   const kept = await parts.tasks.saveMessageIfAbsent(record);
   const replay = kept === undefined ? undefined : await replayed(parts, task, kept, requestHash);
   if (replay !== undefined) return replay;
-  const decided = await answered(parts, caller, task, answer);
+  const decided = await answered(parts, caller, task, answer, kept !== undefined);
   const outcome: KeptReply =
     "accepted" in decided ? { accepted: true, answered: task.version } : decided;
   // a resend whose first outcome was lost, its pause gone since: the task as it is — neither an
@@ -195,15 +195,24 @@ const isNoLongerWaiting = (outcome: KeptReply): boolean =>
   "refused" in outcome &&
   (outcome.code === "a2a.no-pending-pause" || outcome.code === PAUSE_CLOSED);
 
-/** The answer's outcome: refused before anything moved, or the resume accepted. */
+/**
+ * The answer's outcome: refused before anything moved, or the resume accepted. A new message to a
+ * finished task is `a2a.task-over`; a resend's (its first delivery lost) is no-longer-waiting.
+ */
 async function answered(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
   task: A2ATaskRecord,
   answer: FollowUpAnswer,
+  isResend: boolean,
 ): Promise<KeptReply> {
+  // #939 AC4: a resend's first delivery may have taken its answer before the task ended, so the
+  // task's end is no refusal for it: the kept message, not the task's state, says it is a resend
   if (isTerminalA2ATaskState(task.status.state))
-    return { refused: "unsupported", code: "a2a.task-over" };
+    return {
+      refused: "unsupported",
+      code: isResend ? "a2a.no-pending-pause" : "a2a.task-over",
+    };
   const pauseId = pauseOf(answer, await answerablePausesOf(parts, task));
   if (typeof pauseId !== "string") return pauseId;
   const request: ResumeRequest =
