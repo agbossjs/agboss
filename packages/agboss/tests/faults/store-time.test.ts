@@ -87,28 +87,29 @@ describe("#959 AC1: a declaration the store's clock contradicts fails the suite,
   );
 
   it("a rate nearer the declared one passes, a rate nearer the other fails", () => {
-    const reading = (storeMs: number) => ({ storeMs, realMs: 300 });
+    const check = (declared: FaultStoreTime, storeMs: number, timeScale = 10): void => {
+      checkStoreTime(declared, { storeMs, realMs: 300 }, timeScale);
+    };
 
-    expect(() => checkStoreTime(FaultStoreTime.Host, reading(2900), 10)).not.toThrow();
-    expect(() => checkStoreTime(FaultStoreTime.Database, reading(310), 10)).not.toThrow();
-    expect(() => checkStoreTime(FaultStoreTime.Host, reading(310), 10)).toThrow(
-      /store-time-mismatch/u,
-    );
-    expect(() => checkStoreTime(FaultStoreTime.Database, reading(2900), 10)).toThrow(
-      /store-time-mismatch/u,
-    );
-    expect(() => checkStoreTime(FaultStoreTime.Host, reading(0), 10)).toThrow(
-      /store-time-mismatch/u,
-    );
+    expect(() => {
+      check(FaultStoreTime.Host, 2900);
+      check(FaultStoreTime.Database, 310);
+    }).not.toThrow();
+    for (const [declared, storeMs] of [
+      [FaultStoreTime.Host, 310],
+      [FaultStoreTime.Database, 2900],
+      [FaultStoreTime.Host, 0],
+    ] as const)
+      expect(() => {
+        check(declared, storeMs);
+      }).toThrow(/store-time-mismatch/u);
   });
 
   it("at the real clock the two times are one rate: nothing to contradict", () => {
-    expect(() =>
-      checkStoreTime(FaultStoreTime.Host, { storeMs: 300, realMs: 300 }, 1),
-    ).not.toThrow();
-    expect(() =>
-      checkStoreTime(FaultStoreTime.Database, { storeMs: 300, realMs: 300 }, 1),
-    ).not.toThrow();
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Host, { storeMs: 300, realMs: 300 }, 1);
+      checkStoreTime(FaultStoreTime.Database, { storeMs: 300, realMs: 300 }, 1);
+    }).not.toThrow();
   });
 
   it("the probe waits longer the nearer the two rates are", () => {

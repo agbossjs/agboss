@@ -44,7 +44,6 @@ export class FaultCluster {
   readonly #proxies = new Map<string, DatabaseProxy>();
   readonly #watchers = new Set<() => void>();
   #starts = 0;
-  #probed = false;
 
   /**
    * How long a wait of the cluster lasts (real time): the longest a step of a scenario takes is a
@@ -91,12 +90,7 @@ export class FaultCluster {
       onGateway: (from, id, call) => void this.gateway.call(from, id, call),
     });
     this.pods.push(pod);
-    // #959: the run's first pod measures its stores' clock; the set's declaration must match it
-    if (!this.#probed) {
-      this.#probed = true;
-      await probedStoreTime(pod, this.options.timeScale);
-    }
-    return pod;
+    return probedStoreTime(this, pod); // #959: the run's first pod's clock is measured
   }
 
   /** The proxy between pod `name` and the database; a cluster without proxies has none. */

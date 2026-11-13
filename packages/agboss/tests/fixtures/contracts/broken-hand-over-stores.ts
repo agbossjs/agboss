@@ -131,7 +131,7 @@ export const unlockedRowsOf = (
 
 /** The results both instances share, one row per key. */
 export const unlockedResultsOf = (seam: InstanceSeam): Map<string, Stored> =>
-  sharedInMemory(seam, "unlocked-results", () => new Map());
+  sharedInMemory<Map<string, Stored>>(seam, "unlocked-results", () => new Map());
 
 /** The store set of one instance on the unlocked-check effects, its rows inserted asynchronously. */
 export const unlockedCheckEffects: StoreFactory<FencedEffectTarget<DeferredTransaction>> = (

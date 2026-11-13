@@ -37,8 +37,7 @@ export class ForgetfulMarkSqliteExecutionRecordRepository extends SqliteExecutio
     expected: ExecutionRecordStatus,
     outcome: TurnOutcome,
   ): Promise<boolean> {
-    const isMark =
-      expected === ExecutionRecordStatus.Paused && outcome.status === ExecutionRecordStatus.Running;
+    const isMark = expected === ExecutionRecordStatus.Paused && outcome.status === "running";
     return isMark ? Promise.resolve(true) : super.completeIfStatus(turnId, expected, outcome);
   }
 }

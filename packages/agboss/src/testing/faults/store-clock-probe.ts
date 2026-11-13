@@ -93,11 +93,23 @@ export function checkStoreTime(
     throw new FaultStoreTimeMismatchError(declared, reading, timeScale);
 }
 
-/** The pod's stores' clock measured and its set's `storeTime` checked against it (#959). */
-export async function probedStoreTime(pod: FaultPod, timeScale: number): Promise<void> {
-  if (pod.storeTime === undefined || timeScale <= 1) return;
+/** The clusters whose first pod was probed. */
+const probed = new WeakSet<object>();
+
+/**
+ * The first pod of `cluster` measures its stores' clock and its set's `storeTime` is checked
+ * against it (#959), and gives the pod back; later pods of the cluster, and a run at the real clock, are not probed.
+ */
+export async function probedStoreTime(
+  cluster: { readonly options: { readonly timeScale: number } },
+  pod: FaultPod,
+): Promise<FaultPod> {
+  const { timeScale } = cluster.options;
+  if (probed.has(cluster) || pod.storeTime === undefined || timeScale <= 1) return pod;
+  probed.add(cluster);
   const reading = readingOf(
     await pod.command({ op: "probe-store-clock", wait: probeWaitOf(timeScale) }),
   );
   checkStoreTime(pod.storeTime, reading, timeScale);
+  return pod;
 }
