@@ -844,7 +844,9 @@ resolver the listener checks a signed envelope of a known issuer — its signatu
 (`bodyHash`, else `401 mesh.body-mismatch`). Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
 the session's peer. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
 signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/core/testing`,
-#521) — the framework's own encoder, the very header a real client sends for that call.
+#521) for an MCP call — the framework's own encoder, the very `_meta` value a real client sends. An
+A2A call is signed by the `A2AClient` of a test application with a `mesh.signingKey`, the envelope
+bound to the message it sends.
 
 What a trusted request gets — never an untrusted one:
 

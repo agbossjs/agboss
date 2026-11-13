@@ -10399,9 +10399,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/mesh/mesh-envelope.ts:42:3 - (ae-undocumented) Missing documentation for "remaining".
 // src/mesh/mesh-envelope.ts:43:3 - (ae-undocumented) Missing documentation for "currency".
 // src/mesh/mesh-envelope.ts:48:3 - (ae-undocumented) Missing documentation for "remaining".
-// src/mesh/mesh-envelope.ts:103:3 - (ae-undocumented) Missing documentation for "schema".
-// src/mesh/mesh-envelope.ts:118:3 - (ae-undocumented) Missing documentation for "total".
-// src/mesh/mesh-envelope.ts:119:3 - (ae-undocumented) Missing documentation for "currency".
+// src/mesh/mesh-envelope.ts:100:3 - (ae-undocumented) Missing documentation for "schema".
+// src/mesh/mesh-envelope.ts:115:3 - (ae-undocumented) Missing documentation for "total".
+// src/mesh/mesh-envelope.ts:116:3 - (ae-undocumented) Missing documentation for "currency".
 // src/mesh/mesh-errors.ts:29:3 - (ae-undocumented) Missing documentation for "cause".
 // src/mesh/mesh-errors.ts:40:3 - (ae-undocumented) Missing documentation for "code".
 // src/mesh/mesh-errors.ts:41:3 - (ae-undocumented) Missing documentation for "code".

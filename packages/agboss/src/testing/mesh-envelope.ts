@@ -14,11 +14,12 @@ import type { Milliseconds } from "../units/index.js";
 import { TestSetupError } from "./errors.js";
 
 /**
- * A signed mesh envelope for a test (#521): the `agboss-mesh` header value (A2A) or the
- * `_meta["agboss.dev/mesh"]` value (MCP) a calling application sends — the framework's own encoder,
- * so a store's or a project's mesh test speaks the real wire format instead of building the JWS
- * by hand. The receiver trusts it only when its caller resolver names `issuer` as the peer and its
- * `mesh.peers` key verifies the signature.
+ * A signed mesh envelope for a test (#521): the `_meta["agboss.dev/mesh"]` value a calling
+ * application sends with an MCP `tools/call` — the framework's own encoder, so a store's or a
+ * project's mesh test speaks the real wire format instead of building the JWS by hand. The receiver
+ * trusts it only when its caller resolver names `issuer` as the peer and its `mesh.peers` key
+ * verifies the signature. An A2A call is signed by the `A2AClient` of a test application with a
+ * `mesh.signingKey`: its envelope's `bodyHash` covers the message's canonical JSON, not a text.
  */
 export interface SignedMeshEnvelopeOptions {
   /** The calling application (its `@Application({ name })`): the peer that signs. */
@@ -30,7 +31,7 @@ export interface SignedMeshEnvelopeOptions {
   readonly audience: string;
   /** The issuer's Ed25519 private key: a `KeyObject`, or its PKCS #8 PEM (what `mesh.signingKey` holds). */
   readonly signingKey: KeyObject | string;
-  /** The request's body (A2A) or arguments (MCP) as sent: its `bodyHash` binds the envelope to the call. */
+  /** The call's arguments as sent: its `bodyHash` binds the envelope to the call. */
   readonly body: string;
   /** When the caller signed it, on the caller's clock — a test's `clock.now()`. */
   readonly issuedAt: Date;
@@ -74,7 +75,7 @@ function signingKeyOf(signingKey: KeyObject | string): KeyObject {
 }
 
 /**
- * The `agboss-mesh` value an application with `mesh.signingKey` sends for `body` (`EdDSA`, schema 1)
+ * The envelope an application with `mesh.signingKey` sends for `body` (`EdDSA`, schema 1)
  * — its fields in the client's order, so the same call gives the same text.
  */
 export function signedMeshEnvelope(options: SignedMeshEnvelopeOptions): string {

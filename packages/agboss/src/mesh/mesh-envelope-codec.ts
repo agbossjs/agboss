@@ -42,7 +42,7 @@ export interface ReadEnvelope {
   readonly signed?: JwsSignature;
 }
 
-/** The envelope as the `agboss-mesh` header / `_meta["agboss.dev/mesh"]` value. */
+/** The envelope as the mesh extension's `envelope` (A2A) / `_meta["agboss.dev/mesh"]` value (MCP). */
 export const encodeMeshEnvelope = (envelope: MeshEnvelope, signingKey?: KeyObject): string =>
   encodeJws(TYP, envelope, signingKey);
 

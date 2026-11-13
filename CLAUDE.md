@@ -1464,7 +1464,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (U+0000) included — a NUL case in each JSON-storing suite (#521: the SQLite record store keeps
   free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
   signs mesh envelopes as a peer with `signedMeshEnvelope({ issuer, signingKey, body, issuedAt,
-origin, callChain, … })` (`@agboss/core/testing`, the real client's header); and a class declares the environment fields it reads —
+origin, callChain, … })` (`@agboss/core/testing`, the real client's `_meta["agboss.dev/mesh"]` value of an MCP call; an A2A call is signed by a test application's own `A2AClient`); and a class declares the environment fields it reads —
   `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.secret(), postgresPoolSize:
 EnvironmentField.integer({ optional: true }) } })` (#834: made only by `EnvironmentField.text()`, `.integer()`, `.flag()`,
   `.secret()`, a literal does not compile, a key that is not a camelCase field name is refused when
