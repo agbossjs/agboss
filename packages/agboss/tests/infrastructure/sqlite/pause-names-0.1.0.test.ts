@@ -14,7 +14,7 @@ import {
 import { SqliteExecutionHistoryRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-history.repository.js";
 import { SqliteExecutionRecordRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-record.repository.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
-import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-rows.js";
+import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { applicationOn, connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";

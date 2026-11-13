@@ -18,6 +18,9 @@ export {
   MeshRequestRepository,
   OutboundCallRepository,
   PausedExecutionRepository,
+  PauseClosedReason,
+  pauseKeyOf,
+  ExpiryProblem,
   RateLimitRepository,
 } from "../index.js";
 

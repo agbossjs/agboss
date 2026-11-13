@@ -49,6 +49,24 @@ export enum StoreHoldPoint {
    * answer, or by the tree's end for an answer no step took.
    */
   PauseMarkTaken = "pause.markTaken",
+  /** A pause's channel asked: `isSent` and its `opened` (and a close's) notices, one transaction (#935). */
+  PauseMarkSent = "pause.markSent",
+  /** A pause's deadline passed: its atomic expiry, with its notices (#935), keyed by the pause's id. */
+  PauseExpire = "pause.expire",
+  /** An answered pause closed untaken, with its notice (#935), keyed by the pause's id. */
+  PauseCloseUntaken = "pause.closeUntaken",
+  /** A pause's deadline moved, with its notice (#935), keyed by the pause's id. */
+  PauseExtend = "pause.extend",
+  /** A pause's reminder recorded, with its notice (#935), keyed by the pause's id. */
+  PauseRemind = "pause.remind",
+  /** A notice written once for a pause (#935, `joinFailed`), keyed by the pause's id. */
+  PauseNoticeOnce = "pause.noticeOnce",
+  /** Mailboxes claimed for delivery (#935); the key is known only from the answer: none. */
+  PauseNoticeClaim = "pauseNotice.claim",
+  /** A mailbox's head acknowledged (#935), keyed by the mailbox's recipient and pause id. */
+  PauseNoticeAck = "pauseNotice.ack",
+  /** A thread's paused run removed when it is the run's (#935), keyed by the run id. */
+  PausedRunDelete = "pausedRun.delete",
 }
 
 /** How one wrapped method is read. */

@@ -1,3 +1,4 @@
+import type { PauseRecipients } from "../../src/infrastructure/pause-notices.js";
 import {
   Clock,
   ExecutionRecordStatus,
@@ -85,8 +86,15 @@ export class StalePausesSqlitePausedExecutionRepository extends KeptRunSqlitePau
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {
-    const resolved = await super.resolveByTenantIdAndPauseId(tenantId, pauseId, answer, at);
+    const resolved = await super.resolveByTenantIdAndPauseId(
+      tenantId,
+      pauseId,
+      answer,
+      at,
+      recipients,
+    );
     if (resolved !== undefined) return resolved;
     // a pause no longer pending answered as if it were: the resume is told it won
     const found = await this.findByTenantIdAndPauseId(tenantId, pauseId);

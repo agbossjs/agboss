@@ -432,6 +432,30 @@ index` (as before) — a running instance does not re-read a folder on its own.
 
 ### Changed — breaking for stores outside the core
 
+- **The pause store contract v2: deadlines, notices, not-taken answers** (#935, part of #910;
+  `PausedExecutionRepository`, `@agboss/core/stores`):
+  - a pause keeps `expiresAt`, `expiryBound`, `remindAt`, `expiryProblem` and `boundAt`; its
+    `channel` is a column/field of its own. `resolve…` is refused at or after `expiresAt` in the same
+    atomic step that would record it; `cancel…` returns the closed record (`PauseRecord | undefined`,
+    was `boolean`) and records `Expired` for a cancel or a tree end at or after the deadline.
+  - `markSent…`, `resolve…`, `cancel…` take `recipients` (`NO_RECIPIENTS` keeps today's behaviour);
+    new methods `expire…`, `closeUntaken…`, `extend…`, `remind…`, `noticeOnce…`,
+    `findByTenantIdAndRootExecutionIdAndStepKey`, the scans `findPendingByExpiresAtBefore`,
+    `findPendingByRemindAtBefore`, `findOpenAfter`, `findPageByTenantId`,
+    `findClosedByResolvedAtBefore`, `deleteByTenantIdAndThreadIdAndRunId`, and the notices'
+    `claimNoticesDue`, `ackNotice`, `retryNotice`, `setAsideNotices`, `setAsideStaleNoticesBefore`,
+    `countNotices`. Every change writes its notices in the same transaction, one ordered mailbox per
+    pause and receiver; `markSent…` sets `isSent` whatever the status.
+  - `PauseResolution` gains `TreeEnded`, `Expired`, `DecidedOnExpiry`, `Reassigned`;
+    `PauseClosedReason`, `ExpiryProblem`, `pauseKeyOf` (root) and `PauseExpiryBound`,
+    `pauseClosedReasonOf`, `closedAtOf`, the notice types (`/stores`) are new. `ExecutionRecordRepository`
+    gains `markPauseAnswerNotTaken` (abstract: a store of yours implements it).
+  - the contract suite grows by the deadline, closer-race, notice, delivery, scan and retention
+    cases (`paused-execution-*.cases.ts`) and the not-taken log cases; the SQLite store migrates a
+    file written before (new `pauses` columns, new `pause_notices` table). **Migration:** pass
+    `NO_RECIPIENTS` to the three methods above, read the record `cancel…` returns, implement the new
+    methods and run the suite.
+
 - **The testing surface, reviewed** (#831, API review group 9; every name below is new in 0.1.1):
   - `@agboss/core/testing/faults` publishes the suite and the hold points only (82 symbols → 27):
     `faultSuite`, `FaultSuiteOptions`, `FaultShard`, `FaultStoreSet` (was `FaultStores`; no

@@ -15,6 +15,7 @@
 import "../polyfills/symbol-metadata.js";
 
 export * from "./contract-types.js";
+export * from "./pause-contract-types.js";
 
 // what a database store package does with its schema at start (#891): `@agboss/postgres` and
 // `@agboss/mongodb` take it and give it to their applications

@@ -6,6 +6,7 @@
  * never sent. A `withdraw` that throws or hangs is a `channel.withdraw-failed` warning and nothing
  * else: the join, `.onJoinError` and `app.cancel` go on.
  */
+import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
@@ -219,6 +220,7 @@ describe("#337 AC2: withdraw is called once when a sent pause closes without an 
           sent.pauseId,
           PauseResolution.Withdrawn,
           clock.now(),
+          NO_RECIPIENTS,
         );
       };
       mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));

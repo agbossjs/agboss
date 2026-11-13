@@ -7,6 +7,7 @@
  * application: `tests/channels/parallel-pauses.test.ts` (no second `send` on re-entry) and
  * `tests/channels/concurrent-resume.test.ts`.
  */
+import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { describe, expect, it } from "vitest";
 import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
@@ -14,7 +15,7 @@ import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../src/channels/channel-sender.js";
 import { PauseKind, PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import {
   ChannelSendError,
   pauseStep,
@@ -135,7 +136,13 @@ describe("#267 S35: the pause step", () => {
       );
       if (pause === undefined) throw new Error("no record before send");
       const answer = { decision: { approved: true }, answeredBy: "manager-17" };
-      await pauses.resolveByTenantIdAndPauseId(tenantId, pause.pauseId, answer, clock.now());
+      await pauses.resolveByTenantIdAndPauseId(
+        tenantId,
+        pause.pauseId,
+        answer,
+        clock.now(),
+        NO_RECIPIENTS,
+      );
       return ChannelOutcome.awaitReply();
     });
 
@@ -174,6 +181,7 @@ describe("#267 S35: the pause step", () => {
       made.pauseId,
       PauseResolution.Withdrawn,
       clock.now(),
+      NO_RECIPIENTS,
     );
 
     await expect(pauseStep(siteOf(pauses, channel), question)).rejects.toBeInstanceOf(
@@ -216,6 +224,7 @@ describe("#337: a channel told about its withdrawn pause", () => {
         pause?.pauseId ?? "",
         PauseResolution.Withdrawn,
         clock.now(),
+        NO_RECIPIENTS,
       );
       return ChannelOutcome.awaitReply();
     });

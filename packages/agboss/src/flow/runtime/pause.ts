@@ -10,13 +10,14 @@ import {
   decidedPause,
   logPauseAnswer,
   newPauseId,
+  NO_RECIPIENTS,
   PauseResolution,
   PauseStatus,
-  type PauseAnswerLog,
   type PauseKind,
   type PauseAsk,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
+import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { PauseWithdrawn } from "../../pause/index.js";
@@ -260,7 +261,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
         );
       return { decision, by: channel.name, usage: [] };
     }
-    if (!(await pauses.markSentByTenantIdAndPauseId(tenantId, pause.pauseId))) {
+    if (!(await pauses.markSentByTenantIdAndPauseId(tenantId, pause.pauseId, NO_RECIPIENTS))) {
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
       await sentTooLate(site, pause);

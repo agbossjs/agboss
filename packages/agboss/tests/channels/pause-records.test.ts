@@ -7,6 +7,7 @@
  * recovery sweep on the `Clock`: within it a late answer is `NotPausedError`, after it
  * `UnknownPauseError`; a pending pause is never removed.
  */
+import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -325,7 +326,13 @@ describe("#890 AC5: an unconsumed Resolved pause of an ended tree is Taken, then
       const pauses = treasuryPauses();
       // a resume recorded its answer and the cancel won before its pass took it (#811 s18c)
       const answer = { decision: { approved: true }, answeredBy: undefined };
-      await pauses.resolveByTenantIdAndPauseId(waiting.tenantId, pauseId, answer, clock.now());
+      await pauses.resolveByTenantIdAndPauseId(
+        waiting.tenantId,
+        pauseId,
+        answer,
+        clock.now(),
+        NO_RECIPIENTS,
+      );
 
       await app.cancel(waiting.threadId, { tenantId: waiting.tenantId });
 

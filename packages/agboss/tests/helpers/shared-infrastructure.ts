@@ -2,8 +2,8 @@ import { MemorySaver } from "@langchain/langgraph";
 import type { PausedExecution } from "../../src/app/paused-runs.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { TurnStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import {
-  InMemoryPausedExecutionRepository,
   PausedExecutionRepository,
   type PauseRecord,
   type PauseAnswer,
@@ -62,6 +62,9 @@ export class SharedCheckpointSaver extends MemorySaver {
   }
 }
 
+/** The arguments of a pause store's method: what the shared store hands on unchanged. */
+type Args<K extends keyof PausedExecutionRepository> = Parameters<PausedExecutionRepository[K]>;
+
 @Injectable()
 export class SharedPausedExecutionRepository extends PausedExecutionRepository {
   ping(): Promise<void> {
@@ -85,58 +88,166 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return Promise.resolve();
   }
 
-  findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
-    return database.pauses.findOrCreateByStepKey(pause);
+  findOrCreateByStepKey(
+    ...args: Args<"findOrCreateByStepKey">
+  ): ReturnType<PausedExecutionRepository["findOrCreateByStepKey"]> {
+    return database.pauses.findOrCreateByStepKey(...args);
   }
 
-  findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
-    return database.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
+  findByTenantIdAndRootExecutionIdAndStepKey(
+    ...args: Args<"findByTenantIdAndRootExecutionIdAndStepKey">
+  ): ReturnType<PausedExecutionRepository["findByTenantIdAndRootExecutionIdAndStepKey"]> {
+    return database.pauses.findByTenantIdAndRootExecutionIdAndStepKey(...args);
+  }
+
+  findByTenantIdAndPauseId(
+    ...args: Args<"findByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["findByTenantIdAndPauseId"]> {
+    return database.pauses.findByTenantIdAndPauseId(...args);
   }
 
   findAllByTenantIdAndRootExecutionId(
-    tenantId: string,
-    rootExecutionId: string,
-  ): Promise<readonly PauseRecord[]> {
-    return database.pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+    ...args: Args<"findAllByTenantIdAndRootExecutionId">
+  ): ReturnType<PausedExecutionRepository["findAllByTenantIdAndRootExecutionId"]> {
+    return database.pauses.findAllByTenantIdAndRootExecutionId(...args);
   }
 
-  markSentByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<boolean> {
-    return database.pauses.markSentByTenantIdAndPauseId(tenantId, pauseId);
+  markSentByTenantIdAndPauseId(
+    ...args: Args<"markSentByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["markSentByTenantIdAndPauseId"]> {
+    return database.pauses.markSentByTenantIdAndPauseId(...args);
   }
 
   resolveByTenantIdAndPauseId(
-    tenantId: string,
-    pauseId: string,
-    answer: PauseAnswer,
-    at: Date,
-  ): Promise<PauseRecord | undefined> {
-    return database.pauses.resolveByTenantIdAndPauseId(tenantId, pauseId, answer, at);
+    ...args: Args<"resolveByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["resolveByTenantIdAndPauseId"]> {
+    return database.pauses.resolveByTenantIdAndPauseId(...args);
   }
 
   decideByTenantIdAndPauseId(
-    tenantId: string,
-    pauseId: string,
-    answer: PauseAnswer,
-    at: Date,
-  ): Promise<boolean> {
-    return database.pauses.decideByTenantIdAndPauseId(tenantId, pauseId, answer, at);
+    ...args: Args<"decideByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["decideByTenantIdAndPauseId"]> {
+    return database.pauses.decideByTenantIdAndPauseId(...args);
   }
 
   cancelByTenantIdAndPauseId(
+    ...args: Args<"cancelByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["cancelByTenantIdAndPauseId"]> {
+    return database.pauses.cancelByTenantIdAndPauseId(...args);
+  }
+
+  expireByTenantIdAndPauseId(
+    ...args: Args<"expireByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["expireByTenantIdAndPauseId"]> {
+    return database.pauses.expireByTenantIdAndPauseId(...args);
+  }
+
+  closeUntakenByTenantIdAndPauseId(
+    ...args: Args<"closeUntakenByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["closeUntakenByTenantIdAndPauseId"]> {
+    return database.pauses.closeUntakenByTenantIdAndPauseId(...args);
+  }
+
+  extendByTenantIdAndPauseId(
+    ...args: Args<"extendByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["extendByTenantIdAndPauseId"]> {
+    return database.pauses.extendByTenantIdAndPauseId(...args);
+  }
+
+  remindByTenantIdAndPauseId(
+    ...args: Args<"remindByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["remindByTenantIdAndPauseId"]> {
+    return database.pauses.remindByTenantIdAndPauseId(...args);
+  }
+
+  noticeOnceByTenantIdAndPauseId(
+    ...args: Args<"noticeOnceByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["noticeOnceByTenantIdAndPauseId"]> {
+    return database.pauses.noticeOnceByTenantIdAndPauseId(...args);
+  }
+
+  markTakenByTenantIdAndPauseId(
+    ...args: Args<"markTakenByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["markTakenByTenantIdAndPauseId"]> {
+    return database.pauses.markTakenByTenantIdAndPauseId(...args);
+  }
+
+  findPendingByExpiresAtBefore(
+    ...args: Args<"findPendingByExpiresAtBefore">
+  ): ReturnType<PausedExecutionRepository["findPendingByExpiresAtBefore"]> {
+    return database.pauses.findPendingByExpiresAtBefore(...args);
+  }
+
+  findPendingByRemindAtBefore(
+    ...args: Args<"findPendingByRemindAtBefore">
+  ): ReturnType<PausedExecutionRepository["findPendingByRemindAtBefore"]> {
+    return database.pauses.findPendingByRemindAtBefore(...args);
+  }
+
+  findOpenAfter(
+    ...args: Args<"findOpenAfter">
+  ): ReturnType<PausedExecutionRepository["findOpenAfter"]> {
+    return database.pauses.findOpenAfter(...args);
+  }
+
+  findPageByTenantId(
+    ...args: Args<"findPageByTenantId">
+  ): ReturnType<PausedExecutionRepository["findPageByTenantId"]> {
+    return database.pauses.findPageByTenantId(...args);
+  }
+
+  findClosedByResolvedAtBefore(
+    ...args: Args<"findClosedByResolvedAtBefore">
+  ): ReturnType<PausedExecutionRepository["findClosedByResolvedAtBefore"]> {
+    return database.pauses.findClosedByResolvedAtBefore(...args);
+  }
+
+  deleteByResolvedAtBefore(
+    ...args: Args<"deleteByResolvedAtBefore">
+  ): ReturnType<PausedExecutionRepository["deleteByResolvedAtBefore"]> {
+    return database.pauses.deleteByResolvedAtBefore(...args);
+  }
+
+  claimNoticesDue(
+    ...args: Args<"claimNoticesDue">
+  ): ReturnType<PausedExecutionRepository["claimNoticesDue"]> {
+    return database.pauses.claimNoticesDue(...args);
+  }
+
+  ackNotice(...args: Args<"ackNotice">): ReturnType<PausedExecutionRepository["ackNotice"]> {
+    return database.pauses.ackNotice(...args);
+  }
+
+  retryNotice(...args: Args<"retryNotice">): ReturnType<PausedExecutionRepository["retryNotice"]> {
+    return database.pauses.retryNotice(...args);
+  }
+
+  setAsideNotices(
+    ...args: Args<"setAsideNotices">
+  ): ReturnType<PausedExecutionRepository["setAsideNotices"]> {
+    return database.pauses.setAsideNotices(...args);
+  }
+
+  setAsideStaleNoticesBefore(
+    ...args: Args<"setAsideStaleNoticesBefore">
+  ): ReturnType<PausedExecutionRepository["setAsideStaleNoticesBefore"]> {
+    return database.pauses.setAsideStaleNoticesBefore(...args);
+  }
+
+  countNotices(
+    ...args: Args<"countNotices">
+  ): ReturnType<PausedExecutionRepository["countNotices"]> {
+    return database.pauses.countNotices(...args);
+  }
+
+  deleteByTenantIdAndThreadIdAndRunId(
     tenantId: string,
-    pauseId: string,
-    resolution: PauseCancellation,
-    at: Date,
-  ): Promise<boolean> {
-    return database.pauses.cancelByTenantIdAndPauseId(tenantId, pauseId, resolution, at);
-  }
-
-  markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void> {
-    return database.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
-  }
-
-  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
-    return database.pauses.deleteByResolvedAtBefore(cutoff);
+    threadId: string,
+    runId: string,
+  ): Promise<void> {
+    const key = keyOf(tenantId, threadId);
+    if (database.paused.get(key)?.run.runId === runId) database.paused.delete(key);
+    return Promise.resolve();
   }
 }
 

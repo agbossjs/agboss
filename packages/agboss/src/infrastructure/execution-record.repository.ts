@@ -1,4 +1,3 @@
-import { Injectable } from "../components/decorators.js";
 import {
   createSqliteTurnStore,
   pauseAnswerEntryOf,
@@ -12,9 +11,9 @@ import {
   type TurnStore,
   type VersionScore,
 } from "../turns/index.js";
+import { Injectable } from "../components/decorators.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { Clock, IdGenerator, mintedThreadIdsOf } from "./clock.js";
-import { pauseAnswerRecordOfJson } from "./pause-record.js";
+import { Clock, IdGenerator, lazyLoad, mintedThreadIdsOf } from "./clock.js";
 
 export type { NewThread } from "../turns/index.js";
 
@@ -161,6 +160,17 @@ export abstract class ExecutionRecordRepository {
     rootExecutionId: string,
     answer: PauseAnswerRecord,
   ): Promise<void>;
+  /**
+   * Writes that a pause's answer was not taken (I12): `answer` (`isTaken: false`) over any entry of
+   * the same tenant, `rootExecutionId` and `step.idempotencyKey`, keeping that entry's place in the
+   * order — and a `savePauseAnswer` that comes after is ignored, so in either order the final entry
+   * says *not taken* and keeps the answer and who gave it.
+   */
+  abstract markPauseAnswerNotTaken(
+    tenantId: string,
+    rootExecutionId: string,
+    answer: PauseAnswerRecord,
+  ): Promise<void>;
   /** The resolved pauses of a tree, in the order they were asked (ties in the order saved). */
   abstract findPauseAnswersByTenantIdAndRootExecutionId(
     tenantId: string,
@@ -168,13 +178,13 @@ export abstract class ExecutionRecordRepository {
   ): Promise<PauseAnswerRecord[]>;
 }
 
+/** What a pause answer is saved by: its tenant, its tree and the entry. */
+type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
+
 /** The records kept in a Turn store: what the built-in default and the SQLite ones build on. */
 export class TurnStoreRecordRepository extends ExecutionRecordRepository {
-  readonly #store: TurnStore;
-
-  constructor(store: TurnStore) {
+  constructor(private readonly store: TurnStore) {
     super();
-    this.#store = store;
   }
 
   ping(): Promise<void> {
@@ -182,93 +192,88 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   }
 
   createThread(thread: NewThread): Promise<string> {
-    return this.#store.createThread(thread);
+    return this.store.createThread(thread);
   }
   hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean> {
-    return this.#store.hasThread(workflow, tenantId, threadId);
+    return this.store.hasThread(workflow, tenantId, threadId);
   }
   threadOwner(...args: Parameters<TurnStore["threadOwner"]>): ReturnType<TurnStore["threadOwner"]> {
-    return this.#store.threadOwner(...args);
+    return this.store.threadOwner(...args);
   }
   append(turn: NewTurn): Promise<Turn> {
-    return this.#store.append(turn);
+    return this.store.append(turn);
   }
   complete(turnId: string, outcome: TurnOutcome): Promise<void> {
-    return this.#store.complete(turnId, outcome);
+    return this.store.complete(turnId, outcome);
   }
-  completeIfStatus(
-    turnId: string,
-    expected: ExecutionRecordStatus,
-    outcome: TurnOutcome,
-  ): Promise<boolean> {
-    return this.#store.completeIfStatus(turnId, expected, outcome);
+  completeIfStatus(...args: Parameters<TurnStore["completeIfStatus"]>): Promise<boolean> {
+    return this.store.completeIfStatus(...args);
   }
   lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
-    return this.#store.lastTurns(tenantId, threadId, limit);
+    return this.store.lastTurns(tenantId, threadId, limit);
   }
   byIds(ids: readonly string[]): Promise<Turn[]> {
-    return this.#store.byIds(ids);
+    return this.store.byIds(ids);
   }
   findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]> {
-    return this.#store.byStatus(status, limit, after);
+    return this.store.byStatus(status, limit, after);
   }
   findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined> {
-    return this.#store.findByTenantIdAndRunId(tenantId, runId);
+    return this.store.findByTenantIdAndRunId(tenantId, runId);
   }
   byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]> {
-    return this.#store.byVersion(workflow, promptVersion, limit);
+    return this.store.byVersion(workflow, promptVersion, limit);
   }
   unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]> {
-    return this.#store.unscored(workflow, promptVersion, limit);
+    return this.store.unscored(workflow, promptVersion, limit);
   }
   saveScore(turnId: string, judge: string, score: number): Promise<void> {
-    return this.#store.saveScore(turnId, judge, score);
+    return this.store.saveScore(turnId, judge, score);
   }
   meanScore(turnIds: readonly string[]): Promise<number | null> {
-    return this.#store.meanScore(turnIds);
+    return this.store.meanScore(turnIds);
   }
   summary(workflow: string): Promise<VersionScore[]> {
-    return this.#store.summary(workflow);
+    return this.store.summary(workflow);
   }
   rememberConfig(...args: Parameters<TurnStore["rememberConfig"]>): Promise<{ drift: boolean }> {
-    return this.#store.rememberConfig(...args);
+    return this.store.rememberConfig(...args);
   }
   configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]> {
-    return this.#store.configSnapshots(workflow, version);
+    return this.store.configSnapshots(workflow, version);
   }
   recentOriginals(workflow: string, limit: number): Promise<Turn[]> {
-    return this.#store.recentOriginals(workflow, limit);
+    return this.store.recentOriginals(workflow, limit);
   }
   uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]> {
-    return this.#store.uncovered(tenantId, threadId, compaction);
+    return this.store.uncovered(tenantId, threadId, compaction);
   }
   before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]> {
-    return this.#store.before(tenantId, threadId, turnId, limit);
+    return this.store.before(tenantId, threadId, turnId, limit);
   }
   turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number> {
-    return this.#store.turnNumber(tenantId, threadId, turnId);
+    return this.store.turnNumber(tenantId, threadId, turnId);
   }
   addSummary(summary: NewSummary): Promise<Summary> {
-    return this.#store.addSummary(summary);
+    return this.store.addSummary(summary);
   }
   latestSummaries(...args: Parameters<TurnStore["latestSummaries"]>): Promise<Summary[]> {
-    return this.#store.latestSummaries(...args);
+    return this.store.latestSummaries(...args);
   }
   summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {
-    return this.#store.summaryCount(tenantId, threadId, compaction);
+    return this.store.summaryCount(tenantId, threadId, compaction);
   }
-  savePauseAnswer(
-    tenantId: string,
-    rootExecutionId: string,
-    answer: PauseAnswerRecord,
-  ): Promise<void> {
-    return this.#store.appendPauseAnswer(pauseAnswerEntryOf(tenantId, rootExecutionId, answer));
+  savePauseAnswer(...args: AnswerArgs): Promise<void> {
+    return this.store.appendPauseAnswer(pauseAnswerEntryOf(...args));
+  }
+  markPauseAnswerNotTaken(...args: AnswerArgs): Promise<void> {
+    return this.store.markNotTaken(pauseAnswerEntryOf(...args));
   }
   async findPauseAnswersByTenantIdAndRootExecutionId(
-    tenantId: string,
-    rootExecutionId: string,
+    ...args: Parameters<TurnStore["pauseAnswersOf"]>
   ): Promise<PauseAnswerRecord[]> {
-    const records = await this.#store.pauseAnswersOf(tenantId, rootExecutionId);
+    const records = await this.store.pauseAnswersOf(...args);
+    const { pauseAnswerRecordOfJson } = await lazyLoad(import("./pause-answer-log.js"));
     return records.map(pauseAnswerRecordOfJson);
   }
 }

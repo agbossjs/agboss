@@ -3,13 +3,14 @@
  * pending — each as its record says now (its kind, its step, its ask), so a run stored before 0.1.1,
  * whose `pending` names `agent`, reads like any other.
  */
+import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { InMemoryExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { RandomIdGenerator } from "../../src/infrastructure/clock.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { stillPending } from "../../src/app/current-output.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import type { PauseSeam, WaitingPause } from "../../src/pause/types.js";
 import {
   pausedRunOf,
@@ -41,6 +42,7 @@ describe("#801: the pauses still pending, as their records say", () => {
       "p-answered",
       { decision: { approved: true }, answeredBy: "manager-17" },
       new Date(0),
+      NO_RECIPIENTS,
     );
     const stored = {
       ...pausedRunOf("thread-1").run,

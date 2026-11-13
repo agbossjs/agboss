@@ -27,7 +27,7 @@ import { ComponentError } from "../components/metadata.js";
 import type { AnyTool } from "../tools/index.js";
 import type { PauseSeam, PauseWithdrawn } from "../pause/index.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import type { PauseAnswerLog } from "../infrastructure/pause-record.js";
+import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";

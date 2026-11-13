@@ -16,10 +16,8 @@ import {
   ExecutionTreeRepository,
   InMemoryExecutionTreeRepository,
 } from "./execution-tree.repository.js";
-import {
-  InMemoryPausedExecutionRepository,
-  PausedExecutionRepository,
-} from "./paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "./in-memory-paused-execution.repository.js";
+import { PausedExecutionRepository } from "./paused-execution.repository.js";
 import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.repository.js";
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
 import { A2ATaskRepository } from "./a2a-task.repository.js";

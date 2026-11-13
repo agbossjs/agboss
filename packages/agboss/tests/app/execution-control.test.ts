@@ -17,7 +17,7 @@ import {
 } from "../../src/app/execution-control.js";
 import { withReservedExecutionId } from "../../src/app/tree-control.js";
 import { ExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";

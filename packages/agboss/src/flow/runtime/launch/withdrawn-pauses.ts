@@ -3,6 +3,7 @@ import { extractRunContext } from "../../../core/run-context.js";
 import {
   cancelledPause,
   logPauseAnswer,
+  NO_RECIPIENTS,
   PauseResolution,
   PauseStatus,
   type PauseCancellation,
@@ -48,8 +49,14 @@ export async function withdrawPause(
 ): Promise<boolean> {
   const { tenantId, pauseId } = pause;
   const { resolution, at, tree } = closing;
-  if (!(await stores.pauses.cancelByTenantIdAndPauseId(tenantId, pauseId, resolution, at)))
-    return false;
+  const cancelled = await stores.pauses.cancelByTenantIdAndPauseId(
+    tenantId,
+    pauseId,
+    resolution,
+    at,
+    NO_RECIPIENTS,
+  );
+  if (cancelled === undefined) return false;
   await logPauseAnswer(stores.answers, cancelledPause(pause, resolution, at), resolution);
   const closed = await stores.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
   if (closed?.isSent === true && stores.withdrawn !== undefined)

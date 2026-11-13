@@ -4,6 +4,7 @@ import {
   PauseStatus,
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
+import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
@@ -40,12 +41,15 @@ export const QUESTION_PAUSE_CASES: readonly ContractCase<PausedExecutionReposito
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(questionPauseOf("pause-q"));
 
-      expect(await second.markSentByTenantIdAndPauseId("default", "pause-q")).toBe(true);
+      expect(await second.markSentByTenantIdAndPauseId("default", "pause-q", NO_RECIPIENTS)).toBe(
+        true,
+      );
       const resolved = await first.resolveByTenantIdAndPauseId(
         "default",
         "pause-q",
         QUESTION_ANSWER,
         NINE,
+        NO_RECIPIENTS,
       );
       expect(resolved?.status).toBe(PauseStatus.Resolved);
       await second.markTakenByTenantIdAndPauseId("default", "pause-q");

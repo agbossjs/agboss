@@ -264,8 +264,17 @@ export enum StoreHoldPoint {
     // (undocumented)
     OutboundSaveIfAbsent = "outboundCall.saveIfAbsent",
     PauseCancel = "pause.cancel",
+    PauseCloseUntaken = "pause.closeUntaken",
+    PausedRunDelete = "pausedRun.delete",
+    PauseExpire = "pause.expire",
+    PauseExtend = "pause.extend",
     PauseFind = "pause.find",
+    PauseMarkSent = "pause.markSent",
     PauseMarkTaken = "pause.markTaken",
+    PauseNoticeAck = "pauseNotice.ack",
+    PauseNoticeClaim = "pauseNotice.claim",
+    PauseNoticeOnce = "pause.noticeOnce",
+    PauseRemind = "pause.remind",
     PauseResolve = "pause.resolve",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }

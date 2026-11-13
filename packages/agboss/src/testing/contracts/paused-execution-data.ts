@@ -8,6 +8,8 @@ import {
 } from "../../infrastructure/paused-execution.repository.js";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import { PauseKind, questionAskOf } from "../../infrastructure/pause-record.js";
+import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
+import type { PauseRecipients } from "../../infrastructure/pause-notices.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 
 /** The data of the paused-execution contract: paused runs, pauses and answers. */
@@ -105,3 +107,30 @@ export const QUESTION_ANSWER: PauseAnswer = {
   decision: { approved: true, limitUsd: 900 },
   answeredBy: "manager-17",
 };
+
+/** The deadline of the pauses of the deadline cases, and the instants a millisecond around it. */
+export const DEADLINE = new Date("2026-01-05T10:00:00.000Z");
+export const BEFORE_DEADLINE = new Date(DEADLINE.getTime() - 1);
+/** An instant between the reminder and the deadline of `expiringPauseOf`. */
+export const MID = new Date("2026-01-05T09:45:00.000Z");
+export const AFTER_DEADLINE = new Date(DEADLINE.getTime() + 1);
+
+/** A pause with a deadline at `DEADLINE` and a reminder half an hour before it. */
+export const expiringPauseOf = (
+  pauseId: string,
+  stepKey = "run-1:clerk-agent:1:call-1",
+): PauseRecord => ({
+  ...pauseOf(pauseId, stepKey),
+  expiresAt: DEADLINE.toISOString(),
+  expiryBound: PauseExpiryBound.Pause,
+  remindAt: "2026-01-05T09:30:00.000Z",
+});
+
+/** The receivers of the notice cases: the pause's channel and two listeners. */
+export const RECIPIENTS: PauseRecipients = {
+  channel: "refund-approval-channel",
+  listeners: ["audit-listener", "slack-listener"],
+};
+export const CHANNEL_KEY = "channel:refund-approval-channel";
+export const LISTENER_KEYS = ["listener:audit-listener", "listener:slack-listener"] as const;
+export const ALL_KEYS = [CHANNEL_KEY, ...LISTENER_KEYS] as const;

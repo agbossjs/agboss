@@ -5,12 +5,14 @@ import type {
   A2ATaskStatus,
   NewA2ATask,
 } from "../../infrastructure/a2a-task.repository.js";
+import type { PauseNoticeClaim } from "../../infrastructure/pause-notices.js";
 import { StoreHoldPoint, type StoreMethod } from "./store-points.js";
 
 /**
  * The A2A hold points (#811 AC4): the A2A task store's accept (`saveIfAbsent`) and status writes
- * (`compareAndSetStatus`), and the pause store's two atomic transitions a resume and a cancel race
- * on (`resolveByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`). The history keeps identities,
+ * (`compareAndSetStatus`), and the pause store's atomic transitions (a resume and a cancel race on
+ * `resolveByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`; #935: its marks, expiry, notices and
+ * paused-run delete). The history keeps identities,
  * states and codes only — never a message, an answer or a pause's question.
  */
 
@@ -54,6 +56,20 @@ export const A2A_TASK_METHODS: Readonly<Record<string, StoreMethod>> = {
   },
 };
 
+/** Whether a held call's argument is a claimed mailbox (#935): read only for its identity. */
+const isClaim = (value: unknown): value is PauseNoticeClaim =>
+  typeof value === "object" &&
+  value !== null &&
+  "mailbox" in value &&
+  typeof value.mailbox === "object" &&
+  value.mailbox !== null &&
+  "pauseId" in value.mailbox &&
+  "recipient" in value.mailbox;
+
+/** The key of a mailbox: its recipient and pause id; `undefined` for anything else. */
+const mailboxKeyOf = (value: unknown): string | undefined =>
+  isClaim(value) ? `${value.mailbox.recipient}:${value.mailbox.pauseId}` : undefined;
+
 /** A pause store's method keyed by the pause's id (`(tenantId, pauseId, …)`). */
 const onPause = (point: StoreHoldPoint): StoreMethod => ({
   point,
@@ -69,6 +85,30 @@ const onPause = (point: StoreHoldPoint): StoreMethod => ({
 export const PAUSE_METHODS: Readonly<Record<string, StoreMethod>> = {
   resolveByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseResolve),
   cancelByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseCancel),
+  markSentByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseMarkSent),
+  expireByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseExpire),
+  closeUntakenByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseCloseUntaken),
+  extendByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseExtend),
+  remindByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseRemind),
+  noticeOnceByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseNoticeOnce),
+  claimNoticesDue: {
+    point: StoreHoldPoint.PauseNoticeClaim,
+    keyOf: () => undefined,
+    inputOf: (args) => ({ limit: args[1] }),
+    outputOf: (claims) => ({ claimed: Array.isArray(claims) ? claims.length : 0 }),
+  },
+  ackNotice: {
+    point: StoreHoldPoint.PauseNoticeAck,
+    keyOf: (args) => mailboxKeyOf(args[0]),
+    inputOf: (args) => ({ mailbox: mailboxKeyOf(args[0]) }),
+    outputOf: (next) => ({ isMore: next !== undefined }),
+  },
+  deleteByTenantIdAndThreadIdAndRunId: {
+    point: StoreHoldPoint.PausedRunDelete,
+    keyOf: (args) => String(args[2]),
+    inputOf: (args) => ({ tenantId: args[0], threadId: args[1], runId: args[2] }),
+    outputOf: () => null,
+  },
   markTakenByTenantIdAndPauseId: {
     ...onPause(StoreHoldPoint.PauseMarkTaken),
     outputOf: () => null,

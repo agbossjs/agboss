@@ -12,7 +12,7 @@ import {
   ExecutionTreeRepository,
   InMemoryExecutionTreeRepository,
 } from "../../src/infrastructure/execution-tree.repository.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { UndoDesk, UndoDeskError } from "../flow/runtime/fixtures/undo.workflow.js";

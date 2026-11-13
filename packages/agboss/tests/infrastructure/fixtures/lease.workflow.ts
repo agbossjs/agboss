@@ -19,7 +19,7 @@ import {
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TurnStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
 import {
   createSqliteTurnStore,

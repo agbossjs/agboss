@@ -12,7 +12,7 @@ import type { Class } from "../../src/components/injection.js";
 import { Agent, GraphRuleError, Injectable, Workflow, WorkflowFinish } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
-import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testDefaults } from "../helpers.js";

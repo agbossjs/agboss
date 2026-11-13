@@ -8,7 +8,7 @@ import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
-import type { PauseAnswerLog } from "../../infrastructure/pause-record.js";
+import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import type { PauseWithdrawn } from "../../pause/index.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";

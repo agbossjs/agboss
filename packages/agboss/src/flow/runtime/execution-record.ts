@@ -82,4 +82,9 @@ export interface PauseAnswerRecord {
    * record kept before #688.
    */
   readonly asked?: unknown;
+  /**
+   * `false` when an answer was recorded and its run never applied it (its tree ended before the step
+   * took it; I12): the answer and who gave it are kept. Absent: taken, or no answer.
+   */
+  readonly isTaken?: false;
 }
