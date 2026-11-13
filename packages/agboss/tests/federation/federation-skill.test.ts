@@ -35,7 +35,7 @@ function earlierContracts(member: FederationMember): unknown {
       const { skill, ...rest } = exported;
       return { ...rest, start: skill };
     }),
-    imports: member.contracts.imports.flatMap((contract) => {
+    imports: member.contracts.imports.flatMap((contract): readonly unknown[] => {
       if (contract.kind !== "a2a") return [contract];
       if (contract.foreign) return [];
       const { foreign: _foreign, target, ...rest } = contract;
