@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { workflowDeclaration, writeApplication } from "../scaffold/application-fixture.js";
 import { agboss, envelope } from "./agboss.js";
 
@@ -23,6 +23,12 @@ function project(): string {
   return root;
 }
 
+// the sync reads os.homedir() for the shadow check: not the machine's own ~/.claude/skills/agboss
+beforeAll(() => {
+  process.env.HOME = mkdtempSync(join(tmpdir(), "agboss-home-"));
+  process.env.USERPROFILE = process.env.HOME;
+});
+
 describe("#305 AC4: agboss generate syncs the project skills", () => {
   it("before writing: the skills line first, then the files written", async () => {
     const root = project();
@@ -32,21 +38,21 @@ describe("#305 AC4: agboss generate syncs the project skills", () => {
     expect(call.code, call.stderr).toBe(0);
     const lines = call.stdout.split("\n");
     const skills = lines.findIndex((line) =>
-      line.startsWith("skills: .claude/skills/agboss installed"),
+      line.startsWith("skills: .agents/skills/agboss installed"),
     );
     const written = lines.findIndex((line) =>
       line.includes("src/workflows/checkout/checkout.workflow.ts"),
     );
     expect(skills).toBeGreaterThanOrEqual(0);
     expect(written).toBeGreaterThan(skills);
-    expect(existsSync(join(root, ".claude/skills/agboss/SKILL.md"))).toBe(true);
+    expect(existsSync(join(root, ".agents/skills/agboss/SKILL.md"))).toBe(true);
   });
 
   it("--json carries result.skills; --dry-run syncs nothing", async () => {
     const root = project();
 
     const dry = await agboss(["generate", "workflow", "checkout-workflow", "--dry-run"], root);
-    const isSyncedByDryRun = existsSync(join(root, ".claude/skills/agboss"));
+    const isSyncedByDryRun = existsSync(join(root, ".agents/skills/agboss"));
     const call = await agboss(["generate", "workflow", "checkout-workflow", "--json"], root);
 
     expect(dry.stdout).not.toContain("skills:");

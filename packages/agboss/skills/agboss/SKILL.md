@@ -1,6 +1,9 @@
 ---
 name: agboss
 description: How to write and change AGBoss applications (decorators, the flow DSL, DI, budgets, tests, CLI). Use on any task in this project that touches src/, tests/ or an agboss command.
+license: Apache-2.0
+metadata:
+  agboss-version: "0.1.1"
 ---
 
 <!-- agboss-skills-version: 0.1.1 — managed by `agboss check`; edits here are replaced -->

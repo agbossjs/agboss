@@ -60,34 +60,54 @@ describe("#268 AC8: agboss create", () => {
       expect.arrayContaining([
         "AGENTS.md",
         "CLAUDE.md",
-        ".claude/skills/agboss/SKILL.md",
-        ".claude/skills/agboss/.agboss-skills.json",
-        ".claude/skills/agboss/references/01-composition-and-architecture.md",
-        ".claude/skills/agboss/references/12-end-to-end-recipes.md",
+        ".agents/skills/agboss/SKILL.md",
+        ".agents/skills/agboss/.agboss-skills.json",
+        ".agents/skills/agboss/references/01-composition-and-architecture.md",
+        ".agents/skills/agboss/references/12-end-to-end-recipes.md",
       ]),
     );
     expect(
-      paths.filter((path) => path.startsWith(".claude/skills/agboss/references/")),
+      paths.filter((path) => path.startsWith(".agents/skills/agboss/references/")),
     ).toHaveLength(13);
     expect(content("CLAUDE.md")).toBe("@AGENTS.md\n");
     expect(content("AGENTS.md")).toContain("# Desk — instructions for coding agents");
     expect(content("AGENTS.md")).toContain("application (`src/desk.application.ts`)");
     expect(content("AGENTS.md")).toContain(
-      "`.claude/skills/agboss/references/11-cli-studio-and-error-catalog.md`",
+      "`.agents/skills/agboss/references/11-cli-studio-and-error-catalog.md`",
     );
     expect(content("AGENTS.md")).toMatch(/## Project rules\n$/);
-    const manifest = JSON.parse(content(".claude/skills/agboss/.agboss-skills.json")) as {
+    const manifest = JSON.parse(content(".agents/skills/agboss/.agboss-skills.json")) as {
       version: string;
       files: Record<string, string>;
     };
     expect(Object.keys(manifest.files)).toHaveLength(14);
-    expect(content(".claude/skills/agboss/SKILL.md")).toContain(
+    expect(content(".agents/skills/agboss/SKILL.md")).toContain(
       `<!-- agboss-skills-version: ${manifest.version} — managed by \`agboss check\``,
     );
-    expect(files.find((file) => file.path === ".claude/skills/agboss/SKILL.md")?.isVerbatim).toBe(
+    expect(files.find((file) => file.path === ".agents/skills/agboss/SKILL.md")?.isVerbatim).toBe(
       true,
     );
-    expect(content(".gitignore")).toContain("\n.claude/skills/agboss/\n");
+    // #983: the folder is committed, only the link is ignored — no trailing slash, git does not take a link for a folder
+    const ignored = content(".gitignore").split("\n");
+    expect(ignored).toContain(".claude/skills/agboss");
+    expect(ignored).not.toContain(".claude/skills/agboss/");
+    expect(ignored).not.toContain(".agents/skills/agboss/");
+    expect(ignored).toContain(".agents/.agboss-skills-*");
+  });
+
+  it("#983 AC1: AGENTS.md names .agents/skills/agboss and says Claude Code reads it through the link; no path of the old folder is left", () => {
+    expect(content("AGENTS.md")).toContain(
+      "Claude Code reads it through the `.claude/skills/agboss` link",
+    );
+    expect(content("AGENTS.md")).not.toContain(".claude/skills/agboss/references");
+    expect(content("eslint.config.js")).toContain(".agents/skills/agboss/SKILL.md");
+    expect(content(".graphifyignore").split("\n")).toEqual(
+      expect.arrayContaining([".agents/skills/agboss/", ".claude/skills/agboss/"]),
+    );
+  });
+
+  it("#983 AC1: .gitattributes keeps the committed skills LF, so a CRLF checkout is no edit", () => {
+    expect(content(".gitattributes")).toContain(".agents/skills/agboss/** text eol=lf");
   });
 
   it("the code conventions (#280): explicit return types, implements …Handler, fields named after their type, the contexts through deps", () => {
@@ -150,7 +170,7 @@ describe("#480: the project comes ready for graphify", () => {
   });
 
   it("#480: the shipped SKILL.md queries the graph when there is one, and skips it when there is none", () => {
-    const skill = content(".claude/skills/agboss/SKILL.md");
+    const skill = content(".agents/skills/agboss/SKILL.md");
     expect(skill).toContain("## Code graph (optional)");
     expect(skill).toContain("When the project has `graphify-out/graph.json`");
     expect(skill).toContain("Without `graphify-out/`, skip this");

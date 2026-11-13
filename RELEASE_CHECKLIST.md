@@ -309,11 +309,11 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
        fi
      )
    done
-   npm run install:packed:restore && test -z "$(git status --short | grep -v '/.claude/skills/agboss/')"
+   npm run install:packed:restore && test -z "$(git status --short | grep -v '/.agents/skills/agboss/')"
    ```
 
-   `agboss check` syncs each example's `.claude/skills/agboss/` to the candidate's skills: those
-   files, and only those, differ after the restore; they are committed with step 3's pin PR.
+   `agboss check` syncs each example's `.agents/skills/agboss/` to the candidate's skills (and makes the
+   git-ignored `.claude/skills/agboss` link): those files, and only those, differ after the restore; they are committed with step 3's pin PR.
 
    - **Expected outcome:** every example, `08-job-scout` included, passes `check`, `test` and its live demo against the packed candidate; `08`'s demo prints a ranked shortlist and its cost report.
    - **Failure / stop condition:** stop if a step is unclear, if an example fails, or if an example passes only offline — fix the framework or the example first, never release around it.

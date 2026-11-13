@@ -3,7 +3,10 @@ node_modules
 dist
 coverage
 .agboss
-# the AGBoss skills: written by agboss check (npm install runs it), replaced on upgrades
-.claude/skills/agboss/
+# the AGBoss skills (.agents/skills/agboss/) are committed; this link to them is made on each machine by
+# agboss check (npm install runs it) — no trailing slash: git does not take a link for a folder
+.claude/skills/agboss
+# what an interrupted skills sync leaves
+.agents/.agboss-skills-*
 # the code graph for coding agents: built by `graphify update .` (AGENTS.md)
 graphify-out/

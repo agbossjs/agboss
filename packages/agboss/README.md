@@ -439,13 +439,19 @@ for agents:
 - `AGENTS.md` (Cursor, Codex, …) — the project's instructions and a table routing each task to one
   reference; put the project's own rules under its `## Project rules`;
 - `CLAUDE.md` — one line, `@AGENTS.md` (Claude Code reads `CLAUDE.md`);
-- `.claude/skills/agboss/` — the skills and their manifest (`.agboss-skills.json`: the version and a
-  sha256 per file), git-ignored.
+- `.agents/skills/agboss/` — the skills and their manifest (`.agboss-skills.json`: the version and a
+  sha256 per file): one copy, committed with the project, which Codex, Cursor, GitHub Copilot, Gemini CLI,
+  Antigravity and Windsurf read natively. `.claude/skills/agboss` is a local link to it (a symlink, on
+  Windows a junction) for Claude Code and Cline, made on each machine by `agboss check` and git-ignored.
 
 `AGENTS.md` and `CLAUDE.md` are written once and never rewritten. The skills folder is the
 framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev` and
-`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
-`[skills.local-edit]` when a file was edited by hand. A problem is a warning
+`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
+`[skills.local-edit]` when a file was edited by hand. A 0.1.x project's `.claude/skills/agboss/` folder is
+moved to `.agents/skills/agboss/` once (`[skills.moved]`: commit the folder, and in `.gitignore` replace
+`.claude/skills/agboss/` with `.claude/skills/agboss`, no trailing slash); the link is checked on every run
+(`[skills.link-blocked]`, `[skills.link-failed]` say what to do), and a personal `~/.claude/skills/agboss`
+of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem is a warning
 (`[skills.sync-failed]`, `[skills.no-framework]`) and never changes the exit code; `--json` carries
 `result.skills`. `"agboss": { "skills": false }` in `package.json` turns the sync off. More:
 [AI Coding Skills](https://agboss.dev/concepts/ai-coding-skills/) · [Wiki → CLI](https://github.com/agbossjs/agboss/wiki/CLI).

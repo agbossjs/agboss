@@ -3,7 +3,7 @@
  * its workflow assembles — right after `create` and after each `generate`. Generated inside the monorepo
  * (its installed dependencies); a real `npm install` is the manual check M1.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { specFromFlags } from "../../src/scaffold/flags.js";
@@ -11,6 +11,7 @@ import { FINISH_ROUTE_TEXT } from "../../src/scaffold/flow-files.js";
 import { planGenerate } from "../../src/scaffold/generate.js";
 import type { WorkflowSpec } from "../../src/scaffold/plan.js";
 import { planProject } from "../../src/scaffold/project.js";
+import { linkProjectSkills } from "../../src/scaffold/skills-files.js";
 import { applyChanges } from "../../src/scaffold/write.js";
 import { expectStaticChecks, agbossIn, lintOf, vitestOf } from "./project-checks.js";
 
@@ -69,12 +70,23 @@ describe("agboss create / agboss generate end to end", () => {
       rag: "notes",
     }) as WorkflowSpec;
     await applyChanges(project, { create: planProject(spec), modify: [] });
+    const linkWarnings = linkProjectSkills(project); // what `agboss create` does after writing
 
     const out = check();
 
     // #305 AC3: the coding agents' files; the skills create wrote are current for agboss check
-    for (const file of ["AGENTS.md", "CLAUDE.md", ".claude/skills/agboss/SKILL.md"])
+    for (const file of ["AGENTS.md", "CLAUDE.md", ".agents/skills/agboss/SKILL.md"])
       expect(existsSync(join(project, file)), file).toBe(true);
+    // #983 AC1: fresh project: one copy, the Claude link resolves to it
+    expect(linkWarnings).toEqual([]);
+    expect(lstatSync(join(project, ".claude/skills/agboss")).isSymbolicLink()).toBe(true);
+    expect(
+      new Set(
+        [".agents/skills/agboss/SKILL.md", ".claude/skills/agboss/SKILL.md"].map((file) =>
+          realpathSync(join(project, file)),
+        ),
+      ).size,
+    ).toBe(1);
     expect(agbossIn(project, ["check"]).out).not.toContain("skills:");
     expect(out).toContain("desk-workflow 0.1.0");
     // #272: the generated workflow is one path — start → main router → an agent → the finish
