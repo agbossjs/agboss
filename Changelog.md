@@ -3,6 +3,11 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: the fault suite's tails (#959)
+
+- **Added (fault suite, contracts)**: `faultSuite` measures the store's clock rate and refuses a `storeTime` declaration it contradicts (`[fault-suite.store-time-mismatch]`); the fenced-effect contract runs the take of an **expired** lease inside an open write (a store whose open write holds off a release but not an expiry fails it); scenario 19 kills a pod around a pause (paused, answering, resuming) on every store set; scenario 5e, its sabotage built from the set's own fenced-effect store, is one of the suite's built-in sabotages (`sabotages: false` still shows it skipped). `one-owner` fails on a stale write the store kept at the current epoch even though the new holder replayed it. [Your own store](Your-own-store), [Guarantees across processes](Guarantees-across-processes).
+- **Migration**: none. A set on a store whose clock disagrees with its `storeTime` at a `timeScale` above 1 now fails: declare what the stores decide by.
+
 ## Unreleased — 0.1.1: one meaning per name — `answeredBy` is who answered, `answerer` is who may (#934, API review Q3, Q13)
 
 - **Changed — breaking (silent)**: `PauseAnswerRecord.answeredBy` (`result.record.pauses[i]`, the answer log,

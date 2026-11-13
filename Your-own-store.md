@@ -465,7 +465,12 @@ storeConformance({
   - the lease released and taken **while** its holder's fenced write runs, the new holder writing
     nothing (#695): the take waits for the write, or the write is refused. The zombie's race above
     writes the same key on both sides, so a unique result row hides a lease check that takes no
-    lock; this one does not. A store whose work must be synchronous (SQLite) passes it trivially.
+    lock; this one does not. A store whose work must be synchronous (SQLite) passes it trivially;
+  - the lease **running out** while its holder's fenced write is open, and the other instance taking
+    the expired lease (#959): the same rule by expiry instead of release. It runs on real time with
+    the store's own clock (a 300 ms lease, the write waits past it). A store whose open write holds
+    off a release but not the take of an expired lease (a lock keyed on the released state) passes
+    the case above and fails this one.
 
   The core proves they bite: deliberately broken sets fail them, each on the rule it breaks
   (`tests/testing/contracts/broken-store-set.test.ts`, `contract-gaps.test.ts`): check-then-write,
@@ -618,7 +623,11 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
   `FaultStoreTime.Database` for a store that reads its database's own clock in each statement
   (PostgreSQL's `clock_timestamp()`, MongoDB's `$$NOW`, Redis's `TIME`), `FaultStoreTime.Host` for
   one on the process's clock (the core's in-memory and SQLite stores). The suite reads the run's
-  history on it. A set without it does not start its pods (`[fault-suite.store-time]`).
+  history on it. A set without it does not start its pods (`[fault-suite.store-time]`). The
+  declaration is **checked** (#959): the first pod of a run, at a `timeScale` above 1, takes two
+  leases a real wait apart and reads how far the store's time moved. A declaration the rate
+  contradicts (a store on its database's clock declared `Host`, or the reverse) fails the suite with
+  `[fault-suite.store-time-mismatch]`. At `timeScale: 1` the two times are one rate: nothing to check.
 
 Import from `@agboss/core/testing/faults` the types and `FaultStoreTime` only. A pod runs outside
 vitest.

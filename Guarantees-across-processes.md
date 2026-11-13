@@ -57,7 +57,7 @@ A run fails with `FaultInvariantError`, naming each invariant it broke:
 
 | Invariant | What must hold |
 | --- | --- |
-| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant; a write counts on any answer but an error — `replayed` and an outbound call's `false` too, since the lease check comes first and a refusal throws). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. |
+| `one-owner` | Each epoch of a lease is granted once, and epochs grow. A write the store accepted at token N came from the holder of epoch N, and a write at a token no grant of its key gave is a violation (#840: a forged or unrecorded token fails, never passes for want of a grant; a write counts on any answer but an error — `replayed` and an outbound call's `false` too, since the lease check comes first and a refusal throws). **No write is accepted at token N after epoch N + 1 was granted.** One takeover row per token. **A write whose pod died before the answer** (#876) is checked against the rows the store kept (each fenced effect's stored token, each outbound call's row): the row is that write's unless a write that **ran** and was answered at the row's token explains it — a replayed answer wrote nothing and explains no row (#959), so a stale write a store let through at the lease's current epoch is a `one-owner` violation on its own. |
 | `finished-work-untouched` | No lease is granted for work whose lease was finished (#520). |
 | `children-once` | Every order of a batch is one child of it, finished. Each child's queue row was completed once (`childQueue.complete` accepted once), and each finished child's end was heard at most once, never twice, by the pods' observers (#562; a pod killed between a child's completion and its announcement leaves the end unannounced, which is allowed). |
 | `effects-once` | Each order execution that finished has one business row and at most one `Ran`; the other calls are `Replayed`, `Joined` or `Refused`. Each order was paid once at the gateway, reached it once, under one idempotency key, with at most one `Sent`. |
@@ -128,6 +128,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 14 | The gateway charges and its answer is lost (a 502, an error of unknown outcome, #657); the pod killed in the failed tree's undo; the gateway forgets the key; the order paid again | The intent stays pending, not `Failed`; the next pod finishes the undo (`Unwinding`), the second tree reconciles the first charge by the order's reference (`Reconciled`): one request, one payment | `s14-ambiguous-answer-reconciled` (`s14-s15-key-expiry.test.ts`) |
 | 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's `reconcile` is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`notSent()`); the framework refuses the resend past the `KeyReplay`'s `keyRetention` (`OutboundCallUnreconciledError`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
 | 16 | The pod that hosts a batch hears no answer to two of its claims of a child: the store claimed the child for it, `Running`, and the answer was lost (#720; on PostgreSQL a claim statement that marked several rows and returned one) | The parent's watch has the pod reclaim the child; the lease it keeps for its own next claim goes back when that claim is lost too, and the next reclaim and claim run the child: once, and the batch ends. Before #720 the kept lease was renewed for ever with nothing running, and the batch never ended (with the fix reverted, 16 fails on `trees-finish`) | `s16-claim-answer-lost` |
+| 19 | A pod killed (`SIGKILL`) around its order's pause (#959): while the tree is paused; right after its resume recorded the answer; while the resumed pass runs | A resume on another pod finishes the paused tree; another pod's recovery continues the answered one with the recorded answer; another pod takes the resumed pass over from its expired lease. Each order is reserved once, charged once and paid once | `s19-pause-kill-paused`, `s19b-pause-kill-answering`, `s19c-pause-kill-resuming` (`s19-pause.test.ts`) |
 
 **The scenarios bite.** A broken store — a sabotage — must fail the scenario that targets it.
 These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
@@ -146,6 +147,15 @@ These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
   it fails 5d on `effects-once` and `linearizable`. The zombie's `renewNow()` right before its
   send passes, so the order reaches the gateway twice (the gateway's own idempotency key makes it
   one payment, but the framework sent twice), and the stale renewal fits no sequential order.
+- A fenced-effect store that **lets a stale token through at the lease's current epoch and kills its
+  pod before the answer** (#876, #959; `s05e-zombie-dies-unanswered`): built from the set's own
+  fenced-effect store, so every set runs it. The store's row keeps the write at the epoch it was let
+  through at, the new holder replays it, and only `one-owner`, reading the rows, tells it. The case
+  waits for the zombie's exit, not for the release's ack (on an async store the ack returns before the
+  write runs).
+- A pause store that keeps no paused run, a record store that forgets a resting root's
+  `paused → running` mark, and a pause store that loses the answer it recorded (#959): 19, 19b and 19c
+  fail `trees-finish` — the tree is never continued (`tests/faults/s19-pause.test.ts`).
 - A tree store that **forgets every undo's done mark** (`@agboss/compensated/…`, #607): it fails
   12b on `no-undo-on-hand-over`, because the next pod releases the reservation a second time.
 - A payment integration that takes **every gateway error for a definite failure** (as before
