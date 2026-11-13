@@ -1450,6 +1450,14 @@ On A2A the output artifact shows one step at a time: a retry or another step sta
 it with an empty last chunk before its final status. `agboss run` prints `[Retracted: <reason>]`
 to stderr.
 
+The stream is **revealed and trimmed as the reply is** (#1007): when the agent has PII policies, a
+token the model wrote (`<email:9cf08e>`) is shown as the value the run's map holds, also when the
+model writes it in pieces — a `<` is held back only while what follows can still be a token, so a
+`<` in code text costs one character of delay; a token the run never minted is shown as its kind
+(`<email>`) and the attempt is refused as an invalid answer. Leading whitespace of a reply is not
+streamed and trailing whitespace is held until text follows it, so the deltas of the steps that
+were not discarded, joined, are exactly `output`.
+
 **Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
 wake and write after the new holder did. `executionContext.fence` is the lease the step runs under
 — `scopeKey`, `token` (the fencing token, a counter of that one lease), `assertHeld()`,

@@ -59,7 +59,7 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
     expect(events).toEqual([
       {
         kind: "textDelta",
-        delta: "  A fine answer.\n",
+        delta: "A fine answer.",
         step: { agent: "guarded-agent", visit: 1, branch: done.executionId, attempt: 1 },
       },
     ]);

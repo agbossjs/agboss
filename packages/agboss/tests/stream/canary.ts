@@ -34,3 +34,36 @@ export function useCanary(): void {
 /** How many canaries the user's stream heard. */
 export const canaries = (events: readonly ExecutionStreamEvent[]): number =>
   events.filter((event) => event.kind === "textDelta" && event.delta === CANARY).length;
+
+/**
+ * Scripted chat models write their text in pieces of `size` characters, as a streaming provider
+ * does (the scripted model writes a text as one token): `useChunks()` installs it for a test file,
+ * the test sets `chunks.size` (default 1).
+ */
+export const chunks = { size: 1 };
+
+export function useChunks(): void {
+  const original: ScriptedChatModel["_generate"] = Reflect.get(
+    ScriptedChatModel.prototype,
+    "_generate",
+  );
+  beforeEach(() => {
+    chunks.size = 1;
+    ScriptedChatModel.prototype._generate = async function (
+      this: ScriptedChatModel,
+      messages,
+      options,
+      runManager,
+    ) {
+      const result = await original.call(this, messages, options, undefined);
+      const text = result.generations[0]?.text ?? "";
+      for (let at = 0; at < text.length; at += chunks.size) {
+        await runManager?.handleLLMNewToken(text.slice(at, at + chunks.size));
+      }
+      return result;
+    };
+  });
+  afterEach(() => {
+    ScriptedChatModel.prototype._generate = original;
+  });
+}

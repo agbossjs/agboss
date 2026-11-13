@@ -18,10 +18,10 @@ import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./stat
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { MaskedRequest } from "../../pii/model-boundary.js";
-import { maskedRequest, outgoingMove } from "./model-pii.js";
+import { loopPoliciesOf, maskedRequest, outgoingMove } from "./model-pii.js";
 import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
-import { AnswerTokenHandler, withAnswerHandler } from "../../run/stream/answer-handler.js";
-import { agentStreamOf, type AttemptStream } from "../../run/stream/agent-stream.js";
+import type { AttemptStream } from "../../run/stream/agent-stream.js";
+import { answering, attemptOf } from "./answer-stream.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -43,30 +43,6 @@ export function toolDefinitionsOf(agent: AgentDefinition): readonly ToolDefiniti
 /** The call's signal with the budgets' `exhausted` one. */
 const withExhausted = (signal: AbortSignal | undefined, deps: AgentLoopDeps): AbortSignal =>
   signal === undefined ? deps.budgets.exhausted : AbortSignal.any([signal, deps.budgets.exhausted]);
-
-/**
- * The model call of the agent's own answer, the one call of the framework the user's stream hears
- * (#1004): its tokens go to this attempt through a handler added to this call alone. An agent with
- * an output DTO answers with a tool call, not with text: it has no attempt, it streams none.
- */
-function answering(
-  config: RunnableConfig | undefined,
-  attempt: AttemptStream | undefined,
-): RunnableConfig | undefined {
-  if (attempt === undefined) return config;
-  const handler = new AnswerTokenHandler((token) => {
-    attempt.push(token);
-  });
-  return { ...config, callbacks: withAnswerHandler(config?.callbacks, handler) };
-}
-
-/** The visit's stream gives this model call its attempt, unless the agent answers with a tool. */
-const attemptOf = (
-  config: RunnableConfig | undefined,
-  deps: AgentLoopDeps,
-  turn: number,
-): AttemptStream | undefined =>
-  deps.agent.answerTools.tools.length > 0 ? undefined : agentStreamOf(config)?.begin(turn);
 
 /** One model turn: the agent's instructions and conversation (masked, #120), its tools bound. */
 async function callModel(
@@ -168,6 +144,7 @@ async function observedCall(
       });
     },
   );
+  attempt?.end(); // what was held back for a possible PII token is text now (#1007)
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {
     model: modelName,
@@ -212,7 +189,12 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const turn = state.modelCalls + 1;
     checkModelCalls(state, deps, turn);
     const request = await maskedRequest(state, deps);
-    const attempt = attemptOf(config, deps, turn);
+    // an agent that reads through PII policies has its tokens revealed in the stream as in its reply
+    const tokens =
+      loopPoliciesOf(state, deps) === undefined
+        ? undefined
+        : { ...state.piiTokens, ...request.tokens };
+    const attempt = attemptOf(config, deps, turn, tokens);
     const { response, usageRecord } = await observedCall(state, deps, request, config, attempt);
     // counted at once (#338) and in the ledger (#727): the branches running beside this one, and
     // the tree's steps on other instances, see it at their next check
