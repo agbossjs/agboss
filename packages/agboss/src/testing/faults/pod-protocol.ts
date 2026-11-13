@@ -40,6 +40,8 @@ export enum FaultPayment {
 export enum FaultStoreSabotage {
   /** A stale token let through at the lease's current epoch, the pod killed before the answer (#876). */
   StaleThenKilled = "stale-then-killed",
+  /** A lease store whose finish (`retire`) is a plain `release`: finished work can be granted again (#520, #971). */
+  RetireReleases = "retire-releases",
 }
 
 /** An order of the fixture application. */

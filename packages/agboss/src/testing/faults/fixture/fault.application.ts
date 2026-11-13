@@ -17,8 +17,7 @@ import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
 import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
 import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
-import { FENCED_EFFECT_METHODS } from "../store-points.js";
-import { sabotagedStoreOf } from "../sabotage-stores.js";
+import { breaksContract, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
 
@@ -72,7 +71,7 @@ export const heldProvidersOf = (
     const methods = heldMethodsOf(provider);
     if (methods === undefined) return provider;
     const broken =
-      sabotage !== undefined && methods === FENCED_EFFECT_METHODS
+      sabotage !== undefined && breaksContract(sabotage, methods)
         ? sabotagedStoreOf(provider, sabotage)
         : provider;
     return withHoldPoints(broken);

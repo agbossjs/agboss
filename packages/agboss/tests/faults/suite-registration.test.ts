@@ -40,7 +40,7 @@ describe("#831 AC2: the suite shows what it leaves out", () => {
       cases.find((found) => found.name === titleOf(id));
 
     expect(cases.map((found) => found.name).slice(0, 2)).toEqual([
-      `runs 1 of ${String(TOTAL)} cases: 1 of ${String(SCENARIOS.length)} scenarios, 0 of 3 sabotages (selected by scenarios:, shard 2/2, sabotages: false)`,
+      `runs 1 of ${String(TOTAL)} cases: 1 of ${String(SCENARIOS.length)} scenarios, 0 of 4 sabotages (selected by scenarios:, shard 2/2, sabotages: false)`,
       ATOMIC_FENCING_CASE,
     ]);
     expect(cases.slice(0, 2).map((found) => found.state)).toEqual(["pass", "pass"]);
