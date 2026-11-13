@@ -172,7 +172,7 @@ const SHARDS = {
       "src/finops/ledger-mark.ts",
       "src/infrastructure/cost-ledger.repository.ts",
       "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
-      settledSpendSaverOf("src/app/leased-checkpointer.ts"),
+      settledSpendSaverOf("src/app/settled-spend-checkpointer.ts"),
     ],
   },
   // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a

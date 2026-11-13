@@ -609,7 +609,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   thread's greatest checkpoint id — a UUIDv6 of the wall clock, out of order once the host's clock
   steps back (#661, `child-thread.ts`); every read of a thread's latest checkpoint — a resume, a
   recovery, a re-entry — goes through `OrderedCheckpointSaver` over the listed saver
-  (`app/leased-checkpointer.ts`, #682): a `put` whose id sorts below its thread's greatest first
+  (`app/leased-checkpointer.ts`, #682; the latest read of a marked thread is one `latestByStep` index read where the saver has it, #962): a `put` whose id sorts below its thread's greatest first
   marks the thread (namespace `agboss-out-of-order`), whose latest is then its highest LangGraph
   step; a child that rests at a pause makes its
   parent's node interrupt with a waiting marker (`child-own-thread.ts`, no pause), its pauses read
