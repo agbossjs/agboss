@@ -2969,6 +2969,11 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
 - Read `WORKFLOW.md` (tracker, wiki, branches, PRs) and `QUALITY.md` (code, types, agents, FinOps,
   tests) before writing code.
 - Tracker is GitHub Issues via `gh`. Every change belongs to an issue.
+- **Changelog: a fragment, never `CHANGELOG.md`** (#981). A PR that changes behaviour adds
+  `changes/<issue>-<slug>.md` — a `---` header with `section:` (Breaking, Changed, Added, Fixed,
+  Deprecated, Security) and `issue:`, then the entry text mentioning `#<issue>` (format and example:
+  `changes/README.md`). CI fails a PR that edits `CHANGELOG.md` unless its branch is `release/*`;
+  `scripts/changelog-assemble.mjs` folds the fragments in at release.
 - Never commit to `main` directly. Branch from `main`: `<type>/<issue>-<slug>`.
 - Every domain concept gets a named type; reusable code is generic.
 - Every model call records usage; models come only from the registry.

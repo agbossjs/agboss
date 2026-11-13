@@ -43,15 +43,18 @@ comment what is missing, and continue with the rest.
 5. **Gate**: `make check`. Never lower thresholds, disable rules or add ignores. The same failure
    twice after a real fix attempt → label `blocked`, comment, stop this issue.
 6. **Self-review** `git diff origin/main...HEAD` against `QUALITY.md`.
-7. **PR** — body via stdin per `.github/pull_request_template.md`, with `Refs #<N>`
+7. **Changelog fragment**: a user-visible change adds `changes/<issue>-<slug>.md` (header
+   `section:` + `issue:`, then the entry mentioning `#<N>`; see `changes/README.md`). Never edit
+   `CHANGELOG.md` — CI fails it outside a `release/*` branch.
+8. **PR** — body via stdin per `.github/pull_request_template.md`, with `Refs #<N>`
    (**not** `Closes`: the issue stays open until a human accepts it):
    `gh pr create --base main --title "<type>-<N>: <title>" --body-file -`
-8. **Merge** after CI: `gh pr checks --watch && gh pr merge --squash --delete-branch`.
+9. **Merge** after CI: `gh pr checks --watch && gh pr merge --squash --delete-branch`.
    A conflict with something merged earlier in the wave → rebase on `origin/main`, gate again;
    if it is not mechanical → `blocked` + comment, do not guess.
-9. **Wiki**: apply "Wiki to update" in `../<repo>.wiki`, then
-   `scripts/wiki.sh publish "docs(#<N>): <what changed>"`.
-10. `scripts/ticket.sh status <N> Test`, then a handoff comment on the issue:
+10. **Wiki**: apply "Wiki to update" in `../<repo>.wiki`, then
+    `scripts/wiki.sh publish "docs(#<N>): <what changed>"`.
+11. `scripts/ticket.sh status <N> Test`, then a handoff comment on the issue:
     - what was done, PR link, deviations;
     - **Acceptance by AC** — for every business AC: the automated tests that prove it (passed)
       and the manual checks (`M1 (AC1)` …) as a checklist the human can follow as-is;
