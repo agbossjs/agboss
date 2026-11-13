@@ -489,7 +489,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   does not compile until `pending[0].kind === PauseKind.Approval`. Parallel branches pause on their own; the execution rests when nothing else can move,
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
-  on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed *not taken*).
+  on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed _not taken_).
   An answer to anything but `Pending` → `PauseClosedError` with its `reason` and `closedAt` (a double
   click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
   only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept

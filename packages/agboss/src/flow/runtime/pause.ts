@@ -207,11 +207,9 @@ async function settledAnswer(
   channel: string,
 ): Promise<StepAnswer> {
   const { answer } = pause;
-  if (pause.status === PauseStatus.Cancelled || answer === undefined) {
-    throw new PauseWithdrawnError({
-      message: `pause ${pause.pauseId} was withdrawn: its branch was cancelled`,
-    });
-  }
+  const message = `pause ${pause.pauseId} was withdrawn: its branch was cancelled`;
+  if (pause.status === PauseStatus.Cancelled || answer === undefined)
+    throw new PauseWithdrawnError({ message });
   if (pause.status === PauseStatus.Resolved) {
     // a pass that is stopped runs nothing: its tool never acts, so the answer is not taken
     site.signal?.throwIfAborted();

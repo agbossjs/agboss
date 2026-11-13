@@ -81,6 +81,12 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.PauseAnswererError, { message }),
   fx(root.UnknownPauseError, { message }),
   fx(root.NotPausedError, { message }),
+  fx(root.PauseClosedError, {
+    pauseId: "p-1",
+    tenantId: "default",
+    reason: root.PauseClosedReason.Cancelled,
+    closedAt: "2026-01-05T09:00:00.000Z",
+  }),
   fx(root.UnknownThreadError, { message }),
   fx(root.ThreadOwnerError, { message }),
   fx(root.InvalidThreadIdError, { rule: root.KeyTextRule.Length }),

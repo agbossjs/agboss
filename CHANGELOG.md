@@ -844,7 +844,7 @@ undefined, isHeld)`, now exported (the half that refuses); both in the root for 
 - **A tree's end closes its pauses** (#939, the original #910): when a tree ends its stored paused
   run is removed (only the ended run's, never a later run of the thread) and every pause it still has
   is closed — a waiting one `Cancelled` (a cancel) or `TreeEnded`, an answer no step took (its
-  answer no step consumed) closed *not taken* with the answer kept and the
+  answer no step consumed) closed _not taken_ with the answer kept and the
   answer log saying so; a step marks its answer `Taken` the moment it consumes it, before it acts, so
   an answer whose tool ran stays `Taken` whatever fails after (a recovery runs such a step again). A pod that dies in the middle of it is finished by
   another instance: each recovery sweep reads a page of open pauses and, under the tree's lease, runs
