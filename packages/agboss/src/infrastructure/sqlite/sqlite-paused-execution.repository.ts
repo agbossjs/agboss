@@ -36,6 +36,9 @@ const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN statu
 ALTER TABLE paused_executions DROP COLUMN decision;`;
 
 const PausedRow = z.object({
+  // the row's own key columns: they name a run whose text cannot be parsed
+  thread_id: z.string().optional(),
+  run_id: z.string().optional(),
   run: z.string(),
   workflow_version: z.string(),
   config_hash: z.string(),
@@ -43,7 +46,7 @@ const PausedRow = z.object({
 
 function toPausedExecution(row: unknown): PausedExecution {
   const r = PausedRow.parse(row);
-  const run = decodePausedRun(r.run);
+  const run = decodePausedRun(r.run, { threadId: r.thread_id, runId: r.run_id });
   const tenantId: unknown = Reflect.get(run, "tenantId");
   return {
     run: typeof tenantId === "string" ? run : { ...run, tenantId: "default" },

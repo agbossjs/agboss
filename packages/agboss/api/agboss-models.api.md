@@ -8,6 +8,14 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { z } from 'zod';
 
 // @public
+export interface AGBossErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly details?: ErrorDetails;
+}
+
+// @public
 export enum Backoff {
     // (undocumented)
     Exponential = "exponential",
@@ -145,6 +153,9 @@ export class DecisionsModelProvider implements ModelProviderHandler {
 export const DEFAULT_MODEL_PROVIDERS: readonly [typeof OpenRouterModelProvider, typeof DecisionsModelProvider];
 
 // @public
+export type ErrorDetails = Readonly<Record<string, unknown>>;
+
+// @public
 export interface ExponentialRetryOptions {
     // (undocumented)
     readonly initialDelay: Milliseconds;
@@ -183,8 +194,6 @@ export const JevModelProvider: typeof DecisionsModelProvider;
 // @public @deprecated (undocumented)
 export type JevModelProvider = DecisionsModelProvider;
 
-// Warning: (ae-forgotten-export) The symbol "AGBossErrorOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {
     // (undocumented)
@@ -784,6 +793,8 @@ export interface WireRequest {
 
 // Warnings were encountered during analysis:
 //
+// src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".

@@ -12,7 +12,10 @@ const clock = new VirtualClock(new Date(0));
 const SECRET = "ssn-078-05-1120";
 
 /** A store holding one stored run, written as given (a damaged one, or a 0.1.0 one). */
-function storeWith(run: Record<string, unknown>): SqlitePausedExecutionRepository {
+function storeWith(
+  run: Record<string, unknown>,
+  edit: (json: string) => string = (json) => json,
+): SqlitePausedExecutionRepository {
   const path = temporarySqlitePath();
   // the repository makes its table; a second connection writes the row a store write never makes
   const store = new SqlitePausedExecutionRepository(connectionTo(path), clock);
@@ -22,7 +25,7 @@ function storeWith(run: Record<string, unknown>): SqlitePausedExecutionRepositor
       `INSERT INTO paused_executions (tenant_id, thread_id, run_id, run, workflow_version, config_hash, paused_at)
        VALUES ('acme', 'thread-1', 'run-1', ?, '1.0.0', 'hash', '1970-01-01T00:00:00.000Z')`,
     )
-    .run(JSON.stringify(run));
+    .run(edit(JSON.stringify(run)));
   return store;
 }
 
@@ -68,6 +71,22 @@ describe("#906 D4: an unreadable stored paused run names ids and a field, not th
     expect(error.message).not.toContain(SECRET);
     expect(error.cause).toBeInstanceOf(Error);
     expect((error.cause as Error).message).not.toContain(SECRET);
+  });
+
+  it("a stored text that is not JSON: typed, names the ids, nothing of the text, no parser message", async () => {
+    // one character of a real stored run edited: `startInput` is left unterminated
+    const error = await failureOf(storeWith(run, (json) => json.replace(`"${SECRET}"`, SECRET)));
+
+    expect(error.message).toContain("a stored paused run is not readable");
+    expect(error.message).toContain("threadId thread-1");
+    expect(error.message).toContain("runId run-1");
+    expect(error).not.toBeInstanceOf(SyntaxError);
+    for (let link: unknown = error; link instanceof Error; link = link.cause) {
+      expect(link.message).not.toContain(SECRET);
+      expect(link.message).not.toContain("startInput");
+      expect(link.message).not.toContain("JSON.parse");
+      expect(link).not.toBeInstanceOf(SyntaxError);
+    }
   });
 
   it("a run stored by 0.1.0 under `ternId` is still read", async () => {
