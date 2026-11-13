@@ -171,6 +171,14 @@ describe("#916 D3: the raw socket's peer is checked before anything is sent", ()
     expect(asked).toBeLessThanOrEqual(1);
   });
 
+  it("D3.7b an abort wins over the address loop's next step: an aborted signal ends it before any address is looked at", async () => {
+    // an IP literal has no resolver to race: the loop's own abort check is all there is, and
+    // without it the denied address would be judged (and answered) after the abort
+    const connected = connectionTo(new URL("https://10.0.0.1/a.pdf"), AbortSignal.abort());
+
+    await expect(connected).rejects.toThrow("aborted");
+  });
+
   it("D3.8 a resolver that never answers cannot hold the connection past an abort", async () => {
     const ended = new AbortController();
 

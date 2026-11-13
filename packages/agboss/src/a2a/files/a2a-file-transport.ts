@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { isIP } from "node:net";
 import { ADDRESS_DENIED, isDeniedAddress } from "./a2a-file-address.js";
 import { isOwnSocket, requestTo } from "./a2a-file-connect.js";
+import { type FileFetchSpan, startFileFetchSpan } from "./a2a-file-span.js";
 
 /**
  * One `GET` of a file by `url` (#859): what the fetch of a file sees of the network — a status, a
@@ -49,6 +50,14 @@ const isDenied = (error: unknown): boolean =>
  * refused. Pass-through wrappers (APM) of `net`, `tls` and `ClientRequest` change nothing of this.
  */
 export const httpsFileTransport: FileTransport = (url, signal) => {
+  const span = startFileFetchSpan(url);
+  return sent(url, signal, span).catch((error: unknown) => {
+    span.failed(error);
+    throw error;
+  });
+};
+
+function sent(url: URL, signal: AbortSignal, span: FileFetchSpan): Promise<FileHttpResponse> {
   // an IP literal is connected to without a lookup: checked here
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0 && isDeniedAddress(host))
@@ -57,6 +66,7 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
     ({ request, secure }) =>
       new Promise((resolve, reject) => {
         request.once("error", (error) => {
+          secure.destroy();
           reject(isDenied(error) ? new FileAddressDeniedError() : error);
         });
         request.once("socket", (socket) => {
@@ -67,6 +77,8 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
           }
         });
         request.once("response", (message) => {
+          span.responded(message.statusCode ?? 0);
+          message.once("close", span.finished);
           resolve(responseOf(message));
         });
         request.end();
@@ -75,4 +87,4 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
       throw isDenied(error) ? new FileAddressDeniedError() : error;
     },
   );
-};
+}
