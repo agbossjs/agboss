@@ -281,11 +281,12 @@ describe("#811 AC4: a broken store fails the A2A scenario that targets it", () =
   }, 120_000);
 
   // #901: the late resume reads the tree's failed record at its take, so the stale pause it took
-  // runs nothing (no second undo); what the store did is still seen — both moved the one pause.
+  // runs nothing (no second undo); what the store did is still seen — both moved the one pause, and
+  // the refusal it gave says the pause was not cancelled (#939's check of its reason, s18b).
   // The released-twice rule bites on a hand-built run (tests/testing/faults/a2a-invariants.test.ts)
   it("a pause store that resolves a withdrawn pause and keeps the run: 18b fails — both the cancel and the late resume took the pause", async () => {
     await expect(runFaultScenario(s18bCancelFirst, stalePauses)).rejects.toThrow(
-      /^s18b-a2a-cancel-vs-resume: the cancel was to withdraw the pause first: a's resolve \[true\], b's cancel \[true\]$/u,
+      /^s18b-a2a-cancel-vs-resume: the refusal was to be a2a\.pause-closed, cancelled: .*; the cancel was to withdraw the pause first: a's resolve \[true\], b's cancel \[true\]$/u,
     );
   }, 120_000);
 

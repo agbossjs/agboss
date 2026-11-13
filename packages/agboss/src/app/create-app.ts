@@ -108,7 +108,7 @@ export async function buildApp(
   const { pausedExecutions: pauses, records: log } = parts.infrastructure;
   const { executionTrees: trees, clock, auditLog } = parts.infrastructure;
   // a cancel tells the channels of its sent pauses (#337)
-  const paused = pausedRunBook({ pauses, answers: log, withdrawn }, deps, current, clock);
+  const paused = pausedRunBook({ pauses, answers: log, withdrawn }, current, clock);
   const live = new LiveRuns();
   const leasing = leasingOf(parts.infrastructure);
   const leases = executionLeasesOf(leasing.repository, leasing.clock, {

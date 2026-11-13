@@ -8,7 +8,7 @@ import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { LeasedCheckpointSaver } from "./leased-checkpointer.js";
-import { closeTreePauses, waitingPauseIdsOf } from "./tree-end-pauses.js";
+import { closeTreePauses } from "./tree-end-pauses.js";
 import type { TreeMoveParts, TreeState } from "./tree-moves.js";
 
 /** The tree's key in the stores: its tenant and its root execution. */
@@ -84,7 +84,7 @@ export async function forgetTree(
   parts.deps.branchErrors?.forgetExecution(state.runId);
   const { pause } = parts.deps;
   if (pause === undefined) return;
-  const ends = { stores: pause, waiting: waitingPauseIdsOf(parts.deps) };
+  const ends = { stores: pause };
   const site = { ...treeOf(state), threadId: state.threadId };
   const end = { cause: cause instanceof Error ? cause : new Error(String(cause)) };
   await closeTreePauses(ends, site, end, parts.clock.now());

@@ -9,9 +9,8 @@ import {
 } from "../infrastructure/paused-execution.repository.js";
 import { pauseClosed } from "./pause-closed.js";
 import { ExecutionCancelledError } from "../core/errors.js";
-import { closeTreePauses, waitingPauseIdsOf } from "./tree-end-pauses.js";
+import { closeTreePauses } from "./tree-end-pauses.js";
 import type { PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
-import type { AgentExecutionDeps } from "../run/types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ThreadKey } from "./live-runs.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -47,11 +46,10 @@ export interface PausedRunBook {
 
 export function pausedRunBook(
   stores: PauseStores,
-  deps: AgentExecutionDeps<string>,
   current: ResumeVersions,
   clock: Clock,
 ): PausedRunBook {
-  const ends = { stores, waiting: waitingPauseIdsOf(deps) };
+  const ends = { stores };
   const repository = stores.pauses;
   const find = ({ tenantId, threadId }: ThreadKey): Promise<PausedExecution | undefined> =>
     repository.findByTenantIdAndThreadId(tenantId, threadId);

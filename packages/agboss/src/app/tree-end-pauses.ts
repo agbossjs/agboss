@@ -8,9 +8,6 @@ import {
 import type { PauseRecipients } from "../infrastructure/pause-record.js";
 import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
-import { readingGraphOf } from "../run/run-budgets.js";
-import { waitingInterruptsOf } from "../run/waiting-pauses.js";
-import type { AgentExecutionDeps } from "../run/types.js";
 import type { Turn } from "../turns/index.js";
 import { CANCELLED_STOP_REASON, cancelledErrorOf } from "./live-runs.js";
 import { recipientsOf } from "./pause-notices.js";
@@ -18,9 +15,10 @@ import { recipientsOf } from "./pause-notices.js";
 /**
  * A tree's end closes its pauses (#939, #910 I13). The tree's own paused run goes first (only that
  * run's, never a later run of the thread, #807), then every pause: a waiting one closes (the store
- * may record `Expired`), an answer no step took is closed *not taken* — its interrupt still waits
- * in the root's checkpoint — and one whose step ran is `Taken`. Every step is idempotent: a death
- * in between is finished by the next call, the orphan look's among them.
+ * may record `Expired`), an answer no step consumed (`Resolved`) is closed *not taken*, one a step
+ * consumed is already `Taken` and left alone (a step marks it the moment it takes it, before it
+ * acts, #939). Every step is idempotent: a death in between is finished by the next call, the
+ * orphan look's among them.
  */
 
 /** The tree whose end closes: where its paused run is kept, and its root. */
@@ -35,24 +33,12 @@ export interface PauseEnd {
   readonly cause: Error;
 }
 
-/** The pause ids whose interrupt still waits in the root's checkpoint. */
-export type WaitingPauseIds = (rootExecutionId: string) => Promise<ReadonlySet<string>>;
-
 /** What closing a tree's pauses needs: the pause stores and the root's checkpoint. */
 export interface TreePauseEnds {
   readonly stores: PauseStores;
-  readonly waiting: WaitingPauseIds;
   /** Who is told of a closed answer; `recipientsOf` (#940 fills it) when absent. */
   readonly recipients?: (pause: PauseRecord) => PauseRecipients;
 }
-
-/** The waiting interrupts of a workflow's checkpoints, by pause id. */
-export const waitingPauseIdsOf =
-  (deps: AgentExecutionDeps<string>): WaitingPauseIds =>
-  async (rootExecutionId) =>
-    new Set(
-      (await waitingInterruptsOf(readingGraphOf(deps), rootExecutionId)).map((i) => i.pauseId),
-    );
 
 /** Whether an error is a cancel, or was caused by one. */
 function isCancel(error: unknown): boolean {
@@ -81,17 +67,12 @@ async function closedOne(
   ends: TreePauseEnds,
   pause: PauseRecord,
   how: { readonly resolution: PauseUntakenResolution; readonly at: Date },
-  waiting: ReadonlySet<string>,
 ): Promise<boolean> {
   const { stores } = ends;
   const { tenantId, pauseId } = pause;
   if (pause.status === PauseStatus.Pending)
     return withdrawPause(stores, pause, { resolution: how.resolution, at: how.at });
   if (pause.status !== PauseStatus.Resolved) return true;
-  if (!waiting.has(pauseId)) {
-    await stores.pauses.markTakenByTenantIdAndPauseId(tenantId, pauseId);
-    return true;
-  }
   const closed = await stores.pauses.closeUntakenByTenantIdAndPauseId(
     tenantId,
     pauseId,
@@ -115,14 +96,13 @@ export async function closeTreePauses(
   const { tenantId, threadId, rootExecutionId } = site;
   await stores.pauses.deleteByTenantIdAndThreadIdAndRunId(tenantId, threadId, rootExecutionId);
   const how = { resolution: resolutionOfEnd(end), at };
-  const waiting = await ends.waiting(rootExecutionId);
   for (const pause of await stores.pauses.findAllByTenantIdAndRootExecutionId(
     tenantId,
     rootExecutionId,
   )) {
     // a pause that changed meanwhile (an answer recorded, a sibling's close) is read again, once
-    if (await closedOne(ends, pause, how, waiting)) continue;
+    if (await closedOne(ends, pause, how)) continue;
     const now = await stores.pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId);
-    if (now !== undefined) await closedOne(ends, now, how, waiting);
+    if (now !== undefined) await closedOne(ends, now, how);
   }
 }

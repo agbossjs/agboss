@@ -213,7 +213,6 @@ describe("#337: a channel told about its withdrawn pause", () => {
     };
     const ends = {
       stores: { pauses, answers, withdrawn },
-      waiting: () => Promise.resolve(new Set<string>()),
     };
 
     await closeTreePauses(ends, site, { cause: new ExecutionCancelledError() }, clock.now());

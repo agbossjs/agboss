@@ -31,7 +31,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 const AT = new Date("2026-01-05T11:00:00.000Z");
 const SITE = { tenantId: "default", threadId: "thread-1", rootExecutionId: "run-1" };
 
-function storesOf(waiting: readonly string[]) {
+function storesOf() {
   const pauses = new InMemoryPausedExecutionRepository();
   const answers = new InMemoryExecutionRecordRepository(
     new VirtualClock(),
@@ -39,7 +39,6 @@ function storesOf(waiting: readonly string[]) {
   );
   const ends: TreePauseEnds = {
     stores: { pauses, answers, withdrawn: undefined },
-    waiting: () => Promise.resolve(new Set(waiting)),
   };
   return { pauses, answers, ends };
 }
@@ -60,9 +59,10 @@ describe("#939: closeTreePauses", () => {
     expect(resolutionOfEnd({ cause: new Error("failed") })).toBe(PauseResolution.TreeEnded);
   });
 
-  it("a Resolved pause whose step ran (its interrupt is gone from the checkpoint) is Taken, the log untouched", async () => {
-    const { pauses, answers, ends } = storesOf([]);
+  it("a pause a step consumed (Taken) is left alone: no close, no log write", async () => {
+    const { pauses, answers, ends } = storesOf();
     await resolvedPause(pauses, "p-ran", "run-1:clerk-agent:1:call-1");
+    await pauses.markTakenByTenantIdAndPauseId("default", "p-ran");
 
     await closeTreePauses(ends, SITE, { cause: new Error("failed after") }, AT);
 
@@ -75,8 +75,8 @@ describe("#939: closeTreePauses", () => {
     );
   });
 
-  it("a Resolved pause whose interrupt still waits is closed not taken: answer and answerer kept, the log says so", async () => {
-    const { pauses, answers, ends } = storesOf(["p-waits"]);
+  it("a Resolved pause (no step consumed it) is closed not taken: answer and answerer kept, the log says so", async () => {
+    const { pauses, answers, ends } = storesOf();
     await resolvedPause(pauses, "p-waits", "run-1:clerk-agent:1:call-1");
 
     await closeTreePauses(ends, SITE, { cause: new Error("failed before") }, AT);
@@ -99,7 +99,7 @@ describe("#939: closeTreePauses", () => {
   ])(
     "a sent answer closed by %s: its answerNotTaken notice says %s, to the channel and the listeners",
     async (_end, cause, reason) => {
-      const { pauses, ends } = storesOf(["p-sent"]);
+      const { pauses, ends } = storesOf();
       await pauses.findOrCreateByStepKey(pauseOf("p-sent", "run-1:clerk-agent:1:call-1"));
       await pauses.markSentByTenantIdAndPauseId("default", "p-sent", RECIPIENTS);
       await pauses.resolveByTenantIdAndPauseId(
@@ -128,7 +128,7 @@ describe("#939: closeTreePauses", () => {
   );
 
   it("a waiting pause is withdrawn with the end's reason and logged; a Taken one is left alone; a second run changes nothing", async () => {
-    const { pauses, answers, ends } = storesOf([]);
+    const { pauses, answers, ends } = storesOf();
     await pauses.findOrCreateByStepKey(pauseOf("p-wait", "run-1:clerk-agent:1:call-1"));
     await pauses.findOrCreateByStepKey(pauseOf("p-done", "run-1:clerk-agent:1:call-2"));
     await pauses.decideByTenantIdAndPauseId("default", "p-done", APPROVED_BY_MANAGER, AT);
@@ -149,7 +149,7 @@ describe("#939: closeTreePauses", () => {
   });
 
   it("the paused run of this tree goes, the run another turn of the thread paused since stays (#807)", async () => {
-    const { pauses, ends } = storesOf([]);
+    const { pauses, ends } = storesOf();
     await pauses.save(pausedRunOf("thread-1", "run-2"));
 
     await closeTreePauses(ends, SITE, { cause: new Error("done") }, AT);
