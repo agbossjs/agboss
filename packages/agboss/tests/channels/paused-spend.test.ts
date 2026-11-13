@@ -88,4 +88,36 @@ describe("#267: spend with several paused agent loops", () => {
       ledger.recorded.filter((record) => record.caller === "priced-refund-agent"),
     ).toHaveLength(6);
   });
+
+  test("#939: three parallel pauses resumed one by one: every resume's spend is exact, the budget never sees a lookup twice", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(PricedRefundAgent).thenAnswer(pricedRefunder);
+    const paused = await execute(app, BatchWorkflowStart, [
+      { orderId: "A" },
+      { orderId: "B" },
+      { orderId: "C" },
+    ]);
+    expect(paused.pending).toHaveLength(3);
+    const ledger = costLedger();
+
+    // A finished (its old interrupt is still listed until the superstep ends), B and C wait
+    const afterA = await app.resume(answerFor("A"), manager);
+    expect(afterA.status).toBe(ExecutionStatus.Paused);
+    expect(afterA.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(3 * LOOKUP_COST);
+    expect(lookupsIn(ledger)).toBeCloseTo(3 * LOOKUP_COST);
+
+    const afterB = await app.resume(answerFor("B"), manager);
+    expect(afterB.status).toBe(ExecutionStatus.Paused);
+    expect(afterB.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(3 * LOOKUP_COST);
+    expect(lookupsIn(ledger)).toBeCloseTo(3 * LOOKUP_COST);
+
+    const done = await app.resume(answerFor("C"), manager);
+    expect(done.status).toBe(ExecutionStatus.Finished);
+    expect(done.spend.byCaller["tool:price-order-tool"]).toBeCloseTo(3 * LOOKUP_COST);
+    expect(done.spend.totalUsd).toBeCloseTo(
+      ledger.recorded.reduce((total, record) => total + record.costUsd, 0),
+    );
+  });
 });

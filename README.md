@@ -1375,7 +1375,7 @@ is `PauseClosedError` (its `reason` and `closedAt`), after it `UnknownPauseError
 ends, its stored paused run is removed and every pause it still has is closed: a waiting one
 `Cancelled` (a cancel) or `TreeEnded`; an answered (`Resolved`) one no step took — a cancel that won
 over the answer — closed the same way with its answer kept, and the answer log says *not taken*; one
-whose step is in the checkpoint is `Taken` (#910). A pod that dies in the middle of that is finished by
+a step marks its answer `Taken` the moment it consumes it, before it acts — so an answer whose tool ran is `Taken`, whatever fails after (#910). A pod that dies in the middle of that is finished by
 another instance's sweep; before a closed pause's record is removed, its log entry is written if a
 crash lost it.
 

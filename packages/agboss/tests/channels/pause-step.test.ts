@@ -55,6 +55,7 @@ const clock = new VirtualClock();
 /** The pause answer log: nothing to check here (the records are tested through the app). */
 const answers = {
   savePauseAnswer: (): Promise<void> => Promise.resolve(),
+  markPauseAnswerNotTaken: (): Promise<void> => Promise.resolve(),
   findPauseAnswersByTenantIdAndRootExecutionId: (): Promise<PauseAnswerRecord[]> =>
     Promise.resolve([]),
 };
@@ -250,5 +251,40 @@ describe("#337: a channel told about its withdrawn pause", () => {
     expect(told).toMatchObject([
       { resolution: PauseResolution.Withdrawn, frame, pause: { status: PauseStatus.Cancelled } },
     ]);
+  });
+
+  it("#939: an aborted pass does not take the answer: the pause stays Resolved; a live pass takes it, Taken", async () => {
+    const pauses = new InMemoryPausedExecutionRepository();
+    const { channel } = channelOf(() => Promise.resolve(ChannelOutcome.awaitReply()));
+    // the first pass sends and stops at its interrupt (outside a graph, a throw is all it can do)
+    await pauseStep(siteOf(pauses, channel), question).catch(() => undefined);
+    const { execution } = testFrame();
+    const { tenantId } = execution.tenant;
+    const rootExecutionId = execution.executionId;
+    const [waiting] = await pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+    if (waiting === undefined) throw new Error("the pause was not recorded");
+    await pauses.resolveByTenantIdAndPauseId(
+      tenantId,
+      waiting.pauseId,
+      { decision: { approved: true }, answeredBy: "manager-17" },
+      clock.now(),
+      NO_RECIPIENTS,
+    );
+    const aborted = new AbortController();
+    aborted.abort();
+
+    await expect(
+      pauseStep({ ...siteOf(pauses, channel), signal: aborted.signal }, question),
+    ).rejects.toBeDefined();
+    expect((await pauses.findByTenantIdAndPauseId(tenantId, waiting.pauseId))?.status).toBe(
+      PauseStatus.Resolved,
+    );
+
+    const taken = await pauseStep(siteOf(pauses, channel), question);
+
+    expect(taken.decision).toEqual({ approved: true });
+    expect((await pauses.findByTenantIdAndPauseId(tenantId, waiting.pauseId))?.status).toBe(
+      PauseStatus.Taken,
+    );
   });
 });

@@ -202,7 +202,7 @@ async function sendOnce(
  * step again with that answer.
  */
 async function settledAnswer(
-  pauses: PausedExecutionRepository,
+  site: Pick<PauseStepSite, "pauses" | "signal">,
   pause: PauseRecord,
   channel: string,
 ): Promise<StepAnswer> {
@@ -212,8 +212,11 @@ async function settledAnswer(
       message: `pause ${pause.pauseId} was withdrawn: its branch was cancelled`,
     });
   }
-  if (pause.status === PauseStatus.Resolved)
-    await pauses.markTakenByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
+  if (pause.status === PauseStatus.Resolved) {
+    // a pass that is stopped runs nothing: its tool never acts, so the answer is not taken
+    site.signal?.throwIfAborted();
+    await site.pauses.markTakenByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
+  }
   // a re-entry of a step its channel decided at once: the channel's decision, its spend counted already
   if (pause.resolution === PauseResolution.Decided)
     return { decision: answer.decision, by: channel, usage: [] };
@@ -245,7 +248,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
   const { tenantId } = frame.execution.tenant;
   const made = newRecordOf(frame, channel, question, site.clock);
   let pause = await pauses.findOrCreateByStepKey(made);
-  if (pause.status !== PauseStatus.Pending) return settledAnswer(pauses, pause, channel.name);
+  if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause, channel.name);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {
     await site.onSend();
@@ -266,7 +269,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
       await sentTooLate(site, pause);
-      return settledAnswer(pauses, pause, channel.name);
+      return settledAnswer(site, pause, channel.name);
     }
   }
   site.signal?.throwIfAborted();
