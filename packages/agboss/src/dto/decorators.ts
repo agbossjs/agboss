@@ -8,9 +8,7 @@ import type {
   FieldKind,
   FieldOptions,
   FieldSettings,
-  ListLimits,
   NumberLimits,
-  OneOfValues,
   OptionalField,
   RequiredField,
   ScalarKind,
@@ -77,7 +75,9 @@ export const MediaType = scalar<string>("media-type");
 /** An IANA time zone: `"Asia/Jerusalem"`. */
 export const TimeZone = scalar<string>("time-zone");
 
-export type OneOfOptions<V extends readonly string[]> = OneOfValues<V> & FieldOptions<V[number]>;
+export type OneOfOptions<V extends readonly string[]> = FieldOptions<V[number]> & {
+  readonly values: V;
+};
 
 /** One of `values`; the field's type must be exactly their union. */
 export function OneOf<const V extends readonly [string, ...string[]]>(
@@ -102,7 +102,10 @@ const elementOf = (item: object): ElementSpec => {
     : { kind: "scalar", scalar: kind };
 };
 
-export type ListOptions<T> = ListLimits & FieldOptions<T[]>;
+export type ListOptions<T> = FieldOptions<T[]> & {
+  readonly minItems?: number;
+  readonly maxItems?: number;
+};
 
 /** `@ListOf`: `optional: true` ↔ `name?: T[]`; the last signature is the required one. */
 export interface ListOfFactory {

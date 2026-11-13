@@ -4,6 +4,7 @@ import { workflowInApplication } from "../../../src/application/workflow-applica
 import { studioGraph } from "../../../src/graph/studio-graph.js";
 import * as Internal from "../../../src/internal.js";
 import { studioOf } from "../../../src/testing/index.js";
+import { studioOfWith } from "../../../src/studio.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { CompanyReviewApplication, JobOfferWorkflow } from "../fixtures/children.fixture.js";
@@ -23,7 +24,7 @@ async function drawnNodes(
   application: typeof CompanyReviewApplication | typeof RecursionApplication,
   workflow: string,
 ): Promise<Readonly<Record<string, { readonly metadata?: Record<string, unknown> }>>> {
-  const studio = await studioOf(application, { processEnv: {}, gateway: scripted() });
+  const studio = await studioOfWith(application, { processEnv: {}, gateway: scripted() });
   try {
     return (await studio.graph(workflow).getGraphAsync({ xray: true })).nodes;
   } finally {
@@ -49,7 +50,7 @@ describe("S37: the child inside its parent", () => {
 
 describe("#268 AC7: studioOf(Application) — every workflow, children inside their parent", () => {
   it("lists every workflow of the application by name, the children too", async () => {
-    const studio = await studioOf(CompanyReviewApplication, {
+    const studio = await studioOfWith(CompanyReviewApplication, {
       processEnv: {},
       gateway: scripted(),
     });

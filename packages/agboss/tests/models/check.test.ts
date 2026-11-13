@@ -6,11 +6,11 @@ import {
   CachedPart,
   CacheRetention,
   DecisionsModelProvider,
-  ModelProviderDirectory,
   PromptCaching,
   Reasoning,
   ReasoningEffort,
 } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
 import { CLAUDE_ENTRY, GPT5_ENTRY, KIMI_ENTRY, providerStub } from "./stub.js";

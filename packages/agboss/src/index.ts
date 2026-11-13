@@ -17,6 +17,7 @@ export * from "./public/app.js";
 export * from "./public/infrastructure.js";
 export * from "./public/mesh.js";
 export type * from "./public/runtime-types.js";
-export type * from "./public/component-types.js";
-export type * from "./public/flow-types.js";
+export type * from "./public/dsl-types.js";
+/** @beta Type machinery of the flow DSL and the decorators: not a contract, names may change. */
+export type * as FlowTypes from "./public/flow-types.js";
 export * from "./errors.js";

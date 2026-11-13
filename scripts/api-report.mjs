@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { recordForgotten, unexportedByAnyEntry } from "./api-forgotten.mjs";
+import { recordForgotten, strippedNames, unexportedByAnyEntry } from "./api-forgotten.mjs";
 
 // `--package <dir>`: another package folder (the tests plant a hole in a small one)
 const pkgAt = process.argv.indexOf("--package");
@@ -95,8 +95,9 @@ const stray = existsSync(REPORTS)
 const internal = pkg.internalExports ?? [];
 const publicSubpaths = Object.keys(pkg.exports).filter((s) => !internal.includes(s));
 const found = [];
-let results;
-let holes;
+let results = [];
+let holes = [];
+let stripped = [];
 try {
   const entries = Object.entries(pkg.exports).map(([subpath, { types }]) => ({
     subpath,
@@ -106,7 +107,9 @@ try {
   const compilerState = CompilerState.create(entries[0].config, {
     additionalEntryPoints: entries.slice(1).map((e) => e.config.mainEntryPointFilePath),
   });
-  results = entries.map((entry) => report(entry, compilerState, found));
+  stripped = strippedNames({ program: compilerState.program, root: PKG });
+  // api-extractor cannot follow a name nothing declares: it would stop with an InternalError
+  if (stripped.length === 0) results = entries.map((entry) => report(entry, compilerState, found));
   holes = unexportedByAnyEntry({
     program: compilerState.program,
     root: PKG,
@@ -119,6 +122,15 @@ try {
 }
 if (write) stray.forEach((name) => rmSync(join(REPORTS, name)));
 
+if (stripped.length > 0) {
+  const lines = [...new Set(stripped.map((s) => `  ${s.name} — ${s.file}`))];
+  console.error(
+    `Types of the public API that no declaration holds (#895):\n${lines.join("\n")}\n` +
+      "A signature names an `@internal` type, which `stripInternal` removes from the declarations. " +
+      "Narrow the signature so it is not named, or export the type from a public entry.",
+  );
+  process.exit(1);
+}
 if (holes.length > 0) {
   const byName = Map.groupBy(holes, (hole) => hole.name);
   const lines = [...byName].map(

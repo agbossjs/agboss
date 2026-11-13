@@ -1,9 +1,9 @@
+import type { Class } from "../components/injection.js";
 import {
   NodeKind,
   QuorumKind,
   StepKind,
   type JoinStep,
-  type ComponentClass,
   type LaunchStep,
   type LaunchTargetKind,
   type Step,
@@ -115,7 +115,7 @@ export function launchStepOf(
   return Object.freeze({
     kind: StepKind.Launch,
     targetKind,
-    targets: Object.freeze([...(targets as readonly ComponentClass[])]),
+    targets: Object.freeze([...(targets as readonly Class[])]),
     perItem: targets.length === 1 && carriesList(site.previous),
     ...options,
   });

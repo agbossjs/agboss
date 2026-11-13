@@ -37,12 +37,9 @@ export interface WireRequest {
   readonly [field: string]: unknown;
 }
 
-/** Extra request fields: the provider's own, reasoning and caching in the provider's dialect. */
-export type WireFields = Readonly<Record<string, unknown>>;
-
 /** What the adapter adds to a request: fields, and where cache markers go (none = no markers). */
 export interface WirePlan {
-  readonly fields: WireFields;
+  readonly fields: Readonly<Record<string, unknown>>;
   readonly cacheMarkers: readonly CachedPart[];
   readonly cacheControl: CacheControl;
 }

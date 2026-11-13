@@ -72,18 +72,11 @@ export interface DecimalStringLimits {
   readonly scale?: number;
 }
 
-export interface ListLimits {
-  readonly minItems?: number;
-  readonly maxItems?: number;
-}
-
-export interface OneOfValues<V extends readonly string[]> {
-  readonly values: V;
-}
-
 /** Everything a decorator recorded besides its kind (the union of all decorators' options). */
 export interface FieldSettings
-  extends FieldOptions<unknown>, TextLimits, NumberLimits, DecimalStringLimits, ListLimits {
+  extends FieldOptions<unknown>, TextLimits, NumberLimits, DecimalStringLimits {
+  readonly minItems?: number;
+  readonly maxItems?: number;
   readonly optional?: boolean;
   readonly default?: unknown;
   readonly values?: readonly string[];

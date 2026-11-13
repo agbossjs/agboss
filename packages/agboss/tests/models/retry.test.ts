@@ -12,7 +12,7 @@ import { resilientFetch, type ResilienceOptions } from "../../src/models/resilie
 import { delayBefore } from "../../src/models/retry-policy.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { ModelProviderDirectory } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
 import { advanceUntil, slowProvider } from "./slow-provider.js";
 import { VirtualClock } from "../../src/testing/clock.js";

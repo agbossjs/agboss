@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareProfiles } from "../../src/index.js";
+import { compareProfilesWith } from "../../src/eval/compare-profiles.js";
 import type { ModelGateway } from "../../src/llm/gateway.js";
 import type { RouteOutcome, RouteRequest } from "../../src/routers/index.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
@@ -61,7 +62,7 @@ function scriptedGateway(judging: boolean): ModelGateway {
 }
 
 const compare = (judging: boolean) =>
-  compareProfiles(CodeReviewApplication, {
+  compareProfilesWith(CodeReviewApplication, {
     start: TaskStart,
     profiles: ["base", "terse"],
     tasks: ["fix the bug", "add a test"],

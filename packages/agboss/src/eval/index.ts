@@ -82,5 +82,5 @@ export {
   type ToolArgumentsOf,
   type ToolInvariant,
 } from "./suite/tool-expectations.js";
-export { type ToolHandlerClass } from "../components/decorators.js";
-export { type EvalContextsOf, type EvalTurnsOf } from "./suite/cases.js";
+/** @beta Type machinery of the eval cases: not a contract, names may change. */
+export type * as EvalTypes from "./eval-types.js";

@@ -4,12 +4,9 @@ import { ChannelOutcome, type DecidedOutcome } from "./channel-outcome.js";
 import type { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 
 /**
- * What a built-in test channel decides: an approval or a refusal, never corrected arguments — so it
- * fits any role that approves a tool (`override(RefundApprovalRole, AutoApproveChannel)`, #267 S104).
- */
-export type AutoDecision = Pick<ToolCallApprovalDecisionDto, "approved" | "reason">;
-
-/**
+ * What a built-in test channel decides is an approval or a refusal, never corrected arguments — so
+ * it fits any role that approves a tool (`override(RefundApprovalRole, AutoApproveChannel)`, #267 S104).
+ *
  * Approves every call at once (`ChannelOutcome.decided`): no pause, no pause record — for tests and
  * scripts, named on a tool as is; the decision's `by` is the channel's name. A role's
  * implementation is scripted in a test with `mockOf(Implementation).send`.
@@ -21,7 +18,7 @@ export type AutoDecision = Pick<ToolCallApprovalDecisionDto, "approved" | "reaso
 export class AutoApproveChannel {
   declare readonly [agbossComponent]?: "auto-approve-channel";
 
-  send(): Promise<DecidedOutcome<AutoDecision>> {
+  send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>> {
     return Promise.resolve(ChannelOutcome.decided({ approved: true }));
   }
 }
@@ -34,7 +31,7 @@ export class AutoApproveChannel {
 export class AutoRejectChannel {
   declare readonly [agbossComponent]?: "auto-reject-channel";
 
-  send(): Promise<DecidedOutcome<AutoDecision>> {
+  send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>> {
     return Promise.resolve(
       ChannelOutcome.decided({ approved: false, reason: "rejected automatically" }),
     );

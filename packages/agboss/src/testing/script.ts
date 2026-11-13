@@ -7,7 +7,6 @@ import { seconds, type Milliseconds } from "../units/index.js";
 import { millisecondsOf, type ClockDuration } from "./clock.js";
 import { TestSetupError } from "./errors.js";
 import { questionRoleOf } from "../channels/discovery.js";
-import type { QuestionRoleClass } from "../components/decorators.js";
 import type { ChannelQuestionOf, ToolNameOf } from "../flow/generated-types.js";
 import type {
   AnswerDetails,
@@ -106,7 +105,7 @@ export function callTool<TRag extends Class<RagConnector>>(
  * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
  * the arguments typed by the role's `ask` (the generated `ChannelRoles`), the turn by its name.
  */
-export function callTool<TRole extends QuestionRoleClass>(
+export function callTool<TRole extends Class<{ send(ask: never): Promise<unknown> }>>(
   role: TRole,
   args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;

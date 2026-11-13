@@ -5,7 +5,7 @@ import type { Class } from "./injection.js";
 import { ComponentError, componentOf } from "./metadata.js";
 
 /**
- * `nameOf(ComponentClass)` (#261): the `name` of any AGBoss-decorated class — a workflow, a start, a
+ * `nameOf(Class)` (#261): the `name` of any AGBoss-decorated class — a workflow, a start, a
  * finish, an agent, a router, an action, a tool, a budget, an application, … — the stable key
  * serialized data are compared by: `event.workflow.name === nameOf(SupportWorkflow)`,
  * `event.step.component.name === nameOf(CriticAgent)`. Its type is the name's literal where the

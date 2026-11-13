@@ -41,12 +41,6 @@ export enum StepKind {
   Join = "join",
 }
 
-/** A decorated component class: an agent, an action, a router, a finish or a workflow. */
-export type ComponentClass = Class;
-
-/** A `@WorkflowStart` class. */
-export type StartClass = Class;
-
 /** An error class: what `.onError(…)` catches (by class, through the cause chain) and `toFailWith` matches. */
 export type ErrorClass<TError extends Error = Error> = abstract new (...args: never[]) => TError;
 
@@ -55,13 +49,13 @@ export type PathSource = StartSource | ComponentSource;
 
 export interface StartSource {
   readonly kind: NodeKind.Start;
-  readonly node: StartClass;
+  readonly node: Class;
 }
 
 export interface ComponentSource {
   readonly kind:
     NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
-  readonly node: ComponentClass;
+  readonly node: Class;
 }
 
 /**
@@ -88,7 +82,7 @@ export interface ReturnsStep {
  */
 export interface ToStep {
   readonly kind: StepKind.To;
-  readonly target: ComponentClass;
+  readonly target: Class;
   readonly targetKind: NodeKind;
   /** `.toWorkflow(W, { placement })` (#333 PR 2): where the child runs; absent = its parent's instance. */
   readonly placement?: ChildPlacement;
@@ -109,7 +103,7 @@ export interface SwitchStep {
 
 /** One `route(X)…` of a `.chooseOne(…)`: its target and what follows it. */
 export interface ChooseOneRoute {
-  readonly target: ComponentClass;
+  readonly target: Class;
   readonly path: SubPath;
   /** `route(W, { placement })` (#333 PR 2): where a child workflow target runs. */
   readonly placement?: ChildPlacement;
@@ -152,7 +146,7 @@ export interface LaunchStep {
   readonly kind: StepKind.Launch;
   readonly targetKind: LaunchTargetKind;
   /** As listed, repeats included. */
-  readonly targets: readonly ComponentClass[];
+  readonly targets: readonly Class[];
   /** One target after `.returns(listOf(XDto))`: one run per item of that list. */
   readonly perItem: boolean;
   /** At most this many branches in progress at once; a limit only. */
@@ -200,7 +194,7 @@ export interface CountQuorum {
  */
 export interface QuorumGroup {
   /** As listed, repeats included. */
-  readonly agents: readonly ComponentClass[];
+  readonly agents: readonly Class[];
   readonly priority?: number;
   readonly returns: readonly ReturnedValue[];
   /** The steps after its `.returns(…)` chain: the group's own path. */

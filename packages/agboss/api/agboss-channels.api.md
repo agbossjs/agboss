@@ -9,7 +9,7 @@ export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
     // (undocumented)
-    send(): Promise<DecidedOutcome<AutoDecision>>;
+    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
 
 // @public
@@ -17,7 +17,7 @@ export class AutoRejectChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-reject-channel";
     // (undocumented)
-    send(): Promise<DecidedOutcome<AutoDecision>>;
+    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
 
 // @public
@@ -32,10 +32,10 @@ export class TerminalUserChannel {
 //
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:19:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:21:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts:32:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts:34:3 - (ae-undocumented) Missing documentation for "send".
 
 // (No @packageDocumentation comment for this package)
 

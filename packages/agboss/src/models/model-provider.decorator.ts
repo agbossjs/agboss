@@ -9,8 +9,8 @@ import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
-/** What every `@ModelProvider` says, HTTP or a transport (#385). */
-export interface ModelProviderBaseOptions {
+/** An HTTP provider: an OpenAI-compatible server at `baseUrl`, the key in the environment. */
+export interface HttpModelProviderOptions {
   /**
    * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
    * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
@@ -31,10 +31,6 @@ export interface ModelProviderBaseOptions {
   readonly rateLimitPolicy?: RateLimitPolicy;
   /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
   readonly circuitBreakerPolicy: CircuitBreakerPolicy;
-}
-
-/** An HTTP provider: an OpenAI-compatible server at `baseUrl`, the key in the environment. */
-export interface HttpModelProviderOptions extends ModelProviderBaseOptions {
   /** The server's base URL (`https://openrouter.ai/api/v1`); `baseUrlField` may override it. */
   readonly baseUrl: string;
   /**
@@ -60,9 +56,27 @@ export interface HttpModelProviderOptions extends ModelProviderBaseOptions {
  * A transport provider (#385): the class's `complete(request)` makes the call (an SDK, a gateway
  * with its own authorisation), its services through `deps`; no base URL, no key.
  */
-export interface TransportModelProviderOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends ModelProviderBaseOptions {
+export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> {
+  /**
+   * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
+   * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
+   */
+  readonly name: string;
+  readonly description: string;
+  /** Model names this provider serves; exactly one provider must serve each model. */
+  readonly serves: readonly RegExp[];
+  /** Per attempt. */
+  readonly timeout: Milliseconds;
+  readonly cost: ModelCost;
+  /** Retries one call: attempts and backoff (the only place backoff is set). */
+  readonly retryPolicy: RetryPolicy;
+  /**
+   * How many calls go to the provider and how everyone slows down after a 429 — one limit for the
+   * whole application, shared by every instance through `RateLimitRepository`. Omit: no limit.
+   */
+  readonly rateLimitPolicy?: RateLimitPolicy;
+  /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). */
+  readonly circuitBreakerPolicy: CircuitBreakerPolicy;
   readonly baseUrl?: never;
   readonly baseUrlField?: never;
   readonly apiKey?: never;

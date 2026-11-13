@@ -8,7 +8,7 @@ import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./ha
 import { ModelListCache, type ModelEntry } from "./model-list.js";
 import { CacheRetention, type PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
-import { wireFetch, type CacheControl, type WireFields, type WirePlan } from "./wire.js";
+import { wireFetch, type CacheControl, type WirePlan } from "./wire.js";
 
 /** No provider-specific request fields: only `{}` fits. */
 export type NoRequestFields = Readonly<Record<string, never>>;
@@ -86,12 +86,12 @@ export abstract class OpenAiCompatibleProvider<
   }
 
   /** The provider's request fields as they go on the wire; a subclass may rename or reshape them. */
-  protected wireFieldsOf(fields: TFields): WireFields {
+  protected wireFieldsOf(fields: TFields): Readonly<Record<string, unknown>> {
     return Object.fromEntries(Object.entries(fields));
   }
 
   /** OpenAI's `reasoning_effort`; a budget is not part of OpenAI's API (the startup check says so). */
-  protected reasoningFields(reasoning: Reasoning): WireFields {
+  protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>> {
     if (reasoning.kind === "off") return { reasoning_effort: "none" };
     if (reasoning.kind === "on" && reasoning.effort !== undefined) {
       return { reasoning_effort: reasoning.effort };

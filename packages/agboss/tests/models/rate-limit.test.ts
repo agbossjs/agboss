@@ -22,7 +22,7 @@ import { execute } from "../helpers/flow.js";
 import { LimitedApplication, LimitedModelProvider } from "./fixtures/limited.workflow.js";
 import { instanceCalls, KEYS } from "./gateway.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { ModelProviderDirectory } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { advanceUntil, instancesOf, slowProvider, warmUp } from "./slow-provider.js";
 import { completion } from "./stub.js";
 

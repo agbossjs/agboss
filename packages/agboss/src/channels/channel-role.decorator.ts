@@ -62,7 +62,7 @@ export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
 export type ChannelRoleForm = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
 
 /** What `@ChannelRole({ … })` takes: a form, and who may answer as `answerer` (or `answeredBy`). */
-export type ChannelRoleOptions = ChannelRoleForm &
+export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) &
   // `answeredBy` is the base's property, `@deprecated` there and here (it is the same declaration)
   ({ readonly answerer: PauseAnswerer } | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
 

@@ -92,4 +92,21 @@ describe("forgotten exports (#895)", () => {
       "ae-forgotten-export",
     );
   }, 60_000);
+
+  it("a public signature that names an @internal type (stripped from the declarations) fails with the #895 message", async () => {
+    // `stripInternal` removed `Stripped`; the signature keeps naming it — api-extractor alone stops
+    // with `InternalError: Unable to follow symbol`
+    const dir = fixture({
+      "index.d.ts": "export declare function use(h: Stripped): void;\n",
+      "extra.d.ts": "export {};\n",
+      "internal.d.ts": "export {};\n",
+    });
+    const run = await check(dir);
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("no declaration holds (#895)");
+    expect(run.stderr).toContain("Stripped — dist/index.d.ts");
+    expect(run.stderr).toContain("@internal");
+    expect(run.stderr).not.toContain("InternalError");
+  }, 60_000);
 });

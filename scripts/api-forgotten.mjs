@@ -104,3 +104,40 @@ export function unexportedByAnyEntry({ program, root, entries, publicSubpaths, f
   }
   return holes;
 }
+
+/**
+ * The type names a declaration file of the package uses and nothing declares: `stripInternal` removes
+ * an `@internal` type from the declarations, a public signature that names it keeps the reference —
+ * api-extractor cannot follow it and stops with an `InternalError`. Found before it runs, so the
+ * failure says which signature and why (#895): `[{ name, file }]`.
+ */
+export function strippedNames({ program, root }) {
+  const checker = program.getTypeChecker();
+  const own = (file) =>
+    file.startsWith(join(root, "dist") + "/") && !file.includes("/node_modules/");
+  const found = [];
+  for (const source of program.getSourceFiles().filter((f) => own(f.fileName))) {
+    const visit = (node) => {
+      const head = nameHeadOf(node);
+      // a name nothing declares resolves to a symbol without declarations
+      if (head && !checker.getSymbolAtLocation(head)?.declarations?.length)
+        found.push({ name: head.text, file: relative(root, source.fileName) });
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return found;
+}
+
+/** The identifier a type reference or an `extends` clause starts with, `A` of `A.B<C>`. */
+function nameHeadOf(node) {
+  const named = ts.isTypeReferenceNode(node)
+    ? node.typeName
+    : ts.isExpressionWithTypeArguments(node)
+      ? node.expression
+      : undefined;
+  const head = named && ts.isQualifiedName(named) ? leftmost(named) : named;
+  return head && ts.isIdentifier(head) ? head : undefined;
+}
+
+const leftmost = (name) => (ts.isQualifiedName(name) ? leftmost(name.left) : name);

@@ -1,12 +1,7 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import type {
-  AgentMeta,
-  CompactionFields,
-  GuardrailFields,
-  PiiPolicyFields,
-} from "../../components/meta-types.js";
-import { NodeKind, type ComponentClass } from "../ast.js";
+import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
+import { NodeKind } from "../ast.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 /** Who decides a router's route (#280): its model, or its class's `route(input)`. */
@@ -44,7 +39,7 @@ export enum FailurePolicy {
  */
 export interface ChosenRouterRoute {
   /** An agent, an action, another router or a finish — the same targets as `chooseOne(route(…))`. */
-  readonly target: ComponentClass;
+  readonly target: Class;
   /** A route to a finish is worded as a stop instruction ("Stop and send the answer: …"). */
   readonly prompt: string;
   readonly spawn?: SpawnPolicy.OnDemand;
@@ -53,7 +48,7 @@ export interface ChosenRouterRoute {
 
 /** A route the framework launches itself (`spawn: SpawnPolicy.Always`): no model sees it. */
 export interface AlwaysRouterRoute {
-  readonly target: ComponentClass;
+  readonly target: Class;
   readonly spawn: SpawnPolicy.Always;
   readonly failure?: FailurePolicy;
   readonly prompt?: never;
@@ -64,7 +59,7 @@ export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
 
 /** One route of a code router (`DecidedBy.Code`): its `route()` says when; no prompt; `OnDemand` by default. */
 export interface CodeRouterRoute {
-  readonly target: ComponentClass;
+  readonly target: Class;
   readonly spawn?: SpawnPolicy;
   readonly failure?: FailurePolicy;
   readonly prompt?: never;
@@ -74,7 +69,7 @@ export interface CodeRouterRoute {
  * `@Router({ decidedBy: DecidedBy.Model })` — how its model chooses (`prompt`, the route prompts);
  * the flow lists the targets (`.chooseOne(route(…)…)`) and the two lists match (`[router.routes-mismatch]`).
  */
-export interface ModelRouterOptions extends PiiPolicyFields, GuardrailFields, CompactionFields {
+export interface ModelRouterOptions {
   /** Ends with `-router` (`main-router`). */
   readonly name: string;
   readonly description: string;
@@ -90,13 +85,24 @@ export interface ModelRouterOptions extends PiiPolicyFields, GuardrailFields, Co
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt. */
-  readonly promptVariables?: AgentMeta["promptVariables"];
+  readonly promptVariables?: Readonly<Record<string, string>>;
   readonly deps?: never;
+  /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
+  readonly guardrails?: readonly Class[];
+  /** Inherited guardrails removed for the router's own model. */
+  readonly excludeGuardrails?: readonly Class[];
+  /** PII policies added to the inherited ones; they apply to its model, never to logs and traces. */
+  readonly piiPolicies?: readonly Class[];
+  /** Inherited PII policies removed for the router's own model. */
+  readonly excludePiiPolicies?: readonly Class[];
+  /** Its own `@Compaction`, over the workflow's and the application's. */
+  readonly compaction?: Class;
+  /** How many recent turns it sees in full, over the workflow's and the application's. */
+  readonly uncompactedTurns?: UncompactedTurns;
 }
 
 /** `@Router({ decidedBy: DecidedBy.Code })` — the class's `route(input)` chooses; no model, no prompt. */
-export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]>
-  extends PiiPolicyFields, GuardrailFields {
+export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]> {
   /** Ends with `-router` (`main-router`). */
   readonly name: string;
   readonly description: string;
@@ -115,6 +121,14 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   /** A code router reads no thread memory: no compaction, no window. */
   readonly compaction?: never;
   readonly uncompactedTurns?: never;
+  /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
+  readonly guardrails?: readonly Class[];
+  /** Inherited guardrails removed for this router. */
+  readonly excludeGuardrails?: readonly Class[];
+  /** PII policies added to the inherited ones. */
+  readonly piiPolicies?: readonly Class[];
+  /** Inherited PII policies removed for this router. */
+  readonly excludePiiPolicies?: readonly Class[];
 }
 
 /** `@Router` options: a union discriminated by `decidedBy`. */

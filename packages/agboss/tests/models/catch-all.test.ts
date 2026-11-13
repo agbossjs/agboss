@@ -24,7 +24,6 @@ import {
   DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  ModelProviderDirectory,
   ModelPurpose,
   OpenRouterModelProvider,
   OpenRouterProvider,
@@ -35,6 +34,7 @@ import {
   type ModelProviderResponse,
   type OpenRouterFields,
 } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { start } from "../helpers/flow.js";

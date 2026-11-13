@@ -1,5 +1,6 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import type { ArbiterClass, ComponentClass } from "../../ast.js";
+import type { Class } from "../../../components/injection.js";
+import type { ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
@@ -27,11 +28,11 @@ import type { AnalysisContext } from "./context.js";
 
 /** One agent an arbiter judges: by its criterion, or by the method named here. */
 interface Judged {
-  readonly agent: ComponentClass;
+  readonly agent: Class;
   readonly method?: string;
 }
 
-const nameOf = (agent: ComponentClass): ComponentName => {
+const nameOf = (agent: Class): ComponentName => {
   const [name] = groupAgentNames([agent]);
   return name ?? ("" as ComponentName);
 };
@@ -43,8 +44,7 @@ const judgedBy = (arbiter: ArbiterClass, declaration: ArbiterDeclaration): reado
     : declaration.options.criteria.map(({ agent }) => ({ agent }));
 
 /** `fromCompanyCheck` for `CompanyCheckAgent`: `from` and the class name without `Agent`. */
-const methodNameFor = (agent: ComponentClass): string =>
-  `from${classLabel(agent).replace(/Agent$/, "")}`;
+const methodNameFor = (agent: Class): string => `from${classLabel(agent).replace(/Agent$/, "")}`;
 
 interface Judging {
   readonly name: string;

@@ -150,6 +150,7 @@ export {
 } from "./flow/types/write.js";
 export { checkModelUses } from "./models/check.js";
 export { problemLine } from "./models/problems.js";
+export { ModelProviderDirectory } from "./models/resolve.js";
 export { type ProviderFetch } from "./models/resilient-fetch.js";
 export { modelUsesOf, type ModelUse } from "./models/uses.js";
 export { directoryOf, modelSummaryOf } from "./models/workflow-models.js";
@@ -165,7 +166,8 @@ export { startsOfApplication, type ApplicationStart } from "./application/applic
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
 export { ApplicationLoadError } from "./loader/load-errors.js";
 // public in `@agboss/core/testing` too (#818); the CLI's `agboss studio` takes it from here
-export { studioOf, type StudioGraphs, type StudioOptions } from "./studio.js";
+export { studioOf, studioOfWith, type StudioGraphs, type StudioOptions } from "./studio.js";
+export { compareProfilesWith } from "./eval/compare-profiles.js";
 export type { KnowledgeRetrieval, KnowledgeRetrieve, KnowledgeSource } from "./rag/types.js";
 export {
   cassetteFilesUnder,

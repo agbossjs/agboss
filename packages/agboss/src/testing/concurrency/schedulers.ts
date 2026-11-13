@@ -1,7 +1,7 @@
 import type { BranchScheduler } from "../../flow/runtime/launch/branch-schedule.js";
 import type { ScriptBook } from "../script-book.js";
 import { CompletionGates } from "./completion-gates.js";
-import { ConcurrencyMode, TestConcurrency } from "./test-concurrency.js";
+import { TestConcurrency } from "./test-concurrency.js";
 
 /** `TestConcurrency.Sequential`: one slot per launch — its branches run one at a time, in order. */
 class OneAtATime implements BranchScheduler {
@@ -36,11 +36,11 @@ export function schedulerOf(
   book: ScriptBook,
 ): BranchScheduler | undefined {
   switch (concurrency.mode) {
-    case ConcurrencyMode.Real:
+    case "real":
       return undefined;
-    case ConcurrencyMode.Sequential:
+    case "sequential":
       return new OneAtATime();
-    case ConcurrencyMode.InOrder: {
+    case "in-order": {
       const gates = new CompletionGates(concurrency.steps, (failure) => book.report(failure));
       book.expect(gates);
       return gates;

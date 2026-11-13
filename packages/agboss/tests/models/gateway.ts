@@ -12,7 +12,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { InMemoryRateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ProviderCalls } from "../../src/models/calls/provider-calls.js";
-import { ModelProviderDirectory } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import type { ModelProviderType } from "../../src/models/model-provider.decorator.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { completion, providerStub, type StubReply } from "./stub.js";

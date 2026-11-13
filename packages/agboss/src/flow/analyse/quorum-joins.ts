@@ -1,4 +1,5 @@
-import type { ComponentClass, CountQuorum, ReturnedValue } from "../ast.js";
+import type { Class } from "../../components/injection.js";
+import type { CountQuorum, ReturnedValue } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { isValueShape, optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
@@ -54,7 +55,7 @@ export function groupQuorumGroupsOf(
 }
 
 /** A group's agents by name, as listed; an undecorated class keeps its class name. */
-export const groupAgentNames = (agents: readonly ComponentClass[]): readonly ComponentName[] =>
+export const groupAgentNames = (agents: readonly Class[]): readonly ComponentName[] =>
   agents.map(
     (agent) =>
       (declarationOf(agent)?.options.name ?? (agent.name || "(anonymous class)")) as ComponentName,

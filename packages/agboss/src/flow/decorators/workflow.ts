@@ -1,6 +1,6 @@
 import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider } from "../../components/injection.js";
-import type { AgentMeta } from "../../components/meta-types.js";
+import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes } from "../../units/index.js";
@@ -11,9 +11,9 @@ import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
 export interface ModelDefaults {
   readonly temperature?: number;
-  readonly maxTokens?: AgentMeta["maxTokens"];
+  readonly maxTokens?: MaxTokens;
   readonly reasoning?: Reasoning;
-  readonly cache?: AgentMeta["cache"];
+  readonly cache?: CacheSetting;
 }
 
 /** The model of routers without their own `model` (#261: `defaults.router` keeps only `model`). */

@@ -14,7 +14,6 @@ import {
   DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  ModelProviderDirectory,
   OpenRouterProvider,
   PromptCaching,
   ProviderSort,
@@ -23,6 +22,7 @@ import {
   RetryPolicy,
   type OpenRouterFields,
 } from "../../src/models/index.js";
+import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { routingProblemsOf, type ModelEndpoint } from "../../src/models/openrouter-routing.js";
 import { servedByFetch } from "../../src/models/served-by.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";

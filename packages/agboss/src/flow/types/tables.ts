@@ -1,7 +1,8 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import { EdgeKind, outputOf, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
-import { NodeKind, type ComponentClass } from "../ast.js";
+import type { Class } from "../../components/injection.js";
+import { NodeKind } from "../ast.js";
 import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
@@ -35,7 +36,7 @@ export enum RouteForm {
  * `Route<R>` in a form: every target after `.chooseOne(…)` (spawn policies apply to launches only);
  * before a launch the `OnDemand` ones — `Always` left out, by the kind's default too (#273, #280).
  */
-export function routeTargetsOf(options: RouterOptions, form: RouteForm): readonly ComponentClass[] {
+export function routeTargetsOf(options: RouterOptions, form: RouteForm): readonly Class[] {
   const routes = form === RouteForm.One ? routesOf(options) : onDemandRoutesOf(options);
   return routes.map((route) => route.target);
 }

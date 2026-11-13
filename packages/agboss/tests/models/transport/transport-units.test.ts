@@ -10,11 +10,11 @@ import { providerClients, ProviderCapabilityError } from "../../../src/llm/provi
 import {
   FinishReason,
   ModelFailure,
-  ModelProviderDirectory,
   ModelProviderError,
   ModelProviderFailureError,
   ModelProviderMessageRole,
 } from "../../../src/models/index.js";
+import { ModelProviderDirectory } from "../../../src/models/resolve.js";
 import { aiMessageOf, providerMessagesOf } from "../../../src/models/transport/messages.js";
 import { transportSnapshot } from "../../../src/run/transport-snapshot.js";
 import { seconds } from "../../../src/units/index.js";

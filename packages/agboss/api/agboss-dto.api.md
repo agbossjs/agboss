@@ -115,6 +115,18 @@ export interface DtoIssue {
     readonly reason: string;
 }
 
+declare namespace DtoTypes {
+    export {
+        ListOfFactory,
+        PlainFieldContext,
+        ListElementShape,
+        OneOfVariants,
+        OptionalInnerShape,
+        PartialVariant,
+        Wrapper
+    }
+}
+
 // @public
 export class DtoValidationError extends AGBossError {
     constructor(options: DtoValidationErrorOptions);
@@ -206,18 +218,10 @@ export function isVariant<TItem extends {
 }>;
 
 // @public
-export type ListElementShape = DtoClass | OneOfWrapper;
+type ListElementShape = DtoClass | OneOfWrapper;
 
 // @public
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
-
-// @public (undocumented)
-export interface ListLimits {
-    // (undocumented)
-    readonly maxItems?: number;
-    // (undocumented)
-    readonly minItems?: number;
-}
 
 // @public
 export const ListOf: ListOfFactory;
@@ -226,7 +230,7 @@ export const ListOf: ListOfFactory;
 export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
 
 // @public
-export interface ListOfFactory {
+interface ListOfFactory {
     // (undocumented)
     <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): FieldDecorator<T[] | undefined>;
     // (undocumented)
@@ -234,7 +238,10 @@ export interface ListOfFactory {
 }
 
 // @public (undocumented)
-export type ListOptions<T> = ListLimits & FieldOptions<T[]>;
+export type ListOptions<T> = FieldOptions<T[]> & {
+    readonly minItems?: number;
+    readonly maxItems?: number;
+};
 
 // @public
 export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
@@ -283,16 +290,12 @@ export function OneOf<const V extends readonly [string, ...string[]]>(options: O
 export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
 
 // @public (undocumented)
-export type OneOfOptions<V extends readonly string[]> = OneOfValues<V> & FieldOptions<V[number]>;
-
-// @public (undocumented)
-export interface OneOfValues<V extends readonly string[]> {
-    // (undocumented)
+export type OneOfOptions<V extends readonly string[]> = FieldOptions<V[number]> & {
     readonly values: V;
-}
+};
 
 // @public
-export type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
+type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
 
 // @public
 export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
@@ -314,7 +317,7 @@ export interface OptionalField {
 }
 
 // @public
-export type OptionalInnerShape = DtoClass | ListWrapper;
+type OptionalInnerShape = DtoClass | ListWrapper;
 
 // @public
 export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
@@ -328,7 +331,7 @@ export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInn
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
-export type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
+type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
     readonly [variantClass]: TDto;
 };
 
@@ -344,7 +347,7 @@ export class PersonNameDto {
 export const PhoneNumber: FieldFactory<string, object>;
 
 // @public
-export interface PlainFieldContext<This> {
+interface PlainFieldContext<This> {
     // (undocumented)
     readonly name: keyof This;
     // (undocumented)
@@ -508,7 +511,7 @@ export class WorkflowStartTextDto {
 }
 
 // @public
-export enum Wrapper {
+enum Wrapper {
     // (undocumented)
     History = "history",
     // (undocumented)
@@ -521,15 +524,15 @@ export enum Wrapper {
 
 // Warnings were encountered during analysis:
 //
-// src/dto/decorators.ts:57:14 - (ae-undocumented) Missing documentation for "Email".
-// src/dto/decorators.ts:58:14 - (ae-undocumented) Missing documentation for "Url".
-// src/dto/decorators.ts:59:14 - (ae-undocumented) Missing documentation for "Uuid".
-// src/dto/decorators.ts:80:1 - (ae-undocumented) Missing documentation for "OneOfOptions".
+// src/dto/decorators.ts:55:14 - (ae-undocumented) Missing documentation for "Email".
+// src/dto/decorators.ts:56:14 - (ae-undocumented) Missing documentation for "Url".
+// src/dto/decorators.ts:57:14 - (ae-undocumented) Missing documentation for "Uuid".
+// src/dto/decorators.ts:78:1 - (ae-undocumented) Missing documentation for "OneOfOptions".
 // src/dto/decorators.ts:86:1 - (ae-undocumented) Missing documentation for "OneOf".
 // src/dto/decorators.ts:105:1 - (ae-undocumented) Missing documentation for "ListOptions".
-// src/dto/decorators.ts:109:3 - (ae-undocumented) Missing documentation for "__call".
-// src/dto/decorators.ts:110:3 - (ae-undocumented) Missing documentation for "__call".
-// src/dto/decorators.ts:125:1 - (ae-undocumented) Missing documentation for "Nested".
+// src/dto/decorators.ts:112:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts:113:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts:128:1 - (ae-undocumented) Missing documentation for "Nested".
 // src/dto/errors.ts:7:3 - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts:8:3 - (ae-undocumented) Missing documentation for "message".
 // src/dto/errors.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
@@ -598,16 +601,11 @@ export enum Wrapper {
 // src/dto/types.ts:66:3 - (ae-undocumented) Missing documentation for "min".
 // src/dto/types.ts:67:3 - (ae-undocumented) Missing documentation for "max".
 // src/dto/types.ts:70:1 - (ae-undocumented) Missing documentation for "DecimalStringLimits".
-// src/dto/types.ts:75:1 - (ae-undocumented) Missing documentation for "ListLimits".
-// src/dto/types.ts:76:3 - (ae-undocumented) Missing documentation for "minItems".
-// src/dto/types.ts:77:3 - (ae-undocumented) Missing documentation for "maxItems".
-// src/dto/types.ts:80:1 - (ae-undocumented) Missing documentation for "OneOfValues".
-// src/dto/types.ts:81:3 - (ae-undocumented) Missing documentation for "values".
-// src/dto/types.ts:114:3 - (ae-undocumented) Missing documentation for "name".
-// src/dto/types.ts:115:3 - (ae-undocumented) Missing documentation for "private".
-// src/dto/types.ts:116:3 - (ae-undocumented) Missing documentation for "static".
-// src/dto/types.ts:130:3 - (ae-undocumented) Missing documentation for "__call".
-// src/dto/types.ts:131:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/types.ts:107:3 - (ae-undocumented) Missing documentation for "name".
+// src/dto/types.ts:108:3 - (ae-undocumented) Missing documentation for "private".
+// src/dto/types.ts:109:3 - (ae-undocumented) Missing documentation for "static".
+// src/dto/types.ts:123:3 - (ae-undocumented) Missing documentation for "__call".
+// src/dto/types.ts:124:3 - (ae-undocumented) Missing documentation for "__call".
 // src/flow/dto-wrappers.ts:12:3 - (ae-undocumented) Missing documentation for "Optional".
 // src/flow/dto-wrappers.ts:13:3 - (ae-undocumented) Missing documentation for "List".
 // src/flow/dto-wrappers.ts:14:3 - (ae-undocumented) Missing documentation for "OneOf".
