@@ -88,4 +88,45 @@ describe("AC5: a 0.1.1-pre file opens, keeps its pauses, gains the columns", () 
     const next = await pauses.findOpenAfter(first.next, 10);
     expect(next.pauses.map((pause) => pause.pauseId)).toEqual(["p4"]);
   });
+
+  it("#935: a file whose rowids have gaps (1, 3, 4, 5) keeps them as `seq`: a cursor issued before the upgrade skips no row", async () => {
+    const path = temporarySqlitePath();
+    const old = connectionTo(path);
+    old.database.exec(`CREATE TABLE pauses (
+      tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
+      root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
+      pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
+      expires_at TEXT, remind_at TEXT, channel TEXT,
+      PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`);
+    const ids = new Map([
+      [1, "p1"],
+      [3, "p3"],
+      [4, "p4"],
+      [5, "p5"],
+    ]);
+    for (const [rowid, id] of ids)
+      old.database
+        .prepare(
+          "INSERT INTO pauses (rowid, tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, channel) VALUES (?, 'default', ?, ?, 'run-1', 'pending', 1, ?, 'refund-approval-channel')",
+        )
+        .run(rowid, id, `run-1:s:1:${id}`, oldPauseJson);
+
+    const connection = connectionTo(path);
+    const pauses = new SqlitePausedExecutionRepository(connection, new VirtualClock(new Date(0)));
+
+    // the cursor the file's own store handed out after p3, before the upgrade: its rowid
+    const beforeUpgrade = "3";
+    const after = await pauses.findOpenAfter(beforeUpgrade, 10);
+    expect(after.pauses.map((pause) => pause.pauseId)).toEqual(["p4", "p5"]);
+    const first = await pauses.findOpenAfter(undefined, 2);
+    expect(first.pauses.map((pause) => pause.pauseId)).toEqual(["p1", "p3"]);
+    expect(first.next).toBe(beforeUpgrade);
+    const tenant = await pauses.findPageByTenantId(
+      "default",
+      { statuses: [PauseStatus.Pending] },
+      10,
+      beforeUpgrade,
+    );
+    expect(tenant.pauses.map((pause) => pause.pauseId)).toEqual(["p4", "p5"]);
+  });
 });

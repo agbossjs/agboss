@@ -69,13 +69,15 @@ const PAUSE_CHANNEL_BACKFILL = `UPDATE pauses SET channel = json_extract(pause, 
 /**
  * #935: `seq`, the insertion sequence a page's cursor reads, is a declared `INTEGER PRIMARY KEY
  * AUTOINCREMENT` — an undeclared rowid is given again after the highest row is deleted, so a paged
- * scan skipped a row inserted then. A file without it has its table rebuilt, rows in their rowid
- * order (as `outbound_calls` was, #825); the indexes follow the dropped table and are made again.
+ * scan skipped a row inserted then. A file without it has its table rebuilt, each row keeping its
+ * old `rowid` as its `seq` — the numbering keeps its gaps, so a cursor issued before the upgrade
+ * still names the same place (as `outbound_calls` was, #825); the indexes follow the dropped table
+ * and are made again.
  */
 const PAUSE_COLUMNS_ALL = `${PAUSE_COLUMNS}, expires_at, remind_at, channel`;
 const PAUSES_SEQ_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_seq;
 ${PAUSES_TABLE}
-INSERT INTO pauses (${PAUSE_COLUMNS_ALL}) SELECT ${PAUSE_COLUMNS_ALL} FROM pauses_before_seq ORDER BY rowid;
+INSERT INTO pauses (seq, ${PAUSE_COLUMNS_ALL}) SELECT rowid, ${PAUSE_COLUMNS_ALL} FROM pauses_before_seq ORDER BY rowid;
 DROP TABLE pauses_before_seq;
 ${PAUSES_INDEXES}`;
 
