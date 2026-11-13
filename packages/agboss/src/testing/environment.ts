@@ -70,6 +70,18 @@ export interface TestWithOptions extends EnvironmentSelection {
    * `[override(RefundApprovalRole, AutoApproveChannel)]` — the same `override(…)` as the unit runners.
    */
   readonly overrides?: readonly Override[];
+  /**
+   * A profile on top of every workflow of the application, the child workflows too (#895): as
+   * `createApp(App, { profile })` applies it, `profiles/<workflow>/<profile>.yaml` under
+   * `profileRoot`, but with the models scripted and no keys. `app.settings` shows what it applied.
+   */
+  readonly profile?: string | undefined;
+  /**
+   * Where `profiles/` is (default `process.cwd()`, as in `createApp`). In a monorepo give the
+   * package's directory: `fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` —
+   * never `.pathname`, which is not a path on Windows.
+   */
+  readonly profileRoot?: string | undefined;
 }
 
 /** The process env without tracing keys: tests never export traces. */
@@ -168,7 +180,11 @@ export class TestEnvironment {
    * it runs — but a PII key's, which gets the test key (#778).
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
-    const assembled = await applicationOf(application, {}, "testWith");
+    const assembled = await applicationOf(
+      application,
+      { profile: options.profile, profileRoot: options.profileRoot },
+      "testWith",
+    );
     const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());
     return new TestEnvironment(assembled, options, environment);
   }

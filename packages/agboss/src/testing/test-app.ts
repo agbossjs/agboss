@@ -8,6 +8,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
 import type { App, ExecutionOutput } from "../app/types.js";
 import type { Class } from "../components/injection.js";
+import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
 import { TestFailure, TestSetupError } from "./errors.js";
@@ -45,6 +46,12 @@ export interface TestApp extends Pick<
   | "resolve"
 > {
   readonly clock: VirtualClock;
+  /**
+   * The settings each workflow of the application runs with, by its name — a profile of
+   * `testWith(App, { profile })` applied (#895): `app.settings["scout-workflow"].agents["scout-agent"].thinking`.
+   * Read-only; known before the app is built.
+   */
+  readonly settings: Readonly<Record<string, AgentsConfigOf<string>>>;
   /**
    * Builds the test's application now (assembly, `onInit` → `onStart`), for a test that executes
    * nothing; the first `execute` builds it otherwise. A second call does nothing.
@@ -158,6 +165,12 @@ function forwardedControlOf(readyApp: () => App): ExecutionControl {
   };
 }
 
+/** The config of each workflow of the application, as assembled (a profile applied), by name. */
+const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
+  Object.fromEntries(
+    environment.assembled.workflows.map((workflow) => [workflow.config.name, workflow.config]),
+  );
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
@@ -183,6 +196,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   };
   const testApp: TestApp = {
     clock: environment.clock,
+    settings: settingsOf(environment),
     execute: (start, input, ...options) =>
       checked(environment, async () => (await built()).app.execute(start, input, ...options)),
     resume: (request, options): Promise<ExecutionOutput> =>

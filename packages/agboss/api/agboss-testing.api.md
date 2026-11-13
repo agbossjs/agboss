@@ -929,6 +929,7 @@ export interface TestApp extends Pick<App, "execute" | "resume" | "close" | "can
     ready(): Promise<void>;
     // (undocumented)
     router(router: Class): RouterSlice;
+    readonly settings: Readonly<Record<string, AgentsConfigOf<string>>>;
     // (undocumented)
     tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
 }
@@ -1113,6 +1114,8 @@ export interface TestWithOptions extends EnvironmentSelection {
     readonly concurrency?: TestConcurrency;
     readonly instances?: number | readonly TestInstanceOptions[];
     readonly overrides?: readonly Override[];
+    readonly profile?: string | undefined;
+    readonly profileRoot?: string | undefined;
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;
 }
@@ -1486,10 +1489,10 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/slices.ts:20:3 - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts:25:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts:33:3 - (ae-undocumented) Missing documentation for "replyWith".
-// src/testing/test-app.ts:47:3 - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts:53:3 - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts:54:3 - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts:55:3 - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-app.ts:48:3 - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts:60:3 - (ae-undocumented) Missing documentation for "agent".
+// src/testing/test-app.ts:61:3 - (ae-undocumented) Missing documentation for "router".
+// src/testing/test-app.ts:62:3 - (ae-undocumented) Missing documentation for "tool".
 // src/testing/turns.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts:26:3 - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts:45:3 - (ae-undocumented) Missing documentation for "value".
