@@ -49,6 +49,18 @@ export class InvoiceAnswerDto {
 })
 export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
 
+/** #812: a peer that is not an AGBoss application, typed and untyped: listed as foreign. */
+@A2AAgent({
+  name: "weather-a2a-agent",
+  url: "http://weather.invalid",
+  input: InvoiceQuestionDto,
+  output: InvoiceAnswerDto,
+})
+export class WeatherA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
+
+@A2AAgent({ name: "oracle-a2a-agent", url: "http://oracle.invalid" })
+export class OracleA2AAgent extends A2AClient {}
+
 @Tool({
   name: "ask-billing-tool",
   description: "Asks the billing desk",
@@ -172,7 +184,7 @@ export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflo
       .toFinish(QuoteWorkflowFinish),
   ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  providers: [BillingDeskA2AAgent, OpenCallerResolver],
+  providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenCallerResolver],
 })
 export class QuoteWorkflow {}
 

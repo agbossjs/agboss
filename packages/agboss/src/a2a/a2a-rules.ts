@@ -70,6 +70,10 @@ function exposeViolations(options: ApplicationOptions): RuleViolation[] {
     found.push(
       ...contractNameViolations(meta.meta.name, expose, NameKind.A2AExpose, "A2AExpose", where),
     );
+    if (meta.meta.description.trim() === "") {
+      const message = `${meta.meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
+      found.push(violation("a2a.expose-description-required", message, [where]));
+    }
     for (const exported of meta.meta.exports) {
       if (starts.has(exported)) continue;
       const message = `${meta.meta.name} exports ${exported.name}, which is no @WorkflowStart of ${where}'s workflows — export a start of a listed workflow`;

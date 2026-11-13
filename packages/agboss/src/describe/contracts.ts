@@ -1,6 +1,7 @@
 import { cardFileFieldsOf } from "../a2a/files/a2a-file-options.js";
 import { A2AReply } from "../a2a/a2a-expose.decorator.js";
 import type { AssembledApplication } from "../application/assemble.js";
+import type { A2AAgentMeta } from "../a2a/a2a-decorator.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
@@ -10,6 +11,8 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import type {
   A2AExportContract,
+  A2AForeignImportContract,
+  A2AImportBase,
   A2AImportContract,
   ContractDto,
   ContractsSnapshot,
@@ -80,7 +83,7 @@ function a2aExportsOf(
         kind: "a2a",
         expose: meta.meta.name,
         version: meta.meta.version,
-        start: declaration.options.name,
+        skill: declaration.options.name,
         workflow: workflow.name,
         input: dtos.ofShape(declaration.options.input),
         outputs,
@@ -106,40 +109,61 @@ function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
   });
 }
 
+type A2AImport = A2AImportContract | A2AForeignImportContract;
+
+/** The foreign import (#812): a peer that is no AGBoss application, listed typed or not. */
+function foreignImportOf(base: A2AImportBase, meta: A2AAgentMeta, dtos: Dtos): A2AImport {
+  const { input, output } = meta;
+  return {
+    ...base,
+    foreign: true,
+    target: null,
+    input: input === undefined ? null : dtos.of(input),
+    output: output === undefined ? null : dtos.of(output),
+  };
+}
+
+/** The import of one `@A2AAgent`; none for an untyped agent of an AGBoss application (#809). */
+function a2aImportOf(client: Class, parts: readonly WorkflowParts[], dtos: Dtos): A2AImport[] {
+  const component = componentOf(client);
+  if (component?.kind !== "a2a-agent") return [];
+  const meta = component.meta;
+  const { name, target, input, output, price } = meta;
+  const base = {
+    kind: "a2a" as const,
+    client: name,
+    usedBy: usesOf(client, parts),
+    price: price ?? null,
+  };
+  if (target?.application === undefined) return [foreignImportOf(base, meta, dtos)];
+  if (input === undefined || output === undefined) return [];
+  return [
+    {
+      ...base,
+      foreign: false,
+      target: {
+        application: target.application,
+        skill: target.skill ?? "",
+        // #916: present only when the client takes some of the skill's finishes
+        ...(target.finishes === undefined ? {} : { finishes: [...target.finishes] }),
+      },
+      input: dtos.of(input),
+      output: dtos.of(output),
+    },
+  ];
+}
+
 function a2aImportsOf(
   assembled: AssembledApplication,
   parts: readonly WorkflowParts[],
   dtos: Dtos,
-): readonly A2AImportContract[] {
+): readonly A2AImport[] {
   const providers = assembled.modules.flatMap((module) => module.providers);
   const clients = [...new Set(providers)].filter(
     (provider): provider is Class =>
       typeof provider === "function" && componentOf(provider)?.kind === "a2a-agent",
   );
-  return clients.flatMap((client): A2AImportContract[] => {
-    const meta = componentOf(client);
-    if (meta?.kind !== "a2a-agent") return [];
-    const { name, target, input, output, price } = meta.meta;
-    // #809: a typed agent of an AGBoss application is a contract federation compares; a foreign
-    // or untyped agent is not listed (P5: listed as foreign)
-    if (target?.application === undefined || input === undefined || output === undefined) return [];
-    return [
-      {
-        kind: "a2a",
-        client: name,
-        target: {
-          application: target.application,
-          start: target.skill ?? "",
-          // #916: present only when the client takes some of the skill's finishes
-          ...(target.finishes === undefined ? {} : { finishes: [...target.finishes] }),
-        },
-        usedBy: usesOf(client, parts),
-        input: dtos.of(input),
-        output: dtos.of(output),
-        price: price ?? null,
-      },
-    ];
-  });
+  return clients.flatMap((client) => a2aImportOf(client, parts, dtos));
 }
 
 function mcpImportsOf(parts: readonly WorkflowParts[], dtos: Dtos): readonly McpImportContract[] {

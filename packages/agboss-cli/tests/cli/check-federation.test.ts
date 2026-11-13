@@ -67,6 +67,28 @@ describe("agboss check --federation", () => {
     ]);
   });
 
+  it("#812 AC2: describe --json lists a foreign @A2AAgent as foreign; --federation skips it", async () => {
+    const cwd = await snapshotsDir();
+    const described = await agboss(["describe", "--application", SHOP, "--json"], cwd);
+    const { imports } = (
+      envelope(described).result as {
+        application: { contracts: { imports: readonly Record<string, unknown>[] } };
+      }
+    ).application.contracts;
+
+    const passed = await agboss(
+      ["check", "--federation", "snapshots", "--application", COMPATIBLE, "--json"],
+      cwd,
+    );
+
+    expect(imports.filter((contract) => contract.foreign === true)).toEqual([
+      expect.objectContaining({ client: "weather-a2a-agent", target: null }),
+      expect.objectContaining({ client: "oracle-a2a-agent", input: null, output: null }),
+    ]);
+    expect(passed.code).toBe(0);
+    expect((envelope(passed).result as CheckResult).problems).toEqual([]);
+  });
+
   it("a neighbour that agrees passes; a file that is not a snapshot is a problem of its own", async () => {
     const cwd = await snapshotsDir();
     writeFileSync(join(cwd, "notes.json"), JSON.stringify({ schema: 1, command: "check" }));

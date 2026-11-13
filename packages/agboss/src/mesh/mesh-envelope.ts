@@ -96,7 +96,7 @@ export const MESH_ERROR_META_KEY = "agboss.dev/error";
 
 /**
  * What a receiver tells its caller of the run (#398 PR 2), signed by the receiver's `signingKey`:
- * `A2AExecutionResponse.report`, `_meta["agboss.dev/report"]` over MCP. A caller records `spend` as
+ * `task.metadata["https://agboss.dev/a2a/mesh/v1"].report` over A2A, `_meta["agboss.dev/report"]` over MCP. A caller records `spend` as
  * a service's spend only when it verifies the report with that application's `verifyKey`.
  */
 export interface MeshRunReport {

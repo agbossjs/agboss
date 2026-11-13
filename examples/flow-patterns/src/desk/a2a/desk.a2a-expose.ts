@@ -12,5 +12,6 @@ import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
   version: "1.0.0",
   description: "Answers order questions for the helpline",
   exports: [DeskWorkflowStart],
+  skills: { "desk-workflow-start": { tags: ["orders", "support"] } }, // a card's skill is found by its tags
 })
 export class DeskA2AExpose {}

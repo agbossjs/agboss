@@ -50,10 +50,11 @@ deskTest("the desk's Agent Card names its one skill", async ({ a2aServer }) => {
   const { url } = await a2aServer(desk);
 
   const card = (await (await fetch(`${url}/.well-known/agent-card.json`)).json()) as {
-    readonly skills: readonly { readonly id: string }[];
+    readonly skills: readonly { readonly id: string; readonly tags: readonly string[] }[];
   };
 
   expect(card.skills.map((skill) => skill.id)).toEqual(["desk-workflow-start"]);
+  expect(card.skills[0]?.tags).toEqual(["orders", "support"]); // #812: found by its tags
 });
 
 deskTest(

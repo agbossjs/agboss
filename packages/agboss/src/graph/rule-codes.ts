@@ -92,6 +92,7 @@ export type RuleCode =
   | "application.idempotency-key-shared"
   | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
+  | "a2a.expose-description-required"
   | "a2a.task-store-not-shared"
   | "a2a.message-store-not-shared"
   | "a2a.message-skill-pause"

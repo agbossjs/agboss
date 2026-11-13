@@ -1,6 +1,6 @@
 import { createAppWith } from "../../src/application/create-app.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener, A2AStatus } from "../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
@@ -99,7 +99,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
 });
 
 describe("#398 PR 3: describe --json lists the declared contracts", () => {
-  it("exports by expose and start, imports by client and server, each DTO with its schemaHash", async () => {
+  it("AC2: exports by expose and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
     const contracts = contractsOf(await applicationOf(ShopKbApplication));
 
     expect(contracts.exports).toEqual([
@@ -107,7 +107,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         kind: "a2a",
         expose: "shop-a2a-expose",
         version: "2.0.0",
-        start: "quote-workflow-start",
+        skill: "quote-workflow-start",
         workflow: "quote-workflow",
         input: { dto: "WorkflowStartTextDto", schemaHash: expect.any(String) },
         outputs: [
@@ -120,7 +120,7 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
         reply: "task",
         cardFileFields: "extension",
       },
-      expect.objectContaining({ kind: "a2a", start: "refund-workflow-start" }),
+      expect.objectContaining({ kind: "a2a", skill: "refund-workflow-start" }),
       {
         kind: "mcp",
         expose: "shop-mcp-expose",
@@ -133,11 +133,32 @@ describe("#398 PR 3: describe --json lists the declared contracts", () => {
       {
         kind: "a2a",
         client: "billing-desk-a2a-agent",
-        target: { application: "billing-application", start: "billing-workflow-start" },
+        foreign: false,
+        target: { application: "billing-application", skill: "billing-workflow-start" },
         usedBy: [{ workflow: "quote-workflow", tool: "ask-billing-tool" }],
         input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
         output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
         price: 0.05,
+      },
+      {
+        kind: "a2a",
+        client: "weather-a2a-agent",
+        foreign: true,
+        target: null,
+        usedBy: [],
+        input: { dto: "InvoiceQuestionDto", schemaHash: expect.any(String) },
+        output: { dto: "InvoiceAnswerDto", schemaHash: expect.any(String) },
+        price: null,
+      },
+      {
+        kind: "a2a",
+        client: "oracle-a2a-agent",
+        foreign: true,
+        target: null,
+        usedBy: [],
+        input: null,
+        output: null,
+        price: null,
       },
       {
         kind: "mcp",

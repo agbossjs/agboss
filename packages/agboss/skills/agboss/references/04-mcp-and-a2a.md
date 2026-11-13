@@ -373,7 +373,7 @@ export class SupportApplication {}
 ```
 
 - `@A2AAgent({ name, url, target?, input?, output?, price?, mesh?, allowedOrigins?, deps })`
-  (`A2AAgentConfig`; `target` an `A2ATarget { application?, skill? }` — `skill` was `start`) on a class
+  (`A2AAgentConfig`; `target` an `A2ATarget { application?, skill?, finishes? }` — `skill` was `start`) on a class
   that `extends A2AClient<In, Out>` calls any A2A v1.0 agent (#809, on the official `@a2a-js/sdk`): the
   card is read from `<url>/.well-known/agent-card.json` on first use (`cardTtl`, 5 min) and checked — an
   A2A 1.0 interface (a v0.3-only card is `A2AProtocolError` naming its version), the skill
@@ -414,11 +414,16 @@ export class SupportApplication {}
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
 - `agboss describe --json` lists every `@A2AAgent` under `application.contracts.imports` (target,
   `usedBy`, input and output with their `schemaHash`, price) and every listed `@A2AExpose` /
-  `@McpExpose` under `exports`. Save each neighbour's as a file and run
-  `npx agboss check --federation snapshots/`: no network, every consumed contract whose target is
-  among the snapshots compared field by field — `[federation.missing-target]`,
-  `[federation.incompatible-schema]`, each with the consumer's workflows it affects (an MCP server's
-  `target: { application, expose }` takes part the same way).
+  `@McpExpose` under `exports` (an A2A export by its `skill` — the start's name). Save each
+  neighbour's as a file and run `npx agboss check --federation snapshots/`: no network, every
+  consumed contract whose target is among the snapshots compared field by field — an `@A2AAgent`
+  is paired by `(target.application, target.skill)` with the export `skill` of that application,
+  an MCP server's `target: { application, expose }` the same way —
+  `[federation.missing-target]`, `[federation.incompatible-schema]`, each with the consumer's
+  workflows it affects. An `@A2AAgent` without `target.application` (a foreign A2A agent, typed or
+  not) is listed with `foreign: true` — `input` / `output` `null` when untyped — and never
+  compared: no pairing, no `[federation.missing-target]`. A snapshot saved by 0.1.0 (exports and
+  targets named `start`) is still read.
 
 ## Exposing a workflow
 
@@ -466,7 +471,7 @@ default the application's name; `capabilities.streaming`; the skills extension
 JSON-RPC binding at `POST <base>`: `SendMessage` (blocking, or `configuration.returnImmediately`),
 `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`; push methods are
 `-32003`, a missing or `0.3` `A2A-Version` `-32009`. A message names its skill in
-`metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional with one export); its input is text
+`metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional with one export, or a `defaultSkill`); its input is text
 parts for a `WorkflowStartTextDto` start, else one `data` part, checked before anything is kept
 (`-32602`). Each task is one root execution under the task's id, kept in `A2ATaskRepository`: a
 message resent with the same `messageId` gets the same task, never a second run — on every
@@ -527,6 +532,145 @@ createServer(
   `A2ACallerRequest`, `A2AOperation`, `A2ACallerResolutionKind`, `ResolvedA2ACallerResolution`,
   `RejectedA2ACallerResolution`, `A2ACallerUnauthenticatedOptions`, `A2ACallerForbiddenOptions`.
 
+### Direct message replies (#860)
+
+A skill that needs no task — a lookup, a classification — answers `SendMessage` with a `Message`
+directly: `reply: A2AReply.Message` in `@A2AExpose({ skills })`. `defaultSkill` is the skill a
+message that names none runs (a foreign caller that knows nothing of the skills extension):
+
+<!-- snippet-context
+import { WorkflowStart } from "@agboss/core";
+import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { SupportWorkflowStart } from "./src/support/workflows/support/support.workflow-start.js";
+@WorkflowStart({ name: "lookup-workflow-start", description: "A lookup", input: WorkflowStartTextDto })
+class LookupWorkflowStart {}
+-->
+
+```ts
+import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+
+@A2AExpose({
+  name: "support-a2a-expose",
+  version: "1.1.0",
+  description: "Answers support questions",
+  exports: [SupportWorkflowStart, LookupWorkflowStart],
+  skills: {
+    "lookup-workflow-start": { reply: A2AReply.Message, tags: ["lookup"] }, // a Message, no task
+    "support-workflow-start": { tags: ["support"] },
+  },
+  defaultSkill: LookupWorkflowStart,
+})
+export class LookupA2AExpose {}
+```
+
+- The workflow must be stateless, checked at assembly on every node: no pause (`[a2a.message-skill-pause]`),
+  no fenced effect, `OutboundCalls` or `@A2AAgent` among its `deps` at any depth (`-effect`), only
+  `@Tool({ readOnly: true })` tools (`-tool`), no compensation (`-compensation`), no child workflow
+  (`-child`); a `reply` set for a start the expose does not export, or a `defaultSkill` that is no
+  export, is `[a2a.unknown-skill-option]`.
+- `returnImmediately` is ignored; `SendStreamingMessage` answers one frame, the message; `GetTask` or a
+  follow-up naming it is `-32001`.
+- One `messageId` is one execution across both reply modes: the reply is kept in
+  `A2ADirectMessageRepository` (in memory by default; `SqliteA2ADirectMessageRepository`, the
+  PostgreSQL and MongoDB ones; the suite `a2aDirectMessageContract`) for `retention.a2aMessages`
+  (default `minutes(15)`, published as the card's `messageIdempotencyRetention`); a resend within it
+  gets the kept reply, one racing the first waits for it, another content under the id is
+  `-32602 a2a.message-id-reused`. The store must be on the task store's backend
+  (`[a2a.message-store-not-shared]`). A model skill whose instance died mid-call records one call of
+  unknown cost (`CostSource.Unknown`) and is never run again by recovery; a later resend runs it once.
+
+### File parts (#859)
+
+A start's input or a finish's output may hold files: an `A2AFileDto` field (`@Nested(A2AFileDto)`, or
+`@ListOf(A2AFileDto)`) is filled from `raw` (inline bytes) or `url` parts of the message — never from
+a data part (`-32602 a2a.file-field-in-data`) — and a finish's file fields leave as file parts of its
+artifact. A step reads and writes them through `A2AFiles` (`read`, `save`, `fromUrl`):
+
+<!-- snippet-context
+import { Injectable } from "@agboss/core";
+import { A2AFileDto, A2AFiles } from "@agboss/core/a2a";
+import { Nested, Text } from "@agboss/core/dto";
+-->
+
+```ts
+export class ReviewRequestDto {
+  @Nested(A2AFileDto, { prompt: "the document to review" })
+  document!: A2AFileDto;
+
+  @Text({ prompt: "a note to the reviewer", optional: true })
+  note?: string;
+}
+
+@Injectable({ deps: [A2AFiles] })
+export class DocumentReader {
+  constructor(private readonly a2aFiles: A2AFiles) {}
+
+  async report(request: ReviewRequestDto): Promise<A2AFileDto> {
+    const bytes = await this.a2aFiles.read(request.document); // checked against its sha256
+    return this.a2aFiles.save({
+      bytes: new TextEncoder().encode(`read ${String(bytes.byteLength)} bytes`),
+      mediaType: "text/plain",
+      filename: "report.txt",
+    });
+  }
+}
+```
+
+- A `url` part is fetched once, at the admission, by the server — never by a step: `https:` only, on
+  `@Application({ a2aFiles: { allowedFileOrigins } })`, three redirects at most, no special-purpose
+  address (the SSRF guard), bounded by `a2aHttpListener`'s `fileFetchTimeout`; a refusal is `-32602`
+  (`a2a.file-origin-denied`, `a2a.file-fetch-failed`, …) before anything runs. Each file's bytes are
+  checked against its declared media type (the header and the magic bytes), and its size and count
+  against `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`.
+- Bytes ride inline in the task's records up to 64 KB (above it with no store listed:
+  `[a2a.inline-files-without-store]`, a warning; above 256 KB `[a2a.file-store-required]`); with an
+  `A2AFileRepository` listed (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository`,
+  `S3A2AFileRepository`; the suite `a2aFileContract`) they are kept under the task, which on leases
+  the instances share needs a store they all reach (`[a2a.file-store-not-shared]`).
+- A task's files are kept while the task waits — a paused `INPUT_REQUIRED` task however long — and
+  removed `retention.a2aFiles` after it is over (default `retention.a2aTasks`).
+- The card names a skill's file fields in the skills extension (`files`, `outputFiles`), never in a
+  data schema (`@A2AExpose({ cardFileFields })`). The client sends and reads files with
+  `A2AClientFile.fromBytes` / `.fromUrl` and `downloadFile`.
+
+### What an A2A server keeps
+
+| Store                        | Holds                                           | Retention (default)           | Built in                                                                                                |
+| ---------------------------- | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `A2ATaskRepository`          | one task per root execution, its messages' ids  | `a2aTasks` (`hours(24)`)      | in memory, `SqliteA2ATaskRepository`, `@agboss/postgres`, `@agboss/mongodb`; `a2aTaskContract`          |
+| `A2ADirectMessageRepository` | a direct reply, by `(tenant, owner, messageId)` | `a2aMessages` (`minutes(15)`) | in memory, `SqliteA2ADirectMessageRepository`, PostgreSQL, MongoDB; `a2aDirectMessageContract`          |
+| `A2AFileRepository`          | a task's files                                  | `a2aFiles` (`a2aTasks`)       | inline (none listed), in memory, `LocalDiskA2AFileRepository`, `S3A2AFileRepository`; `a2aFileContract` |
+
+`@Application({ retention: { a2aTasks, a2aMessages, a2aFiles } })` sets them; an unfinished task is
+never removed, and `a2aTasks` is how long a `messageId` is remembered after its task ended. An
+application whose instances share leases (any backend but `in-memory`) lists a task store, a message
+store (when a skill replies directly) and a file store (above 256 KB) they share, else it does not
+assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
+`[a2a.file-store-not-shared]`.
+
+### The assembly rules of an A2A side
+
+| Rule                                                                                                     | When                                                                                       |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `[a2a.expose-description-required]`                                                                      | an `@A2AExpose` with a blank `description` (the card's)                                    |
+| `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)           |
+| `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible    |
+| `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                            |
+| `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`, `[a2a.inline-files-without-store]` (warning) | where files may live (above)                                                               |
+| `[a2a.message-skill-*]`, `[a2a.message-store-not-shared]`, `[a2a.unknown-skill-option]`                  | a direct reply (above)                                                                     |
+| `[a2a.unknown-finish]`, `[a2a.nested-file-field]`, `[a2a.file-options-invalid]`                          | `target.finishes`; a file below the top level of a DTO; a size or media type of `a2aFiles` |
+
+A warning is an error under `agboss check --strict`; every code is in reference 11.
+
+### A resend whose reply was lost (#939)
+
+A message resent with the same `messageId` is told apart by its **kept message**, not by the task's
+state. A follow-up whose answer was taken but whose reply was lost (a failed write, a crash) and
+whose task has finished since gets the task as it is on the resend — never `-32004 a2a.task-over`,
+and nothing is charged again; a new message to a finished task is `a2a.task-over`. A follow-up to a
+pause that closed (cancelled, withdrawn, ended with its tree) is `-32004 a2a.pause-closed` with its
+`reason` and `closedAt`.
+
 Tests: the `a2aServer({ expose, callerResolver })` fixture of `testWith` (an `A2AServerFixture`)
 serves the test's `app` on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new
 A2AClient({ url, headers })`; the loopback is open for it (no `allowNetwork`), it closes at the
@@ -555,11 +699,16 @@ const test = testWith(SupportApplication, { overrides: [override(ApiKeyDirectory
 test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
   const { url } = await a2aServer({ expose: SupportA2AExpose, callerResolver: SupportA2aCallerResolver });
 
-  // the listener's 0.1.0 wire until it serves A2A v1.0 (#808); the A2A v1.0 client is above
-  const sent = await fetch(`${url}/execute`, {
+  // any A2A v1.0 client calls the listener; a plain JSON-RPC `SendMessage` is the smallest one
+  const sent = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: "Bearer key-x" },
-    body: JSON.stringify({ input: { text: "hi" } }),
+    headers: { "content-type": "application/json", "a2a-version": "1.0", authorization: "Bearer key-x" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "SendMessage",
+      params: { message: { messageId: "m-1", role: "ROLE_USER", parts: [{ text: "hi" }] } },
+    }),
   });
 
   expect(sent.status).toBe(401);
@@ -576,26 +725,27 @@ without any code of yours:
 
 - the **envelope** (`MeshEnvelope`: `schema`, `issuer`, `origin` — `MeshOrigin` with its
   `MeshOriginStep` —, `callChain` of `MeshHop`s, each a `MeshEntry` plus its root `executionId`): the
-  `agboss-mesh` request header over A2A, `_meta["agboss.dev/mesh"]` over MCP (a JWS — unsecured,
-  `alg: "none"`, or signed, below); ids only — no `ownerId`, no `tenantId`, no input values;
+  `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope` of the A2A `SendMessage` (the mesh
+  extension, below), `_meta["agboss.dev/mesh"]` over MCP (a JWS — unsecured, `alg: "none"`, or
+  signed, below); ids only — no `ownerId`, no `tenantId`, no input values;
 - a W3C `traceparent` (header / `_meta.traceparent`): the caller's trace continued;
 - over MCP `_meta.callId` = `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers
-  a repeated call as the same one.
+  a repeated call as the same one; over A2A the step's key is the message's `messageId`.
 
 Outside an execution (a script's `new A2AClient(…)`) nothing is sent. The receiver reads the
 envelope into `A2ACallerRequest.envelope` for your resolver — a **claim** (unless signed by a
 trusted peer, below): never take a tenant from it. A malformed envelope is ignored (the request runs as one
 without). What it does apply is the chain, before anything runs:
 
-| The chain the request arrives with                            | The receiver answers                                                         |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| already passed through its own application and start (a loop) | `409 { "code": "limit.mesh-loop", "error", "details": { entry, chain } }`    |
-| as long as its `@Application({ maxMeshHops })` (default 8)    | `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }` |
-| anything else                                                 | the run, whose own calls carry the chain on with its hop added               |
+| The chain the request arrives with                            | The receiver answers                                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| already passed through its own application and start (a loop) | MCP `409 { "code": "limit.mesh-loop", "error", "details": { entry, chain } }`; A2A a `REJECTED` task, nothing run, the code and details in `status.message.metadata[mesh uri]` |
+| as long as its `@Application({ maxMeshHops })` (default 8)    | MCP `409 { "code": "limit.hops", "error", "details": { maxMeshHops, hops, … } }`; A2A the same `REJECTED` task                                                                 |
+| anything else                                                 | the run, whose own calls carry the chain on with its hop added                                                                                                                 |
 
 On the caller `A2AClient` rethrows them typed — `MeshLoopDetectedError` / `HopsLimitExceededError`,
-both `LimitExceededError`s — and so does a remote run another hop's limit stopped (its response's
-`code` / `details`), and an MCP error result with `_meta["agboss.dev/error"]`. A tool that meets one
+both `LimitExceededError`s — from the `REJECTED` / `FAILED` task's code and details, and so does an
+MCP error result with `_meta["agboss.dev/error"]`. A tool that meets one
 **fails its step** (the model never reads it: retrying a loop loops again); take it on the path:
 
 <!-- snippet-context
@@ -629,7 +779,7 @@ export class LoopedWorkflowFinish {}
 export class OrdersWorkflow {}
 ```
 
-- A loop is the same `(application, start)` twice in one chain — always, whatever the depth; another
+- A loop is the same `(application, skill)` twice in one chain — always, whatever the depth; another
   start of the same application is not one. An exported MCP tool is an entry like a start.
 - `maxMeshHops` counts applications: a chain that already lists `maxMeshHops` of them is refused
   (`hops` = the chain + the receiver). `[limits.max-mesh-hops-invalid]` for anything but a whole
@@ -675,9 +825,15 @@ export class BillingWorkflow {} // a @Workflow of its own
 export class BillingApplication {}
 ```
 
-These checks run where the envelope is read: an MCP call's `_meta["agboss.dev/mesh"]`. The A2A v1.0
-listener (#808) reads no envelope yet — its tasks run untrusted, deduplicated by `messageId`, and a
-resolver's `peer` is kept with the task only.
+These checks run where the envelope is read: an MCP call's `_meta["agboss.dev/mesh"]`, and an A2A
+`SendMessage`'s `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope` (#810), before the
+caller resolver: the audience first, then a known issuer's signature, replay window and the
+message's body hash — a refusal is `401 { code }` and nothing runs. A message with no envelope, or a
+call without the extension, runs untrusted (still deduplicated by `messageId`). The extension is
+specified at https://agboss.dev/a2a/mesh/v1: the Agent Card declares it (`params.idempotencyRetention`
+= `retention.a2aTasks`, `messageIdempotencyRetention` = `retention.a2aMessages`), a receiver that
+activated it echoes it in its answer's `A2A-Extensions`, and a caller that gets no echo treats the
+call as one without the mesh (`mesh: false` in the tool call's record).
 
 A request is **trusted** only when both hold: the transport's caller names its `peer`
 (`A2ACallerResolution.resolved({ …, peer: "orders-application" })` — what your transport proved,
@@ -692,15 +848,16 @@ signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/
 
 What a trusted request gets — never an untrusted one:
 
-| From the caller                   | The receiver                                                                                                                                              |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                                                                |
-| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                                                                      |
-| `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's, its resumes' too (`ExecutionOrigin`)                                         |
-| `origin.step.idempotencyKey`      | dedupe (`MeshRequestRepository`): a repeat gets the kept answer, one in flight a `409 mesh.request-in-progress` (MCP: by `_meta.callId`, an error result) |
+| From the caller                   | The receiver                                                                                                                                                                                                                             |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `budget.remaining`                | one more execution budget, `caller-budget`: it only lowers its own (`BudgetExceededError`)                                                                                                                                               |
+| `deadline.remaining`              | the execution's deadline (`DeadlineExceededError`, `limit.deadline`)                                                                                                                                                                     |
+| `origin` (and the chain's length) | `executionContext.origin`, the record's `origin` and every observer event's, its resumes' too (`ExecutionOrigin`)                                                                                                                        |
+| `origin.step.idempotencyKey`      | dedupe: over MCP `MeshRequestRepository` — a repeat gets the kept answer, one in flight an error result `mesh.request-in-progress` (by `_meta.callId`); over A2A the task / message stores, by `messageId` (every caller, signed or not) |
 
 Its answer carries a run report (`MeshRunReport`: `issuer`, `executionId`, `spend`, `bodyHash`)
-signed by the receiver. A caller that verifies it with its `mesh.peers` key records the reported
+signed by the receiver — `task.metadata[mesh uri].report` over A2A (a direct `Message` reply's in
+`message.metadata[mesh uri].report`), `_meta["agboss.dev/report"]` over MCP. A caller that verifies it with its `mesh.peers` key records the reported
 spend as `a2a:<issuer>` / `mcp:<issuer>` in the calling tool's spend and the remote execution in
 `ToolCallRecord.remote` (`ToolCallRemote`: `application`, `executionId`); an unverified report is
 ignored. The deadline is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — the

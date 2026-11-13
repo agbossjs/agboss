@@ -378,47 +378,6 @@ export interface A2ADownloadOptions {
 }
 
 // @public
-export type A2AEvent = {
-    readonly type: "progress";
-    readonly payload: {
-        readonly step: "text" | "tool";
-        readonly content: string;
-    };
-} | {
-    readonly type: "finish";
-    readonly payload: {
-        readonly result: A2AExecutionResponse;
-    };
-};
-
-// @public
-export interface A2AExecutionRequest<TInput = unknown> {
-    // (undocumented)
-    readonly input: TInput;
-    readonly start?: string;
-    readonly threadId?: string;
-}
-
-// @public
-export interface A2AExecutionResponse {
-    readonly code?: string;
-    readonly details?: ErrorDetails;
-    readonly error?: string;
-    readonly executionId?: string;
-    // (undocumented)
-    readonly finish?: string;
-    // (undocumented)
-    readonly output?: unknown;
-    readonly pauseIds?: readonly string[];
-    readonly report?: string;
-    readonly spend?: MeshSpendReport;
-    // (undocumented)
-    readonly status: A2AStatus;
-    // (undocumented)
-    readonly threadId?: string;
-}
-
-// @public
 export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: C) => C;
 
 // @public
@@ -884,20 +843,6 @@ export enum A2ASecuritySchemeKind {
     Bearer = "bearer",
     MutualTls = "mtls",
     OAuth2ClientCredentials = "oauth2-client-credentials"
-}
-
-// @public
-export enum A2AStatus {
-    // (undocumented)
-    Cancelled = "cancelled",
-    // (undocumented)
-    Failed = "failed",
-    // (undocumented)
-    Finished = "finished",
-    // (undocumented)
-    Limited = "limited",
-    // (undocumented)
-    Paused = "paused"
 }
 
 // @public
@@ -1411,16 +1356,6 @@ export class WorkflowFinishFilesDto {
 // src/a2a/files/a2a-files.service.ts:12:3 - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/files/a2a-files.service.ts:17:3 - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/files/a2a-files.service.ts:18:3 - (ae-undocumented) Missing documentation for "filename".
-// src/a2a/types.ts:11:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/a2a/types.ts:12:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/a2a/types.ts:13:3 - (ae-undocumented) Missing documentation for "Failed".
-// src/a2a/types.ts:14:3 - (ae-undocumented) Missing documentation for "Limited".
-// src/a2a/types.ts:15:3 - (ae-undocumented) Missing documentation for "Cancelled".
-// src/a2a/types.ts:20:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/types.ts:35:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/a2a/types.ts:36:3 - (ae-undocumented) Missing documentation for "status".
-// src/a2a/types.ts:37:3 - (ae-undocumented) Missing documentation for "finish".
-// src/a2a/types.ts:38:3 - (ae-undocumented) Missing documentation for "output".
 // src/infrastructure/a2a-direct-message.repository.ts:30:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-direct-message.repository.ts:33:3 - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-direct-message.repository.ts:38:3 - (ae-undocumented) Missing documentation for "finish".
