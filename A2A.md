@@ -141,7 +141,7 @@ protocolVersion: "1.0" }`.
 | --- | --- |
 | `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
 | `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates (an agent's tool call as it starts: `WORKING` with the text `calling <tool>`, #848), the model's text as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next `append: true`), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
-| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter` — a task whose status changed at or after that time, as a2a.proto says ("greater than or equal"; #811: the SDK's own store filters `>`, the official TCK tests no boundary), a fraction below the millisecond rounded up to it; an RFC 3339 time with its offset only (one of no offset, which the server's zone would decide, is `-32602`); `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
+| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter` — a task whose status changed at or after that time, as a2a.proto says ("greater than or equal"; #811: the SDK's own store filters `>`, the official TCK tests no boundary; #960: the store contract's own bound stays `>`, the server passes one millisecond before), a fraction below the millisecond rounded up to it; an RFC 3339 time with its offset only (one of no offset, which the server's zone would decide, is `-32602`); `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
 | `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
 | `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
 | push methods / `GetExtendedAgentCard` | `-32003` / `-32004` — the card declares no extended card, and an operation of a capability not declared is `UnsupportedOperationError` (spec §3.3.4; `-32007` is for an agent that declares one; #811) |
@@ -168,6 +168,10 @@ protocolVersion: "1.0" }`.
   (coordination only, it keeps no A2A tasks): the A2A task store of the durable backend. A store of
   your own declares `static store: StoreDescriptor = { backend: "<kind>" }` and passes `a2aTaskContract`
   ([Your own store](Your-own-store)).
+  Two listed task stores do not assemble either: `[di.ambiguous-implementation]` names both with their
+  backends (#960). The recovery sweep removes a finished task with its messages, and a message whose
+  task is gone once it is older than the retention (a follow-up saved while its task was removed, #960),
+  so its id is free again. A status a store does not know a key of is kept as written.
 - **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
   with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
 - **Pauses**: a pause the caller answers is `TASK_STATE_INPUT_REQUIRED`, its pauses (`pauseId`,

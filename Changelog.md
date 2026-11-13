@@ -3,6 +3,13 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A store tails (#960)
+
+- **Changed (store contract)**: `A2ATaskRepository.deleteTerminalByStatusAtBefore` also removes every message whose task is gone and whose `savedAt` is before the cutoff (a follow-up saved while its task was removed), except a direct message's claim (`DIRECT_MESSAGE_CLAIM`). `a2aTaskContract` gains cases for it and a sabotage (`keeps orphan messages`); a store of your own must pass them.
+- **Changed (store contract)**: a status key the store does not know comes back as written (SQLite stripped it; PostgreSQL and MongoDB refused it on read). One contract case, one sabotage (`drops unknown status keys`). `@agboss/postgres` and `@agboss/mongodb` keep unknown keys now.
+- **Changed**: two listed A2A task stores are `[di.ambiguous-implementation]`, naming both.
+- **Unchanged**: `statusTimestampAfter` is "at or after" on the wire (since #811); the store contract's `statusAtAfter` stays strict and its doc says the server moves the bound.
+
 ## Unreleased — 0.1.1: the pause store contract v2 — deadlines, notices, not-taken answers (#935, part of #910)
 
 - **Changed — breaking, for stores outside the core**: `PausedExecutionRepository` — `resolve…` is refused at or after
