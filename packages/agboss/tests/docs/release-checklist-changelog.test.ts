@@ -22,7 +22,17 @@ let dir: string;
 const sh = (cwd: string, script: string) =>
   runProcess("bash", ["-c", `set -euo pipefail\n${script}`], {
     cwd,
-    env: { ...process.env, RELEASE_VERSION: "0.3.0", GIT_CONFIG_GLOBAL: "/dev/null" },
+    env: {
+      ...process.env,
+      RELEASE_VERSION: "0.3.0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      ...Object.fromEntries(
+        ["AUTHOR", "COMMITTER"].flatMap((who) => [
+          [`GIT_${who}_NAME`, "t"],
+          [`GIT_${who}_EMAIL`, "t@t"],
+        ]),
+      ),
+    },
   });
 const git = async (cwd: string, args: string): Promise<string> => {
   const r = await sh(cwd, `git -c user.name=t -c user.email=t@t ${args}`);
