@@ -1,3 +1,4 @@
+import { outsideProject, outsideWarning } from "./containment.js";
 import { syncCopy } from "./copy.js";
 import { linkClaudeSkills, REAL_LINK_OPS, type LinkOps } from "./link.js";
 import { skillsLines, skillsWarningText } from "./lines.js";
@@ -42,9 +43,13 @@ export interface SyncDeps {
 const goneOn = (command: string): string =>
   command === "check" ? "the check went on" : `agboss ${command} went on`;
 
-const failed = (code: SkillsWarningCode, message: string): SkillsSync => ({
+const failed = (
+  code: SkillsWarningCode,
+  message: string,
+  more: readonly SkillsWarning[] = [],
+): SkillsSync => ({
   result: { status: SkillsSyncStatus.Failed, folder: SKILLS_FOLDER, written: [], removed: [] },
-  warnings: [{ code, message }],
+  warnings: [{ code, message }, ...more],
 });
 
 /** The source's absence as a warning: no `agboss` at all, or one older than the skills. */
@@ -63,6 +68,9 @@ function syncProject(
   ops: { readonly link: LinkOps; readonly replace: ReplaceOps },
   shadowed: readonly SkillsWarning[],
 ): SkillsSync {
+  const outside = outsideProject(root, ops.link);
+  if (outside !== undefined)
+    return failed(SkillsWarningCode.OutsideProject, outsideWarning(outside).message, shadowed);
   removeLeftovers(root, ops.replace);
   const copy = syncCopy(root, skillFilesOf(source), source.version, ops);
   const link = copy.isMoveOpen ? undefined : linkClaudeSkills(root, ops.link);
@@ -93,10 +101,10 @@ export function syncSkills(
     return syncProject(project.root, source, ops, shadowed);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    const done = failed(
+    return failed(
       SkillsWarningCode.SyncFailed,
       `${SKILLS_FOLDER} not written: ${reason} — ${goneOn(command)}`,
+      shadowed,
     );
-    return { ...done, warnings: [...done.warnings, ...shadowed] };
   }
 }

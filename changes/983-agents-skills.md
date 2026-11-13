@@ -18,7 +18,7 @@ git-ignored (`.claude/skills/agboss`, no trailing slash). `SKILL.md`'s frontmatt
   `.claude/skills/agboss`. The CLI never edits `.gitignore`.
 - **Warnings, never a failure:** `[skills.link-blocked]` (a `.claude/skills/agboss` that is yours),
   `[skills.link-failed]` (the link could not be made — the warning prints the `ln -s` / `mklink /J`
-  to run; never a second copy), `[skills.shadowed]` (a `~/.claude/skills/agboss` of another
+  to run; never a second copy), `[skills.outside-project]` (a `.claude`, `.claude/skills`, `.agents` or `.agents/skills` that is a link leaving the project: nothing is touched), `[skills.shadowed]` (a `~/.claude/skills/agboss` of another
   version, which Claude Code prefers). `--json` `result.skills` gains `link` and `moved`.
 - **Safer sync:** the link is checked on every run, also when the copy is current; the atomic swap's
   temporary folder lives in `.agents/` (a leftover is removed on the next run); `EPERM` / `EBUSY`

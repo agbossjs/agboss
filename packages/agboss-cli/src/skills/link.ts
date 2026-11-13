@@ -1,5 +1,6 @@
 import { lstatSync, mkdirSync, realpathSync, symlinkSync, unlinkSync, type Stats } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { outsideProject, outsideWarning } from "./containment.js";
 import { readManifest } from "./manifest.js";
 import {
   CLAUDE_SKILLS_LINK,
@@ -159,6 +160,9 @@ export function linkClaudeSkills(root: string, ops: LinkOps = REAL_LINK_OPS): Li
   const path = join(root, CLAUDE_SKILLS_LINK);
   const copy = join(root, SKILLS_FOLDER);
   try {
+    const outside = outsideProject(root, ops);
+    if (outside !== undefined)
+      return { status: LinkStatus.Blocked, warnings: [outsideWarning(outside)] };
     const found = ops.lstat(path);
     if (found === undefined) return create(path, copy, ops);
     if (!found.isSymbolicLink()) return blocked(`${CLAUDE_SKILLS_LINK}/ is not managed by agboss`);

@@ -35,6 +35,7 @@ export enum SkillsWarningCode {
   LinkBlocked = "skills.link-blocked",
   LinkFailed = "skills.link-failed",
   Shadowed = "skills.shadowed",
+  OutsideProject = "skills.outside-project",
 }
 
 /** What the sync found at the Claude link. */

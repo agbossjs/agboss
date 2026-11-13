@@ -60,11 +60,11 @@ describe("#983 AC1: the link", () => {
     expect(calls).toEqual([]);
   });
 
-  it("AC1: a root path with spaces and a symlinked .claude/skills still link to the copy", () => {
+  it("AC1: a root path with spaces and a .claude/skills that is a symlink inside the project still link to the copy", () => {
     const at = project("agboss link spaces-");
-    const elsewhere = root();
     mkdirSync(join(at, ".claude"), { recursive: true });
-    symlinkSync(elsewhere, join(at, ".claude/skills"), "dir");
+    mkdirSync(join(at, "tools/skills"), { recursive: true });
+    symlinkSync(join(at, "tools/skills"), join(at, ".claude/skills"), "dir");
 
     expect(linkClaudeSkills(at).status).toBe(LinkStatus.Linked);
     expect(readFileSync(join(linkOf(at), "SKILL.md"), "utf8")).toBe("skill");
@@ -90,11 +90,18 @@ describe("#983 AC1: the link", () => {
     const at = "C:\\Users\\me\\demo";
     const ops: LinkOps = {
       platform: "win32",
-      lstat: () => ({ isSymbolicLink: () => true, isDirectory: () => false }),
-      realpath: (path) =>
-        path.toLowerCase().includes(".claude")
-          ? "\\\\?\\C:\\Users\\me\\demo\\.agents\\skills\\agboss"
-          : "c:\\users\\me\\demo\\.agents\\skills\\agboss",
+      lstat: (path) =>
+        path.endsWith(".claude/skills/agboss")
+          ? { isSymbolicLink: () => true, isDirectory: () => false }
+          : undefined,
+      realpath: (path) => {
+        if (path === at) return at;
+        if (path.endsWith(".claude/skills/agboss"))
+          return "\\\\?\\C:\\Users\\me\\demo\\.agents\\skills\\agboss";
+        if (path.endsWith(".agents/skills/agboss"))
+          return "c:\\users\\me\\demo\\.agents\\skills\\agboss";
+        return undefined;
+      },
       symlink: () => {
         throw new Error("no link must be made");
       },
