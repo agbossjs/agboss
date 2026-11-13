@@ -1,6 +1,6 @@
 # ADR-0021 — Project skills shipped with the framework
 
-- **Status:** Accepted
+- **Status:** Accepted; the location of the managed folder is superseded by ADR-0029
 - **Issue:** #305
 
 ## Context

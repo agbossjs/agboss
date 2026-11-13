@@ -3,6 +3,11 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: project skills in `.agents/skills/agboss/` (#983)
+
+- **Changed**: the project skills are one committed copy in `.agents/skills/agboss/`, which Codex, Cursor, GitHub Copilot, Gemini CLI, Antigravity and Windsurf read natively; `.claude/skills/agboss` is a local, git-ignored link to it (a symlink, on Windows a junction) for Claude Code and Cline, made by `npm install` / `agboss check` / `agboss create`. A 0.1.x project's real `.claude/skills/agboss/` is moved on the first `agboss check` (`[skills.moved]`: commit the folder; in `.gitignore` replace `.claude/skills/agboss/` with `.claude/skills/agboss`). Migration: nothing else.
+- **Added**: `[skills.moved]`, `[skills.link-blocked]`, `[skills.link-failed]`, `[skills.shadowed]`; `result.skills.link` / `moved` in `--json`; `SKILL.md` frontmatter `license` and `metadata.agboss-version`; the link is checked on every sync; the swap's temporary folder is `.agents/.agboss-skills-*`; `EPERM` / `EBUSY` renames retried; a CRLF checkout of a managed file is no local edit (`.gitattributes` written by `agboss create`). Why: ADR-0029.
+
 ## Unreleased — 0.1.1: A2A store tails (#960)
 
 - **Changed (store contract)**: `A2ATaskRepository.deleteTerminalByStatusAtBefore` also removes every message whose task is gone and whose `savedAt` is before the cutoff (a follow-up saved while its task was removed), except a direct message's claim (`DIRECT_MESSAGE_CLAIM`). `a2aTaskContract` gains cases for it and a sabotage (`keeps orphan messages`); a store of your own must pass them.

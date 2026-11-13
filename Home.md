@@ -40,7 +40,7 @@ components ([Components](Components)).
 
 The project is ready for coding agents (#305): `AGENTS.md` (Cursor, Codex, …) and a one-line
 `CLAUDE.md` (`@AGENTS.md`, for Claude Code) route each task to the framework's skills in
-`.claude/skills/agboss/`, which `agboss check` keeps equal to the installed `agboss`. Put the
+`.agents/skills/agboss/` (committed; `.claude/skills/agboss` links to it for Claude Code), which `agboss check` keeps equal to the installed `agboss`. Put the
 project's own rules under `## Project rules` in `AGENTS.md` — never in the skills folder, which is
 replaced on every upgrade ([CLI → Project skills](CLI#project-skills-for-coding-agents-305)).
 

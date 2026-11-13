@@ -17,7 +17,7 @@ application `src/support-desk.application.ts` (`support-desk-application`; its p
 `@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
 and the first workflow `support-desk-workflow` in `src/support-desk/`.
 For coding agents (#305) it also writes `AGENTS.md`, a one-line `CLAUDE.md` (`@AGENTS.md`) and the
-framework's skills in `.claude/skills/agboss/` — [Project skills](#project-skills-for-coding-agents-305).
+framework's skills in `.agents/skills/agboss/` (the one copy, committed; `.claude/skills/agboss` is a local link to it) — [Project skills](#project-skills-for-coding-agents-305).
 
 The questionnaire asks only for the structure: the agents (full name + role), each agent's tools (full
 names), an MCP server (none / filesystem / own command), a knowledge base (none / notes in a folder).
@@ -144,7 +144,7 @@ composition and the flow DSL to tests, the error catalog and migrating from Lang
 support-desk/
   AGENTS.md                         the project's: created once, never rewritten
   CLAUDE.md                         one line "@AGENTS.md", created once (Claude Code reads CLAUDE.md)
-  .claude/skills/agboss/
+  .agents/skills/agboss/            the one copy, committed: every coding agent reads it
     SKILL.md
     .agboss-skills.json             manifest: the version and a sha256 per file
     references/01-composition-and-architecture.md
@@ -161,8 +161,10 @@ its AGBoss application, both compiled by the gate) and the move from live-model 
 `testWith` scripts and unit runners.
 
 `AGENTS.md` routes each task to one reference and ends with `## Project rules` — the place for the
-project's own rules. `.claude/skills/agboss/` is in the generated `.gitignore`; it appears on
-`npm install` (the `postinstall` runs `agboss check`) or on the first `agboss check`.
+project's own rules. `.agents/skills/agboss/` is committed (it is part of the project); only the link
+`.claude/skills/agboss` — made on each machine by `agboss check`, which `npm install` runs — is in the
+generated `.gitignore`, without a trailing slash (git does not take a link for a folder), beside
+`.agents/.agboss-skills-*` (what an interrupted sync leaves). `.gitattributes` keeps the folder LF.
 
 **Ready for a code graph (#480).** `agboss create` also writes what
 [graphify](https://github.com/safishamsi/graphify) (PyPI `graphifyy`) reads — a queryable graph of
@@ -178,7 +180,7 @@ support-desk/
 ```
 
 - `.graphifyignore` groups what is generated (`.agboss/`, `dist/`, `coverage/`, `graphify-out/`,
-  `*.tsbuildinfo`), installed (`node_modules/`, `package-lock.json`, `.claude/skills/agboss/` — the
+  `*.tsbuildinfo`), installed (`node_modules/`, `package-lock.json`, `.agents/skills/agboss/` and `.claude/skills/agboss/` — the
   framework's guide, read through `SKILL.md`, not the graph), recorded (`*.cassette.json`,
   `__snapshots__/`, `eval/labels/`) and secret (`.env`, `.env.*` but `.env.example`).
 - `AGENTS.md` and the shipped `SKILL.md` say: when `graphify-out/graph.json` exists, ask the graph
@@ -205,23 +207,53 @@ CLI's own:
 ```text
 $ npx agboss check                # skills current: nothing extra
 $ npx agboss check                # after an agboss upgrade
-skills: .claude/skills/agboss updated 0.1.0 → 0.2.0 (14 files)
+skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)
 $ npx agboss check                # the folder missing (a fresh clone)
-skills: .claude/skills/agboss installed for agboss 0.2.0 (14 files)
+skills: .agents/skills/agboss installed for agboss 0.2.0 (14 files) · linked .claude/skills/agboss
 $ npx agboss check                # a managed file edited by hand
-warning: [skills.local-edit] .claude/skills/agboss/references/02-flow-dsl-all-combinations.md was edited — replaced by agboss 0.2.0's; put project rules in AGENTS.md
-skills: .claude/skills/agboss repaired (1 file)
+warning: [skills.local-edit] .agents/skills/agboss/references/02-flow-dsl-all-combinations.md was edited — replaced by agboss 0.2.0's; put project rules in AGENTS.md
+skills: .agents/skills/agboss repaired (1 file)
+$ npx agboss check                # a 0.1.x project: .claude/skills/agboss/ was a real folder
+warning: [skills.moved] .claude/skills/agboss/ moved to .agents/skills/agboss/ (one copy for every coding agent): commit .agents/skills/agboss/; …
+skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files) · linked .claude/skills/agboss
 ```
 
 - The version is compared as a plain string: any difference, upgrade or downgrade, replaces every
   file; at the same version a missing file or a sha256 mismatch repairs that file. Files of the old
   manifest the new version lacks are removed; files no manifest ever listed are the project's,
   kept with `[skills.unmanaged-file]`.
-- The folder is written to `.claude/skills/.agboss-skills-<random>/` and renamed into place.
-- Never an error: `[skills.sync-failed]` (the folder could not be written) and `[skills.no-framework]`
-  (no `agboss` in `node_modules`, or one that ships no skills) are warnings, the exit code is the
+- The folder is written to `.agents/.agboss-skills-<random>/` — beside `skills/`, never in it, since
+  agents scan every child of `skills/` — and renamed into place (a rename held by an antivirus or
+  indexer, `EPERM` / `EBUSY`, is retried a few times); a leftover of a crash is removed on the next run.
+- **The link.** `.claude/skills/agboss` → `.agents/skills/agboss` (a relative symlink; on Windows a
+  junction, which needs no rights) is checked on every run, the copy current or not, so a fresh clone
+  gets it from `npm install`. Claude Code and Cline read only `.claude/skills/`; Codex, Cursor, GitHub
+  Copilot, Gemini CLI, Antigravity and Windsurf read `.agents/skills/` natively. A link that already
+  resolves to the copy is left; a dangling one, or one to an agboss-managed folder, is replaced; a
+  `.claude/skills/agboss` that is the project's (a folder without a manifest, a link elsewhere) is
+  kept with `[skills.link-blocked]`; a link that cannot be made is `[skills.link-failed]` with the
+  `ln -s` / `mklink /J` to run — never a second copy.
+- **A 0.1.x project.** A real, managed `.claude/skills/agboss/` is moved into `.agents/skills/agboss/`
+  (planned against its own manifest; the project's own files kept) and removed only after the new
+  folder is in place, so a crash leaves both and the next run finishes. One `[skills.moved]` warning:
+  commit `.agents/skills/agboss/`, and in `.gitignore` replace `.claude/skills/agboss/` with
+  `.claude/skills/agboss`. The CLI never edits `.gitignore`.
+- **Containment.** Before anything is written, moved, removed or linked, `.claude`, `.claude/skills`,
+  `.agents`, `.agents/skills` and `.agents/skills/agboss` must really be inside the project
+  (`realpath`): one that is a link leaving it — a cloned repository may ship `.claude -> ~` — is
+  `[skills.outside-project]`, nothing is touched, exit code unchanged. A link that stays inside is fine.
+- **Shadow.** A personal `~/.claude/skills/agboss` of another version, which Claude Code prefers over
+  the project's, is `[skills.shadowed]` with `rm -rf ~/.claude/skills/agboss`; the home folder is
+  `os.homedir()`, none or unreadable is silent.
+- **CRLF.** Hashes are compared with CRLF read as LF, so a Windows checkout with `core.autocrlf` is no
+  local edit.
+- Never an error: `[skills.sync-failed]` (the folder could not be written), `[skills.no-framework]`
+  (no `agboss` in `node_modules`, or one that ships no skills), `[skills.moved]`,
+  `[skills.link-blocked]`, `[skills.link-failed]`, `[skills.outside-project]` and `[skills.shadowed]` are warnings, the exit code is the
   check's.
-- `--json`: `result.skills` = `{ status, version, previous, folder, written, removed }`, `status`
+- `--json`: `result.skills` = `{ status, version, previous, folder, written, removed, link?, moved? }`
+  (`folder` `.agents/skills/agboss`, `link` `{ path, status }` with `status` `linked`, `current`,
+  `blocked` or `failed`, `moved` `{ from }` on the run that moved a 0.1.x folder), `status`
   one of `current`, `installed`, `updated`, `repaired`, `off`, `failed`; the warnings in the
   envelope's `warnings`.
 - `"agboss": { "application": "src/support-desk.application.ts", "skills": false }` turns the sync
@@ -229,7 +261,15 @@ skills: .claude/skills/agboss repaired (1 file)
   `package.json` has the `"agboss"` field.
 - `AGENTS.md` and `CLAUDE.md` are never created, read or changed by `check`, `dev` or `generate`.
 
-Why: [ADR-0021 — Project skills shipped with the framework](ADR-0021-Project-skills-shipped-with-the-framework).
+Why: [ADR-0021 — Project skills shipped with the framework](ADR-0021-Project-skills-shipped-with-the-framework), [ADR-0029 — Skills in .agents/skills with a Claude link](ADR-0029-Skills-in-agents-skills-with-claude-link).
+
+| Agent | `.agents/skills/` | `.claude/skills/` |
+| --- | --- | --- |
+| Claude Code | no | yes (through the link) |
+| Codex CLI | yes | no |
+| Cursor, GitHub Copilot | yes | yes |
+| Gemini CLI, Antigravity, Windsurf / Devin | yes | no |
+| Cline | no | yes (through the link) |
 
 ## The application and its starts (#268)
 
