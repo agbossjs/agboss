@@ -1,6 +1,7 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { TokenLimit } from "../config/types.js";
-import { loadChatOpenAI } from "./chat-openai.js";
+import type { ChatOpenAI } from "@langchain/openai";
+import { loadChatOpenAI, loadedChatOpenAI } from "./chat-openai.js";
 import { LateModel, LazyChatModel } from "./lazy-chat-model.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
@@ -32,26 +33,35 @@ export abstract class OpenAiCompatibleProvider<
   abstract readonly requestFields: TFields;
   private readonly models = new ModelListCache();
 
+  /**
+   * The chat client. Inside an application it is the OpenAI client itself (assembly loads it, #956);
+   * a `chat()` made before anything loaded it is a lazy model, the client's own on its first call.
+   */
   chat(request: ChatRequest): BaseChatModel {
     const { settings, connection } = request;
-    return new LazyChatModel(
-      new LateModel(async () => {
-        const ChatOpenAI = await loadChatOpenAI();
-        return new ChatOpenAI({
-          apiKey: connection.apiKey ?? "none",
-          model: settings.model,
-          temperature: settings.temperature,
-          ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
-          // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
-          maxRetries: 0,
-          configuration: {
-            baseURL: connection.baseUrl,
-            fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
-            defaultHeaders: { "X-Title": "AGBoss" },
-          },
-        });
-      }),
-    );
+    const clientOf = (Client: typeof ChatOpenAI): ChatOpenAI =>
+      new Client({
+        apiKey: connection.apiKey ?? "none",
+        model: settings.model,
+        temperature: settings.temperature,
+        ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
+        // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
+        maxRetries: 0,
+        configuration: {
+          baseURL: connection.baseUrl,
+          fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
+          defaultHeaders: { "X-Title": "AGBoss" },
+        },
+      });
+    const loaded = loadedChatOpenAI();
+    if (loaded !== undefined) return clientOf(loaded);
+    return new LazyChatModel(new LateModel(async () => clientOf(await loadChatOpenAI())), {
+      ls_provider: connection.provider,
+      ls_model_type: "chat",
+      ls_model_name: settings.model,
+      ls_temperature: settings.temperature,
+      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { ls_max_tokens: settings.maxTokens }),
+    });
   }
 
   /** Everything this provider adds to a request of `request`'s model. */
