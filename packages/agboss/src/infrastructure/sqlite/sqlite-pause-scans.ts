@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PauseFilter, PausePage } from "../pause-notices.js";
 import { PauseStatus, type PauseRecord } from "../pause-record.js";
 import { pageOf, type SequencedPause } from "../pause-scans.js";
-import { toPauseRecord } from "./sqlite-pause-rows.js";
+import { toPauseRecord } from "./sqlite-pause-row-statements.js";
 
 /**
  * The scans of `SqlitePausedExecutionRepository` (#935, #910 rules 9, 10, 14): the deadline and

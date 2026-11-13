@@ -5,13 +5,6 @@ import { PauseNoticeKind } from "../pause-notices.js";
 
 /** The `pause_notices` table (#935) and how its rows read: validated on the way out. */
 
-export const NOTICES_SCHEMA = `CREATE TABLE IF NOT EXISTS pause_notices (
-  tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, recipient TEXT NOT NULL, notices TEXT NOT NULL,
-  delivered INTEGER NOT NULL, attempts INTEGER NOT NULL, next_attempt_at TEXT NOT NULL,
-  head_written_at TEXT, is_dead INTEGER NOT NULL, problem TEXT, claim_token TEXT, claimed_until TEXT,
-  PRIMARY KEY (tenant_id, pause_id, recipient));
-CREATE INDEX IF NOT EXISTS pause_notices_due ON pause_notices (is_dead, next_attempt_at);`;
-
 const StoredNotice = z.object({
   seq: z.number(),
   kind: z.enum(PauseNoticeKind),

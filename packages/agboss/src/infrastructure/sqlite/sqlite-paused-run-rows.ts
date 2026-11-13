@@ -2,29 +2,6 @@ import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { decodePausedRun, encodePausedRun, type PausedExecution } from "../../app/paused-runs.js";
 
-/** The paused runs of `SqlitePausedExecutionRepository`: one row per thread of a tenant (#261). */
-export const PAUSED_RUNS_SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
-  tenant_id TEXT NOT NULL, thread_id TEXT NOT NULL, run_id TEXT NOT NULL, run TEXT NOT NULL,
-  workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, paused_at TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, thread_id));`;
-
-/**
- * The migration of a file written before tenants (#261, #265 S69 e): the table keyed by the thread
- * alone is rebuilt keyed by tenant + thread, its rows in the tenant `"default"`.
- */
-export const TENANT_MIGRATION = `ALTER TABLE paused_executions RENAME TO paused_executions_before_tenants;
-${PAUSED_RUNS_SCHEMA}
-INSERT INTO paused_executions SELECT 'default', thread_id, run_id, run, workflow_version,
-  config_hash, paused_at FROM paused_executions_before_tenants;
-DROP TABLE paused_executions_before_tenants;`;
-
-/**
- * The migration of a file written before pauses had records of their own (#267 S35): a thread's
- * pause kept its status and decision in its row; they now live in `pauses`, one row per pause.
- */
-export const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN status;
-ALTER TABLE paused_executions DROP COLUMN decision;`;
-
 const PausedRow = z.object({
   // the row's own key columns: they name a run whose text cannot be parsed
   thread_id: z.string().optional(),

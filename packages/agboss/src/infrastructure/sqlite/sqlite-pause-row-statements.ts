@@ -2,31 +2,14 @@ import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import * as step from "../stored-step.js";
-import { ExpiryProblem, PauseExpiryBound } from "../pause-record.js";
-import { PauseKind, PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
-
-/**
- * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
- * key of a tree (#663); every change of a pending pause is one conditional `UPDATE … WHERE status =
- * 'pending'`, so of two connections exactly one changes it.
- */
-
-/** #663: unique per step key of a tree — a step key names no tree, so another tree's never matches. */
-export const PAUSES_TABLE = `CREATE TABLE IF NOT EXISTS pauses (
-  tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
-  root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
-  pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
-  expires_at TEXT, remind_at TEXT, channel TEXT,
-  PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
-
-/** #910: the deadline and reminder scans, and a tenant's pages (`rowid` is the insertion sequence). */
-export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
-CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);
-CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
-CREATE INDEX IF NOT EXISTS pauses_pending_by_remind ON pauses (status, remind_at);
-CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, channel);`;
-
-export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
+import {
+  ExpiryProblem,
+  PauseExpiryBound,
+  PauseKind,
+  PauseResolution,
+  PauseStatus,
+  type PauseRecord,
+} from "../pause-record.js";
 
 /**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
