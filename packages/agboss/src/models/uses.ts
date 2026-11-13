@@ -3,10 +3,33 @@ import { resolveSettings } from "../llm/registry.js";
 import { isDecisionModel } from "./decision-models.js";
 import { ModelPurpose } from "./resolve.js";
 
+/**
+ * Every kind of model use, the first segment of a `ModelUse.key` (#716): the one list a kind of
+ * component that calls a model is added to — `ModelUse.key` takes no other prefix, and a test
+ * walks it (a startup without the kind's provider key fails at `createApp`).
+ */
+export const MODEL_USE_KINDS = [
+  "agents",
+  "compactions",
+  "judges",
+  "defaults",
+  "routers",
+  "arbiters",
+  "pii",
+  "replyInterpreters",
+  "guardrails",
+  "rerankers",
+] as const;
+
+export type ModelUseKind = (typeof MODEL_USE_KINDS)[number];
+
+/** A model use's key: its kind, then where it is set — behind its workflow's name in an application of several. */
+export type ModelUseKey = `${ModelUseKind}.${string}` | `${string} ${ModelUseKind}.${string}`;
+
 /** One place a model is used, with the settings it is used with. */
 export interface ModelUse {
   /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compactions.conversation-compaction`, `guardrails.legal-advice-guardrail`. */
-  readonly key: string;
+  readonly key: ModelUseKey;
   readonly model: string;
   readonly purpose: ModelPurpose;
   /** Chat uses: the settings over the chat defaults (reasoning and caching unset = the provider's). */
@@ -23,7 +46,11 @@ export interface ModelNamingRouter {
 const purposeOf = (model: string): ModelPurpose =>
   isDecisionModel(model) ? ModelPurpose.Decision : ModelPurpose.Chat;
 
-const routerUse = (key: string, model: RouterModel, config: AgentsConfigOf<string>): ModelUse =>
+const routerUse = (
+  key: ModelUse["key"],
+  model: RouterModel,
+  config: AgentsConfigOf<string>,
+): ModelUse =>
   model.kind === "jev"
     ? { key, model: model.model, purpose: ModelPurpose.Decision }
     : {
@@ -56,7 +83,7 @@ export interface ModelNamingComponents {
 /** A chat model's use at `key`, its settings over the workflow's chat defaults. */
 const chatUseOf =
   (config: AgentsConfigOf<string>) =>
-  (key: string, settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
+  (key: ModelUse["key"], settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
     model: settings.model,
     purpose: ModelPurpose.Chat,
@@ -81,7 +108,7 @@ export function modelUsesOf(
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
       compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
     ),
-    ...Object.entries(config.judges ?? {}).map(([name, judge]) =>
+    ...Object.entries(config.judges ?? {}).map(([name, judge]): ModelUse =>
       purposeOf(judge.model) === ModelPurpose.Decision
         ? { key: `judges.${name}`, model: judge.model, purpose: ModelPurpose.Decision }
         : chat(`judges.${name}`, judge),
@@ -102,7 +129,7 @@ export function modelUsesOf(
     ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
     ...interpreters.flatMap(({ name, model }): readonly ModelUse[] => {
       if (model === undefined) return [];
-      const key = `replyInterpreters.${name}`;
+      const key: ModelUseKey = `replyInterpreters.${name}`;
       // a decision model reads an approval's yes / no (#267 S124 a)
       return purposeOf(model) === ModelPurpose.Decision
         ? [{ key, model, purpose: ModelPurpose.Decision }]
