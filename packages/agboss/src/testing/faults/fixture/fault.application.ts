@@ -15,6 +15,7 @@ import { FaultModelProvider } from "./fault.model-provider.js";
 import { FaultObserver } from "./fault.observer.js";
 import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
 import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
+import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
 import { FaultPodLink } from "./pod-link.js";
 
@@ -93,7 +94,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     environment: faultEnvironmentOf(stores.environment.contract),
     // #825: the fenced charge and the payment are under business keys: one key for every pod
     idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
-    workflows: [FaultOrderWorkflow, FaultBatchWorkflow, ...a2a.workflows],
+    workflows: [FaultOrderWorkflow, FaultBatchWorkflow, FaultPauseWorkflow, ...a2a.workflows],
     ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
@@ -105,6 +106,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultPodClock,
       FaultModelProvider,
       FaultPodLink,
+      FaultPauseChannel,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
       ...a2a.providers,
     ],

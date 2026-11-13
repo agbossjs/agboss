@@ -23,6 +23,7 @@ import {
   s18dDrainTookAnswer,
   s18ResumeFirst,
 } from "./s18-a2a-resume-vs-cancel.js";
+import { s19Paused, s19bAnswering, s19cResuming } from "./s19-pause.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -58,6 +59,9 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s18bCancelFirst,
   s18cResumedNotRun,
   s18dDrainTookAnswer,
+  s19Paused,
+  s19bAnswering,
+  s19cResuming,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

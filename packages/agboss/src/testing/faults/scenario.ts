@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { faultViolationsOf } from "./invariants/check.js";
 import { FaultInvariantError } from "./invariants/violations.js";
 import type { FaultRun } from "./facts.js";
+import { FaultStoreTimeMismatchError } from "./store-clock-probe.js";
 import { FaultStoreTimeError, storeTimeScaleOf } from "./fault-stores.js";
 import type { FaultPod } from "./pod.js";
 import { FaultCluster, type FaultDatabase } from "./cluster.js";
@@ -71,6 +72,8 @@ async function ranScenario(
   } catch (error) {
     // #811 AC4: one this set cannot run is checked on nothing
     if (error instanceof FaultScenarioSkippedError) throw error;
+    // #959: a declaration the store's clock contradicts is no scenario's failure: nothing was run on it
+    if (error instanceof FaultStoreTimeMismatchError) throw error;
     const stopped = error instanceof Error ? error : new Error(JSON.stringify(error));
     return { reader: anyLivePod(cluster), stopped };
   }

@@ -19,6 +19,7 @@ import { FaultGateway } from "./fault-gateway.js";
 import { OperationHistory } from "./operation-history.js";
 import { FaultWaitError, launchPod, type FaultPod } from "./pod.js";
 import { runOrderOf, type FaultOrder, type FaultWorkflow, type PodEvent } from "./pod-protocol.js";
+import { probedStoreTime } from "./store-clock-probe.js";
 import { StoreOutageMode } from "./store-outage.js";
 import { StoreHoldPoint } from "./store-points.js";
 import { ExecutionHistoryStatus } from "../../infrastructure/execution-history.repository.js";
@@ -43,6 +44,7 @@ export class FaultCluster {
   readonly #proxies = new Map<string, DatabaseProxy>();
   readonly #watchers = new Set<() => void>();
   #starts = 0;
+  #probed = false;
 
   /**
    * How long a wait of the cluster lasts (real time): the longest a step of a scenario takes is a
@@ -89,6 +91,11 @@ export class FaultCluster {
       onGateway: (from, id, call) => void this.gateway.call(from, id, call),
     });
     this.pods.push(pod);
+    // #959: the run's first pod measures its stores' clock; the set's declaration must match it
+    if (!this.#probed) {
+      this.#probed = true;
+      await probedStoreTime(pod, this.options.timeScale);
+    }
     return pod;
   }
 

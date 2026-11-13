@@ -16,6 +16,8 @@ export enum FaultWorkflow {
   Order = "order",
   /** A batch of orders, each a child on any instance. */
   Batch = "batch",
+  /** One order that rests at a question its thread owner answers (#959): `resume` continues it. */
+  Pause = "pause",
 }
 
 /**
@@ -69,7 +71,11 @@ export type PodCommand =
     }
   | { readonly op: "read"; readonly rootExecutionIds: readonly string[] }
   | { readonly op: "close"; readonly timeout?: number }
-  | { readonly op: "outage"; readonly mode: StoreOutageMode | null };
+  | { readonly op: "outage"; readonly mode: StoreOutageMode | null }
+  /** #959: answers the pause `pauseId` (approved) with `app.resume`, in the background; its end is an event. */
+  | { readonly op: "resume"; readonly tag: string; readonly pauseId: string }
+  /** #959: how far the store's time moves while `wait` ms of real time pass. */
+  | { readonly op: "probe-store-clock"; readonly wait: number };
 
 /** A message from the test to a pod. */
 export type ToPod =

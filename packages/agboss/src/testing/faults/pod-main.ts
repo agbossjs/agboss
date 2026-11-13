@@ -31,6 +31,7 @@ import { processHoldPoints } from "./hold-points.js";
 import { commandDone, type PodParts } from "./pod-control.js";
 import { podA2AListenerOf } from "./pod-a2a.js";
 import { keepsA2ATasks as keepsA2ATasksOf } from "./fixture/fault.a2a.js";
+import { isClockProbeKey } from "./store-clock-probe.js";
 import { POD_VARIABLES, type FromPod, type ToPod } from "./pod-protocol.js";
 
 /** The store set of the module at `path`. */
@@ -80,7 +81,8 @@ connectPodLink({ send });
 heldStoreState.process = name;
 reportHeldOperations({
   onOperation: (event) => {
-    send({ kind: "operation", event });
+    // #959: the clock probe's leases are no part of the run
+    if (!isClockProbeKey(event.key)) send({ kind: "operation", event });
   },
   onHeld: (held) => {
     sendToTest({ kind: "event", event: { ...held, type: "held" } });

@@ -2,7 +2,9 @@
  * #695 — the races the contract suites were missing bite: a lease store whose `acquire` checks,
  * then writes, passes every other lease case and fails exactly the races of two takes of a free
  * lease; a fenced-effect store whose lease check takes no lock (and is not made again at its
- * commit) passes the zombie's race of the same key and fails exactly the hand-over during its write.
+ * commit) passes the zombie's race of the same key and fails exactly the hand-over during its write —
+ * by release and take, and (#959) by the expiry of the lease: a store whose open write holds off a
+ * release but not the take of an expired lease passes the first and fails only the second.
  * Each fixture runs in a vitest of its own.
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -11,16 +13,20 @@ import { namesOf, runContractFixtures, type FixtureRun } from "./fixture-runs.js
 
 const LEASE = "lease-check-then-write.contract-fixture.ts";
 const EFFECTS = "fencing-unlocked-check.contract-fixture.ts";
+const RELEASE_ONLY = "fencing-release-only-lock.contract-fixture.ts";
 
 const ZOMBIE_RACE =
   "#526 AC3: a write racing its lease's release, the next take and the new holder's write of the same key, round after round: one business row — the old holder's before the take, or it is refused";
 const HAND_OVER =
   "#695: the lease released and taken while its holder's write runs: the hand-over waits for the write, or the write is refused — never the take during the work and the write landing after it";
 
+const EXPIRY =
+  "#959: the lease running out and taken while its holder's write runs: the take waits for the write, or the write is refused — never the take of the expired lease during the work and the write landing after it";
+
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures([LEASE, EFFECTS]);
+  run = await runContractFixtures([LEASE, EFFECTS, RELEASE_ONLY]);
 }, 180_000);
 
 describe("#695: the missing races bite", () => {
@@ -41,7 +47,14 @@ describe("#695: the missing races bite", () => {
   });
 
   it("a fenced effect whose lease check takes no lock fails the hand-over during its write, and passes the zombie's race", () => {
-    expect(namesOf(run, EFFECTS, "fail")).toEqual([HAND_OVER]);
+    expect(namesOf(run, EFFECTS, "fail")).toEqual([HAND_OVER, EXPIRY]);
     expect(namesOf(run, EFFECTS, "pass")).toContain(ZOMBIE_RACE);
+  });
+
+  it("#959 AC2: an open write that holds off a release but not the take of an expired lease fails the expiry case, and passes the release one", () => {
+    expect(namesOf(run, RELEASE_ONLY, "fail")).toEqual([EXPIRY]);
+    expect(namesOf(run, RELEASE_ONLY, "pass")).toEqual(
+      expect.arrayContaining([HAND_OVER, ZOMBIE_RACE, PING_CASE]),
+    );
   });
 });
