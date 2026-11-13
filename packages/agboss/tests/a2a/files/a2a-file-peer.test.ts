@@ -4,7 +4,7 @@
  * answer (a proxy standing in for the host) and a socket that skipped the file agent are refused.
  */
 import { describe, expect, it } from "vitest";
-import { isExpectedPeer } from "../../../src/a2a/files/a2a-file-agent.js";
+import { isExpectedPeer } from "../../../src/a2a/files/a2a-file-connect.js";
 
 const answers = (...addresses: string[]): ReadonlySet<string> => new Set(addresses);
 

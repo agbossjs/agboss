@@ -6,12 +6,19 @@
 // and after it with `syncBuiltinESMExports()`), "patch" (a hand-written `https.request` /
 // `http.request` patch that forces an agent without the guard), and the deeper patches of
 // a2a-file-deep-patch.test.ts ("patch-client-request", "patch-create-connection",
-// "patch-add-request", "patch-tls-connect", "patch-socket-connect"). Prints one JSON line: the fetch's
+// "patch-add-request", "patch-tls-connect", "patch-socket-connect"), and the ones of
+// a2a-file-own-connect.test.ts: "class-proxy-env" / "class-native-proxy" (`https.Agent` replaced
+// before the core loads by a class whose agents tunnel through `proxyEnv`'s proxy: a subclass, and
+// one whose constructor returns a native proxying agent), "net-redirect" (`net.connect` replaced by
+// a function that connects to the target, wherever it is asked to). The optional fourth argument is
+// the fetch timeout in ms (5000 by default); a fetch that has not settled 1500 ms after its
+// timeout is reported as outcome `hung`. Prints one JSON line: the fetch's
 // outcome, and whether something replaced the HTTP client (so a test never passes vacuously). No
 // top-level await: a2a-file-global-agent.test.ts bundles this file to CommonJS.
 import type * as HttpModule from "node:http";
 import type * as HttpsModule from "node:https";
 import { createRequire, syncBuiltinESMExports } from "node:module";
+import type * as DnsModule from "node:dns";
 import type * as NetModule from "node:net";
 import type * as TlsModule from "node:tls";
 
@@ -22,8 +29,10 @@ const http = load("node:http") as typeof HttpModule;
 const https = load("node:https") as typeof HttpsModule;
 const tls = load("node:tls") as typeof TlsModule;
 const net = load("node:net") as typeof NetModule;
+const dns = load("node:dns") as typeof DnsModule;
 
-const [url = "", mode = "env", proxy = ""] = process.argv.slice(2);
+const [url = "", mode = "env", proxy = "", timeoutText = ""] = process.argv.slice(2);
+const timeoutMs = timeoutText === "" ? 5000 : Number(timeoutText);
 
 const bootstrapped = (): void => {
   // global-agent ships no types
@@ -99,10 +108,59 @@ function deepPatch(patched: string): boolean {
     wrapMethod(net.Socket.prototype, "connect", (connect, self, [options, ...rest]) =>
       Reflect.apply(connect, self, [withoutLookup(options), ...rest]),
     );
+  } else if (patched === "net-redirect") {
+    // the name resolves to a public address (a stub), and a patched `net.connect` connects to the
+    // target wherever it is asked to
+    wrapMethod(dns, "lookup", (_lookup, _self, [_name, options, done]) => {
+      const answer = { address: "93.184.216.34", family: 4 };
+      const all = typeof options === "object" && Reflect.get(Object(options), "all") === true;
+      return Reflect.apply(
+        done as Method,
+        undefined,
+        all ? [null, [answer]] : [null, answer.address, 4],
+      );
+    });
+    const target = Number(new URL(url).port);
+    wrapMethod(net, "connect", (connect, self, [options, ...rest]) =>
+      Reflect.apply(connect, self, [
+        typeof options === "object" && options !== null && Reflect.get(options, "port") !== -1
+          ? { ...options, host: "127.0.0.1", port: target }
+          : options,
+        ...rest,
+      ]),
+    );
   } else return false;
   syncBuiltinESMExports();
   return true;
 }
+
+/** `https.Agent` replaced by a class whose agents tunnel through the proxy (Node >= 24 `proxyEnv`). */
+function replacedAgentClass(proxy: string): void {
+  const Original = https.Agent;
+  const proxyEnv = { HTTPS_PROXY: proxy };
+  const replaced =
+    mode === "class-proxy-env"
+      ? class extends Original {
+          constructor(options?: HttpsModule.AgentOptions) {
+            super({ ...options, proxyEnv } as HttpsModule.AgentOptions);
+          }
+        }
+      : class extends Original {
+          constructor(options?: HttpsModule.AgentOptions) {
+            super(options);
+            return new Original({ proxyEnv } as HttpsModule.AgentOptions);
+          }
+        };
+  https.Agent = replaced;
+  syncBuiltinESMExports();
+}
+
+/** Whether something replaced the HTTP client: a proxying agent (global or by class), a patched request. */
+const isReplaced = (): boolean =>
+  Reflect.get(Object(Reflect.get(https.globalAgent, "options")), "proxyEnv") !== undefined ||
+  Reflect.get(globalThis, "GLOBAL_AGENT") !== undefined ||
+  https.request !== original.https ||
+  Reflect.get(Object(Reflect.get(new https.Agent(), "options")), "proxyEnv") !== undefined;
 
 async function main(): Promise<void> {
   if (mode === "global-agent") {
@@ -111,6 +169,7 @@ async function main(): Promise<void> {
       proxyEnv: { HTTPS_PROXY: proxy },
     } as HttpsModule.AgentOptions);
   }
+  if (mode === "class-proxy-env" || mode === "class-native-proxy") replacedAgentClass(proxy);
   if (mode === "ga-before") bootstrapped();
   if (mode === "patch") patchedRequests();
   const isDeeplyPatched = deepPatch(mode);
@@ -128,26 +187,29 @@ async function main(): Promise<void> {
     syncBuiltinESMExports();
   }
 
-  const isProxying =
-    Reflect.get(Object(Reflect.get(https.globalAgent, "options")), "proxyEnv") !== undefined ||
-    Reflect.get(globalThis, "GLOBAL_AGENT") !== undefined ||
-    https.request !== original.https ||
-    isDeeplyPatched;
+  const isProxying = isReplaced() || isDeeplyPatched;
 
-  const outcome = await fetchedFile({
+  const outcome = fetchedFile({
     url,
     allowedOrigins: [new URL(url).origin],
     maxBytes: kilobytes(64),
     transport: httpsFileTransport,
     clock: systemClock,
-    timeout: seconds(5),
+    timeout: seconds(timeoutMs / 1000),
     signal: new AbortController().signal,
   }).then(
     () => "fetched",
     (error: unknown) => String(Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code")),
   );
+  const hung = new Promise<string>((resolve) => {
+    setTimeout(() => {
+      resolve("hung");
+    }, timeoutMs + 1500).unref();
+  });
+  const settled = await Promise.race([outcome, hung]);
 
-  process.stdout.write(`${JSON.stringify({ outcome, isProxying })}\n`);
+  process.stdout.write(`${JSON.stringify({ outcome: settled, isProxying })}\n`);
+  process.exit(0);
 }
 
 void main();

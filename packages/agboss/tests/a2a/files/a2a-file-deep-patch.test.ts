@@ -1,13 +1,13 @@
 /**
- * #916 D2 (the re-acceptance of #932): the two guards below the guarded lookup bite. Each case is a
- * child process that patches the HTTP stack below `https.request` before the core is loaded — so
- * the fetch connects with no guarded lookup, to a loopback "file server" that counts what it
- * receives. Only the request's own guards can stop it:
- *  - the peer check (`verifyPeerOf`): a socket to an address that is denied, or that the lookup
- *    did not answer, is destroyed at the TCP connect, before TLS starts — the target receives no
- *    byte (no ClientHello, which carries the host name), whatever the patch;
- *  - the agent check: a request that does not use the file agent is destroyed before it connects
- *    at all (the target sees no connection) — the first guard for a replaced `ClientRequest`.
+ * #916 D2 and D3 (the re-acceptances of #932): a patch of the HTTP stack below `https.request`,
+ * applied before the core is loaded, does not get a connection to a denied address. Each case is a
+ * child process with the patch, against a loopback "file server" that counts what it receives. The
+ * file fetch has no agent and makes its own connection: it probes that `net.connect`,
+ * `tls.connect` and `ClientRequest` are Node's own (a patched one is refused, nothing connected)
+ * and it resolves the name with the guarded resolver, connecting to an address only after the
+ * resolver allowed it. So for every patch below the target sees no connection at all and no byte —
+ * whatever the speed of the resolver. (The check of the raw socket's peer, which would stop a
+ * patch that evades the probe, is a unit test: a2a-file-own-connect.test.ts D3.5.)
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -36,7 +36,7 @@ async function fetchedUnder(mode: string): Promise<Record<string, unknown>> {
 
 const REFUSED = { outcome: "a2a.file-address-denied", isProxying: true };
 
-describe("#916 D2: the peer check stops a fetch that skipped the guarded lookup", () => {
+describe("#916 D2: a patch below https.request gets no connection to a denied address", () => {
   it.each([
     ["https.Agent.prototype.createConnection drops the lookup", "patch-create-connection"],
     [
@@ -47,28 +47,17 @@ describe("#916 D2: the peer check stops a fetch that skipped the guarded lookup"
     ["net.Socket.prototype.connect drops the lookup", "patch-socket-connect"],
     ["a replaced http.ClientRequest swaps the agent", "patch-client-request"],
   ])(
-    "D2.1 %s: refused a2a.file-address-denied, no byte (no ClientHello) reaches the target",
+    "D2.1 %s: refused a2a.file-address-denied, no connection and no byte reach the target",
     async (_patch, mode) => {
       network.reset();
 
       const fetched = await fetchedUnder(mode);
 
       expect(fetched).toEqual(REFUSED);
+      expect(network.targetConnections()).toBe(0);
       expect(network.targetBytes()).toBe(0);
       expect(network.tunnels).toEqual([]);
     },
     30_000,
   );
-});
-
-describe("#916 D2: the agent check stops a request that is not on the file agent", () => {
-  it("D2.2 a replaced ClientRequest that swaps the agent: refused before it connects at all", async () => {
-    network.reset();
-
-    const fetched = await fetchedUnder("patch-client-request");
-
-    expect(fetched).toEqual(REFUSED);
-    expect(network.targetConnections()).toBe(0);
-    expect(network.targetBytes()).toBe(0);
-  }, 30_000);
 });

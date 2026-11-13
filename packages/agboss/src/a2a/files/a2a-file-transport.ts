@@ -1,8 +1,7 @@
-import { ClientRequest, type IncomingMessage } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { isIP } from "node:net";
-import { urlToHttpOptions } from "node:url";
 import { ADDRESS_DENIED, isDeniedAddress } from "./a2a-file-address.js";
-import { FileAgent, verifyPeerOf } from "./a2a-file-agent.js";
+import { isOwnSocket, requestTo } from "./a2a-file-connect.js";
 
 /**
  * One `GET` of a file by `url` (#859): what the fetch of a file sees of the network — a status, a
@@ -41,20 +40,12 @@ const isDenied = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === ADDRESS_DENIED;
 
 /**
- * The file fetch's own agent (#916): its own pool, the guarded lookup on every connection, and no
- * proxy — whatever `NODE_USE_ENV_PROXY`, `--use-env-proxy`, `HTTPS_PROXY`, a replaced
- * `https.globalAgent` or a library that patches `https.request` (`global-agent`) say. Behind a proxy
- * the lookup would check the proxy's address only and the proxy would resolve the file's host
- * itself, so a file by url is always fetched directly.
- */
-const FILE_AGENT = new FileAgent({ keepAlive: false });
-
-/**
- * The built-in transport: `https:` only, its own agent, the request bound to `signal`. Three
- * guards, so none of them is the only one (#916): the request is a `ClientRequest` made here, not
- * the patchable `https.request`, and refused unless it really uses `FILE_AGENT`; the agent's
- * connections go through the guarded lookup; and the connected socket's remote address is checked
- * again (`verifyPeerOf`).
+ * The built-in transport: `https:` only, its own connection (`requestTo`: no agent, so nothing a
+ * patched or proxying `https.Agent`, `https.globalAgent`, `NODE_USE_ENV_PROXY` or `global-agent`
+ * says reaches it), no proxy ever (#916). Guards, so none of them is the only one: the connection
+ * is made by `net` to an address the guarded resolver allowed and checked before a byte is sent,
+ * and TLS starts on that socket only; a request that has an agent or a socket that is not the
+ * module's own is refused; a `net`, `tls` or `ClientRequest` that is patched is refused unused.
  */
 export const httpsFileTransport: FileTransport = (url, signal) => {
   // an IP literal is connected to without a lookup: checked here
@@ -62,23 +53,26 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
   if (isIP(host) !== 0 && isDeniedAddress(host))
     return Promise.reject(new FileAddressDeniedError());
   return new Promise((resolve, reject) => {
-    const sent = new ClientRequest({
-      ...urlToHttpOptions(url),
-      method: "GET",
-      headers: { accept: "*/*" },
-      agent: FILE_AGENT,
-      signal,
-    });
+    let sent;
+    try {
+      sent = requestTo(url, signal);
+    } catch (error) {
+      reject(isDenied(error) ? new FileAddressDeniedError() : new Error("the request failed"));
+      return;
+    }
     sent.once("error", (error) => {
       reject(isDenied(error) ? new FileAddressDeniedError() : error);
     });
-    if (Reflect.get(sent, "agent") !== FILE_AGENT) {
+    if (Reflect.get(sent, "agent") !== undefined) {
       sent.destroy();
       reject(new FileAddressDeniedError());
       return;
     }
     sent.once("socket", (socket) => {
-      verifyPeerOf(socket, host);
+      if (!isOwnSocket(socket)) {
+        socket.destroy();
+        reject(new FileAddressDeniedError());
+      }
     });
     sent.once("response", (message) => {
       resolve(responseOf(message));
