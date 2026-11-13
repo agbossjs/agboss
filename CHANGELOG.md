@@ -1946,6 +1946,8 @@ export` already refused the same omission. In an application that declares a ten
   arbiters (which the first fix left out: their missing key failed on the first arbiter call, mid-run),
   PII detections, reply interpreters, guardrails, rerankers, decision models and breaker fallbacks —
   from one list of the kinds (`MODEL_USE_KINDS`) that a test walks, so a new kind cannot be left out.
+  A breaker fallback the application does not list in `providers` is connected at start too: its
+  missing key failed `createApp` only when listed, else on the first fallback call, mid-outage.
 
 - **`testWith` gives the application's PII key field the test key** (#778) — a fixed test key
   covered a PII policy's own `pseudonymKey`, but `@Application({ pseudonymKey: "piiPseudonymKey" })`

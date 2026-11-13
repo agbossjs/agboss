@@ -51,6 +51,7 @@ function applicationFor(models: KindModels, providers: readonly Class[]): Class 
   return EveryKindApplication;
 }
 
+const VAULT_ONLY = [FallbackLocalModelProvider];
 const SERVERS = [LocalModelProvider, KeyedModelProvider, DecisionsModelProvider];
 const start = (application: Class) =>
   createAppWith(application, {
@@ -95,6 +96,13 @@ describe("#716: a provider only one kind of model use needs fails createApp with
     await expect(started).rejects.toBeInstanceOf(EnvironmentError);
     await expect(started).rejects.toThrow(/no keyedApiKey/);
   });
+
+  it("an unlisted breaker's fallback is connected at start too: its missing key fails createApp", async () => {
+    const started = start(applicationFor(ALL_LOCAL, VAULT_ONLY));
+
+    await expect(started).rejects.toBeInstanceOf(EnvironmentError);
+    await expect(started).rejects.toThrow(/no keyedApiKey/);
+  });
 });
 
 describe("#716: the kinds of model use are one list", () => {
@@ -107,5 +115,14 @@ describe("#716: the kinds of model use are one list", () => {
     );
 
     expect([...kinds].sort()).toEqual([...MODEL_USE_KINDS].sort());
+  });
+
+  it.each(MODEL_USE_KINDS)("a component of kind %s yields at least one model use", async (kind) => {
+    const assembled = await applicationOf(applicationFor(using(kind, LOCAL), SERVERS));
+    const uses = assembled.workflows.flatMap((workflow) => workflowModelUsesOf(workflow));
+
+    expect(uses.filter((use) => use.key.split(".")[0]?.split(" ").pop() === kind)).not.toHaveLength(
+      0,
+    );
   });
 });
