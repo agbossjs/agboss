@@ -72,12 +72,17 @@ function expectRefusedMint(error: unknown, method: string, rule: KeyTextRule, id
   expect(JSON.stringify((error as InvalidMintedIdError).details)).not.toContain("x\\ud8");
 }
 
-/** The rows of every table of the test's SQLite file. */
+/**
+ * The rows of every table of the test's SQLite file but the ledger's prune mark: the startup retention
+ * sweep writes that one on its own schedule, whatever an id does.
+ */
 function rowsOnFile(): Record<string, number> {
   const database = new DatabaseSync(file.path, { readOnly: true });
   try {
     const tables = database
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name <> 'cost_ledger_entries_pruned' ORDER BY name",
+      )
       .all() as { name: string }[];
     return Object.fromEntries(
       tables.map(({ name }) => {
