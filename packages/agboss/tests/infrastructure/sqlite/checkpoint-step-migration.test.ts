@@ -22,7 +22,6 @@ async function oldFile(): Promise<string> {
       step === 7
         ? JSON.parse('{"source":"loop","parents":{}}')
         : { source: "loop", step: step % 100, parents: {} },
-      {},
     );
   const { database } = connection;
   database.exec("DROP INDEX checkpoints_latest_by_step; DROP INDEX checkpoints_without_step");
