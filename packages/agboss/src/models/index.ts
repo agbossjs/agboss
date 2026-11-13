@@ -94,7 +94,12 @@ export {
   type ModelProblem,
   type ModelProblemCode,
 } from "./problems.js";
-export type { MessageErrorOptions, PlainErrorOptions } from "../core/errors.js";
+export type {
+  AGBossErrorOptions,
+  ErrorDetails,
+  MessageErrorOptions,
+  PlainErrorOptions,
+} from "../core/errors.js";
 export { ModelPurpose, ModelProviderDirectory } from "./resolve.js";
 export { DEFAULT_MODEL_PROVIDERS } from "./workflow-models.js";
 export { toWireRequest, type WirePlan, type WireRequest } from "./wire.js";

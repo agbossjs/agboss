@@ -219,8 +219,6 @@ export enum StoreCapability {
 // @public
 export function storeConformance<TTransaction>(options: StoreConformanceOptions<TTransaction>): void;
 
-// Warning: (ae-forgotten-export) The symbol "StoreConformanceRule" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type StoreConformanceCode = "store-conformance" | `store-conformance.${StoreConformanceRule}`;
 
@@ -255,6 +253,9 @@ export interface StoreConformanceOptions<TTransaction = unknown> {
     readonly stores: StoreSet<TTransaction>;
     readonly without?: readonly LeftOutContract[];
 }
+
+// @public
+export type StoreConformanceRule = "invalid-capabilities" | "invalid-interleavings" | "interleavings-below-floor" | "unknown-store" | "empty" | "opt-out-not-declared" | "lease-store-required" | "missing-fencing-contract" | "capability-not-declared" | "invalid-without" | "opted-out-store" | "capability-missing" | "without-implemented";
 
 // @public
 export type StoreEntry<TStore> = ((context: StoreInstanceContext) => TStore | Promise<TStore>) | Omit<ContractTarget<TStore>, "name">;

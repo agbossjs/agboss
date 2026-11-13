@@ -38,6 +38,14 @@ export interface A2ATaskRepairParts {
     readonly tasks: A2ATaskRepository;
 }
 
+// @public
+export interface AGBossErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly details?: ErrorDetails;
+}
+
 // Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
 //
 // @public
@@ -91,7 +99,6 @@ export interface ApplicationDescription {
 //
 // @public
 export class ApplicationLoadError extends AGBossError {
-    // Warning: (ae-forgotten-export) The symbol "MessageErrorOptions" needs to be exported by the entry point internal.d.ts
     constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: "load.application";
@@ -741,6 +748,9 @@ export const environmentOwnerOf: (assembled: AssembledApplication) => Environmen
 export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
 
 // @public
+export type ErrorDetails = Readonly<Record<string, unknown>>;
+
+// @public
 export type EvalCalibrationResult = {
     readonly kind: "calibrated";
     readonly calibration: EvalCalibration;
@@ -1325,6 +1335,12 @@ export function loadGolden(file: string): Promise<GoldenSet>;
 export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv) => Promise<McpConnections>;
 
 // @public
+export interface MessageErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message: string;
+}
+
+// @public
 export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProviderDirectory): readonly string[];
 
 // @public
@@ -1732,6 +1748,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/profiles.ts:11:3 - (ae-undocumented) Missing documentation for "code".
 // src/config/profiles.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/config/profiles.ts:13:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/observer-manager.ts:81:5 - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts:117:3 - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts:120:3 - (ae-undocumented) Missing documentation for "onExecutionPause".

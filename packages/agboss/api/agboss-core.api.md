@@ -20,6 +20,14 @@ export type ActionEndEvent = EndEvent<unknown>;
 // @public
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 
+// @public
+export interface AGBossErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly details?: ErrorDetails;
+}
+
 // Warning: (ae-forgotten-export) The symbol "AgentOptions" needs to be exported by the entry point index.d.ts
 //
 // @public
@@ -115,7 +123,6 @@ export interface ClassProvider<T = unknown> {
 //
 // @public
 export class ComponentError extends AGBossError {
-    // Warning: (ae-forgotten-export) The symbol "MessageErrorOptions" needs to be exported by the entry point index.d.ts
     constructor(options: MessageErrorOptions);
     // (undocumented)
     static readonly code: string;
@@ -163,6 +170,9 @@ export interface DecisionRequest<Q extends DecisionQuestions = DecisionQuestions
 
 // @public
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
+
+// @public
+export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
 export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
@@ -279,6 +289,12 @@ export const JudgeVerdict: {
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
+
+// @public
+export interface MessageErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly message: string;
+}
 
 // @public
 export interface ModelEndEvent extends NodeEvent {
@@ -576,7 +592,6 @@ export function PiiPolicy<const D extends readonly Token[] = []>(options: Custom
 
 // @public
 export class PromptError extends ComponentError {
-    // Warning: (ae-forgotten-export) The symbol "PromptErrorOptions" needs to be exported by the entry point index.d.ts
     constructor(options: PromptErrorOptions);
     // (undocumented)
     static readonly code: "component.prompt";
@@ -584,6 +599,14 @@ export class PromptError extends ComponentError {
     readonly code: typeof PromptError.code;
     // (undocumented)
     name: string;
+    // (undocumented)
+    readonly problems: readonly PromptProblem[];
+}
+
+// @public
+export interface PromptErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
     // (undocumented)
     readonly problems: readonly PromptProblem[];
 }
@@ -746,10 +769,15 @@ export class WorkflowSettings {
 // src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
+// src/components/prompt-problems.ts:23:3 - (ae-undocumented) Missing documentation for "problems".
+// src/components/prompt-problems.ts:24:3 - (ae-undocumented) Missing documentation for "cause".
 // src/components/prompt-problems.ts:29:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:30:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:31:12 - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts:32:3 - (ae-undocumented) Missing documentation for "problems".
+// src/core/errors.ts:6:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:7:3 - (ae-undocumented) Missing documentation for "details".
+// src/core/errors.ts:16:3 - (ae-undocumented) Missing documentation for "message".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
 // src/core/observability.ts:57:3 - (ae-undocumented) Missing documentation for "agentName".
 // src/core/observability.ts:58:3 - (ae-undocumented) Missing documentation for "arguments".

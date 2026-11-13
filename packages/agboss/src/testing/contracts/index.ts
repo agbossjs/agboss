@@ -55,6 +55,7 @@ export {
   StoreConformanceError,
   type LeftOutContract,
   type StoreConformanceCode,
+  type StoreConformanceRule,
   type StoreConformanceErrorOptions,
 } from "./store-conformance-check.js";
 export type { FencingContractOptions } from "./fencing-gate.js";

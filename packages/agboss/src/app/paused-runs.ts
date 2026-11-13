@@ -222,7 +222,22 @@ function withTurnId(run: AgentExecutionOutput): AgentExecutionOutput {
   return current;
 }
 
-/** The run `encodePausedRun` wrote (one stored by 0.1.0 under `ternId` too), or why it is refused. */
-export function decodePausedRun(text: string): AgentExecutionOutput {
-  return withTurnId(storedRunOf(decode(text)));
+/**
+ * The run `encodePausedRun` wrote (one stored by 0.1.0 under `ternId` too), or why it is refused.
+ * `ids` are the store's own keys of the row: text that is not JSON names no id of its own.
+ */
+export function decodePausedRun(
+  text: string,
+  ids: { readonly threadId?: string; readonly runId?: string } = {},
+): AgentExecutionOutput {
+  let value: unknown;
+  try {
+    value = decode(text);
+  } catch {
+    // the parser's message quotes the text (`startInput`, PII, #906 D4): neither it nor the text is kept
+    throw new Error(
+      `a stored paused run is not readable${named(idsOf(ids))}: the text is not valid JSON`,
+    );
+  }
+  return withTurnId(storedRunOf(value));
 }

@@ -39,6 +39,12 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   ComponentError,
   /** @deprecated Import from "@agboss/core" (#195). */
+  type AGBossErrorOptions,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type ErrorDetails,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type MessageErrorOptions,
+  /** @deprecated Import from "@agboss/core" (#195). */
   Decision,
   /** @deprecated Import from "@agboss/core" (#195). */
   type DecisionAnswer,
@@ -172,6 +178,8 @@ export {
   PiiPolicy,
   /** @deprecated Import from "@agboss/core" (#195). */
   PromptError,
+  /** @deprecated Import from "@agboss/core" (#195). */
+  type PromptErrorOptions,
   /** @deprecated Import from "@agboss/core" (#195). */
   type PromptInput,
   /** @deprecated Import from "@agboss/core" (#195). */
