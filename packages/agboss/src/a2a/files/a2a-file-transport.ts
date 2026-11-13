@@ -44,39 +44,35 @@ const isDenied = (error: unknown): boolean =>
  * patched or proxying `https.Agent`, `https.globalAgent`, `NODE_USE_ENV_PROXY` or `global-agent`
  * says reaches it), no proxy ever (#916). Guards, so none of them is the only one: the connection
  * is made by `net` to an address the guarded resolver allowed and checked before a byte is sent,
- * and TLS starts on that socket only; a request that has an agent or a socket that is not the
- * module's own is refused; a `net`, `tls` or `ClientRequest` that is patched is refused unused.
+ * and TLS starts on that socket only; the request is built over that connection after it (a denied
+ * address constructs none); a request that has an agent or a socket that is not the module's own is
+ * refused. Pass-through wrappers (APM) of `net`, `tls` and `ClientRequest` change nothing of this.
  */
 export const httpsFileTransport: FileTransport = (url, signal) => {
   // an IP literal is connected to without a lookup: checked here
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0 && isDeniedAddress(host))
     return Promise.reject(new FileAddressDeniedError());
-  return new Promise((resolve, reject) => {
-    let sent;
-    try {
-      sent = requestTo(url, signal);
-    } catch (error) {
-      reject(isDenied(error) ? new FileAddressDeniedError() : new Error("the request failed"));
-      return;
-    }
-    sent.once("error", (error) => {
-      reject(isDenied(error) ? new FileAddressDeniedError() : error);
-    });
-    if (Reflect.get(sent, "agent") !== undefined) {
-      sent.destroy();
-      reject(new FileAddressDeniedError());
-      return;
-    }
-    sent.once("socket", (socket) => {
-      if (!isOwnSocket(socket)) {
-        socket.destroy();
-        reject(new FileAddressDeniedError());
-      }
-    });
-    sent.once("response", (message) => {
-      resolve(responseOf(message));
-    });
-    sent.end();
-  });
+  return requestTo(url, signal).then(
+    ({ request, secure }) =>
+      new Promise((resolve, reject) => {
+        request.once("error", (error) => {
+          reject(isDenied(error) ? new FileAddressDeniedError() : error);
+        });
+        request.once("socket", (socket) => {
+          if (!isOwnSocket(socket)) {
+            socket.destroy();
+            secure.destroy();
+            reject(new FileAddressDeniedError());
+          }
+        });
+        request.once("response", (message) => {
+          resolve(responseOf(message));
+        });
+        request.end();
+      }),
+    (error: unknown) => {
+      throw isDenied(error) ? new FileAddressDeniedError() : error;
+    },
+  );
 };

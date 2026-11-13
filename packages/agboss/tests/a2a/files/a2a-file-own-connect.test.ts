@@ -56,13 +56,15 @@ describe("#916 D3: a replaced https.Agent class does not reach the file fetch", 
     30_000,
   );
 
-  it("D3.2 a patched net.connect that goes to the target anyway: refused before it connects", async () => {
+  it("D3.2 a patched net.connect that goes to the target anyway: the peer check refuses it, 0 bytes", async () => {
     network.reset();
 
     const fetched = await fetchedUnder("net-redirect");
 
     expect(fetched).toEqual({ outcome: "a2a.file-address-denied", isProxying: true });
-    expect(network.targetConnections()).toBe(0);
+    // the TCP connection is made (net is patched, and nothing probes it); it is destroyed at
+    // connect, before a ClientHello or a byte of the request
+    expect(network.targetConnections()).toBe(1);
     expect(network.targetBytes()).toBe(0);
   }, 30_000);
 });
