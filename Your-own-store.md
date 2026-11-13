@@ -55,6 +55,7 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | `PausedExecutionRepository` (#935, contract v2) | `resolve…` | `Pending` **and** (`expires_at` absent or after `at`) — the deadline in the statement that records the answer, `at` the application's `Clock` — then the answer and the pause's `closed` notice | an answer is recorded at or after the deadline: a late approval **charges** what the deadline had refused |
 | | `cancel…`, `expire…`, `closeUntaken…`, `extend…`, `remind…` | each its own condition on the status read (`cancel…` at or after `expires_at` records `Expired`, `expire…` only at or after it, `extend…` never to a past time, `remind…` once), the change and its notice in **one transaction** | two closers both apply, or a close and no notice: a channel keeps buttons for a closed pause |
 | | `markSent…` | `isSent` whatever the status; only when it was false, `opened` (listeners), then — when the pause closed meanwhile — `closed` (channel and listeners), then `answerNotTaken` for a closed-untaken answer | a cancel during `send` leaves the channel's buttons on |
+| | `closeUntaken…` (`closedFirst`) | a close that is not taken (the pause is already closed) changes nothing but `closedFirst { resolution, resolvedAt }`, written once, by the first close; a later close never overwrites it — the late `closed` notice from `markSent…` reads the reason and the time from it, never from the not-taken close | a pause decided by its deadline is told `answered` at a later human answer's time, or the reverse: a channel shows the wrong outcome |
 | | `claimNoticesDue`, `ackNotice`, `retryNotice`, `setAsideNotices` | one mailbox per (pause, recipient): a claim under a fresh token until `at + claimFor`; the other three check the token (`ackNotice` also `until > at`) | a zombie's late ack drops a notice never delivered; a stuck receiver holds another pause's |
 | | `noticeOnce…`, `deleteByResolvedAtBefore` | `noticeOnce…` appends unless the pause already has a notice of that kind (only when `isSent`); the delete keeps a pause with a live mailbox | a re-run pass writes `joinFailed` twice; a pause is removed with its notices undelivered |
 | `CostLedgerRepository` | `saveAll` (#727, #771, #817) | refuse anything but a `LedgerEntry` first (`assertLedgerEntries`), then insert each entry's `ledgerId` with its `madeAt` if absent **and** add the inserted ones' cost to every counter — after reading the pruning mark in the same step, refusing (`CostLedgerEntryExpiredError`, nothing added) an entry made before the mark that is not held | a retried save adds an entry twice, or a lost answer retried after its entry was pruned **counts the spend twice** |
@@ -787,6 +788,11 @@ that does not load, or one that registers no case, rejects: never an empty run t
       text for one database); a unit runner finds the lease store by it.
 - [ ] `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` pages on an immutable order
       of your own (a sequence, a row id) with an opaque cursor — never an offset (#825).
+- [ ] `PausedExecutionRepository`'s page cursor reads a **monotonic sequence that is never reused**:
+      a row's number is greater than every number given before, and a deleted row's number is not
+      given again (SQLite: `seq INTEGER PRIMARY KEY AUTOINCREMENT`, not a bare rowid; a file
+      rebuilt to gain it copies the old rowid into `seq`, so a cursor issued before keeps its place
+      and skips no row). Without it a page after a cursor skips a row inserted behind it.
 - [ ] The ledger takes `LedgerEntry` values only and calls `assertLedgerEntries(entries)` before
       it reads or writes anything (#817: a JS caller's record without a `ledgerId`, a `madeAt`
       `Date` or a `costUsd` amount is `CostLedgerEntryInvalidError`, nothing added); it keeps the
