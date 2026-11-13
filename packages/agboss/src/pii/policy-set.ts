@@ -63,6 +63,16 @@ export class PiiPolicySet {
     return this.policies.length === 0 && this.values.length === 0;
   }
 
+  /**
+   * Whether a policy has a block rule (`blockWithRefusal`): an answer that holds such a value is
+   * refused, so what streams of it waits for that check (#1006).
+   */
+  get blocks(): boolean {
+    return this.policies.some((policy) =>
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+    );
+  }
+
   /** The same policies with the sensitive values of one execution. */
   withValues(values: readonly SensitiveValue[]): PiiPolicySet {
     return values.length === 0

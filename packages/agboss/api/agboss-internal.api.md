@@ -654,6 +654,9 @@ export const describeServicesWith: (environment: DescribedEnvironment | undefine
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // @public
+export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+
+// @public
 export interface DraftToolCall {
     // (undocumented)
     readonly arguments: unknown;
@@ -927,6 +930,13 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
+    readonly step: StreamStep;
+}
+/** The text streamed for `step` is retracted (#1006): show it no more. */
+| {
+    readonly kind: "discarded";
+    readonly step: StreamStep;
+    readonly reason: DiscardReason;
 }
 /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
 | {
@@ -1394,6 +1404,14 @@ export interface StepsRange {
 export function stepsRangeOf(graph: FlowGraph): StepsRange;
 
 // @public
+export interface StreamStep {
+    readonly agent: string;
+    readonly attempt: number;
+    readonly branch: string;
+    readonly visit: number;
+}
+
+// @public
 export interface StudioGraphs {
     readonly application: string;
     readonly close: () => Promise<void>;
@@ -1789,7 +1807,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/rag/types.ts:155:3 - (ae-undocumented) Missing documentation for "retrieve".
 // src/run/continue-run.ts:42:1 - (ae-undocumented) Missing documentation for "ContinueOptions".
 // src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "turns".
-// src/run/types.ts:40:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
+// src/run/types.ts:75:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".
 // src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "component".
 // src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "changes".

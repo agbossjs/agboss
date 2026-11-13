@@ -20,6 +20,7 @@ import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
+import { agentStreamOf } from "../../run/stream/agent-stream.js";
 
 /**
  * The class of each value of the answer (#262 S125): the class of the answer tool it was answered
@@ -166,7 +167,7 @@ export const retryPrompt = (rejected: readonly JudgeRejection[]): string =>
  */
 export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
   const { name: agent, judges = [], maxRetries = 0 } = deps.agent;
-  return async (state) => {
+  return async (state, config) => {
     if (judges.length === 0 || state.reply === null) return {};
     const judged: UsageRecord[] = [];
     const verdicts: JudgeVerdictRecord[] = [];
@@ -174,6 +175,8 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     // counted at once (#338), in the ledger at once (#727)
     const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
+    // what the reply streamed is retracted, whether a retry follows or the agent fails (#1006)
+    agentStreamOf(config)?.discardLast("judge-rejected");
     if (state.retries >= maxRetries) {
       const error = new QualityGateError({
         agent,

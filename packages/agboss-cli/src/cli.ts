@@ -20,8 +20,18 @@ import { runInputOf } from "./cli/run-input.js";
 function streamTo(context: CommandContext): (event: ExecutionStreamEvent) => void {
   const reply = context.json ? context.io.stderr : context.io.stdout;
   return (event) => {
-    if (event.kind === "textDelta") reply.write(event.delta);
-    else context.warn(styleText("dim", `\n[Agent is using tool: ${event.tool}]`));
+    switch (event.kind) {
+      case "textDelta":
+        reply.write(event.delta);
+        break;
+      case "discarded":
+        // a terminal cannot unwrite: say what is no longer the answer, then go on from a new line
+        context.warn(styleText("dim", `\n[Retracted: ${event.reason}]`));
+        break;
+      case "toolCall":
+        context.warn(styleText("dim", `\n[Agent is using tool: ${event.tool}]`));
+        break;
+    }
   };
 }
 

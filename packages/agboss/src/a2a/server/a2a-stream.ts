@@ -4,10 +4,10 @@ import {
   type A2ATaskRecord,
 } from "../../infrastructure/a2a-task.repository.js";
 import type { ExecutionStreamEvent } from "../../run/types.js";
+import { ArtifactView } from "./a2a-artifact-view.js";
 import { changedTask, isAtRest } from "./a2a-task-wait.js";
 import { taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
-  outputArtifactIdOf,
   outputArtifactOf,
   taskMetadataOf,
   textPart,
@@ -27,8 +27,12 @@ import {
  * (a resume's turn), starts it (`append: false`), each next one is appended to it (`append: true`, `lastChunk: false`), and the finish's output replaces it
  * (`append: false`, `lastChunk: true`). A client that applies every event as the spec says ends with
  * the artifacts `GetTask` returns; one that joins the chunks' text reads the answer once. A task that
- * rests at a pause or ends without completing has no output: its stream's view keeps the text streamed so far, never
- * marked as the last chunk, and `GetTask` shows no artifact.
+ * rests at a pause has no output yet: its stream's view keeps the text streamed so far. A task that
+ * ends FAILED, CANCELED or REJECTED has none, and `GetTask` shows no artifact: its stream replaces
+ * what it showed with an empty last chunk (`append: false`, `lastChunk: true`) before its final
+ * status (#1006). The artifact shows the text of one step at a time (`ArtifactView`): a retry, the
+ * turn after a tool call or another branch starts it anew (`append: false`), a retraction of the
+ * step shown (`discarded`) empties it.
  */
 
 /** When a stream ends. */
@@ -39,36 +43,13 @@ export enum StreamEnd {
   Rest = "rest",
 }
 
-/** One event of the run streamed here; `append` — a chunk after the stream's first one. */
-function eventOf(
-  task: A2ATaskRecord,
-  event: ExecutionStreamEvent,
-  append: boolean,
-): StreamResponse {
+/** A tool call of the run streamed here, as a `WORKING` status update. */
+function toolEventOf(task: A2ATaskRecord, tool: string): StreamResponse {
   const ids = { taskId: task.taskId, contextId: task.contextId, metadata: undefined };
-  if (event.kind === "textDelta")
-    return {
-      payload: {
-        $case: "artifactUpdate",
-        value: {
-          ...ids,
-          artifact: {
-            artifactId: outputArtifactIdOf(task.taskId),
-            name: "",
-            description: "",
-            parts: [textPart(event.delta)],
-            metadata: undefined,
-            extensions: [],
-          },
-          append,
-          lastChunk: false,
-        },
-      },
-    };
   const status = wireStatusOf(task);
   const message = {
     ...(status.message ?? emptyMessageOf(task)),
-    parts: [textPart(`calling ${event.tool}`)],
+    parts: [textPart(`calling ${tool}`)],
   };
   return { payload: { $case: "statusUpdate", value: { ...ids, status: { ...status, message } } } };
 }
@@ -142,6 +123,16 @@ async function changedOrHeard(
   return next;
 }
 
+/** What a run's event is on the wire: a chunk of the artifact, its retraction, or a tool call. */
+const updateOf = (
+  view: ArtifactView,
+  task: A2ATaskRecord,
+  event: ExecutionStreamEvent,
+): StreamResponse | undefined =>
+  view.textOf(task, event) ??
+  view.retractionOf(task, event) ??
+  (event.kind === "toolCall" ? toolEventOf(task, event.tool) : undefined);
+
 /** The stream of a task from `task` on. */
 export async function* taskStream(
   parts: A2AServerParts,
@@ -159,8 +150,8 @@ export async function* taskStream(
   let current = task;
   let shown = task.version;
   let wake = new AbortController();
-  // whether the artifact has a chunk of the run heard: a run's first chunk starts it anew
-  let chunked = false;
+  // what the client shows of the artifact: a run's first chunk starts it anew (#1006)
+  const view = new ArtifactView();
   let heard = parts.runs.settledOf(key);
   const hear = (event: ExecutionStreamEvent): void => {
     queued.push(event);
@@ -173,18 +164,20 @@ export async function* taskStream(
       wake = new AbortController();
       if (queued.length === 0) current = await changedOrHeard(parts, current, signal, wake.signal);
       for (const event of queued.splice(0)) {
-        yield eventOf(current, event, chunked);
-        if (event.kind === "textDelta") chunked = true;
+        const update = updateOf(view, current, event);
+        if (update !== undefined) yield update;
       }
       if (current.version !== shown) {
         shown = current.version;
+        // a task over without an output replaces what its stream showed, before its last status
+        yield* view.closing(current);
         yield* await changeEventsOf(parts, current);
       }
       // a run started here since (a resume): its stream is heard from now on, its text anew
       stopListening();
       stopListening = parts.runs.listen(key, hear);
       const run = parts.runs.settledOf(key);
-      if (run !== heard) chunked = false;
+      if (run !== heard) view.restart();
       heard = run;
     }
   } finally {

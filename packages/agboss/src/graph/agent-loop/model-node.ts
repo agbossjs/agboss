@@ -21,7 +21,7 @@ import type { MaskedRequest } from "../../pii/model-boundary.js";
 import { maskedRequest, outgoingMove } from "./model-pii.js";
 import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 import { AnswerTokenHandler, withAnswerHandler } from "../../run/stream/answer-handler.js";
-import type { RunStream } from "../../run/stream/run-stream.js";
+import { agentStreamOf, type AttemptStream } from "../../run/stream/agent-stream.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -45,32 +45,39 @@ const withExhausted = (signal: AbortSignal | undefined, deps: AgentLoopDeps): Ab
   signal === undefined ? deps.budgets.exhausted : AbortSignal.any([signal, deps.budgets.exhausted]);
 
 /**
- * The call of the agent's own answer, the one model call of the framework the user's stream hears
- * (#1004): its tokens go to the sink through a handler added to this call alone. An agent with an
- * output DTO answers with a tool call, not with text: it streams none.
+ * The model call of the agent's own answer, the one call of the framework the user's stream hears
+ * (#1004): its tokens go to this attempt through a handler added to this call alone. An agent with
+ * an output DTO answers with a tool call, not with text: it has no attempt, it streams none.
  */
 function answering(
   config: RunnableConfig | undefined,
-  deps: AgentLoopDeps,
-  stream: RunStream | undefined,
+  attempt: AttemptStream | undefined,
 ): RunnableConfig | undefined {
-  if (stream === undefined || deps.agent.answerTools.tools.length > 0) return config;
-  const handler = new AnswerTokenHandler((delta) => {
-    stream.emit({ kind: "textDelta", delta });
+  if (attempt === undefined) return config;
+  const handler = new AnswerTokenHandler((token) => {
+    attempt.push(token);
   });
   return { ...config, callbacks: withAnswerHandler(config?.callbacks, handler) };
 }
+
+/** The visit's stream gives this model call its attempt, unless the agent answers with a tool. */
+const attemptOf = (
+  config: RunnableConfig | undefined,
+  deps: AgentLoopDeps,
+  turn: number,
+): AttemptStream | undefined =>
+  deps.agent.answerTools.tools.length > 0 ? undefined : agentStreamOf(config)?.begin(turn);
 
 /** One model turn: the agent's instructions and conversation (masked, #120), its tools bound. */
 async function callModel(
   messages: readonly BaseMessage[],
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
-  stream: RunStream | undefined,
+  attempt: AttemptStream | undefined,
 ): Promise<AIMessageChunk> {
   const { binding, name } = deps.agent;
   // an exhausted budget (#338) aborts the call in flight: its partial cost is unknown, unrecorded
-  const call = { ...answering(config, deps, stream), signal: withExhausted(config?.signal, deps) };
+  const call = { ...answering(config, attempt), signal: withExhausted(config?.signal, deps) };
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
@@ -141,8 +148,8 @@ async function observedCall(
   deps: AgentLoopDeps,
   request: MaskedRequest,
   config: RunnableConfig | undefined,
+  attempt: AttemptStream | undefined,
 ): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
-  const { stream } = extractRunContext(config, state.runId).run;
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
   // what the model was sent, masked: the conversation without the instructions
@@ -150,8 +157,10 @@ async function observedCall(
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
   );
-  const response = await callModel(request.messages, deps, config, stream).catch(
+  const response = await callModel(request.messages, deps, config, attempt).catch(
     (error: unknown) => {
+      // the text of a call that broke is retracted before the failure goes on (#1006)
+      attempt?.discard("stream-broken");
       throw new AgentFailedError({
         agent: name,
         usage: [...loopUsage(state), ...request.usage],
@@ -175,6 +184,19 @@ async function observedCall(
   return { response, usageRecord };
 }
 
+/** The agent's `maxModelCalls` per visit: the call about to start is over it. */
+function checkModelCalls(state: AgentLoopStateType, deps: AgentLoopDeps, turn: number): void {
+  const { name, limits } = deps.agent;
+  if (turn <= limits.modelCalls) return;
+  const breach = {
+    agent: name,
+    limit: "modelCalls",
+    max: limits.modelCalls,
+    actual: turn,
+  } as const;
+  throw agentLimitError(state, { ...breach, spent: [] });
+}
+
 /**
  * One model call = one node. Before it: the execution's budgets and `modelCalls`; after it: the usage record
  * and `toolCalls` for the calls the move asks for. A failed call fails the agent with the loop's spend.
@@ -188,29 +210,27 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     throwIfCancelled(runCtx.run);
     checkBudget(state, deps);
     const turn = state.modelCalls + 1;
-    if (turn > limits.modelCalls) {
-      const breach = {
-        agent: name,
-        limit: "modelCalls",
-        max: limits.modelCalls,
-        actual: turn,
-      } as const;
-      throw agentLimitError(state, { ...breach, spent: [] });
-    }
+    checkModelCalls(state, deps, turn);
     const request = await maskedRequest(state, deps);
-    const { response, usageRecord } = await observedCall(state, deps, request, config);
+    const attempt = attemptOf(config, deps, turn);
+    const { response, usageRecord } = await observedCall(state, deps, request, config, attempt);
     // counted at once (#338) and in the ledger (#727): the branches running beside this one, and
     // the tree's steps on other instances, see it at their next check
     const spent = deps.budgets.tally([...request.usage, usageRecord], state.flowPath);
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
-    if (outgoing.kind === "invalid") return { ...outgoing.update, modelCalls: 1, ...pii };
+    if (outgoing.kind === "invalid") {
+      attempt?.discard("invalid-answer");
+      return { ...outgoing.update, modelCalls: 1, ...pii };
+    }
     const checked = deps.budgets.tally(outgoing.usage, state.flowPath);
     const move = outgoing.move;
     // answer tools are not tool calls: an invalid answer costs a retry, not `maxToolCalls` (S9)
     const calls =
       callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length +
       invalidCallsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
+    // a turn that goes to tools is no reply: its text is retracted (#1006)
+    if (calls > 0) attempt?.discard("tool-turn");
     const toolCalls = state.toolCalls + calls;
     if (toolCalls > limits.toolCalls) {
       const breach = {
