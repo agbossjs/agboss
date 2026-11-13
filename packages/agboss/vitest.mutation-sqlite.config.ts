@@ -9,7 +9,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     expect: { requireAssertions: true },
-    setupFiles: ["./src/testing/setup.ts"],
+    setupFiles: ["./src/testing/setup.ts", "./tests/helpers/chat-client-setup.ts"],
     include: [
       "tests/infrastructure/{fence-fingerprint,store-conformance.sqlite,live-lease-sqlite,repeated-execution-id.sqlite,in-memory-fenced-effect-edges,execution-lease-*-bites}.test.ts",
       "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-outbound-call-seq}.test.ts",

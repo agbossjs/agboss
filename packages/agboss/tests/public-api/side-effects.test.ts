@@ -95,9 +95,12 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * of their own.; 1,549 at #860: the direct A2A
  * messages' store contract and its in-memory default (a built-in contract's default is resolved at
  * the root, as every store's) and the direct-reply skills' assembly rule — the server's reply path,
- * the SQLite store, the sweep and the client's retention load on first use.
+ * the SQLite store, the sweep and the client's retention load on first use. #956: the OpenAI
+ * chat client (`@langchain/openai` and the OpenAI SDK, 288 modules) loads when an application is
+ * created, not when the root is read — the root is 1,268 now, the budget 1,280: the headroom is
+ * for the decorators and types to come, and stays visible.
  */
-const MODULE_BUDGET = 1_549;
+const MODULE_BUDGET = 1_280;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

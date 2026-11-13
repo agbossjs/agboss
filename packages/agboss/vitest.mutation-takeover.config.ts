@@ -9,7 +9,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     expect: { requireAssertions: true },
-    setupFiles: ["./src/testing/setup.ts"],
+    setupFiles: ["./src/testing/setup.ts", "./tests/helpers/chat-client-setup.ts"],
     include: [
       "tests/app/{lease-*,held-lease*,tree-moves-units,recover-root-units,tree-ends-units,ended-tree-units,finished-*,*end-once*,remote-child-yield,execution-fence*,compensation-recovery*,kept-undo-takeover,hand-over-records,cancel*,resume-across-deployments,child-failure-once,close-waits-for-steps,pause-withdrawals,zombie-evidence,undo-fence}.test.ts",
       "tests/infrastructure/{lease-*,execution-lease-*-bites,recovery*,concurrent-resume}.test.ts",

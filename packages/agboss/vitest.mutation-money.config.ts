@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     expect: { requireAssertions: true },
-    setupFiles: ["./src/testing/setup.ts"],
+    setupFiles: ["./src/testing/setup.ts", "./tests/helpers/chat-client-setup.ts"],
     include: [
       "tests/budgets/*.test.ts",
       "tests/ledger.test.ts",

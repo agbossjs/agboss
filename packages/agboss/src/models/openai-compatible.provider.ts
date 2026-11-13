@@ -1,6 +1,6 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { ChatOpenAI } from "@langchain/openai";
 import { TokenLimit } from "../config/types.js";
+import { chatOpenAIClass } from "./chat-openai.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
 import { ModelListCache, type ModelEntry } from "./model-list.js";
@@ -33,6 +33,7 @@ export abstract class OpenAiCompatibleProvider<
 
   chat(request: ChatRequest): BaseChatModel {
     const { settings, connection } = request;
+    const ChatOpenAI = chatOpenAIClass();
     return new ChatOpenAI({
       apiKey: connection.apiKey ?? "none",
       model: settings.model,

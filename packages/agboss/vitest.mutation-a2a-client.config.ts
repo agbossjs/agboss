@@ -10,7 +10,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     expect: { requireAssertions: true },
-    setupFiles: ["./src/testing/setup.ts"],
+    setupFiles: ["./src/testing/setup.ts", "./tests/helpers/chat-client-setup.ts"],
     include: [
       "tests/a2a/client/a2a-client-{units,accept.units,mesh.units,hardening,wire,in-execution,files,direct,finishes-app}.test.ts",
       "tests/mesh/mesh-audience.test.ts",
