@@ -12,8 +12,8 @@ import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { modelChaosOf } from "../eval/chaos/model-chaos.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
-import { modelGuardrailsOf } from "../guardrails/loaded.js";
-import { modelUsesOf, type ModelUse } from "../models/uses.js";
+import { workflowModelUsesOf } from "../models/resolution.js";
+import type { ModelUse } from "../models/uses.js";
 import type { ModelProviderDirectory, RegisteredModelProvider } from "../models/resolve.js";
 import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -103,12 +103,7 @@ export async function modelsFor(
   clients: ProviderClientOptions,
 ): Promise<AppModels> {
   const directory = directoryOf(bundle.modelProviders);
-  const uses = modelUsesOf(bundle.config, bundle.routers, {
-    piiDetectors: bundle.pii?.detectors,
-    interpreters: bundle.replyInterpreters,
-    guardrails: modelGuardrailsOf(bundle.guardrails),
-    rerankers: bundle.rerankers,
-  });
+  const uses = workflowModelUsesOf(bundle);
   const unresolved = resolutionProblems(uses, directory);
   if (unresolved.length > 0) throw new ConfigurationError({ problems: unresolved });
   // the production gateway reads the key of every provider a model use needs: a missing one fails

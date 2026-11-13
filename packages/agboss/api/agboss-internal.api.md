@@ -1345,7 +1345,8 @@ export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProvid
 
 // @public
 export interface ModelUse {
-    readonly key: string;
+    // Warning: (ae-forgotten-export) The symbol "ModelUseKey" needs to be exported by the entry point internal.d.ts
+    readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
     // Warning: (ae-forgotten-export) The symbol "ModelPurpose" needs to be exported by the entry point internal.d.ts
@@ -1920,8 +1921,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/loader/load-eval-suites.ts:22:3 - (ae-undocumented) Missing documentation for "suite".
 // src/loader/load-eval-suites.ts:23:3 - (ae-undocumented) Missing documentation for "name".
 // src/models/problems.ts:22:14 - (ae-undocumented) Missing documentation for "problemLine".
-// src/models/uses.ts:10:3 - (ae-undocumented) Missing documentation for "model".
-// src/models/uses.ts:11:3 - (ae-undocumented) Missing documentation for "purpose".
+// src/models/uses.ts:33:3 - (ae-undocumented) Missing documentation for "model".
+// src/models/uses.ts:34:3 - (ae-undocumented) Missing documentation for "purpose".
 // src/rag/types.ts:153:3 - (ae-undocumented) Missing documentation for "name".
 // src/rag/types.ts:154:3 - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts:155:3 - (ae-undocumented) Missing documentation for "retrieve".

@@ -11,6 +11,7 @@ import {
 } from "./model-provider.decorator.js";
 import {
   modelUsesOf,
+  type ModelNamingComponents,
   type ModelNamingInterpreter,
   type ModelNamingRouter,
   type ModelUse,
@@ -69,20 +70,28 @@ export interface WorkflowModels {
   readonly modelProviders: readonly ModelProviderType[];
 }
 
-/** Every model use of a workflow's models. */
-const usesOf = (workflow: Omit<WorkflowModels, "modelProviders">): readonly ModelUse[] =>
-  modelUsesOf(workflow.config, workflow.routers, {
+/**
+ * Every model use of a workflow's models: the one place they are listed from, for the graph rules,
+ * `check --models` and the providers connected at start (#716) alike.
+ */
+export function workflowModelUsesOf(
+  workflow: Omit<WorkflowModels, "modelProviders">,
+): readonly ModelUse[] {
+  // `satisfies`: a component added to `ModelNamingComponents` and not passed here fails to compile
+  const components = {
     arbiters: workflow.arbiters,
     piiDetectors: workflow.pii?.detectors,
     interpreters: workflow.replyInterpreters,
     guardrails: modelGuardrailsOf(workflow.guardrails),
     rerankers: workflow.rerankers,
-  });
+  } satisfies Record<keyof ModelNamingComponents, unknown>;
+  return modelUsesOf(workflow.config, workflow.routers, components);
+}
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */
 function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
   const directory = directoryOf(workflow.modelProviders);
-  return usesOf(workflow).flatMap((use) => {
+  return workflowModelUsesOf(workflow).flatMap((use) => {
     const resolution = directory.resolve(use);
     if (resolution.kind === "resolved") return [];
     const { code, supported } = resolution.problem;
@@ -121,7 +130,7 @@ export function resolvedModelProvidersOf(
 export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[] {
   const several = workflows.length > 1;
   return workflows.flatMap((workflow) =>
-    usesOf(workflow).map((use) =>
+    workflowModelUsesOf(workflow).map((use) =>
       several ? { ...use, key: `${workflow.config.name} ${use.key}` } : use,
     ),
   );
@@ -138,7 +147,7 @@ export interface ResolvedModelUse {
 /** Each model use of a workflow with its provider's name — though no component names one. */
 export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[] {
   const directory = directoryOf(workflow.modelProviders);
-  return usesOf(workflow).map((use) => {
+  return workflowModelUsesOf(workflow).map((use) => {
     const resolution = directory.resolve(use);
     const provider =
       resolution.kind === "resolved" ? resolution.provider.options.name : resolution.problem.code;

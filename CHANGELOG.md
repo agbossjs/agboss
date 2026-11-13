@@ -1942,6 +1942,10 @@ export` already refused the same omission. In an application that declares a ten
   `openRouterApiKey`. A provider is now connected at start only when a model of the workflow
   resolves to it (or it is that provider's breaker fallback); another connects on its first call.
   An application that uses a model still fails at start without its key, naming the field.
+  Every kind of model use counts — agents, compactions, judges, the default and flow routers, model
+  arbiters (which the first fix left out: their missing key failed on the first arbiter call, mid-run),
+  PII detections, reply interpreters, guardrails, rerankers, decision models and breaker fallbacks —
+  from one list of the kinds (`MODEL_USE_KINDS`) that a test walks, so a new kind cannot be left out.
 
 - **`testWith` gives the application's PII key field the test key** (#778) — a fixed test key
   covered a PII policy's own `pseudonymKey`, but `@Application({ pseudonymKey: "piiPseudonymKey" })`
