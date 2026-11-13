@@ -345,6 +345,15 @@ export enum BudgetScope {
 }
 
 // @public
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
+
+// @public
+export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {
+    readonly tenantId: string;
+    readonly rootExecutionId: string;
+};
+
+// @public
 export interface ChildExecutionEnd {
     readonly failure?: string | undefined;
     readonly status: ExecutionRecordStatus.Answered | ExecutionRecordStatus.Paused | ExecutionRecordStatus.Failed;
@@ -584,10 +593,12 @@ export interface EffectKeyFields {
     readonly fingerprint?: string;
     readonly fingerprintPolicy?: FingerprintPolicy;
     readonly idempotencyKey: string;
+    readonly isCompensation?: true;
     readonly leaseExecutionId: string;
     readonly name: string;
     readonly origin?: FencedEffectOrigin;
     readonly previousFingerprint?: string;
+    readonly rootExecutionId?: string;
     readonly scopeKey: string;
     // (undocumented)
     readonly tenantId: string;
@@ -672,6 +683,30 @@ export abstract class ExecutionAuditLogRepository {
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
+}
+
+// @public
+export class ExecutionCancelFencedError extends ExecutionCancelledError {
+    constructor(options: ExecutionCancelFencedErrorOptions);
+    // (undocumented)
+    static readonly code: "execution.cancelled.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionCancelFencedError.code;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    static of(key: Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">): ExecutionCancelFencedError;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
 }
 
 // @public
@@ -790,6 +825,7 @@ export abstract class ExecutionLeaseRepository {
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    abstract requestCancel(tree: ExecutionTree): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
     static readonly store: StoreDescriptor;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
@@ -932,6 +968,7 @@ export enum ExpiryProblem {
 
 // @public
 export enum FencedEffectEventOutcome {
+    Cancelled = "cancelled",
     Joined = "joined",
     Ran = "ran",
     Refused = "refused",
@@ -1279,6 +1316,7 @@ export interface OutboundCallClosedLease {
 export enum OutboundCallEventOutcome {
     Ambiguous = "ambiguous",
     AttemptSuperseded = "attempt-superseded",
+    Cancelled = "cancelled",
     Failed = "failed",
     Joined = "joined",
     LeaseClosed = "lease-closed",
@@ -2162,6 +2200,15 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
+// src/app/lease-lost.ts:214:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:215:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:216:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:217:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-lost.ts:218:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:219:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/lease-lost.ts:220:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/app/lease-lost.ts:221:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:222:3 - (ae-undocumented) Missing documentation for "effect".
 // src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
@@ -2271,34 +2318,34 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts:233:3 - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/cost-ledger.repository.ts:52:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/effect-key.ts:89:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-audit-log.repository.ts:131:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/execution-audit-log.repository.ts:132:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-audit-log.repository.ts:133:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/infrastructure/execution-audit-log.repository.ts:138:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:141:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-audit-log.repository.ts:156:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:157:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-audit-log.repository.ts:160:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/infrastructure/execution-audit-log.repository.ts:167:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:168:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-audit-log.repository.ts:169:3 - (ae-undocumented) Missing documentation for "site".
-// src/infrastructure/execution-audit-log.repository.ts:170:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:177:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:180:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-audit-log.repository.ts:181:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:195:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:198:3 - (ae-undocumented) Missing documentation for "target".
-// src/infrastructure/execution-audit-log.repository.ts:199:3 - (ae-undocumented) Missing documentation for "operation".
-// src/infrastructure/execution-audit-log.repository.ts:202:3 - (ae-undocumented) Missing documentation for "attempt".
-// src/infrastructure/execution-audit-log.repository.ts:203:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-audit-log.repository.ts:204:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:221:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/infrastructure/execution-audit-log.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/infrastructure/execution-audit-log.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-audit-log.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
+// src/infrastructure/effect-key.ts:99:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/effect-key.ts:100:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/effect-key.ts:101:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:139:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/execution-audit-log.repository.ts:140:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:141:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/infrastructure/execution-audit-log.repository.ts:146:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:149:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-audit-log.repository.ts:164:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:165:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:168:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/infrastructure/execution-audit-log.repository.ts:175:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:176:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:177:3 - (ae-undocumented) Missing documentation for "site".
+// src/infrastructure/execution-audit-log.repository.ts:178:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:185:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:188:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:189:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:203:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:206:3 - (ae-undocumented) Missing documentation for "target".
+// src/infrastructure/execution-audit-log.repository.ts:207:3 - (ae-undocumented) Missing documentation for "operation".
+// src/infrastructure/execution-audit-log.repository.ts:210:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/infrastructure/execution-audit-log.repository.ts:211:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:212:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:229:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:230:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:231:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-audit-log.repository.ts:263:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -2320,8 +2367,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:69:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -2335,10 +2382,10 @@ export interface WrittenLedgerMark {
 // src/infrastructure/fenced-effect-fingerprint.ts:172:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/fenced-effect-fingerprint.ts:173:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-fingerprint.ts:174:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-key.ts:166:3 - (ae-undocumented) Missing documentation for "fingerprint".
-// src/infrastructure/fenced-effect-key.ts:167:3 - (ae-undocumented) Missing documentation for "origin".
-// src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect-key.ts:169:3 - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-key.ts:170:3 - (ae-undocumented) Missing documentation for "origin".
+// src/infrastructure/fenced-effect.repository.ts:62:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:63:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/mesh-request.repository.ts:18:3 - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts:19:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
