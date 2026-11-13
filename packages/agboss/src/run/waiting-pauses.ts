@@ -6,8 +6,11 @@ import {
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
 import { PauseKind, type WaitingPause } from "../pause/index.js";
-import { isApprovalPause, type QuestionAsk } from "../infrastructure/pause-record.js";
-import { pauseAnswererOf } from "../infrastructure/stored-step.js";
+import {
+  isApprovalPause,
+  pauseAnswererOf,
+  type QuestionAsk,
+} from "../infrastructure/pause-record.js";
 import { runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 

@@ -9,7 +9,8 @@ import { ExecutionStatus } from "../../../src/app/types.js";
 import type { PausedExecution } from "../../../src/app/paused-runs.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
-import type { AgentExecutionOutput } from "../../../src/run/types.js";
+import { pausedRunOfValue } from "../../../src/infrastructure/stored-run.js";
+import { oldPausedRun } from "./pause-names-0.1.0.fixtures.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
@@ -17,15 +18,14 @@ const clock = new VirtualClock(new Date(0));
 
 /** A paused run of a tenant's thread, as the app stores it. */
 const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
-  // only the fields the store reads matter here
-  run: {
+  run: pausedRunOfValue({
+    ...oldPausedRun,
     runId: `run-${tenantId}`,
     threadId,
     tenantId,
     turnId: "turn-1",
-    status: ExecutionStatus.Paused,
-    budgetUsd: 1,
-  } as AgentExecutionOutput,
+    ternId: undefined,
+  }),
   workflowVersion: "1.0.0",
   configHash: "hash",
 });
@@ -53,10 +53,20 @@ describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
     old.database.exec(`CREATE TABLE paused_executions (
       thread_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, run TEXT NOT NULL,
       workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, status TEXT NOT NULL,
-      decision TEXT, paused_at TEXT NOT NULL);
-      INSERT INTO paused_executions VALUES ('thread-1', 'run-1',
-        '{"status":"paused","threadId":"thread-1","runId":"run-1","ternId":"t","budgetUsd":1}',
-        '1.0.0', 'hash', 'pending', NULL, '1970-01-01T00:00:00.000Z');`);
+      decision TEXT, paused_at TEXT NOT NULL)`);
+    // 0.1.0 wrote no tenant and named the record's id `ternId`
+    const stored = JSON.stringify({
+      ...oldPausedRun,
+      threadId: "thread-1",
+      runId: "run-1",
+      ternId: "t",
+      tenantId: undefined,
+    });
+    old.database
+      .prepare(
+        "INSERT INTO paused_executions VALUES ('thread-1', 'run-1', ?, '1.0.0', 'hash', 'pending', NULL, '1970-01-01T00:00:00.000Z')",
+      )
+      .run(stored);
 
     const paused = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 

@@ -1,15 +1,13 @@
-import { z } from "zod";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
-import { callIdOfPause, PauseResolution, type PauseRecord } from "./pause-record.js";
 import {
-  componentOfStored,
-  pauseAnswerRecordOfStored,
+  callIdOfPause,
   pauseAnswererOf,
-  StoredStep,
-} from "./stored-step.js";
+  PauseResolution,
+  type PauseRecord,
+} from "./pause-record.js";
 
 /**
  * Where a resolved pause is written (#267 S107): the execution records — the permanent history
@@ -91,44 +89,5 @@ export const logPauseAnswer = (
 ): Promise<void> =>
   log.savePauseAnswer(pause.tenantId, pause.rootExecutionId, answerRecordOf(pause, resolution));
 
-const optionalText = z.string().optional();
-const StoredPauseAnswer = z.object({
-  pauseId: optionalText,
-  executionId: z.string(),
-  step: StoredStep,
-  role: z.string(),
-  // 0.1.0's entry has no `answerer`: its `answeredBy` is the kind, `responder` the person (#934)
-  answerer: z.enum(PauseAnswerer).optional(),
-  answeredBy: optionalText,
-  responder: optionalText,
-  resolution: z.enum(PauseResolution),
-  askedAt: z.string(),
-  resolvedAt: optionalText,
-  decision: z.unknown().optional(),
-  asked: z.unknown().optional(),
-  isTaken: z.literal(false).optional(),
-});
-
-/** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
-export function pauseAnswerRecordOfJson(text: string): PauseAnswerRecord {
-  const stored = StoredPauseAnswer.parse(JSON.parse(text));
-  const { step } = stored;
-  return pauseAnswerRecordOfStored({
-    ...stored,
-    pauseId: stored.pauseId,
-    step: {
-      ...step,
-      component: componentOfStored(step.component),
-      callId: step.callId,
-      itemIndex: step.itemIndex,
-      toolLoopIteration: step.toolLoopIteration,
-    },
-    answerer: stored.answerer,
-    answeredBy: stored.answeredBy,
-    responder: stored.responder,
-    resolvedAt: stored.resolvedAt,
-    decision: stored.decision,
-    ...(stored.asked === undefined ? {} : { asked: stored.asked }),
-    ...(stored.isTaken === undefined ? {} : { isTaken: stored.isTaken }),
-  });
-}
+// the reader of a log entry as a store kept it: either shape of the names, checked whole (#934)
+export { pauseAnswerRecordOfJson } from "./stored-step.js";

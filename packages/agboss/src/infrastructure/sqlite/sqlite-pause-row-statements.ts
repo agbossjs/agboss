@@ -1,50 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import * as step from "../stored-step.js";
-import {
-  ExpiryProblem,
-  PauseExpiryBound,
-  PauseKind,
-  PauseResolution,
-  PauseStatus,
-  type PauseRecord,
-} from "../pause-record.js";
+import { PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
+import { pauseRecordOfJson } from "../stored-pause.js";
 
 /**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
  * and the JSON it keeps, each validated on the way out; a row stored by an earlier version reads
  * with defaults (no copy number: the first copy; no resolution column: its status says).
  */
-
-/** What a pause row keeps as JSON: everything but its id, status, flag, resolution and times. */
-const StoredPause = z.object({
-  threadId: z.string(),
-  executionId: z.string(),
-  workflow: z.string(),
-  nodeId: z.string(),
-  visitNumber: z.number(),
-  itemIndex: z.number().optional(),
-  // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
-  copyNumber: z.number().default(1),
-  askedAt: z.string().default(""),
-  kind: z.enum(PauseKind),
-  step: z.string(),
-  ...step.StoredLoopProgress,
-  channel: z.string(),
-  // a pause stored before #337 has none: its own step's key is its only branch key
-  branchKeys: z.array(z.string()).optional(),
-  // 0.1.0's JSON has `answeredBy` (who may answer), the new `answerer` (#934)
-  answerer: z.enum(PauseAnswerer).optional(),
-  answeredBy: z.enum(PauseAnswerer).optional(),
-  ask: z.record(z.string(), z.unknown()), // a tool call, or a role's ask (#659, #712): `kind` says
-  // #910: the deadline's bound and where it may not pass, why an expiry fell back to fail
-  expiryBound: z.enum(PauseExpiryBound).optional(),
-  boundAt: z.string().optional(),
-  expiryProblem: z.enum(ExpiryProblem).optional(),
-  // #935: how and when the answer first closed the pause, kept past an untaken close
-  closedFirst: z.object({ resolution: z.enum(PauseResolution), resolvedAt: z.string() }).optional(),
-});
 
 const PauseRow = z.object({
   tenant_id: z.string(),
@@ -68,29 +31,26 @@ function resolutionOf(r: z.infer<typeof PauseRow>): { resolution?: PauseResoluti
   return r.answer === null ? {} : { resolution: PauseResolution.Replied };
 }
 
-/** A row as the record it keeps. */
+/** The JSON a column keeps. */
+const JsonObject = z.record(z.string(), z.unknown());
+const parsed = (text: string): unknown => JSON.parse(text);
+
+/**
+ * A row as the record it keeps: its JSON with its columns laid over it, read as a store reads a
+ * pause (`pauseRecordOfJson`: either shape of the names, its answer column checked inside; an
+ * unreadable value names the pause and the field).
+ */
 export function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
-  const parsed = StoredPause.safeParse(JSON.parse(r.pause));
-  if (!parsed.success)
-    throw new Error(`pause ${r.pause_id} (${r.tenant_id}) unreadable: ${step.paths(parsed.error)}`);
-  const { itemIndex, component, branchKeys, ask, ...stored } = parsed.data;
-  const pause = {
-    ...stored,
-    ask: step.askOfStored(ask, stored.kind === PauseKind.Question),
-    ...(component === undefined ? {} : { component: step.componentOfStored(component) }),
-    ...(branchKeys === undefined ? {} : { branchKeys }),
-    itemIndex,
+  return pauseRecordOfJson({
+    ...JsonObject.parse(parsed(r.pause)),
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     stepKey: r.step_key,
     rootExecutionId: r.root_execution_id,
     status: r.status,
     isSent: r.is_sent === 1,
-  };
-  return step.pauseRecordOfStored({
-    ...pause,
-    ...(r.answer === null ? {} : { answer: step.answerOf(r.answer) }),
+    ...(r.answer === null ? {} : { answer: parsed(r.answer) }),
     ...resolutionOf(r),
     ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
     ...(r.expires_at === null ? {} : { expiresAt: r.expires_at }),

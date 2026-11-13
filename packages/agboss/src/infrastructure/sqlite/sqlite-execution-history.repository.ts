@@ -5,7 +5,7 @@ import {
   type ExecutionHistoryPage,
   type ExecutionHistoryRecord,
 } from "../execution-history.repository.js";
-import { executionHistoryRecordOfStored, type StoredHistoryRecord } from "../stored-step.js";
+import { executionHistoryRecordOfJson } from "../stored-history.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_history (
@@ -18,26 +18,11 @@ CREATE INDEX IF NOT EXISTS execution_history_ended ON execution_history (ended_a
 
 const Row = z.object({ record: z.string() });
 
-/** What a kept record must be, as parsed JSON: the rest is read as `save` wrote it. */
-const Kept = z.looseObject({
-  executionId: z.string(),
-  pauses: z.array(z.unknown()),
-  children: z.array(z.unknown()),
-});
-
-const isKept = (value: unknown): value is StoredHistoryRecord => Kept.safeParse(value).success;
-
 const ORDER = "ORDER BY started_at, execution_id";
 
-/** A row's record (written by `save`: the record as JSON). */
+/** A row's record (written by `save`: the record as JSON, or 0.1.0's: its pauses read with the new names, #934). */
 const recordOf = (row: unknown): ExecutionHistoryRecord =>
-  // the column holds what `save` wrote, or what 0.1.0 did: its pauses read with the new names (#934)
-  keptRecordOf(JSON.parse(Row.parse(row).record));
-
-function keptRecordOf(stored: unknown): ExecutionHistoryRecord {
-  if (!isKept(stored)) throw new Error("a stored execution history record is not readable");
-  return executionHistoryRecordOfStored(stored);
-}
+  executionHistoryRecordOfJson(JSON.parse(Row.parse(row).record));
 
 /**
  * `ExecutionHistoryRepository` on the application's SQLite file (#401 PR 1): one row per root

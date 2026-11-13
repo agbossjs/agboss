@@ -65,15 +65,15 @@ export {
 } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 // the class a refusal of minted ids names (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
-// what a store reads of a pause, an answer, a log entry or a kept history record that 0.1.0 wrote
-// (#934: `answeredBy` was who may answer, `answerer` / `responder` the person): return their result — each takes what the store's own check of the stored JSON established
+// what a store reads of a pause, a log entry or a kept history record, given the parsed JSON it
+// holds (#934: 0.1.0 wrote `answeredBy` for who may answer, `answerer` / `responder` for the person):
+// every field they read is checked, the record that comes back has the new names, and a value that
+// is neither shape throws `StoredNamesUnreadableError`, naming the record's id and the field
+export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.js";
+export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
+export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";
+export { pausedRunOfValue } from "../infrastructure/stored-run.js";
 export {
-  executionHistoryRecordOfStored,
-  pauseAnswerOfStored,
-  pauseAnswerRecordOfStored,
-  pauseRecordOfStored,
-  type StoredAnswerRecord,
-  type StoredHistoryRecord,
-  type StoredPause,
-  type StoredPauseAnswer,
+  StoredNamesUnreadableError,
+  type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
+import { oldPausedRun } from "./pause-names-0.1.0.fixtures.js";
 
 const clock = new VirtualClock(new Date(0));
 const SECRET = "ssn-078-05-1120";
@@ -42,13 +43,13 @@ const failureOf = async (store: SqlitePausedExecutionRepository): Promise<Error>
 
 describe("#906 D4: an unreadable stored paused run names ids and a field, not the run", () => {
   const run = {
-    status: "paused",
+    ...oldPausedRun,
     threadId: "thread-1",
     tenantId: "acme",
     runId: "run-1",
-    budgetUsd: 1,
+    ternId: undefined,
     startInput: { ssn: SECRET },
-    data: { note: SECRET },
+    data: { ...Object(oldPausedRun.data), note: SECRET },
   };
 
   it("a run without its record's id: the message names the ids and `turnId`, nothing of the input", async () => {

@@ -1,11 +1,16 @@
 import { z } from "zod";
+import { AGBossError } from "../core/errors.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
-import type { ChildExecutionRecord } from "../flow/runtime/child-records.js";
-import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
-import { CostSource } from "../finops/usage.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
-import type { PauseAnswer, PauseAsk, PauseRecord, QuestionAsk } from "./pause-record.js";
+import type { StepRecord } from "../flow/context/execution-context.js";
+import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
+import { PauseResolution } from "./pause-record.js";
+
+/** Whether a value is a `PauseAnswerer`. */
+const isAnswerer = (value: unknown): value is PauseAnswerer =>
+  Object.values(PauseAnswerer).some((one) => one === value);
+
+const optionalText = z.string().optional();
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -13,218 +18,160 @@ import type { PauseAnswer, PauseAsk, PauseRecord, QuestionAsk } from "./pause-re
  * unknown, no validation attempts.
  */
 
-const optionalText = z.string().optional();
+/** A component record as JSON stored it (`undefined` hashes are left out by JSON): every hash present. */
+export const StoredComponent = z
+  .object({
+    name: z.string(),
+    kind: z.enum(ComponentKind).default(ComponentKind.Agent),
+    promptHash: optionalText,
+    schemaHash: optionalText,
+  })
+  .transform((stored): ComponentRecord => ({
+    name: stored.name,
+    kind: stored.kind,
+    promptHash: stored.promptHash,
+    schemaHash: stored.schemaHash,
+  }));
 
-/** A component record as JSON stored it (`undefined` hashes are left out by JSON). */
-export const StoredComponent = z.object({
-  name: z.string(),
-  kind: z.enum(ComponentKind).default(ComponentKind.Agent),
-  promptHash: optionalText,
-  schemaHash: optionalText,
-});
+/** The step of a stored pause answer: every field present, `undefined` when it has none. */
+const StoredStep = z
+  .object({
+    component: StoredComponent,
+    nodeId: z.string(),
+    visitNumber: z.number(),
+    idempotencyKey: z.string(),
+    callId: optionalText,
+    itemIndex: z.number().optional(),
+    copyNumber: z.number(),
+    toolLoopIteration: z.number().optional(),
+    validationAttempts: z.number().default(0),
+  })
+  .transform((stored): StepRecord => ({
+    ...stored,
+    callId: stored.callId,
+    itemIndex: stored.itemIndex,
+    toolLoopIteration: stored.toolLoopIteration,
+  }));
 
-/** A stored component as its record: every hash present, `undefined` when it has none. */
-export const componentOfStored = (stored: z.infer<typeof StoredComponent>): ComponentRecord => ({
-  name: stored.name,
-  kind: stored.kind,
-  promptHash: stored.promptHash,
-  schemaHash: stored.schemaHash,
-});
-
-/** What a stored pause keeps of its step's loop (both absent before #268 S93). */
-export const StoredLoopProgress = {
-  component: StoredComponent.optional(),
-  toolLoopIteration: z.number().optional(),
-  validationAttempts: z.number().optional(),
-};
-
-/** The tool call an approval's pause asks about. */
-const StoredApprovalAsk = z.object({
-  callId: z.string(),
-  tool: z.string(),
-  arguments: z.record(z.string(), z.unknown()),
-  summary: z.string(),
-});
-
-/** #746: a question role's ask is its own DTO, kept as written; an approval's is the tool call. */
-export const askOfStored = (
-  ask: Readonly<Record<string, unknown>>,
-  isQuestion: boolean,
-): PauseAsk => (isQuestion ? (ask as QuestionAsk) : StoredApprovalAsk.parse(ask));
-
-/** The answer a pause row keeps as JSON (#267 S107): the decision, who gave it, what reading it cost. */
-const StoredUsage = z.object({
-  caller: z.string(),
-  model: z.string(),
-  ...{ inputTokens: z.number(), outputTokens: z.number() },
-  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
-  costUsd: z.number(),
-  costSource: z.enum(CostSource),
-  servedBy: z.string().optional(),
-});
-
-const StoredAnswer = z.object({
-  decision: z.unknown(),
-  // 0.1.0 kept the person as `answerer` (#934)
-  answerer: z.string().optional(),
-  answeredBy: z.string().optional(),
-  usage: z.array(StoredUsage).optional(),
-});
-
-/** The answer a row keeps, as JSON. */
-export function answerOf(text: string): PauseAnswer {
-  const { decision, answerer, answeredBy, usage } = StoredAnswer.parse(JSON.parse(text));
-  return pauseAnswerOfStored({
-    decision,
-    answerer,
-    answeredBy,
-    ...(usage === undefined ? {} : { usage }),
-  });
+/** What a refusal knows: the record, its ids and the failing fields — never a value. */
+export interface StoredNamesUnreadableErrorOptions {
+  readonly record: string;
+  readonly ids: string;
+  readonly fields: string;
+  readonly cause?: unknown;
 }
 
 /**
  * One meaning per name (#934): a store reads what 0.1.0 wrote — a pause's `answeredBy` was who may
  * answer it, an answer's `answerer` and a log entry's `responder` were the person — and returns the
- * **normalised** value, never the input it parsed. Each function takes what the store's own check of
- * the stored JSON established (either shape) and builds the new shape from those fields; a field that
- * is neither shape's throws `StoredNamesUnreadableError`, naming the id and the field only. Values
- * already in the new shape pass through, the new key winning when both are there. Nothing is migrated:
- * writers write the new shape, readers take either.
+ * **normalised** value, never the input it parsed. The schemas of the stored shapes do it
+ * (`PauseAnswerRecordSchema`, `StoredPause`, the history record's): parsing a value reads it, and a
+ * value that is neither shape is refused with `StoredNamesUnreadableError`, naming the record's id
+ * and the field — never a value. Nothing is migrated: writers write the new shape, readers take either.
  */
-
-/** A stored value that is neither shape: names the record's id and the field, never a value. */
-export class StoredNamesUnreadableError extends Error {
+export class StoredNamesUnreadableError extends AGBossError {
+  static override readonly code = "stored.unreadable" as const;
+  declare readonly code: typeof StoredNamesUnreadableError.code;
   override name = "StoredNamesUnreadableError";
+  /** What was stored: `pause`, `pause answer`, `execution history record`. */
+  declare readonly record: string;
+  /** The ids that name it (`pauseId p1, tenantId acme`); empty when none is readable. */
+  declare readonly ids: string;
+  /** The field paths that failed (`pauses.0.answerer`) — never a value. */
+  declare readonly fields: string;
+
+  constructor(options: StoredNamesUnreadableErrorOptions) {
+    const { record, ids, fields, cause } = options;
+    super(
+      `a stored ${record} is not readable${ids === "" ? "" : ` (${ids})`}: the field(s) ${fields} missing or not what the framework wrote`,
+      { cause },
+    );
+    Object.assign(this, { record, ids, fields });
+  }
 }
 
-const isAnswerer = (value: unknown): value is PauseAnswerer =>
-  Object.values(PauseAnswerer).some((one) => one === value);
-
-const unreadable = (record: string, id: string, field: string): StoredNamesUnreadableError =>
-  new StoredNamesUnreadableError(`a stored ${record} (${id}) has no readable ${field}`);
-
-/** A pause's answer, 0.1.0's (`answerer`: the person) or the new (`answeredBy`). */
-export type StoredPauseAnswer = Omit<PauseAnswer, "answeredBy"> & {
-  readonly answeredBy?: string | undefined;
-  readonly answerer?: string | undefined;
-};
-
-/** A pause record, 0.1.0's (`answeredBy`: the kind) or the new (`answerer`). */
-export type StoredPause = Omit<PauseRecord, "answerer" | "answeredBy" | "answer"> & {
-  readonly answerer?: PauseAnswerer | undefined;
-  readonly answeredBy?: PauseAnswerer | undefined;
-  readonly answer?: StoredPauseAnswer | undefined;
-};
-
-/** A log entry, 0.1.0's (`answeredBy`: the kind, `responder`) or the new (`answerer`, `answeredBy`). */
-export type StoredAnswerRecord = Omit<
-  PauseAnswerRecord,
-  "answerer" | "answeredBy" | "responder"
-> & {
-  readonly answerer?: PauseAnswerer | undefined;
-  readonly answeredBy?: string | undefined;
-  readonly responder?: string | undefined;
-};
-
-/** A child of a kept record, its pauses in either shape. */
-export type StoredChild = Omit<ChildExecutionRecord, "pauses" | "children"> & {
-  readonly pauses: readonly StoredAnswerRecord[];
-  readonly children: readonly StoredChild[];
-};
-
-/** A kept history record, its pauses and its children's in either shape. */
-export type StoredHistoryRecord = Omit<ExecutionHistoryRecord, "pauses" | "children"> & {
-  readonly pauses: readonly StoredAnswerRecord[];
-  readonly children: readonly StoredChild[];
-};
+/** The ids that name a stored value in an error: its keys, never its content. */
+const idsOf = (value: unknown, keys: readonly string[]): string =>
+  keys
+    .flatMap((key) => {
+      const id: unknown =
+        typeof value === "object" && value !== null ? Reflect.get(value, key) : "";
+      return typeof id === "string" ? [`${key} ${id}`] : [];
+    })
+    .join(", ");
 
 /**
- * Who may answer a pause: its `answerer`, else the `answeredBy` of a record a store of yours wrote
- * the 0.1.0 way (the deprecated alias of `PauseRecord`).
+ * `value` read with `schema`, or unreadable: the error names what it was, the ids of the record
+ * (`idKeys` among its keys) and the failing field paths — never a value, whose content is the
+ * caller's (PII reaches the logs through a message). The schema's own error, which names paths and
+ * expectations only, is the `cause`.
  */
-export function pauseAnswererOf(pause: {
-  readonly answerer?: PauseAnswerer | undefined;
-  readonly answeredBy?: PauseAnswerer | undefined;
-}): PauseAnswerer {
-  const answerer = pause.answerer ?? pause.answeredBy;
-  if (answerer === undefined) throw new TypeError("a pause record names who may answer it");
-  return answerer;
-}
-
-/** The answer alone (SQLite's `pauses.answer`): 0.1.0's `answerer` — the person — is `answeredBy`. */
-export function pauseAnswerOfStored(stored: StoredPauseAnswer): PauseAnswer {
-  const { answerer, answeredBy, ...rest } = stored;
-  return { ...rest, answeredBy: answeredBy ?? answerer };
-}
-
-/** A pause record: one without `answerer` takes `answeredBy` (the kind); its answer is normalised. */
-export function pauseRecordOfStored(stored: StoredPause): PauseRecord {
-  const { answerer, answeredBy, answer, ...rest } = stored;
-  const kind = answerer ?? answeredBy;
-  if (kind === undefined) throw unreadable("pause", stored.pauseId, "answerer");
-  return {
-    ...rest,
-    answerer: kind,
-    ...(answer === undefined ? {} : { answer: pauseAnswerOfStored(answer) }),
-  };
+export function readStored<S extends z.ZodType>(
+  schema: S,
+  value: unknown,
+  what: string,
+  idKeys: readonly string[],
+): z.output<S> {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  const ids = idsOf(value, idKeys);
+  throw new StoredNamesUnreadableError({
+    record: what,
+    ids,
+    // what an error names instead of the value (#906 D4)
+    fields: [...new Set(parsed.error.issues.map((i) => i.path.join(".") || "(the value)"))].join(
+      ", ",
+    ),
+    cause: parsed.error,
+  });
 }
 
 /**
- * An answer-log entry: one without `answerer` is the 0.1.0 shape (`answeredBy` the kind, `responder`
- * the person), mapped to `answerer` = the kind, `answeredBy` = the person; `responder` stays as the
- * deprecated alias.
+ * A log entry as JSON stored it, in either shape (#934): 0.1.0's has no `answerer` — its `answeredBy`
+ * is the kind, `responder` the person —, the new one has all three. Parsing it IS reading it: the
+ * result is the new shape (`answerer` the kind, `answeredBy` the person, `responder` its deprecated
+ * alias), and an entry that is neither — a kind that is none, a person that is no text — is
+ * refused at its field, wherever it is nested (the history record's pauses and children's too).
  */
-export function pauseAnswerRecordOfStored(stored: StoredAnswerRecord): PauseAnswerRecord {
-  const { answerer, answeredBy, responder, ...rest } = stored;
-  if (answerer !== undefined) return { ...rest, answerer, answeredBy, responder: answeredBy };
-  if (!isAnswerer(answeredBy)) throw unreadable("pause answer", stored.executionId, "answeredBy");
-  return { ...rest, answerer: answeredBy, answeredBy: responder, responder };
-}
+export const PauseAnswerRecordSchema = z
+  .object({
+    pauseId: optionalText,
+    executionId: z.string(),
+    step: StoredStep,
+    role: z.string(),
+    answerer: z.enum(PauseAnswerer).optional(),
+    answeredBy: optionalText,
+    responder: optionalText,
+    resolution: z.enum(PauseResolution),
+    askedAt: z.string(),
+    resolvedAt: optionalText,
+    decision: z.unknown().optional(),
+    asked: z.unknown().optional(),
+    isTaken: z.literal(false).optional(),
+  })
+  .transform((stored, context): PauseAnswerRecord => {
+    const { answerer, answeredBy, responder } = stored;
+    const kind = answerer ?? answeredBy;
+    if (!isAnswerer(kind)) {
+      context.addIssue({ code: "custom", path: ["answeredBy"], message: "no PauseAnswerer" });
+      return z.NEVER;
+    }
+    const person = answerer === undefined ? responder : answeredBy;
+    return {
+      ...stored,
+      pauseId: stored.pauseId,
+      resolvedAt: stored.resolvedAt,
+      decision: stored.decision,
+      answerer: kind,
+      answeredBy: person,
+      responder: person,
+    };
+  });
 
-/** A stored list mapped, or the record is unreadable at `field` (a store hands over JSON it parsed). */
-function mapped<T, R>(
-  list: readonly T[] | undefined,
-  at: { readonly id: string; readonly field: string },
-  convert: (item: T) => R,
-): R[] {
-  if (!Array.isArray(list)) throw unreadable("execution history record", at.id, at.field);
-  return list.map(convert);
-}
+/** A log entry from the parsed JSON a store kept: read in either shape, or unreadable (id, field). */
+export const pauseAnswerRecordOfValue = (value: unknown): PauseAnswerRecord =>
+  readStored(PauseAnswerRecordSchema, value, "pause answer", ["pauseId", "executionId"]);
 
-function childOfStored(stored: StoredChild): ChildExecutionRecord {
-  const id = stored.executionId;
-  return {
-    ...stored,
-    pauses: mapped(stored.pauses, { id, field: "children.pauses" }, pauseAnswerRecordOfStored),
-    children: mapped(stored.children, { id, field: "children.children" }, childOfStored),
-  };
-}
-
-/** A kept `ExecutionHistoryRecord` (#401): every `pauses` of it and of its children, normalised. */
-export function executionHistoryRecordOfStored(
-  stored: StoredHistoryRecord,
-): ExecutionHistoryRecord {
-  const id = stored.executionId;
-  return {
-    ...stored,
-    pauses: mapped(stored.pauses, { id, field: "pauses" }, pauseAnswerRecordOfStored),
-    children: mapped(stored.children, { id, field: "children" }, childOfStored),
-  };
-}
-
-/** The failing field paths of a refused value: what an error names instead of the value (#906 D4). */
-export const paths = (error: z.ZodError): string =>
-  error.issues.map((issue) => issue.path.join(".") || "(root)").join(", ");
-
-/** The step of a stored pause answer. */
-export const StoredStep = z.object({
-  component: StoredComponent,
-  nodeId: z.string(),
-  visitNumber: z.number(),
-  idempotencyKey: z.string(),
-  callId: optionalText,
-  itemIndex: z.number().optional(),
-  copyNumber: z.number(),
-  toolLoopIteration: z.number().optional(),
-  validationAttempts: z.number().default(0),
-});
+/** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
+export const pauseAnswerRecordOfJson = (text: string): PauseAnswerRecord =>
+  pauseAnswerRecordOfValue(JSON.parse(text));

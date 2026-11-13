@@ -63,7 +63,8 @@ export type ChannelRoleForm = ChannelApprovalRoleOptions | ChannelQuestionRoleOp
 
 /** What `@ChannelRole({ … })` takes: a form, and who may answer as `answerer` (or `answeredBy`). */
 export type ChannelRoleOptions = ChannelRoleForm &
-  ({ readonly answerer: PauseAnswerer } | { readonly answeredBy: PauseAnswerer });
+  // `answeredBy` is the base's property, `@deprecated` there and here (it is the same declaration)
+  ({ readonly answerer: PauseAnswerer } | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
 
 /** A role as it is kept: its options with `answerer` settled, whichever spelling was given. */
 export type StoredChannelRole = ChannelRoleForm & { readonly answerer: PauseAnswerer };

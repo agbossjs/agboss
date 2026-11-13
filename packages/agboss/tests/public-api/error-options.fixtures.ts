@@ -11,6 +11,7 @@ import { FingerprintProblem } from "../../src/infrastructure/fenced-effect-finge
 import { ModelKind } from "../../src/llm/decision-errors.js";
 import { seconds } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
+import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step.js";
 import { fx } from "./error-options.fx.js";
 import { flowFixtures } from "./error-options.fixtures-flow.js";
 
@@ -32,6 +33,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.FingerprintNotJsonError, { effect: "charge", path: "$.at", reason: "a Date" }),
   fx(root.FingerprintRequiredError, { effect: "charge", reason: FingerprintProblem.Missing }),
   fx(root.IdempotencyKeyMissingError, { effect: "charge" }),
+  fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "answerer" }),
   fx(root.InvalidBusinessKeyError, { effect: "charge", rule: root.KeyTextRule.Length }),
   fx(root.InvalidFencedEffectNameError, { length: 120 }),
   fx(root.FencedEffectResultTooLargeError, { effect: "charge", size: 10, maxResultSize: 5 }),

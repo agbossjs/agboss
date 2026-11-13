@@ -16,14 +16,18 @@ import type { AnyTool } from "../tools/index.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
-import { logPauseAnswer, NO_RECIPIENTS, PauseResolution } from "../infrastructure/pause-record.js";
+import {
+  logPauseAnswer,
+  NO_RECIPIENTS,
+  pauseAnswererOf,
+  PauseResolution,
+} from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
-import { pauseAnswererOf } from "../infrastructure/stored-step.js";
 import { markAnswered, notPaused, refusedAfterMark } from "./paused-runs.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
