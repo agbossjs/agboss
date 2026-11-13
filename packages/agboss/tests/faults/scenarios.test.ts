@@ -40,6 +40,7 @@ describe("#484 AC1: the scenarios and their files", () => {
     expect(FAULT_SCENARIOS.map((one) => one.id)).toEqual(SCENARIOS.map((one) => one.id));
     expect(FAULT_SABOTAGE_SCENARIOS.map((one) => one.id)).toEqual([
       "s05e-zombie-dies-unanswered",
+      "s06c-sabotage-finished-child-granted",
       "s14-sabotage-every-error-definite",
       "s15-sabotage-replay-trusted-as-lookup",
     ]);
@@ -60,7 +61,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       plan.cases.filter((one) => one.sabotage !== undefined).map((one) => one.scenario.id),
     ).toEqual(SABOTAGES.map((one) => one.id));
     expect(plan.summary).toBe(
-      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 3 of 3 sabotages`,
+      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 4 of 4 sabotages`,
     );
   });
 
@@ -86,7 +87,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       new Set(["not selected: scenarios: names others"]),
     );
     expect(plan.summary).toBe(
-      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 3 sabotages (selected by scenarios:)`,
+      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 4 sabotages (selected by scenarios:)`,
     );
   });
 
@@ -173,7 +174,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
 
     expect(skipped.map((one) => one.scenario.id)).toEqual(SABOTAGES.map((one) => one.id));
     expect(skipped[0]?.skipped).toMatch(/^sabotages: false — /u);
-    expect(plan.summary).toMatch(/0 of 3 sabotages \(sabotages: false\)$/u);
+    expect(plan.summary).toMatch(/0 of 4 sabotages \(sabotages: false\)$/u);
     expect(() => faultSuitePlanOf({ ...BASE, sabotages: untypedFlag("no") }, {})).toThrow(
       /sabotages is no — true or false/u,
     );
