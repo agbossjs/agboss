@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { describeWorkflow } from "../src/describe/describe-workflow.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import { defineTool } from "../src/tools/index.js";
 import { resolveTools, type AssembledWorkflow } from "../src/workflow.js";
 import { Greetings } from "./components/fixture/components.js";

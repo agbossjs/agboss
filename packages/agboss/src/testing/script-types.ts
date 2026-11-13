@@ -40,7 +40,7 @@ import type {
  */
 
 /** Whether `agboss check` branded the component: its scripts are checked. */
-type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
+export type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
 
 /** A deep partial of a value: every key optional, lists by length and position. */
 export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[]
@@ -50,11 +50,11 @@ export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[]
     : TValue;
 
 /** One value read from the path, as a matcher writes it: its value only (`producer` is not compared). */
-type ValuePartial<TField> =
+export type ValuePartial<TField> =
   TField extends ProducedValue<infer TValue, unknown> ? DeepPartial<TValue> : DeepPartial<TField>;
 
 /** One input field as a matcher writes it: `undefined` = absent, a list by position. */
-type FieldPartial<TField> = TField extends undefined
+export type FieldPartial<TField> = TField extends undefined
   ? undefined
   : TField extends HistoryOf<infer TVersion>
     ? {
@@ -86,7 +86,7 @@ export type RecordedInputOf<TSelf> =
   IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
 
 /** The answer turns an agent's output allows: one class of it (a `oneOf`'s variants), or a list. */
-type AnswerFor<TOutput> = [TOutput] extends [NoOutput]
+export type AnswerFor<TOutput> = [TOutput] extends [NoOutput]
   ? never
   : [TOutput] extends [GeneratedTypeError]
     ? AnswerTurn
@@ -95,7 +95,7 @@ type AnswerFor<TOutput> = [TOutput] extends [NoOutput]
       : AnswerTurn<TOutput, false>;
 
 /** The invalid answer turns an agent's output allows: of one class of it, or of a list. */
-type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
+export type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
   ? never
   : [TOutput] extends [GeneratedTypeError]
     ? InvalidAnswerTurn
@@ -108,7 +108,7 @@ type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
  * of the tools it lists only), failures, waits — and answers
  * (valid or invalid) of its output's classes only.
  */
-type AgentTurnFor<TSelf> =
+export type AgentTurnFor<TSelf> =
   | ReplyTurn
   | ToolCallTurn<AgentToolNamesOf<TSelf>>
   | ToolCallsTurn<AgentToolNamesOf<TSelf>>
@@ -120,14 +120,14 @@ type AgentTurnFor<TSelf> =
   | InvalidAnswerFor<ProducerOutputOf<TSelf>>;
 
 /** A route turn as the router answers: one target, or the list it launches. */
-type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError]
+export type RouteFor<TAnswer, TRoute> = [TAnswer] extends [GeneratedTypeError]
   ? RouteTurn<readonly [TRoute]>
   : TAnswer extends readonly unknown[]
     ? RouteTurn<TAnswer>
     : RouteTurn<readonly [TAnswer]>;
 
 /** A model router's turns: `routeTo(…)` as `Route<R>` allows, decisions, failures, waits. */
-type RouterTurnFor<TSelf> =
+export type RouterTurnFor<TSelf> =
   FailureTurn | WaitTurn | DecideTurn | RouteFor<RouterAnswerOf<TSelf>, Route<TSelf>>;
 
 /**
@@ -135,7 +135,7 @@ type RouterTurnFor<TSelf> =
  * (a decision model's yes / no, S124 a) — its decorator's model, not its generated types, says which
  * —, or `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`: the reply does not answer (#648).
  */
-type ReplyInterpreterTurnFor<TSelf> =
+export type ReplyInterpreterTurnFor<TSelf> =
   AgentTurnFor<TSelf> | DecideTurn | AnswerTurn<ReplyInterpreterNotUnderstoodDto, false>;
 
 /** The turns `mockLlm(X).thenReturn(…)` accepts for a component. */
@@ -151,7 +151,7 @@ export type TurnFor<TSelf> =
           : ScriptedTurn;
 
 /** What a node returns, as `toHaveReturned` names it: an agent's answer, an action's result. */
-type ReturnedOf<TSelf> =
+export type ReturnedOf<TSelf> =
   KindOf<TSelf> extends NodeKind.Agent
     ? ProducerOutputOf<TSelf>
     : KindOf<TSelf> extends NodeKind.Action
@@ -159,7 +159,7 @@ type ReturnedOf<TSelf> =
       : unknown;
 
 /** The value classes a component returns (a text agent: `WorkflowFinishTextDto`). */
-type ReturnedValueOf<TReturned> = [TReturned] extends [NoOutput]
+export type ReturnedValueOf<TReturned> = [TReturned] extends [NoOutput]
   ? WorkflowFinishTextDto
   : TReturned extends readonly (infer TElement)[]
     ? TElement

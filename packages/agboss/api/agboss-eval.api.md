@@ -93,9 +93,6 @@ export interface EvalCaseExpectation {
     readonly requiredTools: readonly EvalExpectedToolCallTrace[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "EvalContextsOf" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "EvalTurnsOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns" | "variants"> & EvalContextsOf<TStart> & EvalTurnsOf<TStart>;
 
@@ -129,7 +126,6 @@ export type EvalCheck = TrajectoryEvalCheck | JudgeEvalCheck;
 // @public
 export interface EvalCheckResult {
     readonly check: string;
-    // Warning: (ae-forgotten-export) The symbol "JudgeMetrics" needs to be exported by the entry point index.d.ts
     readonly metrics?: JudgeMetrics;
     readonly reason?: string;
     readonly skippedBy?: string;
@@ -145,8 +141,6 @@ export interface EvalChildTrace extends EvalExecutionTrace {
     // (undocumented)
     readonly itemIndex?: number;
     readonly launchedBy: string;
-    // Warning: (ae-forgotten-export) The symbol "ChildExecutionStatus" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly status: ChildExecutionStatus;
     // (undocumented)
@@ -160,12 +154,8 @@ export interface EvalCompensationTrace {
     readonly compensator: string;
     // (undocumented)
     readonly error?: EvalTraceError;
-    // Warning: (ae-forgotten-export) The symbol "CompensationReason" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly reason: CompensationReason;
-    // Warning: (ae-forgotten-export) The symbol "CompensationStatus" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly status: CompensationStatus;
 }
@@ -183,6 +173,11 @@ export interface EvalConfusionMatrix {
     // (undocumented)
     readonly labeler: string;
 }
+
+// @public
+export type EvalContextsOf<TStart> = {
+    readonly [TKey in keyof Pick<ExecutionOptionsOf<TStart>, "tenant" | "execution">]: EvalValueOf<ExecutionOptionsOf<TStart>[TKey]>;
+};
 
 // @public
 export interface EvalDisagreement {
@@ -241,8 +236,6 @@ export interface EvalGuardrailDecisionTrace {
     readonly isBlocked: boolean;
     // (undocumented)
     readonly probability: number;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailSide" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly side: GuardrailSide;
 }
@@ -348,8 +341,6 @@ export interface EvalModelCallTrace {
 export interface EvalModelUse {
     // (undocumented)
     readonly component: string;
-    // Warning: (ae-forgotten-export) The symbol "ComponentKind" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kind: ComponentKind;
     // (undocumented)
@@ -366,8 +357,6 @@ export interface EvalPastTurn {
     readonly input: unknown;
     // (undocumented)
     readonly output: unknown;
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly start: Class;
 }
@@ -377,8 +366,6 @@ export interface EvalPauseTrace {
     readonly answeredBy?: string;
     readonly decision?: unknown;
     readonly nodeId: string;
-    // Warning: (ae-forgotten-export) The symbol "PauseResolution" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly resolution: PauseResolution;
     // @deprecated (undocumented)
@@ -577,8 +564,6 @@ export interface EvalToolCallTrace {
     readonly input: unknown;
     readonly isResultTruncated: boolean;
     readonly output?: unknown;
-    // Warning: (ae-forgotten-export) The symbol "ToolCallStatus" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly status: ToolCallStatus;
     // (undocumented)
@@ -589,7 +574,6 @@ export interface EvalToolCallTrace {
 
 // @public
 export interface EvalToolExpectations {
-    // Warning: (ae-forgotten-export) The symbol "ToolHandlerClass" needs to be exported by the entry point index.d.ts
     readonly forbidden?: readonly ToolHandlerClass[];
     readonly invariants?: readonly ToolInvariant[];
     readonly required?: readonly ExpectedToolCall[];
@@ -610,6 +594,14 @@ export interface EvalTurn<TInput = unknown> {
 }
 
 // @public
+export interface EvalTurnsOf<TStart> {
+    // (undocumented)
+    readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+    // (undocumented)
+    readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+}
+
+// @public
 export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[] ? readonly EvalValueOf<TItem>[] : TValue extends object ? {
     readonly [TKey in keyof TValue]: EvalValueOf<TValue[TKey]>;
 } : TValue;
@@ -621,8 +613,6 @@ export interface ExpectedToolCall<TTool extends ToolHandlerClass = ToolHandlerCl
     readonly tool: TTool;
 }
 
-// Warning: (ae-forgotten-export) The symbol "JudgeHandlerClass" needs to be exported by the entry point index.d.ts
-//
 // @public
 export const judgedBy: (judge: JudgeHandlerClass) => JudgeEvalCheck;
 
@@ -632,20 +622,17 @@ export interface JudgeEvalCheck {
     readonly judge: JudgeHandlerClass;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionInputOf" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OutputOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function pastTurn<TStart extends Class, TFinish extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, finish: TFinish, output: OutputOf<InstanceType<TFinish>>): EvalPastTurn;
 
-// Warning: (ae-forgotten-export) The symbol "PartialValues" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ToolInputOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ToolArgumentsOf<TTool extends ToolHandlerClass> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
 
 // @public
 export function toolCall<const TTool extends ToolHandlerClass>(tool: TTool, args?: ToolArgumentsOf<TTool>): ExpectedToolCall<TTool>;
+
+// @public
+export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
 
 // @public
 export interface ToolInvariant<TTool extends ToolHandlerClass = ToolHandlerClass> {
@@ -801,6 +788,8 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/suite/cases.ts:21:3 - (ae-undocumented) Missing documentation for "input".
 // src/eval/suite/cases.ts:22:3 - (ae-undocumented) Missing documentation for "finish".
 // src/eval/suite/cases.ts:23:3 - (ae-undocumented) Missing documentation for "output".
+// src/eval/suite/cases.ts:58:3 - (ae-undocumented) Missing documentation for "turns".
+// src/eval/suite/cases.ts:59:3 - (ae-undocumented) Missing documentation for "variants".
 // src/eval/suite/checks.ts:20:3 - (ae-undocumented) Missing documentation for "Passed".
 // src/eval/suite/checks.ts:21:3 - (ae-undocumented) Missing documentation for "Failed".
 // src/eval/suite/checks.ts:28:3 - (ae-undocumented) Missing documentation for "trajectory".

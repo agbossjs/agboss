@@ -23,7 +23,7 @@ import { CompensationEntryStatus, type CompensationEntry } from "../../compensat
 export type LateUndo = (entry: CompensationEntry) => void;
 
 /** An ended unwind: which entries it covers and what undoes a late one. */
-interface Seal {
+export interface Seal {
   readonly covers: (entry: CompensationEntry) => boolean;
   readonly undo: LateUndo;
 }

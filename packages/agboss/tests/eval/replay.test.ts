@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BUDGET_EXHAUSTED, type EvalDeps } from "../../src/eval/eval.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
 import { replay } from "../../src/eval/replay.js";
-import { executionVersions } from "../../src/index.js";
+import { executionVersions } from "../../src/run/versions.js";
 import type { RouterEngine } from "../../src/routers/index.js";
 import { routeTo, fakeDeps, memoryLedger, runText } from "../helpers.js";
 import { usd } from "../../src/units/index.js";

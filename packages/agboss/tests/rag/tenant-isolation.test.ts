@@ -17,7 +17,7 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import type { ToolCallTurn } from "../../src/testing/turns.js";
 import { resolveTools, type WorkflowServices } from "../../src/workflow.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { inTenantFrame } from "../helpers/frame.js";

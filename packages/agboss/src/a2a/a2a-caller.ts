@@ -81,22 +81,19 @@ export enum A2ACallerResolutionKind {
 
 declare const a2aCallerResolution: unique symbol;
 
-/** Built only by `A2ACallerResolution.resolved` / `.unauthenticated` / `.forbidden`. */
-interface BuiltA2ACallerResolution {
-  readonly [a2aCallerResolution]: true;
-}
-
 /** The caller is known: the request runs with its values. */
-export interface ResolvedA2ACallerResolution<
-  TStart extends Class,
-> extends BuiltA2ACallerResolution {
+export interface ResolvedA2ACallerResolution<TStart extends Class> {
+  /** A mark only `A2ACallerResolution.resolved` / `.unauthenticated` / `.forbidden` give. */
+  readonly [a2aCallerResolution]: true;
   readonly kind: A2ACallerResolutionKind.Resolved;
   /** The tenant, owner and execution values the request runs with. */
   readonly caller: A2ACaller<TStart>;
 }
 
 /** The caller is refused: `reason` goes to it on the wire, `challenge` in `WWW-Authenticate`. */
-export interface RejectedA2ACallerResolution extends BuiltA2ACallerResolution {
+export interface RejectedA2ACallerResolution {
+  /** A mark only `A2ACallerResolution.resolved` / `.unauthenticated` / `.forbidden` give. */
+  readonly [a2aCallerResolution]: true;
   readonly kind: A2ACallerResolutionKind.Unauthenticated | A2ACallerResolutionKind.Forbidden;
   /** The host's reason, sent to the caller. */
   readonly reason: string;

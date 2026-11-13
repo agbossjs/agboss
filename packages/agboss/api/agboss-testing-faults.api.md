@@ -12,7 +12,6 @@ export const FAULT_SCENARIOS: readonly FaultScenario[];
 
 // @public
 export interface FaultBusinessRows<TTransaction = unknown> {
-    // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
     committed(app: App): Promise<readonly string[]>;
     insert(transaction: TTransaction, row: string): void | Promise<void>;
 }
@@ -26,7 +25,6 @@ export interface FaultDatabase {
 
 // @public
 export interface FaultEnvironment {
-    // Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
     readonly contract: Class;
     readonly values: Readonly<Record<string, unknown>>;
 }
@@ -117,7 +115,6 @@ export interface FaultSuiteOptions extends FaultScenarioOptions {
     readonly sabotages?: boolean;
     readonly scenarios?: readonly string[];
     readonly shard?: FaultShard | "env";
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeout?: Milliseconds;
 }
 

@@ -22,25 +22,26 @@ export enum OutboundCallVerdict {
 
 declare const reconciliationBrand: unique symbol;
 
-/** What every verdict carries (#825): a mark only the three factories give — a literal is not one. */
-interface BuiltReconciliation {
-  readonly [reconciliationBrand]: true;
-}
-
 /** `reconcile` found the call happened: its result (`OutboundCallReconciliation.completed`). */
-export interface CompletedReconciliation<TResult> extends BuiltReconciliation {
+export interface CompletedReconciliation<TResult> {
+  /** A mark only the three factories give — a literal is not one (#825). */
+  readonly [reconciliationBrand]: true;
   readonly verdict: OutboundCallVerdict.Completed;
   /** The other system's result: stored, the step goes on with it (`Reconciled`). */
   readonly result: TResult;
 }
 
 /** `reconcile` found the call never arrived (`OutboundCallReconciliation.notSent`). */
-export interface NotSentReconciliation extends BuiltReconciliation {
+export interface NotSentReconciliation {
+  /** A mark only the three factories give — a literal is not one (#825). */
+  readonly [reconciliationBrand]: true;
   readonly verdict: OutboundCallVerdict.NotSent;
 }
 
 /** Nobody can say what happened (`OutboundCallReconciliation.unknown`). */
-export interface UnknownReconciliation extends BuiltReconciliation {
+export interface UnknownReconciliation {
+  /** A mark only the three factories give — a literal is not one (#825). */
+  readonly [reconciliationBrand]: true;
   readonly verdict: OutboundCallVerdict.Unknown;
   /** Why not: what the operator reads in `OutboundCallUnreconciledError`. */
   readonly reason: string;

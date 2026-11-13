@@ -1,8 +1,8 @@
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { TestWorkflow } from "../fixtures/test-workflow/test.workflow.js";
 import { describe, expect, it } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
-import { executeAgent } from "../../src/index.js";
+import { executeAgent } from "../../src/run/run-agent.js";
 import { textRequestOf } from "../../src/flow/runtime/start-input.js";
 
 // Real models via OpenRouter. Only via `make smoke`, skipped without a key. Never in CI.

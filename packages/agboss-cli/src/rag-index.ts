@@ -1,4 +1,5 @@
-import { TenantContext, type AssembledWorkflow, type Environment } from "@agboss/core";
+import { TenantContext, type Environment } from "@agboss/core";
+import type { AssembledWorkflow } from "@agboss/core/internal";
 import { describeServices, contextsOutsideExecution } from "@agboss/core/internal";
 import type { RagIndexReport, RagConnector } from "@agboss/core/rag";
 import {

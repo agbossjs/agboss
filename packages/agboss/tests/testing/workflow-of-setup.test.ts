@@ -6,7 +6,8 @@
  * real: an application file whose import throws, and one listing another class of W's name.
  */
 import { describe, expect, it } from "vitest";
-import { TestSetupError, workflowOf } from "../../src/testing/index.js";
+import { TestSetupError } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { applicationsListing } from "../../src/application/application.js";
 import { AloneProbeWorkflow } from "../fixtures/outside-graph/alone/alone.workflow.js";
 import { BrokenProbeWorkflow } from "../fixtures/outside-graph/broken/broken.workflow.js";

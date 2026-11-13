@@ -13,11 +13,7 @@ import {
   metadataOf,
   WriteRow,
   writeIndexOf,
-  type Checkpoint,
-  type CheckpointMetadata,
-  type ListOptions,
   type PendingWrites,
-  type PutWritesArguments,
 } from "./sqlite-checkpoint-rows.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -56,7 +52,10 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
-  async *list(config: RunnableConfig, options: ListOptions = {}): AsyncGenerator<CheckpointTuple> {
+  async *list(
+    config: RunnableConfig,
+    options: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]> = {},
+  ): AsyncGenerator<CheckpointTuple> {
     const { where, params } = listQueryOf(config, options);
     const rows = this.connection.database
       .prepare(`SELECT * FROM checkpoints ${where} ORDER BY checkpoint_id DESC`)
@@ -73,8 +72,8 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
 
   async put(
     config: RunnableConfig,
-    checkpoint: Checkpoint,
-    metadata: CheckpointMetadata,
+    checkpoint: Parameters<BaseCheckpointSaver["put"]>[1],
+    metadata: Parameters<BaseCheckpointSaver["put"]>[2],
   ): Promise<RunnableConfig> {
     const { tenantId, threadId, namespace, checkpointId: parentId } = keyOf(config, "put");
     const [[checkpointType, dumped], [metadataType, dumpedMetadata]] = await Promise.all([
@@ -99,7 +98,9 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     return configOf(threadId, namespace, checkpoint.id);
   }
 
-  async putWrites(...[config, writes, taskId]: PutWritesArguments): Promise<void> {
+  async putWrites(
+    ...[config, writes, taskId]: Parameters<BaseCheckpointSaver["putWrites"]>
+  ): Promise<void> {
     const { tenantId, threadId, namespace, checkpointId } = keyOf(config, "putWrites");
     if (checkpointId === undefined) {
       throw new Error("SqliteCheckpointSaver.putWrites: the config has no checkpoint_id");

@@ -111,6 +111,9 @@ const asStored = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
+  /**
+   * @internal The container injects the instance's in-memory database: left out of the declarations.
+   */
   constructor(private readonly database: InMemoryDatabase) {
     super();
   }

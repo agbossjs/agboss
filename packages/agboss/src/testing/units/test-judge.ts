@@ -25,7 +25,7 @@ import { unitChatSettings } from "./unit-models.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
 /** A judge's input with `toolCalls` optional (#395): `[]` when not given. */
-type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
+export type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
   readonly toolCalls?: readonly ToolCallRecord[];
 };
 

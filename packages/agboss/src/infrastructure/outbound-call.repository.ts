@@ -169,6 +169,9 @@ export abstract class OutboundCallRepository {
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
+  /**
+   * @internal The container injects the instance's in-memory database: left out of the declarations.
+   */
   constructor(
     private readonly clock: Pick<StoreClock, "now">,
     private readonly database: InMemoryDatabase,

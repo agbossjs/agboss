@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { executionVersions } from "../../src/index.js";
+import { executionVersions } from "../../src/run/versions.js";
 import { NonJsonValueError, shortVersion, stableJson, versionOf } from "../../src/turns/index.js";
 import { fakeDeps } from "../helpers.js";
 import { outputOf } from "../helpers/process.js";

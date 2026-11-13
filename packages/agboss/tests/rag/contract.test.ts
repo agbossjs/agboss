@@ -2,7 +2,7 @@ import { RagMode } from "../../src/rag/types.js";
 import { describe, expect, it } from "vitest";
 import type { WorkflowServices } from "../../src/workflow.js";
 import { resolveTools } from "../../src/workflow.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import type { ToolInvocationContext } from "../../src/tools/index.js";
 import { bundleWith, Handbook, HandbookFromApi } from "./fixture.js";

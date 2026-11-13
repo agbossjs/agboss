@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import {
   UnknownAgentToolError,
   validateAgentsConfig,

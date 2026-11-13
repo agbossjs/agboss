@@ -116,20 +116,20 @@ export interface ThisWorkflowLaunched<THead extends PathHead> {
 }
 
 /** A workflow's `ThisWorkflowOutputs` entry; `MissingGeneratedTypes` before `agboss check`. */
-type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutputs
+export type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutputs
   ? ThisWorkflowOutputs[TName]
   : MissingGeneratedTypes;
 
-interface StepNotGiven<TName extends string> {
+export interface StepNotGiven<TName extends string> {
   readonly __error: `a .returns(…) after ThisWorkflow is not what ${TName} gives — see ThisWorkflowOutputs["${TName}"]["output"]`;
 }
 
-interface JoinNotGiven<TName extends string> {
+export interface JoinNotGiven<TName extends string> {
   readonly __error: `the .returns(…) after the join of .toParallelWorkflows(ThisWorkflow, …) is not what ${TName}'s children give — see ThisWorkflowOutputs["${TName}"]["join"]`;
 }
 
 /** The problem of one claim (distributed over the claims): `never` when the entry agrees. */
-type ClaimProblem<TClaim, TEntry, TName extends string> =
+export type ClaimProblem<TClaim, TEntry, TName extends string> =
   TClaim extends ThisWorkflowStepClaim<infer TValue>
     ? TEntry extends { readonly output: infer TOutput }
       ? Same<TValue, TOutput> extends true
@@ -144,7 +144,9 @@ type ClaimProblem<TClaim, TEntry, TName extends string> =
         : JoinNotGiven<TName>
       : never;
 
-type ClaimsCheck<TClaims, TEntry, TName extends string> = [TEntry] extends [GeneratedTypeError]
+export type ClaimsCheck<TClaims, TEntry, TName extends string> = [TEntry] extends [
+  GeneratedTypeError,
+]
   ? { readonly flow: TEntry }
   : TEntry extends { readonly input: infer TInput }
     ? [TInput] extends [GeneratedTypeError]

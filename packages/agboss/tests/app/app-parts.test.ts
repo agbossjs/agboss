@@ -6,7 +6,7 @@ import { runResultOf } from "../../src/app/result.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 
 const finishRecordOf = (name: string) => bareRecordOf(name, ComponentKind.WorkflowFinish);
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import {
   Agent,
   Workflow,

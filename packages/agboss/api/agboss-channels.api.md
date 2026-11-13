@@ -8,9 +8,6 @@
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
-    // Warning: (ae-forgotten-export) The symbol "DecidedOutcome" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "AutoDecision" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     send(): Promise<DecidedOutcome<AutoDecision>>;
 }
@@ -27,9 +24,6 @@ export class AutoRejectChannel {
 export class TerminalUserChannel {
     // (undocumented)
     readonly [agbossComponent]?: "terminal-user-channel";
-    // Warning: (ae-forgotten-export) The symbol "ChannelAsk" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }

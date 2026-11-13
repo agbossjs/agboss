@@ -4,7 +4,6 @@
 
 ```ts
 
-import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
@@ -16,7 +15,6 @@ import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { SQLInputValue } from 'node:sqlite';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 // @public
@@ -141,7 +139,6 @@ export interface A2AFileOptions {
     readonly allowedFileOrigins?: readonly string[];
     readonly allowedMediaTypes?: readonly string[];
     readonly maxFiles?: number;
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxFileSize?: Bytes;
     readonly maxTotalFileSize?: Bytes;
 }
@@ -315,20 +312,15 @@ export interface AcceptedBy {
     readonly arbiters: readonly ArbiterClass[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ExecuteMethod" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(value: TClass) => TClass;
 
-// Warning: (ae-forgotten-export) The symbol "KindCheck" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "KindLabel" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function action<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
-// Warning: (ae-forgotten-export) The symbol "EndEvent" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type ActionClass = Class<ExecuteMethod>;
+
 // @public
 export type ActionEndEvent = EndEvent<unknown>;
 
@@ -359,7 +351,6 @@ export interface ActionHandler<TSelf> {
 // @public
 export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]> {
     readonly committedBy?: ActionClass;
-    // Warning: (ae-forgotten-export) The symbol "ActionClass" needs to be exported by the entry point index.d.ts
     readonly compensateWith?: ActionClass;
     readonly deps?: TDeps;
     // (undocumented)
@@ -373,13 +364,12 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
 // @public
 export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void> : Promise<TOutput>;
 
-// Warning: (ae-forgotten-export) The symbol "StartEvent" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 
-// Warning: (ae-forgotten-export) The symbol "StepContinuation" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type AfterReturns<TSource extends ValuesSource, TLeft, TGiven extends readonly unknown[], TShape, THead extends PathHead> = [TLeft] extends [never] ? TShape extends OneOfWrapper ? BuiltPath<THead> & Switching<ValueOf<TShape>, THead> : AfterValue<TGiven extends readonly [infer TOne] ? TOne : TGiven, THead, TSource["canLaunch"]> : BuiltPath<THead> & Returning<TSource, TLeft, THead, TGiven>;
+
 // @public
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> & StepContinuation<TInstance, THead>;
 
@@ -448,37 +438,8 @@ export interface AgentAnswerInvalidErrorOptions {
     readonly usage: readonly UsageRecord[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "NodeValue" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type AgentEndEvent = EndEvent<NodeValue>;
-
-// Warning: (ae-forgotten-export) The symbol "GraphDeps" needs to be exported by the entry point index.d.ts
-//
-// @public
-export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
-    // Warning: (ae-forgotten-export) The symbol "ApplicationBudgets" needs to be exported by the entry point index.d.ts
-    readonly budgets?: ApplicationBudgets | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point index.d.ts
-    readonly modelProviders?: readonly ModelProviderType[] | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionTracing" needs to be exported by the entry point index.d.ts
-    readonly tracing?: ExecutionTracing | undefined;
-    // (undocumented)
-    readonly turns: TurnRecords;
-}
-
-// @public (undocumented)
-export interface AgentExecutionOptions {
-    readonly configurable?: Readonly<Record<string, unknown>> | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionContextValues" needs to be exported by the entry point index.d.ts
-    readonly contexts?: ExecutionContextValues | undefined;
-    readonly executionId?: string;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionStreamEvent" needs to be exported by the entry point index.d.ts
-    readonly onStream?: (event: ExecutionStreamEvent) => void;
-    readonly ownerId?: string | undefined;
-    readonly replayOf?: string;
-    readonly signal?: AbortSignal | undefined;
-}
 
 // @public
 export interface AgentExecutionOutput {
@@ -533,11 +494,38 @@ export interface AgentFailedErrorOptions {
     readonly usage: readonly UsageRecord[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "GuardrailFields" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "PiiPolicyFields" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "CompactionFields" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ToolInterceptorFields" needs to be exported by the entry point index.d.ts
-//
+// @public
+export interface AgentMeta extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
+    // (undocumented)
+    readonly cache?: AgentSettings["cache"];
+    // (undocumented)
+    readonly description: string;
+    readonly judges?: readonly JudgeHandlerClass[];
+    // (undocumented)
+    readonly maxRetries?: number;
+    // (undocumented)
+    readonly maxTokens?: AgentSettings["maxTokens"];
+    readonly maxToolCalls?: number;
+    readonly memoryStrategy?: Class<BaseMemoryStrategy>;
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly name: string;
+    readonly price?: AgentSettings["price"];
+    // (undocumented)
+    readonly prompt?: string;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
+    readonly promptVariables?: Readonly<Record<string, string>>;
+    readonly rag?: readonly RagBinding[];
+    readonly source?: string;
+    // (undocumented)
+    readonly temperature?: number;
+    // (undocumented)
+    readonly thinking?: AgentSettings["thinking"];
+    readonly tools?: readonly AgentToolClass[];
+}
+
 // @public
 export interface AgentOptions extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
     // (undocumented)
@@ -566,12 +554,9 @@ export interface AgentOptions extends GuardrailFields, PiiPolicyFields, Compacti
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
-    // Warning: (ae-forgotten-export) The symbol "AgentMeta" needs to be exported by the entry point index.d.ts
     readonly promptVariables?: AgentMeta["promptVariables"];
     // (undocumented)
     readonly rag?: readonly AgentRag[];
-    // Warning: (ae-forgotten-export) The symbol "Reasoning" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly reasoning?: Reasoning;
     // (undocumented)
@@ -588,8 +573,6 @@ export interface AgentRag {
     readonly use: Class;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AgentsConfigSchema" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type AgentsConfig = z.infer<typeof AgentsConfigSchema>;
 
@@ -598,14 +581,326 @@ export type AgentsConfigOf<TName extends string, TTool extends string = string> 
     readonly agents: Readonly<Record<TName, AgentSettingsOf<TTool>>>;
 };
 
+// @public (undocumented)
+export const AgentsConfigSchema: z.ZodObject<{
+    name: z.ZodString;
+    version: z.ZodString;
+    defaults: z.ZodObject<{
+        models: z.ZodObject<{
+            temperature: z.ZodNumber;
+            maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+            thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+                minimal: "minimal";
+                low: "low";
+                medium: "medium";
+                high: "high";
+                xhigh: "xhigh";
+                none: "none";
+            }>, z.ZodObject<{
+                budgetTokens: z.ZodNumber;
+            }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"model-decides">;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"on">;
+                effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+                budget: z.ZodOptional<z.ZodObject<{
+                    tokens: z.ZodNumber;
+                }, z.core.$strip>>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+            cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"where-supported">;
+                retention: z.ZodEnum<typeof CacheRetention>;
+                cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+                key: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+        }, z.core.$strip>;
+        router: z.ZodOptional<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"jev">;
+            model: z.ZodString;
+        }, z.core.$strip>, z.ZodObject<{
+            model: z.ZodString;
+            temperature: z.ZodOptional<z.ZodNumber>;
+            maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+            thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+                minimal: "minimal";
+                low: "low";
+                medium: "medium";
+                high: "high";
+                xhigh: "xhigh";
+                none: "none";
+            }>, z.ZodObject<{
+                budgetTokens: z.ZodNumber;
+            }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"model-decides">;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"on">;
+                effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+                budget: z.ZodOptional<z.ZodObject<{
+                    tokens: z.ZodNumber;
+                }, z.core.$strip>>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+            cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"where-supported">;
+                retention: z.ZodEnum<typeof CacheRetention>;
+                cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+                key: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+            price: z.ZodOptional<z.ZodObject<{
+                inputPerMTok: z.ZodNumber;
+                outputPerMTok: z.ZodNumber;
+                cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+                cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strip>>;
+            kind: z.ZodLiteral<"llm">;
+        }, z.core.$strip>], "kind">>;
+        tools: z.ZodOptional<z.ZodObject<{
+            maxToolCalls: z.ZodOptional<z.ZodNumber>;
+            maxResultSize: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+        uncompactedTurns: z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TurnLimit>]>;
+    }, z.core.$strip>;
+    mcpServers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        transport: z.ZodLiteral<"stdio">;
+        target: z.ZodOptional<z.ZodObject<{
+            application: z.ZodString;
+            expose: z.ZodString;
+        }, z.core.$strip>>;
+        command: z.ZodString;
+        args: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        env: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>, z.ZodObject<{
+        transport: z.ZodLiteral<"http">;
+        target: z.ZodOptional<z.ZodObject<{
+            application: z.ZodString;
+            expose: z.ZodString;
+        }, z.core.$strip>>;
+        url: z.ZodURL;
+        headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    }, z.core.$strip>], "transport">>>;
+    compactions: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+        strategy: z.ZodEnum<typeof CompactionStrategy>;
+        model: z.ZodOptional<z.ZodObject<{
+            model: z.ZodString;
+            temperature: z.ZodOptional<z.ZodNumber>;
+            maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+            thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+                minimal: "minimal";
+                low: "low";
+                medium: "medium";
+                high: "high";
+                xhigh: "xhigh";
+                none: "none";
+            }>, z.ZodObject<{
+                budgetTokens: z.ZodNumber;
+            }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"model-decides">;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"on">;
+                effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+                budget: z.ZodOptional<z.ZodObject<{
+                    tokens: z.ZodNumber;
+                }, z.core.$strip>>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+            cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"where-supported">;
+                retention: z.ZodEnum<typeof CacheRetention>;
+                cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+                key: z.ZodOptional<z.ZodString>;
+            }, z.core.$strip>, z.ZodObject<{
+                kind: z.ZodLiteral<"off">;
+            }, z.core.$strip>], "kind">]>>;
+            price: z.ZodOptional<z.ZodObject<{
+                inputPerMTok: z.ZodNumber;
+                outputPerMTok: z.ZodNumber;
+                cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+                cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>;
+        turnsBetweenCompactions: z.ZodOptional<z.ZodNumber>;
+        summaryQueueLength: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>>;
+    judges: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+        model: z.ZodString;
+        temperature: z.ZodOptional<z.ZodNumber>;
+        maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+        thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+            minimal: "minimal";
+            low: "low";
+            medium: "medium";
+            high: "high";
+            xhigh: "xhigh";
+            none: "none";
+        }>, z.ZodObject<{
+            budgetTokens: z.ZodNumber;
+        }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"model-decides">;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"on">;
+            effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+            budget: z.ZodOptional<z.ZodObject<{
+                tokens: z.ZodNumber;
+            }, z.core.$strip>>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"where-supported">;
+            retention: z.ZodEnum<typeof CacheRetention>;
+            cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+            key: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        price: z.ZodOptional<z.ZodObject<{
+            inputPerMTok: z.ZodNumber;
+            outputPerMTok: z.ZodNumber;
+            cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+            cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>>;
+    agents: z.ZodRecord<z.ZodString, z.ZodObject<{
+        model: z.ZodString;
+        temperature: z.ZodOptional<z.ZodNumber>;
+        maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+        thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+            minimal: "minimal";
+            low: "low";
+            medium: "medium";
+            high: "high";
+            xhigh: "xhigh";
+            none: "none";
+        }>, z.ZodObject<{
+            budgetTokens: z.ZodNumber;
+        }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"model-decides">;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"on">;
+            effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+            budget: z.ZodOptional<z.ZodObject<{
+                tokens: z.ZodNumber;
+            }, z.core.$strip>>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"where-supported">;
+            retention: z.ZodEnum<typeof CacheRetention>;
+            cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+            key: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        price: z.ZodOptional<z.ZodObject<{
+            inputPerMTok: z.ZodNumber;
+            outputPerMTok: z.ZodNumber;
+            cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+            cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+        description: z.ZodString;
+        tools: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        uncompactedTurns: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TurnLimit>]>>;
+        maxToolCalls: z.ZodOptional<z.ZodNumber>;
+        judges: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        maxRetries: z.ZodOptional<z.ZodNumber>;
+        rag: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            name: z.ZodString;
+            mode: z.ZodEnum<typeof RagMode>;
+            topK: z.ZodNumber;
+            tenancy: z.ZodEnum<typeof RagTenancy>;
+            rerank: z.ZodOptional<z.ZodObject<{
+                reranker: z.ZodString;
+                candidates: z.ZodNumber;
+                onFailure: z.ZodEnum<typeof RerankFailurePolicy>;
+            }, z.core.$strip>>;
+        }, z.core.$strip>>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+
+// @public (undocumented)
+export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
+
+// @public
+export type AgentSettingsOf<TTool extends string> = Omit<AgentSettings, "tools"> & {
+    readonly tools?: readonly TTool[];
+};
+
+// @public (undocumented)
+export const AgentSettingsSchema: z.ZodObject<{
+    model: z.ZodString;
+    temperature: z.ZodOptional<z.ZodNumber>;
+    maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+    thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+        minimal: "minimal";
+        low: "low";
+        medium: "medium";
+        high: "high";
+        xhigh: "xhigh";
+        none: "none";
+    }>, z.ZodObject<{
+        budgetTokens: z.ZodNumber;
+    }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        kind: z.ZodLiteral<"model-decides">;
+    }, z.core.$strip>, z.ZodObject<{
+        kind: z.ZodLiteral<"on">;
+        effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+        budget: z.ZodOptional<z.ZodObject<{
+            tokens: z.ZodNumber;
+        }, z.core.$strip>>;
+    }, z.core.$strip>, z.ZodObject<{
+        kind: z.ZodLiteral<"off">;
+    }, z.core.$strip>], "kind">]>>;
+    cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        kind: z.ZodLiteral<"where-supported">;
+        retention: z.ZodEnum<typeof CacheRetention>;
+        cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+        key: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>, z.ZodObject<{
+        kind: z.ZodLiteral<"off">;
+    }, z.core.$strip>], "kind">]>>;
+    price: z.ZodOptional<z.ZodObject<{
+        inputPerMTok: z.ZodNumber;
+        outputPerMTok: z.ZodNumber;
+        cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+        cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>;
+    description: z.ZodString;
+    tools: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    uncompactedTurns: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TurnLimit>]>>;
+    maxToolCalls: z.ZodOptional<z.ZodNumber>;
+    judges: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    maxRetries: z.ZodOptional<z.ZodNumber>;
+    rag: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        name: z.ZodString;
+        mode: z.ZodEnum<typeof RagMode>;
+        topK: z.ZodNumber;
+        tenancy: z.ZodEnum<typeof RagTenancy>;
+        rerank: z.ZodOptional<z.ZodObject<{
+            reranker: z.ZodString;
+            candidates: z.ZodNumber;
+            onFailure: z.ZodEnum<typeof RerankFailurePolicy>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>>;
+}, z.core.$strip>;
+
 // @public
 export type AgentsLaunched<TKey extends string, THead extends PathHead, TCount extends number> = Launched<TKey, THead> & Quorums<TKey, THead, TCount>;
 
 // @public
 export type AgentStartEvent = StartEvent<string>;
 
-// Warning: (ae-forgotten-export) The symbol "GeneratedEntry" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type AgentToolClass = ToolHandlerClass | QuestionRoleClass;
+
 // @public
 export type AgentToolNamesOf<TSelf> = GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
 
@@ -614,6 +909,21 @@ export interface AgentTools {
     // (undocumented)
     readonly [notGenerated]?: never;
 }
+
+// @public
+export interface AlwaysRouterRoute {
+    // (undocumented)
+    readonly failure?: FailurePolicy;
+    // (undocumented)
+    readonly prompt?: never;
+    // (undocumented)
+    readonly spawn: SpawnPolicy.Always;
+    // (undocumented)
+    readonly target: ComponentClass;
+}
+
+// @public
+export type AnswerArgs = Parameters<ExecutionRecordRepository["savePauseAnswer"]>;
 
 // @public
 export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: ArbiterAnswerOf<TAgent>) => boolean | Promise<boolean>;
@@ -665,8 +975,6 @@ export interface App {
 // @public (undocumented)
 export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>): <TClass extends Class>(value: TClass) => TClass;
 
-// Warning: (ae-forgotten-export) The symbol "NameOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ApplicationClass<TApplication extends Class> = TApplication & ([NameOf<InstanceType<TApplication>>] extends [never] ? unknown : NameOf<InstanceType<TApplication>> extends `${string}-workflow` ? WorkflowIsNotAnApplication : unknown);
 
@@ -707,7 +1015,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly shutdownTimeout?: Milliseconds;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
@@ -740,8 +1047,7 @@ export class ApplicationStoppingError extends AGBossError {
 // @public
 export interface AppOptions {
     readonly env?: string | undefined;
-    // Warning: (ae-forgotten-export) The symbol "AppDepsOptions" needs to be exported by the entry point index.d.ts
-    readonly meterProvider?: AppDepsOptions["meterProvider"];
+    readonly meterProvider?: MeterProvider;
     readonly profile?: string | undefined;
     // (undocumented)
     readonly profileRoot?: string | undefined;
@@ -753,8 +1059,6 @@ export function Arbiter(options: ModelArbiterOptions): ArbiterDecorator<[]>;
 // @public
 export function Arbiter<const TDeps extends readonly Token[] = []>(options: CodeArbiterOptions<TDeps>): ArbiterDecorator<TDeps>;
 
-// Warning: (ae-forgotten-export) The symbol "ProducerOutputOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ArbiterAnswerOf<TAgent extends Class> = ProducerOutputOf<InstanceType<TAgent>>;
 
@@ -766,8 +1070,6 @@ export type ArbiterClass = Class;
 
 // @public
 export interface ArbiterCriterion {
-    // Warning: (ae-forgotten-export) The symbol "ComponentClass" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly agent: ComponentClass;
     // (undocumented)
@@ -801,65 +1103,6 @@ export interface ArbiterErrorOptions {
 export type ArbiterOptions = ModelArbiterOptions | CodeArbiterOptions;
 
 // @public
-export interface AssembledWorkflow<TName extends string = string> {
-    // Warning: (ae-forgotten-export) The symbol "ModelArbiterUse" needs to be exported by the entry point index.d.ts
-    readonly arbiters?: readonly ModelArbiterUse[];
-    // Warning: (ae-forgotten-export) The symbol "BusinessKeyWriterUse" needs to be exported by the entry point index.d.ts
-    readonly businessKeyWriter?: BusinessKeyWriterUse;
-    // Warning: (ae-forgotten-export) The symbol "PauseChannel" needs to be exported by the entry point index.d.ts
-    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
-    // Warning: (ae-forgotten-export) The symbol "AssembledCompactions" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly compactions?: AssembledCompactions;
-    // (undocumented)
-    readonly config: AgentsConfigOf<TName>;
-    // Warning: (ae-forgotten-export) The symbol "RuntimeGraph" needs to be exported by the entry point index.d.ts
-    readonly graph: RuntimeGraph;
-    // Warning: (ae-forgotten-export) The symbol "AssembledGuardrails" needs to be exported by the entry point index.d.ts
-    readonly guardrails?: AssembledGuardrails;
-    // Warning: (ae-forgotten-export) The symbol "JudgeInstance" needs to be exported by the entry point index.d.ts
-    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
-    // Warning: (ae-forgotten-export) The symbol "KnowledgeSource" needs to be exported by the entry point index.d.ts
-    readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
-    readonly knowledgeBases?: (services: WorkflowServices) => readonly {
-        readonly name: string;
-        readonly connector: RagConnector;
-    }[];
-    readonly maxSteps: number;
-    // Warning: (ae-forgotten-export) The symbol "McpServerHandle" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly mcpServers: readonly McpServerHandle<string>[];
-    // Warning: (ae-forgotten-export) The symbol "BaseMemoryStrategy" needs to be exported by the entry point index.d.ts
-    readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
-    readonly modelProviders: readonly ModelProviderType[];
-    readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
-    // Warning: (ae-forgotten-export) The symbol "AssembledPii" needs to be exported by the entry point index.d.ts
-    readonly pii?: AssembledPii;
-    // Warning: (ae-forgotten-export) The symbol "AgentPrompts" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    readonly prompts: AgentPrompts<TName>;
-    // Warning: (ae-forgotten-export) The symbol "AssembledReplyInterpreter" needs to be exported by the entry point index.d.ts
-    readonly replyInterpreters?: readonly AssembledReplyInterpreter[];
-    readonly rerankers?: readonly {
-        readonly name: string;
-        readonly model: string;
-    }[];
-    readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
-    // Warning: (ae-forgotten-export) The symbol "LoadedRouter" needs to be exported by the entry point index.d.ts
-    readonly routers: readonly LoadedRouter[];
-    // Warning: (ae-forgotten-export) The symbol "McpFacade" needs to be exported by the entry point index.d.ts
-    readonly serverTools?: readonly McpFacade[];
-    readonly toolDependencies?: Readonly<Record<string, string>>;
-    // Warning: (ae-forgotten-export) The symbol "AssembledToolInterceptors" needs to be exported by the entry point index.d.ts
-    readonly toolInterceptors?: AssembledToolInterceptors;
-    // (undocumented)
-    readonly tools: WorkflowTools;
-}
-
-// @public
 export interface AuditEventStep {
     // (undocumented)
     readonly idempotencyKey: string;
@@ -876,11 +1119,12 @@ export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFenc
 export class AutoApproveChannel {
     // (undocumented)
     readonly [agbossComponent]?: "auto-approve-channel";
-    // Warning: (ae-forgotten-export) The symbol "AutoDecision" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     send(): Promise<DecidedOutcome<AutoDecision>>;
 }
+
+// @public
+export type AutoDecision = Pick<ToolCallApprovalDecisionDto, "approved" | "reason">;
 
 // @public
 export class AutoRejectChannel {
@@ -902,13 +1146,17 @@ export interface BeforeToolCall {
     beforeToolCall(call: ToolCallContext): Promise<ToolCallDecision> | ToolCallDecision;
 }
 
-// Warning: (ae-forgotten-export) The symbol "BindToolOptions" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorator;
 
 // @public (undocumented)
 export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
+
+// @public (undocumented)
+export interface BindToolOptions {
+    // (undocumented)
+    agent?: Class | string;
+}
 
 // @public
 export interface BlockWithRefusalAction {
@@ -964,7 +1212,6 @@ export interface BudgetAccount {
 export interface BudgetBreach {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly key: string;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
     readonly maxSpend: Usd;
     readonly period?: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
@@ -1088,16 +1335,17 @@ export interface CaseHead<TValue, TClaims = never> {
     readonly claims: TClaims;
 }
 
-// Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function caseOf<const TDto extends DtoClass>(dto: TDto, options?: ReturnsOptions): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
 
 // @public
 export type CasePath = BuiltPath<CaseHead<unknown, unknown>>;
 
-// Warning: (ae-forgotten-export) The symbol "ChannelMeta" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type CaseValueOf<TPath> = TPath extends {
+    readonly [pathHead]?: CaseHead<infer T, unknown>;
+} ? T : never;
+
 // @public
 export function Channel<const D extends readonly Token[] = []>(options: ChannelMeta & {
     readonly deps?: D;
@@ -1135,6 +1383,14 @@ export interface ChannelHandler<TRole> {
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
     readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
+}
+
+// @public
+export interface ChannelMeta {
+    // (undocumented)
+    readonly description?: string;
+    // (undocumented)
+    readonly name: string;
 }
 
 // @public
@@ -1196,8 +1452,9 @@ export interface ChannelRoleBaseOptions {
     readonly replyInterpreter?: Class;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ChannelRoleForm" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type ChannelRoleForm = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
+
 // @public
 export type ChannelRoleOptions = ChannelRoleForm & ({
     readonly answerer: PauseAnswerer;
@@ -1233,6 +1490,55 @@ export interface ChannelWithdrawal<TRole> {
     readonly resolution: PauseCancellation;
     readonly value: ChannelQuestionOf<TRole>;
 }
+
+// @public
+export interface ChatModelSpec {
+    // (undocumented)
+    readonly settings: ResolvedModelSettings;
+    // (undocumented)
+    readonly user: ChatModelUser;
+}
+
+// @public
+export type ChatModelUser = {
+    readonly kind: "agent";
+    readonly agent: string;
+}
+/** A `@Compaction`'s summaries (#120 PR 3). */
+| {
+    readonly kind: "compaction";
+    readonly compaction: string;
+} | {
+    readonly kind: "judge";
+    readonly judge: string;
+} | {
+    readonly kind: "router";
+    readonly router: string;
+} | {
+    readonly kind: "arbiter";
+    readonly arbiter: string;
+}
+/** A `@PiiPolicy`'s model detection (`detectWithModel`, #120). */
+| {
+    readonly kind: "pii-policy";
+    readonly policy: string;
+}
+/** A model reply interpreter (#267 PR 3), with what it reads (a test's `when(…)` matches it). */
+| {
+    readonly kind: "reply-interpreter";
+    readonly interpreter: string;
+    readonly input: ReplyInterpreterInput;
+}
+/** A guardrail's check on a chat model (#120). */
+| {
+    readonly kind: "guardrail";
+    readonly guardrail: string;
+}
+/** A model `@Reranker` (#703). */
+| {
+    readonly kind: "reranker";
+    readonly reranker: string;
+};
 
 // @public
 export interface ChildExecutionEnd {
@@ -1299,13 +1605,13 @@ export enum ChildExecutionStatus {
     Finished = "finished"
 }
 
-// Warning: (ae-forgotten-export) The symbol "IsPerItem" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TargetCheck" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ChildLaunchCheck<TClass extends Class, TValue> = IsPerItem<readonly [TClass], TValue> extends true ? TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>> : {
     readonly __error: "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
 };
+
+// @public
+export type ChildLaunched<TClass extends Class, THead extends PathHead> = ThisWorkflowName extends NameOf<InstanceType<TClass>> ? ThisWorkflowLaunched<THead> : Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
 
 // @public
 export interface ChildLaunchRecord {
@@ -1364,6 +1670,43 @@ export interface ChooseOneStep {
 }
 
 // @public
+export interface ChosenRouterRoute {
+    // (undocumented)
+    readonly failure?: FailurePolicy;
+    readonly prompt: string;
+    // (undocumented)
+    readonly spawn?: SpawnPolicy.OnDemand;
+    readonly target: ComponentClass;
+}
+
+// @public
+export type ClaimProblem<TClaim, TEntry, TName extends string> = TClaim extends ThisWorkflowStepClaim<infer TValue> ? TEntry extends {
+    readonly output: infer TOutput;
+} ? Same<TValue, TOutput> extends true ? never : StepNotGiven<TName> : StepNotGiven<TName> : TClaim extends ThisWorkflowJoinClaim<infer TValue> ? TEntry extends {
+    readonly join: infer TJoin;
+} ? Same<TValue, TJoin> extends true ? never : JoinNotGiven<TName> : JoinNotGiven<TName> : never;
+
+// @public (undocumented)
+export type ClaimsCheck<TClaims, TEntry, TName extends string> = [TEntry] extends [
+GeneratedTypeError
+] ? {
+    readonly flow: TEntry;
+} : TEntry extends {
+    readonly input: infer TInput;
+} ? [TInput] extends [GeneratedTypeError] ? {
+    readonly flow: TInput;
+} : [ClaimProblem<TClaims, TEntry, TName>] extends [never] ? unknown : {
+    readonly flow: ClaimProblem<TClaims, TEntry, TName>;
+} : never;
+
+// @public
+export type ClaimsOf<TPath> = TPath extends {
+    readonly [pathHead]?: infer THead;
+} ? THead extends {
+    readonly claims: infer TClaims;
+} ? TClaims : never : never;
+
+// @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
 // @public
@@ -1399,53 +1742,88 @@ export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly To
     readonly prompt?: never;
 }
 
-// Warning: (ae-forgotten-export) The symbol "CodeGuardrailFields" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> extends CodeGuardrailFields<D> {
+export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
+    // (undocumented)
+    readonly decidedBy: DecidedBy.Code;
+    readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly model?: never;
+    readonly name: string;
+    // (undocumented)
+    readonly prompt?: never;
+    // (undocumented)
+    readonly promptUrls?: never;
     readonly refusal?: never;
+    // (undocumented)
+    readonly threshold?: never;
 }
 
 // @public
-export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> extends CodeGuardrailFields<D> {
+export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
+    // (undocumented)
+    readonly decidedBy: DecidedBy.Code;
+    readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly model?: never;
+    readonly name: string;
+    // (undocumented)
+    readonly prompt?: never;
+    // (undocumented)
+    readonly promptUrls?: never;
     readonly refusal: string;
+    // (undocumented)
+    readonly threshold?: never;
 }
 
-// Warning: (ae-forgotten-export) The symbol "JudgeBaseMeta" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CodeJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> extends JudgeBaseMeta<TReply> {
+export interface CodeJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     // (undocumented)
+    readonly description?: string;
+    // (undocumented)
     readonly model?: never;
+    readonly name: string;
+    readonly reply: TReply;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ReplyInterpreterBaseOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> extends ReplyInterpreterBaseOptions {
+export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     readonly deps?: TDeps;
     // (undocumented)
+    readonly description: string;
+    // (undocumented)
     readonly model?: never;
+    readonly name: string;
     // (undocumented)
     readonly prompt?: never;
     // (undocumented)
     readonly promptUrls?: never;
 }
 
-// Warning: (ae-forgotten-export) The symbol "RouterBase" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]> extends RouterBase {
+export type CodeRouterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => RouteMethod>(value: TClass) => TClass;
+
+// @public
+export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]> extends PiiPolicyFields, GuardrailFields {
     readonly compaction?: never;
     // (undocumented)
     readonly decidedBy: DecidedBy.Code;
     readonly deps?: TDeps;
     // (undocumented)
+    readonly description: string;
+    readonly input: InputFields;
+    readonly maxVisits?: number;
+    // (undocumented)
     readonly model?: never;
+    readonly name: string;
     // (undocumented)
     readonly prompt?: never;
     // (undocumented)
@@ -1481,13 +1859,9 @@ export interface Compacted {
     readonly toTurn: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltInCompactionOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
-export function Compaction(options: BuiltInCompactionOptions): <C extends Class>(value: C) => C;
+export function Compaction(options: SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions): <C extends Class>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "CustomCompactionOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Compaction<const TDeps extends readonly Token[] = []>(options: CustomCompactionOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => CompactionHandler>(value: C) => C;
 
@@ -1514,6 +1888,14 @@ export interface CompactionErrorOptions {
 }
 
 // @public
+export interface CompactionFields {
+    // (undocumented)
+    readonly compaction?: Class;
+    // (undocumented)
+    readonly uncompactedTurns?: UncompactedTurns;
+}
+
+// @public
 export interface CompactionHandler {
     compact(input: CompactionInput): Promise<readonly string[]> | readonly string[];
 }
@@ -1525,12 +1907,56 @@ export interface CompactionInput {
 }
 
 // @public
-export type CompactionOptions = BuiltInCompactionOptions | CustomCompactionOptions;
+export type CompactionOptions = SummaryQueueCompactionOptions | SingleSummaryCompactionOptions | NoSummaryCompactionOptions | CustomCompactionOptions;
 
-// Warning: (ae-forgotten-export) The symbol "CompactionSettingsSchema" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type CompactionSettings = z.infer<typeof CompactionSettingsSchema>;
+
+// @public
+export const CompactionSettingsSchema: z.ZodObject<{
+    strategy: z.ZodEnum<typeof CompactionStrategy>;
+    model: z.ZodOptional<z.ZodObject<{
+        model: z.ZodString;
+        temperature: z.ZodOptional<z.ZodNumber>;
+        maxTokens: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodLiteral<TokenLimit>]>>;
+        thinking: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodEnum<{
+            minimal: "minimal";
+            low: "low";
+            medium: "medium";
+            high: "high";
+            xhigh: "xhigh";
+            none: "none";
+        }>, z.ZodObject<{
+            budgetTokens: z.ZodNumber;
+        }, z.core.$strip>, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"model-decides">;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"on">;
+            effort: z.ZodOptional<z.ZodEnum<typeof ReasoningEffort>>;
+            budget: z.ZodOptional<z.ZodObject<{
+                tokens: z.ZodNumber;
+            }, z.core.$strip>>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        cache: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"where-supported">;
+            retention: z.ZodEnum<typeof CacheRetention>;
+            cachedParts: z.ZodReadonly<z.ZodArray<z.ZodEnum<typeof CachedPart>>>;
+            key: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>, z.ZodObject<{
+            kind: z.ZodLiteral<"off">;
+        }, z.core.$strip>], "kind">]>>;
+        price: z.ZodOptional<z.ZodObject<{
+            inputPerMTok: z.ZodNumber;
+            outputPerMTok: z.ZodNumber;
+            cacheReadPerMTok: z.ZodOptional<z.ZodNumber>;
+            cacheWritePerMTok: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+    turnsBetweenCompactions: z.ZodOptional<z.ZodNumber>;
+    summaryQueueLength: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
 
 // @public
 export enum CompactionStrategy {
@@ -1552,10 +1978,16 @@ export interface CompactionTurn {
 export function compareProfiles<TApplication extends Class>(application: ApplicationClass<TApplication>, options: CompareProfilesOptions): Promise<ProfileComparison>;
 
 // @public
-export interface CompareProfilesOptions extends AppDepsOptions {
+export interface CompareProfilesOptions {
     readonly env?: string | undefined;
+    readonly environment?: Environment;
+    readonly environmentName?: string;
+    readonly gateway?: ModelGateway;
+    readonly meterProvider?: MeterProvider;
+    readonly processEnv?: NodeJS.ProcessEnv;
     readonly profileRoot?: string;
     readonly profiles: readonly string[];
+    readonly providerFetch?: typeof fetch;
     readonly start: Class;
     // (undocumented)
     readonly tasks: readonly string[];
@@ -1640,14 +2072,16 @@ export enum CompensationStatus {
     Failed = "failed"
 }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltReconciliation" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface CompletedReconciliation<TResult> extends BuiltReconciliation {
+export interface CompletedReconciliation<TResult> {
+    readonly [reconciliationBrand]: true;
     readonly result: TResult;
     // (undocumented)
     readonly verdict: OutboundCallVerdict.Completed;
 }
+
+// @public
+export type ComponentClass = Class;
 
 // @public
 export interface ComponentDescriptor extends ComponentRecord {
@@ -1699,6 +2133,14 @@ export interface ComponentRecord {
     readonly schemaHash: string | undefined;
 }
 
+// @public (undocumented)
+export interface ComponentSource {
+    // (undocumented)
+    readonly kind: NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
+    // (undocumented)
+    readonly node: ComponentClass;
+}
+
 // @public
 export interface ConfigSnapshot {
     // (undocumented)
@@ -1712,13 +2154,24 @@ export interface ConfigSnapshot {
 }
 
 // @public
+export interface ConfigStore {
+    // (undocumented)
+    readonly configSnapshots: (bundle: string, version: string) => Promise<ConfigSnapshot[]>;
+    readonly recentOriginals: (bundle: string, limit: number) => Promise<Turn[]>;
+    readonly rememberConfig: (bundle: string, version: string, hash: string, snapshot: string) => Promise<{
+        readonly drift: boolean;
+    }>;
+}
+
+// @public
 export class ConsoleLogger extends Logger {
     // (undocumented)
     write(entry: LogEntry): void;
 }
 
-// Warning: (ae-forgotten-export) The symbol "DataKeysOf" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type ContextFields = Readonly<Record<string, unknown>>;
+
 // @public
 export type ContextValues<T> = T extends ExecutionContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof ExecutionContext>>> : T extends TenantContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof TenantContext>>> & TenantValues : never;
 
@@ -1871,6 +2324,28 @@ export interface CountQuorum {
 export function createApp<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: AppOptions): Promise<App>;
 
 // @public
+export interface CustomCompactionOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly model?: never;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly prompt?: never;
+    // (undocumented)
+    readonly promptUrls?: never;
+    // (undocumented)
+    readonly strategy: CompactionStrategy.Custom;
+    // (undocumented)
+    readonly summaryMaxTokens?: never;
+    // (undocumented)
+    readonly summaryQueueLength?: never;
+    readonly turnsBetweenCompactions: number;
+}
+
+// @public
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
     readonly action: MaskingPiiAction;
     // (undocumented)
@@ -1879,6 +2354,11 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
     // (undocumented)
     readonly rules?: never;
 }
+
+// @public
+export type DataKeysOf<T> = {
+    [K in keyof T]-?: T[K] extends (...args: never[]) => unknown ? never : K;
+}[keyof T];
 
 // @public
 export class DeadlineExceededError extends LimitExceededError {
@@ -1922,11 +2402,23 @@ export interface DecidedOutcome<TDecision> {
 }
 
 // @public
+export interface DecideSpec {
+    readonly caller: string;
+    // (undocumented)
+    readonly model: string;
+    // (undocumented)
+    readonly request: DecisionRequest;
+}
+
+// @public
 export const Decision: {
-    readonly choice: typeof choice;
-    readonly noul: typeof noul;
-    readonly score: typeof score;
-    readonly image: typeof image;
+    readonly choice: <const C extends Readonly<Record<string, string | null>>>(instructions: string, criteria: C) => ChoiceQuestion<keyof C & string>;
+    readonly noul: (instructions: string, criteria?: {
+        readonly true: string;
+        readonly false: string;
+    }) => NoulQuestion;
+    readonly score: (instructions: string, levels: readonly string[]) => ScoreQuestion;
+    readonly image: (dataUrl: string, detail?: ImageDetail) => DecisionImage;
 };
 
 // @public (undocumented)
@@ -1952,6 +2444,23 @@ export interface DecisionImage {
     };
     // (undocumented)
     readonly type: "image_url";
+}
+
+// @public
+export type DecisionModel = {
+    readonly kind: "jev";
+    readonly model: string;
+} | {
+    readonly kind: "llm";
+    readonly settings: ResolvedModelSettings;
+};
+
+// @public
+export interface DecisionOutcome {
+    // (undocumented)
+    readonly answers: Readonly<Record<string, DecisionAnswer>>;
+    // (undocumented)
+    readonly usage: UsageRecord;
 }
 
 // @public (undocumented)
@@ -1994,6 +2503,16 @@ export interface DecisionResumeRequest {
     readonly pauseId: string;
     // (undocumented)
     readonly reply?: never;
+}
+
+// @public
+export interface DecisionSpec {
+    // (undocumented)
+    readonly model: DecisionModel;
+    // (undocumented)
+    readonly request: RouteRequest;
+    // (undocumented)
+    readonly router: string;
 }
 
 // @public
@@ -2051,7 +2570,6 @@ export class DtoValidationError extends AGBossError {
     // (undocumented)
     readonly code: typeof DtoValidationError.code;
     readonly dto: string;
-    // Warning: (ae-forgotten-export) The symbol "DtoIssue" needs to be exported by the entry point index.d.ts
     readonly issues: readonly DtoIssue[];
     // (undocumented)
     name: string;
@@ -2149,6 +2667,17 @@ export interface EndedChildRecord {
 }
 
 // @public
+export interface EndEvent<U> extends NodeEvent {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly update: U;
+}
+
+// @public
+export type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutputs ? ThisWorkflowOutputs[TName] : MissingGeneratedTypes;
+
+// @public
 export const env: EnvironmentVariableReader;
 
 // @public
@@ -2234,9 +2763,6 @@ export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
 export interface ErrorHandling<TInstance, THead extends PathHead> {
-    // Warning: (ae-forgotten-export) The symbol "WithClaims" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ClaimsOf" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): AfterStep<TInstance, WithClaims<THead, ClaimsOf<TPath>>>;
 }
@@ -2290,7 +2816,10 @@ export interface EvalCaseIssue {
 }
 
 // @public
-export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
+export interface ExecuteMethod {
+    // (undocumented)
+    execute(input: never): Promise<unknown>;
+}
 
 // @public
 export const EXECUTION_ID_STORE: InjectionToken<ExecutionIdStore>;
@@ -2328,10 +2857,11 @@ export abstract class ExecutionAuditLogRepository {
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "BudgetCommonOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends BudgetCommonOptions<TDeps> {
+export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
+    // (undocumented)
+    readonly deps?: TDeps;
+    readonly name: string;
     // (undocumented)
     readonly period?: never;
     // (undocumented)
@@ -2399,7 +2929,6 @@ export class ExecutionContextUnavailableError extends AGBossError {
     // (undocumented)
     name: string;
     static noFence(read: UnavailableRead, why: string): ExecutionContextUnavailableError;
-    // Warning: (ae-forgotten-export) The symbol "UnavailableRead" needs to be exported by the entry point index.d.ts
     static outside(read: UnavailableRead): ExecutionContextUnavailableError;
 }
 
@@ -2573,8 +3102,6 @@ export interface ExecutionIds {
 // @public
 export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId">;
 
-// Warning: (ae-forgotten-export) The symbol "WorkflowStartEntry" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends {
     readonly input: infer TInput;
@@ -2653,26 +3180,26 @@ export enum ExecutionOperation {
 }
 
 // @public
+export type ExecutionOptionOf<TInstance> = [StartExecutionOf<TInstance>] extends [never] ? {
+    readonly execution?: never;
+} : {
+    readonly execution: ContextValues<StartExecutionOf<TInstance>>;
+};
+
+// @public
 export interface ExecutionOptions extends CallOptions {
     readonly deadline?: Milliseconds;
-    // Warning: (ae-forgotten-export) The symbol "ContextFields" needs to be exported by the entry point index.d.ts
     readonly execution?: ContextFields;
     readonly ownerId?: string | undefined;
     readonly tenant?: TenantValues;
     readonly threadId?: string | undefined;
 }
 
-// Warning: (ae-forgotten-export) The symbol "StartTenantOf" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "StartExecutionOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ExecutionOptionsArgs<TInstance> = [
 StartTenantOf<TInstance> | StartExecutionOf<TInstance>
 ] extends [never] ? [options?: ExecutionOptionsOf<TInstance>] : [options: ExecutionOptionsOf<TInstance>];
 
-// Warning: (ae-forgotten-export) The symbol "TenantOptionOf" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ExecutionOptionOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ExecutionOptionsOf<TInstance> = Omit<ExecutionOptions, "tenant" | "execution"> & TenantOptionOf<TInstance> & ExecutionOptionOf<TInstance>;
 
@@ -2831,6 +3358,17 @@ export interface ExecutionStepRecord {
 }
 
 // @public
+export type ExecutionStreamEvent = {
+    readonly kind: "textDelta";
+    readonly delta: string;
+}
+/** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+| {
+    readonly kind: "toolCall";
+    readonly tool: string;
+};
+
+// @public
 export interface ExecutionTree {
     readonly rootExecutionId: string;
     readonly tenantId: string;
@@ -2860,14 +3398,6 @@ export type ExecutionTreeValue = string | number | boolean | null | readonly Exe
 };
 
 // @public
-export function executionVersions<TName extends string>(deps: AgentExecutionDeps<TName>): {
-    readonly promptVersion: string;
-    readonly modelVersion: string;
-    readonly configVersion: string;
-    readonly configHash: string;
-};
-
-// @public
 export enum ExpiryProblem {
     // (undocumented)
     AnswerInvalid = "answer-invalid",
@@ -2877,20 +3407,18 @@ export enum ExpiryProblem {
     HandlerTimeout = "handler-timeout"
 }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltHealthCheckResult" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface FailedHealthCheckResult extends BuiltHealthCheckResult {
+export interface FailedHealthCheckResult {
+    readonly [healthCheckResult]: true;
     // (undocumented)
     readonly reason: string;
     // (undocumented)
     readonly status: HealthStatus.Degraded | HealthStatus.Unhealthy;
 }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltVerdict" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface FailedJudgeVerdict extends BuiltVerdict {
+export interface FailedJudgeVerdict {
+    readonly [judgeVerdict]: true;
     readonly metrics?: JudgeMetrics;
     // (undocumented)
     readonly passed: false;
@@ -3171,6 +3699,12 @@ export interface FinishHandler<TSelf> {
 }
 
 // @public
+export interface FinishMethod {
+    // (undocumented)
+    finish(input: never): unknown;
+}
+
+// @public
 export interface FlowDefaults {
     // (undocumented)
     readonly maxPathDepth?: number;
@@ -3195,6 +3729,9 @@ export class FlowSyntaxError extends AGBossError {
 
 // @public
 export function formatLogEntry(entry: LogEntry): string;
+
+// @public
+export type GeneratedEntry<TTable, TInstance> = NameOf<TInstance> extends infer TName extends keyof TTable ? [TName] extends [never] ? MissingGeneratedTypes : TTable[TName] : MissingGeneratedTypes;
 
 // @public
 export interface GeneratedTypeError {
@@ -3223,11 +3760,16 @@ export interface GraphRuleErrorOptions {
     readonly violations: readonly RuleViolation[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "LaunchCheck" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TargetNames" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function group<const TAgents extends readonly [Class, ...Class[]]>(...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>): GroupStart<TargetNames<TAgents>>;
+
+// @public
+export type GroupArguments = readonly [GroupPath, ...GroupPath[]] | readonly [GroupPath, ...GroupPath[], QuorumGroupsOptions];
+
+// @public
+export type GroupCheck<TKey extends string, TPath> = [GroupOfPath<TPath>] extends [never] ? {
+    readonly __error: ".joinQuorumGroups(…) takes group(…).returns(…).to…(…) paths";
+} : GroupOfPath<TPath> extends GroupHead<infer TNames extends string, infer TGiven extends readonly unknown[]> ? GroupValuesCheck<JoinOutputOf<GroupKey<TKey, TNames>>, TGiven, GroupKey<TKey, TNames>> : never;
 
 // @public
 export interface GroupHead<TNames extends string, TGiven extends readonly unknown[], TClaims = never> {
@@ -3240,7 +3782,22 @@ export interface GroupHead<TNames extends string, TGiven extends readonly unknow
 }
 
 // @public
+export type GroupKey<TKey extends string, TNames extends string> = `${TKey} group(${TNames})`;
+
+// @public
+export type GroupOfPath<TPath> = TPath extends {
+    readonly [pathHead]?: GroupHead<infer TNames, infer TGiven, unknown>;
+} ? GroupHead<TNames, TGiven> : never;
+
+// @public
 export type GroupPath = BuiltPath<GroupHead<string, readonly unknown[], unknown>>;
+
+// @public
+export type GroupsCheck<TKey extends string, TArgs extends readonly unknown[]> = {
+    [K in keyof TArgs]: TArgs[K] extends {
+        readonly steps: unknown;
+    } ? GroupCheck<TKey, TArgs[K]> : unknown;
+};
 
 // @public
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
@@ -3268,6 +3825,13 @@ export interface GroupValues<TNames extends string, TGiven extends readonly unkn
     // (undocumented)
     returns<const TShape extends ValueShape>(value: TShape, ...options: [options?: ReturnsOptions]): GroupValues<TNames, [...TGiven, ValueOf<TShape>]> & Transitions<GroupHead<TNames, [...TGiven, ValueOf<TShape>]>>;
 }
+
+// @public (undocumented)
+export type GroupValuesCheck<TOutput, TGiven extends readonly unknown[], TKey extends string> = [
+TOutput
+] extends [GeneratedTypeError] ? TOutput : Same<ValuesLeft<TOutput>, Members<TGiven>> extends true ? unknown : {
+    readonly __error: `a group's .returns(…) names what its places give — see JoinOutputs["${TKey}"]`;
+};
 
 // @public
 export class GuardFailedError extends StepFailedError {
@@ -3325,12 +3889,20 @@ export interface GuardrailBlockedErrorOptions {
     readonly usage: readonly UsageRecord[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "ModelGuardrailFields" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface GuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> extends ModelGuardrailFields<D> {
+export interface GuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
+    readonly decidedBy?: DecidedBy.Model;
+    readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    readonly model?: string;
+    readonly name: string;
+    readonly prompt?: string;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
     // (undocumented)
     readonly refusal?: never;
+    readonly threshold: number;
 }
 
 // @public
@@ -3345,6 +3917,9 @@ export interface GuardrailDecisionRecord {
 }
 
 // @public
+export type GuardrailDecorator<D extends readonly Token[], T> = <C extends new (...args: ResolvedAll<D>) => T>(value: C) => C;
+
+// @public
 export interface GuardrailDefaults {
     // (undocumented)
     readonly model: string;
@@ -3352,6 +3927,14 @@ export interface GuardrailDefaults {
 
 // @public
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
+
+// @public
+export interface GuardrailFields {
+    // (undocumented)
+    readonly excludeGuardrails?: readonly Class[];
+    // (undocumented)
+    readonly guardrails?: readonly Class[];
+}
 
 // @public
 export interface GuardrailHandler {
@@ -3394,8 +3977,18 @@ export enum GuardrailSide {
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
 
 // @public
-export interface GuardrailTextOptions<D extends readonly Token[] = readonly Token[]> extends ModelGuardrailFields<D> {
+export interface GuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
+    readonly decidedBy?: DecidedBy.Model;
+    readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    readonly model?: string;
+    readonly name: string;
+    readonly prompt?: string;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
     readonly refusal: string;
+    readonly threshold: number;
 }
 
 // @public
@@ -3411,6 +4004,11 @@ export interface HandledErrorRecord {
     readonly by: ComponentRecord;
     readonly error: ErrorRecord;
 }
+
+// @public
+export type HandledFinishOptions<TDeps extends readonly Token[]> = WorkflowFinishOptions<TDeps> & {
+    readonly input: InputFields;
+};
 
 // @public
 export enum HandOverReason {
@@ -3497,7 +4095,8 @@ export enum HealthStatus {
 }
 
 // @public
-export interface HealthyCheckResult extends BuiltHealthCheckResult {
+export interface HealthyCheckResult {
+    readonly [healthCheckResult]: true;
     // (undocumented)
     readonly status: HealthStatus.Healthy;
 }
@@ -3522,8 +4121,6 @@ export interface HistoryOptions {
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
     // (undocumented)
     readonly dto: TDto;
-    // Warning: (ae-forgotten-export) The symbol "Wrapper" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kind: Wrapper.History;
     // (undocumented)
@@ -3658,8 +4255,6 @@ export class InjectionToken<T> {
 
 // @public
 export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
-    constructor(database: InMemoryDatabase);
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     // (undocumented)
@@ -3682,7 +4277,6 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
 
 // @public
 export class InMemoryA2ATaskRepository extends A2ATaskRepository {
-    constructor(database: InMemoryDatabase);
     // (undocumented)
     compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -3705,11 +4299,8 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
     static readonly store: StoreDescriptor;
 }
 
-// Warning: (ae-forgotten-export) The symbol "InMemoryFencedEffectTransaction" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
-    constructor(clock: Pick<StoreClock, "now">, database: InMemoryDatabase, settings: FencedEffectSettings, leases: ExecutionLeaseRepository);
     // (undocumented)
     deleteByStoredAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
@@ -3722,29 +4313,20 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
 
 // @public
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
-    constructor(clock: Pick<StoreClock, "now">, database: InMemoryDatabase, leases: ExecutionLeaseRepository);
     // (undocumented)
     deleteByEndedAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallStatusQuery" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
     // (undocumented)
     findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallLease" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallLeaseState" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
     // (undocumented)
     markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
     // (undocumented)
     markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallState" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallClaim" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
@@ -3756,13 +4338,14 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 }
 
 // @public
+export type InputCheck<TInstance> = ThisWorkflowName extends NameOf<TInstance> ? unknown : [InputOf<TInstance>] extends [GeneratedTypeError] ? InputOf<TInstance> : unknown;
+
+// @public
 export type InputFields = Readonly<Record<string, InputFieldShape>>;
 
 // @public
 export type InputFieldShape = DtoClass | ListWrapper | OptionalWrapper | HistoryWrapper;
 
-// Warning: (ae-forgotten-export) The symbol "GuardrailDecorator" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function InputGuardrail<const D extends readonly Token[] = []>(options: GuardrailTextOptions<D>): GuardrailDecorator<D, object>;
 
@@ -3914,6 +4497,17 @@ export interface InvalidThreadIdErrorOptions {
     readonly rule: KeyTextRule;
 }
 
+// @public (undocumented)
+export type IsIn<TMember, TMembers> = TMembers extends unknown ? Same<TMember, TMembers> : never;
+
+// @public
+export type IsPerItem<TTargets extends readonly unknown[], TValue> = TTargets extends readonly [
+unknown
+] ? [LastValue<TValue>] extends [never] ? false : [LastValue<TValue>] extends [readonly unknown[]] ? true : false : false;
+
+// @public
+export type IsSeveral<TOutput> = TOutput extends readonly unknown[] ? number extends TOutput["length"] ? false : true : false;
+
 // @public
 export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
@@ -3927,8 +4521,14 @@ export function isVariant<TItem extends {
     readonly variant: DtoClass<InstanceType<TDto>>;
 }>;
 
-// Warning: (ae-forgotten-export) The symbol "JoinContinuation" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type IsWholeQuorum<TMin, TCount extends number> = number extends TCount ? false : number extends TMin ? false : TMin extends TCount ? true : false;
+
+// @public
+export type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [
+TOutput
+] extends [GeneratedTypeError] ? Returning<JoinValues<TKey>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> : Returning<JoinValues<TKey>, ValuesLeft<TOutput>, THead>;
+
 // @public
 export type Joined<TKey extends string, THead extends PathHead> = JoinErrorHandling<TKey, THead> & JoinContinuation<JoinOutputOf<TKey>, TKey, THead>;
 
@@ -3944,6 +4544,12 @@ export interface JoinErrorHandler {
 export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
     // (undocumented)
     onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
+}
+
+// @public (undocumented)
+export interface JoinNotGiven<TName extends string> {
+    // (undocumented)
+    readonly __error: `the .returns(…) after the join of .toParallelWorkflows(ThisWorkflow, …) is not what ${TName}'s children give — see ThisWorkflowOutputs["${TName}"]["join"]`;
 }
 
 // @public
@@ -4118,6 +4724,52 @@ export enum KeyTextRule {
 export function keyTextRuleOf(text: string): KeyTextRule | undefined;
 
 // @public
+export type KindCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = [
+NameOf<InstanceType<TClass>>
+] extends [never] ? MissingGeneratedTypes : [KindOf<InstanceType<TClass>>] extends [never] ? WrongKind<NameOf<InstanceType<TClass>>, TLabel> : [KindOf<InstanceType<TClass>>] extends [TKind] ? unknown : WrongKind<NameOf<InstanceType<TClass>>, TLabel>;
+
+// @public (undocumented)
+export type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
+
+// @public
+export interface KindLabels {
+    // (undocumented)
+    [NodeKind.Finish]: "a workflow finish";
+    // (undocumented)
+    [NodeKind.Start]: "a workflow start";
+    // (undocumented)
+    [NodeKind.Action]: "an action";
+    // (undocumented)
+    [NodeKind.Agent]: "an agent";
+    // (undocumented)
+    [NodeKind.Question]: "a question role";
+    // (undocumented)
+    [NodeKind.Router]: "a router";
+    // (undocumented)
+    [NodeKind.Workflow]: "a workflow";
+}
+
+// @public
+export type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;
+
+// @public
+export type KindOfName<TName extends string> = TName extends `${string}-workflow-start` ? NodeKind.Start : TName extends `${string}-workflow-finish` ? NodeKind.Finish : TName extends `${string}-workflow` ? NodeKind.Workflow : TName extends `${string}-agent` ? NodeKind.Agent : TName extends `${string}-router` ? NodeKind.Router : TName extends `${string}-action` ? NodeKind.Action : TName extends `${string}-question` ? NodeKind.Question : never;
+
+// @public
+export type LastValue<TValue> = IsSeveral<TValue> extends true ? TValue extends readonly [...unknown[], infer TLast] ? TLast : never : TValue;
+
+// @public
+export type LaunchArguments = readonly [Class, ...Class[]] | readonly [Class, ...Class[], LaunchOptions];
+
+// @public
+export type LaunchCheck<TArgs extends readonly unknown[], TKind extends NodeKind> = {
+    [K in keyof TArgs]: TArgs[K] extends Class ? TargetCheck<TArgs[K], TKind, KindLabel<TKind>> : unknown;
+};
+
+// @public
+export type LaunchCount<TTargets extends readonly unknown[], TPerItem extends boolean> = TPerItem extends true ? number : TTargets["length"];
+
+// @public
 export interface Launched<TKey extends string, THead extends PathHead> {
     // (undocumented)
     join(): Joined<TKey, THead>;
@@ -4127,14 +4779,8 @@ export interface Launched<TKey extends string, THead extends PathHead> {
 export interface Launches<TValue, THead extends PathHead> {
     // (undocumented)
     toParallelActions<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>): Launched<LaunchKey<"toParallelActions", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">, THead>;
-    // Warning: (ae-forgotten-export) The symbol "LaunchArguments" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "LaunchKey" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "TargetsOf" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "LaunchCount" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<LaunchKey<"toParallelAgents", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">, THead, LaunchCount<TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>>>;
-    // Warning: (ae-forgotten-export) The symbol "ChildLaunched" needs to be exported by the entry point index.d.ts
     toParallelWorkflows<const TClass extends Class>(workflow: TClass & ChildLaunchCheck<TClass, TValue>, options: WorkflowLaunchOptions): ChildLaunched<TClass, THead>;
 }
 
@@ -4144,6 +4790,9 @@ export interface LaunchItemsTruncatedEvent extends NodeEvent {
     readonly launch: string;
     readonly maxItems: number;
 }
+
+// @public
+export type LaunchKey<TCall extends string, TTargets extends readonly unknown[], TPerItem extends boolean, TPrefix extends string> = `${TPrefix}${TCall}(${TargetNames<TTargets>})${TPerItem extends true ? " per item" : ""}`;
 
 // @public
 export interface LaunchOptions {
@@ -4271,8 +4920,6 @@ export interface LimitExceededErrorOptions {
     readonly usage?: readonly UsageRecord[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "ListElementShape" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
 
@@ -4283,11 +4930,6 @@ export interface ListWrapper<TElement extends ListElementShape = ListElementShap
     // (undocumented)
     readonly kind: Wrapper.List;
 }
-
-// @public
-export const loadWorkflow: (path: string, options?: {
-    readonly typescript?: boolean;
-}) => Promise<AssembledWorkflow>;
 
 // @public
 export function loadWorkflowClass(path: string, options?: {
@@ -4322,6 +4964,32 @@ export type MaskingPiiAction = ReplaceWithKindAction | ReplacePartAction | Repla
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
+
+// @public
+export type MayBeLeftOut<TValue> = TValue extends readonly unknown[] ? TValue : TValue | undefined;
+
+// @public
+export interface Member<TValue> {
+    // (undocumented)
+    readonly value: TValue;
+}
+
+// @public (undocumented)
+export type Members<TValues extends readonly unknown[]> = {
+    [K in keyof TValues]: Member<TValues[K]>;
+}[number];
+
+// @public
+export interface MemoryStore {
+    // (undocumented)
+    readonly addSummary: (summary: NewSummary) => Promise<Summary>;
+    readonly before: (tenantId: string, threadId: string, turnId: string, limit: number) => Promise<Turn[]>;
+    readonly latestSummaries: (tenantId: string, threadId: string, compaction: string, limit: number) => Promise<Summary[]>;
+    // (undocumented)
+    readonly summaryCount: (tenantId: string, threadId: string, compaction: string) => Promise<number>;
+    readonly turnNumber: (tenantId: string, threadId: string, turnId: string) => Promise<number>;
+    readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Turn[]>;
+}
 
 // @public
 export interface MeshBudgetClaim {
@@ -4539,9 +5207,22 @@ export interface ModelEndEvent extends NodeEvent {
 }
 
 // @public
-export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> extends JudgeBaseMeta<TReply> {
+export interface ModelGateway {
+    // (undocumented)
+    readonly chatModel: (spec: ChatModelSpec) => BaseChatModel;
+    readonly decide?: (spec: DecideSpec) => Promise<DecisionOutcome>;
+    // (undocumented)
+    readonly routeTo: (spec: DecisionSpec) => Promise<RouteOutcome>;
+}
+
+// @public
+export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
     readonly decidedBy?: DecidedBy.Model;
+    // (undocumented)
+    readonly description?: string;
     readonly model: string;
+    readonly name: string;
+    readonly reply: TReply;
 }
 
 // @public
@@ -4578,24 +5259,35 @@ export interface ModelKindErrorOptions {
 }
 
 // @public
-export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOptions {
+export interface ModelReplyInterpreterOptions {
     // (undocumented)
     readonly decidedBy: DecidedBy.Model;
     // (undocumented)
     readonly deps?: never;
+    // (undocumented)
+    readonly description: string;
     readonly model: string;
+    readonly name: string;
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
 }
 
 // @public
-export interface ModelRouterOptions extends RouterBase, CompactionFields {
+export type ModelRouterDecorator = <TClass extends new () => object>(value: TClass & NoRouteMethod<TClass>) => TClass;
+
+// @public
+export interface ModelRouterOptions extends PiiPolicyFields, GuardrailFields, CompactionFields {
     // (undocumented)
     readonly decidedBy: DecidedBy.Model;
     // (undocumented)
     readonly deps?: never;
+    // (undocumented)
+    readonly description: string;
+    readonly input: InputFields;
+    readonly maxVisits?: number;
     readonly model?: string;
+    readonly name: string;
     readonly prompt?: string;
     // (undocumented)
     readonly promptUrls?: readonly string[];
@@ -4623,6 +5315,11 @@ export interface ModelUsage {
     // (undocumented)
     readonly totalTokens: number;
 }
+
+// @public
+export type NameOf<TInstance> = TInstance extends {
+    readonly [agbossComponent]?: infer TName extends string;
+} ? string extends TName ? never : TName : never;
 
 // @public (undocumented)
 export function nameOf<TComponent extends Class>(component: TComponent): ComponentName<TComponent>;
@@ -4684,6 +5381,21 @@ export enum NodeKind {
 }
 
 // @public
+export interface NodeValue {
+    // (undocumented)
+    readonly value: unknown;
+    // (undocumented)
+    readonly variant?: string;
+}
+
+// @public
+export type NoFinishMethod<TClass extends Class> = InstanceType<TClass> extends {
+    readonly finish: unknown;
+} ? {
+    readonly __error: "a finish without input has no handler — declare input, or remove finish()";
+} : unknown;
+
+// @public
 export interface NoInput {
     // (undocumented)
     readonly [noInput]?: never;
@@ -4694,6 +5406,13 @@ export interface NoOutput {
     // (undocumented)
     readonly [noOutput]: true;
 }
+
+// @public
+export type NoRouteMethod<TClass extends Class> = InstanceType<TClass> extends {
+    readonly route: unknown;
+} ? {
+    readonly __error: "a model router has no route() — routes are chosen by its model";
+} : unknown;
 
 // @public
 export interface NoSummaryCompactionOptions {
@@ -4728,6 +5447,12 @@ export class NotAWorkflowStartError extends AGBossError {
     name: string;
 }
 
+// @public (undocumented)
+export interface NotGiven<TSource extends ValuesSource> {
+    // (undocumented)
+    readonly __error: `not what ${TSource["label"]} gives — see ${TSource["entry"]}`;
+}
+
 // @public
 export class NotPausedError extends AGBossError {
     constructor(options: MessageErrorOptions);
@@ -4754,7 +5479,8 @@ export interface NotSentByLookup {
 }
 
 // @public
-export interface NotSentReconciliation extends BuiltReconciliation {
+export interface NotSentReconciliation {
+    readonly [reconciliationBrand]: true;
     // (undocumented)
     readonly verdict: OutboundCallVerdict.NotSent;
 }
@@ -4765,10 +5491,9 @@ export enum NotSentTrust {
     Lookup = "lookup"
 }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltReplyInterpretation" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface NotUnderstoodReply extends BuiltReplyInterpretation {
+export interface NotUnderstoodReply {
+    readonly [replyInterpretation]: true;
     // (undocumented)
     readonly kind: ReplyInterpretationKind.NotUnderstood;
     // (undocumented)
@@ -4869,8 +5594,6 @@ export interface OnDestroy {
     onDestroy(): Promise<void> | void;
 }
 
-// Warning: (ae-forgotten-export) The symbol "OneOfVariants" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
 
@@ -5051,8 +5774,6 @@ export interface OnValuesOutdated {
     onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
 
-// Warning: (ae-forgotten-export) The symbol "OptionalInnerShape" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
 
@@ -5563,6 +6284,11 @@ export interface OutdatedValueReference extends ScopeValueReference {
 }
 
 // @public
+export type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
+GeneratedTypeError
+] ? Returning<StepValues<TInstance>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> & Launches<never, THead> : Returning<StepValues<TInstance>, ValuesLeft<TOutput>, THead>;
+
+// @public
 export function OutputGuardrail<const D extends readonly Token[] = []>(options: GuardrailTextOptions<D>): GuardrailDecorator<D, object>;
 
 // @public
@@ -5633,7 +6359,8 @@ export interface PairwiseResult {
 }
 
 // @public
-export interface PassedJudgeVerdict extends BuiltVerdict {
+export interface PassedJudgeVerdict {
+    readonly [judgeVerdict]: true;
     readonly metrics?: JudgeMetrics;
     // (undocumented)
     readonly passed: true;
@@ -5644,12 +6371,14 @@ export interface PassedJudgeVerdictOptions {
     readonly metrics?: JudgeMetrics;
 }
 
+// @public
+export type PassThroughFinishOptions<TDeps extends readonly Token[]> = WorkflowFinishOptions<TDeps> & {
+    readonly input?: undefined;
+};
+
 // @public (undocumented)
 export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<string, readonly unknown[], unknown>;
 
-// Warning: (ae-forgotten-export) The symbol "StartSource" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ComponentSource" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type PathSource = StartSource | ComponentSource;
 
@@ -5659,6 +6388,18 @@ export interface PauseAnswer {
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];
+}
+
+// @public
+export interface PauseAnswerEntry {
+    readonly askedAt: string;
+    // (undocumented)
+    readonly record: string;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    readonly stepKey: string;
+    // (undocumented)
+    readonly tenantId: string;
 }
 
 // @public
@@ -5730,37 +6471,27 @@ export interface PausedExecution extends ResumeVersions {
 export abstract class PausedExecutionRepository {
     abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
     abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "PauseNoticeClaim" needs to be exported by the entry point index.d.ts
     abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
-    // Warning: (ae-forgotten-export) The symbol "PauseUntakenResolution" needs to be exported by the entry point index.d.ts
     abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "PauseNoticeCounts" needs to be exported by the entry point index.d.ts
     abstract countNotices(): Promise<PauseNoticeCounts>;
     abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
     abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "PauseExpiry" needs to be exported by the entry point index.d.ts
     abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "PauseExtension" needs to be exported by the entry point index.d.ts
     abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseExtension, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
     abstract findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
-    // Warning: (ae-forgotten-export) The symbol "PausePage" needs to be exported by the entry point index.d.ts
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
-    // Warning: (ae-forgotten-export) The symbol "PauseFilter" needs to be exported by the entry point index.d.ts
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
-    // Warning: (ae-forgotten-export) The symbol "PauseRecipients" needs to be exported by the entry point index.d.ts
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "PauseNoticeKind" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "PauseNoticeFacts" needs to be exported by the entry point index.d.ts
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
@@ -5768,7 +6499,6 @@ export abstract class PausedExecutionRepository {
     abstract retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean>;
     abstract save(paused: PausedExecution): Promise<void>;
     abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;
-    // Warning: (ae-forgotten-export) The symbol "SetAsideMailbox" needs to be exported by the entry point index.d.ts
     abstract setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
 }
 
@@ -5791,10 +6521,8 @@ export interface PauseRecord extends PauseSite {
     readonly askedAt: string;
     readonly boundAt?: string;
     readonly channel: string;
-    // Warning: (ae-forgotten-export) The symbol "PauseFirstClose" needs to be exported by the entry point index.d.ts
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
-    // Warning: (ae-forgotten-export) The symbol "PauseExpiryBound" needs to be exported by the entry point index.d.ts
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
     readonly isSent: boolean;
@@ -5888,7 +6616,10 @@ export interface PendingQuestion extends PendingPauseBase {
 }
 
 // @public
-export interface PeriodBudgetOptions<TDeps extends readonly Token[]> extends BudgetCommonOptions<TDeps> {
+export interface PeriodBudgetOptions<TDeps extends readonly Token[]> {
+    // (undocumented)
+    readonly deps?: TDeps;
+    readonly name: string;
     // (undocumented)
     readonly period: BudgetPeriod;
     // (undocumented)
@@ -6022,13 +6753,19 @@ export interface PiiMatch {
 // @public
 export type PiiPartOptions = PiiKeptPart | PiiReplacedPart;
 
-// Warning: (ae-forgotten-export) The symbol "PiiRefusalShape" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C & PiiRefusalShape<InstanceType<C>>) => C;
 
 // @public
 export function PiiPolicy<const D extends readonly Token[] = []>(options: CustomPiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => PiiPolicyHandler>(value: C) => C;
+
+// @public
+export interface PiiPolicyFields {
+    // (undocumented)
+    readonly excludePiiPolicies?: readonly Class[];
+    // (undocumented)
+    readonly piiPolicies?: readonly Class[];
+}
 
 // @public
 export interface PiiPolicyHandler {
@@ -6047,6 +6784,11 @@ export interface PiiRefusalOptions {
     // (undocumented)
     readonly refusal: string;
 }
+
+// @public
+export type PiiRefusalShape<TInstance> = TInstance extends {
+    readonly refusal: unknown;
+} ? new (...args: never[]) => PiiRefusal : unknown;
 
 // @public
 export class PiiRefusedError extends PaidStepError {
@@ -6103,6 +6845,16 @@ export interface PlainErrorOptions {
 }
 
 // @public
+export interface PlannedNotice {
+    // (undocumented)
+    readonly at: Date;
+    // (undocumented)
+    readonly notice: Omit<PauseNotice, "seq">;
+    // (undocumented)
+    readonly recipient: string;
+}
+
+// @public
 export interface PreviousLeaseHolder {
     // (undocumented)
     readonly holderInstanceId: string;
@@ -6120,6 +6872,9 @@ export interface ProducedValue<TValue, TProducer> {
     // (undocumented)
     readonly value: TValue;
 }
+
+// @public
+export type ProducerOutputOf<TInstance> = GeneratedEntry<ProducerOutputs, TInstance>;
 
 // @public
 export interface ProducerOutputs {
@@ -6264,6 +7019,11 @@ export interface QuestionFailedErrorOptions {
 }
 
 // @public
+export type QuestionRoleClass = Class<{
+    send(ask: never): Promise<unknown>;
+}>;
+
+// @public
 export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
@@ -6283,6 +7043,11 @@ export interface QueuedChildExecution {
 
 // @public (undocumented)
 export type Quorum = CountQuorum | GroupsQuorum;
+
+// @public (undocumented)
+export type QuorumContinuation<TOutput, TKey extends string, THead extends PathHead> = [
+TOutput
+] extends [GeneratedTypeError] ? Returning<QuorumValues<TKey>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> : Returning<QuorumValues<TKey>, ValuesLeft<TOutput>, THead>;
 
 // @public
 export interface QuorumDecidedEvent extends NodeEvent {
@@ -6314,9 +7079,6 @@ export interface QuorumGroupsOptions {
     readonly deadline?: Milliseconds;
 }
 
-// Warning: (ae-forgotten-export) The symbol "QuorumContinuation" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "QuorumOutput" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type QuorumJoined<TKey extends string, THead extends PathHead, TWhole extends boolean> = {
     onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
@@ -6358,16 +7120,16 @@ export interface QuorumOptions {
 }
 
 // @public
+export type QuorumOutput<TOutput, TWhole extends boolean> = TWhole extends true ? TOutput : [TOutput] extends [GeneratedTypeError | NoOutput] ? TOutput : IsSeveral<TOutput> extends true ? {
+    readonly [K in keyof TOutput]: MayBeLeftOut<TOutput[K]>;
+} : MayBeLeftOut<TOutput>;
+
+// @public
 export interface Quorums<TKey extends string, THead extends PathHead, TCount extends number> {
     // (undocumented)
     acceptedBy(arbiter: ArbiterChoice): Quorums<TKey, THead, TCount>;
-    // Warning: (ae-forgotten-export) The symbol "IsWholeQuorum" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     joinQuorum<const TOptions extends QuorumOptions>(options: TOptions): QuorumJoined<TKey, THead, IsWholeQuorum<TOptions["min"], TCount>>;
-    // Warning: (ae-forgotten-export) The symbol "GroupArguments" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "GroupsCheck" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TKey, TArgs>): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
 }
@@ -6379,8 +7141,26 @@ export interface QuorumShortfall {
     readonly reason: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "RagRetrieval" needs to be exported by the entry point index.d.ts
-//
+// @public
+export interface QuorumValues<TKey extends string> extends ValuesSource {
+    // (undocumented)
+    readonly canLaunch: false;
+    // (undocumented)
+    readonly entry: `JoinOutputs["${TKey}"]`;
+    // (undocumented)
+    readonly label: "the quorum (a single answer is optional(…) unless min is every agent)";
+    // (undocumented)
+    readonly takesAbout: true;
+}
+
+// @public
+export interface RagBinding {
+    // (undocumented)
+    readonly mode: RagMode;
+    // (undocumented)
+    readonly use: Class;
+}
+
 // @public
 export type RagEndEvent = EndEvent<RagRetrieval>;
 
@@ -6476,6 +7256,14 @@ export interface ReplyInterpreterHandler<TSelf> {
 }
 
 // @public
+export interface ReplyInterpreterInput {
+    // (undocumented)
+    readonly ask: unknown;
+    // (undocumented)
+    readonly reply: string;
+}
+
+// @public
 export class ReplyInterpreterMissingError extends AGBossError {
     constructor(options: MessageErrorOptions);
     // (undocumented)
@@ -6497,16 +7285,13 @@ export interface ReplyResumeRequest {
     readonly reply: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AnyTool" needs to be exported by the entry point index.d.ts
-//
-// @public (undocumented)
-export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
-
-// Warning: (ae-forgotten-export) The symbol "TreeResume" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ContinueOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
-export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
+export type Resolved<T> = T extends InjectionToken<infer V> ? V : T extends abstract new (...args: never[]) => infer I ? I : never;
+
+// @public
+export type ResolvedAll<D extends readonly Token[]> = {
+    -readonly [K in keyof D]: Resolved<D[K]>;
+};
 
 // @public
 export type ResumeDecision = "resume" | "reject";
@@ -6546,27 +7331,31 @@ export interface RetentionOptions {
 }
 
 // @public
+export type ReturnedShape = ValueShape | OneOfWrapper;
+
+// @public
 export interface ReturnedValue {
     readonly about?: readonly DtoClass[];
-    // Warning: (ae-forgotten-export) The symbol "ReturnedShape" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly shape: ReturnedShape;
 }
 
 // @public
 export interface Returning<TSource extends ValuesSource, TLeft, THead extends PathHead, TGiven extends readonly unknown[] = []> {
-    // Warning: (ae-forgotten-export) The symbol "ReturnsCheck" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ReturnsArguments" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "AfterReturns" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "Without" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     returns<const TShape extends ReturnedShape>(value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, TSource>, ...options: ReturnsArguments<TShape, TSource>): AfterReturns<TSource, Without<TLeft, ValueOf<TShape>>, [
     ...TGiven,
     ValueOf<TShape>
     ], TShape, THead>;
 }
+
+// @public
+export type ReturnsArguments<TShape, TSource extends ValuesSource> = TSource["takesAbout"] extends false ? [] : TShape extends OneOfWrapper ? [] : [options?: ReturnsOptions];
+
+// @public
+export type ReturnsCheck<TValue, TLeft, TSource extends ValuesSource> = [TLeft] extends [
+GeneratedTypeError
+] ? TLeft : true extends IsIn<Member<TValue>, TLeft> ? unknown : NotGiven<TSource>;
 
 // @public
 export interface ReturnsOptions {
@@ -6585,15 +7374,9 @@ export interface ReturnsStep {
 // @public
 export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
 
-// Warning: (ae-forgotten-export) The symbol "RouteTargetKind" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "RouteTargetLabel" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "RouteOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function route<const TClass extends Class>(target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<TClass>): RouteContinuation<InstanceType<TClass>>;
 
-// Warning: (ae-forgotten-export) The symbol "KindOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? BuiltPath<RouteHead> : AfterStep<TInstance, RouteHead>;
 
@@ -6606,15 +7389,43 @@ export interface RouteHead<TClaims = never> {
 }
 
 // @public
+export interface RouteMethod {
+    // (undocumented)
+    route(input: never): unknown;
+}
+
+// @public
+export interface RouteOption {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export type RouteOptions<TClass extends Class> = [KindOf<InstanceType<TClass>>] extends [
+NodeKind.Workflow
+] ? readonly [options?: ChildStepOptions] : readonly [];
+
+// @public
+export type RouteOutcome = {
+    readonly kind: "decided";
+    readonly decision: RouterDecision;
+    readonly usage?: UsageRecord;
+} | {
+    readonly kind: "failed";
+    readonly reason: string;
+    readonly usage?: UsageRecord;
+    readonly unknownOption?: string;
+    readonly cause?: unknown;
+};
+
+// @public
 export type RoutePath = BuiltPath<RouteHead<unknown>>;
 
-// Warning: (ae-forgotten-export) The symbol "ModelRouterDecorator" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Router(options: ModelRouterOptions): ModelRouterDecorator;
 
-// Warning: (ae-forgotten-export) The symbol "CodeRouterDecorator" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Router<const TDeps extends readonly Token[] = []>(options: CodeRouterOptions<TDeps>): CodeRouterDecorator<TDeps>;
 
@@ -6639,6 +7450,15 @@ export interface RouterDecided {
     readonly reason: string;
     // (undocumented)
     readonly route: string;
+}
+
+// @public (undocumented)
+export interface RouterDecision {
+    readonly confidence?: number;
+    // (undocumented)
+    readonly next: string;
+    // (undocumented)
+    readonly reason: string;
 }
 
 // @public
@@ -6675,11 +7495,17 @@ export type RouterEndEvent = EndEvent<RouterDecided>;
 export interface RouterEngine {
     // (undocumented)
     readonly name: string;
-    // Warning: (ae-forgotten-export) The symbol "RouteRequest" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "RouteOutcome" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly route: (request: RouteRequest) => Promise<RouteOutcome>;
+}
+
+// @public
+export interface RouteRequest {
+    // (undocumented)
+    readonly input: MessageContent;
+    readonly instructions?: string;
+    // (undocumented)
+    readonly options: readonly RouteOption[];
 }
 
 // @public
@@ -6716,9 +7542,6 @@ export interface RouterLaunches<TName extends string, THead extends PathHead> {
 // @public
 export type RouterOptions = ModelRouterOptions | CodeRouterOptions;
 
-// Warning: (ae-forgotten-export) The symbol "ChosenRouterRoute" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "AlwaysRouterRoute" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
 
@@ -6746,6 +7569,12 @@ export interface Routes {
     readonly [notGenerated]?: never;
 }
 
+// @public (undocumented)
+export type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
+
+// @public
+export type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
+
 // @public
 export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
@@ -6758,6 +7587,9 @@ export interface RuleViolation {
     // (undocumented)
     readonly nodes: readonly string[];
 }
+
+// @public
+export type Same<TFirst, TSecond> = [TFirst] extends [TSecond] ? [TSecond] extends [TFirst] ? true : false : false;
 
 // @public
 export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
@@ -6843,14 +7675,21 @@ export interface SideHead<TClaims = never> {
 // @public
 export type SidePath = BuiltPath<SideHead<unknown>>;
 
-// Warning: (ae-forgotten-export) The symbol "SummarisingOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface SingleSummaryCompactionOptions extends SummarisingOptions {
+export interface SingleSummaryCompactionOptions {
+    // (undocumented)
+    readonly description: string;
+    readonly model: string;
+    readonly name: string;
+    readonly prompt?: string;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
     // (undocumented)
     readonly strategy: CompactionStrategy.SingleSummary;
+    readonly summaryMaxTokens: SummaryMaxTokens;
     // (undocumented)
     readonly summaryQueueLength?: never;
+    readonly turnsBetweenCompactions: number;
 }
 
 // @public
@@ -6891,20 +7730,13 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     deleteThread(threadId: string): Promise<void>;
     // (undocumented)
     getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "ListOptions" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
-    list(config: RunnableConfig, options?: ListOptions): AsyncGenerator<CheckpointTuple>;
+    list(config: RunnableConfig, options?: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]>): AsyncGenerator<CheckpointTuple>;
     ping(): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "Checkpoint" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "CheckpointMetadata" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
-    put(config: RunnableConfig, checkpoint: Checkpoint, metadata: CheckpointMetadata): Promise<RunnableConfig>;
-    // Warning: (ae-forgotten-export) The symbol "PutWritesArguments" needs to be exported by the entry point index.d.ts
-    //
+    put(config: RunnableConfig, checkpoint: Parameters<BaseCheckpointSaver["put"]>[1], metadata: Parameters<BaseCheckpointSaver["put"]>[2]): Promise<RunnableConfig>;
     // (undocumented)
-    putWrites(...input: PutWritesArguments): Promise<void>;
+    putWrites(...input: Parameters<BaseCheckpointSaver["putWrites"]>): Promise<void>;
 }
 
 // @public
@@ -7088,11 +7920,157 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     static readonly store: StoreDescriptor;
 }
 
-// Warning: (ae-forgotten-export) The symbol "SqlitePauseStore" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class SqlitePausedExecutionRepository extends SqlitePauseStore {
     constructor(connection: SqliteConnection, clock: Clock);
+}
+
+// @public
+export abstract class SqlitePausedRunRepository extends PausedExecutionRepository {
+    constructor(connection: SqliteConnection, clock: Clock);
+    // (undocumented)
+    protected readonly connection: SqliteConnection;
+    // (undocumented)
+    deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
+    // (undocumented)
+    deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
+    // (undocumented)
+    findByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<PausedExecution | undefined>;
+    // (undocumented)
+    protected readonly notices: SqlitePauseNoticeRows;
+    // (undocumented)
+    protected readonly pauses: SqlitePauseRows;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    protected readonly runs: SqlitePausedRunRows;
+    // (undocumented)
+    save(paused: PausedExecution): Promise<void>;
+    // (undocumented)
+    protected readonly scans: SqlitePauseScans;
+}
+
+// @public
+export class SqlitePausedRunRows {
+    constructor(database: DatabaseSync);
+    // (undocumented)
+    delete(tenantId: string, threadId: string): void;
+    deleteOfRun(tenantId: string, threadId: string, runId: string): void;
+    // (undocumented)
+    find(tenantId: string, threadId: string): PausedExecution | undefined;
+    // (undocumented)
+    save(paused: PausedExecution, at: Date): void;
+}
+
+// @public
+export class SqlitePauseNoticeRows {
+    constructor(database: DatabaseSync);
+    // (undocumented)
+    ack(claim: PauseNoticeClaim, at: Date): PauseNoticeClaim | undefined;
+    append(pause: PauseRecord, notices: readonly PlannedNotice[]): void;
+    claimDue(at: Date, limit: number, claimFor: number, recipients: readonly string[], newToken: () => string): PauseNoticeClaim[];
+    // (undocumented)
+    count(): PauseNoticeCounts;
+    // (undocumented)
+    find(tenantId: string, pauseId: string, recipient: string): StoredMailbox | undefined;
+    hasLive(tenantId: string, pauseId: string): boolean;
+    hasNoticeOf(tenantId: string, pauseId: string, kind: PauseNoticeKind): boolean;
+    held(claim: PauseNoticeClaim): StoredMailbox | undefined;
+    ofPause(tenantId: string, pauseId: string): readonly StoredMailbox[];
+    put(box: StoredMailbox): void;
+    // (undocumented)
+    retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean;
+    // (undocumented)
+    setAside(claim: PauseNoticeClaim, problem: string): boolean;
+    setAsideStale(writtenBefore: Date, at: Date, problem: string, limit: number): readonly SetAsideMailbox[];
+}
+
+// @public
+export abstract class SqlitePauseQueryRepository extends SqlitePausedRunRepository {
+    // (undocumented)
+    ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
+    // (undocumented)
+    claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
+    // (undocumented)
+    countNotices(): Promise<PauseNoticeCounts>;
+    // (undocumented)
+    deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
+    // (undocumented)
+    findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]>;
+    // (undocumented)
+    findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
+    // (undocumented)
+    findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
+    // (undocumented)
+    findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    // (undocumented)
+    findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    // (undocumented)
+    retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean>;
+    // (undocumented)
+    setAsideNotices(claim: PauseNoticeClaim, _at: Date, problem: string): Promise<boolean>;
+    // (undocumented)
+    setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
+}
+
+// @public
+export class SqlitePauseRows {
+    constructor(database: DatabaseSync);
+    // (undocumented)
+    findAllByRoot(tenantId: string, rootExecutionId: string): readonly PauseRecord[];
+    // (undocumented)
+    findById(tenantId: string, pauseId: string): PauseRecord | undefined;
+    findByStepKey(input: PauseRecord): PauseRecord | undefined;
+    findByTree(tenantId: string, rootExecutionId: string, stepKey: string): PauseRecord | undefined;
+    // (undocumented)
+    insert(pause: PauseRecord): void;
+    write(changed: PauseRecord, was: PauseStatus): boolean;
+}
+
+// @public (undocumented)
+export class SqlitePauseScans {
+    constructor(database: DatabaseSync);
+    closedBefore(cutoff: Date, limit: number): readonly PauseRecord[];
+    ofTenant(tenantId: string, filter: PauseFilter, from: number, limit: number): PausePage;
+    open(from: number, limit: number): PausePage;
+    page(where: {
+        readonly clause: string;
+        readonly values: readonly SQLInputValue[];
+    }, from: number, limit: number): PausePage;
+    pendingDue(column: "expires_at" | "remind_at", at: Date, limit: number): readonly PauseRecord[];
+    removeClosedBefore(cutoff: Date): void;
+}
+
+// @public
+export class SqlitePauseStore extends SqlitePauseQueryRepository {
+    // (undocumented)
+    cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
+    // (undocumented)
+    expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseExtension, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
+    // (undocumented)
+    findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
+    // (undocumented)
+    findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
+    // (undocumented)
+    markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
+    // (undocumented)
+    markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
+    // (undocumented)
+    noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
+    // (undocumented)
+    remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
+    // (undocumented)
+    resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
 }
 
 // @public
@@ -7119,8 +8097,41 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
 // @public
 export function start<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
+// @public
+export type StartClass = Class;
+
+// @public
+export interface StartEvent<I> extends NodeEvent {
+    // (undocumented)
+    readonly input: I;
+    readonly name: string;
+}
+
+// @public (undocumented)
+export type StartExecutionOf<TInstance> = WorkflowStartEntry<TInstance> extends {
+    readonly execution: infer TExecution;
+} ? TExecution : never;
+
+// @public (undocumented)
+export interface StartSource {
+    // (undocumented)
+    readonly kind: NodeKind.Start;
+    // (undocumented)
+    readonly node: StartClass;
+}
+
+// @public
+export type StartTenantOf<TInstance> = WorkflowStartEntry<TInstance> extends {
+    readonly tenant: infer TTenant;
+} ? TTenant : never;
+
 // @public (undocumented)
 export type Step = ReturnsStep | ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+
+// @public (undocumented)
+export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
+never
+] ? Returning<StepValues<TInstance>, MissingGeneratedTypes, THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? Returning<StepValues<TInstance>, ValuesLeft<ProducerOutputOf<TInstance>>, THead> : ThisWorkflowName extends NameOf<TInstance> ? ErrorHandling<TInstance, THead> & ThisWorkflowReturning<THead> : ErrorHandling<TInstance, THead> & OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -7193,6 +8204,12 @@ export enum StepKind {
     Switch = "switch",
     // (undocumented)
     To = "to"
+}
+
+// @public (undocumented)
+export interface StepNotGiven<TName extends string> {
+    // (undocumented)
+    readonly __error: `a .returns(…) after ThisWorkflow is not what ${TName} gives — see ThisWorkflowOutputs["${TName}"]["output"]`;
 }
 
 // @public
@@ -7268,6 +8285,15 @@ export interface StoreDescriptor {
 }
 
 // @public
+export interface StoredMailbox extends PauseMailbox {
+    // (undocumented)
+    readonly claim?: {
+        readonly token: string;
+        readonly until: Date;
+    };
+}
+
+// @public
 export type StoreTime = Brand<Date, "StoreTime">;
 
 // @public
@@ -7321,10 +8347,19 @@ export interface Summary {
 export type SummaryMaxTokens = number | TokenLimit.MODEL_MAX;
 
 // @public
-export interface SummaryQueueCompactionOptions extends SummarisingOptions {
+export interface SummaryQueueCompactionOptions {
+    // (undocumented)
+    readonly description: string;
+    readonly model: string;
+    readonly name: string;
+    readonly prompt?: string;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
     // (undocumented)
     readonly strategy: CompactionStrategy.SummaryQueue;
+    readonly summaryMaxTokens: SummaryMaxTokens;
     readonly summaryQueueLength: number;
+    readonly turnsBetweenCompactions: number;
 }
 
 // @public
@@ -7337,9 +8372,16 @@ export interface SwitchCase {
 }
 
 // @public (undocumented)
+export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
+CaseValueOf<TCases[number]>
+] extends [TOutput] ? [TOutput] extends [CaseValueOf<TCases[number]>] ? unknown : {
+    readonly __error: "the switch is not exhaustive — one caseOf(…) per class of the output";
+} : {
+    readonly __error: "a caseOf(…) names a class the step does not give";
+};
+
+// @public (undocumented)
 export interface Switching<TOutput, THead extends PathHead> {
-    // Warning: (ae-forgotten-export) The symbol "SwitchCheck" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases & SwitchCheck<TCases, TOutput>): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
 }
@@ -7374,6 +8416,21 @@ export interface SyncWorkRequiredErrorOptions {
 }
 
 // @public
+export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
+
+// @public
+export type TargetNames<TTargets extends readonly unknown[]> = TTargets extends readonly [
+infer TFirst extends Class,
+...infer TRest
+] ? TRest extends readonly [] ? NameOf<InstanceType<TFirst>> : `${NameOf<InstanceType<TFirst>>}, ${TargetNames<TRest>}` : never;
+
+// @public
+export type TargetsOf<TArgs extends readonly unknown[]> = TArgs extends readonly [
+...infer TTargets,
+infer TLast
+] ? TLast extends Class ? TArgs : TTargets : TArgs;
+
+// @public
 export abstract class TenantContext {
     readonly application: ApplicationContext;
     readonly tenantId: string;
@@ -7382,6 +8439,13 @@ export abstract class TenantContext {
 
 // @public
 export type TenantContextClass<T extends TenantContext = TenantContext> = abstract new () => T;
+
+// @public
+export type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never] ? {
+    readonly tenant?: TenantValues;
+} : {
+    readonly tenant: ContextValues<StartTenantOf<TInstance>>;
+};
 
 // @public
 export interface TenantValues {
@@ -7416,9 +8480,77 @@ export class ThisWorkflow {
 }
 
 // @public
+export type ThisWorkflowCheck<TName extends string, TFlow extends readonly unknown[]> = [
+ClaimsOf<TFlow[number]>
+] extends [never] ? unknown : ClaimsCheck<ClaimsOf<TFlow[number]>, EntryOf<TName>, TName>;
+
+// @public
+export interface ThisWorkflowJoinClaim<TValue> {
+    // (undocumented)
+    readonly join: TValue;
+}
+
+// @public
+export interface ThisWorkflowJoined<THead extends PathHead> {
+    // (undocumented)
+    onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+    // (undocumented)
+    returns<const TShape extends ReturnedShape>(value: TShape, ...options: ReturnsArguments<TShape, ThisWorkflowJoinValues>): AfterReturns<ThisWorkflowJoinValues, never, [
+    ValueOf<TShape>
+    ], TShape, WithClaims<THead, ThisWorkflowJoinClaim<ValueOf<TShape>>>>;
+}
+
+// @public
+export interface ThisWorkflowJoinValues extends ValuesSource {
+    // (undocumented)
+    readonly canLaunch: false;
+    // (undocumented)
+    readonly entry: 'ThisWorkflowOutputs["<workflow>"]["join"]';
+    // (undocumented)
+    readonly label: "the join";
+    // (undocumented)
+    readonly takesAbout: true;
+}
+
+// @public
+export interface ThisWorkflowLaunched<THead extends PathHead> {
+    // (undocumented)
+    join(): ThisWorkflowJoined<THead>;
+}
+
+// @public
+export type ThisWorkflowName = NameOf<ThisWorkflow>;
+
+// @public
 export interface ThisWorkflowOutputs {
     // (undocumented)
     readonly [notGenerated]?: never;
+}
+
+// @public
+export interface ThisWorkflowReturning<THead extends PathHead> {
+    // (undocumented)
+    returns<const TShape extends ReturnedShape>(value: TShape, ...options: ReturnsArguments<TShape, ThisWorkflowStepValues>): AfterReturns<ThisWorkflowStepValues, never, [
+    ValueOf<TShape>
+    ], TShape, WithClaims<THead, ThisWorkflowStepClaim<ValueOf<TShape>>>>;
+}
+
+// @public
+export interface ThisWorkflowStepClaim<TValue> {
+    // (undocumented)
+    readonly step: TValue;
+}
+
+// @public
+export interface ThisWorkflowStepValues extends ValuesSource {
+    // (undocumented)
+    readonly canLaunch: true;
+    // (undocumented)
+    readonly entry: 'ThisWorkflowOutputs["<workflow>"]["output"]';
+    // (undocumented)
+    readonly label: ThisWorkflowName;
+    // (undocumented)
+    readonly takesAbout: true;
 }
 
 // @public
@@ -7525,8 +8657,6 @@ export interface ToolBlockedErrorOptions {
 
 // @public
 export class ToolCallApprovalAskDto {
-    // Warning: (ae-forgotten-export) The symbol "ToolArguments" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     arguments: ToolArguments;
     // (undocumented)
@@ -7630,6 +8760,14 @@ export function ToolInterceptor<const D extends readonly Token[] = []>(options: 
     readonly description: string;
     readonly deps?: D;
 }): <C extends new (...args: ResolvedAll<D>) => BeforeToolCall | AfterToolCall>(value: C) => C;
+
+// @public
+export interface ToolInterceptorFields {
+    // (undocumented)
+    readonly excludeToolInterceptors?: readonly Class[];
+    // (undocumented)
+    readonly toolInterceptors?: readonly Class[];
+}
 
 // @public
 export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
@@ -7775,8 +8913,6 @@ export enum TurnLimit {
 // @public
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
-// Warning: (ae-forgotten-export) The symbol "TurnStore" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type TurnRecords = Omit<TurnStore, "close" | "byStatus" | "appendPauseAnswer" | "markNotTaken" | "pauseAnswersOf">;
 
@@ -7789,6 +8925,37 @@ export interface TurnStep {
     readonly agent: string;
     // (undocumented)
     readonly content: MessageContent;
+}
+
+// @public
+export interface TurnStore extends MemoryStore, ConfigStore {
+    // (undocumented)
+    readonly append: (turn: NewTurn) => Promise<Turn>;
+    readonly appendPauseAnswer: (entry: PauseAnswerEntry) => Promise<void>;
+    // (undocumented)
+    readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
+    readonly byStatus: (status: TurnStatus, limit: number, after?: string) => Promise<Turn[]>;
+    readonly byVersion: (bundle: string, promptVersion: string, limit: number) => Promise<Turn[]>;
+    // (undocumented)
+    readonly close: () => void;
+    readonly complete: (turnId: string, outcome: TurnOutcome) => Promise<void>;
+    completeIfStatus(turnId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
+    readonly createThread: (thread: NewThread) => Promise<string>;
+    readonly findByTenantIdAndRunId: (tenantId: string, runId: string) => Promise<Turn | undefined>;
+    readonly hasThread: (bundle: string, tenantId: string, threadId: string) => Promise<boolean>;
+    readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
+    readonly markNotTaken: (entry: PauseAnswerEntry) => Promise<void>;
+    // (undocumented)
+    readonly meanScore: (turnIds: readonly string[]) => Promise<number | null>;
+    readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
+    // (undocumented)
+    readonly saveScore: (turnId: string, judge: string, score: number) => Promise<void>;
+    // (undocumented)
+    readonly summary: (bundle: string) => Promise<VersionScore[]>;
+    readonly threadOwner: (bundle: string, tenantId: string, threadId: string) => Promise<{
+        readonly owner: string | undefined;
+    } | undefined>;
+    readonly unscored: (bundle: string, promptVersion: string | undefined, limit: number) => Promise<Turn[]>;
 }
 
 // @public
@@ -7836,8 +9003,6 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
     rememberConfig(...args: Parameters<TurnStore["rememberConfig"]>): Promise<{
         drift: boolean;
     }>;
-    // Warning: (ae-forgotten-export) The symbol "AnswerArgs" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     savePauseAnswer(...args: AnswerArgs): Promise<void>;
     // (undocumented)
@@ -7860,6 +9025,12 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
 export type TypedToolCall<TInput, TOutput> = SucceededToolCall<TInput, TOutput> | FailedToolCall<TInput> | UncheckedToolCall;
 
 // @public
+export interface UnavailableRead {
+    readonly consumer: string;
+    readonly field: string;
+}
+
+// @public
 export interface UncheckedToolCall extends ToolCallRecord {
     readonly output: string | undefined;
     // (undocumented)
@@ -7870,7 +9041,8 @@ export interface UncheckedToolCall extends ToolCallRecord {
 export type UncompactedTurns = number | TurnLimit;
 
 // @public
-export interface UnderstoodReply<TDecision> extends BuiltReplyInterpretation {
+export interface UnderstoodReply<TDecision> {
+    readonly [replyInterpretation]: true;
     // (undocumented)
     readonly decision: TDecision;
     // (undocumented)
@@ -7919,7 +9091,8 @@ export class UnknownPauseError extends AGBossError {
 }
 
 // @public
-export interface UnknownReconciliation extends BuiltReconciliation {
+export interface UnknownReconciliation {
+    readonly [reconciliationBrand]: true;
     readonly reason: string;
     // (undocumented)
     readonly verdict: OutboundCallVerdict.Unknown;
@@ -7968,6 +9141,9 @@ export interface ValueProvider<T = unknown> {
 export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 
 // @public
+export type ValuesLeft<TOutput> = [TOutput] extends [GeneratedTypeError] ? TOutput : [TOutput] extends [readonly unknown[]] ? IsSeveral<TOutput> extends true ? Members<TOutput> : Member<TOutput> : Member<TOutput>;
+
+// @public
 export interface ValuesOutdatedEvent extends NodeEvent {
     readonly outdated: readonly OutdatedValueReference[];
     readonly trigger: ScopeValueReference;
@@ -7989,8 +9165,6 @@ export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
 
-// Warning: (ae-forgotten-export) The symbol "PartialVariant" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
@@ -8051,10 +9225,11 @@ export type WaitingPause = PendingPause & {
 };
 
 // @public
-export function withProfile(bundle: AssembledWorkflow, profile: string | undefined, root?: string): Promise<AssembledWorkflow>;
+export type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never] ? THead : THead extends SourceHead<infer TClaims> ? SourceHead<TClaims | TNew> : THead extends RouteHead<infer TClaims> ? RouteHead<TClaims | TNew> : THead extends CaseHead<infer TValue, infer TClaims> ? CaseHead<TValue, TClaims | TNew> : THead extends SideHead<infer TClaims> ? SideHead<TClaims | TNew> : THead extends GroupHead<infer TNames extends string, infer TGiven extends readonly unknown[], infer TClaims> ? GroupHead<TNames, TGiven, TClaims | TNew> : never;
 
-// Warning: (ae-forgotten-export) The symbol "ThisWorkflowCheck" needs to be exported by the entry point index.d.ts
-//
+// @public
+export type Without<TLeft, TValue> = TLeft extends unknown ? Same<TLeft, Member<TValue>> extends true ? never : TLeft : never;
+
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
 
@@ -8090,15 +9265,9 @@ export interface WorkflowDescriptor extends WorkflowRecord {
     readonly type: WorkflowClass;
 }
 
-// Warning: (ae-forgotten-export) The symbol "HandledFinishOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "FinishMethod" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: HandledFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => FinishMethod>(value: TClass) => TClass;
 
-// Warning: (ae-forgotten-export) The symbol "PassThroughFinishOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "NoFinishMethod" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: PassThroughFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass & NoFinishMethod<TClass>) => TClass;
 
@@ -8169,17 +9338,6 @@ export interface WorkflowRecord {
 }
 
 // @public
-export interface WorkflowServices {
-    // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point index.d.ts
-    readonly container?: ContainerOptions;
-    // Warning: (ae-forgotten-export) The symbol "RuntimeContexts" needs to be exported by the entry point index.d.ts
-    readonly contexts?: RuntimeContexts;
-    // Warning: (ae-forgotten-export) The symbol "ModelBinding" needs to be exported by the entry point index.d.ts
-    readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
-    readonly router: (name: string) => RouterEngine;
-}
-
-// @public
 export class WorkflowSettings {
     // (undocumented)
     static builder(): WorkflowSettingsBuilder;
@@ -8198,11 +9356,15 @@ export interface WorkflowSettingsBuilder {
 export function WorkflowStart(options: WorkflowStartOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
+export type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
+
+// @public
+export type WorkflowStartInput = DtoClass | ListWrapper<DtoClass> | Readonly<Record<string, ValueShape>>;
+
+// @public
 export interface WorkflowStartOptions {
     // (undocumented)
     readonly description: string;
-    // Warning: (ae-forgotten-export) The symbol "WorkflowStartInput" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly input: WorkflowStartInput;
     readonly name: string;
@@ -8215,14 +9377,17 @@ export interface WorkflowStarts {
 }
 
 // @public
-export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
-
-// @public
 export interface WrittenLedgerMark {
     readonly ledgerId: string;
     readonly madeAt: Date;
     // (undocumented)
     readonly state: LedgerState.Written;
+}
+
+// @public (undocumented)
+export interface WrongKind<TName extends string, TLabel extends string> {
+    // (undocumented)
+    readonly __error: `${TName} is not ${TLabel}`;
 }
 
 // Warnings were encountered during analysis:
@@ -8252,9 +9417,9 @@ export interface WrittenLedgerMark {
 // src/app/outbound-call-contract.ts:117:3 - (ae-undocumented) Missing documentation for "call".
 // src/app/outbound-call-contract.ts:118:3 - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-contract.ts:119:3 - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-reconciliation.ts:32:3 - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-call-reconciliation.ts:39:3 - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-call-reconciliation.ts:44:3 - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-call-reconciliation.ts:29:3 - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-call-reconciliation.ts:38:3 - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-call-reconciliation.ts:45:3 - (ae-undocumented) Missing documentation for "verdict".
 // src/app/outbound-call-types.ts:25:3 - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-types.ts:26:3 - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-call-types.ts:56:3 - (ae-undocumented) Missing documentation for "target".
@@ -8345,12 +9510,14 @@ export interface WrittenLedgerMark {
 // src/budgets/budget.ts:25:3 - (ae-undocumented) Missing documentation for "Week".
 // src/budgets/budget.ts:26:3 - (ae-undocumented) Missing documentation for "Month".
 // src/budgets/budget.ts:31:3 - (ae-undocumented) Missing documentation for "maxSpend".
-// src/budgets/budget.ts:47:3 - (ae-undocumented) Missing documentation for "scope".
-// src/budgets/budget.ts:48:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/budgets/budget.ts:49:3 - (ae-undocumented) Missing documentation for "period".
-// src/budgets/budget.ts:56:3 - (ae-undocumented) Missing documentation for "scope".
-// src/budgets/budget.ts:57:3 - (ae-undocumented) Missing documentation for "period".
-// src/budgets/budget.ts:58:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/budgets/budget.ts:41:3 - (ae-undocumented) Missing documentation for "deps".
+// src/budgets/budget.ts:42:3 - (ae-undocumented) Missing documentation for "scope".
+// src/budgets/budget.ts:43:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/budgets/budget.ts:44:3 - (ae-undocumented) Missing documentation for "period".
+// src/budgets/budget.ts:51:3 - (ae-undocumented) Missing documentation for "deps".
+// src/budgets/budget.ts:52:3 - (ae-undocumented) Missing documentation for "scope".
+// src/budgets/budget.ts:53:3 - (ae-undocumented) Missing documentation for "period".
+// src/budgets/budget.ts:54:3 - (ae-undocumented) Missing documentation for "workflow".
 // src/budgets/execution-deadline.ts:25:3 - (ae-undocumented) Missing documentation for "path".
 // src/budgets/execution-deadline.ts:26:3 - (ae-undocumented) Missing documentation for "spentUsd".
 // src/budgets/execution-deadline.ts:27:3 - (ae-undocumented) Missing documentation for "usage".
@@ -8371,19 +9538,21 @@ export interface WrittenLedgerMark {
 // src/channels/channel-role.decorator.ts:43:3 - (ae-undocumented) Missing documentation for "maxVisits".
 // src/channels/channel-role.decorator.ts:58:3 - (ae-undocumented) Missing documentation for "approves".
 // src/channels/channel-role.decorator.ts:132:1 - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts:200:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:209:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:210:3 - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts:217:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts:220:3 - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts:221:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts:222:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts:251:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:252:3 - (ae-undocumented) Missing documentation for "decision".
-// src/channels/channel-role.decorator.ts:257:3 - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts:258:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:266:3 - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts:291:3 - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-role.decorator.ts:195:3 - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-role.decorator.ts:196:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:205:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:206:3 - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-role.decorator.ts:213:3 - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-role.decorator.ts:214:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/channel-role.decorator.ts:217:3 - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-role.decorator.ts:218:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-role.decorator.ts:219:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-role.decorator.ts:245:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:246:3 - (ae-undocumented) Missing documentation for "decision".
+// src/channels/channel-role.decorator.ts:253:3 - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-role.decorator.ts:254:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:262:3 - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-role.decorator.ts:287:3 - (ae-undocumented) Missing documentation for "interpret".
 // src/channels/decision.ts:130:3 - (ae-undocumented) Missing documentation for "message".
 // src/channels/decision.ts:131:3 - (ae-undocumented) Missing documentation for "reason".
 // src/channels/decision.ts:132:3 - (ae-undocumented) Missing documentation for "cause".
@@ -8393,28 +9562,44 @@ export interface WrittenLedgerMark {
 // src/channels/decision.ts:155:3 - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts:156:3 - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts:157:12 - (ae-undocumented) Missing documentation for "name".
+// src/channels/reply-reader.ts:40:3 - (ae-undocumented) Missing documentation for "ask".
+// src/channels/reply-reader.ts:41:3 - (ae-undocumented) Missing documentation for "reply".
 // src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:22:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts:24:3 - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts:35:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts:37:3 - (ae-undocumented) Missing documentation for "send".
-// src/compaction/compaction.decorator.ts:60:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:67:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:73:3 - (ae-undocumented) Missing documentation for "name".
-// src/compaction/compaction.decorator.ts:74:3 - (ae-undocumented) Missing documentation for "description".
-// src/compaction/compaction.decorator.ts:75:3 - (ae-undocumented) Missing documentation for "strategy".
-// src/compaction/compaction.decorator.ts:76:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/compaction/compaction.decorator.ts:77:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/compaction/compaction.decorator.ts:78:3 - (ae-undocumented) Missing documentation for "model".
-// src/compaction/compaction.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
-// src/compaction/compaction.decorator.ts:80:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
-// src/compaction/compaction.decorator.ts:81:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
+// src/compaction/compaction.decorator.ts:43:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:46:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:56:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:65:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:68:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:78:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:79:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:84:3 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:85:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:86:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:87:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/compaction/compaction.decorator.ts:88:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:89:3 - (ae-undocumented) Missing documentation for "model".
+// src/compaction/compaction.decorator.ts:90:3 - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
+// src/compaction/compaction.decorator.ts:91:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:92:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
+// src/compaction/compaction.decorator.ts:100:3 - (ae-undocumented) Missing documentation for "name".
+// src/compaction/compaction.decorator.ts:101:3 - (ae-undocumented) Missing documentation for "description".
+// src/compaction/compaction.decorator.ts:102:3 - (ae-undocumented) Missing documentation for "strategy".
+// src/compaction/compaction.decorator.ts:107:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/compaction/compaction.decorator.ts:108:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/compaction/compaction.decorator.ts:109:3 - (ae-undocumented) Missing documentation for "model".
+// src/compaction/compaction.decorator.ts:110:3 - (ae-undocumented) Missing documentation for "summaryQueueLength".
+// src/compaction/compaction.decorator.ts:111:3 - (ae-undocumented) Missing documentation for "summaryMaxTokens".
 // src/compaction/errors.ts:6:3 - (ae-undocumented) Missing documentation for "message".
 // src/compaction/errors.ts:24:3 - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/components/bind-tool.ts:6:1 - (ae-undocumented) Missing documentation for "BindToolOptions".
+// src/components/bind-tool.ts:7:3 - (ae-undocumented) Missing documentation for "agent".
 // src/components/bind-tool.ts:22:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/bind-tool.ts:24:1 - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/decorators.ts:17:3 - (ae-undocumented) Missing documentation for "run".
@@ -8432,10 +9617,34 @@ export interface WrittenLedgerMark {
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:49:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/components/judge-decorators.ts:50:3 - (ae-undocumented) Missing documentation for "model".
-// src/components/judge-decorators.ts:129:3 - (ae-undocumented) Missing documentation for "passed".
-// src/components/judge-decorators.ts:136:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:25:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:45:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts:46:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/components/judge-decorators.ts:47:3 - (ae-undocumented) Missing documentation for "model".
+// src/components/judge-decorators.ts:123:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts:132:3 - (ae-undocumented) Missing documentation for "passed".
+// src/components/meta-types.ts:11:3 - (ae-undocumented) Missing documentation for "use".
+// src/components/meta-types.ts:12:3 - (ae-undocumented) Missing documentation for "mode".
+// src/components/meta-types.ts:21:3 - (ae-undocumented) Missing documentation for "guardrails".
+// src/components/meta-types.ts:22:3 - (ae-undocumented) Missing documentation for "excludeGuardrails".
+// src/components/meta-types.ts:30:3 - (ae-undocumented) Missing documentation for "toolInterceptors".
+// src/components/meta-types.ts:31:3 - (ae-undocumented) Missing documentation for "excludeToolInterceptors".
+// src/components/meta-types.ts:39:3 - (ae-undocumented) Missing documentation for "compaction".
+// src/components/meta-types.ts:40:3 - (ae-undocumented) Missing documentation for "uncompactedTurns".
+// src/components/meta-types.ts:48:3 - (ae-undocumented) Missing documentation for "piiPolicies".
+// src/components/meta-types.ts:49:3 - (ae-undocumented) Missing documentation for "excludePiiPolicies".
+// src/components/meta-types.ts:58:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/meta-types.ts:59:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/meta-types.ts:60:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/meta-types.ts:61:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/meta-types.ts:62:3 - (ae-undocumented) Missing documentation for "model".
+// src/components/meta-types.ts:71:3 - (ae-undocumented) Missing documentation for "thinking".
+// src/components/meta-types.ts:72:3 - (ae-undocumented) Missing documentation for "temperature".
+// src/components/meta-types.ts:73:3 - (ae-undocumented) Missing documentation for "maxTokens".
+// src/components/meta-types.ts:76:3 - (ae-undocumented) Missing documentation for "cache".
+// src/components/meta-types.ts:83:3 - (ae-undocumented) Missing documentation for "maxRetries".
+// src/components/meta-types.ts:116:3 - (ae-undocumented) Missing documentation for "name".
+// src/components/meta-types.ts:117:3 - (ae-undocumented) Missing documentation for "description".
 // src/components/metadata.ts:128:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts:129:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
@@ -8443,7 +9652,23 @@ export interface WrittenLedgerMark {
 // src/components/policy-decorators.ts:20:3 - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts:21:3 - (ae-undocumented) Missing documentation for "Output".
 // src/components/policy-decorators.ts:29:3 - (ae-undocumented) Missing documentation for "refusal".
-// src/components/policy-decorators.ts:75:3 - (ae-undocumented) Missing documentation for "refusal".
+// src/components/policy-decorators.ts:36:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/policy-decorators.ts:43:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/policy-decorators.ts:56:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/policy-decorators.ts:63:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/policy-decorators.ts:68:3 - (ae-undocumented) Missing documentation for "refusal".
+// src/components/policy-decorators.ts:75:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/policy-decorators.ts:78:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/components/policy-decorators.ts:79:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/policy-decorators.ts:80:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/policy-decorators.ts:81:3 - (ae-undocumented) Missing documentation for "model".
+// src/components/policy-decorators.ts:82:3 - (ae-undocumented) Missing documentation for "threshold".
+// src/components/policy-decorators.ts:91:3 - (ae-undocumented) Missing documentation for "description".
+// src/components/policy-decorators.ts:94:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/components/policy-decorators.ts:95:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/components/policy-decorators.ts:96:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/policy-decorators.ts:97:3 - (ae-undocumented) Missing documentation for "model".
+// src/components/policy-decorators.ts:98:3 - (ae-undocumented) Missing documentation for "threshold".
 // src/components/prompt-problems.ts:13:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts:14:3 - (ae-undocumented) Missing documentation for "message".
 // src/components/prompt-problems.ts:23:3 - (ae-undocumented) Missing documentation for "problems".
@@ -8459,9 +9684,11 @@ export interface WrittenLedgerMark {
 // src/components/spend-recorder.ts:27:12 - (ae-undocumented) Missing documentation for "name".
 // src/config/types.ts:13:3 - (ae-undocumented) Missing documentation for "MODEL_MAX".
 // src/config/types.ts:18:3 - (ae-undocumented) Missing documentation for "ALL".
+// src/config/types.ts:116:14 - (ae-undocumented) Missing documentation for "AgentSettingsSchema".
+// src/config/types.ts:188:14 - (ae-undocumented) Missing documentation for "AgentsConfigSchema".
+// src/config/types.ts:224:1 - (ae-undocumented) Missing documentation for "AgentSettings".
 // src/config/types.ts:227:1 - (ae-undocumented) Missing documentation for "CompactionSettings".
 // src/config/types.ts:228:1 - (ae-undocumented) Missing documentation for "AgentsConfig".
-// src/config/types.ts:240:3 - (ae-forgotten-export) The symbol "AgentSettingsOf" needs to be exported by the entry point index.d.ts
 // src/core/error-record.ts:11:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts:12:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts:15:3 - (ae-undocumented) Missing documentation for "message".
@@ -8506,6 +9733,9 @@ export interface WrittenLedgerMark {
 // src/core/errors.ts:351:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:352:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts:353:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/observability.ts:23:3 - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts:28:3 - (ae-undocumented) Missing documentation for "name".
+// src/core/observability.ts:29:3 - (ae-undocumented) Missing documentation for "update".
 // src/core/observability.ts:42:3 - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts:43:3 - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts:56:3 - (ae-undocumented) Missing documentation for "toolName".
@@ -8605,9 +9835,9 @@ export interface WrittenLedgerMark {
 // src/environments/secret.ts:53:3 - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts:57:3 - (ae-undocumented) Missing documentation for "[inspect.custom]".
 // src/environments/variables.ts:35:3 - (ae-undocumented) Missing documentation for "default".
-// src/eval/compare-profiles.ts:17:3 - (ae-undocumented) Missing documentation for "tasks".
-// src/eval/compare-profiles.ts:18:3 - (ae-undocumented) Missing documentation for "profiles".
-// src/eval/compare-profiles.ts:32:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/eval/compare-profiles.ts:20:3 - (ae-undocumented) Missing documentation for "tasks".
+// src/eval/compare-profiles.ts:21:3 - (ae-undocumented) Missing documentation for "profiles".
+// src/eval/compare-profiles.ts:47:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/eval/compare-report.ts:7:3 - (ae-undocumented) Missing documentation for "name".
 // src/eval/compare-report.ts:8:3 - (ae-undocumented) Missing documentation for "version".
 // src/eval/compare-report.ts:9:3 - (ae-undocumented) Missing documentation for "meanScore".
@@ -8683,6 +9913,12 @@ export interface WrittenLedgerMark {
 // src/flow/ast.ts:32:3 - (ae-undocumented) Missing documentation for "Switch".
 // src/flow/ast.ts:33:3 - (ae-undocumented) Missing documentation for "ChooseOne".
 // src/flow/ast.ts:34:3 - (ae-undocumented) Missing documentation for "OnError".
+// src/flow/ast.ts:56:1 - (ae-undocumented) Missing documentation for "StartSource".
+// src/flow/ast.ts:57:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:58:3 - (ae-undocumented) Missing documentation for "node".
+// src/flow/ast.ts:61:1 - (ae-undocumented) Missing documentation for "ComponentSource".
+// src/flow/ast.ts:62:3 - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts:64:3 - (ae-undocumented) Missing documentation for "node".
 // src/flow/ast.ts:72:3 - (ae-undocumented) Missing documentation for "shape".
 // src/flow/ast.ts:80:1 - (ae-undocumented) Missing documentation for "ReturnsStep".
 // src/flow/ast.ts:81:3 - (ae-undocumented) Missing documentation for "kind".
@@ -8737,16 +9973,29 @@ export interface WrittenLedgerMark {
 // src/flow/builder-types.ts:62:3 - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts:64:1 - (ae-undocumented) Missing documentation for "PathHead".
 // src/flow/builder-types.ts:98:3 - (ae-undocumented) Missing documentation for "about".
-// src/flow/builder-types.ts:224:1 - (ae-undocumented) Missing documentation for "Transitions".
-// src/flow/builder-types.ts:225:3 - (ae-undocumented) Missing documentation for "toAgent".
-// src/flow/builder-types.ts:228:3 - (ae-undocumented) Missing documentation for "toRouter".
-// src/flow/builder-types.ts:231:3 - (ae-undocumented) Missing documentation for "toAction".
-// src/flow/builder-types.ts:234:3 - (ae-undocumented) Missing documentation for "toFinish".
-// src/flow/builder-types.ts:256:1 - (ae-undocumented) Missing documentation for "Switching".
-// src/flow/builder-types.ts:257:3 - (ae-undocumented) Missing documentation for "switch".
-// src/flow/builder-types.ts:264:3 - (ae-undocumented) Missing documentation for "onError".
-// src/flow/builder-types.ts:275:3 - (ae-undocumented) Missing documentation for "onError".
-// src/flow/builder-types.ts:280:3 - (ae-undocumented) Missing documentation for "chooseOne".
+// src/flow/builder-types.ts:103:3 - (ae-undocumented) Missing documentation for ""workflow-start"".
+// src/flow/builder-types.ts:104:3 - (ae-undocumented) Missing documentation for ""workflow-finish"".
+// src/flow/builder-types.ts:105:3 - (ae-undocumented) Missing documentation for "agent".
+// src/flow/builder-types.ts:106:3 - (ae-undocumented) Missing documentation for "action".
+// src/flow/builder-types.ts:107:3 - (ae-undocumented) Missing documentation for "router".
+// src/flow/builder-types.ts:108:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/flow/builder-types.ts:109:3 - (ae-undocumented) Missing documentation for "question".
+// src/flow/builder-types.ts:112:1 - (ae-undocumented) Missing documentation for "KindLabel".
+// src/flow/builder-types.ts:118:1 - (ae-undocumented) Missing documentation for "RouteTargetKind".
+// src/flow/builder-types.ts:131:1 - (ae-undocumented) Missing documentation for "WrongKind".
+// src/flow/builder-types.ts:132:3 - (ae-undocumented) Missing documentation for "__error".
+// src/flow/builder-types.ts:177:1 - (ae-undocumented) Missing documentation for "SwitchCheck".
+// src/flow/builder-types.ts:201:1 - (ae-undocumented) Missing documentation for "StepContinuation".
+// src/flow/builder-types.ts:226:1 - (ae-undocumented) Missing documentation for "Transitions".
+// src/flow/builder-types.ts:227:3 - (ae-undocumented) Missing documentation for "toAgent".
+// src/flow/builder-types.ts:230:3 - (ae-undocumented) Missing documentation for "toRouter".
+// src/flow/builder-types.ts:233:3 - (ae-undocumented) Missing documentation for "toAction".
+// src/flow/builder-types.ts:236:3 - (ae-undocumented) Missing documentation for "toFinish".
+// src/flow/builder-types.ts:258:1 - (ae-undocumented) Missing documentation for "Switching".
+// src/flow/builder-types.ts:259:3 - (ae-undocumented) Missing documentation for "switch".
+// src/flow/builder-types.ts:266:3 - (ae-undocumented) Missing documentation for "onError".
+// src/flow/builder-types.ts:277:3 - (ae-undocumented) Missing documentation for "onError".
+// src/flow/builder-types.ts:282:3 - (ae-undocumented) Missing documentation for "chooseOne".
 // src/flow/compensation.ts:88:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/compensation.ts:89:12 - (ae-undocumented) Missing documentation for "name".
 // src/flow/compensation.ts:122:3 - (ae-undocumented) Missing documentation for "executionId".
@@ -8769,6 +10018,7 @@ export interface WrittenLedgerMark {
 // src/flow/context/execution-fence.ts:18:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/decorators/action.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/action.ts:16:3 - (ae-undocumented) Missing documentation for "input".
+// src/flow/decorators/action.ts:39:3 - (ae-undocumented) Missing documentation for "execute".
 // src/flow/decorators/action.ts:45:1 - (ae-undocumented) Missing documentation for "Action".
 // src/flow/decorators/agent.ts:20:3 - (ae-undocumented) Missing documentation for "use".
 // src/flow/decorators/agent.ts:21:3 - (ae-undocumented) Missing documentation for "mode".
@@ -8795,24 +10045,34 @@ export interface WrittenLedgerMark {
 // src/flow/decorators/arbiter.ts:47:3 - (ae-undocumented) Missing documentation for "model".
 // src/flow/decorators/arbiter.ts:48:3 - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/arbiter.ts:49:3 - (ae-undocumented) Missing documentation for "criteria".
+// src/flow/decorators/router.ts:50:3 - (ae-undocumented) Missing documentation for "spawn".
+// src/flow/decorators/router.ts:51:3 - (ae-undocumented) Missing documentation for "failure".
+// src/flow/decorators/router.ts:56:3 - (ae-undocumented) Missing documentation for "target".
+// src/flow/decorators/router.ts:57:3 - (ae-undocumented) Missing documentation for "spawn".
+// src/flow/decorators/router.ts:58:3 - (ae-undocumented) Missing documentation for "failure".
+// src/flow/decorators/router.ts:59:3 - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/router.ts:67:3 - (ae-undocumented) Missing documentation for "target".
 // src/flow/decorators/router.ts:68:3 - (ae-undocumented) Missing documentation for "spawn".
 // src/flow/decorators/router.ts:69:3 - (ae-undocumented) Missing documentation for "failure".
 // src/flow/decorators/router.ts:70:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/flow/decorators/router.ts:92:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/flow/decorators/router.ts:93:3 - (ae-undocumented) Missing documentation for "routes".
-// src/flow/decorators/router.ts:98:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/flow/decorators/router.ts:101:3 - (ae-undocumented) Missing documentation for "deps".
-// src/flow/decorators/router.ts:108:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/flow/decorators/router.ts:109:3 - (ae-undocumented) Missing documentation for "routes".
-// src/flow/decorators/router.ts:112:3 - (ae-undocumented) Missing documentation for "model".
-// src/flow/decorators/router.ts:113:3 - (ae-undocumented) Missing documentation for "prompt".
-// src/flow/decorators/router.ts:114:3 - (ae-undocumented) Missing documentation for "promptUrls".
-// src/flow/decorators/router.ts:115:3 - (ae-undocumented) Missing documentation for "promptVariables".
-// src/flow/decorators/router.ts:118:3 - (ae-undocumented) Missing documentation for "uncompactedTurns".
+// src/flow/decorators/router.ts:80:3 - (ae-undocumented) Missing documentation for "description".
+// src/flow/decorators/router.ts:85:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/flow/decorators/router.ts:86:3 - (ae-undocumented) Missing documentation for "routes".
+// src/flow/decorators/router.ts:91:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/flow/decorators/router.ts:94:3 - (ae-undocumented) Missing documentation for "deps".
+// src/flow/decorators/router.ts:102:3 - (ae-undocumented) Missing documentation for "description".
+// src/flow/decorators/router.ts:107:3 - (ae-undocumented) Missing documentation for "decidedBy".
+// src/flow/decorators/router.ts:108:3 - (ae-undocumented) Missing documentation for "routes".
+// src/flow/decorators/router.ts:111:3 - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/router.ts:112:3 - (ae-undocumented) Missing documentation for "prompt".
+// src/flow/decorators/router.ts:113:3 - (ae-undocumented) Missing documentation for "promptUrls".
+// src/flow/decorators/router.ts:114:3 - (ae-undocumented) Missing documentation for "promptVariables".
+// src/flow/decorators/router.ts:117:3 - (ae-undocumented) Missing documentation for "uncompactedTurns".
+// src/flow/decorators/router.ts:131:3 - (ae-undocumented) Missing documentation for "route".
 // src/flow/decorators/workflow-finish.ts:15:3 - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/workflow-finish.ts:16:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/workflow-finish.ts:17:3 - (ae-undocumented) Missing documentation for "output".
+// src/flow/decorators/workflow-finish.ts:33:3 - (ae-undocumented) Missing documentation for "finish".
 // src/flow/decorators/workflow-finish.ts:44:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-finish.ts:47:1 - (ae-undocumented) Missing documentation for "WorkflowFinish".
 // src/flow/decorators/workflow-start.ts:16:3 - (ae-undocumented) Missing documentation for "description".
@@ -8868,11 +10128,11 @@ export interface WrittenLedgerMark {
 // src/flow/generated-types.ts:117:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:128:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:129:3 - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
-// src/flow/generated-types.ts:131:5 - (ae-forgotten-export) The symbol "ToolCallApprovalDecisionDto" needs to be exported by the entry point index.d.ts
 // src/flow/generated-types.ts:133:3 - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts:137:3 - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
 // src/flow/generated-types.ts:169:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts:215:3 - (ae-undocumented) Missing documentation for "[notGenerated]".
+// src/flow/generated-types.ts:269:1 - (ae-undocumented) Missing documentation for "StartExecutionOf".
 // src/flow/handlers.ts:19:3 - (ae-undocumented) Missing documentation for "execute".
 // src/flow/handlers.ts:24:3 - (ae-undocumented) Missing documentation for "finish".
 // src/flow/handlers.ts:33:3 - (ae-undocumented) Missing documentation for "route".
@@ -8901,11 +10161,20 @@ export interface WrittenLedgerMark {
 // src/flow/quorum-step.ts:29:3 - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts:30:3 - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts:48:3 - (ae-undocumented) Missing documentation for "deadline".
+// src/flow/quorum-types.ts:74:3 - (ae-undocumented) Missing documentation for "label".
+// src/flow/quorum-types.ts:75:3 - (ae-undocumented) Missing documentation for "entry".
+// src/flow/quorum-types.ts:76:3 - (ae-undocumented) Missing documentation for "takesAbout".
+// src/flow/quorum-types.ts:77:3 - (ae-undocumented) Missing documentation for "canLaunch".
+// src/flow/quorum-types.ts:80:1 - (ae-undocumented) Missing documentation for "QuorumContinuation".
 // src/flow/quorum-types.ts:106:3 - (ae-undocumented) Missing documentation for "returns".
 // src/flow/quorum-types.ts:115:3 - (ae-undocumented) Missing documentation for "priority".
+// src/flow/quorum-types.ts:128:1 - (ae-undocumented) Missing documentation for "GroupValuesCheck".
 // src/flow/quorum-types.ts:160:3 - (ae-undocumented) Missing documentation for "acceptedBy".
 // src/flow/quorum-types.ts:161:3 - (ae-undocumented) Missing documentation for "joinQuorum".
 // src/flow/quorum-types.ts:164:3 - (ae-undocumented) Missing documentation for "joinQuorumGroups".
+// src/flow/returns-types.ts:37:3 - (ae-undocumented) Missing documentation for "value".
+// src/flow/returns-types.ts:40:1 - (ae-undocumented) Missing documentation for "Members".
+// src/flow/returns-types.ts:44:1 - (ae-undocumented) Missing documentation for "IsIn".
 // src/flow/returns-types.ts:82:3 - (ae-undocumented) Missing documentation for "label".
 // src/flow/returns-types.ts:83:3 - (ae-undocumented) Missing documentation for "entry".
 // src/flow/returns-types.ts:84:3 - (ae-undocumented) Missing documentation for "takesAbout".
@@ -8914,6 +10183,8 @@ export interface WrittenLedgerMark {
 // src/flow/returns-types.ts:91:3 - (ae-undocumented) Missing documentation for "entry".
 // src/flow/returns-types.ts:92:3 - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/returns-types.ts:93:3 - (ae-undocumented) Missing documentation for "canLaunch".
+// src/flow/returns-types.ts:96:1 - (ae-undocumented) Missing documentation for "NotGiven".
+// src/flow/returns-types.ts:97:3 - (ae-undocumented) Missing documentation for "__error".
 // src/flow/returns-types.ts:145:3 - (ae-undocumented) Missing documentation for "returns".
 // src/flow/runtime/child-errors.ts:12:3 - (ae-undocumented) Missing documentation for "usage".
 // src/flow/runtime/child-errors.ts:25:3 - (ae-undocumented) Missing documentation for "code".
@@ -8990,6 +10261,8 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/router-error.ts:78:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/router-error.ts:79:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/router-error.ts:80:12 - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/scope.ts:33:3 - (ae-undocumented) Missing documentation for "value".
+// src/flow/runtime/scope.ts:34:3 - (ae-undocumented) Missing documentation for "variant".
 // src/flow/runtime/start-input.ts:79:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:80:3 - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/start-input.ts:81:12 - (ae-undocumented) Missing documentation for "name".
@@ -9009,6 +10282,25 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/tool-calls.ts:85:3 - (ae-undocumented) Missing documentation for "input".
 // src/flow/runtime/tool-calls.ts:86:3 - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts:91:3 - (ae-undocumented) Missing documentation for "status".
+// src/flow/this-workflow-types.ts:57:3 - (ae-undocumented) Missing documentation for "step".
+// src/flow/this-workflow-types.ts:62:3 - (ae-undocumented) Missing documentation for "join".
+// src/flow/this-workflow-types.ts:67:3 - (ae-undocumented) Missing documentation for "label".
+// src/flow/this-workflow-types.ts:68:3 - (ae-undocumented) Missing documentation for "entry".
+// src/flow/this-workflow-types.ts:69:3 - (ae-undocumented) Missing documentation for "takesAbout".
+// src/flow/this-workflow-types.ts:70:3 - (ae-undocumented) Missing documentation for "canLaunch".
+// src/flow/this-workflow-types.ts:75:3 - (ae-undocumented) Missing documentation for "label".
+// src/flow/this-workflow-types.ts:76:3 - (ae-undocumented) Missing documentation for "entry".
+// src/flow/this-workflow-types.ts:77:3 - (ae-undocumented) Missing documentation for "takesAbout".
+// src/flow/this-workflow-types.ts:78:3 - (ae-undocumented) Missing documentation for "canLaunch".
+// src/flow/this-workflow-types.ts:83:3 - (ae-undocumented) Missing documentation for "returns".
+// src/flow/this-workflow-types.ts:97:3 - (ae-undocumented) Missing documentation for "onJoinError".
+// src/flow/this-workflow-types.ts:101:3 - (ae-undocumented) Missing documentation for "returns".
+// src/flow/this-workflow-types.ts:115:3 - (ae-undocumented) Missing documentation for "join".
+// src/flow/this-workflow-types.ts:123:1 - (ae-undocumented) Missing documentation for "StepNotGiven".
+// src/flow/this-workflow-types.ts:124:3 - (ae-undocumented) Missing documentation for "__error".
+// src/flow/this-workflow-types.ts:127:1 - (ae-undocumented) Missing documentation for "JoinNotGiven".
+// src/flow/this-workflow-types.ts:128:3 - (ae-undocumented) Missing documentation for "__error".
+// src/flow/this-workflow-types.ts:147:1 - (ae-undocumented) Missing documentation for "ClaimsCheck".
 // src/flow/this-workflow.ts:20:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/errors.ts:12:3 - (ae-undocumented) Missing documentation for "message".
 // src/graph/errors.ts:15:3 - (ae-undocumented) Missing documentation for "cause".
@@ -9097,10 +10389,10 @@ export interface WrittenLedgerMark {
 // src/health/health-check.ts:53:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:62:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:63:3 - (ae-undocumented) Missing documentation for "components".
+// src/health/health-check.ts:72:3 - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts:79:3 - (ae-undocumented) Missing documentation for "status".
-// src/health/health-check.ts:84:3 - (ae-undocumented) Missing documentation for "status".
-// src/health/health-check.ts:85:3 - (ae-undocumented) Missing documentation for "reason".
-// src/health/health-check.ts:93:3 - (ae-undocumented) Missing documentation for "reason".
+// src/health/health-check.ts:80:3 - (ae-undocumented) Missing documentation for "reason".
+// src/health/health-check.ts:88:3 - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/a2a-direct-message.repository.ts:30:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-direct-message.repository.ts:33:3 - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-direct-message.repository.ts:38:3 - (ae-undocumented) Missing documentation for "finish".
@@ -9303,36 +10595,36 @@ export interface WrittenLedgerMark {
 // src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:112:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:118:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:122:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:140:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:154:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:171:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:179:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:194:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:121:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:125:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:137:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:143:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:157:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:174:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:182:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
 // src/infrastructure/in-memory-a2a-task.repository.ts:30:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-task.repository.ts:36:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-task.repository.ts:40:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:59:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:67:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts:75:3 - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/in-memory-a2a-task.repository.ts:80:3 - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/in-memory-a2a-task.repository.ts:85:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/in-memory-a2a-task.repository.ts:105:3 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/in-memory-a2a-task.repository.ts:126:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/in-memory-a2a-task.repository.ts:39:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-task.repository.ts:43:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:62:3 - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:70:3 - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts:78:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/in-memory-a2a-task.repository.ts:83:3 - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/in-memory-a2a-task.repository.ts:88:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/in-memory-a2a-task.repository.ts:108:3 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/in-memory-a2a-task.repository.ts:129:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
 // src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:72:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:76:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:87:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:219:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:220:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:233:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:235:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:236:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:75:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:79:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:90:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:222:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:226:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:236:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:238:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:239:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:240:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -9348,16 +10640,20 @@ export interface WrittenLedgerMark {
 // src/infrastructure/outbound-call-record.ts:50:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-record.ts:53:3 - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/outbound-call.repository.ts:170:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/outbound-call.repository.ts:191:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/outbound-call.repository.ts:195:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/outbound-call.repository.ts:203:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/outbound-call.repository.ts:217:9 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/outbound-call.repository.ts:227:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/outbound-call.repository.ts:231:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/outbound-call.repository.ts:245:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/outbound-call.repository.ts:254:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/outbound-call.repository.ts:258:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/outbound-call.repository.ts:263:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/outbound-call.repository.ts:194:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/outbound-call.repository.ts:198:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/outbound-call.repository.ts:206:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/outbound-call.repository.ts:220:9 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/outbound-call.repository.ts:230:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/outbound-call.repository.ts:234:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/outbound-call.repository.ts:248:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/outbound-call.repository.ts:257:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/outbound-call.repository.ts:261:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/outbound-call.repository.ts:266:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/pause-mailboxes.ts:11:3 - (ae-undocumented) Missing documentation for "claim".
+// src/infrastructure/pause-mailboxes.ts:16:3 - (ae-undocumented) Missing documentation for "recipient".
+// src/infrastructure/pause-mailboxes.ts:17:3 - (ae-undocumented) Missing documentation for "at".
+// src/infrastructure/pause-mailboxes.ts:18:3 - (ae-undocumented) Missing documentation for "notice".
 // src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
 // src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
 // src/infrastructure/pause-record.ts:27:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
@@ -9374,11 +10670,11 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts:138:3 - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts:223:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts:229:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:46:9 - (ae-undocumented) Missing documentation for "getTuple".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:59:10 - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:74:9 - (ae-undocumented) Missing documentation for "put".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:102:9 - (ae-undocumented) Missing documentation for "putWrites".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:141:3 - (ae-undocumented) Missing documentation for "deleteThread".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:42:9 - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:55:10 - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:73:9 - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:101:9 - (ae-undocumented) Missing documentation for "putWrites".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts:142:3 - (ae-undocumented) Missing documentation for "deleteThread".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:92:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts:136:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
@@ -9442,6 +10738,54 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-notice-rows.ts:36:3 - (ae-undocumented) Missing documentation for "find".
+// src/infrastructure/sqlite/sqlite-pause-notice-rows.ts:132:3 - (ae-undocumented) Missing documentation for "ack".
+// src/infrastructure/sqlite/sqlite-pause-notice-rows.ts:143:3 - (ae-undocumented) Missing documentation for "retry".
+// src/infrastructure/sqlite/sqlite-pause-notice-rows.ts:149:3 - (ae-undocumented) Missing documentation for "setAside".
+// src/infrastructure/sqlite/sqlite-pause-notice-rows.ts:174:3 - (ae-undocumented) Missing documentation for "count".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:19:9 - (ae-undocumented) Missing documentation for "findPendingByExpiresAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:24:9 - (ae-undocumented) Missing documentation for "findPendingByRemindAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:29:9 - (ae-undocumented) Missing documentation for "findOpenAfter".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:34:9 - (ae-undocumented) Missing documentation for "findPageByTenantId".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:45:9 - (ae-undocumented) Missing documentation for "findClosedByResolvedAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:50:9 - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:57:9 - (ae-undocumented) Missing documentation for "claimNoticesDue".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:70:9 - (ae-undocumented) Missing documentation for "ackNotice".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:74:9 - (ae-undocumented) Missing documentation for "retryNotice".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:84:9 - (ae-undocumented) Missing documentation for "setAsideNotices".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:90:9 - (ae-undocumented) Missing documentation for "setAsideStaleNoticesBefore".
+// src/infrastructure/sqlite/sqlite-pause-queries.repository.ts:104:9 - (ae-undocumented) Missing documentation for "countNotices".
+// src/infrastructure/sqlite/sqlite-pause-row-statements.ts:106:3 - (ae-undocumented) Missing documentation for "insert".
+// src/infrastructure/sqlite/sqlite-pause-row-statements.ts:125:3 - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-pause-row-statements.ts:132:3 - (ae-undocumented) Missing documentation for "findAllByRoot".
+// src/infrastructure/sqlite/sqlite-pause-scans.ts:27:1 - (ae-undocumented) Missing documentation for "SqlitePauseScans".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:40:9 - (ae-undocumented) Missing documentation for "findOrCreateByStepKey".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:50:9 - (ae-undocumented) Missing documentation for "findByTenantIdAndRootExecutionIdAndStepKey".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:58:9 - (ae-undocumented) Missing documentation for "findByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:65:9 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:72:9 - (ae-undocumented) Missing documentation for "markSentByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:81:9 - (ae-undocumented) Missing documentation for "resolveByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:93:9 - (ae-undocumented) Missing documentation for "decideByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:107:9 - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:119:9 - (ae-undocumented) Missing documentation for "expireByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:131:9 - (ae-undocumented) Missing documentation for "closeUntakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:145:9 - (ae-undocumented) Missing documentation for "extendByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:157:9 - (ae-undocumented) Missing documentation for "remindByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:169:9 - (ae-undocumented) Missing documentation for "noticeOnceByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-pause-store.ts:187:9 - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-run-rows.ts:29:3 - (ae-undocumented) Missing documentation for "find".
+// src/infrastructure/sqlite/sqlite-paused-run-rows.ts:36:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-run-rows.ts:51:3 - (ae-undocumented) Missing documentation for "delete".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:15:3 - (ae-undocumented) Missing documentation for "runs".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:16:3 - (ae-undocumented) Missing documentation for "pauses".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:17:3 - (ae-undocumented) Missing documentation for "notices".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:18:3 - (ae-undocumented) Missing documentation for "scans".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:21:5 - (ae-undocumented) Missing documentation for "connection".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:32:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:36:9 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:43:9 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:48:9 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadId".
+// src/infrastructure/sqlite/sqlite-paused-runs.repository.ts:53:9 - (ae-undocumented) Missing documentation for "deleteByTenantIdAndThreadIdAndRunId".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:49:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:53:3 - (ae-undocumented) Missing documentation for "acquire".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts:80:3 - (ae-undocumented) Missing documentation for "renew".
@@ -9467,6 +10811,8 @@ export interface WrittenLedgerMark {
 // src/llm/decision-errors.ts:49:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:50:3 - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts:51:12 - (ae-undocumented) Missing documentation for "name".
+// src/llm/decision-response.ts:40:3 - (ae-undocumented) Missing documentation for "answers".
+// src/llm/decision-response.ts:41:3 - (ae-undocumented) Missing documentation for "usage".
 // src/llm/decisions.ts:5:3 - (ae-undocumented) Missing documentation for "Auto".
 // src/llm/decisions.ts:6:3 - (ae-undocumented) Missing documentation for "Low".
 // src/llm/decisions.ts:7:3 - (ae-undocumented) Missing documentation for "High".
@@ -9495,10 +10841,15 @@ export interface WrittenLedgerMark {
 // src/llm/decisions.ts:70:1 - (ae-undocumented) Missing documentation for "DecisionAnswer".
 // src/llm/decisions.ts:87:3 - (ae-undocumented) Missing documentation for "state".
 // src/llm/decisions.ts:88:3 - (ae-undocumented) Missing documentation for "questions".
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
+// src/llm/gateway.ts:45:3 - (ae-undocumented) Missing documentation for "user".
+// src/llm/gateway.ts:46:3 - (ae-undocumented) Missing documentation for "settings".
+// src/llm/gateway.ts:56:3 - (ae-undocumented) Missing documentation for "router".
+// src/llm/gateway.ts:57:3 - (ae-undocumented) Missing documentation for "model".
+// src/llm/gateway.ts:58:3 - (ae-undocumented) Missing documentation for "request".
+// src/llm/gateway.ts:65:3 - (ae-undocumented) Missing documentation for "model".
+// src/llm/gateway.ts:66:3 - (ae-undocumented) Missing documentation for "request".
+// src/llm/gateway.ts:75:3 - (ae-undocumented) Missing documentation for "chatModel".
+// src/llm/gateway.ts:76:3 - (ae-undocumented) Missing documentation for "routeTo".
 // src/loader/load-errors.ts:5:3 - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts:6:3 - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts:7:12 - (ae-undocumented) Missing documentation for "name".
@@ -9598,6 +10949,13 @@ export interface WrittenLedgerMark {
 // src/public/turn-deprecated.ts:13:1 - (ae-undocumented) Missing documentation for "TernOutcome".
 // src/public/turn-deprecated.ts:15:1 - (ae-undocumented) Missing documentation for "TernStatus".
 // src/public/turn-deprecated.ts:17:1 - (ae-undocumented) Missing documentation for "TernStep".
+// src/routers/types.ts:6:3 - (ae-undocumented) Missing documentation for "name".
+// src/routers/types.ts:7:3 - (ae-undocumented) Missing documentation for "description".
+// src/routers/types.ts:15:3 - (ae-undocumented) Missing documentation for "input".
+// src/routers/types.ts:16:3 - (ae-undocumented) Missing documentation for "options".
+// src/routers/types.ts:21:1 - (ae-undocumented) Missing documentation for "RouterDecision".
+// src/routers/types.ts:22:3 - (ae-undocumented) Missing documentation for "next".
+// src/routers/types.ts:23:3 - (ae-undocumented) Missing documentation for "reason".
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 // src/run/compaction.ts:39:3 - (ae-undocumented) Missing documentation for "toTurn".
@@ -9623,8 +10981,6 @@ export interface WrittenLedgerMark {
 // src/run/resume-guard.ts:51:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:52:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:53:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "turns".
-// src/run/types.ts:40:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/run/types.ts:63:3 - (ae-undocumented) Missing documentation for "scope".
 // src/run/types.ts:64:3 - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/run/types.ts:65:3 - (ae-undocumented) Missing documentation for "lastError".
@@ -9674,18 +11030,23 @@ export interface WrittenLedgerMark {
 // src/turns/types.ts:78:3 - (ae-undocumented) Missing documentation for "hash".
 // src/turns/types.ts:79:3 - (ae-undocumented) Missing documentation for "snapshot".
 // src/turns/types.ts:80:3 - (ae-undocumented) Missing documentation for "firstSeen".
+// src/turns/types.ts:92:3 - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/turns/types.ts:113:3 - (ae-undocumented) Missing documentation for "addSummary".
+// src/turns/types.ts:121:3 - (ae-undocumented) Missing documentation for "summaryCount".
 // src/turns/types.ts:152:3 - (ae-undocumented) Missing documentation for "promptVersion".
 // src/turns/types.ts:153:3 - (ae-undocumented) Missing documentation for "turns".
 // src/turns/types.ts:154:3 - (ae-undocumented) Missing documentation for "scored".
 // src/turns/types.ts:155:3 - (ae-undocumented) Missing documentation for "meanScore".
 // src/turns/types.ts:156:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "config".
-// src/workflow.ts:70:3 - (ae-undocumented) Missing documentation for "prompts".
-// src/workflow.ts:71:3 - (ae-undocumented) Missing documentation for "tools".
-// src/workflow.ts:72:3 - (ae-undocumented) Missing documentation for "mcpServers".
-// src/workflow.ts:90:42 - (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
-// src/workflow.ts:100:3 - (ae-undocumented) Missing documentation for "compactions".
-// src/workflow.ts:113:14 - (ae-undocumented) Missing documentation for "resolveTools".
+// src/turns/types.ts:164:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/turns/types.ts:165:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/turns/types.ts:170:3 - (ae-undocumented) Missing documentation for "record".
+// src/turns/types.ts:185:3 - (ae-undocumented) Missing documentation for "append".
+// src/turns/types.ts:195:3 - (ae-undocumented) Missing documentation for "byIds".
+// src/turns/types.ts:208:3 - (ae-undocumented) Missing documentation for "saveScore".
+// src/turns/types.ts:209:3 - (ae-undocumented) Missing documentation for "meanScore".
+// src/turns/types.ts:210:3 - (ae-undocumented) Missing documentation for "summary".
+// src/turns/types.ts:220:3 - (ae-undocumented) Missing documentation for "close".
 
 // (No @packageDocumentation comment for this package)
 

@@ -1,9 +1,11 @@
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "./app/app-deps.js";
+import type { ModelGateway } from "./llm/gateway.js";
 import { applicationOf } from "./application/assemble.js";
 import { environmentOwnerOf } from "./application/create-app.js";
 import type { Class } from "./components/index.js";
 import { namedEnvironmentFor } from "./environments/load.js";
-import type { ExecutionGraph } from "./flow/runtime/build.js";
+import type { Graph } from "@langchain/core/runnables/graph";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { studioGraph } from "./graph/studio-graph.js";
 
 /**
@@ -14,11 +16,19 @@ import { studioGraph } from "./graph/studio-graph.js";
  */
 
 /** How `agboss studio` builds the graphs: the environment (`--env`, default `dev`). */
-export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
+export interface StudioOptions {
+  /** Every model call goes through it: a test's scripted gateway; default the model providers. */
+  readonly gateway?: ModelGateway;
   /** `environments/<env>.environment.ts` next to the application file; default `dev`. */
   readonly env?: string | undefined;
   /** The process environment the environment reads; default `process.env`. */
   readonly processEnv?: NodeJS.ProcessEnv;
+}
+
+/** A workflow's compiled LangGraph graph: what Studio draws (the whole `Runnable` is behind it). */
+export interface StudioGraph {
+  /** The graph's nodes and edges; `xray` opens each child workflow's subgraph. */
+  getGraphAsync(config?: RunnableConfig & { readonly xray?: boolean | number }): Promise<Graph>;
 }
 
 /** Every workflow of the application, by its `name`, as Studio draws and runs it. */
@@ -28,7 +38,7 @@ export interface StudioGraphs {
   /** The workflows' names in the application's order, a child after the workflow launching it. */
   readonly names: readonly string[];
   /** The graph of the workflow of that name; an unknown name throws, naming the known ones. */
-  readonly graph: (name: string) => ExecutionGraph;
+  readonly graph: (name: string) => StudioGraph;
   /** Closes what the workflows opened (their stores, MCP servers). */
   readonly close: () => Promise<void>;
 }
@@ -63,7 +73,7 @@ export async function studioOf(
   return {
     application: assembled.name,
     names,
-    graph: (name: string): ExecutionGraph => {
+    graph: (name: string): StudioGraph => {
       const found = graphs.get(name);
       if (found === undefined)
         throw new TypeError(

@@ -1,6 +1,6 @@
 import { createAppWith } from "../src/application/create-app.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
-import { workflowOf } from "../src/testing/index.js";
+import { workflowOf } from "../src/testing/workflow-of.js";
 import { KEYS } from "./models/gateway.js";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";

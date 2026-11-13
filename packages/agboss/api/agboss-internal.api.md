@@ -5,16 +5,14 @@
 ```ts
 
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
-import { BaseChannel } from '@langchain/langgraph';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
-import { CompiledStateGraph } from '@langchain/langgraph';
+import type { Graph } from '@langchain/core/runnables/graph';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
-import { OverwriteValue } from '@langchain/langgraph';
-import { StateDefinition } from '@langchain/langgraph';
+import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -23,17 +21,12 @@ export const A2A_START_LOST = "a2a.start-lost";
 
 // @public
 export interface A2ATaskRepairParts {
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly clock: Pick<Clock, "now">;
     // (undocumented)
     readonly control: ExecutionControl;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point internal.d.ts
     readonly staleAfter: Milliseconds;
     readonly startTimeout: Milliseconds;
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly tasks: A2ATaskRepository;
 }
@@ -46,45 +39,52 @@ export interface AGBossErrorOptions {
     readonly details?: ErrorDetails;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AgentExecutionDeps" needs to be exported by the entry point internal.d.ts
-//
+// @public
+export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
+    readonly budgets?: ApplicationBudgets | undefined;
+    readonly modelProviders?: readonly ModelProviderType[] | undefined;
+    readonly tracing?: ExecutionTracing | undefined;
+    // (undocumented)
+    readonly turns: TurnRecords;
+}
+
+// @public (undocumented)
+export interface AgentExecutionOptions {
+    readonly configurable?: Readonly<Record<string, unknown>> | undefined;
+    readonly contexts?: ExecutionContextValues | undefined;
+    readonly executionId?: string;
+    readonly onStream?: (event: ExecutionStreamEvent) => void;
+    readonly ownerId?: string | undefined;
+    readonly replayOf?: string;
+    readonly signal?: AbortSignal | undefined;
+}
+
 // @public
 export interface AppDeps extends AgentExecutionDeps<string> {
     readonly close: (executionsDone?: () => Promise<void>) => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "EvalDeps" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly evaluation: EvalDeps;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionHistoryKeeper" needs to be exported by the entry point internal.d.ts
     readonly executionHistory?: ExecutionHistoryKeeper | undefined;
-    // Warning: (ae-forgotten-export) The symbol "FrameworkLog" needs to be exported by the entry point internal.d.ts
     readonly log: FrameworkLog;
     readonly models: readonly string[];
     readonly observer: ExecutionObserverManager;
     readonly rememberConfig: () => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ReplyReaderParts" needs to be exported by the entry point internal.d.ts
     readonly replies: ReplyReaderParts;
     readonly warnings: readonly string[];
 }
 
 // @public
 export interface AppDepsOptions {
-    // Warning: (ae-forgotten-export) The symbol "BranchScheduler" needs to be exported by the entry point internal.d.ts
     readonly branchScheduler?: BranchScheduler;
     readonly connectMcp?: McpConnect;
-    // Warning: (ae-forgotten-export) The symbol "ContainerOptions" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly container?: ContainerOptions;
-    // Warning: (ae-forgotten-export) The symbol "Environment" needs to be exported by the entry point internal.d.ts
     readonly environment?: Environment;
     readonly environmentName?: string;
-    // Warning: (ae-forgotten-export) The symbol "ModelGateway" needs to be exported by the entry point internal.d.ts
     readonly gateway?: ModelGateway;
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly providerFetch?: ProviderFetch;
-    // Warning: (ae-forgotten-export) The symbol "TransportFactory" needs to be exported by the entry point internal.d.ts
     readonly transport?: TransportFactory;
 }
 
@@ -95,8 +95,6 @@ export interface ApplicationDescription {
     readonly source?: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export class ApplicationLoadError extends AGBossError {
     constructor(options: MessageErrorOptions);
@@ -108,14 +106,9 @@ export class ApplicationLoadError extends AGBossError {
     name: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "WorkflowModels" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
 
-// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ApplicationAssembly" needs to be exported by the entry point internal.d.ts
-//
 // @public (undocumented)
 export function applicationOf(application: Class, assembly?: ApplicationAssembly, where?: string): Promise<AssembledApplication>;
 
@@ -125,26 +118,18 @@ export interface ApplicationStart {
     readonly component: Class;
     // (undocumented)
     readonly description: string;
-    // Warning: (ae-forgotten-export) The symbol "WorkflowStartInput" needs to be exported by the entry point internal.d.ts
     readonly input: WorkflowStartInput;
-    // Warning: (ae-forgotten-export) The symbol "ComponentName" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly name: ComponentName;
     readonly workflow: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AssemblyWarning" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
-// Warning: (ae-forgotten-export) The symbol "AssembledKeyFields" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export interface AssembledApplication extends AssembledKeyFields {
     readonly a2aFileRetention: Milliseconds;
-    // Warning: (ae-forgotten-export) The symbol "A2AFileOptions" needs to be exported by the entry point internal.d.ts
     readonly a2aFiles?: A2AFileOptions;
     readonly a2aMessageRetention: Milliseconds;
     readonly a2aTaskRetention: Milliseconds;
@@ -155,40 +140,71 @@ export interface AssembledApplication extends AssembledKeyFields {
     readonly budgets: readonly Class[];
     readonly compensationTimeout: Milliseconds;
     readonly environment?: Class;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionContextClass" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes: readonly Class[];
-    // Warning: (ae-forgotten-export) The symbol "FencedEffectSettings" needs to be exported by the entry point internal.d.ts
     readonly fencedEffects: FencedEffectSettings;
     readonly healthChecks: readonly Class[];
     readonly ledgerEntryRetention: Milliseconds;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
-    // Warning: (ae-forgotten-export) The symbol "MeshOptions" needs to be exported by the entry point internal.d.ts
     readonly mesh?: MeshOptions;
     readonly meshAnswerRetention: Milliseconds;
-    // Warning: (ae-forgotten-export) The symbol "ProviderModule" needs to be exported by the entry point internal.d.ts
     readonly modules: readonly ProviderModule[];
     // (undocumented)
     readonly name: string;
     readonly observers: readonly Class[];
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallSettings" needs to be exported by the entry point internal.d.ts
     readonly outboundCalls: OutboundCallSettings;
     readonly pauseRecordRetention: Milliseconds;
     readonly piiPolicies: readonly Class[];
-    // Warning: (ae-forgotten-export) The symbol "Provider" needs to be exported by the entry point internal.d.ts
     readonly providers: readonly Provider[];
     readonly shutdownTimeout: Milliseconds;
     readonly source?: string;
-    // Warning: (ae-forgotten-export) The symbol "TenantContextClass" needs to be exported by the entry point internal.d.ts
     readonly tenantContext: TenantContextClass;
     // (undocumented)
     readonly version: string;
-    // Warning: (ae-forgotten-export) The symbol "AssembledWorkflow" needs to be exported by the entry point internal.d.ts
     readonly workflows: readonly AssembledWorkflow[];
+}
+
+// @public
+export interface AssembledWorkflow<TName extends string = string> {
+    readonly arbiters?: readonly ModelArbiterUse[];
+    readonly businessKeyWriter?: BusinessKeyWriterUse;
+    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
+    // (undocumented)
+    readonly compactions?: AssembledCompactions;
+    // (undocumented)
+    readonly config: AgentsConfigOf<TName>;
+    readonly graph: RuntimeGraph;
+    readonly guardrails?: AssembledGuardrails;
+    readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
+    readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
+    readonly knowledgeBases?: (services: WorkflowServices) => readonly {
+        readonly name: string;
+        readonly connector: RagConnector;
+    }[];
+    readonly maxSteps: number;
+    // (undocumented)
+    readonly mcpServers: readonly McpServerHandle<string>[];
+    readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
+    readonly modelProviders: readonly ModelProviderType[];
+    readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
+    readonly pii?: AssembledPii;
+    // (undocumented)
+    readonly prompts: AgentPrompts<TName>;
+    readonly replyInterpreters?: readonly AssembledReplyInterpreter[];
+    readonly rerankers?: readonly {
+        readonly name: string;
+        readonly model: string;
+    }[];
+    readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
+    readonly routers: readonly LoadedRouter[];
+    readonly serverTools?: readonly McpFacade[];
+    readonly toolDependencies?: Readonly<Record<string, string>>;
+    readonly toolInterceptors?: AssembledToolInterceptors;
+    // (undocumented)
+    readonly tools: WorkflowTools;
 }
 
 // @public
@@ -202,8 +218,6 @@ export interface AttemptDivergence {
     readonly visitNumber: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "EvalCaseReport" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function attemptDivergenceOf(found: EvalCaseReport): AttemptDivergence | undefined;
 
@@ -235,8 +249,6 @@ export interface BudgetListing {
     readonly budgets: readonly Class[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "AppOptions" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {
 }
@@ -249,20 +261,14 @@ export interface BuildOptions extends AppDepsOptions {
 
 // @public
 export interface BuiltApplication {
-    // Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly app: App;
     // (undocumented)
     readonly assembled: AssembledApplication;
     readonly closed: Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "Infrastructure" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly infrastructure: Infrastructure;
     readonly log: FrameworkLog;
-    // Warning: (ae-forgotten-export) The symbol "BuiltApp" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly workflows: readonly BuiltApp[];
 }
@@ -270,9 +276,6 @@ export interface BuiltApplication {
 // @public
 export function builtApplicationOf(application: Class, options?: BuildApplicationOptions): Promise<BuiltApplication>;
 
-// Warning: (ae-forgotten-export) The symbol "EvalRunReport" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "EvalLabel" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function calibrateJudges(report: EvalRunReport, labels: readonly EvalLabel[]): EvalCalibrationResult;
 
@@ -298,64 +301,43 @@ export enum ChannelImplementationReason {
 
 // @public
 export interface ChaosOptions {
-    // Warning: (ae-forgotten-export) The symbol "ChaosFailure" needs to be exported by the entry point internal.d.ts
     readonly failures: readonly ChaosFailure[];
     readonly rate: number;
     readonly seed: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "CassetteHashSource" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function checkCassettes(files: readonly string[], workflows: readonly CassetteHashSource[]): CassetteCheck;
 
-// Warning: (ae-forgotten-export) The symbol "EvalSuiteMeta" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function checkEvalSuite(application: Class, suite: Class): EvalSuiteMeta;
 
 // @public
 export function checkFederation(current: FederationMember, others: readonly FederationMember[]): FederationReport;
 
-// Warning: (ae-forgotten-export) The symbol "ModelProviderDirectory" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ModelCheckOptions" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ModelProblem" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function checkModelUses(uses: readonly ModelUse[], directory: ModelProviderDirectory, options: ModelCheckOptions): Promise<readonly ModelProblem[]>;
 
-// Warning: (ae-forgotten-export) The symbol "FlowAnalysis" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function childLines(analysis: FlowAnalysis): readonly string[];
 
-// Warning: (ae-forgotten-export) The symbol "SnapshotSource" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export type ChildSnapshotSources = (workflow: Class) => SnapshotSource | undefined;
 
 // @public
 export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnapshotSources;
 
-// Warning: (ae-forgotten-export) The symbol "ProfileComparison" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly string[], options: AppDepsOptions & {
     readonly profileRoot?: string;
 }, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
-// Warning: (ae-forgotten-export) The symbol "EvalRunComparison" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
 
-// Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
 
-// Warning: (ae-forgotten-export) The symbol "SnapshotDeps" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
 
@@ -365,19 +347,16 @@ export function contextsOutsideExecution(workflow: {
     readonly version: string;
 }, environment?: Environment, clock?: Clock): RuntimeContexts;
 
+// @public (undocumented)
+export type ContinueOptions = Omit<AgentExecutionOptions, "replayOf" | "runId" | "contexts">;
+
 // @public
 export function contractsOf(assembled: AssembledApplication): ContractsSnapshot;
 
 // @public
 export interface ContractsSnapshot {
-    // Warning: (ae-forgotten-export) The symbol "A2AExportContract" needs to be exported by the entry point internal.d.ts
-    // Warning: (ae-forgotten-export) The symbol "McpExportContract" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly exports: readonly (A2AExportContract | McpExportContract)[];
-    // Warning: (ae-forgotten-export) The symbol "A2AImportContract" needs to be exported by the entry point internal.d.ts
-    // Warning: (ae-forgotten-export) The symbol "McpImportContract" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly imports: readonly (A2AImportContract | McpImportContract)[];
     // (undocumented)
@@ -405,8 +384,6 @@ export enum CostCategory {
     Tools = "tools"
 }
 
-// Warning: (ae-forgotten-export) The symbol "TokenUsage" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export interface CostLine extends TokenUsage {
     // (undocumented)
@@ -451,8 +428,6 @@ export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOption
 // @public
 export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<App>;
 
-// Warning: (ae-forgotten-export) The symbol "WorkflowServices" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
 
@@ -469,8 +444,6 @@ export enum DefaultsLevel {
 
 // @public
 export interface DefaultsLevels {
-    // Warning: (ae-forgotten-export) The symbol "DefaultsLevel_" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly application?: DefaultsLevel_;
     // (undocumented)
@@ -485,8 +458,6 @@ export interface DefaultSource {
     readonly name: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Section" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
 
@@ -499,8 +470,6 @@ export interface DescribedApplication {
     readonly budgets: readonly DescribedBudget[];
     // (undocumented)
     readonly executionBudgets: readonly DescribedExecutionBudget[];
-    // Warning: (ae-forgotten-export) The symbol "ImplementationChoice" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly implementations: readonly ImplementationChoice[];
     readonly maxConcurrentSteps?: number;
@@ -526,8 +495,6 @@ export interface DescribedBudget {
     readonly name: string;
     // (undocumented)
     readonly period?: string;
-    // Warning: (ae-forgotten-export) The symbol "BudgetScope" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly scope: BudgetScope;
     readonly workflow?: string;
@@ -538,7 +505,6 @@ export interface DescribedChannel {
     readonly answer: string;
     // @deprecated (undocumented)
     readonly answeredBy: PauseAnswerer;
-    // Warning: (ae-forgotten-export) The symbol "PauseAnswerer" needs to be exported by the entry point internal.d.ts
     readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
@@ -626,8 +592,6 @@ export interface DescribedModelProvider {
     readonly isTransport: boolean;
     // (undocumented)
     readonly name: string;
-    // Warning: (ae-forgotten-export) The symbol "ImplementationReason" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly reason: ImplementationReason;
     readonly serves: readonly string[];
@@ -681,8 +645,6 @@ export const describeServices: WorkflowServices;
 // @public
 export const describeServicesWith: (environment: DescribedEnvironment | undefined) => WorkflowServices;
 
-// Warning: (ae-forgotten-export) The symbol "ModelProviderType" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
@@ -727,8 +689,6 @@ export enum DurableExecutionStatus {
 // @public
 export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | undefined;
 
-// Warning: (ae-forgotten-export) The symbol "EnvironmentSelection" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function environmentFor(owner: EnvironmentOwner, selection: EnvironmentSelection, processEnv: NodeJS.ProcessEnv, defaultName?: string): Promise<Environment | undefined>;
 
@@ -742,8 +702,6 @@ export interface EnvironmentOwner {
 // @public
 export const environmentOwnerOf: (assembled: AssembledApplication) => EnvironmentOwner;
 
-// Warning: (ae-forgotten-export) The symbol "LoadedEnvironment" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
 
@@ -825,7 +783,6 @@ export type EvalLabelsRead = {
 export interface EvalRunOptions {
     readonly chaos?: ChaosOptions;
     readonly metamorphic?: boolean;
-    // Warning: (ae-forgotten-export) The symbol "EvalRunResult" needs to be exported by the entry point internal.d.ts
     readonly onRun?: (name: string, result: EvalRunResult) => void;
     readonly profile?: string;
     readonly runs: number;
@@ -843,13 +800,9 @@ export type EvalRunReportRead = {
     readonly reason: string;
 };
 
-// Warning: (ae-forgotten-export) The symbol "RuleViolation" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function evalSuiteWarningsOf(application: Class, suite: Class): readonly RuleViolation[];
 
-// Warning: (ae-forgotten-export) The symbol "ScoringReport" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function evaluate(deps: EvalDeps, bundle: string, options: {
     readonly promptVersion?: string;
@@ -859,9 +812,9 @@ export function evaluate(deps: EvalDeps, bundle: string, options: {
 // @public
 export type EventMask = (event: unknown) => Promise<unknown>;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionOptions" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ExecutionOutput" needs to be exported by the entry point internal.d.ts
-//
+// @public
+export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
+
 // @public
 export const executeWithoutInputCheck: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
@@ -883,153 +836,82 @@ export interface ExecutionCancelRequest extends ExecutionTreeOfThread {
     readonly ownerId?: string | undefined;
 }
 
-// Warning: (ae-forgotten-export) The symbol "WorkflowExecutionControl" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export interface ExecutionControl extends WorkflowExecutionControl {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionIdentity" needs to be exported by the entry point internal.d.ts
     claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
 }
 
 // @public
 export const executionControlOf: (instance: Pick<App, "execute"> | object) => ExecutionControl | undefined;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionObserver" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export class ExecutionObserverManager implements Required<ExecutionObserver> {
     constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[], unknownCosts?: UnknownCostTally | undefined);
     masked(mask: EventMask): ExecutionObserverManager;
-    // Warning: (ae-forgotten-export) The symbol "ActionEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onActionEnd(event: ActionEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ActionStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onActionStart(event: ActionStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "AgentEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "AgentStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onAgentStart(event: AgentStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ChannelEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onChannelEnd(event: ChannelEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ChannelStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onChannelStart(event: ChannelStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "CompensationEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onCompensationEnd(event: CompensationEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "CompensationStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onCompensationStart(event: CompensationStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseTakeoverEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionResume(event: ExecutionResumeEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "FencedEffectEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onFencedEffect(event: FencedEffectEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "JudgeEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onJudgeEnd(event: JudgeEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "JudgeStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onJudgeStart(event: JudgeStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ModelEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onModelEnd(event: ModelEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ModelStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onModelStart(event: ModelStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onOutboundCall(event: OutboundCallEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "QuorumDecidedEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onQuorumDecided(event: QuorumDecidedEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "RagEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onRagEnd(event: RagEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "RagStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onRagStart(event: RagStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "RouterEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onRouterEnd(event: RouterEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "RouterStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onRouterStart(event: RouterStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "StepHandedOverEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onStepHandedOver(event: StepHandedOverEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ToolEndEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onToolEnd(event: ToolEndEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ToolStartEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onToolStart(event: ToolStartEvent): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     onValuesOutdated(event: ValuesOutdatedEvent): Promise<void>;
     // (undocumented)
@@ -1057,8 +939,14 @@ export interface ExecutionTreeOfThread {
     readonly threadId: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRecord" needs to be exported by the entry point internal.d.ts
-//
+// @public
+export function executionVersions<TName extends string>(deps: AgentExecutionDeps<TName>): {
+    readonly promptVersion: string;
+    readonly modelVersion: string;
+    readonly configVersion: string;
+    readonly configHash: string;
+};
+
 // @public
 export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
 
@@ -1129,9 +1017,6 @@ export interface FederationReport {
     readonly problems: readonly FederationProblem[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ComponentLabel" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export const flowLines: (flow: readonly FlowPath[], label?: ComponentLabel) => readonly string[];
 
@@ -1160,8 +1045,6 @@ export interface FlowTypesWrite {
     readonly typescript?: boolean;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ProfileReport" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function formatComparison(tasks: number, rows: readonly ProfileReport[]): string[];
 
@@ -1184,79 +1067,48 @@ export const GENERATED_TYPES_FILE = ".agboss/types.d.ts";
 // @public (undocumented)
 export const goldenFile: (root: string, bundle: string, name: string) => string;
 
-// Warning: (ae-forgotten-export) The symbol "TurnRecords" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "GoldenSet" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function goldenFromRecent(turns: TurnRecords, bundle: string, name: string, limit: number, now?: () => Date): Promise<GoldenSet>;
 
 // @public
 export interface GraphDeps<TName extends string> {
-    // Warning: (ae-forgotten-export) The symbol "ArbiterClass" needs to be exported by the entry point internal.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ArbiterModel" needs to be exported by the entry point internal.d.ts
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
-    // Warning: (ae-forgotten-export) The symbol "BranchErrors" needs to be exported by the entry point internal.d.ts
     readonly branchErrors?: BranchErrors;
     readonly branchScheduler?: BranchScheduler;
-    // Warning: (ae-forgotten-export) The symbol "PauseChannel" needs to be exported by the entry point internal.d.ts
     readonly channelOf?: (channelName: string) => PauseChannel;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     readonly clock?: Clock | undefined;
-    // Warning: (ae-forgotten-export) The symbol "AssembledCompactions" needs to be exported by the entry point internal.d.ts
     readonly compactions?: AssembledCompactions;
-    // Warning: (ae-forgotten-export) The symbol "CompensationParts" needs to be exported by the entry point internal.d.ts
     readonly compensation?: CompensationParts | undefined;
-    // Warning: (ae-forgotten-export) The symbol "AgentsConfigOf" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
     readonly container: {
         readonly get: <T>(token: Class<T>) => T;
     };
     readonly contexts?: RuntimeContexts;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionIds" needs to be exported by the entry point internal.d.ts
     readonly executionIds?: ExecutionIds | undefined;
-    // Warning: (ae-forgotten-export) The symbol "FingerprintKeys" needs to be exported by the entry point internal.d.ts
     readonly fingerprintKeys?: FingerprintKeys | undefined;
-    // Warning: (ae-forgotten-export) The symbol "RuntimeGraph" needs to be exported by the entry point internal.d.ts
     readonly graph: RuntimeGraph;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailRuntime" needs to be exported by the entry point internal.d.ts
     readonly guardrails?: GuardrailRuntime;
-    // Warning: (ae-forgotten-export) The symbol "JudgeInstance" needs to be exported by the entry point internal.d.ts
     readonly judges?: ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
-    // Warning: (ae-forgotten-export) The symbol "LaunchDecider" needs to be exported by the entry point internal.d.ts
     readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
-    // Warning: (ae-forgotten-export) The symbol "FrameLease" needs to be exported by the entry point internal.d.ts
     readonly lease?: FrameLease | undefined;
     readonly maxSteps: number;
-    // Warning: (ae-forgotten-export) The symbol "BaseMemoryStrategy" needs to be exported by the entry point internal.d.ts
     readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
     // (undocumented)
     readonly observer?: ExecutionObserverManager;
-    // Warning: (ae-forgotten-export) The symbol "PauseSeam" needs to be exported by the entry point internal.d.ts
     readonly pause?: PauseSeam | undefined;
-    // Warning: (ae-forgotten-export) The symbol "PiiRuntime" needs to be exported by the entry point internal.d.ts
     readonly pii?: PiiRuntime;
-    // Warning: (ae-forgotten-export) The symbol "AgentPrompts" needs to be exported by the entry point internal.d.ts
     readonly prompts: AgentPrompts<TName>;
-    // Warning: (ae-forgotten-export) The symbol "ModelRegistry" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly registry: ModelRegistry;
-    // Warning: (ae-forgotten-export) The symbol "RemoteChildren" needs to be exported by the entry point internal.d.ts
     readonly remoteChildren?: RemoteChildren | undefined;
-    // Warning: (ae-forgotten-export) The symbol "RouterEngine" needs to be exported by the entry point internal.d.ts
     readonly routerFor: (router: LoadedRouter) => RouterEngine;
-    // Warning: (ae-forgotten-export) The symbol "LoadedRouter" needs to be exported by the entry point internal.d.ts
     readonly routers: readonly LoadedRouter[];
-    // Warning: (ae-forgotten-export) The symbol "StepEntries" needs to be exported by the entry point internal.d.ts
     readonly stepEntries?: StepEntries | undefined;
-    // Warning: (ae-forgotten-export) The symbol "StepSlots" needs to be exported by the entry point internal.d.ts
     readonly stepSlots?: StepSlots | undefined;
-    // Warning: (ae-forgotten-export) The symbol "ToolInterceptorRuntime" needs to be exported by the entry point internal.d.ts
     readonly toolInterceptors?: ToolInterceptorRuntime;
-    // Warning: (ae-forgotten-export) The symbol "AnyTool" needs to be exported by the entry point internal.d.ts
     readonly tools: (name: string) => AnyTool;
 }
 
@@ -1269,8 +1121,6 @@ export interface HistoryExportQuery {
     readonly to: Date;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function historyRecordsOf(history: ExecutionHistoryRepository, query: HistoryExportQuery): AsyncGenerator<ExecutionHistoryRecord>;
 
@@ -1283,17 +1133,11 @@ export const INTERNAL_FAILURE = "internal";
 // @public
 export const isJudgeCheckName: (check: string) => boolean;
 
-// Warning: (ae-forgotten-export) The symbol "Tool" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "McpFacade" needs to be exported by the entry point internal.d.ts
-//
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
 
-// Warning: (ae-forgotten-export) The symbol "RagRetrieval" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export interface KnowledgeRetrieval extends RagRetrieval {
-    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point internal.d.ts
     readonly usage?: readonly UsageRecord[];
 }
 
@@ -1329,8 +1173,11 @@ export function loadEvalSuites(application: Class, options?: {
 // @public (undocumented)
 export function loadGolden(file: string): Promise<GoldenSet>;
 
-// Warning: (ae-forgotten-export) The symbol "McpConnections" needs to be exported by the entry point internal.d.ts
-//
+// @public
+export const loadWorkflow: (path: string, options?: {
+    readonly typescript?: boolean;
+}) => Promise<AssembledWorkflow>;
+
 // @public
 export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv) => Promise<McpConnections>;
 
@@ -1345,21 +1192,14 @@ export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProvid
 
 // @public
 export interface ModelUse {
-    // Warning: (ae-forgotten-export) The symbol "ModelUseKey" needs to be exported by the entry point internal.d.ts
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
-    // Warning: (ae-forgotten-export) The symbol "ModelPurpose" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly purpose: ModelPurpose;
-    // Warning: (ae-forgotten-export) The symbol "ResolvedModelSettings" needs to be exported by the entry point internal.d.ts
     readonly settings?: ResolvedModelSettings;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ModelNamingRouter" needs to be exported by the entry point internal.d.ts
-// Warning: (ae-forgotten-export) The symbol "ModelNamingComponents" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
 
@@ -1372,7 +1212,6 @@ export interface ObservedExecution {
     readonly input: unknown;
     readonly start: string;
     readonly tenant: Readonly<Record<string, unknown>>;
-    // Warning: (ae-forgotten-export) The symbol "ToolCallRecord" needs to be exported by the entry point internal.d.ts
     readonly toolCalls: readonly ToolCallRecord[];
 }
 
@@ -1391,8 +1230,6 @@ export interface ObservedTurn {
     readonly start: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ObserverHook" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
 
@@ -1420,8 +1257,6 @@ export interface ProcessVariable {
     readonly field: string;
     readonly optional: boolean;
     readonly required: boolean;
-    // Warning: (ae-forgotten-export) The symbol "VariableUse" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly use: VariableUse;
     // (undocumented)
@@ -1445,13 +1280,9 @@ export type ProviderFetch = typeof fetch;
 // @public
 export function renderTemplate(text: string, variables: Readonly<Record<string, unknown>>, unknown: (key: string) => Error): string;
 
-// Warning: (ae-forgotten-export) The symbol "A2ATaskRecord" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function repairedTask(parts: A2ATaskRepairParts, task: A2ATaskRecord): Promise<A2ATaskRecord>;
 
-// Warning: (ae-forgotten-export) The symbol "ReplayReport" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function replay<TName extends string>(run: AgentExecutionDeps<TName>, evaluation: EvalDeps, options: {
     readonly promptVersion: string;
@@ -1461,21 +1292,23 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
 // @public
 export const reservedExecutionIdOf: (options: object) => string | undefined;
 
-// Warning: (ae-forgotten-export) The symbol "ResolvedModelUse" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[];
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
 
+// @public (undocumented)
+export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
+
+// @public
+export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
+
 // @public
 export function runEvalSuite(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
 
 // @public
 export interface RuntimeContexts {
-    // Warning: (ae-forgotten-export) The symbol "ApplicationContext" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly application: ApplicationContext;
     // (undocumented)
@@ -1512,8 +1345,6 @@ export type SnapshotReading = {
 
 // @public
 export interface StaleCassette {
-    // Warning: (ae-forgotten-export) The symbol "CassetteChange" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly changes: readonly CassetteChange[];
     // (undocumented)
@@ -1523,8 +1354,6 @@ export interface StaleCassette {
     readonly message: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "DtoIssue" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function startInputIssuesOf(start: Class, payload: unknown): readonly DtoIssue[];
 
@@ -1547,8 +1376,6 @@ export interface StepsRange {
     readonly most?: number;
 }
 
-// Warning: (ae-forgotten-export) The symbol "FlowGraph" needs to be exported by the entry point internal.d.ts
-//
 // @public
 export function stepsRangeOf(graph: FlowGraph): StepsRange;
 
@@ -1556,8 +1383,7 @@ export function stepsRangeOf(graph: FlowGraph): StepsRange;
 export interface StudioGraphs {
     readonly application: string;
     readonly close: () => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "ExecutionGraph" needs to be exported by the entry point internal.d.ts
-    readonly graph: (name: string) => ExecutionGraph;
+    readonly graph: (name: string) => StudioGraph;
     readonly names: readonly string[];
 }
 
@@ -1565,13 +1391,28 @@ export interface StudioGraphs {
 export function studioOf(application: Class, options?: StudioOptions): Promise<StudioGraphs>;
 
 // @public
-export interface StudioOptions extends Pick<AppDepsOptions, "gateway"> {
+export interface StudioOptions {
     readonly env?: string | undefined;
+    readonly gateway?: ModelGateway;
     readonly processEnv?: NodeJS.ProcessEnv;
 }
 
 // @public
 export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
+
+// @public
+export function toolOf<TInput, TOutput>(instance: {
+    run: (input: TInput) => Promise<TOutput>;
+}): Tool<string, TInput, TOutput>;
+
+// @public
+export interface TreeResume {
+    readonly answeredBy: readonly (string | undefined)[];
+    readonly decisions: readonly unknown[];
+    readonly pauseIds: readonly string[];
+    readonly taken: readonly PauseRecord[];
+    readonly values: Readonly<Record<string, string>>;
+}
 
 // @public
 export interface UnknownCostTally {
@@ -1583,11 +1424,13 @@ export interface UnknownCostTally {
 export const versionOf: (value: unknown) => string;
 
 // @public
+export function withProfile(bundle: AssembledWorkflow, profile: string | undefined, root?: string): Promise<AssembledWorkflow>;
+
+// @public
 export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
 export interface WorkflowDepsParts {
-    // Warning: (ae-forgotten-export) The symbol "AuditLogWriter" needs to be exported by the entry point internal.d.ts
     readonly auditLog?: AuditLogWriter;
     readonly budgets?: BudgetListing;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
@@ -1599,7 +1442,6 @@ export interface WorkflowDepsParts {
     // (undocumented)
     readonly infrastructure: Infrastructure;
     readonly observer?: ExecutionObserverManager;
-    // Warning: (ae-forgotten-export) The symbol "ApplicationPiiKey" needs to be exported by the entry point internal.d.ts
     readonly piiKey?: ApplicationPiiKey;
     readonly remoteChildren?: RemoteChildren;
     readonly stepEntries?: StepEntries;
@@ -1607,31 +1449,31 @@ export interface WorkflowDepsParts {
 }
 
 // @public
+export const workflowOf: (workflow: Class, application?: readonly ProviderModule[]) => Promise<AssembledWorkflow>;
+
+// @public
+export interface WorkflowServices {
+    readonly container?: ContainerOptions;
+    readonly contexts?: RuntimeContexts;
+    readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
+    readonly router: (name: string) => RouterEngine;
+}
+
+// @public
 export interface WorkflowSnapshot {
     // (undocumented)
     readonly configHash: string;
-    // Warning: (ae-forgotten-export) The symbol "EdgeSnapshot" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly edges: readonly EdgeSnapshot[];
     // (undocumented)
     readonly finishes: readonly string[];
-    // Warning: (ae-forgotten-export) The symbol "LaunchSnapshot" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly launches: readonly LaunchSnapshot[];
-    // Warning: (ae-forgotten-export) The symbol "ComponentRecord" needs to be exported by the entry point internal.d.ts
     readonly modelComponents: readonly ComponentRecord[];
-    // Warning: (ae-forgotten-export) The symbol "NodeSnapshot" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly nodes: readonly NodeSnapshot[];
-    // Warning: (ae-forgotten-export) The symbol "ErrorHandlerSnapshot" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly onError: readonly ErrorHandlerSnapshot[];
-    // Warning: (ae-forgotten-export) The symbol "SchemasSnapshot" needs to be exported by the entry point internal.d.ts
-    //
     // (undocumented)
     readonly schemas: SchemasSnapshot;
     // (undocumented)
@@ -1640,6 +1482,9 @@ export interface WorkflowSnapshot {
 
 // @public
 export function workflowSnapshotOf(bundle: AssembledWorkflow, services: WorkflowServices, children?: ChildSnapshotSources): WorkflowSnapshot;
+
+// @public
+export type WorkflowTools = readonly AnyTool[] | ((services: WorkflowServices) => readonly AnyTool[]);
 
 // @public
 export interface WorstCase {
@@ -1725,7 +1570,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/app/execution-control.ts:17:3 - (ae-undocumented) Missing documentation for "threadId".
 // src/app/execution-control.ts:22:3 - (ae-undocumented) Missing documentation for "ownerId".
 // src/app/execution-control.ts:55:1 - (ae-undocumented) Missing documentation for "DurableExecutionState".
-// src/app/execution-control.ts:58:55 - (ae-forgotten-export) The symbol "PendingPause" needs to be exported by the entry point internal.d.ts
 // src/application/application-starts.ts:18:3 - (ae-undocumented) Missing documentation for "name".
 // src/application/application-starts.ts:19:3 - (ae-undocumented) Missing documentation for "description".
 // src/application/application-starts.ts:22:3 - (ae-undocumented) Missing documentation for "component".
@@ -1807,7 +1651,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/contracts-types.ts:76:3 - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts:77:3 - (ae-undocumented) Missing documentation for "imports".
 // src/describe/contracts-types.ts:78:3 - (ae-undocumented) Missing documentation for "schemas".
-// src/describe/contracts-types.ts:79:51 - (ae-forgotten-export) The symbol "JsonSchema" needs to be exported by the entry point internal.d.ts
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".
@@ -1846,7 +1689,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/environments/resolve.ts:43:3 - (ae-undocumented) Missing documentation for "use".
 // src/environments/resolve.ts:195:3 - (ae-undocumented) Missing documentation for "name".
 // src/environments/resolve.ts:196:3 - (ae-undocumented) Missing documentation for "values".
-// src/eval/calibrate/calibrate.ts:22:36 - (ae-forgotten-export) The symbol "EvalCalibration" needs to be exported by the entry point internal.d.ts
 // src/eval/calibrate/taxonomy.ts:12:3 - (ae-undocumented) Missing documentation for "tag".
 // src/eval/calibrate/taxonomy.ts:13:3 - (ae-undocumented) Missing documentation for "description".
 // src/eval/case-from-execution.ts:20:3 - (ae-undocumented) Missing documentation for "start".
@@ -1926,11 +1768,20 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/rag/types.ts:153:3 - (ae-undocumented) Missing documentation for "name".
 // src/rag/types.ts:154:3 - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts:155:3 - (ae-undocumented) Missing documentation for "retrieve".
+// src/run/continue-run.ts:42:1 - (ae-undocumented) Missing documentation for "ContinueOptions".
+// src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "turns".
+// src/run/types.ts:40:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".
 // src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "component".
 // src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "changes".
 // src/testing/vcr-check.ts:43:3 - (ae-undocumented) Missing documentation for "stale".
 // src/tools/mcp/facade.ts:116:14 - (ae-undocumented) Missing documentation for "isMcpFacade".
+// src/workflow.ts:52:3 - (ae-undocumented) Missing documentation for "config".
+// src/workflow.ts:70:3 - (ae-undocumented) Missing documentation for "prompts".
+// src/workflow.ts:71:3 - (ae-undocumented) Missing documentation for "tools".
+// src/workflow.ts:72:3 - (ae-undocumented) Missing documentation for "mcpServers".
+// src/workflow.ts:100:3 - (ae-undocumented) Missing documentation for "compactions".
+// src/workflow.ts:113:14 - (ae-undocumented) Missing documentation for "resolveTools".
 
 // (No @packageDocumentation comment for this package)
 

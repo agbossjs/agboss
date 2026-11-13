@@ -9,8 +9,8 @@ export interface ServerTool {
 }
 
 /** The arguments / the result of a declared server tool. */
-type ArgumentsOf<TTool extends ServerTool> = InstanceType<TTool["input"]>;
-type ResultOf<TTool extends ServerTool> = InstanceType<TTool["output"]>;
+export type ArgumentsOf<TTool extends ServerTool> = InstanceType<TTool["input"]>;
+export type ResultOf<TTool extends ServerTool> = InstanceType<TTool["output"]>;
 export type ServerTools = Readonly<Record<string, ServerTool>>;
 
 /** What `call` goes through: the framework's facade of one server tool (validation, connection). */

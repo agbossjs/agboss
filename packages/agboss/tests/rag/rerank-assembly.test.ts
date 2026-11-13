@@ -16,7 +16,7 @@ import {
   type RagConnector,
   type RagRetrieval,
 } from "../../src/rag/index.js";
-import { workflowOf } from "../../src/testing/index.js";
+import { workflowOf } from "../../src/testing/workflow-of.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";

@@ -1,5 +1,5 @@
 import { configSnapshot } from "../run/versions.js";
-import type { AgentExecutionDeps } from "../index.js";
+import type { AgentExecutionDeps } from "../run/types.js";
 import type { PairwiseResult, ProfileOutcome } from "./compare.js";
 
 /** One row of the comparison: a profile vs the baseline (the first profile). */

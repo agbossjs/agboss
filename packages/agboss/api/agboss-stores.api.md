@@ -524,7 +524,6 @@ export interface CostCounter extends BudgetAccount {
 export abstract class CostLedgerRepository {
     abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
     abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
     abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
     abstract ping(): Promise<void>;
     abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
@@ -776,7 +775,6 @@ export interface ExecutionIdentity {
 export interface ExecutionLease {
     readonly expiresAt: Date;
     readonly holderInstanceId: string;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly remaining: Milliseconds;
     readonly rootExecutionId: string;
     readonly takenOverFrom?: PreviousLeaseHolder;
@@ -942,7 +940,6 @@ export enum FencedEffectEventOutcome {
 
 // @public
 export interface FencedEffectOptions {
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxResultSize?: Bytes;
 }
 
@@ -2010,8 +2007,6 @@ export interface TokenUsage {
 
 // @public
 export class ToolCallApprovalAskDto {
-    // Warning: (ae-forgotten-export) The symbol "ToolArguments" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     arguments: ToolArguments;
     // (undocumented)

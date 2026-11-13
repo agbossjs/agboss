@@ -10,13 +10,9 @@ import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import { z } from 'zod';
 
-// Warning: (ae-forgotten-export) The symbol "EndEvent" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ActionEndEvent = EndEvent<unknown>;
 
-// Warning: (ae-forgotten-export) The symbol "StartEvent" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 
@@ -28,13 +24,9 @@ export interface AGBossErrorOptions {
     readonly details?: ErrorDetails;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AgentOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Agent(options: AgentOptions): <TClass extends Class>(value: TClass) => TClass;
 
-// Warning: (ae-forgotten-export) The symbol "NodeValue" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type AgentEndEvent = EndEvent<NodeValue>;
 
@@ -52,17 +44,12 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 // @public
 export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
 
-// Warning: (ae-forgotten-export) The symbol "BindToolOptions" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorator;
 
 // @public (undocumented)
 export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
 
-// Warning: (ae-forgotten-export) The symbol "ChannelMeta" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Channel<const D extends readonly Token[] = []>(options: ChannelMeta & {
     readonly deps?: D;
@@ -75,12 +62,8 @@ export type ChannelEndEvent = EndEvent<unknown>;
 
 // @public
 export interface ChannelHandler<TRole> {
-    // Warning: (ae-forgotten-export) The symbol "ChannelAsk" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "ChannelOutcome" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
-    // Warning: (ae-forgotten-export) The symbol "ChannelWithdrawal" needs to be exported by the entry point index.d.ts
     readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
 }
 
@@ -119,8 +102,6 @@ export interface ClassProvider<T = unknown> {
     readonly useClass: Class<T>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class ComponentError extends AGBossError {
     constructor(options: MessageErrorOptions);
@@ -134,10 +115,13 @@ export class ComponentError extends AGBossError {
 
 // @public
 export const Decision: {
-    readonly choice: typeof choice;
-    readonly noul: typeof noul;
-    readonly score: typeof score;
-    readonly image: typeof image;
+    readonly choice: <const C extends Readonly<Record<string, string | null>>>(instructions: string, criteria: C) => ChoiceQuestion<keyof C & string>;
+    readonly noul: (instructions: string, criteria?: {
+        readonly true: string;
+        readonly false: string;
+    }) => NoulQuestion;
+    readonly score: (instructions: string, levels: readonly string[]) => ScoreQuestion;
+    readonly image: (dataUrl: string, detail?: ImageDetail) => DecisionImage;
 };
 
 // @public (undocumented)
@@ -180,8 +164,6 @@ export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & On
 // @public
 export function file(filePath: string): string;
 
-// Warning: (ae-forgotten-export) The symbol "GuardrailOutcome" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
@@ -189,8 +171,6 @@ export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 export interface GuardrailInput {
     // (undocumented)
     readonly element: string;
-    // Warning: (ae-forgotten-export) The symbol "GuardrailSide" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly side: GuardrailSide;
     // (undocumented)
@@ -213,8 +193,6 @@ export enum ImageDetail {
     Low = "low"
 }
 
-// Warning: (ae-forgotten-export) The symbol "InjectableOptions" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
 
@@ -227,15 +205,9 @@ export class InjectionToken<T> {
     readonly description: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "JudgeReplyShape" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "JudgeOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "JudgedValueOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "NodeEvent" needs to be exported by the entry point index.d.ts
-//
 // @public
 export interface JudgeEndEvent extends NodeEvent {
     // (undocumented)
@@ -248,13 +220,9 @@ export interface JudgeEndEvent extends NodeEvent {
 
 // @public
 export interface JudgeHandler<TReply> {
-    // Warning: (ae-forgotten-export) The symbol "JudgeInput" needs to be exported by the entry point index.d.ts
     judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "ModelJudgeMeta" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "CodeJudgeMeta" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> = ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
 
@@ -275,9 +243,6 @@ export interface JudgeStartEvent extends NodeEvent {
     readonly name: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "PassedJudgeVerdict" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "FailedJudgeVerdict" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type JudgeVerdict = PassedJudgeVerdict | FailedJudgeVerdict;
 
@@ -306,8 +271,6 @@ export interface ModelEndEvent extends NodeEvent {
     readonly model: string;
     // (undocumented)
     readonly rawContent: MessageContent;
-    // Warning: (ae-forgotten-export) The symbol "ModelUsage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly usage: ModelUsage;
 }
@@ -389,13 +352,11 @@ export interface OnChannelStart {
 
 // @public
 export interface OnCompensationEnd {
-    // Warning: (ae-forgotten-export) The symbol "CompensationEndEvent" needs to be exported by the entry point index.d.ts
     onCompensationEnd(event: CompensationEndEvent): HookResult;
 }
 
 // @public
 export interface OnCompensationStart {
-    // Warning: (ae-forgotten-export) The symbol "CompensationStartEvent" needs to be exported by the entry point index.d.ts
     onCompensationStart(event: CompensationStartEvent): HookResult;
 }
 
@@ -406,61 +367,47 @@ export interface OnDestroy {
 
 // @public
 export interface OnExecutionEnd {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionEndEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionEnd(event: ExecutionEndEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionError {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionErrorEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionLeaseTakeover {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionLeaseTakeoverEvent" needs to be exported by the entry point index.d.ts
     onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionPause {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionPauseEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionPause(event: ExecutionPauseEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionRejected {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionRejectedEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionResume {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionResumeEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionResume(event: ExecutionResumeEvent): HookResult;
 }
 
 // @public
 export interface OnExecutionStart {
-    // Warning: (ae-forgotten-export) The symbol "ExecutionStartEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): HookResult;
 }
 
 // @public
 export interface OnFencedEffect {
-    // Warning: (ae-forgotten-export) The symbol "FencedEffectEvent" needs to be exported by the entry point index.d.ts
     onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 
@@ -490,7 +437,6 @@ export interface OnJudgeStart {
 
 // @public
 export interface OnLaunchItemsTruncated {
-    // Warning: (ae-forgotten-export) The symbol "LaunchItemsTruncatedEvent" needs to be exported by the entry point index.d.ts
     onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
 }
 
@@ -508,13 +454,11 @@ export interface OnModelStart {
 
 // @public
 export interface OnOutboundCall {
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallEvent" needs to be exported by the entry point index.d.ts
     onOutboundCall(event: OutboundCallEvent): HookResult;
 }
 
 // @public
 export interface OnQuorumDecided {
-    // Warning: (ae-forgotten-export) The symbol "QuorumDecidedEvent" needs to be exported by the entry point index.d.ts
     onQuorumDecided(event: QuorumDecidedEvent): HookResult;
 }
 
@@ -549,7 +493,6 @@ export interface OnStart {
 
 // @public
 export interface OnStepHandedOver {
-    // Warning: (ae-forgotten-export) The symbol "StepHandedOverEvent" needs to be exported by the entry point index.d.ts
     onStepHandedOver(event: StepHandedOverEvent): HookResult;
 }
 
@@ -572,21 +515,13 @@ export interface OnToolStart {
 
 // @public
 export interface OnValuesOutdated {
-    // Warning: (ae-forgotten-export) The symbol "ValuesOutdatedEvent" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
 
-// Warning: (ae-forgotten-export) The symbol "DeclarativePiiPolicyOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "PiiRefusalShape" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function PiiPolicy<const D extends readonly Token[] = []>(options: DeclarativePiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C & PiiRefusalShape<InstanceType<C>>) => C;
 
-// Warning: (ae-forgotten-export) The symbol "CustomPiiPolicyOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "PiiPolicyHandler" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function PiiPolicy<const D extends readonly Token[] = []>(options: CustomPiiPolicyOptions<D>): <C extends new (...args: ResolvedAll<D>) => PiiPolicyHandler>(value: C) => C;
 
@@ -634,8 +569,6 @@ export function provide<T>(token: InjectionToken<T> | Class<T>, value: T extends
 // @public
 export type Provider = Class | ValueProvider | ClassProvider;
 
-// Warning: (ae-forgotten-export) The symbol "RagRetrieval" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type RagEndEvent = EndEvent<RagRetrieval>;
 
@@ -646,9 +579,6 @@ export type RagStartEvent = StartEvent<string>;
 export interface Router {
     // (undocumented)
     readonly name: string;
-    // Warning: (ae-forgotten-export) The symbol "RouteRequest" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "RouteOutcome" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly route: (request: RouteRequest) => Promise<RouteOutcome>;
 }
@@ -656,8 +586,6 @@ export interface Router {
 // @public
 export const ROUTER_FACTORY: InjectionToken<(name: string) => Router>;
 
-// Warning: (ae-forgotten-export) The symbol "RouterDecided" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type RouterEndEvent = EndEvent<RouterDecided>;
 
@@ -688,10 +616,6 @@ export interface ScoreQuestion {
 // @public (undocumented)
 export type Token = Class | InjectionToken<unknown>;
 
-// Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ToolOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ToolHandler" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
 
@@ -726,10 +650,6 @@ export interface ValueProvider<T = unknown> {
     readonly useValue: T;
 }
 
-// Warning: (ae-forgotten-export) The symbol "FlowPath" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "WorkflowOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ThisWorkflowCheck" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
 
@@ -741,12 +661,8 @@ export interface WorkflowDefinition {
 
 // @public
 export class WorkflowSettings {
-    // Warning: (ae-forgotten-export) The symbol "WorkflowSettingsBuilder" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     static builder(): WorkflowSettingsBuilder;
-    // Warning: (ae-forgotten-export) The symbol "IncompatibleResumePolicy" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly onIncompatibleResume: IncompatibleResumePolicy | undefined;
 }
@@ -762,8 +678,6 @@ export class WorkflowSettings {
 // src/components/injection.ts:32:3 - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts:33:3 - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts:34:3 - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
-// src/components/judge-decorators.ts:166:3 - (ae-forgotten-export) The symbol "PassedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
-// src/components/judge-decorators.ts:171:3 - (ae-forgotten-export) The symbol "FailedJudgeVerdictOptions" needs to be exported by the entry point index.d.ts
 // src/components/metadata.ts:128:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts:129:3 - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts:130:12 - (ae-undocumented) Missing documentation for "name".
@@ -877,10 +791,6 @@ export class WorkflowSettings {
 // src/llm/decisions.ts:70:1 - (ae-undocumented) Missing documentation for "DecisionAnswer".
 // src/llm/decisions.ts:87:3 - (ae-undocumented) Missing documentation for "state".
 // src/llm/decisions.ts:88:3 - (ae-undocumented) Missing documentation for "questions".
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "choice" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "noul" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "score" needs to be exported by the entry point index.d.ts
-// src/llm/decisions.ts:143:22 - (ae-forgotten-export) The symbol "image" needs to be exported by the entry point index.d.ts
 // src/routers/types.ts:43:3 - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts:44:3 - (ae-undocumented) Missing documentation for "route".
 

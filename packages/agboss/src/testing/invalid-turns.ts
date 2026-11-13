@@ -1,6 +1,6 @@
 import type { DtoClass } from "../dto/types.js";
 import type { ToolNameOf } from "../flow/generated-types.js";
-import { toolNameOf, type ToolClass, type ToolInputOf } from "./script.js";
+import { toolNameOf, type ToolClass, type CalledToolArguments } from "./script.js";
 import type { DeepPartial } from "./script-types.js";
 import type {
   AnswerDetails,
@@ -46,7 +46,7 @@ const cutJson = (args: object): string => {
  */
 export function callToolWithTruncatedArguments<TTool extends ToolClass<never>>(
   tool: TTool,
-  args: NoInfer<DeepPartial<ToolInputOf<InstanceType<TTool>>>>,
+  args: NoInfer<DeepPartial<CalledToolArguments<InstanceType<TTool>>>>,
 ): TruncatedToolCallTurn<ToolNameOf<InstanceType<TTool>>> {
   return { kind: "truncated-tool-call", tool: toolNameOf(tool), text: cutJson(args) };
 }

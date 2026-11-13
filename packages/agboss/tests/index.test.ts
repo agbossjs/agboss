@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DtoValidationError } from "../src/dto/errors.js";
 import { ExecutionStatus } from "../src/app/types.js";
-import { executeAgent } from "../src/index.js";
+import { executeAgent } from "../src/run/run-agent.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 const deps = () =>

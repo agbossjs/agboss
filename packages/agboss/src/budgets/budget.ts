@@ -31,28 +31,24 @@ export interface BudgetHandler {
   readonly maxSpend: () => Usd | Promise<Usd>;
 }
 
-interface BudgetCommonOptions<TDeps extends readonly Token[]> {
-  /** Ends with `-budget` (`tenant-daily-budget`). */
-  readonly name: string;
-  readonly deps?: TDeps;
-}
-
 /**
  * The cost of one execution: its own workflow's (`workflow: X`, at most one per workflow), or the
  * default for every root without its own (no `workflow`). No period.
  */
-export interface ExecutionBudgetOptions<
-  TDeps extends readonly Token[],
-> extends BudgetCommonOptions<TDeps> {
+export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
+  /** Ends with `-budget` (`tenant-daily-budget`). */
+  readonly name: string;
+  readonly deps?: TDeps;
   readonly scope: BudgetScope.Execution;
   readonly workflow?: Class;
   readonly period?: never;
 }
 
 /** A tenant's or the application's spend per period; no `workflow`. */
-export interface PeriodBudgetOptions<
-  TDeps extends readonly Token[],
-> extends BudgetCommonOptions<TDeps> {
+export interface PeriodBudgetOptions<TDeps extends readonly Token[]> {
+  /** Ends with `-budget` (`tenant-daily-budget`). */
+  readonly name: string;
+  readonly deps?: TDeps;
   readonly scope: BudgetScope.Tenant | BudgetScope.Application;
   readonly period: BudgetPeriod;
   readonly workflow?: never;

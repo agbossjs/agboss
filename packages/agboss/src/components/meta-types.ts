@@ -1,12 +1,10 @@
-import type { AgentsConfig } from "../config/types.js";
+import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { RagMode } from "../rag/types.js";
 import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { AgentToolClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { Class, Provider } from "./injection.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
-
-type AgentSettings = AgentsConfig["agents"][string];
 
 /** An agent's use of a `@Rag` knowledge base; both fields required (no defaults). */
 export interface RagBinding {

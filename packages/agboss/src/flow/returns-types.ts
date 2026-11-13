@@ -41,7 +41,7 @@ export type Members<TValues extends readonly unknown[]> = {
   [K in keyof TValues]: Member<TValues[K]>;
 }[number];
 
-type IsIn<TMember, TMembers> = TMembers extends unknown ? Same<TMember, TMembers> : never;
+export type IsIn<TMember, TMembers> = TMembers extends unknown ? Same<TMember, TMembers> : never;
 
 /**
  * The values a `.returns` chain must still name (`Member`s), or the generated entry's error: every
@@ -56,7 +56,7 @@ export type ValuesLeft<TOutput> = [TOutput] extends [GeneratedTypeError]
     : Member<TOutput>;
 
 /** The values left once `TValue` is named. */
-type Without<TLeft, TValue> = TLeft extends unknown
+export type Without<TLeft, TValue> = TLeft extends unknown
   ? Same<TLeft, Member<TValue>> extends true
     ? never
     : TLeft
@@ -93,7 +93,7 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
   readonly canLaunch: false;
 }
 
-interface NotGiven<TSource extends ValuesSource> {
+export interface NotGiven<TSource extends ValuesSource> {
   readonly __error: `not what ${TSource["label"]} gives — see ${TSource["entry"]}`;
 }
 

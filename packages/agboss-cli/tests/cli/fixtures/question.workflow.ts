@@ -1,7 +1,10 @@
 import { Application } from "../../../../agboss/src/application/application.js";
 import { ChannelOf } from "../../../../agboss/src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../../agboss/src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../../agboss/src/channels/channel-role.decorator.js";
+import {
+  ChannelRole,
+  PauseAnswerer,
+} from "../../../../agboss/src/channels/channel-role.decorator.js";
 import { Channel } from "../../../../agboss/src/components/decorators.js";
 import { Flag, Integer, Text } from "../../../../agboss/src/dto/index.js";
 import { EmptyEnvironment } from "../../../../agboss/src/environments/empty.js";

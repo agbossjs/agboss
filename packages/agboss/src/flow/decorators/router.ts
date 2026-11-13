@@ -71,10 +71,10 @@ export interface CodeRouterRoute {
 }
 
 /**
- * What both kinds of router declare (a code router's PII policies apply to nothing: no model; its
- * own guardrails are `[guardrail.no-model-call]`).
+ * `@Router({ decidedBy: DecidedBy.Model })` — how its model chooses (`prompt`, the route prompts);
+ * the flow lists the targets (`.chooseOne(route(…)…)`) and the two lists match (`[router.routes-mismatch]`).
  */
-interface RouterBase extends PiiPolicyFields, GuardrailFields {
+export interface ModelRouterOptions extends PiiPolicyFields, GuardrailFields, CompactionFields {
   /** Ends with `-router` (`main-router`). */
   readonly name: string;
   readonly description: string;
@@ -82,13 +82,6 @@ interface RouterBase extends PiiPolicyFields, GuardrailFields {
   readonly input: InputFields;
   /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
-}
-
-/**
- * `@Router({ decidedBy: DecidedBy.Model })` — how its model chooses (`prompt`, the route prompts);
- * the flow lists the targets (`.chooseOne(route(…)…)`) and the two lists match (`[router.routes-mismatch]`).
- */
-export interface ModelRouterOptions extends RouterBase, CompactionFields {
   readonly decidedBy: DecidedBy.Model;
   readonly routes: readonly [RouterRoute, ...RouterRoute[]];
   /** A decision model (Jev, …) or a chat model; `defaults.router.model` when absent. */
@@ -102,9 +95,15 @@ export interface ModelRouterOptions extends RouterBase, CompactionFields {
 }
 
 /** `@Router({ decidedBy: DecidedBy.Code })` — the class's `route(input)` chooses; no model, no prompt. */
-export interface CodeRouterOptions<
-  TDeps extends readonly Token[] = readonly Token[],
-> extends RouterBase {
+export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]>
+  extends PiiPolicyFields, GuardrailFields {
+  /** Ends with `-router` (`main-router`). */
+  readonly name: string;
+  readonly description: string;
+  /** What it decides on, by type; required and non-empty (`[router.empty-input]`). */
+  readonly input: InputFields;
+  /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
+  readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Code;
   readonly routes: readonly [CodeRouterRoute, ...CodeRouterRoute[]];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */

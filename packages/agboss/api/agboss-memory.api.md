@@ -43,8 +43,6 @@ export interface MemoryTurn {
 
 // @public
 export interface MemoryUpdate {
-    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly usage?: readonly UsageRecord[];
 }

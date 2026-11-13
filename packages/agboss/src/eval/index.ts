@@ -82,3 +82,5 @@ export {
   type ToolArgumentsOf,
   type ToolInvariant,
 } from "./suite/tool-expectations.js";
+export { type ToolHandlerClass } from "../components/decorators.js";
+export { type EvalContextsOf, type EvalTurnsOf } from "./suite/cases.js";

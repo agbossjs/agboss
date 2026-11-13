@@ -22,19 +22,25 @@ export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
 // @public
 export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
-// Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = []>(config: A2AAgentConfig<TIn, TOut, D>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>>(value: C) => C;
 
-// Warning: (ae-forgotten-export) The symbol "A2AAgentBase" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "A2AAgentTyped" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "A2AAgentUntyped" needs to be exported by the entry point index.d.ts
-//
-// @public (undocumented)
-export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = A2AAgentBase<D> & (A2AAgentTyped<TIn, TOut> | A2AAgentUntyped);
+// @public
+export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = {
+    readonly name: string;
+    readonly url: string;
+    readonly target?: A2ATarget;
+    readonly price?: Usd;
+    readonly mesh?: A2AMesh;
+    readonly allowedOrigins?: readonly string[];
+    readonly deps?: D;
+} & ({
+    readonly input: TIn;
+    readonly output: TOut;
+} | {
+    readonly input?: undefined;
+    readonly output?: undefined;
+});
 
 // @public
 export interface A2AAgentMeta {
@@ -50,8 +56,6 @@ export interface A2AAgentMeta {
     readonly name: string;
     // (undocumented)
     readonly output?: DtoClass;
-    // Warning: (ae-forgotten-export) The symbol "Usd" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly price?: Usd;
     // (undocumented)
@@ -60,13 +64,9 @@ export interface A2AAgentMeta {
     readonly url: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class A2ACallDeadlineError extends AGBossError {
     constructor(options: A2ACallDeadlineErrorOptions);
@@ -96,9 +96,6 @@ export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
     readonly deadlineAt: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ExecutionOptionsOf" needs to be exported by the entry point index.d.ts
-//
 // @public
 export type A2ACaller<TStart extends Class> = Pick<ExecutionOptionsOf<InstanceType<TStart>>, "tenant" | "ownerId" | "execution"> & A2APeer;
 
@@ -200,7 +197,6 @@ export interface A2AClientCall {
     readonly key?: string;
     readonly onEvent?: (event: A2AStreamEvent) => void;
     readonly signal?: AbortSignal;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeout?: Milliseconds;
 }
 
@@ -350,7 +346,6 @@ export abstract class A2ADirectMessageRepository {
     abstract ping(): Promise<void>;
     abstract retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
     abstract saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    // Warning: (ae-forgotten-export) The symbol "StoreDescriptor" needs to be exported by the entry point index.d.ts
     static readonly store: StoreDescriptor;
 }
 
@@ -377,7 +372,6 @@ export enum A2ADirectMessageState {
 
 // @public
 export interface A2ADownloadOptions {
-    // Warning: (ae-forgotten-export) The symbol "Bytes" needs to be exported by the entry point index.d.ts
     readonly maxSize?: Bytes;
     // (undocumented)
     readonly signal?: AbortSignal;
@@ -408,7 +402,6 @@ export interface A2AExecutionRequest<TInput = unknown> {
 // @public
 export interface A2AExecutionResponse {
     readonly code?: string;
-    // Warning: (ae-forgotten-export) The symbol "ErrorDetails" needs to be exported by the entry point index.d.ts
     readonly details?: ErrorDetails;
     readonly error?: string;
     readonly executionId?: string;
@@ -418,7 +411,6 @@ export interface A2AExecutionResponse {
     readonly output?: unknown;
     readonly pauseIds?: readonly string[];
     readonly report?: string;
-    // Warning: (ae-forgotten-export) The symbol "MeshSpendReport" needs to be exported by the entry point index.d.ts
     readonly spend?: MeshSpendReport;
     // (undocumented)
     readonly status: A2AStatus;
@@ -605,7 +597,6 @@ export abstract class A2AFileRepository {
 
 // @public
 export class A2AFiles {
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     constructor(store: A2AFileRepository, clock: Clock);
     fromUrl(url: string, reference: A2AFileReference): A2AFileDto;
     read(file: A2AFileDto): Promise<Uint8Array>;
@@ -1082,8 +1073,6 @@ export const DEFAULT_A2A_FILE_MEDIA_TYPES: readonly string[];
 
 // @public
 export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    // Warning: (ae-forgotten-export) The symbol "InMemoryDatabase" needs to be exported by the entry point index.d.ts
-    constructor(database: InMemoryDatabase);
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     // (undocumented)
@@ -1106,7 +1095,6 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
 
 // @public
 export class InMemoryA2AFileRepository extends A2AFileRepository {
-    constructor(database: InMemoryDatabase);
     // (undocumented)
     deleteByOwner(owner: A2AFileOwner): Promise<void>;
     // (undocumented)
@@ -1125,7 +1113,6 @@ export class InMemoryA2AFileRepository extends A2AFileRepository {
 
 // @public
 export class LocalDiskA2AFileRepository extends A2AFileRepository {
-    // Warning: (ae-forgotten-export) The symbol "ApplicationContext" needs to be exported by the entry point index.d.ts
     constructor(applicationContext: ApplicationContext);
     // (undocumented)
     deleteByOwner(owner: A2AFileOwner): Promise<void>;
@@ -1157,10 +1144,9 @@ export interface NewA2AFile extends A2AFileMetadata {
 
 export { Part }
 
-// Warning: (ae-forgotten-export) The symbol "BuiltA2ACallerResolution" needs to be exported by the entry point index.d.ts
-//
 // @public
-export interface RejectedA2ACallerResolution extends BuiltA2ACallerResolution {
+export interface RejectedA2ACallerResolution {
+    readonly [a2aCallerResolution]: true;
     readonly challenge?: string;
     // (undocumented)
     readonly kind: A2ACallerResolutionKind.Unauthenticated | A2ACallerResolutionKind.Forbidden;
@@ -1168,7 +1154,8 @@ export interface RejectedA2ACallerResolution extends BuiltA2ACallerResolution {
 }
 
 // @public
-export interface ResolvedA2ACallerResolution<TStart extends Class> extends BuiltA2ACallerResolution {
+export interface ResolvedA2ACallerResolution<TStart extends Class> {
+    readonly [a2aCallerResolution]: true;
     readonly caller: A2ACaller<TStart>;
     // (undocumented)
     readonly kind: A2ACallerResolutionKind.Resolved;
@@ -1194,7 +1181,6 @@ export class S3A2AFileRepository extends A2AFileRepository {
 
 // @public
 export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    // Warning: (ae-forgotten-export) The symbol "SqliteConnection" needs to be exported by the entry point index.d.ts
     constructor(connection: SqliteConnection);
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
@@ -1216,42 +1202,25 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
     static readonly store: StoreDescriptor;
 }
 
-// Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class SqliteA2ATaskRepository extends A2ATaskRepository {
     constructor(connection: SqliteConnection);
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskStatus" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
     deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskKey" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskRecord" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
     findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskQuery" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskPage" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     list(query: A2ATaskQuery): Promise<A2ATaskPage>;
     // (undocumented)
     ping(): Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "NewA2ATask" needs to be exported by the entry point index.d.ts
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskSave" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
-    // Warning: (ae-forgotten-export) The symbol "A2AMessageRecord" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
-    // Warning: (ae-forgotten-export) The symbol "A2AMessageKey" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
     // (undocumented)
@@ -1277,21 +1246,20 @@ export class WorkflowFinishFilesDto {
 // Warnings were encountered during analysis:
 //
 // src/a2a/a2a-caller.ts:69:3 - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/a2a-caller.ts:93:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts:100:3 - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts:187:3 - (ae-undocumented) Missing documentation for "reason".
-// src/a2a/a2a-caller.ts:188:3 - (ae-undocumented) Missing documentation for "cause".
-// src/a2a/a2a-caller.ts:200:3 - (ae-undocumented) Missing documentation for "code".
-// src/a2a/a2a-decorator.ts:69:1 - (ae-undocumented) Missing documentation for "A2AAgentConfig".
-// src/a2a/a2a-decorator.ts:77:3 - (ae-undocumented) Missing documentation for "name".
-// src/a2a/a2a-decorator.ts:78:3 - (ae-undocumented) Missing documentation for "url".
-// src/a2a/a2a-decorator.ts:79:3 - (ae-undocumented) Missing documentation for "target".
-// src/a2a/a2a-decorator.ts:80:3 - (ae-undocumented) Missing documentation for "input".
-// src/a2a/a2a-decorator.ts:81:3 - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-decorator.ts:82:3 - (ae-undocumented) Missing documentation for "price".
-// src/a2a/a2a-decorator.ts:83:3 - (ae-undocumented) Missing documentation for "mesh".
-// src/a2a/a2a-decorator.ts:84:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
-// src/a2a/a2a-decorator.ts:85:3 - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/a2a-caller.ts:88:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:97:3 - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-caller.ts:184:3 - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/a2a-caller.ts:185:3 - (ae-undocumented) Missing documentation for "cause".
+// src/a2a/a2a-caller.ts:197:3 - (ae-undocumented) Missing documentation for "code".
+// src/a2a/a2a-decorator.ts:76:3 - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-decorator.ts:77:3 - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-decorator.ts:78:3 - (ae-undocumented) Missing documentation for "target".
+// src/a2a/a2a-decorator.ts:79:3 - (ae-undocumented) Missing documentation for "input".
+// src/a2a/a2a-decorator.ts:80:3 - (ae-undocumented) Missing documentation for "output".
+// src/a2a/a2a-decorator.ts:81:3 - (ae-undocumented) Missing documentation for "price".
+// src/a2a/a2a-decorator.ts:82:3 - (ae-undocumented) Missing documentation for "mesh".
+// src/a2a/a2a-decorator.ts:83:3 - (ae-undocumented) Missing documentation for "allowedOrigins".
+// src/a2a/a2a-decorator.ts:84:3 - (ae-undocumented) Missing documentation for "deps".
 // src/a2a/client/a2a-client-errors.ts:32:3 - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/client/a2a-client-errors.ts:35:3 - (ae-undocumented) Missing documentation for "cause".
 // src/a2a/client/a2a-client-errors.ts:44:3 - (ae-undocumented) Missing documentation for "code".
@@ -1477,21 +1445,21 @@ export class WorkflowFinishFilesDto {
 // src/infrastructure/a2a-file.repository.ts:66:3 - (ae-undocumented) Missing documentation for "fileId".
 // src/infrastructure/a2a-file.repository.ts:74:1 - (ae-undocumented) Missing documentation for "A2AFileRepository".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:112:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:118:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:122:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:134:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:140:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:154:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:171:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:179:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts:194:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:121:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:125:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:137:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:143:3 - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:157:3 - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:174:3 - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:182:3 - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts:197:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
 // src/infrastructure/in-memory-a2a-file.repository.ts:24:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-file.repository.ts:30:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-file.repository.ts:34:3 - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/in-memory-a2a-file.repository.ts:45:3 - (ae-undocumented) Missing documentation for "findBytes".
-// src/infrastructure/in-memory-a2a-file.repository.ts:50:3 - (ae-undocumented) Missing documentation for "findMetadata".
-// src/infrastructure/in-memory-a2a-file.repository.ts:55:3 - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
-// src/infrastructure/in-memory-a2a-file.repository.ts:67:3 - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/in-memory-a2a-file.repository.ts:33:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-file.repository.ts:37:3 - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/in-memory-a2a-file.repository.ts:48:3 - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/in-memory-a2a-file.repository.ts:53:3 - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/in-memory-a2a-file.repository.ts:58:3 - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-file.repository.ts:70:3 - (ae-undocumented) Missing documentation for "deleteByOwner".
 // src/infrastructure/local-disk-a2a-file.repository.ts:48:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/local-disk-a2a-file.repository.ts:63:9 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/local-disk-a2a-file.repository.ts:68:9 - (ae-undocumented) Missing documentation for "save".

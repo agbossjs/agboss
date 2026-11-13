@@ -1,3 +1,4 @@
+import type { MeterProvider } from "@opentelemetry/api";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
@@ -16,7 +17,6 @@ import type { AssembledWorkflow } from "../workflow.js";
 import {
   createWorkflowDeps,
   type AppDeps,
-  type AppDepsOptions,
   type BuildOptions,
   type WorkflowDepsParts,
 } from "./app-deps.js";
@@ -66,7 +66,7 @@ export interface AppOptions {
    * (`metrics.getMeterProvider()`). A runtime object, so an option here and not of `@Application`.
    * Absent = no metrics: nothing loaded, no store read.
    */
-  readonly meterProvider?: AppDepsOptions["meterProvider"];
+  readonly meterProvider?: MeterProvider;
 }
 
 /** Why an execution or a resume is refused once `app.close()` has begun. */

@@ -188,15 +188,11 @@ export function channelRoleOf(cls: Class): FoundChannelRole | undefined {
  * decides by types, never by text.
  */
 
-/** What every reply interpreter declares. */
-interface ReplyInterpreterBaseOptions {
+/** `@ReplyInterpreter({ decidedBy: DecidedBy.Model })`: one answer tool on a chat model. */
+export interface ModelReplyInterpreterOptions {
   /** Kebab-case, ends with `-reply-interpreter` (`refund-reply-interpreter`). */
   readonly name: string;
   readonly description: string;
-}
-
-/** `@ReplyInterpreter({ decidedBy: DecidedBy.Model })`: one answer tool on a chat model. */
-export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOptions {
   readonly decidedBy: DecidedBy.Model;
   /**
    * A chat model (one answer tool), or — for an approval role only — a decision model (one
@@ -211,9 +207,10 @@ export interface ModelReplyInterpreterOptions extends ReplyInterpreterBaseOption
 }
 
 /** `@ReplyInterpreter({ decidedBy: DecidedBy.Code })`: the class's `interpret(input)`. */
-export interface CodeReplyInterpreterOptions<
-  TDeps extends readonly Token[] = readonly Token[],
-> extends ReplyInterpreterBaseOptions {
+export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
+  /** Kebab-case, ends with `-reply-interpreter` (`refund-reply-interpreter`). */
+  readonly name: string;
+  readonly description: string;
   readonly decidedBy: DecidedBy.Code;
   /** Constructor dependencies, in order; compiler-checked. */
   readonly deps?: TDeps;
@@ -241,19 +238,18 @@ export enum ReplyInterpretationKind {
 
 declare const replyInterpretation: unique symbol;
 
-/** Only `ReplyInterpretation.understood(…)` / `.notUnderstood(…)` build one (a plain object does not compile). */
-interface BuiltReplyInterpretation {
-  readonly [replyInterpretation]: true;
-}
-
 /** The reply was read as `decision`. */
-export interface UnderstoodReply<TDecision> extends BuiltReplyInterpretation {
+export interface UnderstoodReply<TDecision> {
+  /** A mark only `ReplyInterpretation.understood` / `.notUnderstood` give. */
+  readonly [replyInterpretation]: true;
   readonly kind: ReplyInterpretationKind.Understood;
   readonly decision: TDecision;
 }
 
 /** The reply was not understood: `reason` is the `UninterpretableReplyError`'s. */
-export interface NotUnderstoodReply extends BuiltReplyInterpretation {
+export interface NotUnderstoodReply {
+  /** A mark only `ReplyInterpretation.understood` / `.notUnderstood` give. */
+  readonly [replyInterpretation]: true;
   readonly kind: ReplyInterpretationKind.NotUnderstood;
   readonly reason: string;
 }

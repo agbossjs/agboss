@@ -148,7 +148,7 @@ export function McpTool<
 }
 
 /** How many results a knowledge base gives (#703): `topK`, or `rerank` — never both, never neither. */
-type RagResultCount =
+export type RagResultCount =
   | { readonly topK: number; readonly rerank?: never }
   | { readonly topK?: never; readonly rerank: RagRerank };
 

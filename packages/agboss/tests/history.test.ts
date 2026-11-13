@@ -1,7 +1,8 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { formatHistory } from "../src/flow/runtime/history.js";
-import { UnknownThreadError, type AgentExecutionDeps } from "../src/index.js";
+import { UnknownThreadError } from "../src/index.js";
+import type { AgentExecutionDeps } from "../src/run/types.js";
 import { createModelRegistry } from "../src/llm/registry.js";
 import { ScriptedChatModel } from "./fakes/scripted-model.js";
 import { routeTo, fakeDeps, recordingRouters, runText, fakeGateway } from "./helpers.js";

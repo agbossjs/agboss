@@ -12,18 +12,12 @@ export function a2aDirectMessageContract(target: ContractTarget<A2ADirectMessage
 
 // @public
 export interface A2ADirectMessageStores {
-    // Warning: (ae-forgotten-export) The symbol "A2ADirectMessageRepository" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly messages: A2ADirectMessageRepository;
-    // Warning: (ae-forgotten-export) The symbol "A2ATaskRepository" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly tasks: A2ATaskRepository;
 }
 
-// Warning: (ae-forgotten-export) The symbol "A2AFileRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function a2aFileContract(target: ContractTarget<A2AFileRepository>): void;
 
@@ -33,8 +27,6 @@ export function a2aTaskContract(target: ContractTarget<A2ATaskRepository>): void
 // @public
 export function checkpointSaverContract(target: ContractTarget<BaseCheckpointSaver>): void;
 
-// Warning: (ae-forgotten-export) The symbol "ChildExecutionQueueRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function childExecutionQueueContract(target: ContractTarget<ChildExecutionQueueRepository>): void;
 
@@ -66,39 +58,24 @@ export interface ContractTarget<TStore> {
     reset?(): void | Promise<void>;
 }
 
-// Warning: (ae-forgotten-export) The symbol "CostLedgerRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "EffectKeyFields" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "EffectKey" needs to be exported by the entry point index.d.ts
-//
 // @public
 export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionAuditLogRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function executionAuditLogContract(target: ContractTarget<ExecutionAuditLogRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionHistoryRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function executionHistoryContract(target: ContractTarget<ExecutionHistoryRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionLeaseRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionRecordRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function executionRecordContract(target: ContractTarget<ExecutionRecordRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "ExecutionTreeRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function executionTreeContract(target: ContractTarget<ExecutionTreeRepository>): void;
 
@@ -113,7 +90,6 @@ export function fencedEffectContract<TTransaction>(target: ContractTarget<Fenced
 
 // @public
 export interface FencedEffectTarget<TTransaction> {
-    // Warning: (ae-forgotten-export) The symbol "FencedEffectRepository" needs to be exported by the entry point index.d.ts
     readonly effects: FencedEffectRepository<TTransaction>;
     readonly leases: ExecutionLeaseRepository;
     readonly rows: FencedEffectBusinessRows<TTransaction>;
@@ -128,7 +104,6 @@ export interface FencingContractOptions {
 export interface InterleavingOptions {
     readonly depth?: number;
     readonly seed?: number;
-    // Warning: (ae-forgotten-export) The symbol "Milliseconds" needs to be exported by the entry point index.d.ts
     readonly timeLimit?: Milliseconds;
     readonly walkDepth?: number;
     readonly walks?: number;
@@ -137,8 +112,6 @@ export interface InterleavingOptions {
 // @public
 export type LeftOutContract = "executionAuditLog" | "fencedEffect" | "outboundCall";
 
-// Warning: (ae-forgotten-export) The symbol "MeshRequestRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function meshRequestContract(target: ContractTarget<MeshRequestRepository>): void;
 
@@ -147,18 +120,13 @@ export function outboundCallContract(target: ContractTarget<OutboundCallTarget>,
 
 // @public
 export interface OutboundCallTarget {
-    // Warning: (ae-forgotten-export) The symbol "OutboundCallRepository" needs to be exported by the entry point index.d.ts
     readonly calls: OutboundCallRepository;
     readonly leases: ExecutionLeaseRepository;
 }
 
-// Warning: (ae-forgotten-export) The symbol "PausedExecutionRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function pausedExecutionContract(target: ContractTarget<PausedExecutionRepository>): void;
 
-// Warning: (ae-forgotten-export) The symbol "RagConnector" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function ragConnectorContract<TConnector extends RagConnector>(target: RagConnectorContractTarget<TConnector>): void;
 
@@ -172,7 +140,6 @@ export interface RagConnectorContractTarget<TConnector extends RagConnector = Ra
         readonly candidates: number;
     };
     readonly reset?: () => Promise<void>;
-    // Warning: (ae-forgotten-export) The symbol "RagTenancy" needs to be exported by the entry point index.d.ts
     readonly tenancy?: RagTenancy;
 }
 
@@ -183,8 +150,6 @@ export interface RagContractDocument {
     readonly text: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "RateLimitRepository" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function rateLimitContract(target: ContractTarget<RateLimitRepository>): void;
 
@@ -262,12 +227,9 @@ export type StoreEntry<TStore> = ((context: StoreInstanceContext) => TStore | Pr
 
 // @public
 export interface StoreInstanceContext {
-    // Warning: (ae-forgotten-export) The symbol "ApplicationContext" needs to be exported by the entry point index.d.ts
     readonly application: ApplicationContext;
-    // Warning: (ae-forgotten-export) The symbol "Clock" needs to be exported by the entry point index.d.ts
     readonly clock: Clock;
     readonly instanceId: string;
-    // Warning: (ae-forgotten-export) The symbol "StoreClock" needs to be exported by the entry point index.d.ts
     readonly storeClock: StoreClock;
 }
 
@@ -307,7 +269,6 @@ export interface StoreSet<TTransaction = unknown> {
 // @public
 export class VirtualClock extends Clock {
     constructor(start?: Date, options?: VirtualClockOptions);
-    // Warning: (ae-forgotten-export) The symbol "ClockDuration" needs to be exported by the entry point index.d.ts
     advance(duration: ClockDuration | Milliseconds): Promise<void>;
     monotonicNow(): number;
     now(): Date;
@@ -325,7 +286,6 @@ export interface VirtualClockOptions {
 // src/testing/contracts/a2a-direct-message-data.ts:19:3 - (ae-undocumented) Missing documentation for "messages".
 // src/testing/contracts/a2a-direct-message-data.ts:20:3 - (ae-undocumented) Missing documentation for "tasks".
 // src/testing/contracts/rag-connector-data.ts:13:3 - (ae-undocumented) Missing documentation for "text".
-// src/testing/contracts/rag-connector-data.ts:46:23 - (ae-forgotten-export) The symbol "RerankerHandler" needs to be exported by the entry point index.d.ts
 // src/testing/contracts/sabotage-run.ts:23:3 - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/sabotage-run.ts:24:3 - (ae-undocumented) Missing documentation for "state".
 // src/testing/contracts/sabotage-run.ts:33:3 - (ae-undocumented) Missing documentation for "cases".

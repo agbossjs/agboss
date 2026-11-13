@@ -20,6 +20,24 @@ breaking** first: an application upgrading from 0.1.0 needs at most the migratio
 
 ### Changed — breaking
 
+- **No API report holds `ae-forgotten-export`; a public signature names only types a public entry
+  exports** (#895): `npm run check:api` fails on a type that no public entry (every `exports` entry
+  but `./internal`) exports, so a user can always name the type of a signature.
+  - **`workflowOf` and `toolOf` left `@agboss/core/testing` for `@agboss/core/internal`.** In a test
+    use `testWith` (a workflow), `testTool` (a tool) and the other `test*` runners.
+  - **Left the root for `@agboss/core/internal`** (they name the framework's wiring, `GraphDeps` and
+    the assembled parts): `AssembledWorkflow`, `WorkflowServices`, `WorkflowTools`, `resolveTools`,
+    `withProfile`, `loadWorkflow`, `executeAgent`, `resumeAgent`, `executionVersions`,
+    `AgentExecutionDeps`, `AgentExecutionOptions`, `ContinueOptions`, `TreeResume`.
+  - **Narrowed:** `CompareProfilesOptions` lists its fields (it no longer extends `AppDepsOptions`),
+    `StudioGraphs.graph` gives a `StudioGraph`, the constructors of the in-memory stores take the
+    database the container injects and are left out of the declarations, the `Built*` marks are
+    inside the verdict and resolution interfaces, the option bases (`A2AAgentConfig`, `@Router`,
+    `@Reranker`, `@Judge`, `@Budget`, `@Compaction`, guardrails) are inlined.
+  - **Exported** the types the signatures name (the flow DSL's helper types, the options and meta of
+    the decorators, `StartEvent` / `EndEvent`, `RagResultCount`, the model providers' wire types,
+    the scripted turns of `/testing`, …) and the zod schemas their types are inferred from.
+
 - **The store entry, the fenced effect's service, the errors, `Turn`, the prune verbs** (#890, API
   review G8):
   - **`@agboss/core/stores`**, a new entry (its report `api/agboss-stores.api.md`): what a store

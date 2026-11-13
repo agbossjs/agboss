@@ -11,8 +11,6 @@ export type ExecutionId = string & {
     readonly __brand: "ExecutionId";
 };
 
-// Warning: (ae-forgotten-export) The symbol "AGBossError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class GraphRuleError extends AGBossError {
     constructor(options: GraphRuleErrorOptions);
@@ -53,8 +51,6 @@ export class LimitExceededError extends AGBossError {
     readonly path: readonly string[];
     // (undocumented)
     readonly spentUsd: number;
-    // Warning: (ae-forgotten-export) The symbol "UsageRecord" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly usage: readonly UsageRecord[];
 }
@@ -76,27 +72,15 @@ export interface LimitExceededErrorOptions {
     readonly usage?: readonly UsageRecord[];
 }
 
-// Warning: (ae-forgotten-export) The symbol "OptionalInnerShape" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "OptionalWrapper" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
 
-// Warning: (ae-forgotten-export) The symbol "ModelRouterOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ModelRouterDecorator" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Router(options: ModelRouterOptions): ModelRouterDecorator;
 
-// Warning: (ae-forgotten-export) The symbol "Token" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "CodeRouterOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "CodeRouterDecorator" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function Router<const TDeps extends readonly Token[] = []>(options: CodeRouterOptions<TDeps>): CodeRouterDecorator<TDeps>;
 
-// Warning: (ae-forgotten-export) The symbol "RouterFailedError" needs to be exported by the entry point index.d.ts
-//
 // @public
 export class RouterDecisionError extends RouterFailedError {
     constructor(options: RouterDecisionErrorOptions);
@@ -109,8 +93,6 @@ export class RouterDecisionError extends RouterFailedError {
     readonly reason: string;
 }
 
-// Warning: (ae-forgotten-export) The symbol "RouterVisit" needs to be exported by the entry point index.d.ts
-//
 // @public
 export interface RouterDecisionErrorOptions extends RouterVisit {
     // (undocumented)
@@ -138,18 +120,11 @@ export interface RuleViolation {
 
 // @public
 export interface ToStep {
-    // Warning: (ae-forgotten-export) The symbol "StepKind" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly kind: StepKind.To;
-    // Warning: (ae-forgotten-export) The symbol "ChildPlacement" needs to be exported by the entry point index.d.ts
     readonly placement?: ChildPlacement;
-    // Warning: (ae-forgotten-export) The symbol "ComponentClass" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly target: ComponentClass;
-    // Warning: (ae-forgotten-export) The symbol "NodeKind" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly targetKind: NodeKind;
 }
@@ -160,16 +135,9 @@ export interface WorkflowDefinition {
     settings(): WorkflowSettings;
 }
 
-// Warning: (ae-forgotten-export) The symbol "HandledFinishOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "ResolvedAll" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "FinishMethod" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: HandledFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => FinishMethod>(value: TClass) => TClass;
 
-// Warning: (ae-forgotten-export) The symbol "PassThroughFinishOptions" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "NoFinishMethod" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function WorkflowFinish<const TDeps extends readonly Token[] = []>(options: PassThroughFinishOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass & NoFinishMethod<TClass>) => TClass;
 
@@ -178,13 +146,9 @@ export interface WorkflowFinishOptions<TDeps extends readonly Token[] = readonly
     readonly deps?: TDeps;
     // (undocumented)
     readonly description: string;
-    // Warning: (ae-forgotten-export) The symbol "InputFields" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly input?: InputFields;
     readonly name: string;
-    // Warning: (ae-forgotten-export) The symbol "DtoClass" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly output: DtoClass;
 }
@@ -193,8 +157,6 @@ export interface WorkflowFinishOptions<TDeps extends readonly Token[] = readonly
 export class WorkflowSettings {
     // (undocumented)
     static builder(): WorkflowSettingsBuilder;
-    // Warning: (ae-forgotten-export) The symbol "IncompatibleResumePolicy" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly onIncompatibleResume: IncompatibleResumePolicy | undefined;
 }
@@ -206,8 +168,6 @@ export interface WorkflowSettingsBuilder {
     readonly onIncompatibleResume: (policy: IncompatibleResumePolicy) => WorkflowSettingsBuilder;
 }
 
-// Warning: (ae-forgotten-export) The symbol "Class" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function WorkflowStart(options: WorkflowStartOptions): <TClass extends Class>(value: TClass) => TClass;
 
@@ -215,8 +175,6 @@ export function WorkflowStart(options: WorkflowStartOptions): <TClass extends Cl
 export interface WorkflowStartOptions {
     // (undocumented)
     readonly description: string;
-    // Warning: (ae-forgotten-export) The symbol "WorkflowStartInput" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
     readonly input: WorkflowStartInput;
     readonly name: string;

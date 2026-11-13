@@ -3,7 +3,7 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
-import { workflowOf } from "../../../src/testing/index.js";
+import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { start } from "../../helpers/flow.js";
 import {
   BatchDoneWorkflowFinish,
