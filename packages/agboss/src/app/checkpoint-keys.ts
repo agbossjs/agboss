@@ -17,7 +17,10 @@ export const newestFirst = (first: CheckpointTuple, second: CheckpointTuple): nu
     { step: stepOf(second.metadata), id: second.checkpoint.id },
   );
 
-export function* limited(tuples: readonly CheckpointTuple[], limit: number | undefined) {
+export function* limited(
+  tuples: readonly CheckpointTuple[],
+  limit: number | undefined,
+): Generator<CheckpointTuple> {
   yield* limit === undefined ? tuples : tuples.slice(0, limit);
 }
 

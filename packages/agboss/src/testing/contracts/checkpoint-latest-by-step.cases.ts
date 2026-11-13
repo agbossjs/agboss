@@ -13,6 +13,7 @@ import {
   type LatestByStepCheckpointSaver,
 } from "../../infrastructure/latest-by-step.js";
 import type { CapabilityCheck, ContractCase } from "./define.js";
+import type { ContractInstances } from "./instance-context.js";
 import { StoreCapability } from "./store-capability.js";
 
 /**
@@ -25,6 +26,8 @@ const LATEST: CapabilityCheck<BaseCheckpointSaver> = {
   without: "a marked thread's latest checkpoint is read by listing its namespace (#962)",
 };
 
+type Instances = ContractInstances<BaseCheckpointSaver>;
+
 const at = (thread: string, namespace = ""): RunnableConfig => ({
   configurable: { thread_id: thread, checkpoint_ns: namespace },
 });
@@ -35,11 +38,12 @@ function capable(store: BaseCheckpointSaver): LatestByStepCheckpointSaver {
   return store;
 }
 
-const withStep = (step: number | undefined): CheckpointMetadata =>
-  // a checkpoint with no step: the metadata as an older writer left it
-  step === undefined
-    ? JSON.parse('{"source":"loop","parents":{}}')
-    : { source: "loop", step, parents: {} };
+/** The metadata of a checkpoint; none for `undefined`: as an older writer left it. */
+function withStep(step: number | undefined): CheckpointMetadata {
+  const metadata: CheckpointMetadata = { source: "loop", step: step ?? 0, parents: {} };
+  if (step === undefined) Reflect.deleteProperty(metadata, "step");
+  return metadata;
+}
 
 /** Puts checkpoint `id` at `step` of `thread`'s `namespace`, its marker in a channel value. */
 const put = (
@@ -86,7 +90,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
   {
     name: "the newest by step; equal steps by the greatest id (by code unit); none for an empty thread",
     capability: LATEST,
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       expect(await capable(second).latestByStep(at("t"))).toBeUndefined();
       await put(first, at("t"), "b", 1);
       await put(first, at("t"), "a", 5);
@@ -106,7 +110,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
   {
     name: "a missing step counts as -2; namespaces and threads do not leak into each other",
     capability: LATEST,
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       await put(first, at("t"), "zz", undefined);
       await put(first, at("t"), "aa", -3);
       await put(first, at("t", "child"), "child-1", 9);
@@ -121,7 +125,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
   {
     name: "a checkpoint put again under its id counts at the step it was last put; deleteThread forgets the thread",
     capability: LATEST,
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       await put(first, at("t"), "x", 1);
       await put(first, at("t"), "y", 2);
       await put(second, at("t"), "x", 7);
@@ -139,7 +143,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
   {
     name: "on random histories, with a clock step-back, it answers what the full scan answers, from either instance",
     capability: LATEST,
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       const next = random(962);
       const places = [at("t"), at("t", "child"), at("t", "child|grand")];
       for (let round = 0; round < 60; round += 1) {
@@ -159,7 +163,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
   {
     name: "while another instance writes, every answer is a whole stored checkpoint and never goes back",
     capability: LATEST,
-    run: async ({ first, second }) => {
+    run: async ({ first, second }: Instances): Promise<void> => {
       const writes = 40;
       let written = 0;
       const writer = (async () => {

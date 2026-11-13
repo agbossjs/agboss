@@ -1,12 +1,5 @@
-import type { RunnableConfig } from "@langchain/core/runnables";
-import { BaseCheckpointSaver, MemorySaver, type CheckpointTuple } from "@langchain/langgraph";
-import {
-  newestFirstOrder,
-  NO_STEP,
-  stepOf,
-  type LatestByStepCheckpointSaver,
-} from "./latest-by-step.js";
-import { Injectable } from "../components/decorators.js";
+import { BaseCheckpointSaver } from "@langchain/langgraph";
+import { InMemoryCheckpointSaver } from "./in-memory-checkpoint-saver.js";
 import type { Class } from "../components/injection.js";
 import { Clock, IdGenerator, RandomIdGenerator, SystemClock } from "./clock.js";
 import { ConsoleLogger, Logger, SilentLogger } from "./logger.js";
@@ -59,63 +52,6 @@ import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
  * contract with a built-in default, one per application. Registered only in `@Application({ providers })`; the
  * implementation is found by inheritance — none listed → the default, two → ambiguous.
  */
-
-/** The default checkpointer: LangGraph's `MemorySaver` — a pause is lost on restart. */
-@Injectable()
-export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStepCheckpointSaver {
-  /** The step of each checkpoint id, by thread and namespace (#962), kept by `put`. */
-  readonly #steps = new Map<string, Map<string, Map<string, number>>>();
-  /** The newest of each thread and namespace by `(step, id)`: moved by `put`, found again when it is put lower. */
-  readonly #newest = new Map<string, Map<string, string>>();
-
-  override async put(
-    ...[config, checkpoint, metadata]: Parameters<MemorySaver["put"]>
-  ): Promise<RunnableConfig> {
-    const stored = await super.put(config, checkpoint, metadata);
-    const thread = String(config.configurable?.thread_id);
-    const namespace = String(config.configurable?.checkpoint_ns ?? "");
-    const byNamespace = this.#steps.get(thread) ?? new Map<string, Map<string, number>>();
-    this.#steps.set(thread, byNamespace);
-    const steps = byNamespace.get(namespace) ?? new Map<string, number>();
-    byNamespace.set(namespace, steps);
-    steps.set(checkpoint.id, stepOf(metadata));
-    const newest = this.#newest.get(thread) ?? new Map<string, string>();
-    this.#newest.set(thread, newest);
-    const known = newest.get(namespace);
-    const entry = (id: string) => ({ step: steps.get(id) ?? NO_STEP, id });
-    if (known === checkpoint.id)
-      // the newest was put again, maybe lower: the newest is the best of the thread's ids now
-      newest.set(
-        namespace,
-        [...steps.keys()].sort((a, b) => newestFirstOrder(entry(a), entry(b)))[0] ?? known,
-      );
-    else if (known === undefined || newestFirstOrder(entry(checkpoint.id), entry(known)) < 0)
-      newest.set(namespace, checkpoint.id);
-    return stored;
-  }
-
-  override async deleteThread(threadId: string): Promise<void> {
-    await super.deleteThread(threadId);
-    this.#newest.delete(threadId);
-    this.#steps.delete(threadId);
-  }
-
-  /** The newest checkpoint by step of the thread and namespace: one map read, one `getTuple`. */
-  latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    const thread = String(config.configurable?.thread_id);
-    const namespace = String(config.configurable?.checkpoint_ns ?? "");
-    const newest = this.#newest.get(thread)?.get(namespace);
-    if (newest === undefined) return Promise.resolve(undefined);
-    return this.getTuple({
-      configurable: { thread_id: thread, checkpoint_ns: namespace, checkpoint_id: newest },
-    });
-  }
-
-  /** In memory, always reachable (#300). */
-  ping(): Promise<void> {
-    return Promise.resolve();
-  }
-}
 
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
@@ -279,3 +215,5 @@ export const reusableInfrastructure = (
       return isSqliteImplementation(instance) ? [] : [[instance.constructor as Class, instance]];
     }),
   );
+
+export { InMemoryCheckpointSaver };
