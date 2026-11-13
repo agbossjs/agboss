@@ -75,7 +75,7 @@ export class StoredNamesUnreadableError extends AGBossError {
   override name = "StoredNamesUnreadableError";
   /** What was stored: `pause`, `pause answer`, `execution history record`. */
   declare readonly record: string;
-  /** The ids that name it (`pauseId p1, tenantId acme`); empty when none is readable. */
+  /** The ids that name it (`pauseId p1, executionId run-1`); empty when none is readable. */
   declare readonly ids: string;
   /** The field paths that failed (`pauses.0.answerer`) — never a value. */
   declare readonly fields: string;

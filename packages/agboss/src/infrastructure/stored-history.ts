@@ -172,8 +172,4 @@ const StoredHistoryRecord: z.ZodType<ExecutionHistoryRecord> = z.object({
 
 /** A kept record from the parsed JSON a store holds: read whole, or unreadable (ids, field). */
 export const executionHistoryRecordOfJson = (value: unknown): ExecutionHistoryRecord =>
-  readStored(StoredHistoryRecord, value, "execution history record", [
-    "tenantId",
-    "executionId",
-    "threadId",
-  ]);
+  readStored(StoredHistoryRecord, value, "execution history record", ["executionId", "threadId"]);

@@ -166,7 +166,7 @@ describe("D2: an unreadable history record names its id and the field, nothing e
 
     await refusal(
       () => history.findAllByTenantIdAndThreadId("default", "t-1"),
-      "tenantId default",
+      "threadId t-1",
       "executionId",
     );
   });

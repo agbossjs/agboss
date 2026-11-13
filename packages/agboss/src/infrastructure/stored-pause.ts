@@ -105,4 +105,4 @@ export const StoredPause = z
 
 /** A pause from the JSON a store kept (parsed): read in either shape, or unreadable (ids, field). */
 export const pauseRecordOfJson = (value: unknown): PauseRecord =>
-  readStored(StoredPause, value, "pause", ["pauseId", "tenantId", "executionId"]);
+  readStored(StoredPause, value, "pause", ["pauseId", "executionId"]);
