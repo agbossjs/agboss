@@ -187,6 +187,14 @@ export function questionAskOf(ask: unknown): QuestionAsk {
 /** What a pause asks: a tool call to approve, or a question role's ask (#659). */
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
+/** How and when a pause first closed with an answer: what a later untaken close keeps (#935). */
+export interface PauseFirstClose {
+  /** `Replied`, or `DecidedOnExpiry` when an expiry decided it. */
+  readonly resolution: PauseResolution;
+  /** When it closed (ISO 8601): the answer's time, or the time an expiry decided it. */
+  readonly resolvedAt: string;
+}
+
 /** A pause: its id, where it waits, what it asks and where it is. */
 export interface PauseRecord extends PauseSite {
   /** A random 128-bit token (hex), made once per pause: the right to answer it (AC3). */
@@ -234,6 +242,12 @@ export interface PauseRecord extends PauseSite {
   readonly remindAt?: string;
   /** Why an expiry decision fell back to failing the step (#941). */
   readonly expiryProblem?: ExpiryProblem;
+  /**
+   * Set by `closeUntaken`, which overwrites `resolution` and `resolvedAt` with the untaken close:
+   * how and when the answer first closed the pause (`Replied`, `DecidedOnExpiry`), so the reason and
+   * time a channel is told never depend on when `markSent` runs. A store keeps it as written.
+   */
+  readonly closedFirst?: PauseFirstClose;
   /** The smaller of the run's and a quorum's deadline at creation: an extension never passes it (#942). */
   readonly boundAt?: string;
 }

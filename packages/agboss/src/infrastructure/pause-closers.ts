@@ -35,7 +35,10 @@ export const decidedOnExpiryPause = (
   resolvedAt: at.toISOString(),
 });
 
-/** The answered pause whose answer no step took: `Cancelled`, the answer kept. */
+/**
+ * The answered pause whose answer no step took: `Cancelled`, the answer kept, and how and when it
+ * first closed kept in `closedFirst`: the untaken close adds its marker and never overwrites them.
+ */
 export const untakenPause = (
   pause: PauseRecord,
   resolution: PauseUntakenResolution,
@@ -45,4 +48,7 @@ export const untakenPause = (
   status: PauseStatus.Cancelled,
   resolution,
   resolvedAt: at.toISOString(),
+  ...(pause.resolution === undefined || pause.resolvedAt === undefined
+    ? {}
+    : { closedFirst: { resolution: pause.resolution, resolvedAt: pause.resolvedAt } }),
 });

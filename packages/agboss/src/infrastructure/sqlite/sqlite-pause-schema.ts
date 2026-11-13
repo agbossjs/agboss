@@ -11,10 +11,10 @@ export const PAUSES_TABLE = `CREATE TABLE IF NOT EXISTS pauses (
   tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
   root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
   pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
-  expires_at TEXT, remind_at TEXT, channel TEXT,
-  PRIMARY KEY (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
+  expires_at TEXT, remind_at TEXT, channel TEXT, seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  UNIQUE (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
 
-/** #910: the deadline and reminder scans, and a tenant's pages (`rowid` is the insertion sequence). */
+/** #910: the deadline and reminder scans, and a tenant's pages (`seq` is the insertion sequence). */
 export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
 CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
@@ -66,7 +66,20 @@ ALTER TABLE pauses ADD COLUMN remind_at TEXT;
 ALTER TABLE pauses ADD COLUMN channel TEXT;`;
 const PAUSE_CHANNEL_BACKFILL = `UPDATE pauses SET channel = json_extract(pause, '$.channel') WHERE channel IS NULL;`;
 
-/** Migrates a file's pauses written by an older version (inside a transaction): S107, #663, 0.1.1, #910. */
+/**
+ * #935: `seq`, the insertion sequence a page's cursor reads, is a declared `INTEGER PRIMARY KEY
+ * AUTOINCREMENT` — an undeclared rowid is given again after the highest row is deleted, so a paged
+ * scan skipped a row inserted then. A file without it has its table rebuilt, rows in their rowid
+ * order (as `outbound_calls` was, #825); the indexes follow the dropped table and are made again.
+ */
+const PAUSE_COLUMNS_ALL = `${PAUSE_COLUMNS}, expires_at, remind_at, channel`;
+const PAUSES_SEQ_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_seq;
+${PAUSES_TABLE}
+INSERT INTO pauses (${PAUSE_COLUMNS_ALL}) SELECT ${PAUSE_COLUMNS_ALL} FROM pauses_before_seq ORDER BY rowid;
+DROP TABLE pauses_before_seq;
+${PAUSES_INDEXES}`;
+
+/** Migrates a file's pauses written by an older version (inside a transaction): S107, #663, 0.1.1, #910, #935. */
 export function migratePauses(connection: SqliteConnection): void {
   const columns = connection.columnsOf("pauses");
   migrateBeforeDeadlines(connection, columns);
@@ -76,6 +89,8 @@ export function migratePauses(connection: SqliteConnection): void {
       connection.database.exec(PAUSE_EXPIRY_MIGRATION);
     connection.database.exec(PAUSE_CHANNEL_BACKFILL);
   }
+  const now = connection.columnsOf("pauses");
+  if (now.length > 0 && !now.includes("seq")) connection.database.exec(PAUSES_SEQ_MIGRATION);
 }
 
 /** The migrations of files written before deadlines (S107, #663, 0.1.1). */

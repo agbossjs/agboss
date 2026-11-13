@@ -21,7 +21,7 @@ import {
 } from "./pause-transitions.js";
 
 /**
- * The in-memory pause store's logic: loaded by `InMemoryPausedExecutionRepository` on first use. A
+ * The in-memory pause store's logic: behind `InMemoryPausedExecutionRepository`. A
  * change is planned by `pause-transitions.ts` (the same conditions every core store reads), then
  * applied with its notices, nothing that can fail in between: one synchronous step.
  */

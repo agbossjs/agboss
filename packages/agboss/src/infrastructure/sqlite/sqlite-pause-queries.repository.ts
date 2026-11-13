@@ -47,7 +47,7 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     return Promise.resolve(this.scans.closedBefore(cutoff, limit));
   }
 
-  deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
+  async deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
     this.connection.transaction(() => {
       this.scans.removeClosedBefore(cutoff);
     });
@@ -67,17 +67,21 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     return Promise.resolve(claims);
   }
 
-  ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined> {
+  async ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined> {
     return Promise.resolve(this.connection.transaction(() => this.notices.ack(claim, at)));
   }
 
-  retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean> {
+  async retryNotice(
+    claim: PauseNoticeClaim,
+    nextAttemptAt: Date,
+    problem: string,
+  ): Promise<boolean> {
     return Promise.resolve(
       this.connection.transaction(() => this.notices.retry(claim, nextAttemptAt, problem)),
     );
   }
 
-  setAsideNotices(claim: PauseNoticeClaim, _at: Date, problem: string): Promise<boolean> {
+  async setAsideNotices(claim: PauseNoticeClaim, _at: Date, problem: string): Promise<boolean> {
     return Promise.resolve(
       this.connection.transaction(() => this.notices.setAside(claim, problem)),
     );
@@ -97,7 +101,7 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     );
   }
 
-  countNotices(): Promise<PauseNoticeCounts> {
+  async countNotices(): Promise<PauseNoticeCounts> {
     return Promise.resolve(this.notices.count());
   }
 }

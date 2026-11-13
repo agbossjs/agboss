@@ -28,6 +28,11 @@ export const DEADLINE_CASES: readonly Case[] = [
     name: "an answer 1 ms before the deadline is taken, at it refused, on the other instance",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      // both instances ready before the race, so neither call waits on the other's start
+      await Promise.all([
+        first.findByTenantIdAndPauseId("default", "pause-a"),
+        second.findByTenantIdAndPauseId("default", "pause-a"),
+      ]);
 
       // at the deadline the pause is already closed to answers, whichever call reaches the store first
       const [refused, taken] = await Promise.all([

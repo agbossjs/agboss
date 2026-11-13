@@ -16,4 +16,8 @@ export {
   type PauseRecipients,
   type SetAsideMailbox,
 } from "../infrastructure/pause-notices.js";
-export type { PauseExpiry, PauseUntakenResolution } from "../infrastructure/pause-record.js";
+export type {
+  PauseExpiry,
+  PauseFirstClose,
+  PauseUntakenResolution,
+} from "../infrastructure/pause-record.js";
