@@ -326,16 +326,13 @@ given ([Testing](Testing)); `{ tenantContext, tenant, executionContext, executio
 environment } }` set the levels, checked like at `execute`:
 
 <!-- snippet-context
-import { testExecutionContext, toolOf } from "@agboss/core/testing";
-import { RoleService } from "./roles.service.js";
+import { testTool } from "@agboss/core/testing";
 import { SecureDataTool } from "./secure-data.tool.js";
 -->
 
 ```ts
-const tool = toolOf(
-  new SecureDataTool(testExecutionContext({ ownerId: "usr_admin" }), new RoleService()),
-);
-const answer = await tool.invoke({ query: "salaries" });
+const run = testTool(SecureDataTool, { execution: { ownerId: "usr_admin" } });
+const answer = await run({ query: "salaries" });
 ```
 
 <!-- snippet-context
