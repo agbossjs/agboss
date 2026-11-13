@@ -6,10 +6,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
-import {
-  type PausedExecutionRepository,
-  usingStore,
-} from "../../../src/infrastructure/paused-execution.repository.js";
+import { usingStore } from "../../../src/infrastructure/lazy-paused-execution.repository.js";
+import type { PausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { pauseOf } from "../../../src/testing/contracts/paused-execution-data.js";

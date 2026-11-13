@@ -7,10 +7,8 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
 import { PauseKind, PauseStatus } from "../../../src/index.js";
-import {
-  PAUSES_SCHEMA,
-  SqlitePausedExecutionRepository,
-} from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
+import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
+import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
