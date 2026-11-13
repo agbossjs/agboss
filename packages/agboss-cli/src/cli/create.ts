@@ -6,6 +6,7 @@ import { input } from "@inquirer/prompts";
 import { isComplete, specFromFlags } from "../scaffold/flags.js";
 import { namesOf } from "../scaffold/names.js";
 import { planProject } from "../scaffold/project.js";
+import { linkProjectSkills } from "../scaffold/skills-files.js";
 import { askMissing } from "../scaffold/questions.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./context.js";
 import { CliError, usageError } from "./errors.js";
@@ -62,6 +63,7 @@ export const handle: CommandHandler = async (context) => {
   const root = join(context.io.cwd, folder);
   const outcome = await write(root, plan, { folder });
   context.say(`Created ${folder}/ (${String(plan.create.length)} files)`);
+  linkProjectSkills(root).forEach(context.say);
   install(context, root);
   context.say(
     `\nNext:\n  cd ${folder}\n  npm run types    # .agboss/types.d.ts, the flow's types (npm install runs it)\n  cp .env.example .env    # your OPENROUTER_API_KEY\n  npm run chat`,

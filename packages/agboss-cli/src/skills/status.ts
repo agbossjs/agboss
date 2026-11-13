@@ -1,7 +1,13 @@
 /** What the sync of a project's skills did (#305), as `--json` carries it in `result.skills`. */
 
-/** The project's skills folder, relative to its root. */
-export const SKILLS_FOLDER = ".claude/skills/agboss";
+/** The project's skills folder, relative to its root: the one managed copy, committed (#983). */
+export const SKILLS_FOLDER = ".agents/skills/agboss";
+
+/** The local link Claude Code and Cline find the skill through (also the folder 0.1.x wrote). */
+export const CLAUDE_SKILLS_LINK = ".claude/skills/agboss";
+
+/** The prefix of the atomic swap's temporary folders, in `.agents/` (never in a scanned `skills/`). */
+export const TEMP_PREFIX = ".agboss-skills-";
 
 /** What a sync found and did. */
 export enum SkillsSyncStatus {
@@ -25,6 +31,29 @@ export enum SkillsWarningCode {
   UnmanagedFile = "skills.unmanaged-file",
   SyncFailed = "skills.sync-failed",
   NoFramework = "skills.no-framework",
+  Moved = "skills.moved",
+  LinkBlocked = "skills.link-blocked",
+  LinkFailed = "skills.link-failed",
+  Shadowed = "skills.shadowed",
+  OutsideProject = "skills.outside-project",
+}
+
+/** What the sync found at the Claude link. */
+export enum LinkStatus {
+  /** Created (or replaced) now. */
+  Linked = "linked",
+  /** Already resolves to the skills folder. */
+  Current = "current",
+  /** Something of the project's is in the way: left alone. */
+  Blocked = "blocked",
+  /** The link could not be made: a warning says what to run. */
+  Failed = "failed",
+}
+
+/** The link `.claude/skills/agboss` and what happened to it. */
+export interface SkillsLink {
+  readonly path: string;
+  readonly status: LinkStatus;
 }
 
 /** One warning of a sync. */
@@ -45,6 +74,10 @@ export interface SkillsSyncResult {
   readonly written: readonly string[];
   /** The files of the old manifest the new version does not have. */
   readonly removed: readonly string[];
+  /** The Claude link; unset when off, not synced, or the copy was not written. */
+  readonly link?: SkillsLink;
+  /** Set on the run that moved the 0.1.x folder `.claude/skills/agboss` to `folder`. */
+  readonly moved?: { readonly from: string };
 }
 
 /** A sync's result and its warnings. */

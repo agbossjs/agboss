@@ -1,23 +1,29 @@
-import { join } from "node:path";
-import { readManifest } from "./manifest.js";
-import { replaceSkillsFolder } from "./replace.js";
+import { outsideProject, outsideWarning } from "./containment.js";
+import { syncCopy } from "./copy.js";
+import { linkClaudeSkills, REAL_LINK_OPS, type LinkOps } from "./link.js";
+import { skillsLines, skillsWarningText } from "./lines.js";
+import { REAL_REPLACE_OPS, removeLeftovers, type ReplaceOps } from "./replace.js";
+import { shadowWarning } from "./shadow.js";
 import {
+  CLAUDE_SKILLS_LINK,
   SKILLS_FOLDER,
   SkillsSyncStatus,
   SkillsWarningCode,
   type SkillsSync,
-  type SkillsSyncResult,
   type SkillsWarning,
 } from "./status.js";
-import { planSync, type SyncPlan } from "./plan.js";
 import { skillFilesOf, skillsSourceOf, type SkillsSource } from "./source.js";
 
+export { skillsLines, skillsWarningText };
+
 /**
- * The sync of a project's skills (#305): `.claude/skills/agboss/` made equal to the skills of the
- * `agboss` the project resolves, by `agboss check` (so `npm install`'s postinstall and every
- * `agboss dev` pass) and `agboss generate`. A version change replaces the folder, a missing or
- * hand-edited file at the same version is repaired; files of the project's own are kept. Never an
- * error: every problem is a warning and the command goes on.
+ * The sync of a project's skills (#305, #983): `.agents/skills/agboss/` — the one committed copy
+ * every coding agent reads — made equal to the skills of the `agboss` the project resolves, by
+ * `agboss check` (so `npm install`'s postinstall and every `agboss dev` pass) and `agboss generate`.
+ * A 0.1.x `.claude/skills/agboss/` folder is moved there; `.claude/skills/agboss` becomes a local
+ * link to it, checked on every run. A version change replaces the folder, a missing or edited file
+ * at the same version is repaired; files of the project's own are kept. Never an error: every
+ * problem is a warning and the command goes on.
  */
 
 /** The project the sync works on: its root and whether `"agboss": { "skills": false }` turned it off. */
@@ -26,13 +32,24 @@ export interface SkillsProject {
   readonly isEnabled: boolean;
 }
 
+/** What a test may swap: the link's and the replace's file-system calls, the home folder. */
+export interface SyncDeps {
+  readonly link?: LinkOps;
+  readonly replace?: ReplaceOps;
+  readonly home?: () => string | undefined;
+}
+
 /** What the command says when the folder cannot be written: `the check went on`. */
 const goneOn = (command: string): string =>
   command === "check" ? "the check went on" : `agboss ${command} went on`;
 
-const failed = (code: SkillsWarningCode, message: string): SkillsSync => ({
+const failed = (
+  code: SkillsWarningCode,
+  message: string,
+  more: readonly SkillsWarning[] = [],
+): SkillsSync => ({
   result: { status: SkillsSyncStatus.Failed, folder: SKILLS_FOLDER, written: [], removed: [] },
-  warnings: [{ code, message }],
+  warnings: [{ code, message }, ...more],
 });
 
 /** The source's absence as a warning: no `agboss` at all, or one older than the skills. */
@@ -44,32 +61,32 @@ const noFramework = (source: SkillsSource | undefined): SkillsSync =>
       : `agboss ${source.version} ships no skills — skills not synced (upgrade agboss)`,
   );
 
-/** The warnings of a plan that writes: hand edits replaced, the project's own files kept. */
-function planWarnings(plan: SyncPlan, version: string): SkillsWarning[] {
-  return [
-    ...plan.edited.map((path) => ({
-      code: SkillsWarningCode.LocalEdit,
-      message: `${SKILLS_FOLDER}/${path} was edited — replaced by agboss ${version}'s; put project rules in AGENTS.md`,
-    })),
-    ...plan.unmanaged.map((path) => ({
-      code: SkillsWarningCode.UnmanagedFile,
-      message: `${SKILLS_FOLDER}/${path} is not agboss's — kept; put project rules in AGENTS.md`,
-    })),
-  ];
+/** The copy, its link and the shadow check of a project whose source is known. */
+function syncProject(
+  root: string,
+  source: SkillsSource,
+  ops: { readonly link: LinkOps; readonly replace: ReplaceOps },
+  shadowed: readonly SkillsWarning[],
+): SkillsSync {
+  const outside = outsideProject(root, ops.link);
+  if (outside !== undefined)
+    return failed(SkillsWarningCode.OutsideProject, outsideWarning(outside).message, shadowed);
+  removeLeftovers(root, ops.replace);
+  const copy = syncCopy(root, skillFilesOf(source), source.version, ops);
+  const link = copy.isMoveOpen ? undefined : linkClaudeSkills(root, ops.link);
+  const result =
+    link === undefined
+      ? copy.result
+      : { ...copy.result, link: { path: CLAUDE_SKILLS_LINK, status: link.status } };
+  return { result, warnings: [...copy.warnings, ...(link?.warnings ?? []), ...shadowed] };
 }
 
-/** The result of a plan, as `--json` carries it. */
-const resultOf = (plan: SyncPlan, version: string, previous?: string): SkillsSyncResult => ({
-  status: plan.status,
-  version,
-  ...(previous === undefined || previous === version ? {} : { previous }),
-  folder: SKILLS_FOLDER,
-  written: plan.written,
-  removed: plan.removed,
-});
-
 /** Syncs the project's skills; `command` names who asked, for the warnings. */
-export function syncSkills(project: SkillsProject, command: string): SkillsSync {
+export function syncSkills(
+  project: SkillsProject,
+  command: string,
+  deps: SyncDeps = {},
+): SkillsSync {
   if (!project.isEnabled)
     return {
       result: { status: SkillsSyncStatus.Off, folder: SKILLS_FOLDER, written: [], removed: [] },
@@ -77,57 +94,17 @@ export function syncSkills(project: SkillsProject, command: string): SkillsSync 
     };
   const source = skillsSourceOf(project.root);
   if (source?.hasSkills !== true) return noFramework(source);
-  const target = join(project.root, SKILLS_FOLDER);
+  const ops = { link: deps.link ?? REAL_LINK_OPS, replace: deps.replace ?? REAL_REPLACE_OPS };
+  const shadow = shadowWarning(source.version, deps.home);
+  const shadowed = shadow === undefined ? [] : [shadow];
   try {
-    const files = skillFilesOf(source);
-    const manifest = readManifest(target);
-    const plan = planSync(target, manifest, files, source.version);
-    const result = resultOf(plan, source.version, manifest?.version);
-    if (plan.status === SkillsSyncStatus.Current) return { result, warnings: [] };
-    replaceSkillsFolder(target, files, source.version, plan.unmanaged);
-    return { result, warnings: planWarnings(plan, source.version) };
+    return syncProject(project.root, source, ops, shadowed);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return failed(
       SkillsWarningCode.SyncFailed,
       `${SKILLS_FOLDER} not written: ${reason} — ${goneOn(command)}`,
+      shadowed,
     );
   }
-}
-
-const countOf = (files: readonly string[]): string =>
-  `${String(files.length)} file${files.length === 1 ? "" : "s"}`;
-
-/** The line a sync prints; none when nothing was written. */
-function statusLine(result: SkillsSyncResult): string | undefined {
-  const written = countOf(result.written);
-  switch (result.status) {
-    case SkillsSyncStatus.Installed:
-      return `skills: ${result.folder} installed for agboss ${result.version ?? ""} (${written})`;
-    case SkillsSyncStatus.Updated:
-      return `skills: ${result.folder} updated ${result.previous ?? "?"} → ${result.version ?? ""} (${written})`;
-    case SkillsSyncStatus.Repaired:
-      return `skills: ${result.folder} repaired (${countOf([...result.written, ...result.removed])})`;
-    case SkillsSyncStatus.Current:
-    case SkillsSyncStatus.Off:
-    case SkillsSyncStatus.Failed:
-      return undefined;
-    default: {
-      const unknown: never = result.status;
-      return unknown;
-    }
-  }
-}
-
-/** A warning as the CLI prints it and `--json` lists it: `[skills.local-edit] …`. */
-export const skillsWarningText = (warning: SkillsWarning): string =>
-  `[${warning.code}] ${warning.message}`;
-
-/** What a sync prints: its warnings, then what it wrote. */
-export function skillsLines(sync: SkillsSync): readonly string[] {
-  const line = statusLine(sync.result);
-  return [
-    ...sync.warnings.map((warning) => `warning: ${skillsWarningText(warning)}`),
-    ...(line === undefined ? [] : [line]),
-  ];
 }

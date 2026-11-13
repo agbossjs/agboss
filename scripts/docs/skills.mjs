@@ -1,7 +1,9 @@
 // The project skills shipped with `@agboss/core` (#305, packages/agboss/skills/agboss/): besides the
 // checks of every doc (snippets compile, one call per line, commands exist), check:docs checks
-//   1. SKILL.md: its frontmatter first, then the version header — the version of
-//      packages/agboss/package.json;
+//   1. SKILL.md: its frontmatter first — only the fields every agent accepts (#983: `name` = the
+//      folder `agboss`, `description` 1–1024 characters, `license`, `compatibility`, and `metadata`
+//      whose `agboss-version` is the version of packages/agboss/package.json) — then the version
+//      header, the same version;
 //   2. every `[x.y]` code a skill file mentions exists in the sources; once reference 11 declares
 //      its catalog complete (`<!-- agboss-skills-catalog: complete -->`), it lists every `RuleCode`
 //      member and every application warning code;
@@ -81,18 +83,66 @@ function exportedNamesOf(repo) {
   return names;
 }
 
+const FRONTMATTER_KEYS = new Set(["name", "description", "license", "metadata", "compatibility"]);
+const FOLDER_NAME = "agboss";
+
+/** The frontmatter as `{ top-level key → value text, metadata → { key → value } }`; a line it does not read is ignored. */
+function frontmatterOf(lines, close) {
+  const fields = new Map();
+  const metadata = new Map();
+  let inMetadata = false;
+  for (const line of lines.slice(1, close)) {
+    const nested = /^ +([A-Za-z0-9_-]+):\s*"?([^"]*?)"?\s*$/.exec(line);
+    const top = /^([A-Za-z0-9_-]+):\s*(.*?)\s*$/.exec(line);
+    if (nested !== null && inMetadata) metadata.set(nested[1], nested[2]);
+    else if (top !== null) {
+      fields.set(top[1], top[2]);
+      inMetadata = top[1] === "metadata";
+    }
+  }
+  return { fields, metadata };
+}
+
+/** The frontmatter's rules (#983): the subset every coding agent and the Agent Skills validator accept. */
+function frontmatterProblems(doc, lines, close, version) {
+  const { fields, metadata } = frontmatterOf(lines, close);
+  const problems = [...fields.keys()]
+    .filter((key) => !FRONTMATTER_KEYS.has(key))
+    .map((key) => `${doc}:1: frontmatter field ${key} is not one every agent accepts`);
+  const unquoted = (text) => text.replace(/^"(.*)"$/, "$1");
+  if (unquoted(fields.get("name") ?? "") !== FOLDER_NAME)
+    problems.push(`${doc}:1: frontmatter name is the folder name ${FOLDER_NAME}`);
+  const description = unquoted(fields.get("description") ?? "");
+  if (description.length < 1 || description.length > 1024)
+    problems.push(
+      `${doc}:1: frontmatter description is 1–1024 characters (${String(description.length)})`,
+    );
+  if (metadata.get("agboss-version") !== version)
+    problems.push(
+      `${doc}:1: frontmatter metadata.agboss-version is ${metadata.get("agboss-version") ?? "missing"}, agboss is ${version}`,
+    );
+  return problems;
+}
+
 function headerProblems(doc, markdown, version) {
   const lines = markdown.split("\n");
   const close = lines.indexOf("---", 1);
   if (lines[0] !== "---" || close < 0)
     return [`${doc}:1: SKILL.md starts with its frontmatter (--- name, description ---)`];
+  const frontmatter = frontmatterProblems(doc, lines, close, version);
   const header = lines.slice(close + 1).findIndex((line) => line.trim() !== "") + close + 1;
   const found = HEADER.exec(lines[header] ?? "")?.[1];
   if (found === undefined)
-    return [`${doc}:${String(header + 1)}: the version header follows the frontmatter`];
+    return [
+      ...frontmatter,
+      `${doc}:${String(header + 1)}: the version header follows the frontmatter`,
+    ];
   return found === version
-    ? []
-    : [`${doc}:${String(header + 1)}: skills version ${found}, agboss is ${version}`];
+    ? frontmatter
+    : [
+        ...frontmatter,
+        `${doc}:${String(header + 1)}: skills version ${found}, agboss is ${version}`,
+      ];
 }
 
 /** `VcrMode`'s values, from the source: what `AGBOSS_VCR_MODE` may be set to. */

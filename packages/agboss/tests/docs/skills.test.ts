@@ -37,8 +37,9 @@ function checkSkills(files: Readonly<Record<string, string>>): ReturnType<typeof
 }
 
 const fence = (...lines: string[]): string => ["```ts", ...lines, "```"].join("\n");
-const header = (version: string): string =>
-  `---\nname: agboss\ndescription: d\n---\n\n<!-- agboss-skills-version: ${version} — managed by \`agboss check\`; edits here are replaced -->\n`;
+const FRONTMATTER = `name: agboss\ndescription: d\nlicense: Apache-2.0\nmetadata:\n  agboss-version: "${VERSION}"`;
+const header = (version: string, frontmatter: string = FRONTMATTER): string =>
+  `---\n${frontmatter}\n---\n\n<!-- agboss-skills-version: ${version} — managed by \`agboss check\`; edits here are replaced -->\n`;
 
 // each test runs tsc over the written snippets: the whole skill takes ~25 s locally
 describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
@@ -75,7 +76,49 @@ describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
     });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain(`SKILL.md:6: skills version 0.0.1, agboss is ${VERSION}`);
+    expect(result.stderr).toContain(`skills version 0.0.1, agboss is ${VERSION}`);
+  });
+
+  // #983 AC7: the frontmatter holds only what Claude Code, Codex, Cursor, Copilot and Gemini all accept
+  describe("#983 AC7: the frontmatter subset", () => {
+    const skill = (frontmatter: string) => ({
+      "SKILL.md": `${header(VERSION, frontmatter)}\n# AGBoss\n\nseconds usd\n`,
+    });
+
+    it("AC7: a field outside name, description, license, compatibility, metadata fails", async () => {
+      const result = await checkSkills(skill(`${FRONTMATTER}\nallowed-tools: Read`));
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "frontmatter field allowed-tools is not one every agent accepts",
+      );
+    });
+
+    it("AC7: a name that is not the folder name fails", async () => {
+      const result = await checkSkills(skill(FRONTMATTER.replace("name: agboss", "name: other")));
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("frontmatter name is the folder name agboss");
+    });
+
+    it("AC7: a metadata.agboss-version other than the package's fails", async () => {
+      const result = await checkSkills(skill(FRONTMATTER.replace(VERSION, "0.0.1")));
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        `frontmatter metadata.agboss-version is 0.0.1, agboss is ${VERSION}`,
+      );
+    });
+
+    it("AC7: a description over 1024 characters fails", async () => {
+      const long = "x".repeat(1025);
+      const result = await checkSkills(
+        skill(FRONTMATTER.replace("description: d", `description: ${long}`)),
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("frontmatter description is 1–1024 characters (1025)");
+    });
   });
 
   it("AC1: a matrix name missing from its file fails, naming the coverage list", async () => {

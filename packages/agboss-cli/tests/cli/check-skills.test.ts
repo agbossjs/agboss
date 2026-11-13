@@ -3,10 +3,10 @@
  * `--json`, the `skills: …` line when it wrote, warnings that never change the exit code, and
  * `"agboss": { "skills": false }` to turn it off.
  */
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { agboss, envelope, fixture } from "./agboss.js";
 
 const WORKFLOW = fixture("test-workflow/test.workflow.ts");
@@ -18,6 +18,12 @@ function projectWith(agboss: Readonly<Record<string, unknown>>): string {
   return root;
 }
 
+// the sync reads os.homedir() for the shadow check: not the machine's own ~/.claude/skills/agboss
+beforeAll(() => {
+  process.env.HOME = mkdtempSync(join(tmpdir(), "agboss-home-"));
+  process.env.USERPROFILE = process.env.HOME;
+});
+
 describe("#305 AC4: agboss check syncs the project skills", () => {
   it("installs them before the report; --json carries result.skills", async () => {
     const root = projectWith({});
@@ -26,12 +32,13 @@ describe("#305 AC4: agboss check syncs the project skills", () => {
 
     expect(call.code).toBe(0);
     expect(call.stderr).toMatch(
-      /^skills: \.claude\/skills\/agboss installed for agboss \S+ \(14 files\)\n/,
+      /^skills: \.agents\/skills\/agboss installed for agboss \S+ \(14 files\) · linked \.claude\/skills\/agboss\n/,
     );
     expect((envelope(call).result as { skills: unknown }).skills).toMatchObject({
       status: "installed",
-      folder: ".claude/skills/agboss",
+      folder: ".agents/skills/agboss",
       removed: [],
+      link: { path: ".claude/skills/agboss", status: "linked" },
     });
   });
 
@@ -57,7 +64,7 @@ describe("#305 AC4: agboss check syncs the project skills", () => {
 
   it("a folder that cannot be written is a warning: exit 0, the warning in the envelope", async () => {
     const root = projectWith({});
-    writeFileSync(join(root, ".claude"), "not a folder");
+    writeFileSync(join(root, ".agents"), "not a folder");
 
     const call = await agboss(["check", "--application", WORKFLOW, "--json"], root);
 
@@ -65,6 +72,28 @@ describe("#305 AC4: agboss check syncs the project skills", () => {
     expect(envelope(call).warnings).toEqual(
       expect.arrayContaining([expect.stringMatching(/^\[skills\.sync-failed\] /)]),
     );
+  });
+
+  it("#983 AC6: a link that cannot be made is a warning: exit 0, the other agents still get the copy", async () => {
+    const root = projectWith({});
+    writeFileSync(join(root, ".claude"), "a file where the folder goes");
+
+    const call = await agboss(["check", "--application", WORKFLOW, "--json"], root);
+
+    expect(call.code).toBe(0);
+    expect(envelope(call).warnings).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^\[skills\.link-failed\] .*ln -s /)]),
+    );
+    expect(existsSync(join(root, ".agents/skills/agboss/SKILL.md"))).toBe(true);
+  });
+
+  it('#983 AC4: "skills": false writes, moves and links nothing', async () => {
+    const root = projectWith({ skills: false });
+
+    await agboss(["check", "--application", WORKFLOW], root);
+
+    expect(existsSync(join(root, ".agents"))).toBe(false);
+    expect(existsSync(join(root, ".claude"))).toBe(false);
   });
 
   it('"skills" that is not a boolean is the project\'s to fix (exit 3)', async () => {

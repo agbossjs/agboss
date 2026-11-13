@@ -25,10 +25,13 @@ export interface SyncPlan {
   readonly unmanaged: readonly string[];
 }
 
+/** A file as git may check it out on Windows (`core.autocrlf`): CRLF read as the LF it was written with. */
+const lfOf = (text: string): string => text.replaceAll("\r\n", "\n");
+
 /** The hash of a file in the folder; undefined when it is not there. */
 const diskHashOf = (folder: string, path: string): string | undefined => {
   const file = join(folder, path);
-  return existsSync(file) ? hashOf(readFileSync(file, "utf8")) : undefined;
+  return existsSync(file) ? hashOf(lfOf(readFileSync(file, "utf8"))) : undefined;
 };
 
 /** The files at the same version that are missing or differ from the source. */

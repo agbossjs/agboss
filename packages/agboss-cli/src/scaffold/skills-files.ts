@@ -1,3 +1,5 @@
+import { linkClaudeSkills } from "../skills/link.js";
+import { skillsWarningText } from "../skills/lines.js";
 import { manifestOf, manifestText, MANIFEST_FILE } from "../skills/manifest.js";
 import { cliSkillsSource, skillFilesOf } from "../skills/source.js";
 import { SKILLS_FOLDER } from "../skills/status.js";
@@ -10,8 +12,8 @@ import type { FileToWrite } from "./write.js";
 /**
  * What `agboss create` writes for coding agents (#305): `AGENTS.md` (Cursor, Codex, …) and a
  * one-line `CLAUDE.md` importing it (Claude Code) — both the project's, written once and never
- * rewritten — and the skills of the CLI's own `agboss` in `.claude/skills/agboss/` with their
- * manifest, written as they ship (never formatted: `agboss check` compares their hashes) — and
+ * rewritten — and the skills of the CLI's own `agboss` in `.agents/skills/agboss/` (the one copy, committed;
+ * #983) with their manifest, written as they ship (never formatted: `agboss check` compares their hashes) — and
  * graphify's two project files (#480): `.graphifyignore`, `.graphifyrc`, for the optional code graph.
  */
 export function codingAgentFiles(project: Names): FileToWrite[] {
@@ -27,6 +29,8 @@ export function codingAgentFiles(project: Names): FileToWrite[] {
     { path: "CLAUDE.md", content: render("project/CLAUDE.md.tmpl", {}) },
     { path: ".graphifyignore", content: render("project/graphifyignore.tmpl", {}) },
     { path: ".graphifyrc", content: render("project/graphifyrc.tmpl", {}) },
+    // a checkout with CRLF would turn every skill file into a local edit (#983)
+    { path: ".gitattributes", content: render("project/gitattributes.tmpl", {}) },
     ...skills.map((file) => ({
       path: `${SKILLS_FOLDER}/${file.path}`,
       content: file.content,
@@ -38,4 +42,12 @@ export function codingAgentFiles(project: Names): FileToWrite[] {
       isVerbatim: true,
     },
   ];
+}
+
+/**
+ * The link `.claude/skills/agboss` → the written skills (#983), made after the files are on disk
+ * (the files list holds files only). Never an error: the warning lines say what to run instead.
+ */
+export function linkProjectSkills(root: string): readonly string[] {
+  return linkClaudeSkills(root).warnings.map((warning) => `warning: ${skillsWarningText(warning)}`);
 }
