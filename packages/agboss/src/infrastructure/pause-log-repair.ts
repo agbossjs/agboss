@@ -27,12 +27,10 @@ function repaired(log: PauseAnswerLog, pause: PauseRecord): Promise<void> {
 }
 
 /**
- * Writes the log entry of every closed pause the retention removes, then removes them. The store
- * lists at most `REPAIR_PAGE` and has no cursor, so a backlog over one listing is taken newest-first
- * by moving the cutoff to just past the newest time listed: what is removed is what was listed
- * (the one removal is by that cutoff), whatever the store's order. A cutoff that cannot move — more
- * than a page of closes in one millisecond — removes that millisecond's closes after the first page
- * was written: the retention's bound beats an entry a crash lost twice over.
+ * Writes the log entry of every closed pause the retention removes, then removes them: the store's
+ * listing is read whole, page by page by its cursor — a backlog of any size, closed in one
+ * millisecond or not — before the one removal, so no close goes before its entry is written. A
+ * listing that fails removes nothing; the next sweep reads it again.
  */
 export async function removeClosedPauses(
   pauses: Pick<
@@ -42,17 +40,11 @@ export async function removeClosedPauses(
   log: PauseAnswerLog,
   cutoff: Date,
 ): Promise<void> {
-  let bound = cutoff;
-  for (;;) {
-    const listed = await pauses.findClosedByResolvedAtBefore(bound, REPAIR_PAGE);
-    for (const pause of listed) await repaired(log, pause);
-    if (listed.length < REPAIR_PAGE) break;
-    const times = listed.map((pause) => Date.parse(pause.resolvedAt ?? "")).filter(Number.isFinite);
-    // a closed record always has its time; with none readable nothing is removed, never unlogged
-    if (times.length === 0) return;
-    const narrower = new Date(Math.max(...times) + 1);
-    if (narrower.getTime() >= bound.getTime()) break;
-    bound = narrower;
-  }
-  await pauses.deleteByResolvedAtBefore(bound);
+  let after: string | undefined;
+  do {
+    const page = await pauses.findClosedByResolvedAtBefore(cutoff, REPAIR_PAGE, after);
+    for (const pause of page.pauses) await repaired(log, pause);
+    after = page.next;
+  } while (after !== undefined);
+  await pauses.deleteByResolvedAtBefore(cutoff);
 }

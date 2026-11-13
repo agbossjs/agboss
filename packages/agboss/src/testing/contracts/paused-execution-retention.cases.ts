@@ -3,7 +3,7 @@ import {
   PauseResolution,
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
-import type { PauseNoticeClaim } from "../../infrastructure/pause-notices.js";
+import { NO_RECIPIENTS, type PauseNoticeClaim } from "../../infrastructure/pause-notices.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
@@ -69,15 +69,44 @@ export const RETENTION_CASES: readonly ContractCase<PausedExecutionRepository>[]
         else await acknowledge(first, claim);
       }
 
-      const listed = await second.findClosedByResolvedAtBefore(TEN, 10);
-      expect(await second.findClosedByResolvedAtBefore(TEN, 1)).toHaveLength(1);
-      expect(await second.findClosedByResolvedAtBefore(NINE, 10)).toEqual([]);
+      const { pauses: listed } = await second.findClosedByResolvedAtBefore(TEN, 10);
+      expect((await second.findClosedByResolvedAtBefore(TEN, 1)).pauses).toHaveLength(1);
+      expect((await second.findClosedByResolvedAtBefore(NINE, 10)).pauses).toEqual([]);
       await second.deleteByResolvedAtBefore(TEN);
 
       expect(listed.map((pause) => pause.pauseId).sort()).toEqual(["pause-a", "pause-b"]);
       const left = await first.findAllByTenantIdAndRootExecutionId("default", "run-1");
       expect(left.map((pause) => pause.pauseId)).toEqual(["pause-c"]);
       expect(await first.countNotices()).toEqual({ live: 0, dead: 0 });
+    },
+  },
+  {
+    name: "findClosedByResolvedAtBefore pages by cursor: every removable pause once, in order, closed at one moment or not",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const ids = ["a", "b", "c", "d", "e"].map((letter) => `pause-${letter}`);
+      for (const id of ids) {
+        await first.findOrCreateByStepKey(expiringPauseOf(id, `run-1:s:1:${id}`));
+        // every one closed at the same moment
+        await first.cancelByTenantIdAndPauseId(
+          "default",
+          id,
+          PauseResolution.Withdrawn,
+          NINE,
+          NO_RECIPIENTS,
+        );
+      }
+
+      const seen: string[] = [];
+      let after: string | undefined;
+      for (let pages = 0; pages < 10; pages += 1) {
+        const page = await second.findClosedByResolvedAtBefore(TEN, 2, after);
+        seen.push(...page.pauses.map((pause) => pause.pauseId));
+        after = page.next;
+        if (after === undefined) break;
+      }
+
+      expect(seen).toEqual(ids);
+      expect((await second.findClosedByResolvedAtBefore(NINE, 2)).pauses).toEqual([]);
     },
   },
   {

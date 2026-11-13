@@ -17,9 +17,13 @@ import {
   PauseResolution,
   PauseStatus,
 } from "../../src/infrastructure/pause-record.js";
+import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
+import { seconds } from "../../src/units/index.js";
 import {
+  ALL_KEYS,
   APPROVED_BY_MANAGER,
   pauseOf,
+  RECIPIENTS,
   pausedRunOf,
 } from "../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -88,6 +92,40 @@ describe("#939: closeTreePauses", () => {
       { isTaken: false, resolution: PauseResolution.TreeEnded, answeredBy: "manager-17" },
     ]);
   });
+
+  it.each([
+    ["a cancel", new ExecutionCancelledError(), "cancelled"],
+    ["a failure", new Error("failed"), "tree-ended"],
+  ])(
+    "a sent answer closed by %s: its answerNotTaken notice says %s, to the channel and the listeners",
+    async (_end, cause, reason) => {
+      const { pauses, ends } = storesOf(["p-sent"]);
+      await pauses.findOrCreateByStepKey(pauseOf("p-sent", "run-1:clerk-agent:1:call-1"));
+      await pauses.markSentByTenantIdAndPauseId("default", "p-sent", RECIPIENTS);
+      await pauses.resolveByTenantIdAndPauseId(
+        "default",
+        "p-sent",
+        APPROVED_BY_MANAGER,
+        AT,
+        RECIPIENTS,
+      );
+
+      await closeTreePauses({ ...ends, recipients: () => RECIPIENTS }, SITE, { cause }, AT);
+
+      const claims = await pauses.claimNoticesDue(
+        new Date(AT.getTime() + 1),
+        10,
+        seconds(60),
+        ALL_KEYS,
+      );
+      expect(claims.map((claim) => claim.mailbox.recipient).sort()).toEqual([...ALL_KEYS].sort());
+      for (const { mailbox } of claims)
+        expect(mailbox.notices.map(({ kind, reason }) => [kind, reason])).toContainEqual([
+          PauseNoticeKind.AnswerNotTaken,
+          reason,
+        ]);
+    },
+  );
 
   it("a waiting pause is withdrawn with the end's reason and logged; a Taken one is left alone; a second run changes nothing", async () => {
     const { pauses, answers, ends } = storesOf([]);

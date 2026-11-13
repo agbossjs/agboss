@@ -17,7 +17,7 @@ import { removeExpired } from "../../src/infrastructure/recovery.js";
 import { APPROVED_BY_MANAGER, pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { logPauseAnswer, logPauseNotTaken } from "../../src/infrastructure/pause-answer-log.js";
-import { minutes, hours } from "../../src/units/index.js";
+import { hours } from "../../src/units/index.js";
 
 const CLOSED = new Date("2026-01-05T09:00:00.000Z");
 
@@ -177,9 +177,9 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     );
   });
 
-  it("a backlog over one listing: logged and removed page by page, never a record removed unlogged", async () => {
-    const { pauses, sweep, logOf } = setUp();
-    const total = REPAIR_PAGE + 5;
+  it("a backlog of more than one page closed in the same millisecond: every entry written before any record is removed", async () => {
+    const { pauses, answers, sweep, logOf } = setUp();
+    const total = REPAIR_PAGE * 2 + 5;
     for (let index = 0; index < total; index += 1) {
       const id = `p-b-${String(index)}`;
       await pauses.findOrCreateByStepKey(pauseOf(id, `run-1:clerk-agent:1:call-${String(index)}`));
@@ -187,20 +187,25 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
         "default",
         id,
         PauseResolution.Cancelled,
-        new Date(CLOSED.getTime() + index * minutes(1)),
+        CLOSED,
         NO_RECIPIENTS,
       );
     }
+    answers.lost = total; // every close's own log write was lost
+    for (const pause of await pauses.findAllByTenantIdAndRootExecutionId("default", "run-1"))
+      await logPauseAnswer(answers, pause, PauseResolution.Cancelled);
+    expect(await logOf()).toEqual([]);
+    // no record may go before its entry: the removal is refused to see a removal first
+    const removedWith: number[] = [];
+    const remove = pauses.deleteByResolvedAtBefore.bind(pauses);
+    pauses.deleteByResolvedAtBefore = async (cutoff) => {
+      removedWith.push((await logOf()).length);
+      await remove(cutoff);
+    };
 
-    // a listing is one page: the first sweep logs and removes it, the next the rest — never a
-    // record removed that was not logged
-    await sweep();
-    const afterFirst = await logOf();
-    const left = await pauses.findAllByTenantIdAndRootExecutionId("default", "run-1");
-    expect(afterFirst.length).toBeGreaterThanOrEqual(total - left.length);
-    expect(left.length).toBeLessThan(total);
     await sweep();
 
+    expect(removedWith).toEqual([total]);
     expect(await logOf()).toHaveLength(total);
     expect(await pauses.findAllByTenantIdAndRootExecutionId("default", "run-1")).toEqual([]);
   });

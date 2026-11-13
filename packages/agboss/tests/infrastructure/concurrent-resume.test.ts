@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseLostError,
-  NotPausedError,
+  PauseClosedError,
   PauseStatus,
   type ExecutionOutput,
 } from "../../src/index.js";
@@ -81,7 +81,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
     expect(seen.charges).toEqual(["10 USD"]);
   });
 
-  test("two resumes of one pause at once: one moves the tree, the other gets NotPausedError", async ({
+  test("two resumes of one pause at once: one moves the tree, the other gets PauseClosedError", async ({
     app,
     apps,
     mockLlm,
@@ -99,7 +99,7 @@ describe("#265 AC11 / #267 AC12: a tree is moved by one lease holder at a time",
 
     expect(first.status).toBe("fulfilled");
     expect(double.status === "rejected" ? double.reason : double.value).toBeInstanceOf(
-      NotPausedError,
+      PauseClosedError,
     );
     expect(seen.charges).toEqual(["10 USD"]);
   });

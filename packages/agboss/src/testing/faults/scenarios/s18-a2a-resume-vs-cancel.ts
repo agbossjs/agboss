@@ -45,7 +45,7 @@ import {
  *   its first write (#939: `pausedRun.delete`, before), so the answer is `Resolved` and the first
  *   rest's paused run stored. b's resume takes the lease: it finishes the end (the answer no step
  *   took closed not taken, the paused run removed) and refuses — `-32004 a2a.pause-closed`,
- *   `cancelled` — moving nothing; no `Resolved` pause or paused run is left, the log says not taken.
+ *   `answered`: the answer was recorded, no step took it — moving nothing; no `Resolved` pause or paused run is left, the log says not taken.
  * Never both resumed with effects and canceled (`a2a-tasks-once`).
  */
 

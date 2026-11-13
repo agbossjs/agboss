@@ -99,9 +99,19 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     );
   }
 
-  async findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]> {
+  async findClosedByResolvedAtBefore(
+    cutoff: Date,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage> {
     assertScanLimit(limit);
-    return Promise.resolve(this.#removable(cutoff).slice(0, limit));
+    return Promise.resolve(
+      this.#pageAfter(
+        after,
+        limit,
+        ({ pause }) => isExpiredPause(pause, cutoff) && !this.book.hasLiveMailbox(pause),
+      ),
+    );
   }
 
   deleteByResolvedAtBefore(cutoff: Date): Promise<void> {

@@ -193,6 +193,23 @@ async function sendOnce(
   return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
 }
 
+/**
+ * A pause that is no longer pending, as its step takes it: a `Resolved` answer is marked `Taken`
+ * here, durably, before the step acts on it (#939) — so a pass that fails after its tool ran leaves
+ * the audit saying the answer was taken, and a tree end never closes it not-taken. A recovery that
+ * finds a `Taken` pause whose interrupt still waits runs the step again with that answer.
+ */
+async function consumedAnswer(
+  pauses: PausedExecutionRepository,
+  pause: PauseRecord,
+  channel: string,
+): Promise<StepAnswer> {
+  const answer = settledAnswer(pause, channel);
+  if (pause.status === PauseStatus.Resolved)
+    await pauses.markTakenByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
+  return answer;
+}
+
 /** A pause that is no longer pending: its decision, or its withdrawal. */
 function settledAnswer(pause: PauseRecord, channel: string): StepAnswer {
   const { answer } = pause;
@@ -244,7 +261,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
   const { tenantId } = frame.execution.tenant;
   const made = newRecordOf(frame, channel, question, site.clock);
   let pause = await pauses.findOrCreateByStepKey(made);
-  if (pause.status !== PauseStatus.Pending) return settledAnswer(pause, channel.name);
+  if (pause.status !== PauseStatus.Pending) return consumedAnswer(pauses, pause, channel.name);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {
     await site.onSend();
@@ -265,7 +282,7 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
       await sentTooLate(site, pause);
-      return settledAnswer(pause, channel.name);
+      return consumedAnswer(pauses, pause, channel.name);
     }
   }
   site.signal?.throwIfAborted();

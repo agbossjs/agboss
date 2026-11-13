@@ -5,6 +5,7 @@ import {
   type PauseRecord,
   type PauseUntakenResolution,
 } from "../infrastructure/paused-execution.repository.js";
+import type { PauseRecipients } from "../infrastructure/pause-record.js";
 import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import { readingGraphOf } from "../run/run-budgets.js";
@@ -41,6 +42,8 @@ export type WaitingPauseIds = (rootExecutionId: string) => Promise<ReadonlySet<s
 export interface TreePauseEnds {
   readonly stores: PauseStores;
   readonly waiting: WaitingPauseIds;
+  /** Who is told of a closed answer; `recipientsOf` (#940 fills it) when absent. */
+  readonly recipients?: (pause: PauseRecord) => PauseRecipients;
 }
 
 /** The waiting interrupts of a workflow's checkpoints, by pause id. */
@@ -94,7 +97,7 @@ async function closedOne(
     pauseId,
     how.resolution,
     how.at,
-    recipientsOf(pause),
+    (ends.recipients ?? recipientsOf)(pause),
   );
   if (closed === undefined) return false;
   await logPauseNotTaken(stores.answers, closed);

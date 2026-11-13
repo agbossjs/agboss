@@ -202,10 +202,7 @@ export class OnceBudgetRouter {
       .toAction(OverspendAction)
       .returns(ItemResultDto)
       .toRouter(OnceBudgetRouter)
-      .chooseOne(
-        route(ConfirmBookingAction)
-          .toFinish(OnceBudgetWorkflowFinish),
-      ),
+      .chooseOne(route(ConfirmBookingAction).toFinish(OnceBudgetWorkflowFinish)),
   ],
 })
 export class OnceBudgetWorkflow {}
@@ -283,8 +280,7 @@ export class OnceLevelWorkflowFinish {}
           .toWorkflow(ThisWorkflow)
           .returns(ItemResultDto)
           .toFinish(OnceLevelWorkflowFinish),
-        caseOf(ItemResultDto)
-          .toFinish(OnceLevelWorkflowFinish),
+        caseOf(ItemResultDto).toFinish(OnceLevelWorkflowFinish),
       ),
   ],
   maxDepth: 2,

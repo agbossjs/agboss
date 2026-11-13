@@ -120,6 +120,33 @@ describe("#939 AC1: the drain took the answer, a cancel stopped the pass", () =>
   });
 });
 
+describe("#939: an answer a step consumed is Taken, whatever fails after", () => {
+  test("the tool ran and its node failed after it: the pause is Taken, the log says taken, nothing is closed not-taken", async ({
+    app,
+    mockLlm,
+  }) => {
+    // the charge's turn only: the node after the approved charge finds the script exhausted
+    mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
+    const store: { repository?: HookedPausedExecutionRepository } = {};
+    hooks.afterSave = (_paused, repository) => {
+      store.repository = repository;
+      return Promise.resolve();
+    };
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
+
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeDefined();
+
+    const left = await leftOf(stored(store.repository), paused.executionId, THREAD);
+    expect(seen.charges).toEqual(["10 USD"]);
+    expect(left.pauses).toMatchObject([
+      { status: PauseStatus.Taken, resolution: PauseResolution.Replied },
+    ]);
+    expect(left.pausedRun).toBeUndefined();
+    expect(left.log).toHaveLength(1);
+    expect(left.log[0]?.isTaken).not.toBe(false);
+  });
+});
+
 describe("#939 AC2: a tree that ends normally", () => {
   test("#910 AC2: a finished tree: its Taken pause untouched, its log entry taken, no paused run", async ({
     app,

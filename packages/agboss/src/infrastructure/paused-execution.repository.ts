@@ -256,11 +256,17 @@ export abstract class PausedExecutionRepository {
     after?: string,
   ): Promise<PausePage>;
 
-  /** What `deleteByResolvedAtBefore(cutoff)` would remove, at most `limit` (the retention's log repair, I11). */
+  /**
+   * What `deleteByResolvedAtBefore(cutoff)` would remove (the retention's log repair, I11), in the
+   * store's insertion order, `limit` per page (1 to 1000); `after` is the `next` of the page before
+   * (as `findOpenAfter`'s) — so a backlog of any size, closed in one millisecond or not, is read
+   * whole, page by page, before anything is removed.
+   */
   abstract findClosedByResolvedAtBefore(
     cutoff: Date,
     limit: number,
-  ): Promise<readonly PauseRecord[]>;
+    after?: string,
+  ): Promise<PausePage>;
 
   /**
    * Removes every `Taken` and `Cancelled` pause of every tenant resolved before `cutoff` (the

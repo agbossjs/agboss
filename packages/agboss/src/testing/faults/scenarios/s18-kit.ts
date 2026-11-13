@@ -174,7 +174,7 @@ export async function isStoppedWithin(
 
 /**
  * After a pod died holding a tree's end (#939): the resume that finished it was refused `-32004
- * a2a.pause-closed`, `cancelled`, and the tree left no `Resolved` pause and no paused run — its
+ * a2a.pause-closed`, `answered` (the pause was answered; its answer was not taken), and the tree left no `Resolved` pause and no paused run — its
  * answer logged not taken.
  */
 export async function expectEndFinished(
@@ -187,8 +187,8 @@ export async function expectEndFinished(
     cluster,
     resumed.errorCode === -32004 &&
       resumed.errorMetadata?.code === "a2a.pause-closed" &&
-      resumed.errorMetadata.reason === "cancelled",
-    `the resume of the ended tree was to be -32004 a2a.pause-closed, cancelled: ${JSON.stringify(resumed)}`,
+      resumed.errorMetadata.reason === "answered",
+    `the resume of the ended tree was to be -32004 a2a.pause-closed, answered: ${JSON.stringify(resumed)}`,
   );
   const state = await pauseStateOn(pod, taskId);
   const open = state.pauses.filter((p) => p.status === "pending" || p.status === "resolved");

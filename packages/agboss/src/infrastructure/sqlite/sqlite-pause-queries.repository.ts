@@ -42,9 +42,13 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     return Promise.resolve(this.scans.ofTenant(tenantId, filter, seqOfCursor(after), limit));
   }
 
-  async findClosedByResolvedAtBefore(cutoff: Date, limit: number): Promise<readonly PauseRecord[]> {
+  async findClosedByResolvedAtBefore(
+    cutoff: Date,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage> {
     assertScanLimit(limit);
-    return Promise.resolve(this.scans.closedBefore(cutoff, limit));
+    return Promise.resolve(this.scans.closedBefore(cutoff, seqOfCursor(after), limit));
   }
 
   async deleteByResolvedAtBefore(cutoff: Date): Promise<void> {

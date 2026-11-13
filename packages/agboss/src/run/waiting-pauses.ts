@@ -112,7 +112,8 @@ export interface PassPauses {
 /** A pause its loop still waits in: no decision yet, one recorded that no pass took, or answered now. */
 const isOpenPause = (record: PauseRecord, pass: PassPauses): boolean =>
   record.status === PauseStatus.Pending ||
-  (record.status === PauseStatus.Resolved && pass.taken?.has(record.pauseId) !== true) ||
+  ((record.status === PauseStatus.Resolved || record.status === PauseStatus.Taken) &&
+    pass.taken?.has(record.pauseId) !== true) ||
   pass.answering?.has(record.pauseId) === true;
 
 /**

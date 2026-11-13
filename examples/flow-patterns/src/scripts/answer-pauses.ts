@@ -5,7 +5,7 @@ import { FlowPatternsApplication } from "../flow-patterns.application.js";
 // npm run answer -- <pauseId> [<pauseId> …] [--decline]
 // Answers pauses another process left waiting — they are records in the SQLite stores — all at
 // once, from a second terminal: two answers at nearly the same time, or a second press of an
-// answer already given (NotPausedError). The pause ids are the ones the terminal channel printed.
+// answer already given (PauseClosedError). The pause ids are the ones the terminal channel printed.
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: { decline: { type: "boolean", default: false } },

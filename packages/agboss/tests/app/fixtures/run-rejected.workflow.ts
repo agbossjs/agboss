@@ -57,13 +57,7 @@ export class VoucherClerk {}
     tools: { maxToolCalls: 3 },
   },
   uncompactedTurns: 1,
-  flow: [
-    start(Redeem)
-      .returns(VoucherDto)
-      .toAgent(VoucherClerk)
-      .returns(AnswerDto)
-      .toFinish(Done),
-  ],
+  flow: [start(Redeem).returns(VoucherDto).toAgent(VoucherClerk).returns(AnswerDto).toFinish(Done)],
 })
 export class Vouchers {}
 
