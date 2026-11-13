@@ -202,6 +202,27 @@ describe("#859 AC3: the fetch of a file by url", () => {
     expect(script.asked).toHaveLength(MAX_REDIRECTS + 1);
   });
 
+  it("#916: a redirect to a Location that is no URL (a zone id, a %40 host) is a2a.file-url-invalid, nothing more asked", async () => {
+    const locations = ["https://[fe80::1%25en0]/x.png", "https://files.example%40evil.test/a.pdf"];
+    const script = scriptedTransport(
+      Object.fromEntries(
+        locations.map((location, at) => [`${ORIGIN}/r${String(at)}`, { status: 302, location }]),
+      ),
+    );
+
+    const codes = await Promise.all(
+      locations.map((_location, at) =>
+        codeOf(fetchedFile(fetchOf(script.transport, `${ORIGIN}/r${String(at)}`))),
+      ),
+    );
+
+    expect(codes).toEqual([
+      expect.objectContaining({ code: "a2a.file-url-invalid" }),
+      expect.objectContaining({ code: "a2a.file-url-invalid" }),
+    ]);
+    expect(script.asked).toEqual([`${ORIGIN}/r0`, `${ORIGIN}/r1`]);
+  });
+
   it("a fourth redirect, a non-2xx answer, an unreachable host: a2a.file-fetch-failed", async () => {
     const hops = Object.fromEntries(
       Array.from({ length: MAX_REDIRECTS + 1 }, (_, hop) => [

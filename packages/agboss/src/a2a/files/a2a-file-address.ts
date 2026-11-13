@@ -81,8 +81,8 @@ export function isDeniedAddress(address: string): boolean {
 /** Why a lookup refused: its error's code. */
 export const ADDRESS_DENIED = "A2A_FILE_ADDRESS_DENIED";
 
-/** An error a guarded lookup fails with, its `code` `ADDRESS_DENIED`. */
-const deniedError = (): NodeJS.ErrnoException =>
+/** An error a connection is refused with for its address, its `code` `ADDRESS_DENIED`. */
+export const deniedError = (): NodeJS.ErrnoException =>
   Object.assign(new Error("the file's host resolves to an address it is never fetched from"), {
     code: ADDRESS_DENIED,
   });
@@ -102,9 +102,13 @@ const systemLookup: AddressLookup = (hostname, callback) => {
 /**
  * A `net` lookup that answers only an allowed address: every address the name resolves to is
  * checked, one denied fails the connection (a name with one private address among public ones is
- * refused, never raced).
+ * refused, never raced). `answered` is told the addresses a successful lookup returned (#916: the
+ * connection's peer is checked against them).
  */
-export function guardedLookupOf(resolve: AddressLookup = systemLookup): LookupFunction {
+export function guardedLookupOf(
+  resolve: AddressLookup = systemLookup,
+  answered?: (addresses: readonly string[]) => void,
+): LookupFunction {
   return (hostname, options, callback) => {
     resolve(hostname, (error, addresses) => {
       if (error !== null) {
@@ -116,6 +120,7 @@ export function guardedLookupOf(resolve: AddressLookup = systemLookup): LookupFu
         callback(deniedError(), "", 4);
         return;
       }
+      answered?.(addresses.map((found) => found.address));
       if (options.all === true) callback(null, [...addresses]);
       else callback(null, first.address, first.family);
     });
