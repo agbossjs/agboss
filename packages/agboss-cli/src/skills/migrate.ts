@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, lstatSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { LinkedPathError, linkedBelow } from "./containment.js";
 import type { LinkOps } from "./link.js";
 import { readManifest, type SkillsManifest } from "./manifest.js";
 import { planSync, type SyncPlan } from "./plan.js";
@@ -76,11 +77,26 @@ export function removeLegacy(folder: string, ops: ReplaceOps): SkillsWarning[] {
   }
 }
 
+/**
+ * Refuses (throws) when a file would be written below a link in `target`: a crafted or
+ * half-migrated layout must not make the move write outside the project (#983 D2). Nothing is
+ * written before every path is checked.
+ */
+export function assertCarryable(target: string, kept: readonly KeptFile[]): void {
+  for (const file of kept) {
+    const parent = dirname(file.path);
+    const linked = parent === "." ? undefined : linkedBelow(target, parent);
+    if (linked !== undefined) throw new LinkedPathError(`${SKILLS_FOLDER}/${linked}`);
+  }
+}
+
 /** Copies the old folder's own files the new one lacks (an interrupted move finishing). */
 export function carryOver(target: string, kept: readonly KeptFile[]): void {
+  assertCarryable(target, kept);
   for (const file of kept) {
     const to = join(target, file.path);
-    if (existsSync(to)) continue;
+    // lstat: a dangling link at `to` is "there" — copying would write through it
+    if (lstatSync(to, { throwIfNoEntry: false }) !== undefined) continue;
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(file.from, to);
   }

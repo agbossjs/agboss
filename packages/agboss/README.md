@@ -433,7 +433,7 @@ Needs `OPENROUTER_API_KEY` in `.env` (dev's `openRouterApiKey: secret("OPENROUTE
 
 `@agboss/core` ships its own guide for coding agents (#305), written for the installed version:
 `skills/agboss/` in the package — `SKILL.md` and 13 references, from composition and the flow DSL to
-tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes three things
+tests, the error catalog and migrating a LangGraph graph (#424), every snippet compiled by the gate. `agboss create` writes four things
 for agents:
 
 - `AGENTS.md` (Cursor, Codex, …) — the project's instructions and a table routing each task to one
@@ -443,10 +443,12 @@ for agents:
   sha256 per file): one copy, committed with the project, which Codex, Cursor, GitHub Copilot, Gemini CLI,
   Antigravity and Windsurf read natively. `.claude/skills/agboss` is a local link to it (a symlink, on
   Windows a junction) for Claude Code and Cline, made on each machine by `agboss check` and git-ignored.
+- `.gitattributes` — `.agents/skills/agboss/** text eol=lf`, so the committed copy is the same bytes on every
+  machine (a Windows checkout with `core.autocrlf` stays `current`).
 
 `AGENTS.md` and `CLAUDE.md` are written once and never rewritten. The skills folder is the
 framework's: `npx agboss check` (so the project's `postinstall`, `npx agboss dev` and
-`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `installed` on a fresh clone, `repaired` with
+`npx agboss generate …`) makes it match the `@agboss/core` the project resolves — `skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files)` after an upgrade, `linked .claude/skills/agboss` on a fresh clone (the committed copy is current, only the link is made; `installed` when the folder is missing), `repaired` with
 `[skills.local-edit]` when a file was edited by hand. A 0.1.x project's `.claude/skills/agboss/` folder is
 moved to `.agents/skills/agboss/` once (`[skills.moved]`: commit the folder, and in `.gitignore` replace
 `.claude/skills/agboss/` with `.claude/skills/agboss`, no trailing slash); the link is checked on every run

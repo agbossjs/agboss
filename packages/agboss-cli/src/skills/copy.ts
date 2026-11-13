@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { LinkOps } from "./link.js";
 import {
+  assertCarryable,
   carryOver,
   legacyOf,
   legacyPlanOf,
@@ -106,6 +107,7 @@ function moveLegacy(
     const kept = [...old.kept, ...own.filter((k) => !old.kept.some((o) => o.path === k.path))];
     replaceSkillsFolder(target, files, version, kept, replace);
   } else {
+    assertCarryable(target, old.kept);
     if (plan.status !== SkillsSyncStatus.Current)
       replaceSkillsFolder(target, files, version, own, replace);
     carryOver(target, old.kept);

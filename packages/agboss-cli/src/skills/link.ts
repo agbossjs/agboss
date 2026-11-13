@@ -41,6 +41,9 @@ const isMissing = (error: unknown): boolean =>
   "code" in error &&
   (error.code === "ENOENT" || error.code === "ENOTDIR");
 
+const isExists = (error: unknown): boolean =>
+  error instanceof Error && "code" in error && error.code === "EEXIST";
+
 /** The real file system. */
 export const REAL_LINK_OPS: LinkOps = {
   platform: process.platform,
@@ -102,6 +105,17 @@ const blocked = (reason: string): LinkOutcome => ({
 const relativeTarget = (path: string, copy: string, ops: LinkOps): string =>
   relative(ops.realpath(dirname(path)) ?? dirname(path), ops.realpath(copy) ?? copy);
 
+/** True when `path` is a link that resolves to `copy`. */
+function isLinkedTo(path: string, copy: string, ops: LinkOps): boolean {
+  const resolved = ops.realpath(path);
+  const wanted = ops.realpath(copy);
+  return (
+    resolved !== undefined &&
+    wanted !== undefined &&
+    comparable(resolved, ops.platform) === comparable(wanted, ops.platform)
+  );
+}
+
 /** Makes the link at `path` to `copy`; a failure is a warning with the manual command. */
 function create(path: string, copy: string, ops: LinkOps): LinkOutcome {
   try {
@@ -110,6 +124,9 @@ function create(path: string, copy: string, ops: LinkOps): LinkOutcome {
     else ops.symlink(relativeTarget(path, copy, ops), path, "dir");
     return { status: LinkStatus.Linked, warnings: [] };
   } catch (error) {
+    // another run made the link between our lstat and symlink: if it is the right one, all is well
+    if (isExists(error) && isLinkedTo(path, copy, ops))
+      return { status: LinkStatus.Current, warnings: [] };
     const reason = error instanceof Error ? error.message : String(error);
     return {
       status: LinkStatus.Failed,

@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 import { join, sep } from "node:path";
 import type { LinkOps } from "./link.js";
 import { SkillsWarningCode, type SkillsWarning } from "./status.js";
@@ -47,4 +48,35 @@ export function outsideProject(
 export const outsideWarning = (relative: string): SkillsWarning => ({
   code: SkillsWarningCode.OutsideProject,
   message: `${relative} is a link that leaves the project — skills not synced and nothing touched; remove the link (or point it inside the project) and run npx agboss check`,
+});
+
+/** A write that would go through a link inside a managed folder: refused, nothing written. */
+export class LinkedPathError extends Error {
+  constructor(readonly relative: string) {
+    super(`${relative} is a link inside the skills folder`);
+  }
+}
+
+/**
+ * The first component of `path` below `base` that is a symlink (`lstat`, so a link is not
+ * followed; "/"-separated), or undefined. `realpath` of the parents alone would pass a link to a
+ * folder that stays inside the project, and a write through it still lands where nobody looks.
+ */
+export function linkedBelow(base: string, path: string): string | undefined {
+  let at = base;
+  const seen: string[] = [];
+  for (const part of path.split("/")) {
+    at = join(at, part);
+    seen.push(part);
+    const found = lstatSync(at, { throwIfNoEntry: false });
+    if (found === undefined) return undefined;
+    if (found.isSymbolicLink()) return seen.join("/");
+  }
+  return undefined;
+}
+
+/** The warning for a write refused because a folder inside the skills folder is a link. */
+export const linkedWarning = (relative: string): SkillsWarning => ({
+  code: SkillsWarningCode.OutsideProject,
+  message: `${relative} is a link inside the skills folder — skills not synced and nothing touched; remove the link and run npx agboss check`,
 });
