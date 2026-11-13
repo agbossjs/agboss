@@ -10,6 +10,27 @@ Breaking changes and notable additions, newest first. The API reports
 - **Changed**: two listed A2A task stores are `[di.ambiguous-implementation]`, naming both.
 - **Unchanged**: `statusTimestampAfter` is "at or after" on the wire (since #811); the store contract's `statusAtAfter` stays strict and its doc says the server moves the bound.
 
+## Unreleased — 0.1.1: a tree's end closes its pauses; typed late answers (#939, part of #910)
+
+- **Fixed (#910)**: when a tree ends its stored paused run is removed (that run's only) and every pause it still has is
+  closed — a waiting one `Cancelled` (a cancel) or `TreeEnded`, an answer no step consumed closed *not taken* (answer and
+  answerer kept, the log says so). A pod that died in the middle of it is finished by another instance's sweep (the orphan
+  look, under the tree's lease). A step marks its answer `Taken` when it consumes it, before it acts; a stopped pass takes
+  nothing; a recovery runs a step whose answer was taken but not stored again. Parallel branches resumed one by one no
+  longer count a finished branch's loop twice.
+- **Changed — breaking**: a late answer is a `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`, `reason`,
+  `closedAt`) in place of `NotPausedError`, before a reply's interpreter is asked; `NotPausedError` stays for the
+  thread-level paths. Over A2A: `-32004`, `a2a.pause-closed` with `reason` and `closedAt`, a fixed text per reason;
+  `a2a.already-answered` is no longer written (a kept reply still replays).
+- **Changed — breaking, for stores outside the core**: `findClosedByResolvedAtBefore(cutoff, limit, after?)` returns a
+  `PausePage` (`{ pauses, next? }`) in insertion order — the retention reads every page and writes each missing log
+  entry before its one removal. Contract case: "pages by cursor: every removable pause once, in order, closed at one
+  moment or not".
+- **Added (fault suite)**: s18d holds `pausedRun.delete` and checks the refusal, the pause state, the paused run and
+  the log; the pod command `pause-state`.
+- **Migration**: catch `PauseClosedError` where you caught `NotPausedError` for a late answer; implement the paged
+  `findClosedByResolvedAtBefore` in your pause store.
+
 ## Unreleased — 0.1.1: the pause store contract v2 — deadlines, notices, not-taken answers (#935, part of #910)
 
 - **Changed — breaking, for stores outside the core**: `PausedExecutionRepository` — `resolve…` is refused at or after

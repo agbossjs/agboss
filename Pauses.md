@@ -392,7 +392,7 @@ value for the steps after it. Everything else is a pause like an approval's:
   recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the role's
   interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
   interpreter → `ReplyInterpreterMissingError`). Who answers is `answeredBy`, checked as above.
-- Exactly one answer wins (`NotPausedError` for the second, at the same time too); another instance
+- Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
   (its channel's `withdraw` told); `retention.pauseRecords` and `result.record.pauses` as for any
   pause — the record's `kind` is `PauseKind.Question` (stored, never inferred), its step the
@@ -487,8 +487,12 @@ after a crash — finds the same `pauseId`:
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
 | `Cancelled`   | withdrawn: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, or the tree ended |
 
-An answer to anything but `Pending` → `NotPausedError` (`run.not-paused`): a double click, a late
-answer to a withdrawn question. Each record also says how it was resolved (`PauseResolution`), with
+An answer to anything but `Pending` → `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`,
+`reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
+`reassigned` —, `closedAt`; its message names the pause by its `pauseKey`, never its id), checked
+before a reply's interpreter is called: a double click, a late answer to a withdrawn question. An
+answer that was recorded and then closed not taken is refused `answered`. `NotPausedError` stays for
+the thread-level paths only. Over [A2A](A2A) the same refusal is `-32004` with `a2a.pause-closed`. Each record also says how it was resolved (`PauseResolution`), with
 its answer (`answer: PauseAnswer` — the decision, who answered, what reading a reply cost) and when
 (`askedAt`, `resolvedAt`, on the application's `Clock`):
 
@@ -503,11 +507,16 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 `@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
 removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
 `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`. Within the window a late answer gets
-`NotPausedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
+`PauseClosedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
 `Resolved` one no pass took yet) is never removed, however old. When the tree ends — finished,
-failed or cancelled — a `Resolved` pause no step took (an answer a cancel won over) is marked
-`Taken`, its answer kept and no channel told, so the sweep removes it after the retention like any
-other (#890, #811 s18c); before, it stayed `Resolved` forever.
+failed or cancelled — its stored paused run is removed (only that run's, never a later run of the
+thread) and every pause it still has is closed: a waiting one `Cancelled` (`PauseResolution.Cancelled`,
+after an `app.cancel`) or `TreeEnded`; a `Resolved` one — an answer no step consumed, a cancel won
+over it — closed *not taken*: its answer and who gave it are kept and the answer log says so. A step
+marks its answer `Taken` the moment it consumes it, before it acts, so an answer whose tool ran stays
+`Taken` whatever fails after, and a pass that is stopped takes nothing. The sweep removes closed
+records after the retention like any other, writing a missing log entry first (#939, #910); before,
+a cancelled pass left its `Resolved` pause and paused run forever.
 
 ## Who answered: `result.record.pauses`
 
@@ -696,7 +705,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
 A resume has two phases (Q58): **1. record the decision** — after the credential check and the
 validation, the root's record of a resting tree is made `running`, then the pause goes from
-`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `NotPausedError` and
+`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `PauseClosedError` and
 moves nothing. A resume whose process dies after phase 1 leaves a `running` root: recovery
 ([Several instances](Several-instances#recovery)) takes its lease and continues it with the recorded
 decision, once (#850). **2. move the tree** — the call takes the tree's

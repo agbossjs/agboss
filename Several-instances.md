@@ -328,7 +328,7 @@ for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
 
 **Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
 pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
-gets `NotPausedError`), then takes the tree's lease. While another call or instance holds it, the
+gets `PauseClosedError`), then takes the tree's lease. While another call or instance holds it, the
 resume waits; the holder continues with one `Command({ resume })` that maps LangGraph's interrupt
 id of every answered pause of the tree, and before it lets the tree rest paused takes the decisions
 resolved meanwhile (the drain), so the waiting call then returns the tree's current
@@ -949,6 +949,15 @@ export class ChargeOrderAction {
 
 ## Recovery
 
+**The orphan look** (#939): a tree whose instance died in the middle of its end — its root's record
+ended, a pause still open, its paused run or keys still stored — is found through the open pauses. Each
+sweep reads a page of 50 (`findOpenAfter`, a cursor kept per instance and wrapped after the last page: every
+open pause is visited within `ceil(open / 50)` sweeps); for a root whose record is `answered`, `failed` or
+`guarded` the instance takes the tree's lease (a live holder ends its own tree, never raced) and runs the
+whole idempotent end — keys, queued children, branch errors, pauses — on the cause its record gives. A root
+still running or resting, one whose lease is held, one with no record here (another application's, on a shared
+store) is skipped.
+
 An execution whose instance died mid-step is continued by another instance, automatically (#265
 S30). The record of a root is `ExecutionRecordStatus.Running` while its tree moves (a resume makes
 it `running` again just before it records its decision, #850: a resume that dies between the two
@@ -1002,7 +1011,7 @@ tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
 `@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
 through `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
 the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
-taken or withdrawn pause gets `NotPausedError`, after it `UnknownPauseError`; a `Pending` pause is
+taken or withdrawn pause gets `PauseClosedError`, after it `UnknownPauseError`; a `Pending` pause is
 never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
 `PausedExecutionRepository` implements `deleteByResolvedAtBefore` too — one statement over the records'
 status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who

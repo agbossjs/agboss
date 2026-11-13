@@ -178,7 +178,9 @@ protocolVersion: "1.0" }`.
   `kind`, `ask`) in the status message's `data` part; a follow-up `SendMessage` with the same `taskId`
   answers it — one `data` part `{ pauseId?, decision }` (`pauseId` optional with one pause) or a text
   reply (read by the role's reply interpreter; not understood: `-32602`, the pause still pending). A
-  pause of another task is `-32602`; one a cancel or another answer took first `-32004`. A pause only
+  pause of another task is `-32602`; one a cancel or another answer took first — or whose tree ended — `-32004`, always with the code
+  `a2a.pause-closed`, the `reason` (`answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned`) and when it
+  closed in its error metadata, and a fixed text per reason, never an error's own message. A pause only
   its channel answers is `TASK_STATE_WORKING`, "awaiting <channel> out of band".
 - **Ends**: a finish is `TASK_STATE_COMPLETED` with one artifact named by the finish (a text part for
   a `WorkflowFinishTextDto` output, else a `data` part); a failure `TASK_STATE_FAILED` with its stable
