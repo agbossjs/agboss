@@ -277,7 +277,10 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
 For each of agbossjs/mongodb and agbossjs/redis that has the release path (see the top) and
 whose issues are done: Step 6 in its repository (`cd "$WORKSPACE_ROOT/mongodb"` or `redis`, with its `release_branch`, `assemble_changelog "agbossjs/agboss"` and
 `bump_version` lines), with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
-not ready; say so in the release notes.
+not ready; say so in the release notes. The release PRs of agbossjs/mongodb and agbossjs/redis also drop the
+`Not published to npm yet` note from their `README.md` (mongodb: the sentence at the end of the first
+quote; redis: the line `> Not published to npm yet: it ships with the 0.1.1 release.`): edit it on
+`release/<version>` before the pin commit.
 
 ## Step 8 — The release notes and the site
 
