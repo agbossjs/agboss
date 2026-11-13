@@ -13,8 +13,7 @@ import { modelChaosOf } from "../eval/chaos/model-chaos.js";
 import { checkModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
 import { workflowModelUsesOf } from "../models/resolution.js";
-import type { ModelUse } from "../models/uses.js";
-import type { ModelProviderDirectory, RegisteredModelProvider } from "../models/resolve.js";
+import { providersAtStart } from "./providers-at-start.js";
 import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
@@ -73,24 +72,6 @@ function sendOf(options: AppModelsOptions): Pick<ProviderClientOptions, "send" |
     return options.providerFetch === undefined ? {} : { send: options.providerFetch };
   const chaos = modelChaosOf(options.chaos);
   return { send: chaos.fetchOf(options.providerFetch ?? fetch), chaos };
-}
-
-/**
- * The providers connected at start (#716): each one a model use resolves to, and its breaker's
- * fallback when the directory lists it — in the directory's order. The others connect on first use.
- */
-function providersAtStart(
-  uses: readonly ModelUse[],
-  directory: ModelProviderDirectory,
-): readonly RegisteredModelProvider[] {
-  const needed = new Set<unknown>();
-  for (const use of uses) {
-    const resolution = directory.resolve(use);
-    if (resolution.kind !== "resolved") continue;
-    needed.add(resolution.provider.type);
-    needed.add(resolution.provider.options.circuitBreakerPolicy.fallback);
-  }
-  return directory.providers.filter((provider) => needed.has(provider.type));
 }
 
 /**
