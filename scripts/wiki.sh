@@ -3,7 +3,9 @@
 # Its working copy sits next to the project: ../<project>.wiki (never inside the repo).
 #
 #   scripts/wiki.sh pull                  clone or update ../<project>.wiki
-#   scripts/wiki.sh publish "<message>"   commit and push local wiki changes
+#   scripts/wiki.sh publish "<message>" [page…]
+#                                         commit (only the given pages, when any) and push to the Wiki,
+#                                         then fast-forward this repo's docs/wiki-pending to the same commit
 #   scripts/wiki.sh seed <owner/repo>     copy another repo's wiki (e.g. the template) and publish
 set -euo pipefail
 
@@ -33,13 +35,18 @@ case "${1:-}" in
       git -C "${DIR}" init -q -b master
       git -C "${DIR}" remote add origin "${URL}"
     fi
-    git -C "${DIR}" add -A
+    shift 2
+    # pages given → only those are committed (the shared checkout may hold other agents' edits)
+    if [[ $# -gt 0 ]]; then git -C "${DIR}" add -- "$@"; else git -C "${DIR}" add -A; fi
     git -C "${DIR}" diff --cached --quiet || git -C "${DIR}" commit -q -m "${MESSAGE}"
     # Never synced with the remote yet → our history replaces the placeholder page from the UI.
     PUSH_ARGS=(origin HEAD:master)
     git -C "${DIR}" rev-parse -q --verify refs/remotes/origin/master >/dev/null || PUSH_ARGS=(--force "${PUSH_ARGS[@]}")
     git -C "${DIR}" push -q "${PUSH_ARGS[@]}" || first_page_hint
     git -C "${DIR}" fetch -q origin master
+    # keep docs/wiki-pending equal to the Wiki, so Sync Wiki finds nothing diverged (fast-forward only)
+    git -C "${DIR}" push -q "https://github.com/${REPO}.git" HEAD:refs/heads/docs/wiki-pending ||
+      echo "warning: docs/wiki-pending not fast-forwarded (it holds pages not in the Wiki yet); Sync Wiki will report the divergence" >&2
     echo "Wiki published: https://github.com/${REPO}/wiki"
     ;;
   seed)
