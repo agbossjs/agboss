@@ -1948,7 +1948,10 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   default); a pause's decision holding an `A2AFileDto`-shaped object at any depth is `-32602
 a2a.file-field-in-data` (#900);
   `ListTasks.totalSize` counts every task its filters match, `statusTimestampAfter` keeps a status at or after
-  it (`>=`, a2a.proto's words; #811); the official A2A TCK (`a2aproject/a2a-tck`, pinned) runs in CI
+  it (`>=`, a2a.proto's words; #811 — the store's own bound stays `>`, the server passes one ms before
+  the time asked, #960); two listed A2A task stores are `[di.ambiguous-implementation]` naming both
+  (#960); the sweep also removes a follow-up message whose task is gone, by its `savedAt` (#960), and a
+  task store keeps a status key it does not know as written (#960); the official A2A TCK (`a2aproject/a2a-tck`, pinned) runs in CI
   (`a2a-tck`, `scripts/a2a-tck.mjs`) against the conformance agent `tests/a2a-tck/` — each requirement
   that does not pass named with why in `tests/a2a-tck/tck-expected.json` (Wiki → A2A-Conformance); a task outlives its connection — a disconnect never cancels it (#806);
   `CancelTask` cancels that task only, before its start too (its id fenced: `CANCELED`); a pause its

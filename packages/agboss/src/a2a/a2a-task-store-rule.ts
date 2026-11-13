@@ -1,6 +1,7 @@
 import type { ApplicationOptions } from "../application/application.js";
 import {
   backendOf,
+  hasTwoListed,
   implementationsOf,
   ImplementationReason,
   leaseStoreOf,
@@ -92,8 +93,9 @@ export function a2aTaskStoreViolations(options: ApplicationOptions): RuleViolati
   // Stryker disable next-line ArrayDeclaration: an entry that is no class is no store: the defaults either way
   const providers = options.providers ?? [];
   const leases = leaseStoreOf(providers);
-  // no A2A served, or two lease stores (their ambiguity is reported first)
-  if (exposes.length === 0 || leases === undefined) return [];
+  // no A2A served, or two lease or two task stores (their ambiguity is reported first, #960)
+  if (exposes.length === 0 || leases === undefined || hasTwoListed(providers, A2ATaskRepository))
+    return [];
   const choice = definedOf(
     implementationsOf(providers).find(({ contract }) => contract === A2ATaskRepository),
     // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds

@@ -67,7 +67,11 @@ export interface A2ATaskPause {
   readonly ask: unknown;
 }
 
-/** Where a task is: what a status change writes, all of it at once. */
+/**
+ * Where a task is: what a status change writes, all of it at once. A store keeps the status as a
+ * whole (#960): a key this version does not know (a later one's field) comes back as it was
+ * written, never dropped — `a2aTaskContract`'s rule for every store.
+ */
 export interface A2ATaskStatus {
   readonly state: A2ATaskState;
   /** The agent's status message (a channel-only pause's "awaiting …", a failure's text). */
@@ -162,7 +166,11 @@ export interface A2ATaskQuery {
   readonly ownerId: string | undefined;
   readonly contextId?: string;
   readonly state?: A2ATaskState;
-  /** Only the tasks whose status changed strictly after this time (`ListTasks.statusTimestampAfter`). */
+  /**
+   * Only the tasks whose status changed strictly after this time. The wire's `statusTimestampAfter`
+   * keeps a status at or after the time asked (a2a.proto, #811); the server asks for it by passing
+   * one millisecond before it, so a store has one rule: `>`.
+   */
   readonly statusAtAfter?: Date;
   /** At most this many (a whole number from 1). */
   readonly pageSize: number;
@@ -238,7 +246,11 @@ export abstract class A2ATaskRepository {
   /** A caller's tasks by `statusAt`, newest first (ties by task id, descending), and their count. */
   abstract list(query: A2ATaskQuery): Promise<A2ATaskPage>;
 
-  /** Removes the terminal tasks whose status changed before `cutoff`, with their messages. */
+  /**
+   * Removes the terminal tasks whose status changed before `cutoff`, with their messages — and
+   * every message whose task is gone and whose `savedAt` is before `cutoff` (#960: a follow-up saved
+   * while its task was removed), so its id is free again.
+   */
   abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
 }
 

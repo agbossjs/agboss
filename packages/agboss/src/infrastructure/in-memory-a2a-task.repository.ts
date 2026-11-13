@@ -17,6 +17,7 @@ import {
 } from "./a2a-task.repository.js";
 import { a2aMessageRowOf, a2aPageOf, a2aTaskRowOf, byNewestStatus } from "./a2a-task-pages.js";
 import { IN_MEMORY_DATABASE, type InMemoryDatabase } from "./in-memory-database.js";
+import { DIRECT_MESSAGE_CLAIM } from "./in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /** A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). */
@@ -130,9 +131,14 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
       tasks.delete(row);
       gone.add(row);
     }
-    for (const [row, message] of messages)
-      if (gone.has(a2aTaskRowOf({ tenantId: message.tenantId, taskId: message.taskId })))
-        messages.delete(row);
+    for (const [row, message] of messages) {
+      const task = a2aTaskRowOf({ tenantId: message.tenantId, taskId: message.taskId });
+      // a task's own messages go with it; one whose task is gone is an orphan (#960), swept by its age
+      // a direct message's claim has no task by design (#860): never an orphan
+      const isOrphan =
+        message.taskId !== DIRECT_MESSAGE_CLAIM && !tasks.has(task) && message.savedAt < cutoff;
+      if (gone.has(task) || isOrphan) messages.delete(row);
+    }
     return Promise.resolve();
   }
 }

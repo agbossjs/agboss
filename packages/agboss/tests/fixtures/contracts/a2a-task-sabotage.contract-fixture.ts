@@ -119,7 +119,34 @@ class IgnoresStatusTime extends InMemoryA2ATaskRepository {
   }
 }
 
+/** Sweeps a finished task's messages only: a follow-up whose task is gone stays for ever (#960). */
+class KeepsOrphans extends InMemoryA2ATaskRepository {
+  constructor(private readonly rows: InMemoryDatabase) {
+    super(rows);
+  }
+
+  override async deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
+    const { a2aMessages: messages, a2aTasks: tasks } = this.rows;
+    const orphans = [...messages].filter(([, message]) => !tasks.has(a2aTaskRowOf(message)));
+    await super.deleteTerminalByStatusAtBefore(cutoff);
+    for (const [row, message] of orphans) messages.set(row, message);
+  }
+}
+
+/** Keeps the status keys it knows and drops the rest, as a schema that strips them does (#960). */
+class DropsStatusKeys extends InMemoryA2ATaskRepository {
+  override async findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined> {
+    const task = await super.findById(key);
+    return task === undefined ? undefined : { ...task, status: knownOf(task.status) };
+  }
+}
+
+const knownOf = ({ futureField: _dropped, ...known }: A2ATaskStatus & { futureField?: unknown }) =>
+  known;
+
 a2aTaskContract(target("sound", InMemoryA2ATaskRepository));
+a2aTaskContract(target("keeps orphan messages", KeepsOrphans));
+a2aTaskContract(target("drops unknown status keys", DropsStatusKeys));
 a2aTaskContract(target("counts the page", CountsThePage));
 a2aTaskContract(target("ignores the status time", IgnoresStatusTime));
 a2aTaskContract(target("checks then writes", CheckThenWrite));

@@ -3,7 +3,8 @@
  * broken one way fails the cases of its rule — a check-then-write accept, a compare-and-set that
  * ignores the version or writes over a terminal status, an unsorted list, a sweep of unfinished
  * tasks, message ids shared across owners, a total of the page only, a status time filter left out
- * (#824).
+ * (#824), an orphan follow-up message left by the sweep, a status key the store does not know
+ * dropped (#960).
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
@@ -23,8 +24,8 @@ const failedOf = (target: string): readonly string[] =>
     .map((found) => found.name);
 
 describe("#807 AC4: a task store that breaks a rule fails the A2A task contract", () => {
-  it("the sound store passes every case (27)", () => {
-    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(27).fill("pass"));
+  it("the sound store passes every case (32)", () => {
+    expect(casesOf("sound").map((found) => found.state)).toEqual(Array(32).fill("pass"));
   });
 
   it.each([
@@ -38,6 +39,9 @@ describe("#807 AC4: a task store that breaks a rule fails the A2A task contract"
     ["shares message ids across owners", "a message id is its tenant's and its owner's"],
     ["counts the page", "totalSize counts every task the query matches"],
     ["counts the page", "statusAtAfter keeps the tasks whose status changed strictly after it"],
+    ["keeps orphan messages", "the sweep removes a message whose task is gone"],
+    ["keeps orphan messages", "a message id swept as an orphan is free again"],
+    ["drops unknown status keys", "a status key this version does not know survives"],
     [
       "ignores the status time",
       "statusAtAfter keeps the tasks whose status changed strictly after it",

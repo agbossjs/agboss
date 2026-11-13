@@ -12,7 +12,7 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
-      "tests/infrastructure/a2a-task{.contract,-helpers}.test.ts",
+      "tests/infrastructure/a2a-task{.contract,-helpers,-status-rows}.test.ts",
       "tests/app/{execution-control,cancel-before-record,tree-control}.test.ts",
       "tests/a2a/a2a-task-{projection,units,retention}.test.ts",
       // #844: a repaired task's spend, its memory update included

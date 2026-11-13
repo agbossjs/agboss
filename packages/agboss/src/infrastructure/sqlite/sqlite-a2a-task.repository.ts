@@ -26,6 +26,7 @@ import {
   TERMINAL_STATES,
 } from "./sqlite-a2a-task-rows.js";
 import { sqliteA2ATaskPageOf } from "./sqlite-a2a-task-pages.js";
+import { sweepSqliteA2ATasks } from "./sqlite-a2a-task-sweep.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 
@@ -145,20 +146,9 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
   }
 
   deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
-    const terminal = TERMINAL_STATES.map(() => "?").join(", ");
-    const gone = `state IN (${terminal}) AND status_at < ?`;
     return answerOf(() => {
       this.connection.transaction(() => {
-        const { database } = this.connection;
-        database
-          .prepare(
-            `DELETE FROM a2a_messages WHERE EXISTS (SELECT 1 FROM a2a_tasks t WHERE
-           t.tenant_id = a2a_messages.tenant_id AND t.task_id = a2a_messages.task_id AND ${gone})`,
-          )
-          .run(...TERMINAL_STATES, cutoff.toISOString());
-        database
-          .prepare(`DELETE FROM a2a_tasks WHERE ${gone}`)
-          .run(...TERMINAL_STATES, cutoff.toISOString());
+        sweepSqliteA2ATasks(this.connection.database, cutoff);
       });
     });
   }

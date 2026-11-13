@@ -66,7 +66,7 @@ const MessageRow = z.object({
 });
 
 /** A status as written: what a corrupt column is refused by, never read as a task's state (M5). */
-const Status = z.object({
+const Status = z.looseObject({
   state: z.enum(A2ATaskState),
   message: z.string().optional(),
   pendingPauses: z.array(
@@ -85,7 +85,7 @@ function statusOf(row: z.infer<typeof TaskRow>): A2ATaskStatus {
   const status = Status.parse(JSON.parse(row.status));
   if (status.state !== row.state)
     throw new Error(`a2a_tasks row ${row.task_id}: its state column and its status disagree`);
-  // zod keeps the keys the status had: the one written by `saveIfAbsent` / `compareAndSetStatus`
+  // a loose object keeps every key the status had, those this version does not know too (#960)
   return status;
 }
 
