@@ -14,7 +14,7 @@ import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-m
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import type { Turn } from "../../src/turns/index.js";
 
-const turnOf = (runId: string, status: string, bundle = "orders-workflow"): Turn => ({
+const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow"): Turn => ({
   id: `turn-${runId}`,
   runId,
   threadId: `thread-${runId}`,
@@ -46,7 +46,11 @@ async function openPauses(count: number): Promise<InMemoryPausedExecutionReposit
   return pauses;
 }
 
-function lookOf(pauses: InMemoryPausedExecutionRepository, status: string, isClosed = true) {
+function lookOf(
+  pauses: InMemoryPausedExecutionRepository,
+  status: Turn["status"],
+  isClosed = true,
+) {
   const visited: string[] = [];
   const report = vi.fn();
   const sources: OrphanSources = {
@@ -97,7 +101,7 @@ describe("#939: the orphan look", () => {
     expect(visited).toEqual(["run-1"]);
   });
 
-  it.each(["running", "paused", "queued"])(
+  it.each<Turn["status"]>(["running", "paused", "queued"])(
     "a root whose record is %s is skipped",
     async (status) => {
       const { look, visited, report } = lookOf(await openPauses(3), status);

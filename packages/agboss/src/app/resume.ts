@@ -16,7 +16,11 @@ import type { AnyTool } from "../tools/index.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
-import { logPauseAnswer, pauseAnswererOf, PauseResolution } from "../infrastructure/pause-record.js";
+import {
+  logPauseAnswer,
+  pauseAnswererOf,
+  PauseResolution,
+} from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
