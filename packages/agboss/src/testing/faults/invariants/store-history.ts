@@ -1,4 +1,5 @@
 import type { HistoryOperation, OperationHistory } from "../operation-history.js";
+import { FencedEffectStatus } from "../../../infrastructure/fenced-effect.repository.js";
 import { StoreHoldPoint } from "../store-points.js";
 
 /**
@@ -43,6 +44,8 @@ export interface FencedWrite {
 /** A fenced write the store answered: when it did. */
 export interface AcceptedWrite extends FencedWrite {
   readonly completedAt: string;
+  /** A fenced effect's answer that found its key already written (`replayed`, #959): it wrote nothing. */
+  readonly isReplay: boolean;
 }
 
 /** The lease operations that grant one. */
@@ -133,7 +136,13 @@ function fencedWriteOf(invoke: HistoryOperation["invoke"]): FencedWrite {
 export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWrite[] {
   return completed(history)
     .filter(({ invoke }) => WRITES.has(invoke.operation))
-    .map(({ invoke, complete }) => ({ ...fencedWriteOf(invoke), completedAt: complete.at }));
+    .map(({ invoke, complete }) => ({
+      ...fencedWriteOf(invoke),
+      completedAt: complete.at,
+      isReplay:
+        invoke.operation === StoreHoldPoint.FencedEffectWrite &&
+        (complete.output as { status?: unknown } | null)?.status === FencedEffectStatus.Replayed,
+    }));
 }
 
 /**

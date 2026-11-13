@@ -19,6 +19,7 @@ import { FaultGateway } from "./fault-gateway.js";
 import { OperationHistory } from "./operation-history.js";
 import { FaultWaitError, launchPod, type FaultPod } from "./pod.js";
 import { runOrderOf, type FaultOrder, type FaultWorkflow, type PodEvent } from "./pod-protocol.js";
+import { probedStoreTime } from "./store-clock-probe.js";
 import { StoreOutageMode } from "./store-outage.js";
 import { StoreHoldPoint } from "./store-points.js";
 import { ExecutionHistoryStatus } from "../../infrastructure/execution-history.repository.js";
@@ -76,9 +77,7 @@ export class FaultCluster {
       databaseUrl,
       timeScale: this.options.timeScale,
       timeOrigin: this.timeOrigin,
-      shutdownTimeout: options.shutdownTimeout,
-      maxConcurrentSteps: options.maxConcurrentSteps,
-      clockSkew: options.clockSkew,
+      ...options,
       onOperation: (event) => {
         this.history.record(event);
         this.#notify();
@@ -89,7 +88,7 @@ export class FaultCluster {
       onGateway: (from, id, call) => void this.gateway.call(from, id, call),
     });
     this.pods.push(pod);
-    return pod;
+    return probedStoreTime(this, pod); // #959: the run's first pod's clock is measured
   }
 
   /** The proxy between pod `name` and the database; a cluster without proxies has none. */

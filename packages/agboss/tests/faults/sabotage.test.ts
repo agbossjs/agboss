@@ -17,9 +17,10 @@
  * - a business write that accepts a forged token (`ForgedTokenSqliteFencedEffectRepository`, #840):
  *   scenario 1's charge is accepted at a token no lease was granted at — one owner per tree is
  *   broken, though no grant of a newer epoch came before it;
- * - a business write that lets a stale token through and kills its pod before the answer
- *   (`KilledAfterStaleSqliteFencedEffectRepository`, #876): 5e's zombie writes the charge at its
- *   stale token and dies unanswered — one owner per tree is broken, as the store's row tells;
+ * - a business write that lets a stale token through at the lease's current epoch and kills its
+ *   pod before the answer (`staleThenKilled`, #876, #959: built from any set's store, run by every
+ *   set's suite): 5e's zombie writes the charge and dies unanswered — one owner per tree is
+ *   broken, as the store's row tells, though the new holder replays it;
  * - a tree store that forgets every undo's done mark (`ForgetfulSqliteExecutionTreeRepository`,
  *   #607): scenario 12b's next pod releases the reservation the frozen one released and marked.
  *
@@ -50,6 +51,7 @@ import {
   s05ZombiePaysFirst,
 } from "../../src/testing/faults/scenarios/s05-zombie.js";
 import { s01Drains } from "../../src/testing/faults/scenarios/s01-sigterm.js";
+import { s05eZombieDiesUnanswered } from "../../src/testing/faults/scenarios/s05e-unanswered.js";
 import { s06FinishedChild } from "../../src/testing/faults/scenarios/s06-children.js";
 import { s05ZombieRecordedNotSent } from "../../src/testing/faults/scenarios/s05d-recorded-not-sent.js";
 import { s12bMarkedUndo } from "../../src/testing/faults/scenarios/s12b-marked-undo.js";
@@ -105,49 +107,9 @@ const stalePauses = sqliteFaultTarget(
 const endBlind = sqliteFaultTarget(
   fileURLToPath(new URL("./end-blind.fault-stores.ts", import.meta.url)),
 );
-const killedAfterStale = sqliteFaultTarget(
-  fileURLToPath(new URL("./killed-after-stale.fault-stores.ts", import.meta.url)),
-);
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-retire.fault-stores.ts", import.meta.url)),
 );
-
-/**
- * #876: 5b's zombie, thawed, writes the charge before the new holder; on a store that lets its
- * stale token through and kills it before the answer, the write is held only by the store's row.
- */
-const s05eZombieDiesUnanswered: RunnableFaultScenario = {
-  id: "s05e-zombie-dies-unanswered",
-  title:
-    "5e: the zombie's stale charge is let through and its pod dies before the answer — the new holder replays it",
-  run: async (cluster) => {
-    const point = StoreHoldPoint.FencedEffectWrite;
-    const a = await cluster.pod("a");
-    const b = await cluster.pod("b");
-    await holdStore(a, point, undefined);
-    await holdStore(b, point, undefined);
-    const key = (await startOrder(cluster, a, "o-5e")).rootExecutionId;
-    const frozen = await heldAt(cluster, a, point, key);
-    a.freeze();
-    await takenOverBy(cluster, b, key);
-    const second = await heldAt(cluster, b, point, key);
-    a.thaw();
-    // the store kills a before it answers: the release's ack dies with it (an ack: a lives)
-    const acked = await release(a, frozen).then(
-      () => true,
-      () => false,
-    );
-    await (acked ? Promise.resolve() : a.exited);
-    expectThat(
-      cluster,
-      !acked && !a.isRunning,
-      "a's stale write was to kill a before its answer; a runs",
-    );
-    await release(b, second);
-    await cluster.ended(key);
-    return b;
-  },
-};
 
 /** What `scenario` failed with on `target`; the test fails when it passed. */
 async function failureOf(
@@ -189,17 +151,14 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
     );
   }, 120_000);
 
-  it("#876 AC2: a stale business write let through, its pod killed before the answer: 5e fails one-owner — the store's row holds it", async () => {
-    const failure = await failureOf(s05eZombieDiesUnanswered, killedAfterStale);
+  it("#876, #959 AC4-AC6: a stale write let through at the current epoch, its pod killed before the answer: 5e fails one-owner on the store's row, though the new holder replayed it", async () => {
+    const failure = await failureOf(s05eZombieDiesUnanswered, sqliteFaultTarget());
     expect(
       failure.violations
         .filter((found) => found.invariant === FaultInvariant.OneOwner)
         .map((found) => found.message),
-    ).toContainEqual(
-      expect.stringMatching(
-        /^fencedEffect\.write of \S+ at token 1 \(\S+\) was accepted after epoch 2 was granted to \S+: a stale write \(never answered: its pod died before the answer, and the store's row holds the write at token 1\)$/u,
-      ),
-    );
+    ).toContainEqual(expect.stringMatching(s05eZombieDiesUnanswered.evidence));
+    expect(failure.invariants).toContain(FaultInvariant.Linearizable);
   }, 120_000);
 
   it("a finish that is a plain release: 6b fails finished-work-untouched — the finished child's lease granted again", async () => {

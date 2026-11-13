@@ -3,10 +3,12 @@ import type { Class } from "../../components/injection.js";
 import { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
 import { waitOf } from "../../infrastructure/clock.js";
 import type { FaultBusinessRows } from "./fault-stores.js";
+import { FaultPauseWorkflowStart } from "./fixture/pause.workflow.js";
 import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/order.workflow.js";
 import { sendToTest } from "./fixture/pod-link.js";
 import type { HeldStoreState } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
+import { readStoreClock } from "./store-clock-probe.js";
 import { FaultPayment, FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
 import type { FaultFacts } from "./facts.js";
 
@@ -60,13 +62,30 @@ export async function factsOf(
   return { records, trees, businessRows: await parts.businessRows.committed(app) };
 }
 
-/** What a test reads of a finished `execute`. */
+/** What a test reads of a finished `execute` or `resume`; a rest lists the ids of its pauses (#959). */
 const outcomeOf = (done: ExecutionOutput) => ({
   status: done.status,
   executionId: done.executionId,
   output: done.output,
   finish: done.finish?.name,
+  pauseIds: done.pending.flatMap((pause) => (pause.pauseId === undefined ? [] : [pause.pauseId])),
 });
+
+/** What a test is told of a call that ended: its outcome or its failure, under the call's tag. */
+function told(tag: string, call: Promise<ExecutionOutput>, failed: string): void {
+  call.then(
+    (done) => {
+      sendToTest({ kind: "event", event: { type: "finished", tag, ...outcomeOf(done) } });
+    },
+    (error: unknown) => {
+      const name = error instanceof Error ? error.name : typeof error;
+      sendToTest({
+        kind: "event",
+        event: { type: failed, tag, error: name, message: String(error) },
+      });
+    },
+  );
+}
 
 /** Starts the tree in the background; its end or its failure is an event. */
 function started(
@@ -89,19 +108,11 @@ function started(
   const run =
     workflow === FaultWorkflow.Batch
       ? execute(FaultBatchWorkflowStart, input)
-      : execute(FaultOrderWorkflowStart, first);
-  run.then(
-    (done) => {
-      sendToTest({ kind: "event", event: { type: "finished", tag, ...outcomeOf(done) } });
-    },
-    (error: unknown) => {
-      const name = error instanceof Error ? error.name : typeof error;
-      sendToTest({
-        kind: "event",
-        event: { type: "execute-failed", tag, error: name, message: String(error) },
-      });
-    },
-  );
+      : execute(
+          workflow === FaultWorkflow.Pause ? FaultPauseWorkflowStart : FaultOrderWorkflowStart,
+          first,
+        );
+  told(tag, run, "execute-failed");
   return tag;
 }
 
@@ -139,6 +150,15 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
       if (command.mode === null) parts.heldStores.outage.end();
       else parts.heldStores.outage.begin(command.mode);
       return null;
+    case "resume":
+      told(
+        command.tag,
+        parts.app.resume({ pauseId: command.pauseId, decision: { approved: true } }),
+        "resume-failed",
+      );
+      return command.tag;
+    case "probe-store-clock":
+      return readStoreClock(parts.app, command.wait);
     case "close":
       await parts.app.close(
         command.timeout === undefined ? {} : { timeout: waitOf(command.timeout) },

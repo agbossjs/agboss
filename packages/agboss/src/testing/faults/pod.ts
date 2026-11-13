@@ -10,6 +10,7 @@ import {
   CLOCK_DRIFT_VARIABLE,
   TIME_SCALE_VARIABLE,
 } from "./fault-clock.js";
+import type { FaultPodOptions } from "./cluster-options.js";
 import { FaultStoreTime } from "./fault-stores.js";
 import type { OperationEvent } from "./operation-history.js";
 import {
@@ -33,7 +34,7 @@ import {
 export const POD_WAIT: Milliseconds = seconds(120);
 
 /** What starts a pod. */
-export interface PodLaunch {
+export interface PodLaunch extends FaultPodOptions {
   readonly name: string;
   /** The store set's module. */
   readonly storesModule: string;
@@ -41,10 +42,6 @@ export interface PodLaunch {
   readonly databaseUrl: string;
   readonly timeScale: number;
   readonly timeOrigin: number;
-  readonly shutdownTimeout?: Milliseconds | undefined;
-  readonly maxConcurrentSteps?: number | undefined;
-  /** The pod's clock skew (#533). */
-  readonly clockSkew?: { readonly offset?: number; readonly drift?: number } | undefined;
   /** Each store operation the pod reports (the run's history). */
   readonly onOperation: (event: OperationEvent) => void;
   /** Each event the pod sends (its replies too). */
@@ -234,6 +231,7 @@ const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
   [POD_VARIABLES.database]: launch.databaseUrl,
   [POD_VARIABLES.shutdownTimeout]: launch.shutdownTimeout?.toString() ?? "",
   [POD_VARIABLES.maxConcurrentSteps]: launch.maxConcurrentSteps?.toString() ?? "",
+  [POD_VARIABLES.sabotage]: launch.sabotage ?? "",
   [TIME_SCALE_VARIABLE]: String(launch.timeScale),
   [TIME_ORIGIN_VARIABLE]: String(launch.timeOrigin),
   [CLOCK_OFFSET_VARIABLE]: String(launch.clockSkew?.offset ?? 0),

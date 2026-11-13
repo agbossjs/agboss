@@ -16,6 +16,8 @@ export enum FaultWorkflow {
   Order = "order",
   /** A batch of orders, each a child on any instance. */
   Batch = "batch",
+  /** One order that rests at a question its thread owner answers (#959): `resume` continues it. */
+  Pause = "pause",
 }
 
 /**
@@ -32,6 +34,12 @@ export enum FaultPayment {
   ReplayOnlyTrustedAsLookup = "replay-only-trusted-as-lookup",
   /** The sabotage of `Lookup`: every error the gateway answers taken for a definite failure. */
   EveryErrorDefinite = "every-error-definite",
+}
+
+/** A store sabotage a pod can be started with (#959 AC5): its fenced-effect store broken on purpose. */
+export enum FaultStoreSabotage {
+  /** A stale token let through at the lease's current epoch, the pod killed before the answer (#876). */
+  StaleThenKilled = "stale-then-killed",
 }
 
 /** An order of the fixture application. */
@@ -69,7 +77,11 @@ export type PodCommand =
     }
   | { readonly op: "read"; readonly rootExecutionIds: readonly string[] }
   | { readonly op: "close"; readonly timeout?: number }
-  | { readonly op: "outage"; readonly mode: StoreOutageMode | null };
+  | { readonly op: "outage"; readonly mode: StoreOutageMode | null }
+  /** #959: answers the pause `pauseId` (approved) with `app.resume`, in the background; its end is an event. */
+  | { readonly op: "resume"; readonly tag: string; readonly pauseId: string }
+  /** #959: how far the store's time moves while `wait` ms of real time pass. */
+  | { readonly op: "probe-store-clock"; readonly wait: number };
 
 /** A message from the test to a pod. */
 export type ToPod =
@@ -122,6 +134,8 @@ export const POD_VARIABLES = {
   shutdownTimeout: "AGBOSS_FAULT_SHUTDOWN_TIMEOUT",
   /** `@Application({ maxConcurrentSteps })` of the pod. */
   maxConcurrentSteps: "AGBOSS_FAULT_MAX_CONCURRENT_STEPS",
+  /** The pod's store sabotage (`FaultStoreSabotage`), when it has one. */
+  sabotage: "AGBOSS_FAULT_SABOTAGE",
 } as const;
 
 /** What a pod's `ready` says of A2A (#811 AC4): whether its set keeps A2A tasks, its listener. */

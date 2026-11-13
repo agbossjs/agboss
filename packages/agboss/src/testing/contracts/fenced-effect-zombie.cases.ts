@@ -12,7 +12,7 @@ import {
   type FencedEffectTarget,
   type WriteCount,
 } from "./fenced-effect-data.js";
-import { handOverDuringWrite } from "./fenced-effect-hand-over.cases.js";
+import { expiryDuringWrite, handOverDuringWrite } from "./fenced-effect-hand-over.cases.js";
 import { ROUNDS } from "./outbound-call-race.cases.js";
 
 /**
@@ -107,5 +107,6 @@ export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TT
     badNameRefused<TTransaction>(),
     zombieRacingNewHolder<TTransaction>(),
     handOverDuringWrite<TTransaction>(),
+    expiryDuringWrite<TTransaction>(),
   ],
 });

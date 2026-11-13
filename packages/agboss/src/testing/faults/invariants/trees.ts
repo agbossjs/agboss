@@ -6,6 +6,7 @@ import {
   BATCH_FINISH,
   batchesOf,
   ORDER_FINISH,
+  PAUSE_FINISH,
   orderExecutionsOf,
   type OrderExecution,
 } from "./order-executions.js";
@@ -147,7 +148,8 @@ function endViolations(
   const ended = executions.filter((execution) =>
     isDeclined
       ? execution.status === "failed"
-      : execution.status === "finished" && execution.finish === ORDER_FINISH,
+      : execution.status === "finished" &&
+        (execution.finish === ORDER_FINISH || execution.finish === PAUSE_FINISH),
   );
   if (ended.length > 0) return [];
   const seen = executions

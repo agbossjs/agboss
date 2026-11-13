@@ -384,6 +384,66 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     expect(violationsOf(run)).toEqual([]);
   });
 
+  it("#959 AC6: a stale write let through at the current epoch and never answered is the row's, though the new holder replayed it", () => {
+    const { run, history } = healthy();
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseAcquire,
+      key: "root-1",
+      output: lease("b", 2),
+    });
+    const refund = { ...key(1), idempotencyKey: "root-1:refund", name: "refund" };
+    // a's write at the stale token 1, let through at the current epoch 2 (the row says 2), its pod killed
+    unanswered(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: refund,
+    });
+    // b asks the key again at its own token: replayed — it wrote nothing
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: { ...refund, token: 2 },
+      output: { status: "replayed", token: 2 },
+    });
+    const row = {
+      kind: ExecutionAuditEventKind.FencedEffect,
+      executionId: "root-1",
+      scopeKey: "root-1",
+      name: "refund",
+      outcome: FencedEffectEventOutcome.Replayed,
+      step: { nodeId: "n", visitNumber: 1, idempotencyKey: "root-1:refund" },
+      writtenToken: 2,
+    } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
+    const [tree] = run.trees;
+    const trees = [
+      {
+        rootExecutionId: "root-1",
+        auditLog: [...(tree?.auditLog ?? []), row],
+        outboundCalls: tree?.outboundCalls ?? [],
+      },
+    ];
+
+    expect(violationsOf({ ...run, trees }).map((found) => found.message)).toEqual([
+      expect.stringMatching(
+        /^fencedEffect\.write of root-1 at token 1 \(a\) was accepted after epoch 2 was granted to b: a stale write \(never answered: .* the write at token 2\)$/u,
+      ),
+    ]);
+    // the same row with b's write that ran at 2: b's, nothing to say
+    const ran = new OperationHistory();
+    for (const event of history.events)
+      ran.record(
+        event.id.startsWith("b#") &&
+          event.operation === StoreHoldPoint.FencedEffectWrite &&
+          event.output !== undefined
+          ? { ...event, output: { status: "ran", token: 2 } }
+          : event,
+      );
+    expect(violationsOf({ ...run, history: ran, trees })).toEqual([]);
+  });
+
   it("#876: an outbound row's state names its last write — an answered intent does not explain a completion", () => {
     const { run, history } = healthy();
     const pay = { ...key(1), idempotencyKey: "root-1:pay", name: "pay", attemptOwner: "x" };

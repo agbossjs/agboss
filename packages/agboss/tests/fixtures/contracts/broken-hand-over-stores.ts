@@ -37,7 +37,7 @@ export class DeferredTransaction {
   readonly writes: (() => void)[] = [];
 }
 
-interface Stored {
+export interface Stored {
   readonly token: number;
   readonly storedAt: number;
   readonly result: string;
@@ -115,23 +115,29 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
   }
 }
 
+/** The business rows both instances of a case share, inserted asynchronously, applied at the commit. */
+export const unlockedRowsOf = (
+  seam: InstanceSeam,
+): FencedEffectTarget<DeferredTransaction>["rows"] => {
+  const committed = sharedInMemory(seam, "unlocked-rows", (): string[] => []);
+  return {
+    insert: async (transaction, row) => {
+      await Promise.resolve();
+      transaction.writes.push(() => committed.push(row));
+    },
+    committed: () => Promise.resolve([...committed]),
+  };
+};
+
+/** The results both instances share, one row per key. */
+export const unlockedResultsOf = (seam: InstanceSeam): Map<string, Stored> =>
+  sharedInMemory<Map<string, Stored>>(seam, "unlocked-results", () => new Map());
+
 /** The store set of one instance on the unlocked-check effects, its rows inserted asynchronously. */
 export const unlockedCheckEffects: StoreFactory<FencedEffectTarget<DeferredTransaction>> = (
   seam,
-) => {
-  const committed = sharedInMemory(seam, "unlocked-rows", (): string[] => []);
-  return {
-    effects: new UnlockedCheckEffects(
-      seam,
-      sharedInMemory(seam, "unlocked-results", () => new Map()),
-    ),
-    leases: new InMemoryExecutionLeaseRepository(seam.storeClock, seam.application, seam.database),
-    rows: {
-      insert: async (transaction, row) => {
-        await Promise.resolve();
-        transaction.writes.push(() => committed.push(row));
-      },
-      committed: () => Promise.resolve([...committed]),
-    },
-  };
-};
+) => ({
+  effects: new UnlockedCheckEffects(seam, unlockedResultsOf(seam)),
+  leases: new InMemoryExecutionLeaseRepository(seam.storeClock, seam.application, seam.database),
+  rows: unlockedRowsOf(seam),
+});

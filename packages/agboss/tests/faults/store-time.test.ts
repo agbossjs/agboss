@@ -10,6 +10,12 @@ import { FaultStoreTime } from "../../src/testing/faults/index.js";
 import { FaultStoreTimeError } from "../../src/testing/faults/fault-stores.js";
 import { runFaultScenario, type RunnableFaultScenario } from "../../src/testing/faults/scenario.js";
 import { storeTimeOf, storeTimeScaleOf } from "../../src/testing/faults/fault-stores.js";
+import {
+  FaultStoreTimeMismatchError,
+  checkStoreTime,
+  isClockProbeKey,
+  probeWaitOf,
+} from "../../src/testing/faults/store-clock-probe.js";
 import { FaultCluster } from "../../src/testing/faults/cluster.js";
 import { faultStores as sqlite } from "./sqlite.fault-stores.js";
 import { sqliteFaultTarget, SQLITE_TIME_SCALE } from "./sqlite-target.js";
@@ -26,7 +32,7 @@ const ONE_POD: RunnableFaultScenario = {
 
 describe("#799 AC1: the history is read on the time the store set declares", () => {
   it("a set on its database's clock is read at 1 while the pods run ten times faster", async () => {
-    const run = await runFaultScenario(ONE_POD, sqliteFaultTarget(moduleOf("database-time")));
+    const run = await runFaultScenario(ONE_POD, sqliteFaultTarget(moduleOf("real-clock-database")));
 
     expect(run.timeScale).toBe(1);
   }, 60_000);
@@ -43,11 +49,83 @@ describe("#799 AC1: the history is read on the time the store set declares", () 
   });
 
   it("a pod reports the set's declaration", async () => {
-    const target = sqliteFaultTarget(moduleOf("database-time"));
+    const target = sqliteFaultTarget(moduleOf("real-clock-database"));
     await target.database.reset?.();
     const cluster = new FaultCluster({ ...target, timeScale: SQLITE_TIME_SCALE });
     try {
       expect((await cluster.pod("a")).storeTime).toBe(FaultStoreTime.Database);
+    } finally {
+      await cluster.close();
+    }
+  }, 60_000);
+});
+
+describe("#959 AC1: a declaration the store's clock contradicts fails the suite, named", () => {
+  it.each([
+    [
+      "Database on stores that read the pods' clock",
+      "database-time",
+      /declares storeTime "database".*but of "host" \(10x\)/u,
+    ],
+    [
+      "Host on a store that reads the real clock",
+      "real-clock",
+      /declares storeTime "host".*but of "database" \(1x\)/u,
+    ],
+  ])(
+    "%s: [fault-suite.store-time-mismatch], and no scenario runs",
+    async (_case, module, why) => {
+      const target = sqliteFaultTarget(moduleOf(module));
+
+      const failure = await runFaultScenario(ONE_POD, target).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(FaultStoreTimeMismatchError);
+      expect((failure as Error).message).toMatch(/^\[fault-suite\.store-time-mismatch\] /u);
+      expect((failure as Error).message).toMatch(why);
+    },
+    60_000,
+  );
+
+  it("a rate nearer the declared one passes, a rate nearer the other fails", () => {
+    const check = (declared: FaultStoreTime, storeMs: number, timeScale = 10): void => {
+      checkStoreTime(declared, { storeMs, realMs: 300 }, timeScale);
+    };
+
+    expect(() => {
+      check(FaultStoreTime.Host, 2900);
+      check(FaultStoreTime.Database, 310);
+    }).not.toThrow();
+    for (const [declared, storeMs] of [
+      [FaultStoreTime.Host, 310],
+      [FaultStoreTime.Database, 2900],
+      [FaultStoreTime.Host, 0],
+    ] as const)
+      expect(() => {
+        check(declared, storeMs);
+      }).toThrow(/store-time-mismatch/u);
+  });
+
+  it("at the real clock the two times are one rate: nothing to contradict", () => {
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Host, { storeMs: 300, realMs: 300 }, 1);
+      checkStoreTime(FaultStoreTime.Database, { storeMs: 300, realMs: 300 }, 1);
+    }).not.toThrow();
+  });
+
+  it("the probe waits longer the nearer the two rates are", () => {
+    expect(probeWaitOf(1)).toBe(0);
+    expect(probeWaitOf(10)).toBe(300);
+    expect(probeWaitOf(1.2)).toBeCloseTo(1000, -1);
+    expect(probeWaitOf(1.01)).toBe(3000);
+  });
+
+  it("the probe's leases are no part of the run's history", async () => {
+    const target = sqliteFaultTarget(moduleOf("real-clock-database"));
+    await target.database.reset?.();
+    const cluster = new FaultCluster({ ...target, timeScale: SQLITE_TIME_SCALE });
+    try {
+      await cluster.pod("a");
+      expect(cluster.history.events.filter((event) => isClockProbeKey(event.key))).toEqual([]);
     } finally {
       await cluster.close();
     }
