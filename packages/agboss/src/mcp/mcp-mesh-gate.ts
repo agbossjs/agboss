@@ -64,7 +64,13 @@ function signedRefusalOf(
   return isBody ? undefined : MeshRefusalCode.BodyMismatch;
 }
 
-/** Why an envelope is refused: meant for another application (#398 PR 3), or badly signed. */
+/**
+ * Why an envelope is refused: meant for another application (#398 PR 3), or badly signed. The
+ * audience is checked whenever the app has mesh settings — every app `createApp` or `testWith`
+ * builds has them, keys or none —, as the A2A server does (#961). A hand-built `App` has none, so
+ * no name an envelope could be addressed to: nothing to match (the A2A listener refuses to serve
+ * it, `a2a.app-required`).
+ */
 const envelopeRefusalOf = (
   settings: MeshSettings | undefined,
   read: ReadEnvelope | undefined,
