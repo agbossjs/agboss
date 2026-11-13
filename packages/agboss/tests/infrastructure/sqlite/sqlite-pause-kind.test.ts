@@ -180,7 +180,7 @@ describe("0.1.1: a SQLite file whose pauses kept no kind", () => {
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
     await expect(readOf(pauses, "kindless")).rejects.toThrow(
-      /pause kindless \(default\) unreadable/,
+      /a stored pause is not readable \(pauseId kindless, tenantId default.*kind/,
     );
   });
 });

@@ -115,7 +115,8 @@ export interface ReplyResumeRequest {
 /**
  * `app.resume(request, options)`: a resume finds what exists, so it takes keys and credentials only
  * — the tenant by its id (omitted → `"default"`) and who answers, as the pause's role says
- * (`answeredBy` on `@ChannelRole`). It runs on the context values the execution started with.
+ * (its `answerer` on `@ChannelRole`: the `ownerId` of a thread owner's, the `answeredBy` credential
+ * of a channel's — the person who answered). It runs on the context values the execution started with.
  */
 export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 

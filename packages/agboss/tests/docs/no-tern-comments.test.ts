@@ -3,7 +3,7 @@
  * `no-tern-names.test.ts` cannot see the shipped prose: every comment of the sources — the JSDoc a
  * `.d.ts` ships, and the `//` lines beside it — says "turn". Only the documented deprecated
  * aliases (`public/turn-deprecated.ts`) and the read of a paused run stored by 0.1.0 under its old
- * name `ternId` (the paused-run reader) may name it.
+ * name `ternId` (the paused-run readers) may name it.
  */
 import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -17,6 +17,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const DOCUMENTED = new Set([
   "packages/agboss/src/public/turn-deprecated.ts",
   "packages/agboss/src/app/paused-runs.ts",
+  "packages/agboss/src/infrastructure/stored-run.ts",
 ]);
 
 /** `Tern`, `Terns`, `ternId`, `tern`: not `pattern`, `external`, `internal`, `alternative`, … */
@@ -56,7 +57,7 @@ describe("#906 D3: the sources' comments say Turn", { timeout: 60_000 }, () => {
   it("walks the sources of every package", () => {
     expect(sources.length).toBeGreaterThan(500);
     expect(sources).toContain("packages/agboss/src/turns/types.ts");
-    expect(DOCUMENTED.size).toBe(2);
+    expect(DOCUMENTED.size).toBe(3);
     for (const file of DOCUMENTED) expect(sources).toContain(file);
   });
 

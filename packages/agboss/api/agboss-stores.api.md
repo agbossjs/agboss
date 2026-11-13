@@ -740,7 +740,7 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
 }
 
 // @public
-export function executionHistoryRecordOfStored(stored: StoredHistoryRecord): ExecutionHistoryRecord;
+export const executionHistoryRecordOfJson: (value: unknown) => ExecutionHistoryRecord;
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
@@ -1468,9 +1468,6 @@ export enum PauseAnswerer {
 }
 
 // @public
-export function pauseAnswerOfStored(stored: StoredPauseAnswer): PauseAnswer;
-
-// @public
 export interface PauseAnswerRecord {
     readonly answeredBy: string | undefined;
     readonly answerer: PauseAnswerer;
@@ -1491,7 +1488,7 @@ export interface PauseAnswerRecord {
 }
 
 // @public
-export function pauseAnswerRecordOfStored(stored: StoredAnswerRecord): PauseAnswerRecord;
+export const pauseAnswerRecordOfValue: (value: unknown) => PauseAnswerRecord;
 
 // @public
 export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
@@ -1558,6 +1555,9 @@ export abstract class PausedExecutionRepository {
     abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;
     abstract setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
 }
+
+// @public
+export const pausedRunOfValue: (value: unknown) => AgentExecutionOutput;
 
 // @public
 export interface PauseExpiry {
@@ -1707,7 +1707,7 @@ export interface PauseRecord extends PauseSite {
 }
 
 // @public
-export function pauseRecordOfStored(stored: StoredPause): PauseRecord;
+export const pauseRecordOfJson: (value: unknown) => PauseRecord;
 
 // @public
 export enum PauseResolution {
@@ -1927,23 +1927,10 @@ export interface StepRecord {
 }
 
 // @public
-export type StoredAnswerRecord = Omit<PauseAnswerRecord, "answerer" | "answeredBy" | "responder"> & {
-    readonly answerer?: PauseAnswerer | undefined;
-    readonly answeredBy?: string | undefined;
-    readonly responder?: string | undefined;
-};
-
-// @public
 export interface StoreDescriptor {
     readonly backend: string | undefined;
     readonly leaseCheck?: LeaseCheck;
 }
-
-// @public
-export type StoredHistoryRecord = Omit<ExecutionHistoryRecord, "pauses" | "children"> & {
-    readonly pauses: readonly StoredAnswerRecord[];
-    readonly children: readonly StoredChild[];
-};
 
 // @public
 export interface StoredKeyFacts {
@@ -1960,17 +1947,30 @@ export const storedKeyFactsOf: (key: EffectKey) => {
 };
 
 // @public
-export type StoredPause = Omit<PauseRecord, "answerer" | "answeredBy" | "answer"> & {
-    readonly answerer?: PauseAnswerer | undefined;
-    readonly answeredBy?: PauseAnswerer | undefined;
-    readonly answer?: StoredPauseAnswer | undefined;
-};
+export class StoredNamesUnreadableError extends AGBossError {
+    constructor(options: StoredNamesUnreadableErrorOptions);
+    // (undocumented)
+    static readonly code: "stored.unreadable";
+    // (undocumented)
+    readonly code: typeof StoredNamesUnreadableError.code;
+    readonly fields: string;
+    readonly ids: string;
+    // (undocumented)
+    name: string;
+    readonly record: string;
+}
 
 // @public
-export type StoredPauseAnswer = Omit<PauseAnswer, "answeredBy"> & {
-    readonly answeredBy?: string | undefined;
-    readonly answerer?: string | undefined;
-};
+export interface StoredNamesUnreadableErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly fields: string;
+    // (undocumented)
+    readonly ids: string;
+    // (undocumented)
+    readonly record: string;
+}
 
 // @public
 export interface Summary {
@@ -2167,7 +2167,7 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
-// src/app/paused-runs.ts:27:3 - (ae-undocumented) Missing documentation for "run".
+// src/app/paused-runs.ts:28:3 - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts:31:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts:32:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/components/policy-decorators.ts:20:3 - (ae-undocumented) Missing documentation for "Input".
@@ -2304,27 +2304,27 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-audit-log.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/infrastructure/execution-audit-log.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-audit-log.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
-// src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Paused".
-// src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Finished".
-// src/infrastructure/execution-history.repository.ts:26:3 - (ae-undocumented) Missing documentation for "Failed".
-// src/infrastructure/execution-history.repository.ts:27:3 - (ae-undocumented) Missing documentation for "Cancelled".
-// src/infrastructure/execution-history.repository.ts:32:3 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/execution-history.repository.ts:33:3 - (ae-undocumented) Missing documentation for "version".
-// src/infrastructure/execution-history.repository.ts:34:3 - (ae-undocumented) Missing documentation for "instanceId".
-// src/infrastructure/execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "tenant".
-// src/infrastructure/execution-history.repository.ts:40:3 - (ae-undocumented) Missing documentation for "execution".
-// src/infrastructure/execution-history.repository.ts:45:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/execution-history.repository.ts:50:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/execution-history.repository.ts:51:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-history.repository.ts:52:3 - (ae-undocumented) Missing documentation for "application".
-// src/infrastructure/execution-history.repository.ts:53:3 - (ae-undocumented) Missing documentation for "workflow".
-// src/infrastructure/execution-history.repository.ts:54:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/execution-history.repository.ts:57:3 - (ae-undocumented) Missing documentation for "endedAt".
-// src/infrastructure/execution-history.repository.ts:60:3 - (ae-undocumented) Missing documentation for "input".
-// src/infrastructure/execution-history.repository.ts:63:3 - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "offset".
-// src/infrastructure/execution-history.repository.ts:83:3 - (ae-undocumented) Missing documentation for "limit".
-// src/infrastructure/execution-history.repository.ts:86:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
+// src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
+// src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
+// src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts:26:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/execution-history.repository.ts:31:3 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/execution-history.repository.ts:32:3 - (ae-undocumented) Missing documentation for "version".
+// src/infrastructure/execution-history.repository.ts:33:3 - (ae-undocumented) Missing documentation for "instanceId".
+// src/infrastructure/execution-history.repository.ts:38:3 - (ae-undocumented) Missing documentation for "tenant".
+// src/infrastructure/execution-history.repository.ts:39:3 - (ae-undocumented) Missing documentation for "execution".
+// src/infrastructure/execution-history.repository.ts:44:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/execution-history.repository.ts:49:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/execution-history.repository.ts:50:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-history.repository.ts:51:3 - (ae-undocumented) Missing documentation for "application".
+// src/infrastructure/execution-history.repository.ts:52:3 - (ae-undocumented) Missing documentation for "workflow".
+// src/infrastructure/execution-history.repository.ts:53:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/execution-history.repository.ts:56:3 - (ae-undocumented) Missing documentation for "endedAt".
+// src/infrastructure/execution-history.repository.ts:59:3 - (ae-undocumented) Missing documentation for "input".
+// src/infrastructure/execution-history.repository.ts:62:3 - (ae-undocumented) Missing documentation for "output".
+// src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
+// src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
+// src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
@@ -2381,28 +2381,34 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts:108:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-notices.ts:109:3 - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts:110:3 - (ae-undocumented) Missing documentation for "recipient".
-// src/infrastructure/pause-record.ts:17:3 - (ae-undocumented) Missing documentation for "Pause".
-// src/infrastructure/pause-record.ts:18:3 - (ae-undocumented) Missing documentation for "RunDeadline".
-// src/infrastructure/pause-record.ts:19:3 - (ae-undocumented) Missing documentation for "Quorum".
-// src/infrastructure/pause-record.ts:24:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
-// src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
-// src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
-// src/infrastructure/pause-record.ts:31:3 - (ae-undocumented) Missing documentation for "Answered".
-// src/infrastructure/pause-record.ts:32:3 - (ae-undocumented) Missing documentation for "Expired".
-// src/infrastructure/pause-record.ts:33:3 - (ae-undocumented) Missing documentation for "Cancelled".
-// src/infrastructure/pause-record.ts:34:3 - (ae-undocumented) Missing documentation for "Withdrawn".
-// src/infrastructure/pause-record.ts:35:3 - (ae-undocumented) Missing documentation for "TreeEnded".
-// src/infrastructure/pause-record.ts:36:3 - (ae-undocumented) Missing documentation for "Reassigned".
-// src/infrastructure/pause-record.ts:102:3 - (ae-undocumented) Missing documentation for "answer".
-// src/infrastructure/pause-record.ts:103:3 - (ae-undocumented) Missing documentation for "problem".
-// src/infrastructure/pause-record.ts:108:3 - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts:124:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts:136:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts:220:3 - (ae-undocumented) Missing documentation for "answeredBy".
-// src/infrastructure/pause-record.ts:226:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/stored-step.ts:138:3 - (ae-forgotten-export) The symbol "StoredChild" needs to be exported by the entry point index.d.ts
+// src/infrastructure/pause-record.ts:18:3 - (ae-undocumented) Missing documentation for "Pause".
+// src/infrastructure/pause-record.ts:19:3 - (ae-undocumented) Missing documentation for "RunDeadline".
+// src/infrastructure/pause-record.ts:20:3 - (ae-undocumented) Missing documentation for "Quorum".
+// src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
+// src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
+// src/infrastructure/pause-record.ts:27:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
+// src/infrastructure/pause-record.ts:32:3 - (ae-undocumented) Missing documentation for "Answered".
+// src/infrastructure/pause-record.ts:33:3 - (ae-undocumented) Missing documentation for "Expired".
+// src/infrastructure/pause-record.ts:34:3 - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/pause-record.ts:35:3 - (ae-undocumented) Missing documentation for "Withdrawn".
+// src/infrastructure/pause-record.ts:36:3 - (ae-undocumented) Missing documentation for "TreeEnded".
+// src/infrastructure/pause-record.ts:37:3 - (ae-undocumented) Missing documentation for "Reassigned".
+// src/infrastructure/pause-record.ts:103:3 - (ae-undocumented) Missing documentation for "answer".
+// src/infrastructure/pause-record.ts:104:3 - (ae-undocumented) Missing documentation for "problem".
+// src/infrastructure/pause-record.ts:109:3 - (ae-undocumented) Missing documentation for "decision".
+// src/infrastructure/pause-record.ts:125:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-record.ts:126:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/infrastructure/pause-record.ts:137:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/pause-record.ts:138:3 - (ae-undocumented) Missing documentation for "itemIndex".
+// src/infrastructure/pause-record.ts:223:3 - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts:229:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/stored-step.ts:58:3 - (ae-undocumented) Missing documentation for "record".
+// src/infrastructure/stored-step.ts:59:3 - (ae-undocumented) Missing documentation for "ids".
+// src/infrastructure/stored-step.ts:60:3 - (ae-undocumented) Missing documentation for "fields".
+// src/infrastructure/stored-step.ts:61:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/stored-step.ts:73:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/stored-step.ts:74:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/stored-step.ts:75:12 - (ae-undocumented) Missing documentation for "name".
 // src/mesh/mesh-call.ts:23:3 - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts:24:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/pause/types.ts:66:3 - (ae-undocumented) Missing documentation for "answeredBy".

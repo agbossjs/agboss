@@ -401,7 +401,7 @@ index` (as before) — a running instance does not re-read a folder on its own.
   | ---------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
   | `@ChannelRole` options                                           | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy` accepted, `@deprecated`; both given and different → `[channel.role-form]` |
   | `PendingPause` (`result.pending`, `ExecutionPauseEvent.pending`) | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy`, the same value, `@deprecated`                                            |
-  | `PauseRecord` (store contract)                                   | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy?` read-only, `@deprecated`                                                 |
+  | `PauseRecord` (store contract)                                   | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy?` `@deprecated`, never filled                                              |
   | `PauseAnswer` (`PauseRecord.answer`)                             | `answerer: string \| undefined` (the person) | `answeredBy`                                         | none: a 0.1.0 reader gets a compile error, not a wrong value                           |
   | `PauseAnswerRecord` (`result.record.pauses`)                     | `answeredBy: PauseAnswerer`, `responder`     | `answerer: PauseAnswerer`, `answeredBy` (the person) | `responder`, the same value as `answeredBy`, `@deprecated`                             |
   | `EvalPauseTrace` (`@agboss/core/eval`)                           | `responder?`                                 | `answeredBy?`                                        | `responder`, `@deprecated`; a saved run artifact reads with either key                 |
@@ -410,14 +410,36 @@ index` (as before) — a running instance does not re-read a folder on its own.
   **Breaking (silent):** `PauseAnswerRecord.answeredBy` keeps its name and changes its meaning — before:
   the kind (`"channel"` or `"thread-owner"`), now: the person who answered (`"manager-17"`, or
   `undefined`). Nothing fails to compile (`PauseAnswerer` is a string enum) and no alias can keep the
-  old meaning: an audit filter `pause.answeredBy === PauseAnswerer.Channel`, or the `answeredBy` column
-  of an export of `result.record.pauses` or of `agboss records export`, reads the person now; read
-  `answerer` for the kind. **Stored data:** nothing is migrated; every store reads what 0.1.0 wrote
-  with the new names (SQLite including `pauses.answer` and its answer log, PostgreSQL, MongoDB, the kept
-  execution history records and their children's pauses, a saved eval run artifact), through
-  `pauseRecordOfStored`, `pauseAnswerOfStored`, `pauseAnswerRecordOfStored` and
-  `executionHistoryRecordOfStored` in `@agboss/core/stores`: a store of your own returns their result,
-  never the value it parsed. **Migration:** `@ChannelRole({ answerer })`; `pending[i].answerer`;
+  old meaning, so an audit filter written for 0.1.0 still builds and quietly matches nobody:
+
+  ```ts
+  import { PauseAnswerer, type PauseAnswerRecord } from "@agboss/core";
+
+  declare const pauses: readonly PauseAnswerRecord[]; // `result.record.pauses`
+
+  // BEFORE, 0.1.0 — the audit filter: the pauses a channel answered.
+  // On 0.1.1 this very line still compiles and matches nobody: `answeredBy` is "manager-17" now.
+  export const before = pauses.filter((pause) => pause.answeredBy === PauseAnswerer.Channel);
+
+  // AFTER, 0.1.1 — the same filter on `answerer`; who answered is `answeredBy`
+  export const after = pauses.filter((pause) => pause.answerer === PauseAnswerer.Channel);
+  export const answeredByManager = pauses.filter((pause) => pause.answeredBy === "manager-17");
+  ```
+
+  The same goes for a column of an export of `result.record.pauses` or of `agboss records export`:
+  `answeredBy` is the person now (`responder` holds the same value until 0.2), `answerer` the kind.
+  **`PauseRecord.answeredBy`** (the store contract's record, deprecated) is **never filled from
+  0.1.1**: a record the core returns has `answerer` and no `answeredBy` (`undefined`), so a 0.1.0
+  reader of it gets `undefined`, not a kind — it is not a read-only alias with a value; a store of
+  your own may still write it (the core reads `answerer ?? answeredBy`). **Stored data:** nothing is
+  migrated; every store reads what 0.1.0 wrote with the new names (SQLite including `pauses.answer` and
+  its answer log, PostgreSQL, MongoDB, the kept execution history records and their children's pauses,
+  a saved eval run artifact), through `pauseRecordOfJson`, `pauseAnswerRecordOfValue` and
+  `executionHistoryRecordOfJson` in `@agboss/core/stores`, which take the JSON a store parsed, check
+  every field they read — a history record's pauses and children's at any depth, a pause's `answer` and
+  its names, a log entry's — and return the record with the new names; a value that is neither shape
+  throws `StoredNamesUnreadableError` (`stored.unreadable`), naming the record's id and the field, never
+  a value. **Migration:** `@ChannelRole({ answerer })`; `pending[i].answerer`;
   `record.pauses[i].answerer` for the kind and `.answeredBy` for the person; `answer.answeredBy` for
   `answer.answerer`.
 

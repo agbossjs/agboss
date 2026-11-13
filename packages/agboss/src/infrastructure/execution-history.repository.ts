@@ -5,7 +5,6 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
-import { executionHistoryRecordOfStored } from "./stored-step.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
@@ -139,9 +138,8 @@ const startedBetween = (record: ExecutionHistoryRecord, from: Date, to: Date): b
   return at >= from.getTime() && at < to.getTime();
 };
 
-/** A copy of a kept record, read the way a store reads one (#934: 0.1.0's pause names too). */
-const copyOf = (record: ExecutionHistoryRecord): ExecutionHistoryRecord =>
-  executionHistoryRecordOfStored(structuredClone(record));
+/** A copy of a kept record. */
+const copyOf = (record: ExecutionHistoryRecord): ExecutionHistoryRecord => structuredClone(record);
 
 /** The built-in default: the records in this instance's memory, a copy of each. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })

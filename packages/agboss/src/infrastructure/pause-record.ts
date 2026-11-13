@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
+import { z } from "zod";
+import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
-import type { UsageRecord } from "../finops/usage.js";
+import { CostSource, type UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { lazyLoad } from "./clock.js";
 import type { PauseAnswerLog } from "./pause-answer-log.js";
@@ -214,8 +215,10 @@ export interface PauseRecord extends PauseSite {
   /** Who may answer it (its channel role's `answerer`). */
   readonly answerer: PauseAnswerer;
   /**
-   * @deprecated 0.1.0's name of `answerer`, until 0.2. Read-only: a store of yours may still
-   * write it (the core reads `answerer ?? answeredBy`); use `answerer`.
+   * @deprecated 0.1.0's name of `answerer`, until 0.2 — and **never filled** from 0.1.1: a record
+   * the core returns has no `answeredBy` (`undefined`), `answeredBy` means the person who answered
+   * everywhere else (one meaning per name, #934), so it is not kept as a second spelling of the
+   * kind. Read `answerer`. A store of yours may still write it: the core reads `answerer ?? answeredBy`.
    */
   readonly answeredBy?: PauseAnswerer;
   /**
@@ -328,3 +331,41 @@ export const logPauseAnswer = async (
   const { logPauseAnswer: write } = await lazyLoad(import("./pause-answer-log.js"));
   await write(log, pause, resolution);
 };
+
+/**
+ * Who may answer a pause: its `answerer`, else the `answeredBy` of a record a store of yours wrote
+ * the 0.1.0 way (the deprecated alias of `PauseRecord`).
+ */
+export function pauseAnswererOf(pause: {
+  readonly answerer?: PauseAnswerer | undefined;
+  readonly answeredBy?: PauseAnswerer | undefined;
+}): PauseAnswerer {
+  const answerer = pause.answerer ?? pause.answeredBy;
+  if (answerer === undefined) throw new TypeError("a pause record names who may answer it");
+  return answerer;
+}
+
+/** What reading a reply cost (#267 S107): the fields the ledger is written from, the rest as written. */
+const StoredUsage = z.looseObject({
+  caller: z.string(),
+  model: z.string(),
+  ...{ inputTokens: z.number(), outputTokens: z.number() },
+  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
+  costUsd: z.number(),
+  costSource: z.enum(CostSource),
+  servedBy: z.string().optional(),
+});
+
+/** The answer a pause keeps (#267 S107): the decision, who gave it — 0.1.0 called that `answerer` —, its cost. */
+export const StoredAnswer = z
+  .object({
+    decision: z.unknown(),
+    answerer: z.string().optional(),
+    answeredBy: z.string().optional(),
+    usage: z.array(StoredUsage).optional(),
+  })
+  .transform((stored): PauseAnswer => ({
+    decision: stored.decision,
+    answeredBy: stored.answeredBy ?? stored.answerer,
+    ...(stored.usage === undefined ? {} : { usage: stored.usage }),
+  }));
