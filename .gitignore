@@ -27,3 +27,6 @@ examples/.scaffold-tmp-*
 packages/agboss/reports/
 packages/agboss/.stryker-tmp*/
 .a2a-tck/
+
+# a crashed changelog assemble (#981): the temp file beside CHANGELOG.md
+.CHANGELOG.md.*.tmp

@@ -78,9 +78,6 @@ The release in one line.
 ### Changed — breaking for stores outside the core
 
 - **Custom** (#2)
-
-### Changed — breaking
-
 - **Store** (#20)
 
 ### Added
@@ -92,10 +89,7 @@ The release in one line.
 
 - **Other one** (#3)
 ${loose ? "\n" : ""}- **Other two** (#4)
-
-### Fixed
-
-- **Bug** (#7)
+${loose ? "\n" : ""}- **Bug** (#7)
 
 ### Docs
 
