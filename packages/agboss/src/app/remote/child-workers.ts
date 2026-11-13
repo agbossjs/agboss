@@ -1,3 +1,4 @@
+import { ExecutionCancelledError } from "../../core/errors.js";
 import type { ExecutionLeases, HeldExecutionLease } from "../execution-leases.js";
 import type {
   ChildExecutionQueueRepository,
@@ -168,6 +169,10 @@ class Workers implements ChildWorkers {
     const stop = new AbortController();
     const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
     const watching = watchRunningChild(this.parts, row, stop);
+    // a write of the child refused by its root's cancel stops it at once (#909)
+    lease.whenCancelFound(() => {
+      stop.abort(new ExecutionCancelledError({ message: "the child's tree was cancelled" }));
+    });
     let isRetired = false;
     try {
       const pass = await runQueuedChild(this.parts, row, lease, signal);

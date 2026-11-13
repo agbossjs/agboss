@@ -10,6 +10,7 @@ import {
   type Clock,
   type ExecutionIdentity,
   type ExecutionLease,
+  type ExecutionTree,
 } from "../../../src/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 
@@ -24,6 +25,8 @@ export class LeaseTable {
   readonly finished = new Set<string>();
   /** Every execution id handed out (#591), by the id alone. */
   readonly executionIds = new Set<string>();
+  /** The trees whose cancel was requested (#909). */
+  readonly cancelRequested = new Set<string>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -54,6 +57,11 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     if (this.executionIds.has(executionId)) return Promise.resolve(false);
     this.executionIds.add(executionId);
     return Promise.resolve(true);
+  }
+
+  requestCancel(tree: ExecutionTree): Promise<void> {
+    this.table.cancelRequested.add(keyOf(tree.tenantId, tree.rootExecutionId));
+    return Promise.resolve();
   }
 
   /** The time the lease of `key` has left (G7: a yield's answer), never below 0. */

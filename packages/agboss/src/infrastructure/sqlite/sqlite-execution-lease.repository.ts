@@ -11,13 +11,25 @@ import {
   type ExecutionIdentity,
   type ExecutionLease,
 } from "../execution-lease.repository.js";
-import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import type { ExecutionTree } from "../execution-tree.repository.js";
+import {
+  markedCancelRequested,
+  SqliteConnection,
+  sqliteImplementation,
+} from "./sqlite-connection.js";
 
-/** The leases' table — the fenced-effect store reads it in its own transaction (#500). */
+/**
+ * The leases' table — the fenced-effect store reads it in its own transaction (#500) — and the
+ * trees' cancel requests (#909), which the lease store writes and both fencing stores read in
+ * their own `BEGIN IMMEDIATE` transactions: all three create both tables.
+ */
 export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
   lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-  yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));`;
+  yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));
+CREATE TABLE IF NOT EXISTS execution_cancel_requests (
+  tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, requested_at INTEGER NOT NULL,
+  PRIMARY KEY (tenant_id, root_execution_id));`;
 
 /** The column of a yielded lease (#516), added to a file an older version wrote. */
 const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT 0"] as const;
@@ -174,6 +186,14 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     if (yielded === undefined) return Promise.resolve(undefined);
     const { expires_at } = LeaseRow.pick({ expires_at: true }).parse(yielded);
     return Promise.resolve(remainingOf(new Date(expires_at), new Date(now)));
+  }
+
+  async requestCancel(tree: ExecutionTree): Promise<void> {
+    const now = this.clock.now().getTime();
+    // one `BEGIN IMMEDIATE` like every fenced method, so the two serialize (#909)
+    this.connection.transaction(() => {
+      markedCancelRequested(this.connection.database, tree, now);
+    });
   }
 
   reclaim(

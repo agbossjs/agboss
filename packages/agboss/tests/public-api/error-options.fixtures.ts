@@ -51,6 +51,14 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     observedToken: 3,
   }),
+  fx(root.ExecutionCancelFencedError, {
+    scopeKey: "acme:root-1",
+    tenantId: "acme",
+    rootExecutionId: "root-1",
+    leaseExecutionId: "child-1",
+    token: 2,
+    effect: "charge",
+  }),
   fx(root.InvalidNotSentTrustError, { call: "charge", problem: "notSent is undefined" }),
   fx(root.OutboundCallInFlightError, call),
   fx(root.OutboundCallPayloadTooLargeError, {

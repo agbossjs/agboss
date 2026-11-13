@@ -1,3 +1,4 @@
+import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -104,6 +105,12 @@ export interface FrameLease {
   recordFencedEffect?(report: FencedEffectReport): void;
   /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
   recordOutboundCall?(report: OutboundCallReport): void;
+  /**
+   * A fenced write or a call of a step under it was refused because its tree's cancel is durable
+   * (#909, `ExecutionCancelFencedError`): the holder stops the tree as cancelled — its signal
+   * aborts, the open undos run under this very lease — at once, not at its next renewal.
+   */
+  cancelFound?(cause: ExecutionCancelFencedError): void;
   /**
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.

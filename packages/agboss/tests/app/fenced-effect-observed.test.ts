@@ -10,6 +10,7 @@ import type { FencedEffectReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
+import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import { FencedEffectEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
@@ -64,7 +65,12 @@ function effectsInFrame() {
     if (taken === undefined) throw new Error("the lease is held");
     return taken;
   };
-  return { effects, reports, held, recording: frameUnder(lease), unleased: frameUnder(undefined) };
+  return {
+    ...{ effects, leases, reports, held },
+    recording: frameUnder(lease),
+    unleased: frameUnder(undefined),
+    recordingWith: (extra: Partial<FrameLease>) => frameUnder({ ...lease, ...extra }),
+  };
 }
 
 /** `key` of a business identity, made by step `executionId`. */
@@ -131,5 +137,34 @@ describe("#533: a fenced effect's call, told to its lease", () => {
 
     expect(outcome.status).toBe(FencedEffectStatus.Ran);
     expect(reports).toEqual([]);
+  });
+});
+
+describe("#909: a write of a tree that was cancelled", () => {
+  it("is told Cancelled (no token facts) and the holder is asked to stop the tree; the refusal is the call's error", async () => {
+    const { effects, leases, reports, held, recordingWith } = effectsInFrame();
+    const key = keyOf(await held("execution-1"));
+    await leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+    const found: unknown[] = [];
+    let ran = false;
+
+    const refusal = await runInFrame(
+      recordingWith({ cancelFound: (error) => found.push(error) }),
+      () =>
+        effects.runOnce(key, () => {
+          ran = true;
+          return { receipt: "r" };
+        }),
+    ).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(found).toEqual([refusal]);
+    expect(ran).toBe(false);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      outcome: FencedEffectEventOutcome.Cancelled,
+      name: key.name,
+    });
+    expect(Object.keys(reports[0] ?? {})).not.toContain("observedToken");
   });
 });

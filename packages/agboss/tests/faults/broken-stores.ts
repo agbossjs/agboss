@@ -130,3 +130,14 @@ export class OptedOutSqliteFencedEffectRepository extends SqliteFencedEffectRepo
     leaseCheck: LeaseCheck.WithoutDoubleChargeProtection,
   };
 }
+
+/**
+ * #909: a lease store whose cancel mark never lands — `requestCancel` answers and writes nothing, so
+ * no fencing store of the file can refuse a write after a cancel: the fence the cancel is, reverted.
+ */
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
+export class UnmarkedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
+  override requestCancel(): Promise<void> {
+    return Promise.resolve();
+  }
+}

@@ -52,6 +52,18 @@ export interface EffectKeyFields {
    * no key is available (a key made by hand, outside an execution): an error then shows none.
    */
   readonly businessKeyHash?: string;
+  /**
+   * The tree whose cancel fences the key (#909): `executionContext.root.executionId`, set by
+   * `effectKeyOf`. Absent means `leaseExecutionId` (a root's own lease). Read by a store only
+   * through `cancelTreeOf`.
+   */
+  readonly rootExecutionId?: string;
+  /**
+   * Set by `effectKeyOf` for a step of an automatic undo (#909, `step.compensates`): a cancel never
+   * refuses such a key — the cancel's own unwinding refunds and releases through it. Only
+   * `effectKeyOf` and `effectKeyForTesting` set it: keys are issued (#825).
+   */
+  readonly isCompensation?: true;
 }
 
 /** What makes an `EffectKey` one (#825): a private member, which no object literal and no spread has. */

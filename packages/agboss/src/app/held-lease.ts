@@ -29,7 +29,7 @@ import {
   type ExecutionFencedError,
 } from "./lease-lost.js";
 import { leaseReleases } from "./lease-releases.js";
-import { LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
+import { CancelFoundHooks, LeaseAttempts, LeaseTurns, LeaseYields } from "./lease-yields.js";
 import type { Milliseconds } from "../units/index.js";
 import { heldAtRelease, heldWhileYieldsRun } from "./lease-lost.js";
 
@@ -49,7 +49,7 @@ export interface HeldLeaseStart {
  * no step of the tree runs (#333 PR 4, #471) — yielded in the store, not released (#516): the lease
  * stays this holder's and is renewed on, so no other instance takes the waiting tree over.
  */
-export class HeldLease implements HeldExecutionLease {
+export class HeldLease extends CancelFoundHooks implements HeldExecutionLease {
   readonly rootExecutionId: string;
   readonly leaseExecutionId: string;
   readonly tenantId: string;
@@ -89,6 +89,7 @@ export class HeldLease implements HeldExecutionLease {
     initial: ExecutionLease,
     { sentAt, take }: HeldLeaseStart,
   ) {
+    super();
     this.repository = taking.repository;
     this.clock = taking.clock;
     this.#attempts = new LeaseAttempts(this.clock);

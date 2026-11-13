@@ -16,8 +16,12 @@ import {
   type OutboundCallPage,
   type OutboundCallStatusQuery,
 } from "./outbound-call-pages.js";
-import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
-import type { InMemoryDatabase } from "./in-memory-database.js";
+import {
+  checkInMemoryCancel,
+  IN_MEMORY_DATABASE,
+  prunedCallsBefore,
+  type InMemoryDatabase,
+} from "./in-memory-database.js";
 import type { OutboundCallLeaseState } from "./execution-audit-log.repository.js";
 import type {
   OutboundCallClaim,
@@ -205,6 +209,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 
   saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
+      checkInMemoryCancel(this.database, key); // #909: a new intent is a new send
       const row = effectKeyIdentityOf(key);
       if (this.database.outboundCalls.has(row)) return false;
       this.database.outboundCalls.set(
@@ -224,7 +229,8 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   ): Promise<boolean> {
     const { claimedOf } = await this.#changes;
     const startedAt = this.clock.now();
-    return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt));
+    // #909: a new attempt is a new send, refused after the tree's cancel
+    return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt), true);
   }
 
   markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
@@ -264,13 +270,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   }
 
   deleteByEndedAtBefore(cutoff: Date): Promise<void> {
-    const before = cutoff.getTime();
-    for (const [row, found] of this.database.outboundCalls)
-      // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
-      if (new Date(found.endedAt ?? Number.NaN).getTime() < before) {
-        this.database.outboundCalls.delete(row);
-        this.database.outboundCallOrder.delete(row);
-      }
+    prunedCallsBefore(this.database, cutoff.getTime());
     return Promise.resolve();
   }
 
@@ -287,8 +287,10 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   #changed(
     key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
+    isSend = false,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
+      if (isSend) checkInMemoryCancel(this.database, key);
       const row = effectKeyIdentityOf(key);
       const found = this.database.outboundCalls.get(row);
       const changed = found === undefined ? undefined : change(found);

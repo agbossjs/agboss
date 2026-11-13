@@ -25,6 +25,8 @@ export type TrackedLeg = ThreadKey & { readonly runId?: string };
 export class LiveRuns {
   readonly #runs = new Map<string, Set<AbortController>>();
   readonly #byTree = new Map<string, Set<AbortController>>();
+  /** The roots of the trees each thread moves here now (#909): what a local cancel marks. */
+  readonly #rootsOf = new Map<string, Map<string, number>>();
   readonly #inFlight = new Set<Promise<unknown>>();
   /** Set once the app interrupts what still runs at its stop (#265 S51): later runs stop at once. */
   #interrupted: unknown;
@@ -45,6 +47,7 @@ export class LiveRuns {
     if (thread.runId !== undefined) {
       const tree = { tenantId: thread.tenantId, rootExecutionId: thread.runId };
       leave.push(entered(this.#byTree, treeKeyOf(tree, thread.threadId), controller));
+      leave.push(counted(this.#rootsOf, key, thread.runId));
     }
     const running = work(
       caller === undefined ? controller.signal : AbortSignal.any([caller, controller.signal]),
@@ -142,6 +145,18 @@ export class LiveRuns {
     return this.#interruption.signal;
   }
 
+  /**
+   * The trees of `thread` a run of this instance moves now (#909): a local cancel writes each one's
+   * durable mark before it aborts the runs.
+   */
+  treesOf(thread: ThreadKey): readonly ExecutionTree[] {
+    const roots = this.#rootsOf.get(keyOf(thread));
+    return [...(roots?.keys() ?? [])].map((rootExecutionId) => ({
+      tenantId: thread.tenantId,
+      rootExecutionId,
+    }));
+  }
+
   /** Aborts the thread's runs in flight; `false` when none is running. */
   abort(thread: ThreadKey): boolean {
     return abortAll(this.#runs.get(keyOf(thread)), thread.threadId);
@@ -169,6 +184,19 @@ function entered(
   return () => {
     runs.delete(controller);
     if (runs.size === 0 && index.get(key) === runs) index.delete(key);
+  };
+}
+
+/** Counts `id` under `key`; the call that counts it out again. */
+function counted(index: Map<string, Map<string, number>>, key: string, id: string): () => void {
+  const ids = index.get(key) ?? new Map<string, number>();
+  ids.set(id, (ids.get(id) ?? 0) + 1);
+  index.set(key, ids);
+  return () => {
+    const left = (ids.get(id) ?? 1) - 1;
+    if (left > 0) ids.set(id, left);
+    else ids.delete(id);
+    if (ids.size === 0 && index.get(key) === ids) index.delete(key);
   };
 }
 

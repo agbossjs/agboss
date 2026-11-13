@@ -31,6 +31,8 @@ export enum ExplorerInvariant {
   OneSendPerBusinessKey = "one-send-per-business-key",
   /** No lease of finished work is granted again: no Takeover row for it. */
   NoTakeoverOfFinishedWork = "no-takeover-of-finished-work",
+  /** A write or a send started after the tree's cancel was answered ran: nothing may (#909). */
+  NoEffectAfterCancel = "no-effect-after-cancel",
   /** A store operation threw something else than the fence's refusal. */
   StoreError = "store-error",
 }
@@ -79,6 +81,8 @@ export type ExplorerAction =
       readonly tree: string;
       readonly isAccepted: boolean;
     }
+  /** The tree's cancel request (#909), once per tree, at any time: `requestCancel` through `instance`'s store. */
+  | { readonly kind: "cancel"; readonly instance: number; readonly tree: string }
   | { readonly kind: "time"; readonly step: TimeStep };
 
 /** One instance's stores of the explored backend: the leases, and what else the world uses. */

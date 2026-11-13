@@ -827,6 +827,85 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     ]);
   });
 
+  it("#909 AC3: no-effect-after-cancel — a charge invoked after the tree's cancel mark answered; an undo's write after it, a write invoked before it, and another tree's pass", () => {
+    const { run, history } = healthy();
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseRequestCancel,
+      key: "root-1",
+      input: { tenantId: "default", rootExecutionId: "root-1" },
+    });
+    for (const root of ["root-2", "child-1"])
+      operation(history, {
+        process: "a",
+        operation: StoreHoldPoint.LeaseAcquire,
+        key: root,
+        input: { tenantId: "default", rootExecutionId: root, lease: 30_000 },
+        output: lease("a", 1, root),
+      });
+    // an undo's write, a write of the cancelled tree's child (its own lease) and another tree's
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: { ...key(1), name: "refund", rootExecutionId: "root-1", isCompensation: true },
+      output: { status: "ran", token: 1 },
+    });
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-2",
+      input: { ...key(1, "root-2"), rootExecutionId: "root-2" },
+      output: { status: "ran", token: 1 },
+    });
+    expect(invariantsOf(run)).toEqual([]);
+
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "child-1",
+      input: { ...key(1, "child-1"), rootExecutionId: "root-1", name: "child-charge" },
+      output: { status: "ran", token: 1 },
+    });
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.OutboundSaveIfAbsent,
+      key: "root-1",
+      input: { ...key(1), rootExecutionId: "root-1", name: "pay" },
+      output: true,
+    });
+
+    expect(violationsOf(run).map((found) => [found.invariant, found.message])).toEqual([
+      [
+        FaultInvariant.NoEffectAfterCancel,
+        "tree root-1 committed fencedEffect.write (a) after its cancel was durable",
+      ],
+      [
+        FaultInvariant.NoEffectAfterCancel,
+        "tree root-1 committed outboundCall.saveIfAbsent (a) after its cancel was durable",
+      ],
+    ]);
+  });
+
+  it("#909: a write refused by the cancel, and one invoked before the mark answered, are no violation", () => {
+    const { run, history } = healthy();
+    operation(history, {
+      process: "b",
+      operation: StoreHoldPoint.LeaseRequestCancel,
+      key: "root-1",
+      input: { tenantId: "default", rootExecutionId: "root-1" },
+    });
+    operation(history, {
+      process: "a",
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "root-1",
+      input: { ...key(1), name: "later", rootExecutionId: "root-1" },
+      error: { name: "ExecutionCancelFencedError", message: "refused" },
+    });
+
+    expect(invariantsOf(run)).toEqual([]);
+  });
+
   it("names every violation in its error", () => {
     const { run } = healthy();
     const broken = { ...run, records: [] };

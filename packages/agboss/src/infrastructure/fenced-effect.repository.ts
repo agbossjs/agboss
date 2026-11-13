@@ -1,12 +1,16 @@
 import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
-import { fencedErrorOf } from "../app/handed-over.js";
-import { scopeKeyOf } from "../app/lease-lost.js";
+import { cancelMet, fencedErrorOf } from "../app/handed-over.js";
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import { FencedEffectEventOutcome } from "./execution-audit-log.repository.js";
 import type { EffectKey, FencedEffectOrigin } from "./effect-key.js";
 import { LeaseCheck, type StoreDescriptor } from "./execution-lease.repository.js";
-import { isIssuedKey } from "./issued-keys.js";
+import {
+  InvalidFencedEffectKeyError,
+  isIssuedKey,
+  keyProblemOf,
+  UNISSUED_KEY,
+} from "./issued-keys.js";
 import {
   businessKeyErrorOf,
   effectKeyIdentityOf,
@@ -72,25 +76,6 @@ export interface FencedEffectOutcome<TResult> {
 export type FencedEffectWork<TTransaction, TResult> = (
   transaction: TTransaction,
 ) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
-
-/** A key made by hand that is not one of a lease scope. */
-class InvalidFencedEffectKeyError extends TypeError {
-  override name = "InvalidFencedEffectKeyError";
-}
-
-/** Why a key made by hand is refused (#825). */
-const UNISSUED_KEY =
-  "not a fenced effect key: make it with effectKeyOf(executionContext, name, …) — a copy or an object built by hand is no key (effectKeyForTesting in a store's tests)";
-
-/** Why a key cannot be one: its scope does not match its parts, no name, no token. */
-function keyProblemOf(key: EffectKey): string | undefined {
-  if (key.scopeKey !== scopeKeyOf(key.tenantId, key.leaseExecutionId))
-    return `its scopeKey ${JSON.stringify(key.scopeKey)} is not the scope of tenant ${key.tenantId} and execution ${key.leaseExecutionId}`;
-  if (!Number.isInteger(key.token) || key.token < 1)
-    return `its token ${String(key.token)} is not a lease epoch (a whole number from 1)`;
-  if (key.idempotencyKey.length === 0) return "its idempotencyKey must not be empty";
-  return undefined;
-}
 
 /** The calls in flight of each store instance, by their full key: the in-process join. */
 const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unknown>>>>();
@@ -271,6 +256,10 @@ function observedInStep<TResult>(
       const fenced = fencedErrorOf(error);
       if (fenced !== undefined)
         report(FencedEffectEventOutcome.Refused, { observedToken: fenced.observedToken });
+      // #909: told first, then the holder stops the tree as cancelled — not a hand-over
+      cancelMet(error, lease, () => {
+        report(FencedEffectEventOutcome.Cancelled, {});
+      });
       throw error;
     },
   );

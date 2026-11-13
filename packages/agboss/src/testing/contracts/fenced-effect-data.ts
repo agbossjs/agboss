@@ -139,3 +139,11 @@ export const rejectionOf = async (call: Promise<unknown>): Promise<unknown> => {
   }
   throw new Error("the call resolved: it should have been refused");
 };
+
+/** The tree `lease` belongs to, as `requestCancel` names it. */
+export const treeOf = (
+  lease: ExecutionLease,
+): { readonly tenantId: string; readonly rootExecutionId: string } => ({
+  tenantId: lease.tenantId,
+  rootExecutionId: lease.rootExecutionId,
+});

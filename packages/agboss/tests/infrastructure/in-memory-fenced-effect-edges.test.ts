@@ -8,7 +8,7 @@
  */
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import { ExecutionCancelFencedError, ExecutionFencedError } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
@@ -28,7 +28,7 @@ import {
 } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours, type Bytes } from "../../src/units/index.js";
+import { hours, seconds, type Bytes } from "../../src/units/index.js";
 import { storeClockOf } from "../helpers/store-clock.js";
 
 /** One instance's stores over a new database. */
@@ -240,6 +240,38 @@ describe("#533: the base class's entry checks", () => {
     const outcome = await effects.runOnce(keyOf(await held(leases)), () => result);
 
     expect(outcome.status).toBe(FencedEffectStatus.Ran);
+  });
+});
+
+describe("#909: a tree's cancel mark in memory", () => {
+  it("is stamped at the first request and kept when asked again: the sweep removes it by that time", async () => {
+    const { clock, leases, effects } = storesOn();
+    const key = keyOf(await held(leases));
+    const tree = { tenantId: "default", rootExecutionId: "execution-1" };
+    await leases.requestCancel(tree);
+    await clock.advance(seconds(60));
+    await leases.requestCancel(tree);
+
+    await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
+      ExecutionCancelFencedError,
+    );
+    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+
+    const outcome = await effects.runOnce(key, () => ({ receipt: "r" }));
+    expect(outcome.status).toBe(FencedEffectStatus.Ran);
+  });
+
+  it("a mark newer than the cutoff stays", async () => {
+    const { clock, leases, effects } = storesOn();
+    const key = keyOf(await held(leases));
+    await clock.advance(seconds(60));
+    await leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+
+    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+
+    await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
+      ExecutionCancelFencedError,
+    );
   });
 });
 

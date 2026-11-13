@@ -55,8 +55,9 @@ export class AGBossError extends Error {
 
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {
-  static override readonly code = "execution.cancelled" as const;
-  declare readonly code: typeof ExecutionCancelledError.code;
+  static override readonly code: string = "execution.cancelled";
+  /** This class's code, or its subclass `ExecutionCancelFencedError`'s (#909: `switch (error.code)` narrows). */
+  declare readonly code: "execution.cancelled" | "execution.cancelled.fenced";
   override name = "ExecutionCancelledError";
 
   constructor(options: ExecutionCancelledErrorOptions = {}) {
