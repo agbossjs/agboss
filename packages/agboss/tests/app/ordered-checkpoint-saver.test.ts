@@ -7,7 +7,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
-import { OrderedCheckpointSaver, OUT_OF_ORDER } from "../../src/app/leased-checkpointer.js";
+import { OrderedCheckpointSaver } from "../../src/app/leased-checkpointer.js";
+import { OUT_OF_ORDER } from "../../src/app/checkpoint-keys.js";
 import { SqliteCheckpointSaver } from "../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { connectionTo, temporarySqlitePath } from "../infrastructure/contracts/store-kinds.js";
 import { infrastructureOf } from "../../src/infrastructure/contracts.js";

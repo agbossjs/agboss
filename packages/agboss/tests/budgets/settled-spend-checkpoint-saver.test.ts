@@ -7,7 +7,10 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, MemorySaver, emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
-import { SettledSpendCheckpointSaver, settledSaverOf } from "../../src/app/leased-checkpointer.js";
+import {
+  SettledSpendCheckpointSaver,
+  settledSaverOf,
+} from "../../src/app/settled-spend-checkpointer.js";
 
 const thread = (id = "thread-1"): RunnableConfig => ({
   configurable: { thread_id: id, checkpoint_ns: "" },

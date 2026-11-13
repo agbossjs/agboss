@@ -6,7 +6,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, emptyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
-import { OrderedCheckpointSaver, OUT_OF_ORDER } from "../../src/app/leased-checkpointer.js";
+import { OrderedCheckpointSaver } from "../../src/app/leased-checkpointer.js";
+import { OUT_OF_ORDER } from "../../src/app/checkpoint-keys.js";
 import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
 import { hasLatestByStep } from "../../src/infrastructure/latest-by-step.js";
 import { LATEST_BY_STEP_SQL } from "../../src/infrastructure/sqlite/sqlite-checkpoint-rows.js";

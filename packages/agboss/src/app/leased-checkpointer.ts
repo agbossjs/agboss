@@ -6,7 +6,17 @@ import {
   type CheckpointMetadata,
   type CheckpointTuple,
 } from "@langchain/langgraph";
-import { hasLatestByStep, newestFirstOrder, stepOf } from "../infrastructure/latest-by-step.js";
+import { hasLatestByStep } from "../infrastructure/latest-by-step.js";
+import {
+  idOf,
+  keyOf,
+  limited,
+  namespaceOf,
+  newestFirst,
+  OUT_OF_ORDER,
+  threadIdOf,
+  threadOf,
+} from "./checkpoint-keys.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import { withUsageRead, withUsageReadOf } from "./restored-usage.js";
 
@@ -186,93 +196,3 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
     return all.sort(newestFirst);
   }
 }
-
-/** The namespace of a thread's mark: a checkpoint id of it sorted out of order once. */
-export const OUT_OF_ORDER = "agboss-out-of-order";
-
-/**
- * Newest first: by LangGraph's step (each run continues at its last step + 1; none or not a number
- * counts as -2), then by id by code unit — the order `latestByStep` reads (#962).
- */
-const newestFirst = (first: CheckpointTuple, second: CheckpointTuple): number =>
-  newestFirstOrder(
-    { step: stepOf(first.metadata), id: first.checkpoint.id },
-    { step: stepOf(second.metadata), id: second.checkpoint.id },
-  );
-
-function* limited(tuples: readonly CheckpointTuple[], limit: number | undefined) {
-  yield* limit === undefined ? tuples : tuples.slice(0, limit);
-}
-
-const idOf = (config: RunnableConfig): string | undefined => {
-  const id: unknown = config.configurable?.checkpoint_id;
-  return typeof id === "string" ? id : undefined;
-};
-
-const threadIdOf = (config: RunnableConfig): string => String(config.configurable?.thread_id);
-
-const namespaceOf = (config: RunnableConfig | undefined): string =>
-  String(config?.configurable?.checkpoint_ns ?? "");
-
-const keyOf = (config: RunnableConfig): string =>
-  `${threadIdOf(config)}\u0000${namespaceOf(config)}`;
-
-const threadOf = (config: RunnableConfig, namespace: string): RunnableConfig => {
-  const thread: unknown = config.configurable?.thread_id;
-  return { configurable: { thread_id: thread, checkpoint_ns: namespace } };
-};
-
-/** The part of a pass's budgets a checkpoint write waits for. */
-export interface SettledSpend {
-  /** Resolves once every spend the pass tallied so far is in the ledger. */
-  readonly settled: () => Promise<void>;
-}
-
-/**
- * A pass's checkpointer that writes a state only once the spend it tallied is in the ledger (#727,
- * #732): a tallied record is kept in the state marked as in the ledger, so no later pass — a
- * takeover, a recovery, the parent of a child on any instance — writes it again; this keeps that
- * mark true of every durable state. A write of the ledger that failed twice fails the checkpoint
- * write, and with it the pass.
- */
-export class SettledSpendCheckpointSaver extends BaseCheckpointSaver {
-  constructor(
-    private readonly saver: BaseCheckpointSaver,
-    private readonly spend: SettledSpend,
-  ) {
-    super(saver.serde);
-  }
-
-  getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    return this.saver.getTuple(config);
-  }
-
-  list(...listArguments: ListArguments): AsyncGenerator<CheckpointTuple> {
-    return this.saver.list(...listArguments);
-  }
-
-  async put(...putArguments: PutArguments): Promise<RunnableConfig> {
-    await this.spend.settled();
-    return this.saver.put(...putArguments);
-  }
-
-  async putWrites(...putWritesArguments: PutWritesArguments): Promise<void> {
-    await this.spend.settled();
-    return this.saver.putWrites(...putWritesArguments);
-  }
-
-  deleteThread(threadId: string): Promise<void> {
-    return this.saver.deleteThread(threadId);
-  }
-
-  override getNextVersion(current: number | undefined): number {
-    return this.saver.getNextVersion(current);
-  }
-}
-
-/** A pass's checkpointer that writes once its spend is in the ledger; none without one. */
-export const settledSaverOf = (
-  checkpointer: BaseCheckpointSaver | undefined,
-  spend: SettledSpend,
-): BaseCheckpointSaver | undefined =>
-  checkpointer === undefined ? undefined : new SettledSpendCheckpointSaver(checkpointer, spend);
