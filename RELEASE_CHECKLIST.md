@@ -42,6 +42,30 @@ export WORKSPACE_ROOT="/Users/pavelravvich/projects/agboss"
 export RELEASE_VERSION="0.1.1"
 export SCRATCH="$WORKSPACE_ROOT/worktrees.noindex/release-$RELEASE_VERSION"
 mkdir -p "$SCRATCH"
+
+# The release branch of a repository: release/$RELEASE_VERSION, the one branch CI lets edit CHANGELOG.md.
+# Reuses it (local, then origin); else cuts it from the prepared chore/691-version-$RELEASE_VERSION
+# (postgres, mongodb, redis have one, #691), else from origin/main. Run it inside the repository.
+release_branch() {
+  git fetch origin
+  if git show-ref --verify --quiet "refs/heads/release/$RELEASE_VERSION"; then
+    git switch "release/$RELEASE_VERSION"
+  elif git show-ref --verify --quiet "refs/remotes/origin/release/$RELEASE_VERSION"; then
+    git switch -c "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION"
+  elif git show-ref --verify --quiet "refs/remotes/origin/chore/691-version-$RELEASE_VERSION"; then
+    git switch --no-track -c "release/$RELEASE_VERSION" "origin/chore/691-version-$RELEASE_VERSION"
+  else
+    git switch --no-track -c "release/$RELEASE_VERSION" origin/main
+  fi
+}
+
+# Fold the changes/ fragments into the version's CHANGELOG.md section (the unreleased one is dated; see
+# changes/README.md) and commit it. A rerun is safe. Run it inside the repository, on release/$RELEASE_VERSION.
+assemble_changelog() {
+  node scripts/changelog-assemble.mjs "$RELEASE_VERSION" --date "$(date -u +%Y-%m-%d)"
+  git add -A changes CHANGELOG.md
+  git diff --cached --quiet || git commit -m "chore($1#691): changelog $RELEASE_VERSION"
+}
 ```
 
 ---
@@ -89,13 +113,18 @@ The version bump waits on its branch until everything else is on `main` (#691): 
 in agbossjs/agboss (`packages/agboss`, `packages/agboss-cli` and the CLI's `@agboss/core`
 dependency at the version, the root `package.json`, `package-lock.json`, `CHANGELOG.md` — the
 version's section dated), assembled from the `changes/` fragments by
-`node scripts/changelog-assemble.mjs <version>` (#981; a branch `release/*` is the one CI lets edit
-`CHANGELOG.md`).
+`node scripts/changelog-assemble.mjs <version>` (#981): the fragments go into the version's
+`## [<version>] — unreleased` section and its heading gets the date; a branch `release/*` is the one
+CI lets edit `CHANGELOG.md`. The branch does not exist until release time: `release_branch` (above)
+cuts it (core: from `main`, where the version bump of the list above is made on it; the satellites:
+from the prepared `chore/691-version-<version>` branch if origin has one, else from `main`). The
+prepared `chore/691-version-<version>` branches stay on origin as they are, never renamed or
+deleted; the release PR is from `release/<version>`.
 
 ```bash
 set -euo pipefail
-cd "$WORKSPACE_ROOT/agboss" && git fetch origin && \
-  git switch "release/$RELEASE_VERSION" && git rebase origin/main && \
+cd "$WORKSPACE_ROOT/agboss" && release_branch && git rebase origin/main && \
+  assemble_changelog "" && \
   npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && npm run check:packed && \
   node scripts/release/release-plan.mjs --tag "v$RELEASE_VERSION" && \
   git push --force-with-lease origin HEAD
@@ -189,8 +218,8 @@ rm -rf "$SCRATCH/core-app" && cd "$SCRATCH" && \
 
 ```bash
 set -euo pipefail
-cd "$WORKSPACE_ROOT/postgres" && git fetch origin && \
-  git switch "release/$RELEASE_VERSION" && git rebase origin/main && \
+cd "$WORKSPACE_ROOT/postgres" && release_branch && git rebase origin/main && \
+  assemble_changelog "agbossjs/agboss" && \
   node scripts/pin-framework.mjs --registry "$RELEASE_VERSION" && \
   test "$(node -p "require('./.agboss-version.json').source")" = registry && \
   npm ci && npm run pack:framework && npm run install:packed && \
@@ -235,7 +264,8 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
 ## Step 7 — ⚠️ [PUBLIC / IRREVERSIBLE] The next cars
 
 For each of agbossjs/mongodb and agbossjs/redis that has the release path (see the top) and
-whose issues are done: Step 6 in its repository, with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
+whose issues are done: Step 6 in its repository (`cd "$WORKSPACE_ROOT/mongodb"` or `redis`, with its `release_branch` and
+`assemble_changelog "agbossjs/agboss"` lines), with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
 not ready; say so in the release notes.
 
 ## Step 8 — The release notes and the site
