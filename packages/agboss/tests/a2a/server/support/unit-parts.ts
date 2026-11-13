@@ -27,6 +27,7 @@ import {
   A2ATaskSaveStatus,
   A2ATaskState,
   type A2ATaskRecord,
+  type A2ATaskRepository,
   type A2ATaskStatus,
   type NewA2ATask,
 } from "../../../../src/infrastructure/a2a-task.repository.js";
@@ -132,7 +133,7 @@ let minted = 0;
 /** The parts over `tasks`, scripted by `script`. */
 export function unitParts(
   script: Script,
-  tasks: InMemoryA2ATaskRepository = new InMemoryA2ATaskRepository(new InMemoryDatabase()),
+  tasks: A2ATaskRepository = new InMemoryA2ATaskRepository(new InMemoryDatabase()),
   extra: Partial<A2AServerParts> = {},
 ): A2AServerParts {
   const run = async (): Promise<unknown> => {
@@ -224,7 +225,7 @@ export const callerOf = (
 
 /** A task of dana's in `tasks`, saved as `status` (then written to it, if not submitted). */
 export async function savedTask(
-  tasks: InMemoryA2ATaskRepository,
+  tasks: A2ATaskRepository,
   overrides: Partial<NewA2ATask> = {},
   status: A2ATaskStatus = SUBMITTED,
 ): Promise<A2ATaskRecord> {

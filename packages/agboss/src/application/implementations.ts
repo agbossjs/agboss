@@ -8,6 +8,7 @@ import {
   optsOutOfLeaseCheck,
   storeDescriptorOf,
 } from "../infrastructure/execution-lease.repository.js";
+import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import {
@@ -89,7 +90,8 @@ export function isInMemory(choices: readonly ImplementationChoice[], contract: C
  * fenced-effect or outbound-call store checks the lease in its own transaction, so it and the
  * application.s lease store declare one `static store` backend; its violations name the classes, the
  * backends and a fix on the fencing store's own backend (#539); two listed stores of one fencing
- * contract, or of the lease contract, are named too (#539) — and every violation is reported at once.
+ * contract, or of the lease contract, are named too (#539), as are two A2A task stores (#960) — and
+ * every violation is reported at once.
  */
 
 /** A fencing contract, what a message calls one of its stores, and its store of each core backend. */
@@ -219,6 +221,14 @@ export function storeBackendViolations(
   const classes = uniqueClasses(providers);
   const leaseStores = listedOf(classes, ExecutionLeaseRepository);
   const found = ambiguityOf(application, leaseStores, "lease stores (ExecutionLeaseRepository)");
+  // #960: two A2A task stores are named like two lease stores (the container refuses them at start)
+  found.push(
+    ...ambiguityOf(
+      application,
+      listedOf(classes, A2ATaskRepository),
+      "A2A task stores (A2ATaskRepository)",
+    ),
+  );
   const leases = leaseStoreOf(providers);
   for (const fencing of FENCING_CONTRACTS) {
     const stores = listedOf(classes, fencing.contract);
@@ -243,6 +253,10 @@ export function leaseStoreOf(providers: readonly Provider[]): Class | undefined 
   const listed = listedOf(uniqueClasses(providers), ExecutionLeaseRepository);
   return listed.length > 1 ? undefined : (listed[0] ?? InMemoryExecutionLeaseRepository);
 }
+
+/** Whether two or more listed classes are `contract` (#960): which one runs is unknown. */
+export const hasTwoListed = (providers: readonly Provider[], contract: Class): boolean =>
+  listedOf(uniqueClasses(providers), contract).length > 1;
 
 /** The listed fencing stores that opt out of the atomic lease check (#526): the start warns. */
 export const notAtomicStoresOf = (providers: readonly Provider[]): readonly Class[] =>
