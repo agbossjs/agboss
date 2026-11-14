@@ -42,7 +42,7 @@ const never = <T>(): Promise<T> => {
   return new Promise<T>(() => undefined);
 };
 
-const waiting: Array<() => void> = [];
+const waiting: (() => void)[] = [];
 
 /** A call that waits until `answerHung()` (a server that came back). */
 const held = (): Promise<void> => {

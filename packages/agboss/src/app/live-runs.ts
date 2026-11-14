@@ -2,6 +2,7 @@ import { ApplicationStoppingError, ExecutionCancelledError } from "../core/error
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TurnOutcome } from "../turns/index.js";
 import type { CallOptions } from "./types.js";
+import type { TreeMoves } from "./tree-move-types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
@@ -128,6 +129,16 @@ export class LiveRuns {
     );
   }
 
+  /** `moves` whose first and resumed runs a caller stops waiting for when the stop gives them up (#954). */
+  abandonable(moves: TreeMoves): TreeMoves {
+    return {
+      first: (...call) => this.untilAbandoned(moves.first(...call)),
+      resumed: (...call) => this.untilAbandoned(moves.resumed(...call)),
+      recovered: (...call) => moves.recovered(...call),
+      endIfEnding: (...call) => moves.endIfEnding(...call),
+    };
+  }
+
   /**
    * What a caller awaits for its run (#954): the run's own outcome — or, when the stop's end
    * passes first, `ApplicationStoppingError`: the run is given up (it stays `running`, another
@@ -135,25 +146,15 @@ export class LiveRuns {
    * The run's late outcome is dropped.
    */
   untilAbandoned<T>(run: Promise<T>): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const give = (reason: ApplicationStoppingError): void => {
-        this.#callers.delete(give);
+    let abandon: (reason: ApplicationStoppingError) => void = () => undefined;
+    const abandoned = new Promise<never>((_, reject) => {
+      abandon = (reason) => {
         reject(reason);
       };
-      this.#callers.add(give);
-      const done = (): void => {
-        this.#callers.delete(give);
-      };
-      run.then(
-        (value) => {
-          done();
-          resolve(value);
-        },
-        (error: unknown) => {
-          done();
-          reject(error);
-        },
-      );
+    });
+    this.#callers.add(abandon);
+    return Promise.race([run, abandoned]).finally(() => {
+      this.#callers.delete(abandon);
     });
   }
 
