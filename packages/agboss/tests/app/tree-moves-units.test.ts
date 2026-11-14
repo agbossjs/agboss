@@ -33,7 +33,10 @@ const mocks = vi.hoisted(() => ({
   duePausesOf: vi.fn(),
   expirePauses: vi.fn(),
   byIds: vi.fn(),
-  announceResume: vi.fn(() => Promise.resolve()),
+  announceResume: vi.fn(
+    (_observer: unknown, _event: unknown, _reason: ResumeReason, _resume: unknown) =>
+      Promise.resolve(),
+  ),
 }));
 
 vi.mock("../../src/app/cancel-requests.js", () => ({
