@@ -337,6 +337,16 @@ listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container cre
 its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
 describe` lists the listeners and marks `allowAnswering`.
 
+## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | answeredBy })` (#942)
+
+Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
+previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `answeredBy` of
+a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
+`record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
+a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
+`dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
+the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
+
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with

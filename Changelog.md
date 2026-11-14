@@ -3,6 +3,24 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: extend a pause, remind before its deadline — `app.extendPause`, `remindBefore` (#942, part of #910)
+
+- **Added**: `app.extendPause({ pauseId, expiresIn }, options?: PauseCallerOptions)` → `PauseExtension`
+  (`pauseKey`, `expiresAt`, `previousExpiresAt`); refusals `PauseClosedError` (closed, expired),
+  `DtoValidationError` (`ExtendPauseRequest`: no deadline, not later, past the run's or a quorum's deadline;
+  exactly that deadline is allowed) and `UnknownPauseError`. `PauseCallerOptions` = `ThreadOwnerPauseOptions` |
+  `ChannelPauseOptions` (the caller fields of `ResumeOptions`, which extends them: `app.resume` is unchanged).
+- **Added**: `@ChannelRole({ remindBefore })` (`[channel.remind-before-invalid]`, the warning
+  `[channel.remind-before-exceeds-expiry]`); the reminder look of the pause timers (a keyset cursor, no lease,
+  once across instances); the optional notices `onPauseExtended` / `onPauseExpiring` on `ChannelOf` and
+  `@PauseListener` with `ChannelPauseExtendedEvent`, `ChannelPauseExpiringEvent`, `PauseListenerExtendedEvent`,
+  `PauseListenerExpiringEvent`; `agboss describe` prints `reminds 2 h before`.
+- **Changed — stores** (`@agboss/core/stores`, unreleased): the argument of `extendByTenantIdAndPauseId`, `{ expiresAt,
+  remindAt? }`, is `PauseDeadlineChange` (it was `PauseExtension`; no published version had it) and
+  `findPendingByRemindAtBefore` takes the optional keyset `after?: PauseScanAfter`; PostgreSQL and MongoDB follow at their re-pin (#1064).
+- **Fixed**: a pause extended to exactly the deadline of its run expires as the run's own (`DeadlineExceededError`, the
+  channel's expiry decision not asked): a tie goes to the run.
+
 ## Unreleased — 0.1.1: a pause has a deadline — `expiresIn`, `PauseExpiration`, `PauseExpiredError` (#941, part of #910)
 
 - **Added**: `@ChannelRole({ expiresIn })`, `.toQuestion(Role, { expiresIn })` (and the side path), `@Tool({ channel, expiresIn })`;
@@ -18,7 +36,7 @@ Breaking changes and notable additions, newest first. The API reports
   `[question.expires-in-conflict]`; log codes `pause.expiry-handler-failed`, `pause.expiry-failed`; `agboss describe` prints each `expiresIn`.
 - **Added (fault suite)**: scenarios 24, 24b, 24c, 24d, 24e, the invariants `one-expiry-decision`,
   `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
-- Reminders, extensions and the quorum bound follow (#942, #945); PostgreSQL, Redis and MongoDB re-pin their fault suites (#1053 and its sibling).
+- Reminders and extensions are #942; the quorum bound follows (#945); PostgreSQL, Redis and MongoDB re-pin their fault suites (#1053 and its sibling).
 
 ## Unreleased — 0.1.1: A2A v1.0 — docs, federation by skill, card rules (#812, epic #805)
 
