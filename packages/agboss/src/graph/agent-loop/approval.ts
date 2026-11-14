@@ -27,6 +27,7 @@ import {
   type ApprovalDecision,
 } from "../../channels/decision.js";
 import { systemClock, type Clock } from "../../infrastructure/clock.js";
+import type { Milliseconds } from "../../units/index.js";
 
 /**
  * How the loop gets a decision on a tool call before it runs — one call per ask. It is backed by the
@@ -93,6 +94,8 @@ interface SeamAsk {
   readonly validate: (decision: unknown) => unknown;
   /** The record's component when it is not the asking step's own (a question role, #712). */
   readonly component?: ComponentRecord;
+  /** The tool's own `expiresIn` (#941), over its channel role's. */
+  readonly expiresIn?: Milliseconds | undefined;
 }
 
 /**
@@ -136,6 +139,7 @@ async function seamAnswer(
     step: ask.agent,
     ask: ask.shown,
     ...(ask.component === undefined ? {} : { component: ask.component }),
+    ...(ask.expiresIn === undefined ? {} : { expiresIn: ask.expiresIn }),
   };
   const answer =
     pauses === undefined || answers === undefined || frame === undefined || channelOf === undefined
@@ -170,6 +174,7 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       const seam = {
         kind: PauseKind.Approval,
         ...{ channel, agent, shown, input: shown.arguments, validate },
+        expiresIn: tool.expiresIn,
       };
       const answer = await seamAnswer(channels, seam, signal);
       return approvalDecisionOf(answer.decision, tool, answer.by, answer.usage);

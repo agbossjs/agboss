@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import type { GraphDeps } from "../../graph/deps.js";
+import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { PaidStepError } from "../../graph/errors.js";
 import { LimitExceededError } from "../../graph/limits.js";
@@ -115,11 +116,15 @@ export function reportingOf(
  * A question role's step (#659), its runner loaded with its first visit: the root import stays
  * lean (#205), and a workflow without questions never loads it.
  */
-export function lazyQuestionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
+export function lazyQuestionRunner(
+  node: RuntimeNode,
+  deps: GraphDeps<string>,
+  budgets: BudgetMeter,
+): NodeRunner {
   let loaded: Promise<NodeRunner> | undefined;
   return async (state, config) => {
     loaded ??= lazyLoad(import("./runners/question.js")).then((found) =>
-      found.questionRunner(node, deps),
+      found.questionRunner(node, deps, budgets),
     );
     return (await loaded)(state, config);
   };

@@ -3,6 +3,7 @@
 import type { HistoryOf, NoInput, NoOutput, Produced, agbossComponent, agbossDto } from "../src/flow/generated-types.js";
 import type { ToolCallApprovalAskDto, ToolCallApprovalDecisionDto, WorkflowFinishTextDto } from "../src/dto/index.js";
 import type { ThisWorkflow } from "../src/public/flow.js";
+import type { AgentBareWorkflow, AgentBareWorkflowStart, AgentBatchSummaryDto, AgentBatchWorkflow, AgentBatchWorkflowFinish, AgentBatchWorkflowStart, AgentExpiryWorkflow, AgentExpiryWorkflowFinish, AgentExpiryWorkflowStart, AgentGatedWorkflow, AgentGatedWorkflowFinish, AgentGatedWorkflowStart, AgentRefundDoneDto, AgentRefundDto, EscalateRefundAction, ExpiringRefundTool, ExpiryBatchRefundAgent, ExpiryDecisionDto, ExpiryHoldAgent, ExpiryOrderDto, ExpiryRefundAgent, GateDto, GateTool, QuickRefundTool, RefundApprovalRole, UrgentRefundTool } from "../tests/flow/fixtures/agent-expiry.fixture.js";
 import type { ArticleDraftAgent, ArticleWorkflow, ArticleWorkflowFinish, ArticleWorkflowStart, DraftReviewerAgent, FinalReviewerAgent, WriterAgent } from "../tests/flow/fixtures/article.fixture.js";
 import type { BrokenReviewWorkflow, BrokenReviewWorkflowStart, CompanyGraderAgent, FullGradeWorkflowStart, QuickGradeWorkflowStart, TwinGradeWorkflow } from "../tests/flow/fixtures/broken-children.fixture.js";
 import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixtures/broken-launch.fixture.js";
@@ -17,6 +18,8 @@ import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, Ex
 import type { ArticleDto, ArticleRequestDto, ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, OfferSentDto, OpeningsDto, OrderRequestDto, OrderShippedDto, ProfileDto, ResumeMissingDto, ReviewDto, ShortlistDto, StockReservationDto, WorkflowStartTextDto } from "../tests/flow/fixtures/dtos.js";
 import type { DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, GetOrderTool, HandOverDto, HandOverWorkflowFinish, RefundTool } from "../tests/flow/fixtures/eval-desk.fixture.js";
 import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupTool, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
+import type { PublicExpiryWorkflow, PublicExpiryWorkflowStart } from "../tests/flow/fixtures/expiry-public.fixture.js";
+import type { DirectorQuestion, ExpiryDoneDto, ExpiryWorkflow, ExpiryWorkflowFinish, ExpiryWorkflowStart, ManagerQuestion, OwnerQuestion, OwnerWorkflow, OwnerWorkflowStart, PlainWorkflow, PlainWorkflowStart, RecordEscalatedAction, RecordExpiryAction, ReviewerQuestion, ReviewerWorkflow, ReviewerWorkflowStart, ShortExpiryWorkflow, ShortExpiryWorkflowStart } from "../tests/flow/fixtures/expiry.fixture.js";
 import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
@@ -45,6 +48,10 @@ import type { ManualQuoteWorkflowFinish, PriceQuoteAction, QuoteDto, QuoteRefuse
 
 declare module "../src/flow/generated-types.js" {
   interface ProducerOutputs {
+    "agent-bare-workflow-start": AgentRefundDto;
+    "agent-batch-workflow-start": readonly AgentRefundDto[];
+    "agent-expiry-workflow-start": AgentRefundDto;
+    "agent-gated-workflow-start": AgentRefundDto;
     "answer-agent": CustomerReplyDto;
     "approval-agent": CreditApprovalDto;
     "article-draft-agent": ArticleDto;
@@ -107,7 +114,16 @@ declare module "../src/flow/generated-types.js" {
     "edge-twice-question": SpendingLimitAnswerDto;
     "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": OfferDraftDto;
+    "escalate-refund-action": AgentRefundDoneDto;
     "expert-answer-agent": ExpertDraftDto;
+    "expiring-director-question": ExpiryDecisionDto;
+    "expiring-manager-question": ExpiryDecisionDto;
+    "expiring-owner-question": ExpiryDecisionDto;
+    "expiring-reviewer-question": ExpiryDecisionDto;
+    "expiry-batch-refund-agent": AgentRefundDoneDto;
+    "expiry-hold-agent": GateDto;
+    "expiry-refund-agent": AgentRefundDoneDto;
+    "expiry-workflow-start": ExpiryOrderDto;
     "fail-first-place-action": PurchasePlacedDto;
     "fail-topic-action": ResearchFailedDto;
     "fast-answer-agent": FastDraftDto;
@@ -159,22 +175,27 @@ declare module "../src/flow/generated-types.js" {
     "owner-buyer-agent": NoOutput;
     "owner-buyer-workflow-start": WorkflowStartTextDto;
     "owner-purchase-workflow-start": WorkflowStartTextDto;
+    "owner-workflow-start": ExpiryOrderDto;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-summary-agent": ScoreReviewDto;
     "panel-workflow-start": CandidateDto;
     "picked-offer-workflow-start": WorkflowStartTextDto;
     "place-purchase-action": PurchasePlacedDto;
+    "plain-workflow-start": ExpiryOrderDto;
     "plan-researcher-agent": ResearchDto;
     "planner-agent": PlanDto;
     "polish-agent": DraftDto;
     "price-quote-action": QuoteDto | QuoteRefusedDto;
     "profiler-agent": ProfileDto | ResumeMissingDto;
+    "public-expiry-workflow-start": ExpiryOrderDto;
     "public-starter-workflow-start": WorkflowStartTextDto;
     "publisher-agent": ArticleDto;
     "purchase-workflow-start": WorkflowStartTextDto;
     "quick-grade-workflow-start": CompanyDto;
     "quote-workflow-start": QuoteRequestDto;
     "ranker-agent": RankingDto;
+    "record-escalated-action": ExpiryDoneDto;
+    "record-expiry-action": ExpiryDoneDto;
     "refund-card-action": NoOutput;
     "refund-clerk-agent": RefundCardOutputDto;
     "refund-policy-agent": RefundPolicyDto;
@@ -189,6 +210,7 @@ declare module "../src/flow/generated-types.js" {
     "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
     "review-ranker-agent": GradedShortlistDto;
     "reviewer-agent": ChangesRequestedDto | DraftApprovedDto;
+    "reviewer-workflow-start": ExpiryOrderDto;
     "risks-panel-agent": ScoreDto;
     "salary-fit-agent": SalaryFitDto;
     "score-a-agent": ScoreDto;
@@ -201,6 +223,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": OfferSentDto;
     "send-receipt-action": NoOutput;
     "ship-order-action": OrderShippedDto;
+    "short-expiry-workflow-start": ExpiryOrderDto;
     "side-question-workflow-start": WorkflowStartTextDto;
     "skills-panel-agent": ScoreDto;
     "skills-score-agent": SkillsScoreDto;
@@ -228,6 +251,13 @@ declare module "../src/flow/generated-types.js" {
     "writer-agent": ArticleDto;
   }
   interface Inputs {
+    "agent-bare-workflow-start": AgentRefundDto;
+    "agent-batch-workflow-finish": { refunds: readonly Produced<AgentRefundDoneDto, typeof ExpiryBatchRefundAgent>[] };
+    "agent-batch-workflow-start": readonly AgentRefundDto[];
+    "agent-expiry-workflow-finish": NoInput;
+    "agent-expiry-workflow-start": AgentRefundDto;
+    "agent-gated-workflow-finish": { refund: Produced<AgentRefundDoneDto, typeof ExpiryRefundAgent>; hold: Produced<GateDto, typeof ExpiryHoldAgent> };
+    "agent-gated-workflow-start": AgentRefundDto;
     "answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund: Produced<RefundPolicyDto, typeof RefundPolicyAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyOfferAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund: Produced<RefundPolicyDto, typeof RefundPolicyAgent>; loyalty?: undefined }
@@ -329,10 +359,20 @@ declare module "../src/flow/generated-types.js" {
     "edge-twice-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
     "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewerAgent> };
+    "escalate-refund-action": { request: Produced<AgentRefundDto, typeof AgentExpiryWorkflowStart> };
     "expense-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly reply: string };
     "expert-answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyAgent> }
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty?: undefined };
+    "expiring-director-question": { ask: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof PlainWorkflowStart | typeof PublicExpiryWorkflowStart> };
+    "expiring-manager-question": { ask: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof PublicExpiryWorkflowStart | typeof ShortExpiryWorkflowStart> };
+    "expiring-owner-question": { ask: Produced<ExpiryOrderDto, typeof OwnerWorkflowStart> };
+    "expiring-reviewer-question": { ask: Produced<ExpiryOrderDto, typeof ReviewerWorkflowStart> };
+    "expiry-batch-refund-agent": { request: Produced<AgentRefundDto, typeof AgentBatchWorkflowStart> };
+    "expiry-hold-agent": { request: Produced<AgentRefundDto, typeof AgentGatedWorkflowStart> };
+    "expiry-refund-agent": { request: Produced<AgentRefundDto, typeof AgentBareWorkflowStart | typeof AgentExpiryWorkflowStart | typeof AgentGatedWorkflowStart> };
+    "expiry-workflow-finish": NoInput;
+    "expiry-workflow-start": ExpiryOrderDto;
     "fail-first-place-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction>; answer: Produced<SpendingLimitAnswerDto, typeof EdgeOnceQuestion | typeof EdgeTwiceQuestion> };
     "fail-topic-action": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart | typeof OutlineWorkflowStart> };
     "fast-answer-agent": { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent> };
@@ -421,6 +461,7 @@ declare module "../src/flow/generated-types.js" {
     "owner-buyer-workflow-start": WorkflowStartTextDto;
     "owner-purchase-workflow-finish": NoInput;
     "owner-purchase-workflow-start": WorkflowStartTextDto;
+    "owner-workflow-start": ExpiryOrderDto;
     "panel-failed-workflow-finish": NoInput;
     "panel-items-workflow-start": readonly CandidateDto[];
     "panel-review-workflow-finish": NoInput;
@@ -431,6 +472,7 @@ declare module "../src/flow/generated-types.js" {
     "payout-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly reply: string };
     "picked-offer-workflow-start": WorkflowStartTextDto;
     "place-purchase-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction>; answer: Produced<SpendingLimitAnswerDto, typeof SpendingLimitQuestion> };
+    "plain-workflow-start": ExpiryOrderDto;
     "plan-researcher-agent": { plan: Produced<PlanDto, typeof PlannerAgent> };
     "planner-agent": { message: Produced<WorkflowStartTextDto, typeof ResearchWorkflowStart> };
     "polish-agent":
@@ -439,6 +481,7 @@ declare module "../src/flow/generated-types.js" {
     "polished-workflow-finish": NoInput;
     "price-quote-action": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
     "profiler-agent": { message: Produced<WorkflowStartTextDto, typeof IntakeWorkflowStart> };
+    "public-expiry-workflow-start": ExpiryOrderDto;
     "public-starter-workflow-start": WorkflowStartTextDto;
     "publisher-agent": { draft: Produced<DraftDto, typeof StoryWriterAgent>; approval: Produced<ApprovalDto, typeof StoryReviewerAgent> };
     "purchase-unasked-workflow-finish": NoInput;
@@ -453,6 +496,8 @@ declare module "../src/flow/generated-types.js" {
     "quote-workflow-start": QuoteRequestDto;
     "ranker-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyAuditAgent | typeof ItemBlindAgent>[] };
     "ranking-workflow-finish": NoInput;
+    "record-escalated-action": { order: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof PublicExpiryWorkflowStart>; decision: Produced<ExpiryDecisionDto, typeof DirectorQuestion> };
+    "record-expiry-action": { order: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof OwnerWorkflowStart | typeof PlainWorkflowStart | typeof PublicExpiryWorkflowStart | typeof ReviewerWorkflowStart | typeof ShortExpiryWorkflowStart>; decision: Produced<ExpiryDecisionDto, typeof DirectorQuestion | typeof ManagerQuestion | typeof OwnerQuestion | typeof ReviewerQuestion> };
     "refund-card-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "refund-clerk-agent": { message: Produced<WorkflowStartTextDto, typeof RefundWorkflowStart> };
     "refund-policy-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
@@ -473,6 +518,7 @@ declare module "../src/flow/generated-types.js" {
     "review-ranker-agent": { reviews: readonly Produced<CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto, typeof CompanyReviewWorkflow>[] };
     "reviewer-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
     "reviewer-notified-workflow-finish": NoInput;
+    "reviewer-workflow-start": ExpiryOrderDto;
     "risks-panel-agent": { candidate: Produced<CandidateDto, typeof PanelWorkflowStart> };
     "salary-fit-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
     "score-a-agent": { candidate: Produced<CandidateDto, typeof CandidateReviewWorkflowStart> };
@@ -493,6 +539,7 @@ declare module "../src/flow/generated-types.js" {
     "send-offer-action": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
     "send-receipt-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
     "ship-order-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
+    "short-expiry-workflow-start": ExpiryOrderDto;
     "side-question-workflow-start": WorkflowStartTextDto;
     "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
     "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
@@ -533,6 +580,9 @@ declare module "../src/flow/generated-types.js" {
     "writer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent>; review: Produced<ReviewDto, typeof DraftReviewerAgent> };
   }
   interface Outputs {
+    "agent-batch-workflow-finish": AgentBatchSummaryDto;
+    "agent-expiry-workflow-finish": AgentRefundDoneDto;
+    "agent-gated-workflow-finish": AgentRefundDoneDto;
     "answer-workflow-finish": WorkflowFinishTextDto;
     "approved-workflow-finish": ApprovedVerdictDto;
     "approver-reply-interpreter": ApproverAnswerDto;
@@ -566,7 +616,13 @@ declare module "../src/flow/generated-types.js" {
     "edge-once-reply-interpreter": SpendingLimitAnswerDto;
     "edge-twice-question": SpendingLimitAnswerDto;
     "edge-twice-reply-interpreter": SpendingLimitAnswerDto;
+    "escalate-refund-action": AgentRefundDoneDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
+    "expiring-director-question": ExpiryDecisionDto;
+    "expiring-manager-question": ExpiryDecisionDto;
+    "expiring-owner-question": ExpiryDecisionDto;
+    "expiring-reviewer-question": ExpiryDecisionDto;
+    "expiry-workflow-finish": ExpiryDoneDto;
     "fail-first-place-action": PurchasePlacedDto;
     "fail-topic-action": ResearchFailedDto;
     "fit-summary-workflow-finish": FitSummaryDto;
@@ -613,6 +669,8 @@ declare module "../src/flow/generated-types.js" {
     "quote-refused-workflow-finish": QuoteRefusedDto;
     "quote-workflow-finish": QuoteDto;
     "ranking-workflow-finish": RankingDto;
+    "record-escalated-action": ExpiryDoneDto;
+    "record-expiry-action": ExpiryDoneDto;
     "refund-card-action": NoOutput;
     "refund-workflow-finish": RefundCardOutputDto;
     "rejected-workflow-finish": RejectedVerdictDto;
@@ -647,6 +705,10 @@ declare module "../src/flow/generated-types.js" {
     "update-crm-action": NoOutput;
   }
   interface WorkflowStarts {
+    "agent-bare-workflow-start": { input: AgentRefundDto; output: AgentRefundDoneDto };
+    "agent-batch-workflow-start": { input: readonly AgentRefundDto[]; output: AgentBatchSummaryDto };
+    "agent-expiry-workflow-start": { input: AgentRefundDto; output: AgentRefundDoneDto };
+    "agent-gated-workflow-start": { input: AgentRefundDto; output: AgentRefundDoneDto };
     "article-workflow-start": { input: ArticleRequestDto; output: ReviewDto };
     "ask-workflow-start": { input: AskDto; output: WorkflowFinishTextDto };
     "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
@@ -667,6 +729,7 @@ declare module "../src/flow/generated-types.js" {
     "desk-workflow-start": { input: WorkflowStartTextDto; output: DeskAnswerDto | HandOverDto; tenant: DeskTenantContext; execution: DeskExecutionContext };
     "edge-once-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "edge-twice-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
+    "expiry-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
     "fit-review-workflow-start": { input: CandidateDto; output: FitSummaryDto };
     "full-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "help-desk-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -683,16 +746,21 @@ declare module "../src/flow/generated-types.js" {
     "outline-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto };
     "owner-buyer-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto };
     "owner-purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
+    "owner-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
     "panel-items-workflow-start": { input: readonly CandidateDto[]; output: ScoreReviewDto };
     "panel-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto };
     "picked-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "plain-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
+    "public-expiry-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
     "public-starter-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto | PurchaseQuestionDto };
     "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto };
     "quote-workflow-start": { input: QuoteRequestDto; output: QuoteDto | QuoteRefusedDto | QuoteRequestDto };
     "refund-workflow-start": { input: WorkflowStartTextDto; output: RefundCardOutputDto };
     "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto };
+    "reviewer-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
     "screening-workflow-start": { input: WorkflowStartTextDto; output: RankingDto | ScreeningFailedDto };
+    "short-expiry-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto };
     "side-question-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto };
     "story-workflow-start": { input: ArticleRequestDto; output: ArticleDto | DraftDto };
     "support-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -738,6 +806,8 @@ declare module "../src/flow/generated-types.js" {
     "toParallelActions(send-receipt-action, update-crm-action, reserve-goods-action)": NoOutput;
     "toParallelAgents(company-audit-agent) per item": readonly CompanyCheckDto[];
     "toParallelAgents(company-vet-agent) per item": readonly CompanyCheckDto[];
+    "toParallelAgents(expiry-batch-refund-agent) per item": readonly AgentRefundDoneDto[];
+    "toParallelAgents(expiry-refund-agent, expiry-hold-agent)": readonly [AgentRefundDoneDto, GateDto];
     "toParallelAgents(item-blind-agent) per item": readonly CompanyCheckDto[];
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent)": readonly [AuditDto, FastScreenDto, LegalReviewDto, readonly DealCritiqueDto[]];
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(auditor-agent)": AuditDto;
@@ -771,6 +841,11 @@ declare module "../src/flow/generated-types.js" {
     "edge-once-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "edge-twice-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
     "expense-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto } };
+    "expiring-director-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
+    "expiring-manager-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
+    "expiring-owner-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
+    "expiring-refund-approval": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: AgentRefundDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: AgentRefundDto } };
+    "expiring-reviewer-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
     "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
@@ -810,6 +885,9 @@ declare module "../src/flow/generated-types.js" {
     "draft-reviewer-agent": never;
     "editor-agent": never;
     "expert-answer-agent": never;
+    "expiry-batch-refund-agent": "expiring-refund-tool";
+    "expiry-hold-agent": "gate-tool";
+    "expiry-refund-agent": "expiring-manager-question" | "expiring-refund-tool" | "quick-refund-tool" | "urgent-refund-tool";
     "fast-answer-agent": never;
     "fast-panel-agent": "wait-tool";
     "fast-screen-agent": never;
@@ -868,6 +946,9 @@ declare module "../src/flow/generated-types.js" {
     "writer-agent": never;
   }
   interface DtoBrands {
+    "AgentBatchSummaryDto": AgentBatchSummaryDto;
+    "AgentRefundDoneDto": AgentRefundDoneDto;
+    "AgentRefundDto": AgentRefundDto;
     "ApprovalDto": ApprovalDto;
     "ApprovedVerdictDto": ApprovedVerdictDto;
     "ApproverAnswerDto": ApproverAnswerDto;
@@ -904,9 +985,13 @@ declare module "../src/flow/generated-types.js" {
     "DueDiligenceReportDto": DueDiligenceReportDto;
     "ExpenseRequestDto": ExpenseRequestDto;
     "ExpertDraftDto": ExpertDraftDto;
+    "ExpiryDecisionDto": ExpiryDecisionDto;
+    "ExpiryDoneDto": ExpiryDoneDto;
+    "ExpiryOrderDto": ExpiryOrderDto;
     "FastDraftDto": FastDraftDto;
     "FastScreenDto": FastScreenDto;
     "FitSummaryDto": FitSummaryDto;
+    "GateDto": GateDto;
     "GradedShortlistDto": GradedShortlistDto;
     "HandOverDto": HandOverDto;
     "JobOfferDto": JobOfferDto;
@@ -978,6 +1063,87 @@ declare module "../src/dto/index.js" {
 declare module "../src/public/flow.js" {
   interface ThisWorkflow {
     readonly [agbossComponent]?: "this-workflow";
+  }
+}
+
+declare module "../tests/flow/fixtures/agent-expiry.fixture.js" {
+  interface AgentBareWorkflow {
+    readonly [agbossComponent]?: "agent-bare-workflow";
+  }
+  interface AgentBareWorkflowStart {
+    readonly [agbossComponent]?: "agent-bare-workflow-start";
+  }
+  interface AgentBatchSummaryDto {
+    readonly [agbossDto]?: "AgentBatchSummaryDto";
+  }
+  interface AgentBatchWorkflow {
+    readonly [agbossComponent]?: "agent-batch-workflow";
+  }
+  interface AgentBatchWorkflowFinish {
+    readonly [agbossComponent]?: "agent-batch-workflow-finish";
+  }
+  interface AgentBatchWorkflowStart {
+    readonly [agbossComponent]?: "agent-batch-workflow-start";
+  }
+  interface AgentExpiryWorkflow {
+    readonly [agbossComponent]?: "agent-expiry-workflow";
+  }
+  interface AgentExpiryWorkflowFinish {
+    readonly [agbossComponent]?: "agent-expiry-workflow-finish";
+  }
+  interface AgentExpiryWorkflowStart {
+    readonly [agbossComponent]?: "agent-expiry-workflow-start";
+  }
+  interface AgentGatedWorkflow {
+    readonly [agbossComponent]?: "agent-gated-workflow";
+  }
+  interface AgentGatedWorkflowFinish {
+    readonly [agbossComponent]?: "agent-gated-workflow-finish";
+  }
+  interface AgentGatedWorkflowStart {
+    readonly [agbossComponent]?: "agent-gated-workflow-start";
+  }
+  interface AgentRefundDoneDto {
+    readonly [agbossDto]?: "AgentRefundDoneDto";
+  }
+  interface AgentRefundDto {
+    readonly [agbossDto]?: "AgentRefundDto";
+  }
+  interface EscalateRefundAction {
+    readonly [agbossComponent]?: "escalate-refund-action";
+  }
+  interface ExpiringRefundTool {
+    readonly [agbossComponent]?: "expiring-refund-tool";
+  }
+  interface ExpiryBatchRefundAgent {
+    readonly [agbossComponent]?: "expiry-batch-refund-agent";
+  }
+  interface ExpiryDecisionDto {
+    readonly [agbossDto]?: "ExpiryDecisionDto";
+  }
+  interface ExpiryHoldAgent {
+    readonly [agbossComponent]?: "expiry-hold-agent";
+  }
+  interface ExpiryOrderDto {
+    readonly [agbossDto]?: "ExpiryOrderDto";
+  }
+  interface ExpiryRefundAgent {
+    readonly [agbossComponent]?: "expiry-refund-agent";
+  }
+  interface GateDto {
+    readonly [agbossDto]?: "GateDto";
+  }
+  interface GateTool {
+    readonly [agbossComponent]?: "gate-tool";
+  }
+  interface QuickRefundTool {
+    readonly [agbossComponent]?: "quick-refund-tool";
+  }
+  interface RefundApprovalRole {
+    readonly [agbossComponent]?: "expiring-refund-approval";
+  }
+  interface UrgentRefundTool {
+    readonly [agbossComponent]?: "urgent-refund-tool";
   }
 }
 
@@ -1395,6 +1561,72 @@ declare module "../tests/flow/fixtures/evals.fixture.js" {
   }
   interface LookupWorkflow {
     readonly [agbossComponent]?: "lookup-workflow";
+  }
+}
+
+declare module "../tests/flow/fixtures/expiry-public.fixture.js" {
+  interface PublicExpiryWorkflow {
+    readonly [agbossComponent]?: "public-expiry-workflow";
+  }
+  interface PublicExpiryWorkflowStart {
+    readonly [agbossComponent]?: "public-expiry-workflow-start";
+  }
+}
+
+declare module "../tests/flow/fixtures/expiry.fixture.js" {
+  interface DirectorQuestion {
+    readonly [agbossComponent]?: "expiring-director-question";
+  }
+  interface ExpiryDoneDto {
+    readonly [agbossDto]?: "ExpiryDoneDto";
+  }
+  interface ExpiryWorkflow {
+    readonly [agbossComponent]?: "expiry-workflow";
+  }
+  interface ExpiryWorkflowFinish {
+    readonly [agbossComponent]?: "expiry-workflow-finish";
+  }
+  interface ExpiryWorkflowStart {
+    readonly [agbossComponent]?: "expiry-workflow-start";
+  }
+  interface ManagerQuestion {
+    readonly [agbossComponent]?: "expiring-manager-question";
+  }
+  interface OwnerQuestion {
+    readonly [agbossComponent]?: "expiring-owner-question";
+  }
+  interface OwnerWorkflow {
+    readonly [agbossComponent]?: "owner-workflow";
+  }
+  interface OwnerWorkflowStart {
+    readonly [agbossComponent]?: "owner-workflow-start";
+  }
+  interface PlainWorkflow {
+    readonly [agbossComponent]?: "plain-workflow";
+  }
+  interface PlainWorkflowStart {
+    readonly [agbossComponent]?: "plain-workflow-start";
+  }
+  interface RecordEscalatedAction {
+    readonly [agbossComponent]?: "record-escalated-action";
+  }
+  interface RecordExpiryAction {
+    readonly [agbossComponent]?: "record-expiry-action";
+  }
+  interface ReviewerQuestion {
+    readonly [agbossComponent]?: "expiring-reviewer-question";
+  }
+  interface ReviewerWorkflow {
+    readonly [agbossComponent]?: "reviewer-workflow";
+  }
+  interface ReviewerWorkflowStart {
+    readonly [agbossComponent]?: "reviewer-workflow-start";
+  }
+  interface ShortExpiryWorkflow {
+    readonly [agbossComponent]?: "short-expiry-workflow";
+  }
+  interface ShortExpiryWorkflowStart {
+    readonly [agbossComponent]?: "short-expiry-workflow-start";
   }
 }
 

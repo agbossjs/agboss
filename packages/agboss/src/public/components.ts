@@ -157,6 +157,14 @@ export type {
   PauseListenerEventBase,
   PauseListenerOpenedEvent,
 } from "../pause/notice-events.js";
+export type { QuestionStepOptions } from "../flow/child-placement.js";
+export {
+  PauseExpiration,
+  PauseExpirationKind,
+  type DecideExpiration,
+  type FailExpiration,
+  type PauseExpiryHandler,
+} from "../channels/pause-expiration.js";
 export {
   ChannelOutcome,
   ChannelOutcomeKind,

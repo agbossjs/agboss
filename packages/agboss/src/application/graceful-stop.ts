@@ -16,7 +16,8 @@ import type { AuditLogWriter } from "../app/execution-leases.js";
 
 import { retentionSourcesOf } from "./retention-sources.js";
 import type { PauseNoticeHub } from "./pause-notice-hub.js";
-import { startPauseTimers, type PauseTimers } from "./pause-timers.js";
+import type { PauseTimers } from "./pause-timers.js";
+import { instanceTimersOf } from "./instance-timers.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -227,12 +228,7 @@ export function stopOf(
   const { shutdownTimeout } = assembled;
   const workers = childWorkersOf(workflows, parts, interruption.signal);
   parts.notices.interruptedBy(interruption.signal);
-  const timers = startPauseTimers({
-    clock,
-    log: parts.log,
-    signal: interruption.signal,
-    looks: [{ name: "notices", run: () => parts.notices.look() }],
-  });
+  const timers = instanceTimersOf(parts, workflows, interruption.signal);
   const stopTimers = async (): Promise<void> => {
     await timers.stop();
     await parts.notices.settled();

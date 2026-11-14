@@ -10,7 +10,7 @@ import type {
   ProducerOutputOf,
 } from "./generated-types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { ChildStepOptions } from "./child-placement.js";
+import type { ChildStepOptions, QuestionStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
 import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
 import type { ThisWorkflowName, ThisWorkflowReturning, WithClaims } from "./this-workflow-types.js";
@@ -243,6 +243,7 @@ export interface Transitions<THead extends PathHead> {
    */
   toQuestion<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+    options?: QuestionStepOptions,
   ): AfterStep<InstanceType<TClass>, THead>;
   /**
    * One child execution of `W` (#263): it enters through the start whose input takes the chain's

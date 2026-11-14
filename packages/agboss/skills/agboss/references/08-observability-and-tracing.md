@@ -334,7 +334,7 @@ export class DeskApplication {}
 | Hooks                                                                                                                              | Event                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `OnExecutionStart`                                                                                                                 | once per execution — a resume does not start it again                                                    |
-| `OnExecutionPause` / `OnExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered`, `decision`, `answeredBy`                       |
+| `OnExecutionPause` / `OnExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered \| Expired`, `decision`, `answeredBy`            |
 | `OnExecutionEnd`                                                                                                                   | once, at a finish: `finish`, `spend`                                                                     |
 | `OnExecutionError`                                                                                                                 | a failure (a cancelled paused one: `ExecutionCancelledError`): `error`, `compensations`                  |
 | `OnExecutionRejected`                                                                                                              | refused before an execution: `operation: ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` |
@@ -381,7 +381,7 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
   `[application.in-memory-pauses]`, `[application.pii-instance-key]`; also in `app.warnings`).
 - **While running, only problems**: `LogLevel.Warn` — `execution.recovered`, `recovery.incompatible`,
   `observer.failed`, `compensation.step-still-running`, `pause.notice-failed`,
-  `pause.notice-recipient-unknown`; `LogLevel.Error` — `pause.notice-dead`, `pause-timers.failed`,
+  `pause.notice-recipient-unknown`, `pause.expiry-handler-failed`, `pause.expiry-failed`; `LogLevel.Error` — `pause.notice-dead`, `pause-timers.failed`,
   `recovery.failed`, `app.close-failed`, `compensation.late-undo-failed`. One execution's details are
   its trace, a tenant's spend the cost ledger.
 

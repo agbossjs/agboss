@@ -24,6 +24,7 @@ import { CORE_TOKENS, rememberServers } from "./runtime.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
+import { toolExpiryViolations } from "./tool-expiry-rules.js";
 
 /** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
 export interface ToolClasses {
@@ -124,7 +125,7 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
   const questions = (tools.asked ?? []).flatMap((cls) =>
     modelNameViolations(channelNameOf(cls), tokenName(cls)),
   );
-  return [...own, ...searches, ...questions];
+  return [...own, ...searches, ...questions, ...toolExpiryViolations(tools)];
 }
 
 /** The classes among a workflow's `providers` (values excluded). */

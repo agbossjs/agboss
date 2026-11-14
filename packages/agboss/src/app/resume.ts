@@ -197,7 +197,10 @@ export async function recordAnswer(
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
   const answeredBy = await answeredByOf(parts, pause, call);
-  if (pause.status !== PauseStatus.Pending)
+  // refused at its deadline before the interpreter reads a reply or the tree is marked (#941, I2):
+  // the store's compare-and-set is the final word
+  const isDue = pause.expiresAt !== undefined && pause.expiresAt <= parts.clock.now().toISOString();
+  if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
   const answer = {

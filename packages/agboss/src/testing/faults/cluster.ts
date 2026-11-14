@@ -14,7 +14,7 @@ export {
   type FaultClusterOptions,
 } from "./cluster-options.js";
 import { DatabaseProxy, ProxyState } from "./database-proxy.js";
-import type { FaultRun, FaultRunOrder, PodEventFact, FaultFacts } from "./facts.js";
+import type { FaultRun, FaultRunOrder, PodEventFact, FaultFacts, TreeSample } from "./facts.js";
 import { FaultGateway } from "./fault-gateway.js";
 import { OperationHistory } from "./operation-history.js";
 import { FaultWaitError, launchPod, type FaultPod } from "./pod.js";
@@ -40,6 +40,8 @@ export class FaultCluster {
   readonly pods: FaultPod[] = [];
   /** The scenario's own expectations that did not hold (`expectThat`), checked after the invariants. */
   readonly expectations: string[] = [];
+  /** What the scenario sampled of its trees mid-run (#941: a root's status beside its pauses'). */
+  readonly samples: TreeSample[] = [];
   readonly timeOrigin = systemClock.now().getTime();
   readonly #proxies = new Map<string, DatabaseProxy>();
   readonly #watchers = new Set<() => void>();
@@ -127,7 +129,8 @@ export class FaultCluster {
   ): Promise<string> {
     this.#starts += 1;
     const tag = `${pod.name}:${String(this.#starts)}`;
-    this.orders.push(...orders.map(runOrderOf));
+    // a cancelled order is expected to end nowhere: no invariant of an end is asked of it
+    this.orders.push(...orders.filter((order) => order.cancelled !== true).map(runOrderOf));
     await pod.command({ op: "start", tag, workflow, orders });
     return tag;
   }
@@ -243,6 +246,7 @@ export class FaultCluster {
       payments: this.gateway.payments,
       events: this.events,
       history: this.history,
+      samples: this.samples,
     };
   }
 

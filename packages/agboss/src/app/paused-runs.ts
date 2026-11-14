@@ -106,7 +106,9 @@ export async function markAnswered(
   rested: AgentExecutionOutput | undefined,
 ): Promise<boolean> {
   const now = await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
-  if (now?.status !== PauseStatus.Pending)
+  // a deadline passed meanwhile (a reply's interpreter takes time): refused before the mark (#941)
+  const isDue = now?.expiresAt !== undefined && now.expiresAt <= parts.clock.now().toISOString();
+  if (now?.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   if (rested === undefined) return false;
   const stored = await parts.paused.find({ tenantId: pause.tenantId, threadId: pause.threadId });

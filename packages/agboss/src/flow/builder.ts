@@ -1,6 +1,10 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
-import { placementOptionOf, type ChildStepOptions } from "./child-placement.js";
+import {
+  placementOptionOf,
+  type ChildStepOptions,
+  type QuestionStepOptions,
+} from "./child-placement.js";
 import { NodeKind, type PathSource } from "./ast.js";
 import type {
   AfterStep,
@@ -152,9 +156,10 @@ export function toRouter(target: Class): PathBuilder<undefined> {
  */
 export function toQuestion<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+  options?: QuestionStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toQuestion(target: Class): PathBuilder<undefined> {
-  return sidePath().toQuestion(target);
+export function toQuestion(target: Class, options?: unknown): PathBuilder<undefined> {
+  return sidePath().toQuestion(target, options);
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   type PathSource,
   type ReturnedValue,
   type Step,
+  type ToStep,
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
 import { LAUNCH_CALLS } from "./launch-step.js";
@@ -71,6 +72,15 @@ const childOptions = (placement: ChildPlacement | undefined): string => {
   return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
 };
 
+/** `, { placement: …, expiresIn: 14400000 }` of a `to` step (#941: a question's deadline, in ms); empty without options. */
+const toOptions = (step: Pick<ToStep, "placement" | "expiresIn">): string => {
+  const options = [
+    ...placementOption(step.placement),
+    ...(step.expiresIn === undefined ? [] : [`expiresIn: ${String(step.expiresIn)}`]),
+  ];
+  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
+};
+
 /** `{ maxConcurrency: 3, maxItems: 50 }`, as written; empty without options. */
 function launchOptions(step: LaunchStep): string {
   const options = [
@@ -115,7 +125,7 @@ class Printer {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
-        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)}${childOptions(first.placement)})`
+        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)}${toOptions(first)})`
         : "";
     this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
@@ -168,7 +178,7 @@ class Printer {
       case StepKind.To:
         this.line(
           depth,
-          `.${TO_CALL[step.targetKind]}(${this.label(step.target)}${childOptions(step.placement)})`,
+          `.${TO_CALL[step.targetKind]}(${this.label(step.target)}${toOptions(step)})`,
         );
         return;
       case StepKind.Switch:

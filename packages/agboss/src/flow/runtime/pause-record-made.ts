@@ -1,7 +1,12 @@
 import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { Clock } from "../../infrastructure/clock.js";
-import { newPauseId, PauseStatus, type PauseRecord } from "../../infrastructure/pause-record.js";
+import {
+  newPauseId,
+  PauseExpiryBound,
+  PauseStatus,
+  type PauseRecord,
+} from "../../infrastructure/pause-record.js";
 import type { PauseChannel, PauseQuestion } from "./pause.js";
 import { plainRecordOf } from "./records.js";
 
@@ -35,6 +40,25 @@ function branchKeysAt(frame: FrameSpec): readonly string[] {
   return [...launchers, branchKeyOf({ ...step, executionId: execution.executionId })];
 }
 
+/** The deadline fields of a pause asked `now` (#941, D9): the smaller of its own and its run's. */
+export function deadlineOf(
+  frame: FrameSpec,
+  expiresIn: number | undefined,
+  now: Date,
+): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
+  const run = frame.execution.deadline?.at;
+  const own =
+    expiresIn === undefined ? undefined : new Date(now.getTime() + expiresIn).toISOString();
+  if (own === undefined && run === undefined) return {};
+  // a tie goes to the run: its deadline has the final word (D8)
+  const isRun = run !== undefined && (own === undefined || run <= own);
+  return {
+    expiresAt: isRun ? run : own,
+    expiryBound: isRun ? PauseExpiryBound.RunDeadline : PauseExpiryBound.Pause,
+    ...(run === undefined ? {} : { boundAt: run }),
+  };
+}
+
 /** The record a step would make: a new id, `Pending`, not sent. */
 export function newRecordOf(
   frame: FrameSpec,
@@ -43,6 +67,7 @@ export function newRecordOf(
   clock: Clock,
 ): PauseRecord {
   const { execution, step } = frame;
+  const now = clock.now();
   return {
     pauseId: newPauseId(),
     tenantId: execution.tenant.tenantId,
@@ -68,6 +93,7 @@ export function newRecordOf(
     ask: question.ask,
     status: PauseStatus.Pending,
     isSent: false,
-    askedAt: clock.now().toISOString(),
+    askedAt: now.toISOString(),
+    ...deadlineOf(frame, question.expiresIn ?? channel.expiresIn, now),
   };
 }

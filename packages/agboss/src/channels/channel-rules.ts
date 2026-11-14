@@ -104,6 +104,28 @@ export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleVi
   );
 }
 
+/** The shortest deadline a pause may have (#941). */
+const MIN_EXPIRES_IN_MS = 1000;
+
+/** Whether `value` is a positive finite duration of at least `seconds(1)`. */
+export const isExpiresIn = (value: unknown): boolean =>
+  typeof value === "number" && Number.isFinite(value) && value >= MIN_EXPIRES_IN_MS;
+
+/** `[channel.expires-in-invalid]`: a role's `expiresIn` is a positive finite duration ≥ `seconds(1)`. */
+function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
+  return rolesOf(uses).flatMap(({ options }) => {
+    const { expiresIn } = options;
+    if (expiresIn === undefined || isExpiresIn(expiresIn)) return [];
+    return [
+      violation(
+        "channel.expires-in-invalid",
+        `channel role ${options.name}: expiresIn is ${String(expiresIn)} — a deadline is a positive finite duration of at least seconds(1), like hours(24)`,
+        [options.name],
+      ),
+    ];
+  });
+}
+
 /** The rules of one workflow's channels (its children included) over the providers it sees. */
 export function channelRuleViolations(
   uses: readonly ChannelUse[],
@@ -113,6 +135,7 @@ export function channelRuleViolations(
     ...wrongToolViolations(uses),
     ...implementationViolations(uses, modules),
     ...replyInterpreterViolations(uses),
+    ...expiresInViolations(uses),
   ];
 }
 

@@ -33,6 +33,14 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
   fx(root.GuardFailedError, { guard: "pii-guard", ...paid, reason: "its model did not answer" }),
   fx(root.ActionFailedError, { action: "charge-action" }),
   fx(root.QuestionFailedError, { question: "limit-question" }),
+  fx(root.PauseExpiredError, {
+    step: "limit-question",
+    stepKind: ComponentKind.Question,
+    channel: "limit-channel",
+    kind: root.PauseKind.Question,
+    expiresAt: "2026-01-05T09:00:00.000Z",
+    ...paid,
+  }),
   fx(root.ArbiterError, { arbiter: "score-arbiter", ...paid }),
   fx(root.QuorumNotReachedError, {
     launch: "root-1:fan-out:1",

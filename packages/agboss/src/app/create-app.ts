@@ -37,6 +37,7 @@ import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js"
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import { closeOrphanTreeOf, type CloseOrphanTree } from "./orphan-tree.js";
+import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
@@ -90,6 +91,8 @@ export interface BuiltApp extends TreeControl {
   readonly recover: RecoverRoot;
   /** Finishes the end of one of its trees an instance died in (the orphan look, #939). */
   readonly closeOrphan: CloseOrphanTree;
+  /** Expires the due pauses of one of its resting trees (the expiry look, #941). */
+  readonly expire: ExpireRoot;
 }
 
 /** One workflow of an application over already assembled parts (a profile applied). */
@@ -243,6 +246,7 @@ export async function buildApp(
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
     closeOrphan: closeOrphanTreeOf({ deps, trees, clock, leases }),
+    expire: expireRootOf({ deps, moves, current, policy }),
     ...byId,
   };
 }

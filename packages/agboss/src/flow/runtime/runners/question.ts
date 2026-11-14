@@ -12,10 +12,38 @@ import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
 import { ChannelSendError, pauseStep, type PauseStepSite } from "../pause.js";
 import { readInput } from "../scope.js";
+import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
+import { expiryFailureOf, PauseExpirySignal } from "../pause-expiry-failure.js";
+import { ComponentKind } from "../records.js";
+import type { ExecutionStateType } from "../state.js";
 
 /** The question's value: the field reads it as `{ producer, value }`, like every input field. */
 const questionOf = (field: unknown): unknown =>
   typeof field === "object" && field !== null && "value" in field ? field.value : field;
+
+/** How a question step fails: its channel's `send`, an invalid decision, an expired pause (#941). */
+async function failedAsking(
+  error: unknown,
+  node: RuntimeNode,
+  at: { readonly state: ExecutionStateType; readonly budgets: BudgetMeter },
+): Promise<never> {
+  const question = node.id;
+  if (error instanceof ChannelSendError)
+    throw new QuestionFailedError({ question, cause: error.cause });
+  if (error instanceof DtoValidationError)
+    throw new QuestionFailedError({ question, cause: error });
+  if (!(error instanceof PauseExpirySignal)) throw error;
+  // the run's deadline may have bound it: the budgets' counters read first, as at any visit
+  await at.budgets.refresh();
+  throw expiryFailureOf(error.pause, {
+    step: question,
+    stepKind: ComponentKind.Question,
+    state: at.state.usage,
+    usage: [],
+    path: [...at.state.path, question],
+    budgets: at.budgets,
+  });
+}
 
 /**
  * A question role's step (#659): it reads the role's `ask` from the path, asks the role's channel
@@ -28,7 +56,11 @@ const questionOf = (field: unknown): unknown =>
  * nothing (a hand-over). A `send` that throws, or a `decided(…)` answer that is not valid, fails
  * the step as `QuestionFailedError`.
  */
-export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
+export function questionRunner(
+  node: RuntimeNode,
+  deps: GraphDeps<string>,
+  budgets: BudgetMeter,
+): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Question) throw new TypeError(`${node.id} is not a question`);
   const { output: answer, role } = declaration.options;
@@ -57,15 +89,15 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
       notices: pause.notices,
     };
     frame.execution.lease?.assertHeld();
-    const asked = { kind: PauseKind.Question, step: node.id, ask };
-    const reply = await pauseStep(site, asked).catch((error: unknown) => {
-      const question = node.id;
-      if (error instanceof ChannelSendError)
-        throw new QuestionFailedError({ question, cause: error.cause });
-      if (error instanceof DtoValidationError)
-        throw new QuestionFailedError({ question, cause: error });
-      throw error;
-    });
+    const asked = {
+      kind: PauseKind.Question,
+      step: node.id,
+      ask,
+      ...(node.expiresIn === undefined ? {} : { expiresIn: node.expiresIn }),
+    };
+    const reply = await pauseStep(site, asked).catch((error: unknown) =>
+      failedAsking(error, node, { state, budgets }),
+    );
     await reportNodeEvent((base) =>
       deps.observer?.onChannelEnd({ ...base, name: role.name, update: reply.decision }),
     );

@@ -13,6 +13,9 @@ export const ORDER_FINISH = "fault-order-workflow-finish";
 /** The paused order (#959): an order too, its tree resting at a question before its charge. */
 export const PAUSE_START = "fault-pause-workflow-start";
 export const PAUSE_FINISH = "fault-pause-workflow-finish";
+/** The expiring order (#941): a paused order whose question nobody answers in time. */
+export const EXPIRING_START = "fault-expiring-workflow-start";
+export const EXPIRING_FINISH = "fault-expiring-workflow-finish";
 export const BATCH_START = "fault-batch-workflow-start";
 export const BATCH_FINISH = "fault-batch-workflow-finish";
 
@@ -46,7 +49,7 @@ const childOf = (child: ChildExecutionRecord): OrderExecution => ({
 /** Every order execution of the run's records. */
 export function orderExecutionsOf(run: FaultRun): readonly OrderExecution[] {
   return run.records.flatMap((record): OrderExecution[] => {
-    if (record.start.name === ORDER_START || record.start.name === PAUSE_START)
+    if ([ORDER_START, PAUSE_START, EXPIRING_START].includes(record.start.name))
       return [
         {
           orderId: orderIdOf(record.input),

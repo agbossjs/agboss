@@ -6,6 +6,7 @@ import {
   BATCH_FINISH,
   batchesOf,
   ORDER_FINISH,
+  EXPIRING_FINISH,
   PAUSE_FINISH,
   orderExecutionsOf,
   type OrderExecution,
@@ -149,7 +150,7 @@ function endViolations(
     isDeclined
       ? execution.status === "failed"
       : execution.status === "finished" &&
-        (execution.finish === ORDER_FINISH || execution.finish === PAUSE_FINISH),
+        [ORDER_FINISH, PAUSE_FINISH, EXPIRING_FINISH].includes(execution.finish ?? ""),
   );
   if (ended.length > 0) return [];
   const seen = executions

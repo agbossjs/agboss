@@ -1256,6 +1256,29 @@ the receiver deduplicates by it. A listener gets `pauseKey` (a correlation key),
 may answer every channel pause of the application. A receiver's failure never fails a run, a resume
 or a cancel; there is no redelivery API.
 
+**A deadline for the answer** (#941). `@ChannelRole({ expiresIn: hours(24) })` gives every pause of
+the role a deadline, fixed when the pause is made (a deploy that changes it never moves an open
+pause); `.toQuestion(Role, { expiresIn })` (also the side path `toQuestion(Role, { expiresIn })`)
+overrides it for a question step, `@Tool({ channel, expiresIn })` for a tool; at least `seconds(1)`
+(`[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`, `[question.expires-in-conflict]`).
+A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
+hard: an answer at or after it is refused with `PauseClosedError` (`reason: expired`, `closedAt` the
+deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
+takes the tree, asks the channel's optional `onPauseExpired(ask)` (`implements
+PauseExpiryHandler<Role>`) what the expiry means and records one decision: `PauseExpiration.fail()` —
+the step fails with `PauseExpiredError` (`step.pause-expired`, `.onError(PauseExpiredError, …)`
+escalates; inside an agent the whole agent step fails, its spend kept) — or
+`PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's and
+recorded as answered by the channel (`PauseResolution.DecidedOnExpiry`; an approval decided
+`approved: true` runs its tool with no person having looked). The handler runs under the tree's lease
+in the pause's frame under the tool's timeout, once per expiry — again only after a crash before its
+decision was recorded — so it must have no effects of its own; a throw, a timeout, a value that is no
+expiration or an invalid answer fails the expiry (`ExpiryHandlerError` as the cause, `pause.expiry-handler-failed`
+warned, never its message). A pause the run's deadline bound fails the run with
+`DeadlineExceededError` and asks nobody. A cancel always beats an expiry; `result.pending[].expiresAt`
+and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then `FAILED`
+(`step.pause-expired`) or `COMPLETED`.
+
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
 `onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.

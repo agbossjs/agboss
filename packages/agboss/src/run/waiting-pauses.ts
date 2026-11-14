@@ -82,6 +82,7 @@ export function waitingPauseOf(pause: PauseRecord): WaitingPause {
     channel: pause.channel,
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
     itemIndex: pause.itemIndex,
+    ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
   };
   return isApprovalPause(pause)
     ? { ...site, kind: PauseKind.Approval, ask: pause.ask }

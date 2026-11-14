@@ -86,6 +86,8 @@ export interface ToStep {
   readonly targetKind: NodeKind;
   /** `.toWorkflow(W, { placement })` (#333 PR 2): where the child runs; absent = its parent's instance. */
   readonly placement?: ChildPlacement;
+  /** `.toQuestion(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
+  readonly expiresIn?: Milliseconds;
 }
 
 /** One `caseOf(XDto, { about })…` of a `.switch(…)`. */

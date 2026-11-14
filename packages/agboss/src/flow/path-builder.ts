@@ -25,7 +25,8 @@ import {
   quorumGroupOf,
 } from "./quorum-step.js";
 import { returnedValue } from "./returns-step.js";
-import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
+import { placementOptionOf } from "./child-placement.js";
+import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
 
 /**
@@ -72,9 +73,13 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), step]);
   }
 
-  private to(target: Class, kind: NodeKind, placement?: ChildPlacement): PathBuilder<TSource> {
+  private to(
+    target: Class,
+    kind: NodeKind,
+    extra: Pick<ToStep, "placement" | "expiresIn"> = {},
+  ): PathBuilder<TSource> {
     const step: ToStep = { kind: StepKind.To, target, targetKind: kind };
-    return this.then(placement === undefined ? step : { ...step, placement });
+    return this.then({ ...step, ...extra });
   }
 
   returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
@@ -106,13 +111,14 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   /** `.toQuestion(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
-  toQuestion(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Question);
+  toQuestion(target: Class, options?: unknown): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toQuestion(Q, {…})"));
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */
   toWorkflow(target: Class, options?: unknown): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Workflow, placementOptionOf(options, "toWorkflow(W, {…})"));
+    const placement = placementOptionOf(options, "toWorkflow(W, {…})");
+    return this.to(target, NodeKind.Workflow, placement === undefined ? {} : { placement });
   }
 
   switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {

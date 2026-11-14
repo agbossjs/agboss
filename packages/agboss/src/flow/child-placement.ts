@@ -1,3 +1,4 @@
+import type { Milliseconds } from "../units/index.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
@@ -18,6 +19,19 @@ export enum ChildPlacement {
 export interface ChildStepOptions {
   /** Where the child runs; `ChildPlacement.ParentInstance` when absent. */
   readonly placement?: ChildPlacement;
+}
+
+/**
+ * The options of a question step (#941): `.toQuestion(Q, { expiresIn })` and the side path
+ * `toQuestion(Q, { expiresIn })`.
+ */
+export interface QuestionStepOptions {
+  /**
+   * How long this question waits for its answer, over its role's `expiresIn`; at least
+   * `seconds(1)`. A question node has one value: two edges to it with different values are
+   * `[question.expires-in-conflict]`.
+   */
+  readonly expiresIn?: Milliseconds;
 }
 
 const PLACEMENTS: ReadonlySet<unknown> = new Set(Object.values(ChildPlacement));

@@ -13,6 +13,7 @@ import {
 import { implementationsOf } from "../channels/channel-rules.js";
 import { channelUsesOf, type ChannelUse } from "../channels/discovery.js";
 import { dtoLabel } from "../flow/analyse/labels.js";
+import { durationLabel } from "../units/duration-label.js";
 
 /**
  * The channels of an application as `agboss describe` shows them (#267, #268 AC4): for each role a
@@ -45,6 +46,8 @@ export interface DescribedChannel {
   readonly answerer: PauseAnswerer;
   /** @deprecated 0.1.0's name of `answerer`, emitted until 0.2: use `answerer`. */
   readonly answeredBy: PauseAnswerer;
+  /** How long a pause of the role waits (#941), in ms; absent: no deadline of its own. */
+  readonly expiresIn?: number;
   /** The role's `@ReplyInterpreter`, by name. */
   readonly replyInterpreter?: string;
   /** The class that sends; absent for a role with none listed (assembly rejects it). */
@@ -86,6 +89,7 @@ function roleChannel(
     answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
     answerer: options.answerer,
     answeredBy: options.answerer,
+    ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }),
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined
       ? {}
@@ -137,6 +141,10 @@ const REASONS: Readonly<Record<ChannelImplementationReason, string>> = {
   [ChannelImplementationReason.NamedByTool]: "a @Channel named by the tool, used as is",
 };
 
+/** ` · expires in 24 h` (#941): the role's deadline for an answer; nothing without one. */
+const expiryOf = (channel: DescribedChannel): string =>
+  channel.expiresIn === undefined ? "" : ` · expires in ${durationLabel(channel.expiresIn)}`;
+
 /** `payout-approval-channel (PayoutApprovalChannel): PayoutRequestDto → … · implementation …`. */
 function channelLine(channel: DescribedChannel): string {
   const implementation =
@@ -151,7 +159,7 @@ function channelLine(channel: DescribedChannel): string {
       : ` · reply interpreter ${channel.replyInterpreter}`;
   return (
     `  ${channel.name} (${channel.className}): ${channel.question} → ${channel.answer}` +
-    ` · answered by ${ANSWERED_BY[channel.answerer]}${interpreter} · ${implementation}` +
+    ` · answered by ${ANSWERED_BY[channel.answerer]}${expiryOf(channel)}${interpreter} · ${implementation}` +
     usedByOf(channel)
   );
 }

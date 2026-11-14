@@ -29,6 +29,9 @@ const mocks = vi.hoisted(() => ({
   passEnded: vi.fn(),
   recoveryPassOf: vi.fn(),
   withTreeOrigin: vi.fn(),
+  duePausesOf: vi.fn(),
+  expirePauses: vi.fn(),
+  byIds: vi.fn(),
 }));
 
 vi.mock("../../src/app/cancel-requests.js", () => ({
@@ -76,6 +79,11 @@ vi.mock("../../src/app/tree-ends.js", () => ({
     rootExecutionId: state.runId,
   }),
 }));
+// what the expiry's pass reads and does: the due pauses and their expiry (`pause-expiry.ts`)
+vi.mock("../../src/app/pause-expiry.js", () => ({
+  duePausesOf: mocks.duePausesOf,
+  expirePauses: mocks.expirePauses,
+}));
 vi.mock("../../src/app/recovery-pass.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/app/recovery-pass.js")>()),
   recoveryPassOf: mocks.recoveryPassOf,
@@ -98,6 +106,8 @@ const resumeOf = (...pauseIds: string[]): TreeResume => ({
   pauseIds,
   taken: [],
   decisions: [],
+  reasons: [],
+  hasUnansweredExpiry: false,
   answeredBy: [],
 });
 
@@ -127,11 +137,14 @@ function partsOf(lease = leaseOf()) {
       config: { version: "2.0.0", name: "desk-workflow" },
       turns: {
         completeIfStatus: vi.fn(() => Promise.resolve(true)),
+        byIds: mocks.byIds,
         findByTenantIdAndRunId,
       },
       // the pause the refusal reads its reason from: closed `cancelled` by the tree's end
       pause: {
         pauses: {
+          // the drain looks for due pauses at a rest (#941): none here
+          findAllByTenantIdAndRootExecutionId: vi.fn(() => Promise.resolve([])),
           findByTenantIdAndPauseId: vi.fn(() =>
             Promise.resolve({
               status: "cancelled",
@@ -177,6 +190,9 @@ beforeEach(() => {
   mocks.forgetTree.mockResolvedValue(undefined);
   mocks.passEnded.mockResolvedValue(undefined);
   mocks.recoveryPassOf.mockResolvedValue({ pass: () => Promise.resolve() });
+  mocks.duePausesOf.mockResolvedValue([]);
+  mocks.expirePauses.mockResolvedValue(1);
+  mocks.byIds.mockResolvedValue([{ status: "paused" }]);
   mocks.withTreeOrigin.mockImplementation((_deps: unknown, state: unknown) =>
     Promise.resolve(state),
   );
@@ -394,6 +410,99 @@ describe("#633: the drain", () => {
 
     expect(mocks.treeResumeNow).not.toHaveBeenCalled();
     expect(mocks.forgetTree).toHaveBeenCalledOnce();
+    expect(lease.released()).toBe(1);
+  });
+});
+
+/** The paused run a resting root keeps. */
+const STORED = { run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } } };
+
+describe("#941: the expiry look's move (expired)", () => {
+  it("a root a resume of this instance moves is left alone: no take", async () => {
+    const { moves, leases } = partsOf();
+    leases.hold.mockImplementationOnce(() => new Promise(() => undefined));
+    void moves.resumed(answerOf("1.0.0"), call);
+    await vi.waitFor(() => {
+      expect(leases.hold).toHaveBeenCalledOnce();
+    });
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(leases.tryHold).not.toHaveBeenCalled();
+  });
+
+  it("a lease that is not free: skipped — its holder's drain, or a later look, does it", async () => {
+    const { moves, leases } = partsOf();
+    leases.tryHold.mockResolvedValueOnce(undefined as never);
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.endedAtTake).not.toHaveBeenCalled();
+    expect(mocks.duePausesOf).not.toHaveBeenCalled();
+  });
+
+  it("a cancel request (or an undo) at the take ends the tree: no expiry is asked — a cancel beats an expiry", async () => {
+    const { moves } = partsOf();
+    mocks.endedAtTake.mockResolvedValueOnce(new Error("cancelled at the take"));
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.duePausesOf).not.toHaveBeenCalled();
+    expect(mocks.byIds).not.toHaveBeenCalled();
+  });
+
+  it("a root whose record runs: released, nothing marked or asked (its drain expires the pause before it rests)", async () => {
+    const { moves, lease } = partsOf();
+    mocks.byIds.mockResolvedValueOnce([{ status: "running" }]);
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.duePausesOf).not.toHaveBeenCalled();
+    expect(lease.released()).toBe(1);
+  });
+
+  it("a root whose record ended: its tree's end is finished (#939's orphan path), the lease released", async () => {
+    const { moves, lease } = partsOf();
+    mocks.byIds.mockResolvedValueOnce([{ status: "failed", stopReason: "boom", threadId: "t" }]);
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.forgetTree).toHaveBeenCalledOnce();
+    expect(mocks.duePausesOf).not.toHaveBeenCalled();
+    expect(lease.released()).toBe(1);
+  });
+
+  it("a resting root with nothing due: released, no pass", async () => {
+    const { moves, lease, paused } = partsOf();
+    paused.find.mockResolvedValue(STORED as never);
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.duePausesOf).toHaveBeenCalledOnce();
+    expect(mocks.observedPass).not.toHaveBeenCalled();
+    expect(lease.released()).toBe(1);
+  });
+
+  it("a resting root with a due pause: the pass the expiry started runs under the held lease and releases it", async () => {
+    const { moves, lease, paused } = partsOf();
+    paused.find.mockResolvedValue(STORED as never);
+    mocks.duePausesOf.mockResolvedValueOnce([{ pauseId: "p-1" }]);
+    mocks.treeResumeNow.mockResolvedValueOnce({ values: {}, pauseIds: ["p-1"], taken: [] });
+
+    await moves.expired(INTERRUPTED, call);
+
+    expect(mocks.expirePauses).toHaveBeenCalledOnce();
+    expect(mocks.observedPass).toHaveBeenCalledOnce();
+    expect(lease.released()).toBe(1);
+  });
+
+  it("a failure while expiring gives the lease back and is the look's to report", async () => {
+    const { moves, lease, paused } = partsOf();
+    paused.find.mockResolvedValue(STORED as never);
+    mocks.duePausesOf.mockRejectedValueOnce(new Error("the store is down"));
+
+    await expect(moves.expired(INTERRUPTED, call)).rejects.toThrow("the store is down");
+
     expect(lease.released()).toBe(1);
   });
 });

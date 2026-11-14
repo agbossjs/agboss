@@ -2,7 +2,7 @@ import { ExecutionStatus } from "../../../app/types.js";
 import type { FaultCluster } from "../cluster.js";
 import type { PodEventFact } from "../facts.js";
 import type { FaultPod } from "../pod.js";
-import { FaultWorkflow } from "../pod-protocol.js";
+import { FaultWorkflow, type FaultOrder } from "../pod-protocol.js";
 import { FaultPauseStateSchema, type FaultPauseState } from "../pod-pause-state.js";
 import { expectThat } from "./kit.js";
 
@@ -24,8 +24,10 @@ export async function pausedOrderOn(
   cluster: FaultCluster,
   pod: FaultPod,
   orderId: string,
+  workflow: FaultWorkflow = FaultWorkflow.Pause,
+  order: Omit<FaultOrder, "orderId"> = {},
 ): Promise<PausedOrder> {
-  const tag = await cluster.start(pod, FaultWorkflow.Pause, [{ orderId }]);
+  const tag = await cluster.start(pod, workflow, [{ ...order, orderId }]);
   const reserved = await cluster.stepOf(orderId, "reserve");
   const rested = await cluster.next(
     `${orderId} resting at its pause`,
@@ -65,4 +67,24 @@ export async function pauseStateOn(
   rootExecutionId: string,
 ): Promise<FaultPauseState> {
   return FaultPauseStateSchema.parse(await pod.command({ op: "pause-state", rootExecutionId }));
+}
+
+/**
+ * Samples the tree on `pod` now (#941): its root's status beside its pauses', kept for the
+ * invariant `no-paused-root-with-closed-pause`; what it read is returned.
+ */
+export async function sampledTree(
+  cluster: FaultCluster,
+  pod: FaultPod,
+  rootExecutionId: string,
+  note: string,
+): Promise<FaultPauseState> {
+  const state = await pauseStateOn(pod, rootExecutionId);
+  cluster.samples.push({
+    rootExecutionId,
+    rootStatus: state.rootStatus,
+    pauseStatuses: state.pauses.map((pause) => pause.status),
+    note,
+  });
+  return state;
 }

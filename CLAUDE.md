@@ -2307,7 +2307,24 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   a crash before the ack delivers again, with the same `deliveryId` (`sha256(pauseKey:recipient:seq)`): at least once, never zero
   times; a failure retries at 1 s × 2^attempts (at most 5 min), logs `pause.notice-failed`, and past `retention.pauseRecords` sets the
   mailbox aside (`pause.notice-dead`); a mailbox nobody claims is set aside by the recovery sweep (`pause.notice-recipient-unknown`).
-  A `@PauseListener` gets `pauseKey`, never a channel pause's `pauseId` unless `allowAnswering`. `withdraw` is gone. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  A `@PauseListener` gets `pauseKey`, never a channel pause's `pauseId` unless `allowAnswering`. `withdraw` is gone.
+  **Pause deadlines (#941):** a pause's record carries `expiresAt` / `expiryBound` (`Pause` | `RunDeadline` | `Quorum`) / `boundAt`, fixed
+  when the record is made (`flow/runtime/pause-record-made.ts` `deadlineOf`: `min(askedAt + expiresIn, frame.execution.deadline.at)`, a
+  tie → `RunDeadline`; `expiresIn` of the step/tool over the role's: `PauseQuestion.expiresIn ?? PauseChannel.expiresIn`; a question
+  node's own value from its `.toQuestion` edges, `analyse/question-expiry.ts`). `app/resume.ts` refuses an answer at `expiresAt ≤ now`
+  before the interpreter and before the mark; the store's `resolve` condition (`expires_at > at`) is the final word (I2). The expiry look
+  (`application/pause-expiry-look.ts`, a look of the pause timers: `findPendingByExpiresAtBefore(now, 50)`, grouped by root, the root's
+  workflow by its record's `bundle`, `BuiltApp.expire` = `app/expire-root.ts`) calls `TreeMoves.expired`: `leases.tryHold(…, Expired)` →
+  `endedAtTake` (a cancel request ends the tree — a cancel beats an expiry) → the root's Turn (`running`: skipped, its drain expires the pause
+  before it rests; ended: `forgetTree`) → `expiredPassOf` (`app/tree-expiry.ts`): the pauses due now re-read, the root `paused → running` (#850's
+  order), each due pause expired by `expirePauses` (`app/pause-expiry.ts`: no handler for a `RunDeadline`/`Quorum` bound, else the channel's
+  `onPauseExpired` in the pause's frame under the tool's timeout — any problem is an `ExpiryProblem` kept on the record —, then
+  `expireByTenantIdAndPauseId`, the CAS, I1/I5; a cancel request found before the handler or the CAS drops the decision), then the pass
+  that takes them (`ResumeReason.Expired`, `TreeResume.reasons` / `hasUnansweredExpiry`, `announceResume`). The drain does the same at every
+  rest (`TreeMover.afterRest`): a pass never rests on a due pause (I6). `settledAnswer` throws `PauseExpirySignal` for `Cancelled / Expired`;
+  `questionRunner` and the agent's approval node turn it into `PauseExpiredError` (or, bound by the run, `DeadlineExceededError`:
+  `flow/runtime/pause-expiry-failure.ts`). Fault scenarios `s24*` (`faults/scenarios/s24-pause-expiry.ts`) and the invariants
+  `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept

@@ -3,13 +3,14 @@ import type { Class } from "../../components/injection.js";
 import { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
 import { waitOf } from "../../infrastructure/clock.js";
 import type { FaultBusinessRows } from "./fault-stores.js";
-import { FaultPauseWorkflowStart } from "./fixture/pause.workflow.js";
+import { FaultExpiringWorkflowStart, FaultPauseWorkflowStart } from "./fixture/pause.workflow.js";
 import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/order.workflow.js";
 import { sendToTest } from "./fixture/pod-link.js";
 import type { HeldStoreState } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
 import { pauseStateOf } from "./pod-pause-state.js";
 import { readStoreClock } from "./store-clock-probe.js";
+import type { StoreOutageMode } from "./store-outage.js";
 import { FaultPayment, FaultWorkflow, type FaultOrder, type PodCommand } from "./pod-protocol.js";
 import type { FaultFacts } from "./facts.js";
 
@@ -88,6 +89,25 @@ function told(tag: string, call: Promise<ExecutionOutput>, failed: string): void
   );
 }
 
+/** The fixture's start of a single-order workflow. */
+function startOf(workflow: FaultWorkflow): Class {
+  switch (workflow) {
+    case FaultWorkflow.Pause:
+      return FaultPauseWorkflowStart;
+    case FaultWorkflow.Expiring:
+      return FaultExpiringWorkflowStart;
+    default:
+      return FaultOrderWorkflowStart;
+  }
+}
+
+/** The expiring order has a thread of its own, so a test can cancel it (#941); the others take one. */
+const threadOf = (
+  workflow: FaultWorkflow,
+  orderId: string,
+): { readonly threadId: string } | undefined =>
+  workflow === FaultWorkflow.Expiring ? { threadId: `thread-${orderId}` } : undefined;
+
 /** Starts the tree in the background; its end or its failure is an event. */
 function started(
   app: App,
@@ -105,14 +125,12 @@ function started(
   const execute = app.execute.bind(app) as (
     start: Class,
     value: unknown,
+    options?: { readonly threadId: string },
   ) => Promise<ExecutionOutput>;
   const run =
     workflow === FaultWorkflow.Batch
       ? execute(FaultBatchWorkflowStart, input)
-      : execute(
-          workflow === FaultWorkflow.Pause ? FaultPauseWorkflowStart : FaultOrderWorkflowStart,
-          first,
-        );
+      : execute(startOf(workflow), first, threadOf(workflow, first.orderId));
   told(tag, run, "execute-failed");
   return tag;
 }
@@ -150,6 +168,43 @@ function readDone(app: App, command: PodCommand): Promise<unknown> | undefined {
   }
 }
 
+/** `app.cancel` of a thread in the background: its end is an event under the call's tag. */
+function cancelled(app: App, tag: string, threadId: string): void {
+  app.cancel(threadId).then(
+    (done) => {
+      sendToTest({ kind: "event", event: { type: "cancelled", tag, ...done } });
+    },
+    (error: unknown) => {
+      sendToTest({
+        kind: "event",
+        event: { type: "cancel-failed", tag, error: error instanceof Error ? error.name : "" },
+      });
+    },
+  );
+}
+
+/** Begins the store outage of `mode`, or ends it (`null`). */
+function outageSet(parts: PodParts, mode: StoreOutageMode | null): null {
+  if (mode === null) parts.heldStores.outage.end();
+  else parts.heldStores.outage.begin(mode);
+  return null;
+}
+
+/** A resume (#959) or a cancel (#941) of a pause or a thread, started in the background; its tag. */
+function calledInBackground(
+  app: App,
+  command: Extract<PodCommand, { readonly op: "resume" | "cancel" }>,
+): string {
+  if (command.op === "cancel") cancelled(app, command.tag, command.threadId);
+  else
+    told(
+      command.tag,
+      app.resume({ pauseId: command.pauseId, decision: { approved: true } }),
+      "resume-failed",
+    );
+  return command.tag;
+}
+
 /** Does `command` and gives what its reply carries. */
 export async function commandDone(parts: PodParts, command: PodCommand): Promise<unknown> {
   const held = holdDone(parts.points, command);
@@ -162,16 +217,10 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
     case "read":
       return factsOf(parts, command.rootExecutionIds);
     case "outage":
-      if (command.mode === null) parts.heldStores.outage.end();
-      else parts.heldStores.outage.begin(command.mode);
-      return null;
+      return outageSet(parts, command.mode);
     case "resume":
-      told(
-        command.tag,
-        parts.app.resume({ pauseId: command.pauseId, decision: { approved: true } }),
-        "resume-failed",
-      );
-      return command.tag;
+    case "cancel":
+      return calledInBackground(parts.app, command);
     case "close":
       await parts.app.close(
         command.timeout === undefined ? {} : { timeout: waitOf(command.timeout) },

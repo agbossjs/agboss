@@ -10,6 +10,8 @@ export interface ChannelSender {
   send(ask: ChannelSenderAsk): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
+  /** What the expiry of a pause it sent means (#941); absent: `PauseExpiration.fail()`. */
+  onPauseExpired?(ask: ChannelSenderAsk): unknown;
 }
 
 /** The ask as the framework builds it: the pause's id and the question. */

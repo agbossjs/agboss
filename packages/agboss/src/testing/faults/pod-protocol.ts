@@ -18,6 +18,8 @@ export enum FaultWorkflow {
   Batch = "batch",
   /** One order that rests at a question its thread owner answers (#959): `resume` continues it. */
   Pause = "pause",
+  /** The paused order whose question expires (#941): nobody answers in 30 s, the channel approves it. */
+  Expiring = "expiring",
 }
 
 /**
@@ -76,6 +78,8 @@ export interface FaultOrder {
    * resend) — its reservation undone once; another start of the order may still pay it.
    */
   readonly fails?: boolean;
+  /** The test cancels it (#941): it ends cancelled, never finished — no end is expected of it. */
+  readonly cancelled?: boolean;
   /** How its payment talks to the gateway (default `Lookup`). */
   readonly payment?: FaultPayment;
 }
@@ -104,6 +108,8 @@ export type PodCommand =
   | { readonly op: "outage"; readonly mode: StoreOutageMode | null }
   /** #959: answers the pause `pauseId` (approved) with `app.resume`, in the background; its end is an event. */
   | { readonly op: "resume"; readonly tag: string; readonly pauseId: string }
+  /** #941: `app.cancel` of the thread, in the background; its end is an event (`cancelled`). */
+  | { readonly op: "cancel"; readonly tag: string; readonly threadId: string }
   /** #939: the tree's pauses, its paused run and its answer log, as the pod's stores hold them. */
   | { readonly op: "pause-state"; readonly rootExecutionId: string }
   /** #959: how far the store's time moves while `wait` ms of real time pass. */

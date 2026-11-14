@@ -78,4 +78,10 @@ export interface TreeMoves {
    * holder, if any, ends it).
    */
   endIfEnding(interrupted: InterruptedRun): Promise<boolean>;
+  /**
+   * The expiry look's move (#941): the tree of `interrupted` rests paused with a pause whose deadline
+   * passed — under its lease (not free: skipped), the root marked `running`, the due pauses expired,
+   * the pass that takes them. Nothing to do when no pause is due or the tree is not resting.
+   */
+  expired(interrupted: InterruptedRun, call: TreeCall): Promise<void>;
 }

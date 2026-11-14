@@ -10,6 +10,8 @@ import { PausedExecutionRepository } from "../../infrastructure/paused-execution
  */
 export const FaultPauseStateSchema = z.object({
   pauses: z.array(z.object({ status: z.string(), resolution: z.string().nullable() })),
+  /** The root's record status (#941: never `paused` with a closed pause); `null` before its record. */
+  rootStatus: z.string().nullable(),
   /** Whether the thread still keeps a paused run of this tree. */
   hasPausedRun: z.boolean(),
   log: z.array(
@@ -36,7 +38,11 @@ export async function pauseStateOf(app: App, rootExecutionId: string): Promise<F
   const log = await app
     .resolve(ExecutionRecordRepository)
     .findPauseAnswersByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+  const root = await app
+    .resolve(ExecutionRecordRepository)
+    .findByTenantIdAndRunId(tenantId, rootExecutionId);
   return {
+    rootStatus: root?.status ?? null,
     pauses: records.map((pause) => ({
       status: pause.status,
       resolution: pause.resolution ?? null,

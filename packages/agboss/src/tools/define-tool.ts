@@ -59,6 +59,7 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly output: z.ZodType<TOutput>;
   readonly channel?: string;
   readonly timeout?: Milliseconds;
+  readonly expiresIn?: Milliseconds;
   readonly maxResultSize?: Bytes;
   readonly run: (input: TInput, ctx: ToolInvocationContext) => Promise<TOutput>;
 }
@@ -167,6 +168,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
     description: definition.description,
     ...(definition.channel === undefined ? {} : { channel: definition.channel }),
     timeout,
+    ...(definition.expiresIn === undefined ? {} : { expiresIn: definition.expiresIn }),
     ...(definition.maxResultSize === undefined ? {} : { maxResultSize: definition.maxResultSize }),
     input: definition.input,
     output: definition.output,

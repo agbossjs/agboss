@@ -47,6 +47,8 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly channel?: string;
   /** How long one call may run. */
   readonly timeout: Milliseconds;
+  /** The deadline of its approval pause (#941), over its channel role's; none → the role's. */
+  readonly expiresIn?: Milliseconds;
   /** The tool's own bound on its rendered result (#336); none → its workflow's `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   readonly input: z.ZodType<TInput>;

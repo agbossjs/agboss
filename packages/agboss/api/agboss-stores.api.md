@@ -1194,6 +1194,7 @@ export enum LeaseCheck {
 // @public
 export enum LeaseTakeoverReason {
     Cancelled = "cancelled",
+    Expired = "expired",
     Reclaimed = "reclaimed",
     Recovered = "recovered",
     RemoteChild = "remote-child",
@@ -1823,6 +1824,7 @@ export interface PendingPauseBase {
     readonly answerer: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
+    readonly expiresAt?: string;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
     readonly step: string;

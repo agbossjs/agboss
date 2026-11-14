@@ -53,6 +53,14 @@ export interface FaultRunOrder {
   readonly fails: boolean;
 }
 
+/** A tree as a scenario sampled it mid-run (#941): its root's status beside its pauses'. */
+export interface TreeSample {
+  readonly rootExecutionId: string;
+  readonly rootStatus: string | null;
+  readonly pauseStatuses: readonly string[];
+  readonly note: string;
+}
+
 /** Everything a scenario's invariants read. */
 export interface FaultRun extends FaultFacts {
   /** The orders the test started, by the order's id, and whether each must finish. */
@@ -61,6 +69,8 @@ export interface FaultRun extends FaultFacts {
   readonly payments: readonly GatewayPaymentFact[];
   readonly events: readonly PodEventFact[];
   readonly history: OperationHistory;
+  /** The trees the scenario sampled mid-run (#941). */
+  readonly samples?: readonly TreeSample[];
   /**
    * How much faster than real time the store's time ran (#533: the checker maps the history's times
    * by it) — 1 for a set on its database's clock, the pods' `timeScale` on the host's (#799).
