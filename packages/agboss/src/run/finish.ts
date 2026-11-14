@@ -1,3 +1,4 @@
+import { AGBossError } from "../core/errors.js";
 import { ExecutionStatus } from "../app/types.js";
 import { buildCostReport, totalCost } from "../finops/usage.js";
 import { finishLine } from "../flow/runtime/history.js";
@@ -79,6 +80,12 @@ export async function finishRun<TName extends string>(
   existingTurnId?: string,
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
+  // every graph ends at a finish node, which sets `finish`: a graph that stopped without one and
+  // is not waiting did not end (#1090) — never recorded as answered
+  if (!paused && state.finish === "")
+    throw new AGBossError(
+      `execution ${ctx.runId} stopped at no finish node and waits for nothing: its graph did not end — a framework bug; the run is failed, not recorded as answered`,
+    );
   const finishedLine = outcomeOf(state, usage, paused).replyWith;
   // #844: the strategies' memory update is the turn's spend too — made before the record says the
   // turn ended, so the record's cost is what the end event reports (a task read repair completes

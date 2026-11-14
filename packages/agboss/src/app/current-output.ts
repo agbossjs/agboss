@@ -18,6 +18,7 @@ import type { ThreadKey } from "./live-runs.js";
 import { runResultOf, withPauseAnswers } from "./result.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import { hasGraphEnded } from "../run/graph-end.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
 import type { TreeState } from "./tree-move-types.js";
 
@@ -68,7 +69,7 @@ export async function currentOutputOf(
   const snapshot = await readingGraphOf(deps).getState(runConfig(tree.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
-  if (snapshot.next.length > 0 || state.finish === undefined || state.finish === "") {
+  if (!hasGraphEnded(snapshot) || state.finish === undefined || state.finish === "") {
     throw new NotPausedError({ message: `Thread "${tree.threadId}" has no paused run` });
   }
   return withPauseAnswers(

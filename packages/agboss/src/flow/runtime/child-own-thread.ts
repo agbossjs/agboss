@@ -14,6 +14,8 @@ import {
   type WrittenCheckpoint,
 } from "./child-thread.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
+import { hasGraphEnded } from "../../run/graph-end.js";
+import { finishedTaskIdsOf } from "../../run/paused.js";
 
 /**
  * A child execution on its own thread (ADR-0022, #333 PR 1), awaited inside its parent's step
@@ -116,10 +118,13 @@ async function snapshotOf(run: OwnThreadRun, config: RunnableConfig, seen: Strea
       ? await atLeafCheckpoint(run.graph.checkpointer, config)
       : checkpointAt(config, seen.written);
   const snapshot = await run.graph.getState(at);
-  const interrupts = snapshot.tasks.flatMap((task) =>
-    task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
-  );
-  return { snapshot, rests: snapshot.next.length > 0, interrupts };
+  // a task that already saved its result waits for nothing: LangGraph lists its old interrupt until
+  // the superstep ends (#1090: a holder that took the answer lost the tree before its checkpoint)
+  const finished = await finishedTaskIdsOf(run.graph.checkpointer, run.thread);
+  const interrupts = snapshot.tasks
+    .filter((task) => !finished.has(task.id))
+    .flatMap((task) => task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])));
+  return { snapshot, rests: !hasGraphEnded(snapshot), interrupts };
 }
 
 /**

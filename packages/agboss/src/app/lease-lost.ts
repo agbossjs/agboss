@@ -19,7 +19,8 @@ export interface ExecutionLeaseLostErrorOptions {
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";
   /** This class's code, or its subclass `ExecutionFencedError`'s (#906: `switch (error.code)` narrows). */
-  declare readonly code: "execution.lease-lost" | "execution.lease-lost.fenced";
+  declare code:
+    "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
   override name = "ExecutionLeaseLostError";
   /**
    * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyInstance`
@@ -45,6 +46,22 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
   const error = new ExecutionLeaseLostError({ rootExecutionId });
   // #567: nothing says another instance exists — the next take may be this instance's own sweep
   error.message = `the lease of execution ${rootExecutionId} expired before its store confirmed a renewal — the holder was frozen, or its store did not answer, for longer than the lease: this instance stops, the next take of the lease continues the execution`;
+  return error;
+}
+
+/**
+ * The lease was lost before the run wrote its first checkpoint (#1090): nothing is stored, so the
+ * next take has nothing to continue — it ends the run's record as failed (`NothingToRecoverError`).
+ * The same class, fields and `cause` as `lost`; its `code` is `execution.lease-lost.not-started` and its message says that the run did not start.
+ */
+export function leaseLostBeforeStartError(lost: ExecutionLeaseLostError): ExecutionLeaseLostError {
+  const error = new ExecutionLeaseLostError({
+    rootExecutionId: lost.rootExecutionId,
+    cause: lost.cause,
+  });
+  // a code of its own (#906): a caller tells it from a lease lost in the middle of a run
+  error.code = "execution.lease-lost.not-started";
+  error.message = `the lease of execution ${lost.rootExecutionId} was lost before the run stored its first checkpoint: the run did not start, nothing is left for the next take to continue (its record ends failed) — start it again`;
   return error;
 }
 

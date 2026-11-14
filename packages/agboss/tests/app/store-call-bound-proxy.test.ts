@@ -13,7 +13,7 @@ import {
   ExecutionLeaseLostError,
   StoreCallTimeoutError,
   StoreOutcomeSource,
-  type StoreOutcomeUnknownError,
+  StoreOutcomeUnknownError,
 } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -143,6 +143,49 @@ describe("#928 AC1: what a late or a never answer does", () => {
     ledger.asked[1]?.(Promise.reject(new Error("too late too")));
     await settle();
 
+    expect(unhandled).toEqual([]);
+  });
+
+  it("#1090 follow-up: a rejection that arrives after the bound is not reported again: one log, one count", async () => {
+    const clock = new VirtualClock();
+    const { ledger, store, entries, counted } = boundOn(clock);
+    const call = rejectionOf(store.read());
+    await clock.advance(seconds(15));
+    expect(await call).toBeInstanceOf(StoreCallTimeoutError);
+    expect(entries.map((entry) => entry.code)).toEqual(["store.call-timeout"]);
+    expect(counted).toHaveLength(1);
+
+    // the store's own command timeout, arriving after the bound already ended the call
+    ledger.asked[0]?.(Promise.reject(commandTimeout));
+    await settle();
+
+    expect(entries.map((entry) => entry.code)).toEqual(["store.call-timeout"]);
+    expect(counted).toHaveLength(1);
+    expect(unhandled).toEqual([]);
+  });
+
+  it("#1090 follow-up: under a lease a rejection after the hand-over abandons nothing more and says nothing more", async () => {
+    const clock = new VirtualClock();
+    const { ledger, store, entries, counted } = boundOn(clock);
+    const lease = fakeLease(seconds(20));
+    const call = rejectionOf(leaseScope(lease, () => store.read()));
+    await clock.advance(seconds(20));
+    expect(await call).toBeInstanceOf(ExecutionLeaseLostError);
+    expect(lease.abandoned).toHaveLength(1);
+    const logged = entries.map((entry) => entry.code);
+    const timedOut = counted.length;
+
+    // the answer that comes late: the transport's unknown outcome, after the hand-over
+    const late = new StoreOutcomeUnknownError({
+      ...{ store: "Ledger", operation: "read", source: StoreOutcomeSource.Transport },
+      cause: new Error("connection reset"),
+    });
+    ledger.asked[0]?.(Promise.reject(late));
+    await settle();
+
+    expect(lease.abandoned).toHaveLength(1);
+    expect(entries.map((entry) => entry.code)).toEqual(logged);
+    expect(counted).toHaveLength(timedOut);
     expect(unhandled).toEqual([]);
   });
 
