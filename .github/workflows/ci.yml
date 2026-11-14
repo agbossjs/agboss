@@ -10,11 +10,15 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  # #1020: `check` took 30–42 min as one job, against a 45 min timeout. It is now the aggregator of
+  # the jobs below, which run side by side: the static gates, the core suite in shards (merged
+  # below), and the other packages. `check` is the one required check (the ruleset names it).
+  #
+  # Same gates as `npm run check` (locally one command), split: `check:static` + `coverage` +
+  # `check:models`. The merged coverage keeps every threshold of packages/agboss/vitest.config.ts.
+  static:
     runs-on: ubuntu-24.04
-    # a backstop (#509): make check takes ~17 min, up to ~30 on a slow runner; a hang fails here,
-    # never after GitHub's 6 h
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -22,7 +26,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: make check
+      - run: npm run check:static
       # the GitHub Wiki is docs too (#240): its ts blocks compile, its commands and links exist.
       # It is checked as it goes with this code (#341): a PR's own Wiki branch `docs/wiki/<head
       # branch>` when it exists, else `docs/wiki-pending` (what sync-wiki.yml publishes), else the
@@ -50,6 +54,72 @@ jobs:
           path: wiki
       - name: Check the Wiki (${{ steps.wiki.outputs.ref || 'published' }})
         run: node scripts/check-docs.mjs --wiki wiki
+
+  # The core suite: vitest's two projects in shards, one runner each (`faults` runs one file at a
+  # time inside its shard, as its `singleFork` demands). A shard writes its results and coverage
+  # into a blob; the `coverage` job merges them and holds the thresholds. 6 + 3 shards: `unit` was
+  # ~13 min and `faults` ~12 min of one runner each, after each other.
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: unit, shard: 1, of: 6 }
+          - { project: unit, shard: 2, of: 6 }
+          - { project: unit, shard: 3, of: 6 }
+          - { project: unit, shard: 4, of: 6 }
+          - { project: unit, shard: 5, of: 6 }
+          - { project: unit, shard: 6, of: 6 }
+          - { project: faults, shard: 1, of: 3 }
+          - { project: faults, shard: 2, of: 3 }
+          - { project: faults, shard: 3, of: 3 }
+    name: tests (${{ matrix.project }} ${{ matrix.shard }}/${{ matrix.of }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # the tests import the built `dist/`
+      - run: npm run build
+      # the example's generated types: a test lints the example's workflow modules with types
+      - run: npm run types -w flow-patterns-example
+      - name: Run the shard
+        run: >-
+          npm run coverage:shard -w @agboss/core --
+          --project ${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.of }}
+          --outputFile.blob=.vitest-reports/blob-${{ matrix.project }}-${{ matrix.shard }}-${{ matrix.of }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-${{ matrix.project }}-${{ matrix.shard }}-${{ matrix.of }}
+          path: packages/agboss/.vitest-reports/
+          if-no-files-found: error
+          retention-days: 1
+
+  # The merged core run: every shard's blob, held against the thresholds of vitest.config.ts and
+  # against test-run.json (#630: every file of every project ran at least one test).
+  coverage:
+    needs: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blob-*
+          path: packages/agboss/.vitest-reports
+          merge-multiple: true
+      - name: Merge the shards and check the coverage thresholds
+        run: npm run coverage:merge -w @agboss/core
       - name: Generate coverage badge JSON
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/coverage-badge.cjs packages/agboss/coverage/coverage-summary.json > coverage.json
@@ -60,6 +130,39 @@ jobs:
           name: coverage-badge
           path: coverage.json
           retention-days: 1
+
+  # The other packages' suites (own thresholds, unchanged) and the example's model check.
+  packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run coverage -w @agboss/cli -w flow-patterns-example
+      - run: npm run check:models
+
+  # The one required check. Red unless every job above passed: a skipped or cancelled job is not
+  # a pass here (GitHub counts a skipped required job as one, hence `always()` and the test).
+  check:
+    needs: [static, tests, coverage, packages]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'length == 4 and all(.[]; .result == "success")' > /dev/null || {
+            echo "check: a job did not pass" >&2
+            exit 1
+          }
 
   # #497: the packed @agboss/core / @agboss/cli in a project of their own (an external dependency,
   # never the workspace link): `workflowOf`, `testWith`, `agboss describe` / `check` pass there, and

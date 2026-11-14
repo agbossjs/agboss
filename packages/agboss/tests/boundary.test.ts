@@ -69,7 +69,7 @@ describe("framework and examples apart (#91)", () => {
     expect(scripts.studio).toBe("npm run build && npm run studio -w flow-patterns-example");
     expect(scripts["check:models"]).toBe("npm run check:models -w flow-patterns-example");
     expect(flowPatterns.scripts["check:models"]).toBe("agboss check --models --env test");
-    expect(scripts.check).toContain("npm run check -w flow-patterns-example");
+    expect(scripts["check:static"]).toContain("npm run check -w flow-patterns-example");
     expect(scripts.check).toMatch(/&& npm run check:models$/);
   });
 

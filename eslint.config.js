@@ -42,6 +42,7 @@ export default tseslint.config(
     ignores: [
       "**/dist",
       "**/coverage",
+      "**/.vitest-reports",
       "**/node_modules",
       ".artifacts",
       "packages/*/bin",

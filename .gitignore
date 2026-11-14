@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.vitest-reports/
 .env
 .artifacts/
 .DS_Store
