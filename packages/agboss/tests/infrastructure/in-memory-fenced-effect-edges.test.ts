@@ -244,34 +244,56 @@ describe("#533: the base class's entry checks", () => {
 });
 
 describe("#909: a tree's cancel mark in memory", () => {
-  it("is stamped at the first request and kept when asked again: the sweep removes it by that time", async () => {
-    const { clock, leases, effects } = storesOn();
-    const key = keyOf(await held(leases));
-    const tree = { tenantId: "default", rootExecutionId: "execution-1" };
+  const tree = { tenantId: "default", rootExecutionId: "execution-1" };
+  const sweptAt = (clock: VirtualClock, ago: number) => new Date(clock.now().getTime() - ago);
+
+  it("is stamped at the first request and kept when asked again: the sweep removes it by that time once its tree retired", async () => {
+    const { clock, database, leases, effects } = storesOn();
+    const lease = await held(leases);
     await leases.requestCancel(tree);
     await clock.advance(seconds(60));
     await leases.requestCancel(tree);
+    await leases.retire(lease);
 
-    await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
-      ExecutionCancelFencedError,
-    );
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+    await effects.deleteByStoredAtBefore(sweptAt(clock, seconds(30)));
 
-    const outcome = await effects.runOnce(key, () => ({ receipt: "r" }));
-    expect(outcome.status).toBe(FencedEffectStatus.Ran);
+    expect(database.cancelRequests.size).toBe(0);
   });
 
-  it("a mark newer than the cutoff stays", async () => {
-    const { clock, leases, effects } = storesOn();
-    const key = keyOf(await held(leases));
+  it("a mark newer than the cutoff stays, retired tree or not", async () => {
+    const { clock, database, leases, effects } = storesOn();
+    const lease = await held(leases);
     await clock.advance(seconds(60));
-    await leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+    await leases.requestCancel(tree);
+    await leases.retire(lease);
 
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+    await effects.deleteByStoredAtBefore(sweptAt(clock, seconds(30)));
 
+    expect(database.cancelRequests.size).toBe(1);
+  });
+
+  it("a tree that has not retired keeps its mark at any cutoff: its write is still refused", async () => {
+    const { clock, database, leases, effects } = storesOn();
+    const key = keyOf(await held(leases));
+    await leases.requestCancel(tree);
+    await clock.advance(seconds(60));
+
+    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
+
+    expect(database.cancelRequests.size).toBe(1);
     await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
       ExecutionCancelFencedError,
     );
+  });
+
+  it("a mark of a tree with no lease row yet stays too (a cancel before the first acquire)", async () => {
+    const { clock, database, leases, effects } = storesOn();
+    await leases.requestCancel(tree);
+    await clock.advance(seconds(60));
+
+    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
+
+    expect(database.cancelRequests.size).toBe(1);
   });
 });
 

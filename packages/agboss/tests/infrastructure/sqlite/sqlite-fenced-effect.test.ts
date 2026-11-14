@@ -106,36 +106,44 @@ describe("#500: SqliteFencedEffectRepository", () => {
     expect(marks.map((row) => row.scope_key)).toEqual(["default:execution-2"]);
   });
 
-  it("the sweep's deletion removes a tree's cancel mark stored before the cutoff, and keeps a later one (#909)", async () => {
-    const stores = storesOn();
-    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
-    await stores.clock.advance(seconds(60));
-    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
+  it.each([
+    [
+      "the fenced effects' sweep",
+      (stores: ReturnType<typeof storesOn>, before: Date) =>
+        stores.effects.deleteByStoredAtBefore(before),
+    ],
+    [
+      "the outbound calls' sweep",
+      (stores: ReturnType<typeof storesOn>, before: Date) =>
+        new SqliteOutboundCallRepository(
+          stores.connection,
+          storeClockOf(stores.clock),
+        ).deleteByEndedAtBefore(before),
+    ],
+  ])(
+    "%s removes the cancel mark of a tree that retired before the cutoff, and keeps a later one and a tree not over (#909)",
+    async (_, sweep) => {
+      const stores = storesOn();
+      const retired = await held(stores.leases, "execution-1");
+      await held(stores.leases, "execution-3");
+      await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+      await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-3" });
+      await stores.leases.retire(retired);
+      await stores.clock.advance(seconds(60));
+      const later = await held(stores.leases, "execution-2");
+      await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
+      await stores.leases.retire(later);
 
-    await stores.effects.deleteByStoredAtBefore(
-      new Date(stores.clock.now().getTime() - seconds(30)),
-    );
+      await sweep(stores, new Date(stores.clock.now().getTime() - seconds(30)));
 
-    const marks = stores.connection.database
-      .prepare("SELECT root_execution_id FROM execution_cancel_requests")
-      .all();
-    expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2"]);
-  });
-
-  it("the outbound calls' sweep removes a tree's cancel mark stored before the cutoff, and keeps a later one (#909)", async () => {
-    const stores = storesOn();
-    const calls = new SqliteOutboundCallRepository(stores.connection, storeClockOf(stores.clock));
-    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
-    await stores.clock.advance(seconds(60));
-    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
-
-    await calls.deleteByEndedAtBefore(new Date(stores.clock.now().getTime() - seconds(30)));
-
-    const marks = stores.connection.database
-      .prepare("SELECT root_execution_id FROM execution_cancel_requests")
-      .all();
-    expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2"]);
-  });
+      const marks = stores.connection.database
+        .prepare(
+          "SELECT root_execution_id FROM execution_cancel_requests ORDER BY root_execution_id",
+        )
+        .all();
+      expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2", "execution-3"]);
+    },
+  );
 
   it("creates the leases' table it reads: alone on a file it refuses, nothing to read yet", async () => {
     const connection = connectionTo(temporarySqlitePath());

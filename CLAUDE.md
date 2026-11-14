@@ -2311,7 +2311,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept
-  until the fencing stores' retention prunes it — and `app.cancel` resolves only once it is durable (it rejects with the store's
+  until its tree is over (its lease retired) and the fencing stores' retention lifts it — never by age alone: a tree not over stays fenced — and `app.cancel` resolves only once it is durable (it rejects with the store's
   error, nothing aborted, when it cannot be written); from then on every fencing store refuses, in the transaction that checks the
   lease, a new fenced effect (`runOnce`), a new intent (`saveIfAbsent`) and a new attempt (`markPending`) of the tree with
   `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`, nothing written or sent) — after the
