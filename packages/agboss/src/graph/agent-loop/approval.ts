@@ -9,7 +9,7 @@ import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
-import type { PauseWithdrawn } from "../../pause/index.js";
+import type { PauseNotices } from "../../pause/index.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -66,8 +66,8 @@ export interface ApprovalChannels {
   readonly pauses?: PausedExecutionRepository;
   /** Where a pause its channel decided at once is logged (with `pauses`). */
   readonly answers?: PauseAnswerLog;
-  /** Tells a channel its pause closed while `send` was returning (#337). */
-  readonly withdrawn?: PauseWithdrawn | undefined;
+  /** Who hears of a pause's change (#940). */
+  readonly notices?: PauseNotices | undefined;
   readonly observer?: ExecutionObserverManager;
   /** The application's clock: when each pause was asked and decided (default: the system's). */
   readonly clock?: Clock;
@@ -150,7 +150,7 @@ async function seamAnswer(
             clock: channels.clock ?? systemClock,
             validate: ask.validate,
             onSend,
-            withdrawn: channels.withdrawn,
+            notices: channels.notices,
           },
           question,
         );

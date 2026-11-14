@@ -25,7 +25,8 @@ import {
 import { testFrame } from "../helpers/frame.js";
 import { closeTreePauses } from "../../src/app/tree-end-pauses.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import type { WithdrawnPause } from "../../src/pause/index.js";
+import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
+import { seconds } from "../../src/units/index.js";
 
 const question = {
   kind: PauseKind.Approval,
@@ -193,34 +194,37 @@ describe("#267 S35: the pause step", () => {
   });
 });
 
-describe("#337: a channel told about its withdrawn pause", () => {
-  it("not for a pause its channel decided at once: the tree's end withdraws nothing", async () => {
+/** Who hears of a pause in these tests: its channel and one listener. */
+const RECIPIENTS = { channel: "refund-approval-channel", listeners: ["audit-pause-listener"] };
+
+describe("#940: the pause's notices are written by its changes", () => {
+  it("AC2: not for a pause its channel decided at once: the tree's end writes no notice", async () => {
     const pauses = new InMemoryPausedExecutionRepository();
     const { channel } = channelOf(() =>
       Promise.resolve(ChannelOutcome.decided({ approved: true })),
     );
-    const told: unknown[] = [];
-    const withdrawn = (withdrawal: unknown): Promise<void> => {
-      told.push(withdrawal);
-      return Promise.resolve();
-    };
-    await pauseStep({ ...siteOf(pauses, channel), withdrawn }, question);
+    const written: string[] = [];
+    const notices = { recipientsOf: () => RECIPIENTS, delivered: () => written.push("looked") };
+    await pauseStep({ ...siteOf(pauses, channel), notices }, question);
     const { execution } = testFrame();
     const site = {
       tenantId: execution.tenant.tenantId,
       threadId: execution.threadId,
       rootExecutionId: execution.executionId,
     };
-    const ends = {
-      stores: { pauses, answers, withdrawn },
-    };
 
-    await closeTreePauses(ends, site, { cause: new ExecutionCancelledError() }, clock.now());
+    await closeTreePauses(
+      { stores: { pauses, answers, notices } },
+      site,
+      { cause: new ExecutionCancelledError() },
+      clock.now(),
+    );
 
-    expect(told).toEqual([]);
+    expect(await pauses.countNotices()).toEqual({ live: 0, dead: 0 });
+    expect(written).toEqual([]);
   });
 
-  it("a pause withdrawn while send was returning: the step tells the channel, in its frame", async () => {
+  it("AC2: a pause withdrawn while send was returning: markSent writes opened and closed, and the instance looks at once", async () => {
     const pauses = new InMemoryPausedExecutionRepository();
     const frame = testFrame();
     const { channel } = channelOf(async () => {
@@ -237,19 +241,27 @@ describe("#337: a channel told about its withdrawn pause", () => {
       );
       return ChannelOutcome.awaitReply();
     });
-    const told: WithdrawnPause[] = [];
-    const withdrawn = (withdrawal: WithdrawnPause): Promise<void> => {
-      told.push(withdrawal);
-      return Promise.resolve();
-    };
+    const looks: string[] = [];
+    const notices = { recipientsOf: () => RECIPIENTS, delivered: () => looks.push("looked") };
 
     await expect(
-      pauseStep({ ...siteOf(pauses, channel), frame, withdrawn }, question),
+      pauseStep({ ...siteOf(pauses, channel), frame, notices }, question),
     ).rejects.toBeInstanceOf(PauseWithdrawnError);
 
-    expect(told).toMatchObject([
-      { resolution: PauseResolution.Withdrawn, frame, pause: { status: PauseStatus.Cancelled } },
-    ]);
+    expect(looks).toEqual(["looked"]);
+    const claims = await pauses.claimNoticesDue(
+      new Date(clock.now().getTime() + 1),
+      10,
+      seconds(60),
+      ["channel:refund-approval-channel", "listener:audit-pause-listener"],
+    );
+    const kinds = Object.fromEntries(
+      claims.map(({ mailbox }) => [mailbox.recipient, mailbox.notices.map((one) => one.kind)]),
+    );
+    expect(kinds).toEqual({
+      "channel:refund-approval-channel": [PauseNoticeKind.Closed],
+      "listener:audit-pause-listener": [PauseNoticeKind.Opened, PauseNoticeKind.Closed],
+    });
   });
 
   it("#939: an aborted pass does not take the answer: the pause stays Resolved; a live pass takes it, Taken", async () => {

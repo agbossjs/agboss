@@ -380,7 +380,8 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
   decorators say (no `maxSpend()`), then the assembly warnings (`[application.in-memory-cost-ledger]`,
   `[application.in-memory-pauses]`, `[application.pii-instance-key]`; also in `app.warnings`).
 - **While running, only problems**: `LogLevel.Warn` — `execution.recovered`, `recovery.incompatible`,
-  `observer.failed`, `compensation.step-still-running`, `channel.withdraw-failed`; `LogLevel.Error` —
+  `observer.failed`, `compensation.step-still-running`, `pause.notice-failed`,
+  `pause.notice-recipient-unknown`; `LogLevel.Error` — `pause.notice-dead`, `pause-timers.failed`,
   `recovery.failed`, `app.close-failed`, `compensation.late-undo-failed`. One execution's details are
   its trace, a tenant's spend the cost ledger.
 

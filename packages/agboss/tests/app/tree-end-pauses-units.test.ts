@@ -37,9 +37,7 @@ function storesOf() {
     new VirtualClock(),
     new RandomIdGenerator(),
   );
-  const ends: TreePauseEnds = {
-    stores: { pauses, answers, withdrawn: undefined },
-  };
+  const ends: TreePauseEnds = { stores: { pauses, answers } };
   return { pauses, answers, ends };
 }
 
@@ -110,7 +108,9 @@ describe("#939: closeTreePauses", () => {
         RECIPIENTS,
       );
 
-      await closeTreePauses({ ...ends, recipients: () => RECIPIENTS }, SITE, { cause }, AT);
+      const notices = { recipientsOf: () => RECIPIENTS, delivered: () => undefined };
+      const stores = { ...ends.stores, notices };
+      await closeTreePauses({ stores }, SITE, { cause }, AT);
 
       const claims = await pauses.claimNoticesDue(
         new Date(AT.getTime() + 1),

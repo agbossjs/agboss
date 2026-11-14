@@ -11,13 +11,20 @@ import {
   Injectable,
   listOf,
   PauseAnswerer,
+  PauseListener,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  type ChannelWithdrawal,
-  type PauseCancellation,
+  type ChannelPauseAnswerNotTakenEvent,
+  type ChannelPauseClosedEvent,
+  type PauseClosedReason,
+  type PauseListenerAnswerNotTakenEvent,
+  type PauseListenerClosedEvent,
+  type PauseListenerEventBase,
+  type PauseListenerHandler,
+  type PauseListenerOpenedEvent,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
   type OnExecutionPause,
@@ -26,6 +33,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
+import { minutes } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -45,13 +53,35 @@ export interface SentAsk {
   readonly orderId: string;
 }
 
-/** A question a channel took back (#337): the ask, why, and the frame it ran in. */
-export interface SeenWithdrawal extends SentAsk {
+/** A close a channel was told (#940): the ask, why, who answered, and the frame it ran in. */
+export interface SeenClosed extends SentAsk {
   readonly channel: string;
-  readonly resolution: PauseCancellation;
+  readonly reason: PauseClosedReason;
+  readonly deliveryId: string;
+  readonly closedAt: string;
+  readonly answeredBy?: string | undefined;
+  readonly answer?: unknown;
   readonly executionId: string;
   readonly tenantId: string;
   readonly agent: string;
+}
+
+/** An answer a channel was told was never applied (#940). */
+export interface SeenNotTaken extends SentAsk {
+  readonly channel: string;
+  readonly reason: PauseClosedReason;
+  readonly deliveryId: string;
+  readonly answer: unknown;
+}
+
+/** A notice a listener heard (#940): which, what it carried and where its hook ran. */
+export interface Heard {
+  readonly listener: string;
+  readonly type: "opened" | "closed" | "answer-not-taken";
+  readonly event: PauseListenerEventBase &
+    Partial<Pick<PauseListenerClosedEvent, "reason" | "answeredBy" | "answer" | "closedAt">>;
+  readonly executionId: string;
+  readonly tenantId: string;
 }
 
 /** The order an ask's question is about (its tool call's arguments). */
@@ -62,12 +92,16 @@ export const seen = {
   /** Every ask the refund desk was sent, in order (across the instances of a test). */
   asks: [] as SentAsk[],
   confirmations: [] as SentAsk[],
-  /** Every question a channel took back (#337), in order. */
-  withdrawals: [] as SeenWithdrawal[],
+  /** Every close a channel was told (#940), in order, redeliveries included. */
+  closed: [] as SeenClosed[],
+  /** Every answer a channel was told was never applied (#940). */
+  notTaken: [] as SeenNotTaken[],
   refunds: [] as string[],
   confirmed: [] as string[],
   pauses: [] as ExecutionPauseEvent[],
   resumes: [] as ExecutionResumeEvent[],
+  /** Every notice a listener heard (#940), in order, redeliveries included. */
+  heard: [] as Heard[],
   /** The application's pause store (one for every instance of a test). */
   repositories: [] as InMemoryPausedExecutionRepository[],
 };
@@ -77,41 +111,77 @@ export const hooks: {
   beforeSendReturns?: (ask: SentAsk) => Promise<void>;
   /** The orders the desk refuses before it asks anyone (its `send` throws the error). */
   refusals?: ReadonlyMap<string, Error>;
-  /** What every channel's `withdraw` throws after it recorded the withdrawal (#337). */
-  withdrawFailure?: Error;
-  /** What every channel's `withdraw` waits for after it recorded the withdrawal (#337). */
-  withdrawWait?: () => Promise<void>;
+  /** How many calls of every listener's hooks fail before one succeeds (#940). */
+  listenerFailures?: number;
+  /** What every channel's `onPauseClosed` throws after it recorded the close (#940). */
+  closeFailure?: Error;
+  /** What every channel's `onPauseClosed` waits for after it recorded the close (#940). */
+  closeWait?: () => Promise<void>;
 } = {};
 
 export function resetPauses(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.beforeSendReturns;
   delete hooks.refusals;
-  delete hooks.withdrawFailure;
-  delete hooks.withdrawWait;
+  delete hooks.listenerFailures;
+  delete hooks.closeFailure;
+  delete hooks.closeWait;
 }
 
-/** Records a withdrawal as the channel sees it — in the pause's frame — then throws, if asked. */
-async function recordWithdrawal(
+/** What the fixture reads of a close, whatever the role types it. */
+interface ClosedLike {
+  readonly pauseId: string;
+  readonly value: unknown;
+  readonly reason: PauseClosedReason;
+  readonly deliveryId: string;
+  readonly closedAt: string;
+  readonly answeredBy?: string | undefined;
+  readonly answer?: unknown;
+}
+
+/** What the fixture reads of an answer never applied. */
+interface NotTakenLike {
+  readonly pauseId: string;
+  readonly value: unknown;
+  readonly reason: PauseClosedReason;
+  readonly deliveryId: string;
+  readonly answer: unknown;
+}
+
+/** Records a close as the channel sees it — in the pause's frame — then waits or throws, if asked. */
+async function recordClose(
   channel: string,
   executionContext: ExecutionContext,
-  withdrawal: {
-    readonly pauseId: string;
-    readonly value: unknown;
-    readonly resolution: PauseCancellation;
-  },
+  event: ClosedLike,
 ): Promise<void> {
-  seen.withdrawals.push({
+  seen.closed.push({
     channel,
-    pauseId: withdrawal.pauseId,
-    orderId: orderIdIn(withdrawal.value),
-    resolution: withdrawal.resolution,
+    pauseId: event.pauseId,
+    orderId: orderIdIn(event.value),
+    reason: event.reason,
+    deliveryId: event.deliveryId,
+    closedAt: event.closedAt,
+    answeredBy: event.answeredBy,
+    answer: event.answer,
     executionId: executionContext.executionId,
     tenantId: executionContext.tenant.tenantId,
     agent: executionContext.step.component.name,
   });
-  await hooks.withdrawWait?.();
-  if (hooks.withdrawFailure !== undefined) throw hooks.withdrawFailure;
+  await hooks.closeWait?.();
+  if (hooks.closeFailure !== undefined) throw hooks.closeFailure;
+}
+
+/** Records an answer never applied, as the channel sees it. */
+function recordNotTaken(channel: string, event: NotTakenLike): Promise<void> {
+  seen.notTaken.push({
+    channel,
+    pauseId: event.pauseId,
+    orderId: orderIdIn(event.value),
+    reason: event.reason,
+    deliveryId: event.deliveryId,
+    answer: event.answer,
+  });
+  return Promise.resolve();
 }
 
 export class RefundRequestDto {
@@ -168,8 +238,14 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
     return ChannelOutcome.awaitReply();
   }
 
-  override withdraw(withdrawal: ChannelWithdrawal<RefundApprovalChannel>): Promise<void> {
-    return recordWithdrawal("finance-desk", this.executionContext, withdrawal);
+  override onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
+    return recordClose("finance-desk", this.executionContext, event);
+  }
+
+  override onPauseAnswerNotTaken(
+    event: ChannelPauseAnswerNotTakenEvent<RefundApprovalChannel>,
+  ): Promise<void> {
+    return recordNotTaken("finance-desk", event);
   }
 }
 
@@ -184,8 +260,8 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
     super();
   }
 
-  override withdraw(withdrawal: ChannelWithdrawal<OrderConfirmationChannel>): Promise<void> {
-    return recordWithdrawal("customer", this.executionContext, withdrawal);
+  override onPauseClosed(event: ChannelPauseClosedEvent<OrderConfirmationChannel>): Promise<void> {
+    return recordClose("customer", this.executionContext, event);
   }
 
   send(
@@ -236,6 +312,63 @@ export class AutoRefundTool implements ToolHandler<RefundRequestDto, RefundDoneD
   run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     seen.refunds.push(orderId);
     return Promise.resolve({ orderId });
+  }
+}
+
+/** What a listener records of a notice: it hears opened, closed and never-applied answers. */
+function hear(
+  listener: string,
+  executionContext: ExecutionContext,
+  type: Heard["type"],
+  event: Heard["event"],
+): Promise<void> {
+  seen.heard.push({
+    listener,
+    type,
+    event,
+    executionId: executionContext.executionId,
+    tenantId: executionContext.tenant.tenantId,
+  });
+  if (hooks.listenerFailures !== undefined && hooks.listenerFailures > 0) {
+    hooks.listenerFailures -= 1;
+    return Promise.reject(new Error("the back office is down"));
+  }
+  return Promise.resolve();
+}
+
+/** A back office that follows every pause and never answers one. */
+@PauseListener({ name: "audit-pause-listener", deps: [ExecutionContext] })
+export class AuditPauseListener implements PauseListenerHandler {
+  constructor(private readonly executionContext: ExecutionContext) {}
+
+  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+    return hear("audit", this.executionContext, "opened", event);
+  }
+
+  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+    return hear("audit", this.executionContext, "closed", event);
+  }
+
+  onPauseAnswerNotTaken(event: PauseListenerAnswerNotTakenEvent): Promise<void> {
+    return hear("audit", this.executionContext, "answer-not-taken", event);
+  }
+}
+
+/** A trusted component: it may answer a channel's pauses, so it sees their ids (D4). */
+@PauseListener({
+  name: "trusted-pause-listener",
+  allowAnswering: true,
+  deps: [ExecutionContext],
+})
+export class TrustedPauseListener implements PauseListenerHandler {
+  constructor(private readonly executionContext: ExecutionContext) {}
+
+  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+    return hear("trusted", this.executionContext, "opened", event);
+  }
+
+  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+    return hear("trusted", this.executionContext, "closed", event);
   }
 }
 
@@ -427,8 +560,28 @@ export class AuditWorkflow {}
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,
+    AuditPauseListener,
+    TrustedPauseListener,
   ],
   observers: [PauseLog],
   budgets: TEST_BUDGETS,
 })
 export class PausesApplication {}
+
+/** The same application with a short retention: a set-aside notice and a closed pause go in minutes. */
+@Application({
+  name: "retained-pauses-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [DeskWorkflow],
+  providers: [
+    FinanceDeskRefundApprovalChannel,
+    CustomerOrderConfirmationChannel,
+    SeenPausedExecutionRepository,
+    RecordingLogger,
+    AuditPauseListener,
+  ],
+  budgets: TEST_BUDGETS,
+  retention: { pauseRecords: minutes(2) },
+})
+export class RetainedPausesApplication {}

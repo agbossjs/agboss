@@ -112,6 +112,11 @@ export type ComponentMeta =
       readonly kind: "health-check";
       readonly meta: import("../health/health-check.js").HealthCheckMeta;
     }
+  /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
+  | {
+      readonly kind: "pause-listener";
+      readonly meta: import("../pause/pause-listener.js").PauseListenerMeta;
+    }
   | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta };
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
@@ -169,4 +174,5 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   channel: "Channel",
   budget: "Budget",
   "health-check": "HealthCheck",
+  "pause-listener": "PauseListener",
 };

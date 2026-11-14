@@ -37,6 +37,7 @@ export enum FaultInvariant {
     FinishedWorkUntouched = "finished-work-untouched",
     Linearizable = "linearizable",
     NoEffectAfterCancel = "no-effect-after-cancel",
+    NoticesOnceEachInOrder = "notices-once-each-in-order",
     NoUndoOnHandOver = "no-undo-on-hand-over",
     OneOwner = "one-owner",
     TreesFinish = "trees-finish"

@@ -586,7 +586,7 @@ runs graphify.
 1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
 3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`replaceWithToken`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`replyToModel`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
-4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.toParallelAgents().acceptedBy().joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`Channel.withdraw()`, `NotPausedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
+4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.toParallelAgents().acceptedBy().joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `NotPausedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
 5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
@@ -1386,6 +1386,23 @@ over the answer — closed the same way with its answer kept, and the answer log
 a step marks its answer `Taken` the moment it consumes it, before it acts — so an answer whose tool ran is `Taken`, whatever fails after (#910). A pod that dies in the middle of that is finished by
 another instance's sweep; before a closed pause's record is removed, its log entry is written if a
 crash lost it.
+
+**Telling the channel and the listeners** (#940). A pause that its channel sent and that closes —
+answered (by whom, with the masked answer), expired, cancelled, withdrawn, its tree ended — is told
+to that channel through `onPauseClosed(event: ChannelPauseClosedEvent<Role>)` (and an answer never
+applied through `onPauseAnswerNotTaken`): a channel that overrides either has a mailbox, the rest
+cost nothing. An application lists `@PauseListener({ name: "…-pause-listener" })` classes in
+`@Application({ providers })`; each `implements PauseListenerHandler` and hears every pause of the
+application open (`onPauseOpened`) and close (`onPauseClosed`). Both are written with the pause's
+change, in the transaction that makes it, and delivered at least once by any instance — after a crash
+too —, in order per pause and receiver, in the pause's execution frame under a timeout (the tool's, or
+30 s); a hook that throws or hangs is retried after 1 s, 2 s, 4 s … (at most 5 min), logged
+(`pause.notice-failed`), and after `retention.pauseRecords` set aside (`pause.notice-dead`, an
+error). Every event carries `deliveryId`: the same on every redelivery, different for every notice —
+the receiver deduplicates by it. A listener gets `pauseKey` (a correlation key), never the answering
+`pauseId` of a channel pause unless it is declared `allowAnswering: true` — a trusted component that
+may answer every channel pause of the application. A receiver's failure never fails a run, a resume
+or a cancel; there is no redelivery API.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an

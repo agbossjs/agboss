@@ -2294,7 +2294,20 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   the recovery sweep (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): a
   late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
   `Resolved` pause no step took when its tree ends (finished, failed, cancelled — an answer a cancel
-  won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890). `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890).
+  **Pause notices (#940):** every change of a sent pause writes its notices — `opened` (to listeners), `closed`, `answerNotTaken` —
+  into one ordered mailbox per pause and receiver, in the store transaction of the change (`PausedExecutionRepository`:
+  `claimNoticesDue`, `ackNotice`, `retryNotice`, `setAsideNotices`, `setAsideStaleNoticesBefore`); every call site asks
+  `PauseSeam.notices.recipientsOf(pause)` (`app/pause-notices.ts`: the channel only when its sender overrides `onPauseClosed` /
+  `onPauseAnswerNotTaken`, and every `@PauseListener`) and calls `notices.delivered()` right after the change returned. The delivery
+  (`app/pause-notice-delivery.ts`, loaded with the first notice, looked for by the fast path and by the pause timers' tick,
+  `application/pause-timers.ts`, every 5 s, each look isolated, `app.checkLiveness()` reports a stale tick as `pause-timers`) claims
+  mailboxes, builds the event from the notice and the pause record (ask and answer masked by the pause's own workflow's observability
+  policies), calls the hook in the pause's frame (rebuilt from the root's checkpoint) under a timeout and only then acknowledges —
+  a crash before the ack delivers again, with the same `deliveryId` (`sha256(pauseKey:recipient:seq)`): at least once, never zero
+  times; a failure retries at 1 s × 2^attempts (at most 5 min), logs `pause.notice-failed`, and past `retention.pauseRecords` sets the
+  mailbox aside (`pause.notice-dead`); a mailbox nobody claims is set aside by the recovery sweep (`pause.notice-recipient-unknown`).
+  A `@PauseListener` gets `pauseKey`, never a channel pause's `pauseId` unless `allowAnswering`. `withdraw` is gone. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept

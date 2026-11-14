@@ -40,6 +40,7 @@ describe("#300 AC2: readiness", () => {
     expect(report.components.map(({ name, kind, status }) => ({ name, kind, status }))).toEqual([
       { name: "plain-probe-application", kind: HealthComponentKind.Application, status: "healthy" },
       { name: "recovery-loop", kind: HealthComponentKind.RecoveryLoop, status: "healthy" },
+      { name: "pause-timers", kind: HealthComponentKind.PauseTimers, status: "healthy" },
       {
         name: "StallingExecutionRecordRepository",
         kind: HealthComponentKind.Store,

@@ -54,7 +54,7 @@ export function questionRunner(node: RuntimeNode, deps: GraphDeps<string>): Node
       clock: deps.clock ?? systemClock,
       validate: answered,
       onSend,
-      withdrawn: pause.withdrawn,
+      notices: pause.notices,
     };
     frame.execution.lease?.assertHeld();
     const asked = { kind: PauseKind.Question, step: node.id, ask };

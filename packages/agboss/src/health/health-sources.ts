@@ -1,5 +1,6 @@
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
+import type { PauseTimers } from "../application/pause-timers.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { HealthCheckHandler, HealthCheckMeta, HealthReport } from "./health-check.js";
@@ -25,6 +26,8 @@ export interface HealthSources {
   /** Whether `app.close()` was called. */
   readonly isStopping: () => boolean;
   readonly sweep: RecoverySweep;
+  /** The pause timers (#940): the notices' delivery, and later the deadlines' looks. */
+  readonly timers: PauseTimers;
   /** The stores, the clock (every timeout and duration) and the rate limits (the breakers' state). */
   readonly infrastructure: Infrastructure;
   /** The application's model providers: its listed ones, else the built-ins. */

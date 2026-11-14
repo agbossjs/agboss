@@ -8,6 +8,7 @@ import { judgesFor, knowledgeFor, memoryFor } from "./parts.js";
 /** What the container creates at start, as the app's run dependencies. */
 type StartComponents = {
   readonly channelOf: ReturnType<typeof channelLookup>;
+  readonly channelNames: readonly string[];
 } & ReturnType<typeof knowledgeFor> &
   ReturnType<typeof memoryFor> &
   ReturnType<typeof judgesFor> &
@@ -45,6 +46,7 @@ export const componentsAtStart = (
   createCodeNodes(bundle, services);
   return {
     channelOf: channelLookup(bundle, services),
+    channelNames: [...(bundle.channels?.(services).keys() ?? [])],
     ...knowledgeFor(bundle, services),
     ...memoryFor(bundle, services),
     ...judgesFor(bundle, services),

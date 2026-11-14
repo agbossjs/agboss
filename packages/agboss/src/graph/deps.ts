@@ -51,6 +51,8 @@ export interface GraphDeps<TName extends string> {
   readonly branchScheduler?: BranchScheduler;
   /** The channel a tool names, by its name (#267): created with the app. */
   readonly channelOf?: (channelName: string) => PauseChannel;
+  /** The names of the channels its tools name (#940): the receivers of its pauses' notices. */
+  readonly channelNames?: readonly string[];
   /** The PII policies at each agent's and router's model (#120); absent = none. */
   readonly pii?: PiiRuntime;
   /**

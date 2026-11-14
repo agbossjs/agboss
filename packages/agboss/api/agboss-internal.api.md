@@ -485,6 +485,7 @@ export interface DescribedApplication {
     readonly name: string;
     // (undocumented)
     readonly observers: readonly string[];
+    readonly pauseListeners: readonly DescribedPauseListener[];
     // (undocumented)
     readonly version: string;
     // (undocumented)
@@ -1091,6 +1092,7 @@ export interface GraphDeps<TName extends string> {
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
     readonly branchErrors?: BranchErrors;
     readonly branchScheduler?: BranchScheduler;
+    readonly channelNames?: readonly string[];
     readonly channelOf?: (channelName: string) => PauseChannel;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     readonly clock?: Clock | undefined;
@@ -1478,6 +1480,7 @@ export interface WorkflowDepsParts {
     readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
     // (undocumented)
     readonly infrastructure: Infrastructure;
+    readonly notices?: PauseNoticeHub;
     readonly observer?: ExecutionObserverManager;
     readonly piiKey?: ApplicationPiiKey;
     readonly remoteChildren?: RemoteChildren;

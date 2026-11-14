@@ -114,6 +114,7 @@ async function buildWorkflows(
   built.sort(
     (left, right) => order.indexOf(left.bundle.graph.type) - order.indexOf(right.bundle.graph.type),
   );
+  parts.notices?.bind(built);
 }
 
 /** The instance's step slots and running step bodies (#332, #367), loaded with the instance. */

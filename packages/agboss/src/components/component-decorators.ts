@@ -24,6 +24,7 @@ export const COMPONENT_DECORATORS = [
   "Compaction",
   "Budget",
   "HealthCheck",
+  "PauseListener",
   // `@agboss/core/models`
   "ModelProvider",
   // `@agboss/core/mcp`

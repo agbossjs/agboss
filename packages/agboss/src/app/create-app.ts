@@ -21,7 +21,7 @@ import {
   type WorkflowDepsParts,
 } from "./app-deps.js";
 import { pausedRunBook } from "./paused-runs.js";
-import { UnknownToolError, withWithdrawals } from "./parts.js";
+import { UnknownToolError } from "./parts.js";
 import { LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { leasingOf } from "../infrastructure/contracts.js";
@@ -99,7 +99,7 @@ export async function buildApp(
   options: BuildOptions,
   parts: WorkflowDepsParts,
 ): Promise<BuiltApp> {
-  const { deps, withdrawn } = withWithdrawals(await createWorkflowDeps(bundle, options, parts));
+  const deps = await createWorkflowDeps(bundle, options, parts);
   const current = {
     workflowVersion: deps.config.version,
     configHash: executionVersions(deps).configHash,
@@ -107,8 +107,9 @@ export async function buildApp(
   const policy = bundle.onIncompatibleResume;
   const { pausedExecutions: pauses, records: log } = parts.infrastructure;
   const { executionTrees: trees, clock, auditLog } = parts.infrastructure;
-  // a cancel tells the channels of its sent pauses (#337)
-  const paused = pausedRunBook({ pauses, answers: log, withdrawn }, current, clock);
+  // a cancel and an answer write the notices of their sent pauses (#940)
+  const marks = { turns: deps.turns, log: deps.log, notices: deps.pause?.notices };
+  const paused = pausedRunBook({ pauses, answers: log, notices: marks.notices }, current, clock);
   const live = new LiveRuns();
   const leasing = leasingOf(parts.infrastructure);
   const leases = executionLeasesOf(leasing.repository, leasing.clock, {
@@ -122,7 +123,6 @@ export async function buildApp(
   // a pause inside a child (#263) is validated against the child's tool
   const questions = treeQuestionAnswersOf(deps);
   const tools = treeToolsOf(deps);
-  const marks = { turns: deps.turns, log: deps.log };
   const answers = { pauses, paused, owned, tools, questions, current, policy, ...marks };
   const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>

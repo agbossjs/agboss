@@ -5,7 +5,12 @@
  * child's error in the same call instead of resting paused.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { ChildExecutionFailedError, PauseResolution, PauseStatus } from "../../src/index.js";
+import {
+  ChildExecutionFailedError,
+  PauseClosedReason,
+  PauseResolution,
+  PauseStatus,
+} from "../../src/index.js";
 import {
   callTool,
   failWith,
@@ -19,7 +24,7 @@ import {
   ChildPausesApplication,
   ChildRefundAgent,
 } from "./fixtures/child-pauses.workflow.js";
-import { askFor, orderOf } from "./fixtures/pause-scripts.js";
+import { askFor, orderOf, until } from "./fixtures/pause-scripts.js";
 import { pauseStore, RefundTool, resetPauses, seen } from "./fixtures/pauses.workflow.js";
 
 const test = testWith(ChildPausesApplication);
@@ -47,8 +52,9 @@ describe("#337 Bug B: FailFast withdraws a paused sibling child's pause", () => 
       status: PauseStatus.Cancelled,
       resolution: PauseResolution.Withdrawn,
     });
-    expect(seen.withdrawals).toMatchObject([
-      { orderId: "A", resolution: PauseResolution.Withdrawn, executionId: stored?.executionId },
+    await until(() => seen.closed.length === 1);
+    expect(seen.closed).toMatchObject([
+      { orderId: "A", reason: PauseClosedReason.Withdrawn, executionId: stored?.executionId },
     ]);
     expect(seen.refunds).toEqual([]);
   });
