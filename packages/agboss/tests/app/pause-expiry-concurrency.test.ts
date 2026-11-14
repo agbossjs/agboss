@@ -5,6 +5,7 @@
  * is asked near its own deadline, not after the first one's escalation.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { HealthStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
@@ -69,5 +70,30 @@ describe("#1071: an expiry's pass does not run inside the pause timers' tick", (
     await passing(clock, seconds(40));
     await until(() => expiry.slowEnded.length === 2);
     expect([...expiry.slowStarted].sort()).toEqual(["o-0", "o-1"]);
+  });
+
+  test("#1092: a channel's handler that hangs does not stall the loop: the next due pause is asked, liveness stays healthy", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, SlowExpiryWorkflowStart, { orderId: "o-0" }, { threadId: "hang-0" });
+    await execute(app, SlowExpiryWorkflowStart, { orderId: "o-1" }, { threadId: "hang-1" });
+    let free: () => void = () => undefined;
+    const hanging = new Promise<void>((resolve) => {
+      free = resolve;
+    });
+    expiry.behavior = async (ask) => {
+      if (ask.value.orderId === "o-0") await hanging;
+      return PauseExpiration.fail();
+    };
+
+    await passing(clock, seconds(10));
+    await until(() => expiry.asked.length === 2);
+    await passing(clock, seconds(20));
+
+    expect((await app.checkLiveness()).status).toBe(HealthStatus.Healthy);
+    free();
+    await passing(clock, seconds(40));
+    await until(() => expiry.slowEnded.length === 2);
   });
 });

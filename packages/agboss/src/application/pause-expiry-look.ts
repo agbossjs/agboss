@@ -19,8 +19,9 @@ import type { TimerLook } from "./pause-timers.js";
  * Each root's expiry is started, not awaited (#1071), as the recovery sweep starts its recoveries:
  * the channel's handler and the pass that continues the run after it (it takes the step slots of
  * its steps) run beside the timer loop, so a long step never stalls the loop, the liveness probe
- * or another due pause. At most `maxConcurrentSteps` of them are in flight at once; a look cut
- * short by that goes on from where it stopped.
+ * or another due pause. At most `maxConcurrentSteps` of them move a tree at once; a look cut
+ * short by that goes on from where it stopped. A root nobody here can move takes no place of that
+ * cap (#1092): the look waits for it only as long as it takes to see so.
  *
  * A look is one sweep over the due pauses with a keyset cursor (#1070, #1072): a pause nobody here
  * can move (another application's tree, a removed workflow, an incompatible version, a tree in
@@ -56,6 +57,8 @@ const afterOf = (pause: PauseRecord): PauseScanAfter => ({
 /** One instance's expiry look: the expiries it started, and where a cut-short sweep goes on. */
 export class ExpiryLook {
   readonly #inFlight = new Map<string, Promise<void>>();
+  /** The in-flight roots this instance took (#1092): only these count against the cap. */
+  readonly #moving = new Set<string>();
   /** Where a look cut short by the cap went on from: the next one continues after it. */
   #resumeAfter: PauseScanAfter | undefined;
 
@@ -80,12 +83,14 @@ export class ExpiryLook {
         const key = `${pause.tenantId}\0${pause.rootExecutionId}`;
         // a root already moving here (an earlier look's, or this one's) is not started again
         if (!started.has(key) && !this.#inFlight.has(key)) {
-          if (this.#inFlight.size >= cap) {
+          if (this.#moving.size >= cap) {
             this.#resumeAfter = after;
             return;
           }
           started.add(key);
-          this.#start(key, pause);
+          // until it took the tree or ended: a root nobody here can move ends in a few reads and
+          // takes no place of the cap, so it cannot hold the movable ones behind it back (#1092)
+          await this.#start(key, pause);
         }
         after = afterOf(pause);
       }
@@ -94,10 +99,21 @@ export class ExpiryLook {
     }
   }
 
-  /** Starts the expiry of the root of `pause`; its failure is told, never thrown. */
-  #start(key: string, pause: PauseRecord): void {
+  /**
+   * Starts the expiry of the root of `pause`; its failure is told, never thrown. Resolves once the
+   * expiry decided what it is: it took the tree (it counts against the cap from then on) or it
+   * ended without moving anything.
+   */
+  #start(key: string, pause: PauseRecord): Promise<void> {
     const { tenantId, rootExecutionId } = pause;
-    const expiry = this.#expire(tenantId, rootExecutionId)
+    let decide: () => void = () => undefined;
+    const decided = new Promise<void>((resolve) => {
+      decide = resolve;
+    });
+    const expiry = this.#expire(tenantId, rootExecutionId, () => {
+      this.#moving.add(key);
+      decide();
+    })
       .catch((error: unknown) => {
         // a stop cut it: the pause stays pending for the next instance's look
         if (this.sources.signal.aborted) return;
@@ -109,15 +125,18 @@ export class ExpiryLook {
       })
       .finally(() => {
         this.#inFlight.delete(key);
+        this.#moving.delete(key);
+        decide();
       });
     this.#inFlight.set(key, expiry);
+    return decided;
   }
 
-  async #expire(tenantId: string, rootExecutionId: string): Promise<void> {
+  async #expire(tenantId: string, rootExecutionId: string, onTaken: () => void): Promise<void> {
     const { records, expiries, signal } = this.sources;
     // a root with no record (another application's tree on a shared store) is skipped
     const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
-    if (record !== undefined) await expiries.get(record.bundle)?.(record, signal);
+    if (record !== undefined) await expiries.get(record.bundle)?.(record, signal, onTaken);
   }
 }
 

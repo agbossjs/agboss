@@ -14,6 +14,7 @@ import {
   StoreTimeSource,
   pauseThread,
   SystemClock,
+  keepingAlive,
   timeoutError,
   timeoutOn,
 } from "../../src/infrastructure/clock.js";
@@ -319,5 +320,38 @@ describe("#1141: SystemClock.sleep splits a delay above the timer's limit", () =
     const stop = new AbortController();
     await new SystemClock().sleep(0 as Milliseconds, stop.signal);
     expect(getEventListeners(stop.signal, "abort")).toHaveLength(0);
+
+describe("#1093: keepingAlive holds the process for a pending call", () => {
+  it("a ref'd timer lives exactly as long as the work, and is cleared when it returns", async () => {
+    const set = vi.spyOn(globalThis, "setInterval");
+    const cleared = vi.spyOn(globalThis, "clearInterval");
+    let finish: () => void = () => undefined;
+    const work = new Promise<string>((resolve) => {
+      finish = () => {
+        resolve("done");
+      };
+    });
+
+    const call = keepingAlive(() => work);
+
+    expect(set).toHaveBeenCalledOnce();
+    // the longest a timer waits, and not unref'd: it keeps Node running
+    expect(set.mock.calls[0]?.[1]).toBe(2 ** 31 - 1);
+    const handle = set.mock.results[0]?.value as NodeJS.Timeout;
+    expect(handle.hasRef()).toBe(true);
+    expect(cleared).not.toHaveBeenCalled();
+    finish();
+    expect(await call).toBe("done");
+    expect(cleared).toHaveBeenCalledExactlyOnceWith(handle);
+  });
+
+  it("a call that rejects releases the timer too, and its error reaches the caller", async () => {
+    const cleared = vi.spyOn(globalThis, "clearInterval");
+
+    await expect(keepingAlive(() => Promise.reject(new Error("refused")))).rejects.toThrow(
+      "refused",
+    );
+
+    expect(cleared).toHaveBeenCalledOnce();
   });
 });

@@ -16,10 +16,16 @@ import {
   ExpiryApplication,
   ExpiryWorkflowStart,
   ReviewerWorkflowStart,
+  ShortExpiryWorkflowStart,
+  SlowExpiryWorkflowStart,
   expiry,
   expiryStore,
   resetExpiry,
 } from "../flow/fixtures/expiry.fixture.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
+import { PauseExpiration } from "../../src/channels/pause-expiration.js";
+import { seconds } from "../../src/units/index.js";
+import { settle } from "./fixtures/fence-takeover.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 
 const test = testWith(ExpiryApplication);
@@ -81,5 +87,46 @@ describe("#1074: a run's own end after an expiry is not a warning", () => {
     const [entry] = logged.filter((one) => one.code === EXPIRY_FAILED);
     expect(entry).toMatchObject({ level: "warn" });
     expect(entry?.message).toContain("the store is down");
+  });
+
+  test("a store failure inside the run the expiry continues (its record cannot be read back) is still a warning", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, ShortExpiryWorkflowStart, { orderId: "o-1" }, { threadId: "log-4" });
+    const records = app.resolve(ExecutionRecordRepository);
+    // the handler asks first; from then on the store fails, as the continued run starts
+    expiry.behavior = () => {
+      vi.spyOn(records, "byIds").mockRejectedValue(new Error("the store went down mid-run"));
+      return PauseExpiration.fail();
+    };
+
+    await clock.advance(hours(4));
+    await until(() => logged.some((entry) => entry.code === EXPIRY_FAILED));
+
+    const [entry] = logged.filter((one) => one.code === EXPIRY_FAILED);
+    expect(entry).toMatchObject({ level: "warn" });
+  });
+
+  test("a run handed over after its expiry (its lease lost while the escalation runs) is not a warning: the next holder continues it", async ({
+    app,
+    clock,
+    leases,
+  }) => {
+    await app.ready();
+    await execute(app, SlowExpiryWorkflowStart, { orderId: "o-1" }, { threadId: "log-5" });
+    await clock.advance(seconds(5));
+    await until(() => expiry.slowStarted.length === 1);
+
+    // the holder stalls past its lease's expiry while the 30 s step runs, and wakes without it
+    leases.freeze(app);
+    await clock.advance(seconds(60));
+    leases.thaw(app);
+    await settle();
+    await clock.advance(seconds(5));
+    await settle();
+
+    expect(expiry.errors.some((error) => error instanceof ExecutionLeaseLostError)).toBe(false);
+    expect(logged.filter((entry) => entry.code === EXPIRY_FAILED)).toEqual([]);
   });
 });

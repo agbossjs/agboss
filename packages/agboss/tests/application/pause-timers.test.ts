@@ -98,6 +98,35 @@ describe("#940 AC4: liveness", () => {
   );
 });
 
+describe("#941: the stop waits for the work a look started beyond its tick", () => {
+  it("stop() resolves only after every look's settled()", async () => {
+    const clock = new VirtualClock();
+    const { log } = recordingLog();
+    let finish: () => void = () => undefined;
+    const settled = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const timers = startPauseTimers({
+      clock,
+      log,
+      signal: new AbortController().signal,
+      looks: [{ name: "expiry", run: () => Promise.resolve(), settled: () => settled }],
+    });
+    await until(() => timers.lastTickAt().getTime() >= clock.now().getTime());
+
+    let stopped = false;
+    const stopping = timers.stop().then(() => {
+      stopped = true;
+    });
+    for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
+
+    expect(stopped).toBe(false);
+    finish();
+    await stopping;
+    expect(stopped).toBe(true);
+  });
+});
+
 it("the loop ticks every five seconds", () => {
   expect(PAUSE_TIMERS_EVERY).toBe(5000);
 });

@@ -114,6 +114,22 @@ async function endedByRun(parts: TreeMoveParts, turnId: string): Promise<boolean
   }
 }
 
+/** The drain of the pass an expiry started; a run that ended or was handed over is its outcome, not a failure. */
+async function drainedAfterExpiry(
+  parts: TreeMoveParts,
+  hooks: ExpiryHooks,
+  drain: { state: TreeState; lease: HeldExecutionLease; planned: PlannedPass },
+  turnId: string,
+): Promise<void> {
+  try {
+    await hooks.drained(drain.state, drain.lease, drain.planned);
+  } catch (error) {
+    // the run failed or was handed over after its expiry: its outcome, not the expiry's failure
+    if (isHandedOver(error) || (await endedByRun(parts, turnId))) return;
+    throw error;
+  }
+}
+
 /** What an expiry move needs of the mover that holds the tree (`tree-moves.ts`). */
 export interface ExpiryHooks {
   /** A cancel request or an undo under way ends the tree at the take: its error, the lease released. */
@@ -139,6 +155,7 @@ export async function expiredMove(
   hooks: ExpiryHooks,
   interrupted: InterruptedRun,
   call: TreeCall,
+  onTaken?: () => void,
 ): Promise<void> {
   const { runId, threadId, tenantId, startedVersion } = interrupted;
   const state = { runId, threadId, tenantId, startedVersion };
@@ -147,7 +164,12 @@ export async function expiredMove(
   if (lease === undefined) return;
   try {
     if ((await hooks.endedAtTake(state, lease)) !== undefined) return;
-    const planned = (await isResting(parts, state, interrupted.turnId))
+    const resting = await isResting(parts, state, interrupted.turnId);
+    // a resting tree is this instance's to move: from here the expiry is real work — the channel's
+    // handler, and the pass after it — and counts against the cap (#1092); the look waits only
+    // for this decision, never for the work
+    if (resting) onTaken?.();
+    const planned = resting
       ? await expiredPassOf(parts, state, call, { tried: new Set() })
       : undefined;
     if (planned === undefined) {
@@ -155,13 +177,7 @@ export async function expiredMove(
       return;
     }
     await hooks.announce(planned.resume, state);
-    try {
-      await hooks.drained(state, lease, planned);
-    } catch (error) {
-      // the run failed or was handed over after its expiry: its outcome, not the expiry's failure
-      if (isHandedOver(error) || (await endedByRun(parts, interrupted.turnId))) return;
-      throw error;
-    }
+    await drainedAfterExpiry(parts, hooks, { state, lease, planned }, interrupted.turnId);
   } catch (error) {
     await lease.release();
     throw error;
