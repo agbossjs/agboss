@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Conveyor stage 3 → status In progress, and Test after merge. Implements Backlog issues — in parallel where they are independent (git worktrees with sub-agents, or separate Claude Code on the web sessions), in dependency order otherwise — each as its own branch and PR into main with tests, green gate, self-review, Wiki update and a manual-test handoff. Never moves anything to Done. Use after spec-session, or when the user says "implement", "имплементируй", "запусти", "go", or names Backlog issues to build.
+description: Conveyor stage 3 → status In progress, and Test after merge. Implements Backlog issues — in parallel where they are independent (git worktrees with sub-agents, or separate Claude Code on the web sessions), in dependency order otherwise — each as its own branch and PR into main with tests, green gate, self-review, its Wiki pages in the PR (`wiki/`) and a manual-test handoff. Never moves anything to Done. Use after spec-session, or when the user says "implement", "имплементируй", "запусти", "go", or names Backlog issues to build.
 ---
 
 # implement
@@ -40,8 +40,14 @@ comment what is missing, and continue with the rest.
 3. **Tests first**: every automated acceptance criterion and test case → a failing test; each test
    name or describe block carries its AC id (`AC2: …`) so coverage stays traceable.
 4. Implement until green; follow the plan, note deviations for the PR.
-5. **Gate**: `make check`. Never lower thresholds, disable rules or add ignores. The same failure
-   twice after a real fix attempt → label `blocked`, comment, stop this issue.
+5. **Wiki, then gate.** The pages for the change travel _in the PR_, in the folder `wiki/` (#1026):
+   `scripts/wiki.sh stage <Page.md…>` copies the shared version of each page to `./wiki/` (a new
+   page: create `wiki/<Page>.md`), apply "Wiki to update" there (flat `<Page>.md` files only),
+   `scripts/wiki.sh check` (the CI check: shared Wiki + your pages, compiled), and commit `wiki/`
+   with the code. **Never** push `docs/wiki-pending` or the Wiki before the merge — the shared
+   branch is checked against every other PR's code. Then the **gate**: `make check`. Never lower
+   thresholds, disable rules or add ignores. The same failure twice after a real fix attempt →
+   label `blocked`, comment, stop this issue.
 6. **Self-review** `git diff origin/main...HEAD` against `QUALITY.md`.
 7. **Changelog fragment**: a user-visible change adds `changes/<issue>-<slug>.md` (header
    `section:` + `issue:`, then the entry mentioning `#<N>`; see `changes/README.md`). Never edit
@@ -52,9 +58,11 @@ comment what is missing, and continue with the rest.
 9. **Merge** after CI: `gh pr checks --watch && gh pr merge --squash --delete-branch`.
    A conflict with something merged earlier in the wave → rebase on `origin/main`, gate again;
    if it is not mechanical → `blocked` + comment, do not guess.
-10. **Wiki**: apply "Wiki to update" in `../<repo>.wiki`, then
-    `scripts/wiki.sh publish "docs(#<N>): <what changed>" <page.md…>` — name your pages (the shared
-    checkout may hold other agents' edits); it pushes the Wiki and fast-forwards `docs/wiki-pending`.
+10. **Wiki after the merge**: nothing to publish by hand. Once `main`'s CI has passed, Sync Wiki
+    (`scripts/wiki-sync.sh`) writes the PR's `wiki/` pages to the Wiki and `docs/wiki-pending`,
+    exactly once. Check it before the handoff: the page is on
+    `https://github.com/<owner>/<repo>/wiki` (the Sync Wiki run is green; never rerun it for a
+    check). `scripts/wiki.sh publish` is only for Wiki edits with no code change.
 11. `scripts/ticket.sh status <N> Test`, then a handoff comment on the issue:
     - what was done, PR link, deviations;
     - **Acceptance by AC** — for every business AC: the automated tests that prove it (passed)

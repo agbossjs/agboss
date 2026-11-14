@@ -2964,10 +2964,10 @@ every ` ```ts ` block of README, CLAUDE, QUALITY and WORKFLOW (and `docs/`) agai
 package — a doc whose snippets declare a `@Workflow` gets its `.agboss/types.d.ts` written first —
 and check that every `scripts/…`, `npm run …`, `make …` and `agboss …` they mention — and every
 `agboss …` the CLI prints — exists. CI also runs `node scripts/check-docs.mjs --wiki wiki` on the
-Wiki that goes with the code (#341: a PR's `docs/wiki/<head branch>`, else `docs/wiki-pending`, which
-`sync-wiki.yml` publishes; WORKFLOW.md): the same checks for every Wiki page, plus every link
-between pages names an existing page. The Wiki changes outside PRs, so check it before publishing:
-`node scripts/check-docs.mjs --wiki ../<repo>.wiki`. Snippet conventions (README, CLAUDE, Wiki alike):
+Wiki that goes with the code (#341, #1026: `docs/wiki-pending`, which holds only pages for code on
+main, plus the PR's own pages from its `wiki/` folder; `sync-wiki.yml` publishes them after the merge;
+WORKFLOW.md): the same checks for every Wiki page, plus every link between pages names an existing
+page. Locally: `scripts/wiki.sh check`. Snippet conventions (README, CLAUDE, Wiki alike):
 
 - ` ```ts file=src/x.ts ` — written at that path, so other blocks of the same doc import it.
 - A hidden `<!-- snippet-context … -->` comment right before a block supplies imports and
@@ -3055,7 +3055,7 @@ Quizzes: `.claude/skills/QUIZ.md`. Stages: `scripts/ticket.sh status <N> <Status
   by script, MCP servers stubbed, network blocked); units use fakes from `@langchain/core/utils/testing`.
 - Read existing code before planning — the spec may be stale, the code is not.
 - **No specs, plans or docs as files.** Specs and implementation plans → GitHub Issues (bodies via
-  stdin). Docs → GitHub Wiki via `scripts/wiki.sh`. **ALWAYS update the `../<repo>.wiki` repository directly whenever making API, DSL, or architectural changes so that the wiki is always up-to-date** — checked with `node scripts/check-docs.mjs --wiki ../<repo>.wiki` before `scripts/wiki.sh publish`, and by CI. Decisions → wiki pages `ADR-NNNN-Title`.
+  stdin). Docs → GitHub Wiki via `scripts/wiki.sh`. **ALWAYS update the Wiki pages in the same PR whenever making API, DSL, or architectural changes so that the wiki is always up-to-date** — `scripts/wiki.sh stage <Page.md>`, edit `wiki/<Page>.md`, `scripts/wiki.sh check`, commit with the code; CI checks them, Sync Wiki publishes after the merge (never push `docs/wiki-pending` or the Wiki early, #1026). Decisions → wiki pages `ADR-NNNN-Title`.
 - Inside the framework, `src/routers` never imports graph/agents/prompts, and the rest imports it
   only via `src/routers/index.ts` (ESLint-enforced; the same for `src/tools` and `src/turns`).
 - **Example code before spec**: a new decorator or a new parameter enters a spec only after example

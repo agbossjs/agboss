@@ -1,8 +1,8 @@
 /**
  * #240: the GitHub Wiki is checked like the repo's docs — `check-docs.mjs --wiki <checkout>` fails on
  * a page whose ts block does not compile or that links to a page that does not exist, and CI runs it
- * on the wiki that goes with the code (#341: a PR's own wiki branch, else docs/wiki-pending, which
- * sync-wiki.yml publishes).
+ * on the wiki that goes with the code (#341, #1026: docs/wiki-pending plus the PR's own wiki/ pages;
+ * sync-wiki.yml publishes them after the merge).
  */
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -84,22 +84,29 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     ]);
   });
 
-  it("CI checks the wiki that goes with the code, after the gate (#341)", () => {
+  it("CI checks the shared wiki plus the change's own pages, after the static gates (#341, #1026)", () => {
     const ci = readFileSync(join(repo, ".github/workflows/ci.yml"), "utf8");
 
-    // a PR's own wiki branch, else docs/wiki-pending, else the published wiki
-    expect(ci).toContain('has "docs/wiki/$HEAD_REF"');
-    expect(ci).toContain("elif has docs/wiki-pending");
+    // docs/wiki-pending (only pages for code on main), else the published wiki: never a per-PR branch
+    expect(ci).not.toContain("docs/wiki/");
+    expect(ci).toContain("--heads origin docs/wiki-pending");
     expect(ci).toContain('echo "repository=${GITHUB_REPOSITORY}.wiki"');
     expect(ci).toMatch(
-      /uses: actions\/checkout@v\d+\s+with:\s+repository: \$\{\{ steps\.wiki\.outputs\.repository \}\}\s+ref: \$\{\{ steps\.wiki\.outputs\.ref \}\}\s+path: wiki/,
+      /uses: actions\/checkout@v\d+\s+with:\s+repository: \$\{\{ steps\.wiki\.outputs\.repository \}\}\s+ref: \$\{\{ steps\.wiki\.outputs\.ref \}\}\s+path: shared-wiki/,
     );
-    expect(ci).toContain("run: node scripts/check-docs.mjs --wiki wiki");
-    expect(ci.indexOf("--wiki wiki")).toBeGreaterThan(ci.indexOf("run: make check"));
+    // the change's own wiki/ pages over it, diffed against main (HEAD^1), then the check
+    expect(ci).toMatch(/fetch-depth: 2/);
+    expect(ci).toContain("run: scripts/wiki-overlay.sh apply shared-wiki HEAD^1");
+    expect(ci).toContain("run: node scripts/check-docs.mjs --wiki shared-wiki");
+    expect(ci.indexOf("wiki-overlay.sh apply")).toBeLessThan(ci.indexOf("--wiki shared-wiki"));
+    expect(ci.indexOf("--wiki shared-wiki")).toBeGreaterThan(
+      ci.indexOf("run: npm run check:static"),
+    );
   });
 
-  it("docs/wiki-pending is published to the wiki, a fast-forward only (#341)", () => {
+  it("merged pages are published by wiki-sync.sh after main's CI, fast-forward only (#341, #1026)", () => {
     const sync = readFileSync(join(repo, ".github/workflows/sync-wiki.yml"), "utf8");
+    const script = readFileSync(join(repo, "scripts/wiki-sync.sh"), "utf8");
 
     expect(sync).toMatch(
       /workflow_run:\s+workflows: \[CI\]\s+types: \[completed\]\s+branches: \[main\]/,
@@ -107,7 +114,10 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     expect(sync).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(sync).toContain("workflow_dispatch:");
     expect(sync).toMatch(/permissions:\s+contents: write/);
-    expect(sync).toContain('git push "$wiki" HEAD:master');
-    expect(sync).not.toMatch(/--force|\s-f\s|\+HEAD/);
+    expect(sync).toContain("fetch-depth: 0");
+    expect(sync).toContain("scripts/wiki-sync.sh");
+    expect(script).toContain('"${NEW}:refs/heads/master"');
+    expect(script).toContain('"${NEW}:refs/heads/docs/wiki-pending"');
+    for (const text of [sync, script]) expect(text).not.toMatch(/--force|\s-f\s|\+HEAD/);
   });
 });

@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2 # the Wiki step diffs this change's `wiki/` folder against HEAD^1
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
@@ -28,19 +30,14 @@ jobs:
       - run: npm ci
       - run: npm run check:static
       # the GitHub Wiki is docs too (#240): its ts blocks compile, its commands and links exist.
-      # It is checked as it goes with this code (#341): a PR's own Wiki branch `docs/wiki/<head
-      # branch>` when it exists, else `docs/wiki-pending` (what sync-wiki.yml publishes), else the
-      # published Wiki.
+      # It is checked as it goes with this code (#341, #1026): the shared Wiki (`docs/wiki-pending`,
+      # which holds only pages for code already on main; else the published Wiki) plus this change's
+      # own pages from its `wiki/` folder, and nothing else. `scripts/wiki-sync.sh` publishes the
+      # folder's pages after the merge.
       - name: Choose the Wiki to check
         id: wiki
-        env:
-          HEAD_REF: ${{ github.head_ref }}
         run: |
-          has() { git ls-remote --exit-code --heads origin "$1" > /dev/null 2>&1; }
-          if [ -n "$HEAD_REF" ] && has "docs/wiki/$HEAD_REF"; then
-            echo "repository=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
-            echo "ref=docs/wiki/$HEAD_REF" >> "$GITHUB_OUTPUT"
-          elif has docs/wiki-pending; then
+          if git ls-remote --exit-code --heads origin docs/wiki-pending > /dev/null 2>&1; then
             echo "repository=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
             echo "ref=docs/wiki-pending" >> "$GITHUB_OUTPUT"
           else
@@ -51,9 +48,13 @@ jobs:
         with:
           repository: ${{ steps.wiki.outputs.repository }}
           ref: ${{ steps.wiki.outputs.ref }}
-          path: wiki
+          path: shared-wiki # not wiki/: that folder is this change's own pages
+      # a pull_request run checks out the merge commit, a push the commit itself: HEAD^1 is main
+      # without this change in both (`fetch-depth: 2` above)
+      - name: Add this change's own Wiki pages (wiki/)
+        run: scripts/wiki-overlay.sh apply shared-wiki HEAD^1
       - name: Check the Wiki (${{ steps.wiki.outputs.ref || 'published' }})
-        run: node scripts/check-docs.mjs --wiki wiki
+        run: node scripts/check-docs.mjs --wiki shared-wiki
 
   # The core suite: vitest's two projects in shards, one runner each (`faults` runs one file at a
   # time inside its shard, as its `singleFork` demands). A shard writes its results and coverage
