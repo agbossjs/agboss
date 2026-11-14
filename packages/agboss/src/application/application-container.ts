@@ -33,6 +33,7 @@ import {
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
+import { StoreBounds } from "../app/store-bounds.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
@@ -75,6 +76,7 @@ export function applicationContainerOf(
   options: ContainerOptions = {},
 ): ApplicationContainer {
   const { clock } = sources;
+  const bounds = new StoreBounds(clock);
   const minting = idGeneratorOf(sources.modules, options, sources.idGenerator);
   // every id the framework mints is checked at the mint (#578); its own class gets it as it is
   const idGenerator = new CheckedIdGenerator(minting);
@@ -93,10 +95,15 @@ export function applicationContainerOf(
       ],
       ...contextValuesOf(sources.contexts),
     ]),
+    bounds,
     defaults: sources.quiet === true ? TEST_CONTAINER_DEFAULTS : CONTAINER_DEFAULTS,
     // a listed clock or id generator asked for by its own class is the same instance
     instances: new Map([
-      ...(sources.instances ?? []),
+      // reused from an earlier app: bounded again, on this instance's clock and log (#928)
+      ...[...(sources.instances ?? [])].map(([cls, instance]): [Token, unknown] => [
+        cls,
+        bounds.decorate(cls, instance),
+      ]),
       [clock.constructor as Class, clock],
       [minting.constructor as Class, minting],
     ]),
@@ -162,7 +169,12 @@ export function resolveInfrastructure(
   application: ApplicationContainer,
   options: ContainerOptions,
 ): Infrastructure {
-  const container = createContainer({ modules: [], core: new Map() }, { ...options, application });
+  const decorate = application.bounds?.decorate;
+  const withBounds = decorate === undefined ? options : { ...options, decorate };
+  const container = createContainer(
+    { modules: [], core: new Map() },
+    { ...withBounds, application },
+  );
   return infrastructureOf((contract) => container.get(contract));
 }
 

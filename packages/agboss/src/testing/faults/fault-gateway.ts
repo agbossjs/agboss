@@ -3,7 +3,7 @@ import { seconds, type Milliseconds } from "../../units/index.js";
 import { FakePaymentGateway } from "../gateway/fake-payment-gateway.js";
 import type { GatewayPaymentFact, GatewayRequest } from "./facts.js";
 import type { FaultPod } from "./pod.js";
-import type { GatewayCall } from "./pod-protocol.js";
+import { REFUSED_ANSWER, type GatewayCall } from "./pod-protocol.js";
 
 /**
  * The payment gateway of a fault run (#484): one `FakePaymentGateway` in the test's process,
@@ -50,6 +50,7 @@ export class FaultGateway {
   readonly #gateway = new FakePaymentGateway({ clock: this.#clock });
   readonly #holds = new Set<string>();
   readonly #drops = new Set<string>();
+  readonly #refusals = new Set<string>();
   readonly #held: HeldAnswer[] = [];
   readonly #onHeld = new Set<(orderId: string) => void>();
 
@@ -64,6 +65,14 @@ export class FaultGateway {
   /** The next charge of `orderId` is made, and answered with an error (#657): `DROPPED_ANSWER`. */
   dropAnswer(orderId: string): void {
     this.#drops.add(orderId);
+  }
+
+  /**
+   * The next charge of `orderId` is refused (#928 s21e): `REFUSED_ANSWER`, a definite failure —
+   * nothing is charged, and it is no request that reached a payment (not in `requests`).
+   */
+  refuseNext(orderId: string): void {
+    this.#refusals.add(orderId);
   }
 
   /** Its time moves past its keys' retention: a repeat of any key it saw is a new payment. */
@@ -112,6 +121,7 @@ export class FaultGateway {
     try {
       // by the order's reference: its books, kept whatever its keys' retention
       if (call.op === "lookup") return { result: this.#byReference(idempotencyKey) ?? null };
+      if (this.#refusals.delete(orderId)) return { error: REFUSED_ANSWER };
       this.requests.push({ pod: pod.name, idempotencyKey, orderId });
       const receipt = await this.#gateway.charge({ idempotencyKey, amount });
       if (this.#drops.delete(orderId)) return { error: DROPPED_ANSWER };

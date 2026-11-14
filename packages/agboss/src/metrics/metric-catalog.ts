@@ -104,6 +104,12 @@ export const METRICS = {
     "Takeovers on the instance whose read of the tree's lost passes failed, so none of their Unknown-cost entries is recorded (logged as cost.unknown-unrecorded), by workflow",
     ["workflow"],
   ),
+  storeCallsTimedOut: counter(
+    "agboss.instance.store_calls.timed_out",
+    "{call}",
+    "Store calls the instance gave up on at their bound (#928), by contract, operation, source (framework, command) and kind (leased, unleased, long)",
+    ["contract", "operation", "source", "kind"],
+  ),
   compensations: counter(
     "agboss.instance.compensations",
     "{action}",

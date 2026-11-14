@@ -91,6 +91,15 @@ export class FaultReserveAction {
   }
 }
 
+/**
+ * The charge's id: the work's result — a store that answered `Ran` for a write it never ran (#928
+ * S2b's sabotage) gives none, and the fixture's own receipt stands.
+ */
+const chargeIdOf = (result: unknown, receipt: { readonly chargeId: string }): string =>
+  typeof result === "object" && result !== null && "chargeId" in result
+    ? String(result.chargeId)
+    : receipt.chargeId;
+
 @Action({
   name: "fault-charge-action",
   description: "Charges the order: one business row, in the fenced effect's transaction",
@@ -130,6 +139,6 @@ export class FaultChargeAction {
     });
     this.faultPodLink.emit("charged", { ...where, status: outcome.status });
     await this.faultPodLink.atStep(FaultStepPoint.ChargeAfter, where, signal);
-    return { orderId, chargeId: outcome.result.chargeId };
+    return { orderId, chargeId: chargeIdOf(outcome.result, receipt) };
   }
 }

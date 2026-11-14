@@ -46,6 +46,7 @@ import { FencedEffects } from "../app/fenced-effects.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
 import { A2AFiles } from "../a2a/files/a2a-files.service.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
+import { targetOf } from "../app/store-call-bound.js";
 
 /**
  * The infrastructure an application consumes (#261, S28; the shared contracts #265): a framework
@@ -116,6 +117,23 @@ const extendsContract = (cls: Class, contract: Class): boolean =>
 /** The infrastructure contract a class implements, if any. */
 export const infrastructureContractOf = (cls: Class): Class | undefined =>
   [...INFRASTRUCTURE_DEFAULTS.keys()].find((contract) => extendsContract(cls, contract));
+
+/**
+ * The contracts whose stores are bounded (#928): every infrastructure contract but the time, the ids
+ * and the log, which are no store. A set, so that a test's sabotage can empty it and show what the
+ * bound is worth; nothing else changes it.
+ */
+export const BOUNDED_CONTRACTS = new Set<Class>(
+  [...INFRASTRUCTURE_DEFAULTS.keys()].filter(
+    (contract) => contract !== Clock && contract !== IdGenerator && contract !== Logger,
+  ),
+);
+
+/** The contract of `cls` whose calls are bounded (#928); `undefined` for any other class. */
+export const boundedContractOf = (cls: Class): Class | undefined => {
+  const contract = infrastructureContractOf(cls);
+  return contract !== undefined && BOUNDED_CONTRACTS.has(contract) ? contract : undefined;
+};
 
 /** What an application instance runs on: one instance per contract. */
 export interface Infrastructure {
@@ -211,7 +229,8 @@ export const reusableInfrastructure = (
     REUSED_PARTS.flatMap((part) => {
       // the listed checkpointer itself, under the ordered one the instance reads through (#682)
       const reused = infrastructure[part];
-      const instance: object = reused instanceof OrderedCheckpointSaver ? reused.saver : reused;
+      // …and under the proxy that bounded it: the next instance bounds it with its own clock (#928)
+      const instance = targetOf(reused instanceof OrderedCheckpointSaver ? reused.saver : reused);
       return isSqliteImplementation(instance) ? [] : [[instance.constructor as Class, instance]];
     }),
   );

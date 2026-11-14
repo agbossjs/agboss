@@ -11,6 +11,7 @@ import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 import { undoneTreeEnd, type EndedTreeUndo } from "./tree-unwind.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { leaseScope } from "./lease-scope.js";
 import { lostRunUsageOf, tallyLostRun } from "./lost-attempt.js";
 
 /**
@@ -73,6 +74,33 @@ export async function endedWithoutPass(
   state: TreeState,
   end: TreeEnd,
 ): Promise<EndedTree> {
+  const { deps } = parts;
+  const undo: EndedTreeUndo = end.undo ?? {};
+  // up to and including the failed record, the lease is held (#928): an unanswered call there hands
+  // over; the cleanup after it (kept record, keys, observers) stays outside
+  const { lost, ended, isEnded } = await leaseScope(end.lease, () =>
+    endedUnderLease(parts, state, { ...end, undo }),
+  );
+  const error: Error = ended;
+  // its undo ran here without a pass: the record lists what ran, as the event does (#484); kept
+  // before the tree is forgotten (#699): a pod killed in the cleanup's round trips keeps it
+  const { compensations } = undo;
+  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
+  if (isEnded) tallyLostRun(deps, state, lost);
+  await forgetTree(parts, state, error);
+  if (isEnded) {
+    const event = executionEventAt(state, deps);
+    await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
+  }
+  return { error, isEnded };
+}
+
+/** The part of the end that runs under the lease: the undo and the record's failure. */
+async function endedUnderLease(
+  parts: EndedTreeParts,
+  state: TreeState,
+  end: TreeEnd & { readonly undo: EndedTreeUndo },
+) {
   const { deps, paused } = parts;
   const record = await rootRecordOf(deps, state);
   // a run no recovery continues lost its pass (#860 D1): read before its tree's keys go
@@ -85,20 +113,8 @@ export async function endedWithoutPass(
   }
   const stored = await paused.find(state);
   if (stored?.run.runId === state.runId) await paused.drop(state, state.runId, end.cause);
-  const undo: EndedTreeUndo = end.undo ?? {};
   const failure = { error: end.cause, signal: end.signal, lease: end.lease };
-  const ended = await undoneTreeEnd(deps, state, failure, undo);
-  const error: Error = ended;
-  const isEnded = record !== undefined && (await failedRecord(deps, record, error));
-  // its undo ran here without a pass: the record lists what ran, as the event does (#484); kept
-  // before the tree is forgotten (#699): a pod killed in the cleanup's round trips keeps it
-  const { compensations } = undo;
-  if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
-  if (isEnded) tallyLostRun(deps, state, lost);
-  await forgetTree(parts, state, error);
-  if (isEnded) {
-    const event = executionEventAt(state, deps);
-    await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
-  }
-  return { error, isEnded };
+  const ended = await undoneTreeEnd(deps, state, failure, end.undo);
+  const isEnded = record !== undefined && (await failedRecord(deps, record, ended));
+  return { record, lost, ended, isEnded };
 }

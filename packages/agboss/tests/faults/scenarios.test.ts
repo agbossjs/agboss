@@ -29,7 +29,7 @@ describe("#484 AC1: the scenarios and their files", () => {
   it("every scenario is selected by exactly one file of tests/faults", () => {
     const files = readdirSync(DIR).filter((file) => /^s\d\d-.*\.test\.ts$/u.test(file));
     const selected = files.flatMap((file) =>
-      [...readFileSync(new URL(file, DIR), "utf8").matchAll(/"(s\d\d[a-z]?-[a-z0-9-]+)"/gu)].map(
+      [...readFileSync(new URL(file, DIR), "utf8").matchAll(/"(s\d\d[a-z]?\d?-[a-z0-9-]+)"/gu)].map(
         ([, id]) => id,
       ),
     );
@@ -43,6 +43,8 @@ describe("#484 AC1: the scenarios and their files", () => {
       "s06c-sabotage-finished-child-granted",
       "s14-sabotage-every-error-definite",
       "s15-sabotage-replay-trusted-as-lookup",
+      "s22-sabotage-unknown-as-not-sent",
+      "s22-sabotage-unknown-as-done",
     ]);
     for (const one of [...FAULT_SCENARIOS, ...FAULT_SABOTAGE_SCENARIOS]) {
       expect(Object.keys(one).sort()).toEqual(["id", "title"]);
@@ -61,7 +63,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       plan.cases.filter((one) => one.sabotage !== undefined).map((one) => one.scenario.id),
     ).toEqual(SABOTAGES.map((one) => one.id));
     expect(plan.summary).toBe(
-      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 4 of 4 sabotages`,
+      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 6 of 6 sabotages`,
     );
   });
 
@@ -87,7 +89,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       new Set(["not selected: scenarios: names others"]),
     );
     expect(plan.summary).toBe(
-      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 4 sabotages (selected by scenarios:)`,
+      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 6 sabotages (selected by scenarios:)`,
     );
   });
 
@@ -174,7 +176,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
 
     expect(skipped.map((one) => one.scenario.id)).toEqual(SABOTAGES.map((one) => one.id));
     expect(skipped[0]?.skipped).toMatch(/^sabotages: false — /u);
-    expect(plan.summary).toMatch(/0 of 4 sabotages \(sabotages: false\)$/u);
+    expect(plan.summary).toMatch(/0 of 6 sabotages \(sabotages: false\)$/u);
     expect(() => faultSuitePlanOf({ ...BASE, sabotages: untypedFlag("no") }, {})).toThrow(
       /sabotages is no — true or false/u,
     );

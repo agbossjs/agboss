@@ -123,15 +123,18 @@ export async function failedOrPending<TRequest, TResult>(
   owner: string,
   error: unknown,
 ): Promise<OutboundCallSupersededError | undefined> {
-  // the other system's error, definite or not: a call joined to this one shares it
-  run.answer.isAnswered = true;
   if (!isDefiniteFailureOf(run, error)) {
+    // the other system's error, nothing to write: a call joined to this one shares it
+    run.answer.isAnswered = true;
     leftPending(run, attempt, error);
     return undefined;
   }
   const failure = await maskedFailureOf(run, error);
   const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure);
-  if (!(await fencedEnd(run, attempt, isFailed))) return supersededErrorOf(run, attempt, error);
+  const isRecorded = await fencedEnd(run, attempt, isFailed);
+  // shared only once the end is written (#928): a hand-over before it is nobody's answer to share
+  run.answer.isAnswered = true;
+  if (!isRecorded) return supersededErrorOf(run, attempt, error);
   told(run, OutboundCallEventOutcome.Failed, [OutboundCallStatus.Failed, attempt]);
   return undefined;
 }

@@ -2,6 +2,7 @@ import { FaultInvariant } from "../invariants/violations.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { s06cFinishedGranted } from "./s06-children.js";
 import { s05eZombieDiesUnanswered } from "./s05e-unanswered.js";
+import { s22UnknownAsDone, s22UnknownAsNotSent } from "./s22-sabotages.js";
 import { s14EveryErrorDefinite, s15TrustedAsLookup } from "./s14-s15-key-expiry.js";
 
 /**
@@ -28,4 +29,6 @@ export const SABOTAGES: readonly FaultSabotage[] = [
   s06cFinishedGranted,
   { ...s14EveryErrorDefinite, violates: FaultInvariant.EffectsOnce, evidence: PAID_TWICE },
   { ...s15TrustedAsLookup, violates: FaultInvariant.EffectsOnce, evidence: PAID_TWICE },
+  s22UnknownAsNotSent,
+  s22UnknownAsDone,
 ];

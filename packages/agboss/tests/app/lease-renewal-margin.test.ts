@@ -64,31 +64,44 @@ function holderOn() {
 }
 
 describe("#534 AC3: a healthy holder stays far from its lease's boundary", () => {
-  it("AC3: the lease is three renewal intervals long", () => {
+  it("AC3: the lease is four renewal intervals long (#928: tries at 1/4, 2/4 and 3/4 of it, inside the trust)", () => {
     expect(EXECUTION_LEASE).toBe(seconds(30));
-    expect(RENEW_EVERY * 3).toBe(EXECUTION_LEASE);
+    expect(RENEW_EVERY * 4).toBe(EXECUTION_LEASE);
+    expect(RENEW_EVERY * 3).toBeLessThan(EXECUTION_LEASE - LEASE_SAFETY_MARGIN);
   });
 
-  it("AC3: over five minutes every renewal reaches the store with 20 s of its lease left", async () => {
+  it("AC3: over five minutes every renewal reaches the store with 22.5 s of its lease left", async () => {
     const { clock, store, leases } = holderOn();
     const holder = await leases.hold(TREE);
 
-    for (let step = 0; step < 30; step += 1) await clock.advance(RENEW_EVERY);
+    for (let step = 0; step < 40; step += 1) await clock.advance(RENEW_EVERY);
 
-    expect(store.margins).toHaveLength(30);
-    expect(new Set(store.margins)).toEqual(new Set([seconds(20)]));
+    expect(store.margins).toHaveLength(40);
+    expect(new Set(store.margins)).toEqual(new Set([seconds(22.5)]));
     expect(holder.signal.aborted).toBe(false);
     await holder.release();
   });
 
-  it("AC3: one renewal the store does not answer still leaves 10 s at the next; the holder goes on", async () => {
+  it("AC3: one renewal the store does not answer still leaves 15 s at the next; the holder goes on", async () => {
     const { clock, store, leases } = holderOn();
     const holder = await leases.hold(TREE);
 
     store.failing = 1;
     for (let step = 0; step < 3; step += 1) await clock.advance(RENEW_EVERY);
 
-    expect(store.margins).toEqual([seconds(20), seconds(10), seconds(20)]);
+    expect(store.margins).toEqual([seconds(22.5), seconds(15), seconds(22.5)]);
+    expect(holder.signal.aborted).toBe(false);
+    await holder.release();
+  });
+
+  it("#928: two renewals in a row the store does not answer still leave 7.5 s at the third; the holder goes on", async () => {
+    const { clock, store, leases } = holderOn();
+    const holder = await leases.hold(TREE);
+
+    store.failing = 2;
+    for (let step = 0; step < 4; step += 1) await clock.advance(RENEW_EVERY);
+
+    expect(store.margins).toEqual([seconds(22.5), seconds(15), seconds(7.5), seconds(22.5)]);
     expect(holder.signal.aborted).toBe(false);
     await holder.release();
   });

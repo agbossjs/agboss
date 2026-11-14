@@ -44,6 +44,9 @@ const keepsOf = (cluster: FaultCluster, pod: FaultPod, taskId: string): readonly
       : [],
   );
 
+/** Whether an answer is the accept the thawed pod's bound gave up on (#928): JSON-RPC -32603. */
+const isGivenUp = (answer: A2AAnswer): boolean => answer.errorCode === -32603;
+
 /** The frozen accept: a sends the order, held at `point` once the store answered; the task's id. */
 async function frozenAccept(
   cluster: FaultCluster,
@@ -62,9 +65,13 @@ async function frozenAccept(
   );
   const held = await heldAt(cluster, a, point);
   const taskId = String(held.key);
+  // frozen for real (SIGSTOP, #928): a held call kept longer than the store calls' bound is given up
+  // on, so the pod's timers freeze with it — thawed, its overdue bound is what it meets first
+  a.freeze();
   return {
     taskId,
     go: async () => {
+      a.thaw();
       await release(a, held);
       return sent;
     },
@@ -119,14 +126,12 @@ export const s17AcceptCrash: RunnableFaultScenario = {
     );
     // a's own answer, released after b settled the task: the task as it is now, never as saved
     const thawed = await go();
+    // thawed, a's overdue bound (#928) gives the held accept up: nothing started under the task's
+    // id; a store that answered in time would have met b's fence and read the task start-lost
     expectThat(
       cluster,
-      thawed.taskId === taskId && isStartLost(thawed),
-      `a's held accept answered ${JSON.stringify(thawed)}, not task ${taskId} FAILED ${A2A_START_LOST}`,
-    );
-    // a's start, released, finds the id kept by b's fence: refused, nothing started
-    await cluster.until(`a's refused keep of ${taskId}`, () =>
-      keepsOf(cluster, a, taskId).includes(false),
+      isGivenUp(thawed) || (thawed.taskId === taskId && isStartLost(thawed)),
+      `a's held accept answered ${JSON.stringify(thawed)}, not -32603 nor task ${taskId} FAILED ${A2A_START_LOST}`,
     );
     await settledOnBoth(cluster, [a, b], taskId, () => a2aCall(cluster, b, "SendMessage", message));
     return b;
@@ -178,8 +183,8 @@ export const s17bIdKeptCrash: RunnableFaultScenario = {
       answered.taskId === taskId && answered.state === A2ATaskState.Submitted,
       `a's accept answered ${JSON.stringify(answered)}`,
     );
-    // a's start goes on from its kept id: the tree's cancel request stops it before any step
-    await cluster.ended(taskId);
+    // a's start, thawed past its bound (#928), gives up its claim of the id: no tree starts and no
+    // step runs — where an answered claim would have been stopped by the tree's cancel request
     await settledOnBoth(cluster, [a, b], taskId, () => a2aCall(cluster, a, "SendMessage", message));
     return b;
   },

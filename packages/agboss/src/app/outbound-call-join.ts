@@ -5,6 +5,7 @@ import {
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
+import { isHandedOver } from "./handed-over.js";
 import { outcomeOf, told, type CallRun, type LiveCall } from "./outbound-call-parts.js";
 import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-calls.js";
 
@@ -58,7 +59,8 @@ async function sharedOf<TRequest, TResult>(
     signal.addEventListener("abort", stop);
   });
   const shared = joined.outcome.catch((error: unknown) => {
-    if (joined.answer.isAnswered) throw error;
+    // never a hand-over: that is the first call's own, this one makes the call under its lease (#928)
+    if (joined.answer.isAnswered && !isHandedOver(error)) throw error;
     return undefined;
   });
   try {

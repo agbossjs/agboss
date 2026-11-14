@@ -11,10 +11,11 @@ import {
   type Produced,
 } from "../../../index.js";
 import { seconds } from "../../../units/index.js";
-import { FaultPayment } from "../pod-protocol.js";
+import { FaultPayment, REFUSED_ANSWER } from "../pod-protocol.js";
 import { whereOf } from "./order.actions.js";
 import { FaultChargeDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPodLink, FaultStepPoint } from "./pod-link.js";
+import { isUnknownOutcome } from "./unknown-outcome.js";
 
 /**
  * The fault fixture's payment (#484): a call that leaves the system (`OutboundCalls`) to the
@@ -55,7 +56,11 @@ const declaredOf = (
       notSent: { trust: NotSentTrust.KeyReplay, keyRetention: FAULT_REPLAY_KEY_RETENTION },
     };
   // the sabotage (#795): a key's replay trusted as if it were a lookup that does not expire
-  const lookup = { notSent: { trust: NotSentTrust.Lookup } } as const;
+  const lookup = {
+    notSent: { trust: NotSentTrust.Lookup },
+    // #928 s21e: a refusal is the one error the fixture takes for definite (its text, as the pod hears it)
+    isDefiniteFailure: (error: unknown) => String(error).includes(REFUSED_ANSWER),
+  } as const;
   if (payment === FaultPayment.EveryErrorDefinite)
     return { ...lookup, isDefiniteFailure: () => true };
   return lookup;
@@ -63,6 +68,29 @@ const declaredOf = (
 
 const isReplayOnly = (payment: FaultPayment): boolean =>
   payment === FaultPayment.ReplayOnly || payment === FaultPayment.ReplayOnlyTrustedAsLookup;
+
+/**
+ * The sabotage of #928 (S2a): an unknown outcome taken for "not sent" — the charge sent again under
+ * a new key, nothing reconciled (the first may have reached the gateway: two payments).
+ */
+async function sentAgain(
+  link: FaultPodLink,
+  idempotencyKey: string,
+  orderId: string,
+): Promise<{ readonly status: string; readonly result: PaymentReceipt }> {
+  const call = {
+    op: "charge",
+    idempotencyKey: `${idempotencyKey}:again`,
+    orderId,
+    amount: FAULT_ORDER_AMOUNT,
+  } as const;
+  const answer = await link.gateway(call, new AbortController().signal);
+  const paymentId =
+    typeof answer === "object" && answer !== null && "paymentId" in answer
+      ? String(answer.paymentId)
+      : "";
+  return { status: "resent", result: { paymentId } };
+}
 
 @Action({
   name: "fault-pay-action",
@@ -114,7 +142,9 @@ export class FaultPayAction {
         reconcile,
         ...declaredOf(payment),
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        if (payment === FaultPayment.UnknownAsNotSent && isUnknownOutcome(error))
+          return sentAgain(link, key.idempotencyKey, orderId);
         link.emit("pay-failed", { ...where, error: error instanceof Error ? error.name : "" });
         throw error;
       });

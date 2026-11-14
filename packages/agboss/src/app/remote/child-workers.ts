@@ -13,7 +13,8 @@ import { SWEEP_EVERY } from "../../infrastructure/recovery.js";
 import { remoteChildSignals } from "../../flow/runtime/remote/remote-child-signals.js";
 import { claimRoomOf, type StepCapacity } from "../step-slots.js";
 import { childTakeOf, isSameRunningClaim, watchRunningChild } from "./child-registry.js";
-import { runQueuedChild, type QueuedChildParts } from "./queued-child-run.js";
+import { completedChild } from "./child-completion.js";
+import type { QueuedChildParts } from "./queued-child-run.js";
 import { announcePass } from "./child-end-event.js";
 import { ChildQueueWatch } from "./child-queue-watch.js";
 import { LookPacing, requeueIfStillClaimed } from "./look-pacing.js";
@@ -175,9 +176,9 @@ class Workers implements ChildWorkers {
     });
     let isRetired = false;
     try {
-      const pass = await runQueuedChild(this.parts, row, lease, signal);
-      if (pass === undefined) return;
-      const done = await queue.completeByTenantIdAndExecutionId(tenantId, executionId, pass.end);
+      const ran = await completedChild(this.parts, row, lease, signal);
+      if (ran === undefined) return;
+      const { pass, done } = ran;
       // answered or failed: its lease is retired, no stale worker takes it again (#520)
       isRetired = pass.end.status !== ExecutionRecordStatus.Paused;
       // announced by the completion that won, never by its parent (#562), while this pass still

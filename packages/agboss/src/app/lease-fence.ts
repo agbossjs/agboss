@@ -4,14 +4,29 @@ import type {
   ExecutionLeaseRepository,
 } from "../infrastructure/execution-lease.repository.js";
 import { waitOf } from "../infrastructure/clock.js";
-import { seconds, type Milliseconds } from "../units/index.js";
+import { minutes, seconds, type Milliseconds } from "../units/index.js";
 import { ExecutionLeaseLostError, leaseExpiredError } from "./lease-lost.js";
 
 /** The length of a tree's lease — fixed, not a setting (Q58). */
 export const EXECUTION_LEASE: Milliseconds = seconds(30);
 
-/** A third of the lease: two renewals may fail before it expires. */
-export const RENEW_EVERY: Milliseconds = seconds(10);
+/**
+ * A quarter of the lease (#928): tries at 1/4, 2/4 and 3/4 of it fall inside the trust (the lease
+ * less the safety margin, 29 s of 30), so any two of the three may fail and the third confirm.
+ */
+export const RENEW_EVERY: Milliseconds = waitOf(EXECUTION_LEASE / 4);
+
+/**
+ * The bound of a store call outside a lease scope (#928): half the lease, above the store packages'
+ * 10 s command timeout and below the 30 s of the sweep and worker periods.
+ */
+export const STORE_CALL_BOUND: Milliseconds = waitOf(EXECUTION_LEASE / 2);
+
+/** The bound of a lease renewal (#928): below `RENEW_EVERY`, so the next tick finds it settled. */
+export const RENEW_BOUND: Milliseconds = seconds(5);
+
+/** The bound of a retention delete and an A2A file body (#928): a backlog may take minutes; never a hand-over. */
+export const LONG_CALL_BOUND: Milliseconds = minutes(5);
 
 /**
  * What the holder takes off the time its store says a lease has left (#533): the drift of its
@@ -156,23 +171,36 @@ export class LeaseFence {
   }
 }
 
+/** What the background renewal knows between its ticks. */
+class RenewalState {
+  isRenewing = false;
+  isLost = false;
+}
+
 /**
- * Renews every third of the lease until stopped or lost; a store error is retried next time (the
- * expiry below stops the holder when none succeeds in time).
+ * Renews every third of the lease until stopped or lost, on a fixed cadence from the lease's start
+ * (#928): a renewal that hangs does not push the next one out. Each is bounded at `RENEW_BOUND`; one
+ * still in flight at its next tick is not overlapped — that tick is skipped. A store error is
+ * retried at the next tick (the expiry below stops the holder when none succeeds in time).
  */
 export async function renewInBackground(
   clock: Clock,
   working: AbortSignal,
   renew: () => Promise<void>,
 ): Promise<void> {
+  const state = new RenewalState();
   for (;;) {
     await clock.sleep(RENEW_EVERY, working);
-    if (working.aborted) return;
-    try {
-      await renew();
-    } catch (error) {
-      if (error instanceof ExecutionLeaseLostError) return;
-    }
+    if (working.aborted || state.isLost) return;
+    if (state.isRenewing) continue;
+    state.isRenewing = true;
+    void renew()
+      .catch((error: unknown) => {
+        state.isLost = error instanceof ExecutionLeaseLostError;
+      })
+      .finally(() => {
+        state.isRenewing = false;
+      });
   }
 }
 

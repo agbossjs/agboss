@@ -1,4 +1,5 @@
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -116,6 +117,18 @@ export interface FrameLease {
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.
    */
   keepWhile?(attempt: Promise<unknown>, maxWait: Milliseconds): void;
+  /**
+   * How long (ms) the holder still trusts the lease (#928): what a store call under it is bounded
+   * by; absent where no holder trusts one (a unit runner).
+   */
+  readonly left?: number;
+  /** Aborted when the lease is lost (#928): a call hanging under it ends then, not at its bound. */
+  readonly signal?: AbortSignal;
+  /**
+   * A store call under the lease did not answer, its outcome unknown (#928): the holder stops as if
+   * its lease expired — no release, the lease expires in the store — and the next holder reconciles.
+   */
+  abandon?(cause: StoreOutcomeUnknownError): Promise<void>;
 }
 
 /** A child's parent (#263): its execution and the step that launched the child. */

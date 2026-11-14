@@ -65,6 +65,8 @@ export async function observersOf(
 ): Promise<{ readonly observer: ExecutionObserverManager; readonly auditLog: AuditLogWriter }> {
   const { assembled, shared, log, seams, mask, infrastructure } = parts;
   const metrics = await instanceMetricsOf(meterProvider, parts);
+  // from now on a store call that times out is logged and counted (#928)
+  shared.bounds?.attach(log, metrics?.storeCallsTimedOut);
   const projection = await a2aTaskProjectionOf(parts);
   const builtIn = {
     observers: [...(metrics === undefined ? [] : [metrics.observer]), ...projection],

@@ -1,5 +1,6 @@
 import type {
   BatchObservableCallback,
+  Counter,
   Meter,
   MeterProvider,
   Observable,
@@ -13,7 +14,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { frameworkPackageJson } from "../package-json.js";
 import { METRICS, type MetricSpec } from "./metric-catalog.js";
-import { metricsObserverOf, unknownCostTallyOf } from "./metrics-observer.js";
+import { counterOf, metricsObserverOf, unknownCostTallyOf } from "./metrics-observer.js";
 import { HeldLeaseTally } from "./held-lease-tally.js";
 
 /**
@@ -116,12 +117,15 @@ export class InstanceMetrics {
   readonly heldLeases = new HeldLeaseTally();
   /** Where a pass counts the Unknown-cost entries it records, or fails to (#875). */
   readonly unknownCosts: UnknownCostTally;
+  /** Where a store call given up at its bound is counted (#928). */
+  readonly storeCallsTimedOut: Counter;
   readonly #meter: Meter;
   readonly #registrations: readonly Registration[];
 
   constructor(sources: MetricSources) {
     this.#meter = sources.meterProvider.getMeter(METER_NAME, versionOf());
     this.observer = metricsObserverOf(this.#meter);
+    this.storeCallsTimedOut = counterOf(this.#meter, METRICS.storeCallsTimedOut);
     this.unknownCosts = unknownCostTallyOf(this.#meter, sources.log);
     this.#registrations = [
       clusterGaugesOf(this.#meter, sources),

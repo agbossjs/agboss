@@ -187,12 +187,15 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
 
   it("a renewal that says yes to a lease that is over: 5d's zombie sends the payment again — it fails effects-once", async () => {
     const failure = await failureOf(s05ZombieRecordedNotSent, staleRenewing);
-    expect(failure.invariants).toContain(FaultInvariant.EffectsOnce);
-    expect(failure.violations.map((found) => found.message)).toContainEqual(
-      expect.stringMatching(/o-5d reached the gateway 2 times \(from b, a\)/u),
-    );
     // the stale renewal accepted after epoch 2 was granted: no sequential order explains it
     expect(failure.invariants).toContain(FaultInvariant.Linearizable);
+    // #928: the thawed zombie's held store call is given up at its bound before it reaches the
+    // sabotaged renewal, so it may no longer pay twice: the invariants it may break are these two
+    expect(
+      failure.invariants.every((one) =>
+        [FaultInvariant.EffectsOnce, FaultInvariant.Linearizable].includes(one),
+      ),
+    ).toBe(true);
   }, 120_000);
 
   it("a tree store that forgets an undo's done mark: 12b's next pod releases again — it fails no-undo-on-hand-over", async () => {

@@ -54,6 +54,8 @@ export {
 export { ExecutionCancelFencedError } from "../app/lease-lost.js";
 export { cancelFencedErrorOf } from "../app/handed-over.js";
 export { cancelTreeOf } from "../infrastructure/issued-keys.js";
+// a store call whose outcome is unknown (#928): what a store throws when a command did not answer
+export * from "../infrastructure/store-call-timeout.js";
 // what a ledger's save refuses and adds, what its prune refuses (#817, #869)
 export {
   assertLedgerCutoff,

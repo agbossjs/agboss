@@ -34,7 +34,19 @@ export enum FaultPayment {
   ReplayOnlyTrustedAsLookup = "replay-only-trusted-as-lookup",
   /** The sabotage of `Lookup`: every error the gateway answers taken for a definite failure. */
   EveryErrorDefinite = "every-error-definite",
+  /**
+   * The sabotage of #928 (S2a): a payment whose record of the answer was never answered by the
+   * store — an outcome unknown — is taken for one that was not sent: sent again, never reconciled.
+   */
+  UnknownAsNotSent = "unknown-as-not-sent",
 }
+
+/**
+ * What the test's gateway answers a charge it refuses (#928 s21e): a definite failure — it carried
+ * nothing out — that the fixture's default payment recognizes by this text.
+ */
+export const REFUSED_ANSWER =
+  "the gateway refused the charge (422 Unprocessable): nothing was charged";
 
 /** A store sabotage a pod can be started with (#959 AC5): its fenced-effect store broken on purpose. */
 export enum FaultStoreSabotage {
@@ -42,6 +54,11 @@ export enum FaultStoreSabotage {
   StaleThenKilled = "stale-then-killed",
   /** A lease store whose finish (`retire`) is a plain `release`: finished work can be granted again (#520, #971). */
   RetireReleases = "retire-releases",
+  /**
+   * A fenced-effect store that answers `Ran` for a write that does not answer in time (#928 S2b):
+   * an unknown outcome taken for done, under the framework's own bound.
+   */
+  TimeoutAsRan = "timeout-as-ran",
 }
 
 /** An order of the fixture application. */

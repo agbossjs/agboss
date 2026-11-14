@@ -1981,6 +1981,25 @@ export interface StepRecord {
 }
 
 // @public
+export class StoreCallTimeoutError extends StoreOutcomeUnknownError {
+    constructor(options: StoreCallTimeoutErrorOptions);
+    // (undocumented)
+    static readonly code: "store.call-timeout";
+    // (undocumented)
+    readonly code: typeof StoreCallTimeoutError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export interface StoreCallTimeoutErrorOptions extends StoreOutcomeUnknownErrorOptions {
+    // (undocumented)
+    readonly timeout: Milliseconds;
+}
+
+// @public
 export interface StoreDescriptor {
     readonly backend: string | undefined;
     readonly leaseCheck?: LeaseCheck;
@@ -2024,6 +2043,39 @@ export interface StoredNamesUnreadableErrorOptions {
     readonly ids: string;
     // (undocumented)
     readonly record: string;
+}
+
+// @public
+export enum StoreOutcomeSource {
+    Command = "command",
+    Framework = "framework",
+    Transport = "transport"
+}
+
+// @public
+export class StoreOutcomeUnknownError extends AGBossError {
+    constructor(options: StoreOutcomeUnknownErrorOptions & {
+        readonly message?: string;
+    });
+    // (undocumented)
+    static readonly code: string;
+    readonly code: "store.outcome-unknown" | "store.call-timeout";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly source: StoreOutcomeSource;
+    // (undocumented)
+    readonly store: string;
+}
+
+// @public
+export interface StoreOutcomeUnknownErrorOptions extends AGBossErrorOptions {
+    readonly operation: string;
+    // (undocumented)
+    readonly source: StoreOutcomeSource;
+    readonly store: string;
 }
 
 // @public
@@ -2463,6 +2515,17 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "operation".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/infrastructure/stored-step.ts - (ae-undocumented) Missing documentation for "record".
 // src/infrastructure/stored-step.ts - (ae-undocumented) Missing documentation for "ids".
 // src/infrastructure/stored-step.ts - (ae-undocumented) Missing documentation for "fields".

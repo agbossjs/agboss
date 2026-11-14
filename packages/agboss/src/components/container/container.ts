@@ -7,6 +7,7 @@ import {
   isModelProviderClass,
   modelProviderDepsOf,
 } from "../../models/model-provider.decorator.js";
+import type { StoreBounds } from "../../app/store-bounds.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
 
 /**
@@ -64,6 +65,8 @@ export interface ApplicationContainer {
   readonly core: ReadonlyMap<Token, unknown>;
   readonly defaults: ReadonlyMap<Class, Class>;
   readonly instances: Map<Token, unknown>;
+  /** The bounds of the instance's store calls (#928), when it has them. */
+  readonly bounds?: StoreBounds | undefined;
 }
 
 /** How one app's container differs: values that replace registrations (test mocks), a creation hook. */
@@ -76,6 +79,11 @@ export interface ContainerOptions {
   readonly replacements?: ReadonlyMap<Class, Class>;
   /** Called with every instance the container creates (not with values or overrides). */
   readonly onCreate?: (instance: unknown) => void;
+  /**
+   * What the container stores and hands out for a new instance of `cls` (#928: a store bounded by a
+   * proxy). `onCreate` and the lifecycle hooks get the instance itself.
+   */
+  readonly decorate?: (cls: Class, instance: unknown) => unknown;
   /** The application this container belongs to: its providers, defaults and instances, shared. */
   readonly application?: ApplicationContainer;
 }
@@ -152,10 +160,11 @@ export function createContainer(
   const instanceOf = (cls: Class): unknown => {
     if (instances.has(cls)) return instances.get(cls);
     const instance = construct(cls, resolve);
-    instances.set(cls, instance);
+    const decorated = options.decorate?.(cls, instance) ?? instance;
+    instances.set(cls, decorated);
     created.push(tokenName(cls));
     options.onCreate?.(instance);
-    return instance;
+    return decorated;
   };
   const resolve = (token: Token, dependant = "the app"): unknown => {
     const registration = registrationOf(registrations, token, dependant);
