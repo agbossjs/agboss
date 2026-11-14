@@ -1434,6 +1434,22 @@ to stream (#1004). An agent with an `output` DTO answers with an answer tool, so
 text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
 fails the run.
 
+Streamed text is **provisional** (#1006). Every `textDelta` carries `step: { agent, visit, branch,
+attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
+that makes it (a child workflow has its own) and the agent's model call in the visit — so parallel
+branches, child executions and agent chains never share a key. When a judge rejects an attempt, a
+retry's first model call starts, or the visit fails, a `{ kind: "discarded", step, reason }` event
+retracts everything streamed for that step (`reason`: `judge-rejected`, `tool-turn`,
+`invalid-answer`, `stream-broken`, `failed`); the next attempt is `attempt + 1`. The text before an
+ordinary tool call in a turn is retracted too (`tool-turn`): the turn's text is not the reply. The
+deltas of the steps that were not discarded, joined, are the agent's reply. An agent with a
+**blocking output check** — an output guardrail, a PII policy with a block rule — has its text held
+until its checks passed: a refused answer never reaches the stream, and this cannot be switched off.
+On A2A the output artifact shows one step at a time: a retry or another step starts it anew
+(`append: false`), and a task that ends FAILED, CANCELED or REJECTED after streamed text replaces
+it with an empty last chunk before its final status. `agboss run` prints `[Retracted: <reason>]`
+to stderr.
+
 **Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
 wake and write after the new holder did. `executionContext.fence` is the lease the step runs under
 — `scopeKey`, `token` (the fencing token, a counter of that one lease), `assertHeld()`,

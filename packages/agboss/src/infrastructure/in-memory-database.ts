@@ -1,4 +1,7 @@
+import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
+import type { EffectKey } from "./effect-key.js";
+import { cancelTreeOf } from "./issued-keys.js";
 import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
 import type { StoredKeyFacts } from "./fenced-effect-key.js";
 import type { ExecutionLease } from "./execution-lease.repository.js";
@@ -24,6 +27,8 @@ export class InMemoryDatabase {
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
   /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
   readonly executionIds = new Set<string>();
+  /** The trees whose cancel was requested (#909), by `tenantId` + `rootExecutionId`: the fence's mark. */
+  readonly cancelRequests = new Map<string, CancelRequestRow>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */
@@ -63,6 +68,48 @@ export class InMemoryDatabase {
   readonly outboundCallOrder = new Map<string, number>();
   /** The highest place given in that order (#825): counted up here, never given again. */
   readonly outboundCallPlaces = { highest: 0 };
+}
+
+/** A tree's durable cancel request (#909): when the lease store took it (the `Clock`'s ms). */
+export interface CancelRequestRow {
+  readonly requestedAt: number;
+}
+
+/**
+ * The cancel check of the in-memory stores (#909): the key's tree has a durable cancel request and
+ * the key is not an undo's — `ExecutionCancelFencedError`, nothing written or sent. After the
+ * lease and mark checks and, for an effect, after the key's lookup (a stored result replays).
+ */
+export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
+  if (key.isCompensation === true) return;
+  const tree = cancelTreeOf(key);
+  if (database.cancelRequests.has(treeKeyOf(tree.tenantId, tree.rootExecutionId)))
+    throw ExecutionCancelFencedError.of(key);
+}
+
+/** Removes the cancel requests older than `before` (ms): the fencing stores' retention (#909). */
+function prunedCancelRequests(database: InMemoryDatabase, before: number): void {
+  for (const [tree, request] of database.cancelRequests)
+    if (request.requestedAt < before) database.cancelRequests.delete(tree);
+}
+
+/** The fenced effects' retention: their results and marks stored, and the cancel requests, before `before` (ms). */
+export function prunedFencedBefore(database: InMemoryDatabase, before: number): void {
+  const { fencedEffectMarks: marks, fencedEffectResults: results } = database;
+  for (const [row, stored] of results) if (stored.storedAt < before) results.delete(row);
+  for (const [scope, mark] of marks) if (mark.storedAt < before) marks.delete(scope);
+  prunedCancelRequests(database, before);
+}
+
+/** The outbound calls' retention: the intents ended, and the cancel requests, before `before` (ms). */
+export function prunedCallsBefore(database: InMemoryDatabase, before: number): void {
+  for (const [row, found] of database.outboundCalls)
+    // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
+    if (new Date(found.endedAt ?? Number.NaN).getTime() < before) {
+      database.outboundCalls.delete(row);
+      database.outboundCallOrder.delete(row);
+    }
+  prunedCancelRequests(database, before);
 }
 
 /** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */

@@ -88,6 +88,7 @@ const STATUS_OF: Readonly<Record<OutboundCallEventOutcome, OutboundCallStatus>> 
   [OutboundCallEventOutcome.AttemptSuperseded]: OutboundCallStatus.Pending,
   [OutboundCallEventOutcome.Joined]: OutboundCallStatus.Completed,
   [OutboundCallEventOutcome.LeaseClosed]: OutboundCallStatus.Completed,
+  [OutboundCallEventOutcome.Cancelled]: OutboundCallStatus.Pending,
 };
 
 /** An outbound-call row of `outcome`, with the fields that outcome carries (#508). */

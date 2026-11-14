@@ -56,6 +56,11 @@ export interface HeldExecutionLease extends FrameLease {
    */
   afterEachRenewal(check: RenewalCheck): void;
   /**
+   * Runs `listener` when a fenced write or a call of a step under this lease was refused by its
+   * tree's cancel (#909, `cancelFound`): the holder's pass stops as cancelled at once.
+   */
+  whenCancelFound(listener: () => void): void;
+  /**
    * Yields the lease in `ExecutionLeaseRepository` while `wait` awaits remote children (#333 PR 4,
    * S9 Q1) — only while no other step of the tree runs (#471) — and reclaims it, at the next token,
    * before returning so `.join()` and checkpoint writes run under it. Yielded is not released
@@ -81,6 +86,12 @@ export interface ExecutionLeases {
   hold(tree: ExecutionTree, signal?: AbortSignal, take?: LeaseTake): Promise<HeldExecutionLease>;
   /** The tree's lease when it is free now (recovery, #265 S30); `undefined` while another holds it. */
   tryHold(tree: ExecutionTree, take?: LeaseTake): Promise<HeldExecutionLease | undefined>;
+  /**
+   * The tree's cancel is durable on the lease store's backend (#909): from now on every fencing
+   * store refuses a new effect of the tree, in the transaction that checks the lease. Resolves once
+   * written; idempotent; rejects with the store's error, nothing written.
+   */
+  requestCancel(tree: ExecutionTree): Promise<void>;
 }
 
 /** What a holder records its takeovers with: the instance's audit log, absent = none. */
@@ -104,6 +115,7 @@ export function executionLeasesOf(
     takeLease(taking, tree, why);
   return {
     tryHold: take,
+    requestCancel: (tree) => repository.requestCancel(tree),
     hold: async (tree, signal, why) => {
       const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
       for (;;) {

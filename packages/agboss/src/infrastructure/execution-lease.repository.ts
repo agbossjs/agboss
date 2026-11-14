@@ -1,6 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import { InjectionToken } from "../components/injection.js";
 import type { Milliseconds } from "../units/index.js";
+import type { ExecutionTree } from "./execution-tree.repository.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock, waitOf } from "./clock.js";
 import {
@@ -219,6 +220,16 @@ export abstract class ExecutionLeaseRepository {
     executionLease: ExecutionLease,
     duration: Milliseconds,
   ): Promise<ExecutionLease | undefined>;
+
+  /**
+   * Marks the tree's cancel as requested (#909): durable once this resolves, idempotent, kept until
+   * the fencing stores' retention prunes it. From then on every fencing store of this backend
+   * refuses a new effect of the tree (not a replay, not an undo's) in the transaction that checks
+   * the lease. Changes no lease: the holder keeps it, renews it, runs the tree's undo under it.
+   * The mark is keyed by the tree's root, never by a child's lease, and may be written before the
+   * tree's first `acquire`.
+   */
+  abstract requestCancel(tree: ExecutionTree): Promise<void>;
 }
 
 /** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
@@ -349,6 +360,14 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     };
     this.database.executionLeases.set(key, { lease: reclaimed, released: false });
     return Promise.resolve(reclaimed);
+  }
+
+  requestCancel(tree: ExecutionTree): Promise<void> {
+    const { cancelRequests } = this.database;
+    const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
+    if (!cancelRequests.has(key))
+      cancelRequests.set(key, { requestedAt: this.clock.now().getTime() });
+    return Promise.resolve();
   }
 
   /**

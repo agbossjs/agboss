@@ -22,7 +22,10 @@ import {
 } from "../../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import type { ExecutionStreamEvent, StreamStep } from "../../../src/run/types.js";
+
+/** The step every streamed delta of these units belongs to. */
+const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
 import {
   NINE,
   savedTask,
@@ -210,11 +213,11 @@ describe("#824: a task's stream", () => {
     });
     await nextOf(stream);
 
-    emit({ kind: "textDelta", delta: "he" });
+    emit({ kind: "textDelta", delta: "he", step: STEP });
     emit({ kind: "toolCall", tool: "lookup-tool" });
     const first = await nextOf(stream);
     const tool = await nextOf(stream);
-    emit({ kind: "textDelta", delta: "llo" });
+    emit({ kind: "textDelta", delta: "llo", step: STEP });
     const away = await nextOf(stream);
     const after = await nextOf(stream);
 
@@ -307,7 +310,7 @@ describe("#824: a task's stream", () => {
     await written(tasks, task, { ...WORKING, message: "resumed" });
     expect(await nextOf(stream)).toMatchObject({ payload: { $case: "statusUpdate" } });
     expect(await nextOf(stream)).toBe("stuck");
-    emit({ kind: "textDelta", delta: "hi" });
+    emit({ kind: "textDelta", delta: "hi", step: STEP });
 
     expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
   });
@@ -388,9 +391,9 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     });
     const events: (StreamResponse | string)[] = [await nextOf(stream)];
 
-    emit({ kind: "textDelta", delta: "do" });
+    emit({ kind: "textDelta", delta: "do", step: STEP });
     events.push(await nextOf(stream));
-    emit({ kind: "textDelta", delta: "ne" });
+    emit({ kind: "textDelta", delta: "ne", step: STEP });
     events.push(await nextOf(stream));
     const chunked = await appliedArtifacts(events);
     script.state = {
@@ -438,7 +441,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
 
     emit({ kind: "toolCall", tool: "lookup-tool" });
     await nextOf(stream);
-    emit({ kind: "textDelta", delta: "hi" });
+    emit({ kind: "textDelta", delta: "hi", step: STEP });
 
     expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
   });
@@ -453,12 +456,12 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     const signal = new AbortController().signal;
     const first = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
     await nextOf(first);
-    emit({ kind: "textDelta", delta: "a" });
+    emit({ kind: "textDelta", delta: "a", step: STEP });
     await nextOf(first);
     const second = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
     await nextOf(second);
 
-    emit({ kind: "textDelta", delta: "b" });
+    emit({ kind: "textDelta", delta: "b", step: STEP });
 
     expect(await nextOf(first)).toStrictEqual(delta(task, "b", true));
     expect(await nextOf(second)).toStrictEqual(delta(task, "b", false));
@@ -477,7 +480,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
       signal: new AbortController().signal,
     });
     const events = [await nextOf(stream)];
-    emit({ kind: "textDelta", delta: "Which order?" });
+    emit({ kind: "textDelta", delta: "Which order?", step: STEP });
     events.push(await nextOf(stream));
     await written(tasks, task, INPUT_REQUIRED);
     finish();
@@ -492,7 +495,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     });
     await written(tasks, paused, WORKING);
     events.push(...(await restOf(stream)));
-    emit({ kind: "textDelta", delta: "Order 7 shipped." });
+    emit({ kind: "textDelta", delta: "Order 7 shipped.", step: STEP });
     const resumed = await nextOf(stream);
 
     expect(events[1]).toStrictEqual(delta(task, "Which order?", false));

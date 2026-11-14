@@ -5,6 +5,7 @@ import {
   type ExecutionLease,
 } from "../infrastructure/execution-lease.repository.js";
 import { Clock } from "../infrastructure/clock.js";
+import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Milliseconds } from "../units/index.js";
 import { TestSetupError } from "./errors.js";
 import type { TestApp } from "./test-app.js";
@@ -133,6 +134,11 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined> {
     await this.gate.passed();
     return this.repository.reclaim(executionLease, duration);
+  }
+
+  async requestCancel(tree: ExecutionTree): Promise<void> {
+    await this.gate.passed();
+    return this.repository.requestCancel(tree);
   }
 }
 

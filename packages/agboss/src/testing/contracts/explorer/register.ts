@@ -6,6 +6,7 @@ import type { OutboundCallTarget } from "../outbound-call-data.js";
 import type { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
 import type { ContractTarget } from "../instance-context.js";
 import { LEASE_RACES, raced, type ForcedRace } from "./races.js";
+import { CANCEL_CALL_RACES, CANCEL_EFFECT_RACES } from "./cancel-races.js";
 import { CALL_RACES, EFFECT_RACES } from "./store-races.js";
 import { ExplorerRun } from "./run.js";
 import { exhaustive, randomWalks } from "./search.js";
@@ -230,7 +231,8 @@ export function registerInterleavings(
     const effects =
       targets.fencedEffect === undefined ? undefined : effectTarget(targets.fencedEffect);
     if (calls !== undefined)
-      for (const race of [...LEASE_RACES, ...CALL_RACES]) registerRace(race, calls, options);
+      for (const race of [...LEASE_RACES, ...CALL_RACES, ...CANCEL_CALL_RACES])
+        registerRace(race, calls, options);
     else if (targets.executionLease !== undefined) {
       // #694: the races of the leases alone; those of leaseStateOf need the outbound-call store
       const leases = leaseTarget(targets.executionLease);
@@ -238,6 +240,7 @@ export function registerInterleavings(
         registerRace(race, leases, options);
     }
     if (effects !== undefined)
-      for (const race of EFFECT_RACES) registerRace(race, effects, options);
+      for (const race of [...EFFECT_RACES, ...CANCEL_EFFECT_RACES])
+        registerRace(race, effects, options);
   });
 }

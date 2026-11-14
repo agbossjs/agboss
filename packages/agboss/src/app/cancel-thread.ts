@@ -40,6 +40,9 @@ export async function cancelThread(
     checkedCallerId("CancelOptions", "ownerId", options.ownerId); // #589
     return parts.known({ ...thread, ownerId: options.ownerId });
   });
+  // #909: the cancel is durable — fencing every instance — before the run here is aborted; a
+  // failed write rejects the cancel, nothing aborted (a retry is idempotent)
+  for (const tree of live.treesOf(thread)) await parts.leases.requestCancel(tree);
   const running = live.abort(thread);
   // a running resume completes its own Turn when the abort stops it
   if (running) {

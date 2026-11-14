@@ -36,6 +36,7 @@ export enum FaultInvariant {
     EffectsOnce = "effects-once",
     FinishedWorkUntouched = "finished-work-untouched",
     Linearizable = "linearizable",
+    NoEffectAfterCancel = "no-effect-after-cancel",
     NoUndoOnHandOver = "no-undo-on-hand-over",
     OneOwner = "one-owner",
     TreesFinish = "trees-finish"
@@ -244,6 +245,7 @@ export enum StoreHoldPoint {
     LeaseRelease = "lease.release",
     // (undocumented)
     LeaseRenew = "lease.renew",
+    LeaseRequestCancel = "lease.requestCancel",
     // (undocumented)
     LeaseRetire = "lease.retire",
     // (undocumented)
@@ -293,17 +295,17 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/hold-points.ts:53:3 - (ae-undocumented) Missing documentation for "point".
 // src/testing/faults/hold-points.ts:54:3 - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/hold-points.ts:55:3 - (ae-undocumented) Missing documentation for "key".
-// src/testing/faults/invariants/violations.ts:30:3 - (ae-undocumented) Missing documentation for "invariant".
-// src/testing/faults/invariants/violations.ts:31:3 - (ae-undocumented) Missing documentation for "message".
-// src/testing/faults/invariants/violations.ts:36:3 - (ae-undocumented) Missing documentation for "scenario".
-// src/testing/faults/invariants/violations.ts:37:3 - (ae-undocumented) Missing documentation for "violations".
-// src/testing/faults/invariants/violations.ts:38:3 - (ae-undocumented) Missing documentation for "notes".
-// src/testing/faults/invariants/violations.ts:39:3 - (ae-undocumented) Missing documentation for "cause".
-// src/testing/faults/invariants/violations.ts:44:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/faults/invariants/violations.ts:45:3 - (ae-undocumented) Missing documentation for "code".
-// src/testing/faults/invariants/violations.ts:46:12 - (ae-undocumented) Missing documentation for "name".
-// src/testing/faults/invariants/violations.ts:47:3 - (ae-undocumented) Missing documentation for "scenario".
-// src/testing/faults/invariants/violations.ts:48:3 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/invariants/violations.ts:36:3 - (ae-undocumented) Missing documentation for "invariant".
+// src/testing/faults/invariants/violations.ts:37:3 - (ae-undocumented) Missing documentation for "message".
+// src/testing/faults/invariants/violations.ts:42:3 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:43:3 - (ae-undocumented) Missing documentation for "violations".
+// src/testing/faults/invariants/violations.ts:44:3 - (ae-undocumented) Missing documentation for "notes".
+// src/testing/faults/invariants/violations.ts:45:3 - (ae-undocumented) Missing documentation for "cause".
+// src/testing/faults/invariants/violations.ts:50:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/invariants/violations.ts:51:3 - (ae-undocumented) Missing documentation for "code".
+// src/testing/faults/invariants/violations.ts:52:12 - (ae-undocumented) Missing documentation for "name".
+// src/testing/faults/invariants/violations.ts:53:3 - (ae-undocumented) Missing documentation for "scenario".
+// src/testing/faults/invariants/violations.ts:54:3 - (ae-undocumented) Missing documentation for "violations".
 // src/testing/faults/operation-history.ts:14:3 - (ae-undocumented) Missing documentation for "Invoke".
 // src/testing/faults/operation-history.ts:15:3 - (ae-undocumented) Missing documentation for "Complete".
 // src/testing/faults/operation-history.ts:20:3 - (ae-undocumented) Missing documentation for "phase".
@@ -315,14 +317,14 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/store-points.ts:18:3 - (ae-undocumented) Missing documentation for "LeaseRetire".
 // src/testing/faults/store-points.ts:19:3 - (ae-undocumented) Missing documentation for "LeaseYield".
 // src/testing/faults/store-points.ts:20:3 - (ae-undocumented) Missing documentation for "LeaseReclaim".
-// src/testing/faults/store-points.ts:23:3 - (ae-undocumented) Missing documentation for "OutboundFindByKey".
-// src/testing/faults/store-points.ts:24:3 - (ae-undocumented) Missing documentation for "OutboundSaveIfAbsent".
-// src/testing/faults/store-points.ts:25:3 - (ae-undocumented) Missing documentation for "OutboundMarkPending".
-// src/testing/faults/store-points.ts:26:3 - (ae-undocumented) Missing documentation for "OutboundMarkCompleted".
-// src/testing/faults/store-points.ts:27:3 - (ae-undocumented) Missing documentation for "OutboundMarkFailed".
-// src/testing/faults/store-points.ts:28:3 - (ae-undocumented) Missing documentation for "OutboundLeaseStateOf".
-// src/testing/faults/store-points.ts:29:3 - (ae-undocumented) Missing documentation for "ChildClaim".
-// src/testing/faults/store-points.ts:30:3 - (ae-undocumented) Missing documentation for "ChildComplete".
+// src/testing/faults/store-points.ts:28:3 - (ae-undocumented) Missing documentation for "OutboundFindByKey".
+// src/testing/faults/store-points.ts:29:3 - (ae-undocumented) Missing documentation for "OutboundSaveIfAbsent".
+// src/testing/faults/store-points.ts:30:3 - (ae-undocumented) Missing documentation for "OutboundMarkPending".
+// src/testing/faults/store-points.ts:31:3 - (ae-undocumented) Missing documentation for "OutboundMarkCompleted".
+// src/testing/faults/store-points.ts:32:3 - (ae-undocumented) Missing documentation for "OutboundMarkFailed".
+// src/testing/faults/store-points.ts:33:3 - (ae-undocumented) Missing documentation for "OutboundLeaseStateOf".
+// src/testing/faults/store-points.ts:34:3 - (ae-undocumented) Missing documentation for "ChildClaim".
+// src/testing/faults/store-points.ts:35:3 - (ae-undocumented) Missing documentation for "ChildComplete".
 
 // (No @packageDocumentation comment for this package)
 

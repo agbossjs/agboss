@@ -1031,6 +1031,9 @@ export interface CallOptions {
 }
 
 // @public
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
+
+// @public
 export interface CancelOptions {
     readonly ownerId?: string | undefined;
     // (undocumented)
@@ -2126,6 +2129,9 @@ export interface DepthLimitExceededErrorOptions {
 }
 
 // @public
+export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+
+// @public
 export interface DtoBrands {
     // (undocumented)
     readonly [notGenerated]?: never;
@@ -2180,10 +2186,12 @@ export interface EffectKeyFields {
     readonly fingerprint?: string;
     readonly fingerprintPolicy?: FingerprintPolicy;
     readonly idempotencyKey: string;
+    readonly isCompensation?: true;
     readonly leaseExecutionId: string;
     readonly name: string;
     readonly origin?: FencedEffectOrigin;
     readonly previousFingerprint?: string;
+    readonly rootExecutionId?: string;
     readonly scopeKey: string;
     // (undocumented)
     readonly tenantId: string;
@@ -2440,12 +2448,49 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
 }
 
 // @public
+export class ExecutionCancelFencedError extends ExecutionCancelledError {
+    constructor(options: ExecutionCancelFencedErrorOptions);
+    // (undocumented)
+    static readonly code: "execution.cancelled.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionCancelFencedError.code;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    static of(key: Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">): ExecutionCancelFencedError;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export interface ExecutionCancelFencedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly effect: string;
+    readonly leaseExecutionId: string;
+    readonly rootExecutionId: string;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
 export class ExecutionCancelledError extends AGBossError {
     constructor(options?: ExecutionCancelledErrorOptions);
     // (undocumented)
-    static readonly code: "execution.cancelled";
-    // (undocumented)
-    readonly code: typeof ExecutionCancelledError.code;
+    static readonly code: string;
+    readonly code: "execution.cancelled" | "execution.cancelled.fenced";
     // (undocumented)
     name: string;
 }
@@ -2713,6 +2758,7 @@ export abstract class ExecutionLeaseRepository {
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    abstract requestCancel(tree: ExecutionTree): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
     static readonly store: StoreDescriptor;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
@@ -2930,6 +2976,13 @@ export interface ExecutionStepRecord {
 export type ExecutionStreamEvent = {
     readonly kind: "textDelta";
     readonly delta: string;
+    readonly step: StreamStep;
+}
+/** The text streamed for `step` is retracted (#1006): show it no more. */
+| {
+    readonly kind: "discarded";
+    readonly step: StreamStep;
+    readonly reason: DiscardReason;
 }
 /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
 | {
@@ -3033,6 +3086,7 @@ export interface FencedEffectEvent extends NodeEvent {
 
 // @public
 export enum FencedEffectEventOutcome {
+    Cancelled = "cancelled",
     Joined = "joined",
     Ran = "ran",
     Refused = "refused",
@@ -5488,6 +5542,7 @@ export interface OutboundCallEvent extends NodeEvent {
 export enum OutboundCallEventOutcome {
     Ambiguous = "ambiguous",
     AttemptSuperseded = "attempt-superseded",
+    Cancelled = "cancelled",
     Failed = "failed",
     Joined = "joined",
     LeaseClosed = "lease-closed",
@@ -7471,6 +7526,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     renew(held: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
     // (undocumented)
+    requestCancel(tree: ExecutionTree): Promise<void>;
+    // (undocumented)
     retire(executionLease: ExecutionLease): Promise<void>;
     // (undocumented)
     static readonly store: StoreDescriptor;
@@ -7895,6 +7952,14 @@ export enum StoreTimeSource {
     Database = "database",
     Host = "host",
     Test = "test"
+}
+
+// @public
+export interface StreamStep {
+    readonly agent: string;
+    readonly attempt: number;
+    readonly branch: string;
+    readonly visit: number;
 }
 
 // @public
@@ -8897,16 +8962,28 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // Warnings were encountered during analysis:
 //
 // src/app/create-app.ts:63:3 - (ae-undocumented) Missing documentation for "profileRoot".
-// src/app/lease-lost.ts:9:3 - (ae-undocumented) Missing documentation for "cause".
-// src/app/lease-lost.ts:19:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts:22:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts:120:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:10:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/lease-lost.ts:20:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:23:12 - (ae-undocumented) Missing documentation for "name".
 // src/app/lease-lost.ts:121:3 - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts:122:12 - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts:123:3 - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-lost.ts:124:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts:127:3 - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts:128:3 - (ae-undocumented) Missing documentation for "observedToken".
+// src/app/lease-lost.ts:122:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:123:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:124:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-lost.ts:125:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:128:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:129:3 - (ae-undocumented) Missing documentation for "observedToken".
+// src/app/lease-lost.ts:197:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:202:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:205:3 - (ae-undocumented) Missing documentation for "cause".
+// src/app/lease-lost.ts:214:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:215:3 - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-lost.ts:216:12 - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-lost.ts:217:3 - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-lost.ts:218:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-lost.ts:219:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/lease-lost.ts:220:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/app/lease-lost.ts:221:3 - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-lost.ts:222:3 - (ae-undocumented) Missing documentation for "effect".
 // src/app/outbound-call-contract.ts:79:3 - (ae-undocumented) Missing documentation for "call".
 // src/app/outbound-call-contract.ts:80:3 - (ae-undocumented) Missing documentation for "problem".
 // src/app/outbound-call-contract.ts:81:3 - (ae-undocumented) Missing documentation for "cause".
@@ -9203,35 +9280,34 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/errors.ts:45:3 - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts:46:3 - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts:58:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:59:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:60:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:74:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:61:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts:75:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:76:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:212:3 - (ae-undocumented) Missing documentation for "generator".
-// src/core/errors.ts:213:3 - (ae-undocumented) Missing documentation for "method".
-// src/core/errors.ts:214:3 - (ae-undocumented) Missing documentation for "rule".
-// src/core/errors.ts:215:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:225:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:76:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:77:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:213:3 - (ae-undocumented) Missing documentation for "generator".
+// src/core/errors.ts:214:3 - (ae-undocumented) Missing documentation for "method".
+// src/core/errors.ts:215:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:216:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:226:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:227:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:251:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:264:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:286:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:299:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:318:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
-// src/core/errors.ts:319:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:227:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:228:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:252:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:265:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:287:3 - (ae-undocumented) Missing documentation for "cause".
+// src/core/errors.ts:300:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:319:1 - (ae-undocumented) Missing documentation for "UnknownThreadError".
 // src/core/errors.ts:320:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:321:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:330:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:321:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:322:12 - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts:331:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:332:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:341:3 - (ae-undocumented) Missing documentation for "rule".
-// src/core/errors.ts:342:3 - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts:350:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:332:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:333:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:342:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:343:3 - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts:351:3 - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts:352:12 - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts:353:3 - (ae-undocumented) Missing documentation for "rule".
+// src/core/errors.ts:352:3 - (ae-undocumented) Missing documentation for "code".
+// src/core/errors.ts:353:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts:354:3 - (ae-undocumented) Missing documentation for "rule".
 // src/core/observability.ts:23:3 - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts:28:3 - (ae-undocumented) Missing documentation for "name".
 // src/core/observability.ts:29:3 - (ae-undocumented) Missing documentation for "update".
@@ -9947,34 +10023,34 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/clock.ts:118:5 - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/cost-ledger.repository.ts:52:1 - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts:12:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/effect-key.ts:87:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/infrastructure/effect-key.ts:88:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/effect-key.ts:89:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-audit-log.repository.ts:131:3 - (ae-undocumented) Missing documentation for "nodeId".
-// src/infrastructure/execution-audit-log.repository.ts:132:3 - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/execution-audit-log.repository.ts:133:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/infrastructure/execution-audit-log.repository.ts:138:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:141:3 - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/execution-audit-log.repository.ts:156:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:157:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-audit-log.repository.ts:160:3 - (ae-undocumented) Missing documentation for "previousToken".
-// src/infrastructure/execution-audit-log.repository.ts:167:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:168:3 - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/execution-audit-log.repository.ts:169:3 - (ae-undocumented) Missing documentation for "site".
-// src/infrastructure/execution-audit-log.repository.ts:170:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:177:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:180:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-audit-log.repository.ts:181:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:195:3 - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/execution-audit-log.repository.ts:198:3 - (ae-undocumented) Missing documentation for "target".
-// src/infrastructure/execution-audit-log.repository.ts:199:3 - (ae-undocumented) Missing documentation for "operation".
-// src/infrastructure/execution-audit-log.repository.ts:202:3 - (ae-undocumented) Missing documentation for "attempt".
-// src/infrastructure/execution-audit-log.repository.ts:203:3 - (ae-undocumented) Missing documentation for "outcome".
-// src/infrastructure/execution-audit-log.repository.ts:204:3 - (ae-undocumented) Missing documentation for "step".
-// src/infrastructure/execution-audit-log.repository.ts:221:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/infrastructure/execution-audit-log.repository.ts:222:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/infrastructure/execution-audit-log.repository.ts:223:3 - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-audit-log.repository.ts:255:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
+// src/infrastructure/effect-key.ts:99:3 - (ae-undocumented) Missing documentation for "executionId".
+// src/infrastructure/effect-key.ts:100:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/effect-key.ts:101:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:139:3 - (ae-undocumented) Missing documentation for "nodeId".
+// src/infrastructure/execution-audit-log.repository.ts:140:3 - (ae-undocumented) Missing documentation for "visitNumber".
+// src/infrastructure/execution-audit-log.repository.ts:141:3 - (ae-undocumented) Missing documentation for "idempotencyKey".
+// src/infrastructure/execution-audit-log.repository.ts:146:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:149:3 - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/execution-audit-log.repository.ts:164:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:165:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:168:3 - (ae-undocumented) Missing documentation for "previousToken".
+// src/infrastructure/execution-audit-log.repository.ts:175:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:176:3 - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-audit-log.repository.ts:177:3 - (ae-undocumented) Missing documentation for "site".
+// src/infrastructure/execution-audit-log.repository.ts:178:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:185:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:188:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:189:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:203:3 - (ae-undocumented) Missing documentation for "kind".
+// src/infrastructure/execution-audit-log.repository.ts:206:3 - (ae-undocumented) Missing documentation for "target".
+// src/infrastructure/execution-audit-log.repository.ts:207:3 - (ae-undocumented) Missing documentation for "operation".
+// src/infrastructure/execution-audit-log.repository.ts:210:3 - (ae-undocumented) Missing documentation for "attempt".
+// src/infrastructure/execution-audit-log.repository.ts:211:3 - (ae-undocumented) Missing documentation for "outcome".
+// src/infrastructure/execution-audit-log.repository.ts:212:3 - (ae-undocumented) Missing documentation for "step".
+// src/infrastructure/execution-audit-log.repository.ts:229:3 - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:230:3 - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/infrastructure/execution-audit-log.repository.ts:231:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-audit-log.repository.ts:263:1 - (ae-undocumented) Missing documentation for "ExecutionAuditLogRepository".
 // src/infrastructure/execution-history.repository.ts:23:3 - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts:24:3 - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts:25:3 - (ae-undocumented) Missing documentation for "Failed".
@@ -9996,8 +10072,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-history.repository.ts:81:3 - (ae-undocumented) Missing documentation for "offset".
 // src/infrastructure/execution-history.repository.ts:82:3 - (ae-undocumented) Missing documentation for "limit".
 // src/infrastructure/execution-history.repository.ts:85:1 - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts:67:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease.repository.ts:68:3 - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease.repository.ts:69:3 - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record.repository.ts:77:3 - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts:92:3 - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts:116:3 - (ae-undocumented) Missing documentation for "saveScore".
@@ -10029,6 +10105,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/fenced-effect-errors.ts:116:3 - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-errors.ts:117:12 - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/fenced-effect-errors.ts:118:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:138:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/fenced-effect-errors.ts:139:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/fenced-effect-errors.ts:149:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:150:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/fenced-effect-errors.ts:151:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/fenced-effect-errors.ts:152:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-fingerprint.ts:40:3 - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts:41:3 - (ae-undocumented) Missing documentation for "fingerprintPolicy".
 // src/infrastructure/fenced-effect-fingerprint.ts:46:3 - (ae-undocumented) Missing documentation for "fingerprintPolicy".
@@ -10060,8 +10142,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/fenced-effect-settings.ts:188:3 - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-settings.ts:189:3 - (ae-undocumented) Missing documentation for "size".
 // src/infrastructure/fenced-effect-settings.ts:190:3 - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect.repository.ts:58:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/fenced-effect.repository.ts:59:3 - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/fenced-effect.repository.ts:62:3 - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect.repository.ts:63:3 - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:112:3 - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:121:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts:125:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -10081,18 +10163,18 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-a2a-task.repository.ts:88:3 - (ae-undocumented) Missing documentation for "compareAndSetStatus".
 // src/infrastructure/in-memory-a2a-task.repository.ts:108:3 - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/in-memory-a2a-task.repository.ts:129:3 - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:61:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:75:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:79:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:90:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:222:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:226:3 - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:236:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:238:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:239:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts:240:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:66:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:80:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:84:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:95:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:228:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:229:3 - (ae-undocumented) Missing documentation for "leaseRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:232:3 - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:242:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:243:3 - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:244:12 - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:245:3 - (ae-undocumented) Missing documentation for "fencedEffectRepository".
+// src/infrastructure/in-memory-fenced-effect.repository.ts:246:3 - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/logger.ts:26:3 - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts:60:3 - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts:17:3 - (ae-undocumented) Missing documentation for "tenantId".
@@ -10107,17 +10189,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/outbound-call-record.ts:45:3 - (ae-undocumented) Missing documentation for "step".
 // src/infrastructure/outbound-call-record.ts:50:3 - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-record.ts:53:3 - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/outbound-call.repository.ts:170:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/outbound-call.repository.ts:194:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/outbound-call.repository.ts:198:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/outbound-call.repository.ts:206:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/outbound-call.repository.ts:220:9 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/outbound-call.repository.ts:230:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/outbound-call.repository.ts:234:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/outbound-call.repository.ts:248:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/outbound-call.repository.ts:257:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/outbound-call.repository.ts:261:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/outbound-call.repository.ts:266:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/outbound-call.repository.ts:174:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/outbound-call.repository.ts:198:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/outbound-call.repository.ts:202:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/outbound-call.repository.ts:210:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/outbound-call.repository.ts:225:9 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/outbound-call.repository.ts:236:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/outbound-call.repository.ts:240:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/outbound-call.repository.ts:254:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/outbound-call.repository.ts:263:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/outbound-call.repository.ts:267:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/outbound-call.repository.ts:272:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/pause-record.ts:25:3 - (ae-undocumented) Missing documentation for "HandlerFailed".
 // src/infrastructure/pause-record.ts:26:3 - (ae-undocumented) Missing documentation for "HandlerTimeout".
 // src/infrastructure/pause-record.ts:27:3 - (ae-undocumented) Missing documentation for "AnswerInvalid".
@@ -10164,14 +10246,15 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:86:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:100:3 - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts:113:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:74:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:96:3 - (ae-undocumented) Missing documentation for "acquire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:142:3 - (ae-undocumented) Missing documentation for "renew".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:150:3 - (ae-undocumented) Missing documentation for "release".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:154:3 - (ae-undocumented) Missing documentation for "retire".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:169:3 - (ae-undocumented) Missing documentation for "yield".
-// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:179:3 - (ae-undocumented) Missing documentation for "reclaim".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:86:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:98:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:108:3 - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:154:3 - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:162:3 - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:166:3 - (ae-undocumented) Missing documentation for "retire".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:181:3 - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:191:9 - (ae-undocumented) Missing documentation for "requestCancel".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts:199:3 - (ae-undocumented) Missing documentation for "reclaim".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:53:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:57:3 - (ae-undocumented) Missing documentation for "createThread".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts:61:3 - (ae-undocumented) Missing documentation for "hasThread".
@@ -10204,32 +10287,26 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:45:3 - (ae-undocumented) Missing documentation for "saveIfAbsentInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:60:3 - (ae-undocumented) Missing documentation for "findByIdInTree".
 // src/infrastructure/sqlite/sqlite-execution-tree.repository.ts:71:3 - (ae-undocumented) Missing documentation for "deleteAllInTree".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:110:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:122:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:126:3 - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:135:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:223:3 - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:224:3 - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:234:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:235:3 - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:236:12 - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:237:3 - (ae-undocumented) Missing documentation for "effect".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:115:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:127:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:131:3 - (ae-undocumented) Missing documentation for "runInTransaction".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts:140:3 - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:38:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:42:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:52:3 - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:68:3 - (ae-undocumented) Missing documentation for "saveResponse".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:75:3 - (ae-undocumented) Missing documentation for "deleteByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts:82:3 - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:64:3 - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:88:3 - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:92:3 - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:100:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:121:9 - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:132:3 - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:136:3 - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:150:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:171:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:176:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:70:3 - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:94:3 - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:98:3 - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:106:3 - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:128:9 - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:140:3 - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:144:3 - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:158:3 - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:179:9 - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts:184:3 - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:37:3 - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:41:3 - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts:47:3 - (ae-undocumented) Missing documentation for "save".
@@ -10445,17 +10522,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/run/resume-guard.ts:51:3 - (ae-undocumented) Missing documentation for "executionId".
 // src/run/resume-guard.ts:52:3 - (ae-undocumented) Missing documentation for "paused".
 // src/run/resume-guard.ts:53:3 - (ae-undocumented) Missing documentation for "current".
-// src/run/types.ts:63:3 - (ae-undocumented) Missing documentation for "scope".
-// src/run/types.ts:64:3 - (ae-undocumented) Missing documentation for "outdatedValues".
-// src/run/types.ts:65:3 - (ae-undocumented) Missing documentation for "lastError".
-// src/run/types.ts:84:3 - (ae-undocumented) Missing documentation for "status".
-// src/run/types.ts:87:3 - (ae-undocumented) Missing documentation for "startInput".
-// src/run/types.ts:92:3 - (ae-undocumented) Missing documentation for "output".
-// src/run/types.ts:93:3 - (ae-undocumented) Missing documentation for "budgetUsd".
-// src/run/types.ts:94:3 - (ae-undocumented) Missing documentation for "cost".
-// src/run/types.ts:95:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "turnId".
-// src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "data".
+// src/run/types.ts:98:3 - (ae-undocumented) Missing documentation for "scope".
+// src/run/types.ts:99:3 - (ae-undocumented) Missing documentation for "outdatedValues".
+// src/run/types.ts:100:3 - (ae-undocumented) Missing documentation for "lastError".
+// src/run/types.ts:119:3 - (ae-undocumented) Missing documentation for "status".
+// src/run/types.ts:122:3 - (ae-undocumented) Missing documentation for "startInput".
+// src/run/types.ts:127:3 - (ae-undocumented) Missing documentation for "output".
+// src/run/types.ts:128:3 - (ae-undocumented) Missing documentation for "budgetUsd".
+// src/run/types.ts:129:3 - (ae-undocumented) Missing documentation for "cost".
+// src/run/types.ts:130:3 - (ae-undocumented) Missing documentation for "threadId".
+// src/run/types.ts:133:3 - (ae-undocumented) Missing documentation for "turnId".
+// src/run/types.ts:134:3 - (ae-undocumented) Missing documentation for "data".
 // src/tool-interceptors/decision.ts:85:3 - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts:35:3 - (ae-undocumented) Missing documentation for "timeout".
 // src/tools/define-tool.ts:36:3 - (ae-undocumented) Missing documentation for "cause".

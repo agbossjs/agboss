@@ -11,6 +11,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
 import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
   SyncWorkRequiredError,
@@ -103,6 +104,37 @@ describe("#500: SqliteFencedEffectRepository", () => {
       .prepare("SELECT scope_key FROM fenced_effect_marks")
       .all();
     expect(marks.map((row) => row.scope_key)).toEqual(["default:execution-2"]);
+  });
+
+  it("the sweep's deletion removes a tree's cancel mark stored before the cutoff, and keeps a later one (#909)", async () => {
+    const stores = storesOn();
+    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+    await stores.clock.advance(seconds(60));
+    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
+
+    await stores.effects.deleteByStoredAtBefore(
+      new Date(stores.clock.now().getTime() - seconds(30)),
+    );
+
+    const marks = stores.connection.database
+      .prepare("SELECT root_execution_id FROM execution_cancel_requests")
+      .all();
+    expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2"]);
+  });
+
+  it("the outbound calls' sweep removes a tree's cancel mark stored before the cutoff, and keeps a later one (#909)", async () => {
+    const stores = storesOn();
+    const calls = new SqliteOutboundCallRepository(stores.connection, storeClockOf(stores.clock));
+    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+    await stores.clock.advance(seconds(60));
+    await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
+
+    await calls.deleteByEndedAtBefore(new Date(stores.clock.now().getTime() - seconds(30)));
+
+    const marks = stores.connection.database
+      .prepare("SELECT root_execution_id FROM execution_cancel_requests")
+      .all();
+    expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2"]);
   });
 
   it("creates the leases' table it reads: alone on a file it refuses, nothing to read yet", async () => {

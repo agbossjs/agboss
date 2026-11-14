@@ -18,8 +18,8 @@ import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";
  * #811 AC4 — `a2a-tasks-once` fails on a broken run, on every task id the run names: a state told
  * after a terminal one, a status written over a terminal one, writes that are no version chain (a
  * lost update), an id kept twice, a step or an effect of a task settled start-lost, an effect a
- * canceled task committed after its cancel was durable, CANCELED told with no cancel, an effect
- * more than a lease after a tree's cancel request, two undos — and a healthy run passes. The runs
+ * canceled task committed after its cancel was durable (#909: with no window, an undo's and a
+ * child's counted right), CANCELED told with no cancel, two undos — and a healthy run passes. The runs
  * are written by hand, on monotonic times given here; the scenarios' sabotages
  * (tests/faults/sabotage.test.ts) bite on pods. Then the A2A wire a scenario reads and a pod's
  * ready event: what is no answer is said, never read as one.
@@ -109,24 +109,24 @@ const asked = (method: string): PodEventFact => ({
   pod: "b",
 });
 
-/** The tree's cancel request, written at `at`. */
+/** The tree's cancel made durable (#909: the lease store's mark, every cancel's first write), at `at`. */
 const cancelRequested = (history: OperationHistory, at: bigint): void => {
   operation(history, {
     process: "b",
-    operation: StoreHoldPoint.TreeSaveIfAbsent,
-    key: "@agboss/cancel-request",
+    operation: StoreHoldPoint.LeaseRequestCancel,
+    key: TASK,
     at,
-    input: { tenantId: "default", rootExecutionId: TASK, family: "@agboss/cancel-request" },
-    output: { saved: true },
+    input: { tenantId: "default", rootExecutionId: TASK },
   });
 };
 
-/** The fenced charge of the tree, run at `at`. */
-const charged = (history: OperationHistory, at: bigint): void => {
+/** The fenced charge of the tree, run at `at`; `isCompensation`: an undo's key (#909). */
+const charged = (history: OperationHistory, at: bigint, isCompensation = false): void => {
   operation(history, {
     operation: StoreHoldPoint.FencedEffectWrite,
     key: TASK,
     at,
+    input: { rootExecutionId: TASK, ...(isCompensation ? { isCompensation: true } : {}) },
     output: { status: "ran", token: 1 },
   });
 };
@@ -179,6 +179,7 @@ describe("#811 AC4: one execution per A2A task, its end for good", () => {
 
   it("a status written over a terminal one — on a task no caller heard of", () => {
     const history = new OperationHistory();
+    cancelRequested(history, 5n);
     written(history, 10n, 1, "TASK_STATE_FAILED", {}, "b");
     written(history, 20n, 2, "TASK_STATE_CANCELED");
 
@@ -265,19 +266,28 @@ describe("#811 AC4: a canceled task, on the store's own history", () => {
     ]);
   });
 
-  it("any tree: an effect more than a lease of store time after its cancel request, none within", () => {
-    // the pods' clock 10× real: a 30 s lease is 3 s of the history's time
-    const late = new OperationHistory();
-    cancelRequested(late, SECOND);
-    charged(late, 5n * SECOND);
-    const soon = new OperationHistory();
-    cancelRequested(soon, SECOND);
-    charged(soon, 2n * SECOND);
+  it("#909: an undo's effect after the cancel is no violation — the cancel's own unwinding", () => {
+    const history = new OperationHistory();
+    cancelRequested(history, 10n);
+    charged(history, 20n, true);
 
-    expect(messagesOf(runOf([told("a", "TASK_STATE_COMPLETED")], late))).toEqual([
-      `task ${TASK} committed fencedEffect.write by a more than a lease after its tree's cancel request: its holder never read it`,
+    expect(a2aTaskViolations(runOf([told("b", "TASK_STATE_CANCELED")], history))).toEqual([]);
+  });
+
+  it("#909: an effect of a child, whose lease is its own, is the root's after the cancel", () => {
+    const history = new OperationHistory();
+    cancelRequested(history, 10n);
+    operation(history, {
+      operation: StoreHoldPoint.FencedEffectWrite,
+      key: "child-1",
+      at: 20n,
+      input: { rootExecutionId: TASK },
+      output: { status: "ran", token: 1 },
+    });
+
+    expect(messagesOf(runOf([told("b", "TASK_STATE_CANCELED")], history))).toEqual([
+      `task ${TASK} was canceled, yet committed fencedEffect.write by a after its cancel was durable`,
     ]);
-    expect(a2aTaskViolations(runOf([told("a", "TASK_STATE_COMPLETED")], soon))).toEqual([]);
   });
 
   it("a canceled task undone twice", () => {

@@ -219,7 +219,7 @@ class TreeMover implements TreeMoves {
       // a cancel requested on another instance stops the passes at a renewal (#360)
       const requests = await cancelRequests();
       const watch = requests.cancelWatchOf(this.parts.trees, state);
-      lease.afterEachRenewal(watch.check);
+      requests.watchedBy(lease, watch);
       let planned: PlannedPass | undefined = first;
       let result: ExecutionOutput;
       const passed = new Set<string>();

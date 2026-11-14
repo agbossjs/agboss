@@ -1,4 +1,5 @@
 import { errorRecordOf } from "../core/error-record.js";
+import { cancelFencedErrorOf } from "./handed-over.js";
 import { ExecutionFencedError } from "./lease-lost.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import {
@@ -177,3 +178,18 @@ export function replayed<TRequest, TResult>(
   const outcome = outcomeOf(run, OutboundCallSendStatus.Replayed, stored, found.attempt);
   return replayedFrom === undefined ? outcome : { ...outcome, replayedFrom };
 }
+
+/**
+ * A refusal by the tree's cancel (#909) is told (`Cancelled`: no intent or attempt was made) and
+ * stops the tree as cancelled through the lease the step runs under; any other error as it is.
+ */
+export const cancelledBy =
+  <TRequest, TResult>(run: CallRun<TRequest, TResult>) =>
+  async (error: unknown): Promise<never> => {
+    const cancelled = cancelFencedErrorOf(error);
+    if (cancelled !== undefined) {
+      told(run, OutboundCallEventOutcome.Cancelled, [OutboundCallStatus.Pending, 0]);
+      run.frame.execution.lease?.cancelFound?.(cancelled);
+    }
+    throw error;
+  };

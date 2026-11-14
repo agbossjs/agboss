@@ -69,6 +69,10 @@ import {
   s18dDrainTookAnswer,
   s18ResumeFirst,
 } from "../../src/testing/faults/scenarios/s18-a2a-resume-vs-cancel.js";
+import {
+  s20bCancelAtPayment,
+  s20CancelAtCharge,
+} from "../../src/testing/faults/scenarios/s20-cancel-at-payment.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
 import {
   expectThat,
@@ -106,6 +110,9 @@ const stalePauses = sqliteFaultTarget(
 );
 const endBlind = sqliteFaultTarget(
   fileURLToPath(new URL("./end-blind.fault-stores.ts", import.meta.url)),
+);
+const unmarked = sqliteFaultTarget(
+  fileURLToPath(new URL("./unmarked.fault-stores.ts", import.meta.url)),
 );
 const releasing = sqliteFaultTarget(
   fileURLToPath(new URL("./releasing-retire.fault-stores.ts", import.meta.url)),
@@ -221,6 +228,27 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
   }, 120_000);
 });
 
+describe("#909 AC2/AC3: a cancel that fences nothing fails the scenarios that target it", () => {
+  const UNFENCED =
+    /^tree \S+ committed (fencedEffect\.write|outboundCall\.saveIfAbsent) \(a\) after its cancel was durable$/u;
+
+  it("a cancel mark that never lands: 19's charge runs after the cancel — no-effect-after-cancel", async () => {
+    const failure = await failureOf(s20CancelAtCharge, unmarked);
+    expect(failure.invariants).toContain(FaultInvariant.NoEffectAfterCancel);
+    expect(failure.violations.map((found) => found.message)).toContainEqual(
+      expect.stringMatching(UNFENCED),
+    );
+  }, 180_000);
+
+  it("a cancel mark that never lands: 19b's payment is sent after the cancel — no-effect-after-cancel", async () => {
+    const failure = await failureOf(s20bCancelAtPayment, unmarked);
+    expect(failure.invariants).toContain(FaultInvariant.NoEffectAfterCancel);
+    expect(failure.notes.join("\n")).toMatch(
+      /was to be refused \(ExecutionCancelFencedError\); it was accepted/u,
+    );
+  }, 180_000);
+});
+
 /** The messages of `failure`'s violations of one-execution-per-A2A-task. */
 const a2aMessagesOf = (failure: FaultInvariantError): readonly string[] =>
   failure.violations
@@ -261,23 +289,17 @@ describe("#811 AC4: a broken store fails the A2A scenario that targets it", () =
     expect(a2aMessagesOf(failure)).toContainEqual(expect.stringMatching(RAN_START_LOST));
   }, 120_000);
 
-  it("a tree store blind to cancel requests: 18's pass, never stopped and let go, charges and pays past a lease after the cancel", async () => {
-    const failure = await failureOf(s18ResumeFirst, cancelBlind);
-    expect(a2aMessagesOf(failure)).toContainEqual(
-      expect.stringMatching(
-        /^task \S+ committed fencedEffect\.write by a, outboundCall\.saveIfAbsent by a more than a lease after its tree's cancel request: its holder never read it$/u,
-      ),
-    );
-    expect(failure.notes).toContain(
-      "a's pass was not stopped within two leases of the cancel: its charge was let go",
+  // #909: the cancel's mark is a fence of its own — the store refuses the let-go charge in the
+  // lease's transaction whatever the tree store shows — so nothing is committed past the cancel and
+  // no invariant bites; the scenario's own check that the request stopped the pass still does
+  it("a tree store blind to cancel requests: 18's pass is never stopped by the request — and its let-go charge is refused by the cancel's mark, nothing committed past the cancel", async () => {
+    await expect(runFaultScenario(s18ResumeFirst, cancelBlind)).rejects.toThrow(
+      /^s18-a2a-resume-vs-cancel: a's pass was not stopped within two leases of the cancel: its charge was let go$/u,
     );
   }, 120_000);
 
-  it("a tree store blind to cancel requests: 18c's resumed tree, its cancel accepted, completes", async () => {
-    // within its lease of the request, so no invariant's: the scenario's own check of the end
-    await expect(runFaultScenario(s18cResumedNotRun, cancelBlind)).rejects.toThrow(
-      /^s18c-a2a-resumed-cancel-before-pass: the task ended \{[^}]*"state":"TASK_STATE_COMPLETED"\} after its cancel request$/u,
-    );
+  it("#909: a tree store blind to cancel requests no longer lets 18c's resumed tree complete — the cancel's mark refuses its charge, CANCELED", async () => {
+    await expect(runFaultScenario(s18cResumedNotRun, cancelBlind)).resolves.toBeDefined();
   }, 120_000);
 
   // #901: the late resume reads the tree's failed record at its take, so the stale pause it took
@@ -291,15 +313,12 @@ describe("#811 AC4: a broken store fails the A2A scenario that targets it", () =
   }, 120_000);
 
   // #901: the resume's check at its take, taken away by the store (its read of the failed root
-  // says running) — 18d's late resume runs the answer the cancel ended, as the core did before.
-  // The same blind read keeps the projection from writing CANCELED, so the invariant names the
-  // effects as past the tree's cancel request
-  it("a record store that reads a failed root as running: 18d's late resume runs the ended tree — charged and paid after the cancel", async () => {
-    const failure = await failureOf(s18dDrainTookAnswer, endBlind);
-    expect(a2aMessagesOf(failure)).toContainEqual(
-      expect.stringMatching(
-        /^task \S+ committed fencedEffect\.write by b, outboundCall\.saveIfAbsent by b more than a lease after its tree's cancel request/u,
-      ),
+  // says running) — 18d's late resume takes the answer the cancel ended, as the core did before.
+  // #909: its charge is now refused by the cancel's mark (nothing committed past the cancel, no
+  // invariant), but the blind read keeps the task WORKING: the scenario's own checks bite
+  it("a record store that reads a failed root as running: 18d's late resume is not refused -32004 and the task never reads CANCELED", async () => {
+    await expect(runFaultScenario(s18dDrainTookAnswer, endBlind)).rejects.toThrow(
+      /^s18d-a2a-drain-took-answer-cancel: the resume of the ended tree was to be -32004 a2a\.pause-closed, answered: /u,
     );
   }, 120_000);
 });

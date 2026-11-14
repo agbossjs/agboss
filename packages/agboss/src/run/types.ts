@@ -31,9 +31,44 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly modelProviders?: readonly ModelProviderType[] | undefined;
 }
 
-/** A stream event for real-time UI/CLI updates. */
+/**
+ * Which attempt of which step a streamed text belongs to (#1006): parallel branches, child
+ * executions and agent chains never share a key, and a retry or the turn after a tool call is the
+ * next `attempt` of the same agent and visit.
+ */
+export interface StreamStep {
+  /** The visit's node id as the run knows it (a launch copy: `critic-agent#2`). */
+  readonly agent: string;
+  /** The visit of that node, from 1 — what `maxVisits` counts. */
+  readonly visit: number;
+  /**
+   * The execution that makes the visit — a child workflow has its own id; a child launched per
+   * item adds `:<itemIndex>`.
+   */
+  readonly branch: string;
+  /** The agent's model call in the visit, from 1. */
+  readonly attempt: number;
+}
+
+/**
+ * Why the text streamed for a step is retracted (#1006): `judge-rejected` (a judge failed the reply:
+ * a retry follows, or the agent fails with `QualityGateError`), `tool-turn` (the turn ended with tool
+ * calls: its text is not the reply), `invalid-answer` (the move was refused — a PII token nobody gave,
+ * a malformed answer — and the model tries again), `stream-broken` (the model call failed after
+ * partial chunks), `failed` (the visit failed otherwise: a budget, a cancel, a refusal, a guardrail).
+ */
+export type DiscardReason =
+  "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+
+/**
+ * A stream event for real-time UI/CLI updates. The text of a step is provisional until the run ends:
+ * a `discarded` event retracts everything streamed for its `step`; the deltas of the steps that were
+ * not discarded, joined, are the agent's reply.
+ */
 export type ExecutionStreamEvent =
-  | { readonly kind: "textDelta"; readonly delta: string }
+  | { readonly kind: "textDelta"; readonly delta: string; readonly step: StreamStep }
+  /** The text streamed for `step` is retracted (#1006): show it no more. */
+  | { readonly kind: "discarded"; readonly step: StreamStep; readonly reason: DiscardReason }
   /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
   | { readonly kind: "toolCall"; readonly tool: string };
 

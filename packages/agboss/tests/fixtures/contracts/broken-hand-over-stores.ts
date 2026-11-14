@@ -25,6 +25,7 @@ import {
   checkInMemoryFence,
   raiseInMemoryMark,
 } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import { checkInMemoryCancel } from "../../../src/infrastructure/in-memory-database.js";
 import type { FencedEffectTarget } from "../../../src/testing/contracts/index.js";
 import {
   sharedInMemory,
@@ -101,9 +102,11 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
       };
     }
+    checkInMemoryCancel(this.seam.database, key); // #909: the cancel is checked as the real store does
     const transaction = new DeferredTransaction();
     const text = this.storedResultOf(key, await work(transaction));
-    // the commit: nothing checked again
+    // the commit: the lease is not checked again (the cancel is, #909: this store breaks the lease's lock only)
+    checkInMemoryCancel(this.seam.database, key);
     const storedAt = this.seam.storeClock.now().getTime();
     this.results.set(row, { token: key.token, storedAt, result: text, ...storedKeyFactsOf(key) });
     for (const write of transaction.writes) write();

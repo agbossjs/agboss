@@ -49,6 +49,11 @@ export {
   storedKeyFactsOf,
   type StoredKeyFacts,
 } from "../infrastructure/fenced-effect-key.js";
+// the cancel as a fence (#909): the tree a key's cancel fences, the refusal a store throws with
+// `ExecutionCancelFencedError.of(key)`, and finding it in a cause chain
+export { ExecutionCancelFencedError } from "../app/lease-lost.js";
+export { cancelFencedErrorOf } from "../app/handed-over.js";
+export { cancelTreeOf } from "../infrastructure/issued-keys.js";
 // what a ledger's save refuses and adds, what its prune refuses (#817, #869)
 export {
   assertLedgerCutoff,

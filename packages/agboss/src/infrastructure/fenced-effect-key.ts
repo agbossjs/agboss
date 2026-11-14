@@ -110,6 +110,9 @@ export function effectKeyOf<TFingerprint>(
     idempotencyKey: step.idempotencyKey,
     name,
     origin: Object.freeze(origin),
+    // #909: the tree whose cancel fences it; an undo's keys are never refused by it
+    rootExecutionId: executionContext.root.executionId,
+    ...(step.compensates === undefined ? {} : { isCompensation: true as const }),
   };
   // the one maker of a key for an application (#825): branded here, never by a literal
   if (options === undefined) return issuedKey(key) as EffectKey;

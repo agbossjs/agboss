@@ -27,7 +27,7 @@ import {
   type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
-import { type OutboundCallIntent } from "../../src/stores/index.js";
+import { ExecutionCancelFencedError, type OutboundCallIntent } from "../../src/stores/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
@@ -110,10 +110,11 @@ function callsInFrame() {
       new SilentLogger(),
       clock,
     ),
-    reports,
-    keyIn,
+    ...{ leases, reports, keyIn },
     recording: frameUnder(lease),
     unleased: frameUnder(undefined),
+    /** The frame of a lease that is the recording one with `extra` (a hook of the holder). */
+    recordingWith: (extra: Partial<FrameLease>) => frameUnder({ ...lease, ...extra }),
   };
 }
 
@@ -289,5 +290,65 @@ describe("#533: where a call is sent from", () => {
     await expect(refused).rejects.toBeInstanceOf(ExecutionContextUnavailableError);
     await expect(refused).rejects.toThrow(/^OutboundCalls read send outside an execution\./u);
     expect(sent).toEqual([]);
+  });
+});
+
+describe("#909: a call whose tree was cancelled", () => {
+  const cancelled = async (leases: InMemoryExecutionLeaseRepository) =>
+    leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
+
+  it("is refused before an intent: told Cancelled (pending, 0), the holder stops the tree, nothing sent", async () => {
+    const { calls, leases, reports, keyIn, recordingWith } = callsInFrame();
+    const { sent, options } = provider();
+    const key = await keyIn("execution-1");
+    await cancelled(leases);
+    const found: unknown[] = [];
+
+    const refusal = await runInFrame(
+      recordingWith({ cancelFound: (error) => found.push(error) }),
+      () => calls.send(key, options),
+    ).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(found).toEqual([refusal]);
+    expect(movesOf(reports)).toEqual([
+      [OutboundCallEventOutcome.Cancelled, OutboundCallStatus.Pending, 0],
+    ]);
+    expect(sent).toEqual([]);
+  });
+
+  it("a lease with no way to stop the tree, and a frame with no lease: the refusal is the call's error", async () => {
+    const { calls, leases, reports, keyIn, recording, unleased } = callsInFrame();
+    const { options } = provider();
+    const key = await keyIn("execution-1");
+    await cancelled(leases);
+
+    for (const frame of [recording, unleased]) {
+      await expect(runInFrame(frame, () => calls.send(key, options))).rejects.toBeInstanceOf(
+        ExecutionCancelFencedError,
+      );
+    }
+    expect(movesOf(reports)).toEqual([
+      [OutboundCallEventOutcome.Cancelled, OutboundCallStatus.Pending, 0],
+    ]);
+  });
+
+  it("another error is no cancel: not told Cancelled, the holder is not asked to stop", async () => {
+    const { calls, reports, keyIn, recordingWith } = callsInFrame();
+    const { state, options } = provider();
+    const key = await keyIn("execution-1");
+    state.failNext = true;
+    const found: unknown[] = [];
+
+    await expect(
+      runInFrame(recordingWith({ cancelFound: (error) => found.push(error) }), () =>
+        calls.send(key, options),
+      ),
+    ).rejects.toThrow("declined");
+
+    expect(found).toEqual([]);
+    expect(reports.map((report) => report.outcome)).not.toContain(
+      OutboundCallEventOutcome.Cancelled,
+    );
   });
 });

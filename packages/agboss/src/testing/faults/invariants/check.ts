@@ -2,6 +2,7 @@ import type { FaultRun } from "../facts.js";
 import { linearizabilityViolations } from "../linearizability/check.js";
 import { a2aTaskViolations } from "./a2a-tasks.js";
 import { effectsOnceViolations } from "./effects-once.js";
+import { noEffectAfterCancelViolations } from "./no-effect-after-cancel.js";
 import { oneOwnerViolations } from "./one-owner.js";
 import { treeViolations } from "./trees.js";
 import { FaultInvariantError, type FaultViolation } from "./violations.js";
@@ -18,6 +19,7 @@ export const faultViolationsOf = (run: FaultRun): readonly FaultViolation[] => [
   ...treeViolations(run),
   ...linearizabilityViolations(run),
   ...a2aTaskViolations(run),
+  ...noEffectAfterCancelViolations(run),
 ];
 
 /** Throws `FaultInvariantError` with every violation when `run` broke an invariant. */

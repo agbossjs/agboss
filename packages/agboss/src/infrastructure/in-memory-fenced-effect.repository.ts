@@ -22,8 +22,13 @@ import {
   replayedFromOf,
   storedKeyFactsOf,
 } from "./fenced-effect-key.js";
-import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
-import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
+import {
+  checkInMemoryCancel,
+  IN_MEMORY_DATABASE,
+  prunedFencedBefore,
+  treeKeyOf,
+  type InMemoryDatabase,
+} from "./in-memory-database.js";
 import { assertFingerprintDecided } from "./fenced-effect-fingerprint.js";
 
 /** Applies a committed transaction's writes, in order (module-private: only the store commits). */
@@ -88,10 +93,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   }
 
   deleteByStoredAtBefore(cutoff: Date): Promise<void> {
-    const before = cutoff.getTime();
-    const { fencedEffectMarks: marks, fencedEffectResults: results } = this.database;
-    for (const [row, stored] of results) if (stored.storedAt < before) results.delete(row);
-    for (const [scope, mark] of marks) if (mark.storedAt < before) marks.delete(scope);
+    prunedFencedBefore(this.database, cutoff.getTime());
     return Promise.resolve();
   }
 
@@ -112,10 +114,14 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
       };
     }
+    // #909: no stored result — a new effect after a durable cancel is refused, the work not run
+    checkInMemoryCancel(this.database, key);
     const transaction = new InMemoryFencedEffectTransaction();
     const text = this.storedResultOf(key, await work(transaction));
-    // the lease may have moved while the work ran: checked again before anything is applied
+    // the lease may have moved, or the cancel arrived, while the work ran: checked again before
+    // anything is applied
     checkInMemoryFence(this.database, this.clock, key);
+    checkInMemoryCancel(this.database, key);
     raiseInMemoryMark(this.database, this.clock, key);
     const storedAt = this.clock.now().getTime();
     const row = {

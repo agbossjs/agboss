@@ -31,7 +31,7 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { treeKeyOf } from "../../../src/infrastructure/in-memory-database.js";
+import { checkInMemoryCancel, treeKeyOf } from "../../../src/infrastructure/in-memory-database.js";
 import {
   checkInMemoryFence,
   InMemoryFencedEffectRepository,
@@ -142,6 +142,8 @@ export class CheckThenWriteEffects extends BrokenEffects {
     const found = this.results.get(effectKeyIdentityOf(key));
     await roundTrip();
     if (found !== undefined) return this.replayOf(key, found);
+    // the cancel's check as the package's store has it (#909): the rule this store breaks is another
+    checkInMemoryCancel(this.seam.database, key);
     const transaction = new BufferedTransaction(false);
     const outcome = this.stored<TResult>(key, await work(transaction));
     for (const write of transaction.writes) write();
@@ -161,6 +163,7 @@ export class RowsOutsideEffects extends BrokenEffects {
     this.check(key);
     const found = this.results.get(effectKeyIdentityOf(key));
     if (found !== undefined) return this.replayOf(key, found);
+    checkInMemoryCancel(this.seam.database, key); // #909: the rule this store breaks is another
     const result = await work(new BufferedTransaction(true));
     await roundTrip();
     this.check(key);
