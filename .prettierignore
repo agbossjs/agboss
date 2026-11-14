@@ -24,3 +24,5 @@ packages/agboss/tests/components/run-scope/fixture.ts
 packages/agboss/tests/core/observers/fixture.ts
 packages/agboss/tests/errors/fixtures.ts
 packages/agboss/tests/flow/types/fixture-workflows.ts
+# the Wiki pages carried by a PR (#1026) keep the Wiki's own format
+wiki

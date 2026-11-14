@@ -13,16 +13,19 @@ How work moves from a requirement to accepted code.
 | Rules                                                   | `QUALITY.md`, `WORKFLOW.md`, `CLAUDE.md`     |
 
 - Issue and PR bodies are passed to `gh` via stdin (`--body-file -`), never through files.
-- The Wiki is a separate git repo; its working copy is `../<repo>.wiki`, managed by
-  `scripts/wiki.sh` (`pull`, `publish`, `seed`). Its ts blocks compile and its commands and links
-  exist — `node scripts/check-docs.mjs --wiki ../<repo>.wiki` before publishing; CI runs it too.
-- Publishing without direct Wiki access (#341): a PR's Wiki commit, based on `docs/wiki-pending`,
-  is pushed to the branch `docs/wiki/<PR head branch>` of this repository — CI's Wiki step checks
-  that branch for the PR. Right before the PR is merged the same commit is pushed to
-  `docs/wiki-pending` (a fast-forward), which `main`'s CI checks; when that CI passes,
-  `.github/workflows/sync-wiki.yml` publishes it to the Wiki's `master` (fast-forward only; a page edited in the Wiki's web UI and
-  missing from the branch stops the sync instead of being lost). With neither branch, CI checks the
-  published Wiki.
+- The Wiki is a separate git repo; scripts/wiki.sh manages it (`stage`, `check`, `pull`, `publish`,
+  `seed`). Its ts blocks compile and its commands and links exist; CI runs `check-docs.mjs --wiki`.
+- A change's Wiki pages travel in its PR (#1026), in the folder `wiki/` (flat `<Page>.md` files;
+  `scripts/wiki.sh stage <Page.md>` copies the shared version to edit, `scripts/wiki.sh check` is
+  the CI check). CI checks the shared Wiki — `docs/wiki-pending`, else the published Wiki — plus
+  that PR's own pages and nothing else, so a PR's pages never reach another PR's check. Nothing is
+  pushed to `docs/wiki-pending` or the Wiki before the merge: that branch holds only pages for code
+  that is on main. When main's CI has passed, `.github/workflows/sync-wiki.yml` runs
+  `scripts/wiki-sync.sh`: each merged PR's pages become a Wiki commit (trailer
+  `Wiki-Overlay-Source: <main sha>` = published up to here, so exactly once; `wiki/` is never
+  emptied) and `docs/wiki-pending` is fast-forwarded to it (fast-forward only; a page edited in the
+  Wiki's web UI and missing from the branch stops the sync instead of being lost). Two PRs on one
+  page conflict in git. Edits with no code change: `scripts/wiki.sh publish`.
 - Stages are managed by `scripts/ticket.sh` (`setup`, `status`, `list`, `sub`), with repository REST
   endpoints only — cloud sessions cannot reach GraphQL or the Projects board (#283).
 

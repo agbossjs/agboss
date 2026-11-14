@@ -15,9 +15,9 @@ Refs #
 
 - Fragment `changes/<issue>-<slug>.md` added (never an edit of `CHANGELOG.md`) / none: no user-visible change
 
-## Wiki to update after merge
+## Wiki pages
 
-None
+None / `wiki/<Page>.md` in this PR (checked by CI with the shared Wiki; Sync Wiki publishes after the merge)
 
 ## Deviations from the spec
 

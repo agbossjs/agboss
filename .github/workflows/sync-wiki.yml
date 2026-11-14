@@ -1,9 +1,12 @@
 name: Sync Wiki
 
-# The Wiki's pages are written in PRs and parked in the `docs/wiki-pending` branch of this
-# repository (#341); this publishes that branch to the Wiki's `master` once `main`'s CI — which
-# checks `docs/wiki-pending` against the code — has passed. (A `push` trigger on that branch never
-# fires: GitHub reads the workflow from the pushed branch, and the Wiki branch has no `.github/`.)
+# The Wiki's pages are written in PRs, in their `wiki/` folder (#1026), checked there against the
+# shared Wiki (`docs/wiki-pending`) plus the PR's own pages, and published here once the PR is on
+# `main` and `main`'s CI has passed: `scripts/wiki-sync.sh` writes each merged PR's pages to the
+# Wiki's `master` (exactly once: a `Wiki-Overlay-Source` trailer on the Wiki commit marks how far it
+# got) and fast-forwards `docs/wiki-pending` to the same commit, so that branch only ever holds
+# pages for code on main. (A `push` trigger on that branch never fires: GitHub reads the workflow
+# from the pushed branch, and the Wiki branch has no `.github/`.)
 # Fast-forward only: a page edited in the Wiki's web UI and missing from the branch stops the sync
 # instead of being lost.
 
@@ -28,23 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: docs/wiki-pending
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
           fetch-depth: 0
-      - name: Push docs/wiki-pending to the Wiki's master
+      - name: Publish the merged Wiki pages
         env:
           WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || secrets.GITHUB_TOKEN }}
+          UPTO: ${{ github.event.workflow_run.head_sha || 'HEAD' }}
         run: |
-          wiki="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
-          git fetch -q "$wiki" master:refs/remotes/wiki/master
-          # `scripts/wiki.sh publish` pushes the Wiki directly and fast-forwards this branch too, so
-          # the Wiki usually holds the branch already: nothing to publish is a success.
-          if git merge-base --is-ancestor HEAD refs/remotes/wiki/master; then
-            echo "The Wiki already contains docs/wiki-pending ($(git rev-parse --short HEAD)); nothing to publish."
-            exit 0
-          fi
-          if ! git merge-base --is-ancestor refs/remotes/wiki/master HEAD; then
-            echo "::error::The Wiki's master and docs/wiki-pending diverged; merge the Wiki's commits into docs/wiki-pending (never force):"
-            git log --oneline HEAD..refs/remotes/wiki/master
-            exit 1
-          fi
-          git push "$wiki" HEAD:master
+          export WIKI_URL="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          export REPO_URL="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          scripts/wiki-sync.sh
