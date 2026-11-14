@@ -44,27 +44,35 @@ export SCRATCH="$WORKSPACE_ROOT/worktrees.noindex/release-$RELEASE_VERSION"
 mkdir -p "$SCRATCH"
 
 # The release branch of a repository: release/$RELEASE_VERSION, the one branch CI lets edit CHANGELOG.md.
-# Reuses it (local, then origin); else cuts it from the prepared chore/691-version-$RELEASE_VERSION
-# (postgres, mongodb, redis have one, #691), else from origin/main. Run it inside the repository.
+# Reuses it (local, then origin); else cuts it from origin/main — always the current main, never from a
+# prepared chore branch (#691: the old chore/691-version-* branches are superseded). Run it inside the
+# repository. Every line stops the function: bash switches `set -e` off inside a function called in an
+# `&&` chain, so each command ends in `|| return 1`.
 release_branch() {
-  git fetch origin
+  git fetch origin || return 1
   if git show-ref --verify --quiet "refs/heads/release/$RELEASE_VERSION"; then
-    git switch "release/$RELEASE_VERSION"
+    git switch "release/$RELEASE_VERSION" || return 1
   elif git show-ref --verify --quiet "refs/remotes/origin/release/$RELEASE_VERSION"; then
-    git switch -c "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION"
-  elif git show-ref --verify --quiet "refs/remotes/origin/chore/691-version-$RELEASE_VERSION"; then
-    git switch --no-track -c "release/$RELEASE_VERSION" "origin/chore/691-version-$RELEASE_VERSION"
+    git switch -c "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION" || return 1
   else
-    git switch --no-track -c "release/$RELEASE_VERSION" origin/main
+    git switch --no-track -c "release/$RELEASE_VERSION" origin/main || return 1
   fi
 }
 
 # Fold the changes/ fragments into the version's CHANGELOG.md section (the unreleased one is dated; see
 # changes/README.md) and commit it. A rerun is safe. Run it inside the repository, on release/$RELEASE_VERSION.
 assemble_changelog() {
-  node scripts/changelog-assemble.mjs "$RELEASE_VERSION" --date "$(date -u +%Y-%m-%d)"
-  git add -A changes CHANGELOG.md
-  git diff --cached --quiet || git commit -m "chore($1#691): changelog $RELEASE_VERSION"
+  node scripts/changelog-assemble.mjs "$RELEASE_VERSION" --date "$(date -u +%Y-%m-%d)" || return 1
+  git add -A changes CHANGELOG.md || return 1
+  git diff --cached --quiet || git commit -m "chore($1#691): changelog $RELEASE_VERSION" || return 1
+}
+
+# A satellite's own version: package.json and package-lock.json (the pin's `version` is written by
+# pin-framework in Step 6), committed. Run it inside the repository, on release/$RELEASE_VERSION.
+bump_version() {
+  npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version > /dev/null || return 1
+  git add package.json package-lock.json || return 1
+  git diff --cached --quiet || git commit -m "chore(agbossjs/agboss#691): $(node -p "require('./package.json').name") $RELEASE_VERSION" || return 1
 }
 ```
 
@@ -116,14 +124,17 @@ version's section dated), assembled from the `changes/` fragments by
 `node scripts/changelog-assemble.mjs <version>` (#981): the fragments go into the version's
 `## [<version>] — unreleased` section and its heading gets the date; a branch `release/*` is the one
 CI lets edit `CHANGELOG.md`. The branch does not exist until release time: `release_branch` (above)
-cuts it (core: from `main`, where the version bump of the list above is made on it; the satellites:
-from the prepared `chore/691-version-<version>` branch if origin has one, else from `main`). The
-prepared `chore/691-version-<version>` branches stay on origin as they are, never renamed or
-deleted; the release PR is from `release/<version>`.
+cuts it from the current `origin/main`, in every repository; the version bump is made on it by the
+commands of the step (the core's version fields are already at the version on `main`, the chain checks
+it; a satellite's are set by `bump_version`). The old `chore/691-version-<version>` branches and their
+pull requests (agbossjs/postgres#45, agbossjs/mongodb#11, agbossjs/redis#4) are superseded and not
+used — their changelog and version edits would conflict with `main` and date the section early; they
+are left on origin, and the release PR is cut fresh from `release/<version>`.
 
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && release_branch && git rebase origin/main && \
+  test "$(node -p "require('./packages/agboss/package.json').version")" = "$RELEASE_VERSION" && \
   assemble_changelog "" && \
   npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && npm run check:packed && \
   node scripts/release/release-plan.mjs --tag "v$RELEASE_VERSION" && \
@@ -219,7 +230,7 @@ rm -rf "$SCRATCH/core-app" && cd "$SCRATCH" && \
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/postgres" && release_branch && git rebase origin/main && \
-  assemble_changelog "agbossjs/agboss" && \
+  assemble_changelog "agbossjs/agboss" && bump_version && \
   node scripts/pin-framework.mjs --registry "$RELEASE_VERSION" && \
   test "$(node -p "require('./.agboss-version.json').source")" = registry && \
   npm ci && npm run pack:framework && npm run install:packed && \
@@ -264,9 +275,12 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
 ## Step 7 — ⚠️ [PUBLIC / IRREVERSIBLE] The next cars
 
 For each of agbossjs/mongodb and agbossjs/redis that has the release path (see the top) and
-whose issues are done: Step 6 in its repository (`cd "$WORKSPACE_ROOT/mongodb"` or `redis`, with its `release_branch` and
-`assemble_changelog "agbossjs/agboss"` lines), with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
-not ready; say so in the release notes.
+whose issues are done: Step 6 in its repository (`cd "$WORKSPACE_ROOT/mongodb"` or `redis`, with its `release_branch`, `assemble_changelog "agbossjs/agboss"` and
+`bump_version` lines), with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
+not ready; say so in the release notes. The release PRs of agbossjs/mongodb and agbossjs/redis also drop the
+`Not published to npm yet` note from their `README.md` (mongodb: the sentence at the end of the first
+quote; redis: the line `> Not published to npm yet: it ships with the 0.1.1 release.`): edit it on
+`release/<version>` before the pin commit.
 
 ## Step 8 — The release notes and the site
 
