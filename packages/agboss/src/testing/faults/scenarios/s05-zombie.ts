@@ -22,6 +22,11 @@ import {
  * zombie's first, before the new holder's (5b) — refused all the same. 5c (#584, #505): the same
  * zombie at the payment's first fenced write (`outboundCall.saveIfAbsent`, the intent recorded
  * before the gateway is called), reaching the outbound-call store before the new holder's.
+ *
+ * Bounded (#1059): the same scenarios with pod a keeping the store-call bound, as production runs.
+ * A thawed pod meets its overdue bound before its held call is answered, so the held call is
+ * released only after a's hand-over — a's give-up always comes first, whatever the load. Then a's
+ * late write still reaches the store and is refused (`ExecutionFencedError`); nothing is undone.
  */
 
 /** A fenced write a zombie is frozen at: the charge's (5, 5b) or the payment's intent (5c). */
@@ -59,31 +64,41 @@ const writeAnswered = (
     () => writeOutcome(cluster, pod, key, point) !== "no answer",
   );
 
-/** Pod a frozen at its write `point`, b holding the tree; `zombieFirst`: b held at its own too. */
+/** Until pod a handed the tree over: its call at its bound, or its lease's loss, whichever came first. */
+const handedOver = (cluster: FaultCluster): Promise<unknown> =>
+  cluster.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
+
+/**
+ * Pod a frozen at its write `point`, b holding the tree; `zombieFirst`: b held at its own too.
+ * `isBounded`: a keeps the bound, and its held call is released only once a handed over.
+ */
 async function zombie(
   cluster: FaultCluster,
   orderId: string,
   zombieFirst: boolean,
   point: ZombieWrite = StoreHoldPoint.FencedEffectWrite,
+  isBounded = false,
 ): Promise<FaultPod> {
-  const a = await cluster.pod("a");
+  const a = await cluster.pod("a", { isBounded });
   const b = await cluster.pod("b");
   await holdStore(a, point, undefined);
   if (zombieFirst) await holdStore(b, point, undefined);
   const order = await startOrder(cluster, a, orderId);
   const key = order.rootExecutionId;
   const frozen = await heldAt(cluster, a, point, key);
-  a.freeze();
+  await a.freeze();
   await takenOverBy(cluster, b, key);
   if (zombieFirst) {
     const second = await heldAt(cluster, b, point, key);
     a.thaw();
+    if (isBounded) await handedOver(cluster);
     await release(a, frozen);
     await writeAnswered(cluster, a, key, point);
     await release(b, second);
   } else {
     await endedOn(cluster, key, b);
     a.thaw();
+    if (isBounded) await handedOver(cluster);
     await release(a, frozen);
     await writeAnswered(cluster, a, key, point);
   }
@@ -94,7 +109,7 @@ async function zombie(
     outcome === "ExecutionFencedError",
     `the zombie's write was to be refused (ExecutionFencedError); it was ${outcome}`,
   );
-  await cluster.next("a's hand-over", (event) => event.type === "handed-over" && event.pod === "a");
+  await handedOver(cluster);
   expectThat(
     cluster,
     eventsOf(cluster, "released").length === 0,
@@ -122,4 +137,27 @@ export const s05ZombiePaysFirst: RunnableFaultScenario = {
   title:
     "5c: the zombie reaches the payment's intent before the new holder — refused by the outbound-call store's lease check; one payment",
   run: (cluster) => zombie(cluster, "o-5c", true, StoreHoldPoint.OutboundSaveIfAbsent),
+};
+
+/** The bounded twins (#1059): pod a keeps the store-call bound. */
+export const s05ZombieAfterBounded: RunnableFaultScenario = {
+  id: "s05-zombie-write-refused-bounded",
+  title:
+    "5 (bounded): a frozen pod keeping the store-call bound comes back after the new holder's charge — its held write is given up first, then refused; it handed over, nothing is undone",
+  run: (cluster) => zombie(cluster, "o-5-bounded", false, StoreHoldPoint.FencedEffectWrite, true),
+};
+
+export const s05ZombieFirstBounded: RunnableFaultScenario = {
+  id: "s05b-zombie-reaches-charge-first-bounded",
+  title:
+    "5b (bounded): the bounded zombie's held write is given up before it reaches the charge, then refused by the lease check; the new holder charges once",
+  run: (cluster) => zombie(cluster, "o-5b-bounded", true, StoreHoldPoint.FencedEffectWrite, true),
+};
+
+export const s05ZombiePaysFirstBounded: RunnableFaultScenario = {
+  id: "s05c-zombie-reaches-payment-first-bounded",
+  title:
+    "5c (bounded): the bounded zombie's held payment intent is given up before the outbound-call store, then refused; one payment",
+  run: (cluster) =>
+    zombie(cluster, "o-5c-bounded", true, StoreHoldPoint.OutboundSaveIfAbsent, true),
 };

@@ -514,3 +514,49 @@ describe("#941: the expiry look's move (expired)", () => {
     expect(lease.released()).toBe(1);
   });
 });
+
+/** A held lease whose release ends as `how` says. */
+function leaseReleasing(how: () => Promise<void>): HeldExecutionLease {
+  return { release: how, afterEachRenewal: () => undefined } as never;
+}
+
+describe("#928: a release that fails after the tree's terminal record is durable changes nothing", () => {
+  const failing = (): Promise<void> => Promise.reject(new Error("the store is gone"));
+
+  it("a finished tree: the result is returned, the failure logged with the execution and its tenant", async () => {
+    const { moves, warn } = partsOf(leaseReleasing(failing) as never);
+
+    const result = await moves.recovered(INTERRUPTED, call);
+
+    expect(result).toMatchObject({ status: ExecutionStatus.Finished });
+    expect(warn).toHaveBeenCalledWith(
+      "execution.lease-release-failed",
+      `the lease of execution ${ROOT} was not released after its end (Error: the store is gone): it expires`,
+      { executionId: ROOT, tenantId: "acme" },
+    );
+  });
+
+  it("a failed tree: the tree's own error is thrown, the failure logged", async () => {
+    const { moves, warn } = partsOf(leaseReleasing(failing) as never);
+    mocks.observedPass.mockRejectedValue(new Error("the charge failed"));
+
+    await expect(moves.recovered(INTERRUPTED, call)).rejects.toThrow("the charge failed");
+    expect(warn).toHaveBeenCalledWith(
+      "execution.lease-release-failed",
+      expect.stringContaining("the store is gone"),
+      expect.anything(),
+    );
+  });
+
+  it("a tree that rests paused is not ended: its release failure is the caller's, nothing logged for it", async () => {
+    const { moves, warn } = partsOf(leaseReleasing(failing) as never);
+    mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Paused));
+
+    await expect(moves.recovered(INTERRUPTED, call)).rejects.toThrow("the store is gone");
+    expect(warn).not.toHaveBeenCalledWith(
+      "execution.lease-release-failed",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+});

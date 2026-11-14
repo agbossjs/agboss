@@ -1,21 +1,11 @@
 import { A2A_START_LOST } from "../../../a2a/tasks/a2a-task-repair.js";
 import { A2ATaskState } from "../../../infrastructure/a2a-task.repository.js";
-import type { FaultCluster } from "../cluster.js";
-import { HoldPhase } from "../hold-points.js";
 import { OperationPhase } from "../operation-history.js";
-import type { FaultPod } from "../pod.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";
-import {
-  a2aCall,
-  a2aCallInFlight,
-  a2aPod,
-  FaultSkill,
-  orderMessage,
-  readUntil,
-  type A2AAnswer,
-} from "./a2a-kit.js";
-import { eventsOf, expectThat, heldAt, holdStore, release } from "./kit.js";
+import { a2aCall, a2aPod, FaultSkill, orderMessage, readUntil } from "./a2a-kit.js";
+import { eventsOf, expectThat } from "./kit.js";
+import { frozenAccept, isStartLost, keepsOf, settledOnBoth } from "./s17-kit.js";
 
 /**
  * Scenario 17 (#811 AC4, design §4.3.2 "Crash between accept and start"): pod a accepts an order
@@ -28,73 +18,6 @@ import { eventsOf, expectThat, heldAt, holdStore, release } from "./kit.js";
  * take (b) — no step of the order runs, nothing is charged or paid — and the task reads FAILED on
  * both pods, a resend of its message too (`a2a-tasks-once`).
  */
-
-/** Whether an answer is the task settled start-lost. */
-const isStartLost = (answer: A2AAnswer): boolean =>
-  answer.state === A2ATaskState.Failed && answer.code === A2A_START_LOST;
-
-/** The kept answers of the id's keeps by `pod` (`true`: it kept it, `false`: kept before). */
-const keepsOf = (cluster: FaultCluster, pod: FaultPod, taskId: string): readonly unknown[] =>
-  cluster.history.events.flatMap((event) =>
-    event.phase === OperationPhase.Complete &&
-    event.process === pod.name &&
-    event.operation === StoreHoldPoint.LeaseClaimExecutionId &&
-    event.key === taskId
-      ? [(event.output as { kept?: unknown } | undefined)?.kept]
-      : [],
-  );
-
-/** The frozen accept: a sends the order, held at `point` once the store answered; the task's id. */
-async function frozenAccept(
-  cluster: FaultCluster,
-  a: FaultPod,
-  point: StoreHoldPoint,
-  messageId: string,
-  orderId: string,
-): Promise<{ readonly taskId: string; readonly go: () => Promise<A2AAnswer> }> {
-  await holdStore(a, point, undefined, { phase: HoldPhase.After });
-  // held, its answer may come only after the scenario stopped: a failure then is a note
-  const sent = a2aCallInFlight(
-    cluster,
-    a,
-    "SendMessage",
-    orderMessage(messageId, orderId, FaultSkill.Order),
-  );
-  const held = await heldAt(cluster, a, point);
-  const taskId = String(held.key);
-  return {
-    taskId,
-    go: async () => {
-      await release(a, held);
-      return sent;
-    },
-  };
-}
-
-/** After a went on: no step of the task ran anywhere, and every read and a resend say start-lost. */
-async function settledOnBoth(
-  cluster: FaultCluster,
-  pods: readonly FaultPod[],
-  taskId: string,
-  resend: () => Promise<A2AAnswer>,
-): Promise<void> {
-  const again = await resend();
-  expectThat(
-    cluster,
-    again.taskId === taskId && isStartLost(again),
-    `a resend of the message got ${JSON.stringify(again)}, not task ${taskId} FAILED ${A2A_START_LOST}`,
-  );
-  for (const pod of pods) {
-    const read = await a2aCall(cluster, pod, "GetTask", { id: taskId });
-    expectThat(cluster, isStartLost(read), `${pod.name} read ${JSON.stringify(read)} at the end`);
-  }
-  const steps = eventsOf(cluster, "step").filter((event) => event.rootExecutionId === taskId);
-  expectThat(
-    cluster,
-    steps.length === 0,
-    `the start-lost task ran ${String(steps.length)} steps: ${steps.map((step) => `${String(step.point)} on ${step.pod}`).join(", ")}`,
-  );
-}
 
 export const s17AcceptCrash: RunnableFaultScenario = {
   id: "s17-a2a-accept-crash",

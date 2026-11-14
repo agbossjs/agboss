@@ -4,8 +4,18 @@ import { s01Drains, s01TakenOver } from "./s01-sigterm.js";
 import { s02Kill } from "./s02-kill.js";
 import { s03FencedEffect, s03Payment } from "./s03-crash-after-effect.js";
 import { s04LeaseExpiry } from "./s04-lease-expiry.js";
-import { s05ZombieAfter, s05ZombieFirst, s05ZombiePaysFirst } from "./s05-zombie.js";
-import { s05ZombieRecordedNotSent } from "./s05d-recorded-not-sent.js";
+import {
+  s05ZombieAfter,
+  s05ZombieAfterBounded,
+  s05ZombieFirst,
+  s05ZombieFirstBounded,
+  s05ZombiePaysFirst,
+  s05ZombiePaysFirstBounded,
+} from "./s05-zombie.js";
+import {
+  s05ZombieRecordedNotSent,
+  s05ZombieRecordedNotSentBounded,
+} from "./s05d-recorded-not-sent.js";
 import { s06FinishedChild, s06ScaleDown } from "./s06-children.js";
 import { s07NewPod } from "./s07-new-pod.js";
 import { s08Back, s08Cut } from "./s08-database-loss.js";
@@ -17,6 +27,12 @@ import { s13ClockAhead, s13ClockBehind } from "./s13-clock-skew.js";
 import { s14AmbiguousAnswer, s15KeyExpired } from "./s14-s15-key-expiry.js";
 import { s16ClaimAnswerLost } from "./s16-claim-answer-lost.js";
 import { s17AcceptCrash, s17bIdKeptCrash } from "./s17-a2a-accept-crash.js";
+import {
+  s17AcceptCrashBounded,
+  s17bIdKeptCrashBounded,
+  s17cClaimNeverAnswers,
+  s17dAcceptNeverAnswers,
+} from "./s17-bounded.js";
 import {
   s18bCancelFirst,
   s18cResumedNotRun,
@@ -55,6 +71,10 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s05ZombieFirst,
   s05ZombiePaysFirst,
   s05ZombieRecordedNotSent,
+  s05ZombieAfterBounded,
+  s05ZombieFirstBounded,
+  s05ZombiePaysFirstBounded,
+  s05ZombieRecordedNotSentBounded,
   s06ScaleDown,
   s06FinishedChild,
   s07NewPod,
@@ -73,6 +93,10 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s16ClaimAnswerLost,
   s17AcceptCrash,
   s17bIdKeptCrash,
+  s17AcceptCrashBounded,
+  s17bIdKeptCrashBounded,
+  s17cClaimNeverAnswers,
+  s17dAcceptNeverAnswers,
   s18ResumeFirst,
   s18bCancelFirst,
   s18cResumedNotRun,

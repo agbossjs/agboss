@@ -201,9 +201,13 @@ export class FaultPod {
     return this.exited;
   }
 
-  /** SIGSTOP: frozen where it is — no timer, no renewal, no write — until `thaw`. */
-  freeze(): void {
-    this.child.kill("SIGSTOP");
+  /**
+   * SIGSTOP, sent by the pod to itself between two turns of its event loop: frozen — no timer, no
+   * renewal, no write — until `thaw`. A stop from outside may land inside a SQLite transaction and
+   * leave the file's write lock held by a stopped process: no peer could write until the thaw.
+   */
+  async freeze(): Promise<void> {
+    await this.command({ op: "freeze" });
   }
 
   /** SIGCONT: it runs on from where it froze, its timers late. */

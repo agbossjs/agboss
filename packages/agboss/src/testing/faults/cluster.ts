@@ -238,7 +238,9 @@ export class FaultCluster {
   async run(reader: FaultPod): Promise<FaultRun> {
     await this.#recordsKept();
     const roots = [...new Set(this.events.flatMap((event) => rootOf(event)))];
-    const facts = (await reader.command({ op: "read", rootExecutionIds: roots })) as FaultFacts;
+    const read = { op: "read", rootExecutionIds: roots } as const;
+    // within the cluster's own wait, so a stuck read names itself before the scenario's timeout does
+    const facts = (await reader.command(read, this.waitTimeout)) as FaultFacts;
     return {
       ...facts,
       orders: this.orders,

@@ -35,7 +35,7 @@ async function markedUndo(cluster: FaultCluster): Promise<FaultPod> {
   await holdStore(a, StoreHoldPoint.TreeSaveIfAbsent, DONE_MARK, { phase: HoldPhase.After });
   const order = await startOrder(cluster, a, orderId, { decline: true });
   const frozen = await heldAt(cluster, a, StoreHoldPoint.TreeSaveIfAbsent, DONE_MARK);
-  a.freeze();
+  await a.freeze();
   const takeover = await takenOverBy(cluster, b, order.rootExecutionId);
   expectThat(
     cluster,

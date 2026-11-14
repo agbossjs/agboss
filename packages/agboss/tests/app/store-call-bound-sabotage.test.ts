@@ -9,7 +9,8 @@ import { BOUNDED_CONTRACTS } from "../../src/infrastructure/contracts.js";
 import { testWith } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
-import { seconds } from "../../src/units/index.js";
+import { EXECUTION_LEASE, RENEW_EVERY } from "../../src/app/lease-fence.js";
+import { waitOf } from "../../src/infrastructure/clock.js";
 import { execute } from "../helpers/flow.js";
 import { passLive } from "../helpers/live-time.js";
 import { logged, resetLogged } from "../helpers/log.js";
@@ -46,7 +47,7 @@ afterEach(() => {
 
 describe("#928 AC1 sabotage S1: the bound is what ends a hung call", () => {
   deaf(
-    "S1: with BOUNDED_CONTRACTS emptied the held fenced write does not settle within 60 s of virtual time",
+    "S1: with BOUNDED_CONTRACTS emptied the held fenced write does not settle within two leases of virtual time",
     async ({ app, clock }) => {
       await app.ready();
       processHoldPoints.arm({ point: StoreHoldPoint.FencedEffectWrite });
@@ -54,7 +55,7 @@ describe("#928 AC1 sabotage S1: the bound is what ends a hung call", () => {
       const isSettled = settledFlag(call);
       await until(() => processHoldPoints.held.length === 1, "the write is held");
 
-      await passLive(clock, seconds(60));
+      await passLive(clock, waitOf(EXECUTION_LEASE * 2));
 
       expect(BOUNDED_CONTRACTS.size).toBe(0);
       expect(isSettled()).toBe(false);
@@ -73,13 +74,13 @@ describe("#928 AC1 sabotage S1: the bound is what ends a hung call", () => {
 
       // the store stops renewing it: the lease's loss aborts its signal and frees the hold
       kill("instance-1");
-      await passLive(clock, seconds(10));
+      await passLive(clock, waitOf(RENEW_EVERY * 2));
       await until(() => book.runs.length === 1, "the write ended with the step's stop");
       expect(book.runs).toEqual([{ token: 1, status: "refused" }]);
       // the next holder (the sweep) charges once, the peer being well again
       listening.hangs = false;
       levers.dead.delete("instance-1");
-      await passLive(clock, seconds(70));
+      await passLive(clock, waitOf(EXECUTION_LEASE * 2 + RENEW_EVERY * 2));
       const [end] = await ends(1);
 
       expect(end?.output).toEqual({ chargeId: "charge-order-s1b-2" });

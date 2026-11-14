@@ -75,7 +75,7 @@ const finishedChildRun =
     await release(a, onA.held);
     const ask = await heldAt(cluster, a, StoreHoldPoint.LeaseAcquire, onB.executionId);
     const before = asksOf(cluster, a, onB.executionId);
-    a.freeze();
+    await a.freeze();
     await release(b, onB.held);
     await cluster.ended(onB.executionId);
     // the end is announced while the worker still holds the child's lease (#917): wait for the finish

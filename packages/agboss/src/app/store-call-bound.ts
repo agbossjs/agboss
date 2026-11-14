@@ -1,14 +1,15 @@
 import type { Class } from "../components/injection.js";
-import type { Clock } from "../infrastructure/clock.js";
-import type { FrameworkLog } from "../infrastructure/logger.js";
+import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 import {
-  StoreCallTimeoutError,
-  StoreOutcomeSource,
-  StoreOutcomeUnknownError,
-} from "../infrastructure/store-call-timeout.js";
-import { ExecutionLeaseLostError } from "./lease-lost.js";
-import { limitOf, StoreCallKind, type StoreCallLimit } from "./store-call-kind.js";
+  failure,
+  lostOf,
+  timedOut,
+  type CallFacts,
+  type StoreCallParts,
+} from "./store-call-outcome.js";
+import { limitOf, StoreCallKind } from "./store-call-kind.js";
 
+export type { StoreCallCounter, StoreCallParts } from "./store-call-outcome.js";
 export { LONG_CONTRACTS, MAINTENANCE_METHODS } from "./store-call-kind.js";
 
 /**
@@ -17,26 +18,6 @@ export { LONG_CONTRACTS, MAINTENANCE_METHODS } from "./store-call-kind.js";
  * answer is of unknown outcome: under a lease the holder hands the tree over (`abandon`), anywhere
  * else the caller gets `StoreCallTimeoutError`. The late answer is dropped.
  */
-
-/** Where a call given up at its bound is counted (`agboss.instance.store_calls.timed_out`). */
-export interface StoreCallCounter {
-  add(count: number, attributes: Record<string, string>): void;
-}
-
-/** What the bound reports to: the clock it runs on, and the log and counter once the instance has them. */
-export interface StoreCallParts {
-  readonly clock: Clock;
-  readonly log?: FrameworkLog | undefined;
-  /** Counts a timeout: `agboss.instance.store_calls.timed_out`. */
-  readonly timedOut?: StoreCallCounter | undefined;
-}
-
-/** The facts of one call a bound reports. */
-interface CallFacts extends StoreCallLimit {
-  readonly contract: string;
-  readonly store: string;
-  readonly operation: string;
-}
 
 const targets = new WeakMap<object, object>();
 
@@ -50,49 +31,6 @@ const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
   typeof value === "object" &&
   value !== null &&
   typeof Reflect.get(value, Symbol.asyncIterator) === "function";
-
-/** What the holder is told and the log shows when the bound fired. */
-function timedOut(parts: StoreCallParts, facts: CallFacts): StoreCallTimeoutError {
-  const timeout = facts.bound;
-  const { store, operation } = facts;
-  const error = new StoreCallTimeoutError({
-    store,
-    operation,
-    timeout,
-    source: StoreOutcomeSource.Framework,
-  });
-  const executionId = facts.lease?.leaseExecutionId;
-  const text = `${error.message} (${facts.kind} call; its late answer is dropped)`;
-  parts.log?.warn("store.call-timeout", text, { executionId, tenantId: facts.lease?.tenantId });
-  const { source } = error;
-  parts.timedOut?.add(1, { contract: facts.contract, operation, source, kind: facts.kind });
-  return error;
-}
-
-/**
- * What a failure of the store becomes: a hand-over when the call was leased and its outcome is
- * unknown — whoever found it out (the bound, the store's command timeout, a transport error after
- * the send, #1017) — else the error itself. A store's own finding is logged here: the bound logs its own.
- */
-async function failure(parts: StoreCallParts, facts: CallFacts, error: unknown): Promise<Error> {
-  const { lease } = facts;
-  if (lease === undefined || !(error instanceof StoreOutcomeUnknownError))
-    return error instanceof Error ? error : new Error(String(error), { cause: error });
-  if (error.source !== StoreOutcomeSource.Framework)
-    parts.log?.warn(
-      "store.outcome-unknown",
-      `${error.message} (${facts.kind} call: the tree is handed over, the next holder reconciles it)`,
-      { executionId: lease.leaseExecutionId, tenantId: lease.tenantId },
-    );
-  await lease.abandon?.(error);
-  return new ExecutionLeaseLostError({ rootExecutionId: lease.leaseExecutionId, cause: error });
-}
-
-/** The error of a call whose lease was lost while it hung: the lease's own reason. */
-const lostOf = (facts: CallFacts, reason: unknown): Error =>
-  reason instanceof Error
-    ? reason
-    : new ExecutionLeaseLostError({ rootExecutionId: facts.lease?.leaseExecutionId ?? "" });
 
 /** `pending` raced against the call's bound and, for a leased call, against its lease's loss. */
 function bounded<T>(parts: StoreCallParts, facts: CallFacts, pending: PromiseLike<T>): Promise<T> {
@@ -123,21 +61,50 @@ function bounded<T>(parts: StoreCallParts, facts: CallFacts, pending: PromiseLik
   });
 }
 
-/** `source`'s `next()` calls, each bounded as the call that made it. */
+/**
+ * `source`'s `next()` calls, each bounded as the call that made it. When a step gave up, the
+ * source is still running it, and an async generator queues `return()` behind a running `next()`:
+ * the close is then started without being awaited (a late rejection of it is logged), so the
+ * consumer's `for await` ends with the step's error instead of waiting for a step that never answers.
+ */
 async function* boundedEach<T>(
   parts: StoreCallParts,
   facts: CallFacts,
   source: AsyncIterable<T>,
 ): AsyncGenerator<T> {
   const iterator = source[Symbol.asyncIterator]();
+  const gaveUp = { isTrue: false };
   try {
     for (;;) {
-      const step = await bounded(parts, facts, iterator.next());
+      let step: IteratorResult<T>;
+      try {
+        step = await bounded(parts, facts, iterator.next());
+      } catch (error) {
+        gaveUp.isTrue = true;
+        throw error;
+      }
       if (step.done === true) return;
       yield step.value;
     }
   } finally {
-    await iterator.return?.();
+    if (gaveUp.isTrue) closeDetached(parts, facts, iterator);
+    else if (iterator.return !== undefined) await bounded(parts, facts, iterator.return());
+  }
+}
+
+/** `iterator.return()` started and not awaited; the rejection it may end with later is only logged. */
+function closeDetached(parts: StoreCallParts, facts: CallFacts, iterator: AsyncIterator<unknown>) {
+  try {
+    void Promise.resolve(iterator.return?.()).catch((error: unknown) => {
+      const text = error instanceof Error ? error.message : String(error);
+      parts.log?.warn(
+        "store.call-close-failed",
+        `closing the ${facts.store}.${facts.operation} iterator after its bound failed: ${text}`,
+        { executionId: facts.lease?.leaseExecutionId, tenantId: facts.lease?.tenantId },
+      );
+    });
+  } catch {
+    // a close that throws at once has nothing left to wait for
   }
 }
 
