@@ -43,13 +43,13 @@ function realPrefix(path: string): string {
 }
 
 /**
- * True when the link at `path` lands inside the project, judged by real paths (#1076): the root and
- * the target's longest existing prefix go through `realpath`, so `/tmp` and `/private/tmp` agree.
- * The link itself is never followed; a dangling one is judged by its resolved parent.
+ * True when the link `file` (its text is read, nothing followed), written at `place`, lands inside
+ * the project (#1076): the root, the place's longest existing parent and the target's longest
+ * existing prefix go through `realpath`, so `/tmp` and `/private/tmp` agree and a symlinked parent
+ * of the place counts. A dangling link is judged by its resolved parent.
  */
-function staysInside(root: string, path: string): boolean {
-  const from = join(root, path);
-  const target = resolve(realpathSync(dirname(from)), readlinkSync(from));
+export function staysInside(root: string, file: string, place: string): boolean {
+  const target = resolve(realPrefix(dirname(place)), readlinkSync(file));
   const found = relative(realpathSync(root), realPrefix(target));
   return found !== ".." && !found.startsWith(`..${sep}`) && !isAbsolute(found);
 }
@@ -60,6 +60,7 @@ export function ownLinksOf(
   sourcePaths: readonly string[],
   folder: string = SKILLS_FOLDER,
 ): OwnLinks {
+  // where a kept link is written: always the new folder, whatever folder it is read from
   const kept: KeptFile[] = [];
   const warnings: SkillsWarning[] = [];
   const say = (path: string, text: string): void => {
@@ -72,7 +73,10 @@ export function ownLinksOf(
     const at = join(folder, path);
     if (sourcePaths.some((own) => own === path || own.startsWith(`${path}/`)))
       say(path, "where agboss has a file — replaced by agboss's");
-    else if (staysInside(root, at)) {
+    else if (
+      staysInside(root, join(root, at), join(root, at)) &&
+      staysInside(root, join(root, at), join(root, SKILLS_FOLDER, path))
+    ) {
       kept.push({ from: join(root, at), path, isLink: true });
       say(path, "— kept as it is, not followed");
     } else say(path, "that leaves the project — not kept");

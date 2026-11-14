@@ -7,6 +7,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   renameSync,
@@ -131,5 +132,44 @@ describe("#1013 (b) #1077: no entry of the old folder is lost silently", () => {
     const text = done.warnings.map((w) => w.message).join("\n");
     expect(text).toMatch(/rules\.md[^\n]*kept/);
     expect(text).toMatch(/outside\.md[^\n]*not kept/);
+  });
+});
+
+describe("#1013 security: a carried link is judged where it is written; no move through a linked parent", () => {
+  it("a relative link inside the project from the old folder but outside from the new place is not created, and named", () => {
+    const root = interruptedMove();
+    const legacy = join(root, ".claude/skills/agboss");
+    writeFileSync(join(root, "x"), "x");
+    symlinkSync("../../../x", join(legacy, "l.md"));
+    // `.agents/skills` is a link to a folder one level up from where `.agents/skills/agboss` would be
+    renameSync(join(root, ".agents/skills"), join(root, "a"));
+    symlinkSync("../a", join(root, ".agents/skills"), "dir");
+
+    const done = sync(root);
+
+    expect(lstatSync(join(root, "a/agboss/l.md"), { throwIfNoEntry: false })).toBeUndefined();
+    expect(
+      done.warnings.some(
+        (w) => w.code === SkillsWarningCode.UnmanagedFile && w.message.includes("l.md"),
+      ),
+    ).toBe(true);
+  });
+
+  it("a linked parent of the old folder (inside or outside the project): refused, nothing moved or removed", () => {
+    for (const where of ["inside", "outside"]) {
+      const root = interruptedMove();
+      const moved =
+        where === "inside" ? join(root, "vault") : mkdtempSync(join(tmpdir(), "agboss-out-"));
+      mkdirSync(moved, { recursive: true });
+      renameSync(join(root, ".claude/skills"), join(moved, "skills"));
+      symlinkSync(join(moved, "skills"), join(root, ".claude/skills"), "dir");
+      const before = readdirSync(join(root, ".agents/skills/agboss/team")).sort();
+
+      const done = sync(root);
+
+      expect(done.warnings.map((w) => w.code)).toContain(SkillsWarningCode.OutsideProject);
+      expect(existsSync(join(moved, "skills/agboss/team/notes.md"))).toBe(true);
+      expect(readdirSync(join(root, ".agents/skills/agboss/team")).sort()).toEqual(before);
+    }
   });
 });

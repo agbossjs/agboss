@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { LinkedPathError, linkedBelow } from "./containment.js";
 import type { LinkOps } from "./link.js";
 import { readManifest, type SkillsManifest } from "./manifest.js";
-import { ownLinksOf } from "./own-links.js";
+import { ownLinksOf, staysInside } from "./own-links.js";
 import { planSync, type SyncPlan } from "./plan.js";
 import type { KeptFile, ReplaceOps } from "./replace.js";
 import type { SkillFile } from "./source.js";
@@ -39,6 +39,15 @@ export type Legacy =
 
 /** Classifies the legacy path with `lstat`, so a link is not followed. */
 export function legacyOf(root: string, ops: LinkOps): Legacy {
+  const found = legacyAt(root, ops);
+  if (found.kind !== "managed") return found;
+  // a link in a parent folder: the move would act on the link's target, not on this project's folder
+  for (const parent of [".claude", join(".claude", "skills")])
+    if (ops.lstat(join(root, parent))?.isSymbolicLink() === true) throw new LinkedPathError(parent);
+  return found;
+}
+
+function legacyAt(root: string, ops: LinkOps): Legacy {
   const folder = join(root, CLAUDE_SKILLS_LINK);
   const found = ops.lstat(folder);
   if (found === undefined || found.isSymbolicLink() || !found.isDirectory())
@@ -156,11 +165,22 @@ function saveLegacy(file: KeptFile, to: string, isFile: boolean): SkillsWarning 
  * `<name>.legacy` — also when the new folder has a link or a folder there. If a save fails, this
  * throws and the old folder stays for the next run.
  */
-export function carryOver(target: string, kept: readonly KeptFile[]): SkillsWarning[] {
+export function carryOver(
+  root: string,
+  target: string,
+  kept: readonly KeptFile[],
+): SkillsWarning[] {
   assertCarryable(target, kept);
   const warnings: SkillsWarning[] = [];
   for (const file of kept) {
     const to = join(target, file.path);
+    if (file.isLink === true && !staysInside(root, file.from, to)) {
+      warnings.push({
+        code: SkillsWarningCode.UnmanagedFile,
+        message: `${SKILLS_FOLDER}/${file.path} is a link that leaves the project from its new place — not created; put project rules in AGENTS.md`,
+      });
+      continue;
+    }
     // lstat: a dangling link at `to` is "there" — copying would write through it
     const there = lstatSync(to, { throwIfNoEntry: false });
     if (there !== undefined) {

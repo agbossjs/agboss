@@ -127,7 +127,7 @@ function moveLegacy(
     assertCarryable(target, old.kept);
     if (plan.status !== SkillsSyncStatus.Current)
       replaceSkillsFolder(target, files, version, own, replace);
-    carried = carryOver(target, old.kept);
+    carried = carryOver(root, target, old.kept);
   }
   const removal = removeLegacy(legacy.folder, replace);
   const isMoved = removal.some((warning) => warning.code === SkillsWarningCode.Moved);
