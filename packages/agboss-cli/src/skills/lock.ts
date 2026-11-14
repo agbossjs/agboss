@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { TEMP_PREFIX } from "./status.js";
@@ -9,6 +9,7 @@ import {
   newOwner,
   OWNER_PREFIX,
   readHolder,
+  sweepStray,
   type LockOwner,
 } from "./lock-owner.js";
 
@@ -65,8 +66,24 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
 function clearIfStale(lock: string, staleMs: number): void {
   const holder = readHolder(lock);
   if (holder === undefined) return;
-  if (holder.token === undefined) clearEmpty(lock);
-  else if (isStale(holder, staleMs)) dropOwner(lock, holder.token);
+  if (holder.token === undefined) {
+    clearEmpty(lock);
+    if (holder.ageMs > staleMs) sweepStray(lock);
+  } else if (isStale(holder, staleMs)) dropOwner(lock, holder.token);
+}
+
+/** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */
+function sweepCrashed(agents: string, staleMs: number): void {
+  for (const name of readdirSync(agents)) {
+    if (!name.startsWith(`${LOCK_NAME}-new-`)) continue;
+    const path = join(agents, name);
+    try {
+      if (Date.now() - statSync(path).mtimeMs > staleMs)
+        rmSync(path, { recursive: true, force: true });
+    } catch {
+      // gone meanwhile: nothing to sweep
+    }
+  }
 }
 
 const SIGNALS = ["SIGINT", "SIGTERM"] as const;
@@ -115,6 +132,7 @@ export function withSyncLock<T>(
   }
   const unguard = guardSignals();
   try {
+    sweepCrashed(agents, options.staleMs);
     return { value: work() };
   } finally {
     dropOwner(lock, owner.token);

@@ -21,6 +21,6 @@ git-ignored (`.claude/skills/agboss`, no trailing slash). `SKILL.md`'s frontmatt
   to run; never a second copy), `[skills.outside-project]` (a `.claude`, `.claude/skills`, `.agents` or `.agents/skills` that is a link leaving the project: nothing is touched), `[skills.shadowed]` (a `~/.claude/skills/agboss` of another
   version, which Claude Code prefers). `--json` `result.skills` gains `link` and `moved`.
 - **Safer sync:** the link is checked on every run, also when the copy is current; the atomic swap's
-  temporary folder lives in `.agents/` (a leftover is removed on the next run); `EPERM` / `EBUSY`
+  temporary folder lives in `.agents/` (a leftover is restored first when `.agents/skills/agboss` is missing; one idle for 5 minutes is removed only when nothing of the project's is lost with it, otherwise it is kept with `[skills.unmanaged-file]`); `EPERM` / `EBUSY`
   renames are retried; a CRLF checkout of a managed file is no local edit, and `agboss create`
   writes a `.gitattributes` line keeping the folder LF.
