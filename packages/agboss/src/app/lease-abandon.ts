@@ -43,6 +43,6 @@ function tellAbandoned(
   cause: StoreOutcomeUnknownError,
 ): void {
   const { executionId, tenantId, token } = lease;
-  const text = `the lease of execution ${executionId} (token ${String(token)}) was abandoned: ${cause.store}.${cause.operation} did not answer — nothing is released, the lease expires in its store and the next take of it reconciles`;
+  const text = `the lease of execution ${executionId} (token ${String(token)}) was abandoned: ${cause.store}.${cause.operation} ended with its outcome unknown (${cause.source}) — nothing is released, the lease expires in its store and the next take of it reconciles`;
   log?.warn("execution.lease-abandoned", text, { executionId, tenantId });
 }

@@ -1,4 +1,8 @@
 import { causeOptionOf, type PlainErrorOptions } from "../../core/errors.js";
+import {
+  StoreOutcomeSource,
+  StoreOutcomeUnknownError,
+} from "../../infrastructure/store-call-timeout.js";
 /**
  * Named hold points (#484 AC5): places in a process where a test stops an operation and lets it go
  * when it chooses — the way to force the order of operations across processes without a sleep.
@@ -31,6 +35,13 @@ export interface HoldRequest {
    * after the database committed. Only an answer with a key is lost (a claim of nothing is not).
    */
   readonly loseAnswer?: boolean;
+  /**
+   * With `loseAnswer` (#1017): the caller hears what a store package makes of a connection reset
+   * after the request was sent — `StoreOutcomeUnknownError`, source `Transport` — not the test's
+   * `StoreAnswerLostError`: on a store set with no network, the same lost answer a TCP set gets
+   * from `DatabaseProxy.dropAfter`.
+   */
+  readonly asTransportError?: boolean;
 }
 
 /** A store's answer lost on its way back to the caller (#720): the operation took effect. */
@@ -75,6 +86,16 @@ const matches = (armed: Armed, point: string, phase: HoldPhase, key: string | un
   (armed.request.phase ?? HoldPhase.Before) === phase &&
   (armed.request.key === undefined || armed.request.key === key);
 
+/** What the caller of an operation whose answer was lost hears (#720; #1017: as a transport error). */
+function lostAnswerOf(request: HoldRequest, point: string): Error {
+  const lost = new StoreAnswerLostError({ message: `the answer of ${point} was lost` });
+  if (request.asTransportError !== true) return lost;
+  return new StoreOutcomeUnknownError({
+    ...{ store: "held store", operation: point, source: StoreOutcomeSource.Transport },
+    cause: lost,
+  });
+}
+
 /** Why a step's signal aborted, as an error. */
 const reasonOf = (signal: AbortSignal): Error =>
   signal.reason instanceof Error ? signal.reason : new Error("the step stopped");
@@ -93,6 +114,8 @@ export class HoldPoints {
       throw new RangeError(`a hold holds a whole number of arrivals from 1, got ${String(times)}`);
     if (request.loseAnswer === true && request.phase !== HoldPhase.After)
       throw new RangeError("only an answer can be lost: loseAnswer needs HoldPhase.After");
+    if (request.asTransportError === true && request.loseAnswer !== true)
+      throw new RangeError("asTransportError reads a lost answer: it needs loseAnswer");
     this.#count += 1;
     const armId = `arm-${String(this.#count)}`;
     this.#armed.push({ armId, request, left: times });
@@ -149,9 +172,7 @@ export class HoldPoints {
     armed.left -= 1;
     if (armed.left === 0) this.disarm(armed.armId);
     if (armed.request.loseAnswer === true)
-      return Promise.reject(
-        new StoreAnswerLostError({ message: `the answer of ${point} was lost` }),
-      );
+      return Promise.reject(lostAnswerOf(armed.request, point));
     this.#count += 1;
     const operation = {
       holdId: `hold-${String(this.#count)}`,

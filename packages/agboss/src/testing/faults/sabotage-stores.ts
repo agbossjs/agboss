@@ -8,6 +8,10 @@ import {
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import {
+  StoreOutcomeSource,
+  StoreOutcomeUnknownError,
+} from "../../infrastructure/store-call-timeout.js";
 import { seconds } from "../../units/index.js";
 import { effectKeyForTesting } from "../contracts/effect-key.js";
 import { FaultStoreSabotage } from "./pod-protocol.js";
@@ -115,6 +119,45 @@ export function timeoutAsRan<TStore extends Class>(store: TStore): TStore {
   return typed as TStore;
 }
 
+/** What `resetAsDefinite`'s store throws instead of a transport error: an error of known outcome (#1017 S3). */
+export class ConnectionResetError extends Error {
+  override name = "ConnectionResetError";
+}
+
+/**
+ * `store` (a fenced-effect store class) that reads every `StoreOutcomeUnknownError` of source
+ * `Transport` as an ordinary `ConnectionResetError` (#1017 S3: the classifier off): the framework
+ * then fails the step and undoes what ran before it, for a charge the store holds. Named
+ * `ResetAsDefinite<Store>`; it wraps the store with its hold points.
+ */
+export function resetAsDefinite<TStore extends Class>(store: TStore): TStore {
+  const Concrete = concreteOf(store);
+  const original: unknown = Reflect.get(store.prototype, "runInTransaction");
+  if (typeof original !== "function")
+    throw new TypeError(`${store.name} has no runInTransaction: it is not a fenced-effect store`);
+  const base = original as RunInTransaction;
+  const reading = class extends Concrete {
+    async runInTransaction(key: EffectKey, work: unknown): Promise<unknown> {
+      try {
+        return await base.call(this, key, work);
+      } catch (error) {
+        const isReset =
+          error instanceof StoreOutcomeUnknownError &&
+          error.source === StoreOutcomeSource.Transport;
+        if (!isReset) throw error;
+        throw new ConnectionResetError(`${error.message} (read as a definite failure)`, {
+          cause: error,
+        });
+      }
+    }
+  };
+  Object.defineProperty(reading, "name", { value: `ResetAsDefinite${store.name}` });
+  const deps: readonly Token[] = depsOf(store);
+  Injectable({ deps: deps as [] })(reading);
+  const typed: unknown = reading;
+  return typed as TStore;
+}
+
 type Release = (this: object, lease: unknown) => Promise<unknown>;
 
 /**
@@ -156,6 +199,11 @@ const BREAKS: Readonly<
   [FaultStoreSabotage.TimeoutAsRan]: {
     of: FENCED_EFFECT_METHODS,
     break: timeoutAsRan,
+    isOutside: true,
+  },
+  [FaultStoreSabotage.ResetAsDefinite]: {
+    of: FENCED_EFFECT_METHODS,
+    break: resetAsDefinite,
     isOutside: true,
   },
 };

@@ -39,6 +39,7 @@ import {
   s22eFailureNeverRecorded,
 } from "./s22-outbound-never-answers.js";
 import { s22fChildClaimNeverAnswered, s22gDatabaseFrozen } from "./s22-child-database.js";
+import { s23CommitAnswerReset } from "./s23-commit-answer-reset.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -91,6 +92,7 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s22eFailureNeverRecorded,
   s22fChildClaimNeverAnswered,
   s22gDatabaseFrozen,
+  s23CommitAnswerReset,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

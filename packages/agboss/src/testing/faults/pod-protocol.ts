@@ -59,6 +59,11 @@ export enum FaultStoreSabotage {
    * an unknown outcome taken for done, under the framework's own bound.
    */
   TimeoutAsRan = "timeout-as-ran",
+  /**
+   * A fenced-effect store that reads a transport error after the send as a definite failure (#1017
+   * S3): the classifier off, so an applied charge whose answer was reset fails the step.
+   */
+  ResetAsDefinite = "reset-as-definite",
 }
 
 /** An order of the fixture application. */

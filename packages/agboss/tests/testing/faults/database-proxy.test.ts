@@ -8,6 +8,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseProxy, ProxyState } from "../../../src/testing/faults/database-proxy.js";
 import { tcpTargetOf } from "../../../src/testing/faults/cluster.js";
+import { commitBytesOf } from "../../../src/testing/faults/cluster-options.js";
 
 /** An echo server: what the proxy stands in front of. */
 async function echoServer(): Promise<{ server: Server; port: number }> {
@@ -110,5 +111,16 @@ describe("#484 scenario 8: the database proxy pauses, drops and restores a pod's
     expect(tcpTargetOf("/tmp/faults.sqlite")).toBeUndefined();
     expect(tcpTargetOf("file:///tmp/faults.sqlite")).toBeUndefined();
     expect(tcpTargetOf("postgres://db.local/x")).toBeUndefined();
+  });
+
+  it("#1017: knows the bytes that apply a write by the database's protocol", () => {
+    expect(commitBytesOf("postgres://u:p@db:5432/x")).toBe("COMMIT");
+    expect(commitBytesOf("postgresql://db:5432/x")).toBe("COMMIT");
+    expect(commitBytesOf("mongodb://db:27017/x?replicaSet=rs0")).toBe("commitTransaction");
+    expect(commitBytesOf("mongodb+srv://db/x")).toBe("commitTransaction");
+    expect(commitBytesOf("redis://db:6379")).toBe("EVALSHA");
+    expect(commitBytesOf("rediss://db:6379")).toBe("EVALSHA");
+    expect(commitBytesOf("mysql://db:3306/x")).toBeUndefined();
+    expect(commitBytesOf("/tmp/faults.sqlite")).toBeUndefined();
   });
 });
