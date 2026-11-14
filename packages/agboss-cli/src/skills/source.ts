@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -77,11 +77,20 @@ export function skillFilesOf(source: SkillsSource): readonly SkillFile[] {
   }));
 }
 
-/** The paths of every file under `folder`, relative with `/`, sorted. */
+/**
+ * The paths of every file under `folder`, relative with `/`, sorted. A link is not a file and a
+ * link to a folder is not entered (`readdir`'s own recursion walks through it): what lies behind a
+ * link is not the folder's.
+ */
 export function filesUnder(folder: string): readonly string[] {
   if (!existsSync(folder)) return [];
-  return readdirSync(folder, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(folder, join(entry.parentPath, entry.name)).split(sep).join("/"))
-    .sort();
+  const found: string[] = [];
+  const walk = (at: string, prefix: string): void => {
+    for (const entry of readdirSync(at, { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(join(at, entry.name), `${prefix}${entry.name}/`);
+      else if (entry.isFile()) found.push(`${prefix}${entry.name}`);
+    }
+  };
+  walk(folder, "");
+  return found.sort();
 }

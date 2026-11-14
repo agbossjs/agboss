@@ -1,5 +1,14 @@
 import { randomBytes } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readlinkSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { MANIFEST_FILE, manifestOf, manifestText } from "./manifest.js";
 import type { SkillFile } from "./source.js";
@@ -25,6 +34,8 @@ export interface ReplaceOps {
 export interface KeptFile {
   readonly from: string;
   readonly path: string;
+  /** `from` is a link of the project's: made again with the same text, never followed. */
+  readonly isLink?: boolean;
 }
 
 /** Waits at most this many times, 50 ms doubling: 50 + 100 + 200 + 400 ms. */
@@ -71,7 +82,8 @@ function keepAll(to: string, kept: readonly KeptFile[]): void {
   for (const file of kept) {
     const target = join(to, file.path);
     mkdirSync(dirname(target), { recursive: true });
-    copyFileSync(file.from, target);
+    if (file.isLink === true) symlinkSync(readlinkSync(file.from), target);
+    else copyFileSync(file.from, target);
   }
 }
 

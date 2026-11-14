@@ -1,4 +1,4 @@
-import { copyFileSync, lstatSync, mkdirSync } from "node:fs";
+import { copyFileSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { LinkedPathError, linkedBelow } from "./containment.js";
 import type { LinkOps } from "./link.js";
@@ -90,14 +90,46 @@ export function assertCarryable(target: string, kept: readonly KeptFile[]): void
   }
 }
 
-/** Copies the old folder's own files the new one lacks (an interrupted move finishing). */
-export function carryOver(target: string, kept: readonly KeptFile[]): void {
+/** True when `a` and `b` are regular files of the same bytes. */
+const sameFile = (a: string, b: string): boolean =>
+  lstatSync(a, { throwIfNoEntry: false })?.isFile() === true &&
+  lstatSync(b, { throwIfNoEntry: false })?.isFile() === true &&
+  readFileSync(a).equals(readFileSync(b));
+
+/**
+ * Saves the old folder's `file`, which differs from the copy's `to`, as `<name>.legacy` beside it
+ * (`.legacy.2` … when that name is another content's): the copy's file stays, nothing is lost.
+ */
+function saveLegacy(file: KeptFile, to: string): SkillsWarning {
+  let copy = `${to}.legacy`;
+  for (let n = 2; lstatSync(copy, { throwIfNoEntry: false }) !== undefined; n += 1) {
+    if (sameFile(file.from, copy)) break;
+    copy = `${to}.legacy.${String(n)}`;
+  }
+  if (lstatSync(copy, { throwIfNoEntry: false }) === undefined) copyFileSync(file.from, copy);
+  return {
+    code: SkillsWarningCode.UnmanagedFile,
+    message: `${SKILLS_FOLDER}/${file.path} differs from ${CLAUDE_SKILLS_LINK}/${file.path} — kept the ${SKILLS_FOLDER} one; the old content is saved as ${SKILLS_FOLDER}/${copy.slice(to.length - file.path.length)}`,
+  };
+}
+
+/**
+ * Copies the old folder's own files the new one lacks (an interrupted move finishing). A file in
+ * both with other bytes keeps the new folder's and saves the old one as `<name>.legacy`.
+ */
+export function carryOver(target: string, kept: readonly KeptFile[]): SkillsWarning[] {
   assertCarryable(target, kept);
+  const warnings: SkillsWarning[] = [];
   for (const file of kept) {
     const to = join(target, file.path);
     // lstat: a dangling link at `to` is "there" — copying would write through it
-    if (lstatSync(to, { throwIfNoEntry: false }) !== undefined) continue;
+    const there = lstatSync(to, { throwIfNoEntry: false });
+    if (there !== undefined) {
+      if (there.isFile() && !sameFile(file.from, to)) warnings.push(saveLegacy(file, to));
+      continue;
+    }
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(file.from, to);
   }
+  return warnings;
 }
