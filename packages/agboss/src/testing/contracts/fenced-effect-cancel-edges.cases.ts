@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
 import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { hours } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import {
@@ -116,6 +117,25 @@ const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
+const markOutlivesRetention = <TTransaction>(): Case<TTransaction> => ({
+  name: "#909: a cancel's mark is not lifted by the retention while its tree has not retired — a sweep at any cutoff, long after the cancel, and the tree's write is still refused",
+  isFencing: true,
+  run: async ({ clock, first, second }) => {
+    const lease = await leaseOf(first, "execution-1", hours(1000));
+    await second.leases.requestCancel(treeOf(lease));
+    await clock.advance(hours(48));
+    const count: WriteCount = { runs: 0 };
+
+    await second.effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + hours(24)));
+    const refused = await rejectionOf(
+      first.effects.runOnce(keyOf(lease), writing(first.rows, "late", count)),
+    );
+
+    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(count.runs).toBe(0);
+  },
+});
+
 /** The corners of the cancel as a fence of the fenced effect. */
 export const cancelEdgeCases = <TTransaction>(): ContractGroup<
   FencedEffectTarget<TTransaction>
@@ -126,5 +146,6 @@ export const cancelEdgeCases = <TTransaction>(): ContractGroup<
     staleTokenIsHandOver<TTransaction>(),
     cancelBeforeFirstAcquire<TTransaction>(),
     businessResultOfAnotherTree<TTransaction>(),
+    markOutlivesRetention<TTransaction>(),
   ],
 });

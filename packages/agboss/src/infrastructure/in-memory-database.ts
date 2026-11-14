@@ -87,10 +87,15 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
     throw ExecutionCancelFencedError.of(key);
 }
 
-/** Removes the cancel requests older than `before` (ms): the fencing stores' retention (#909). */
+/**
+ * Removes the cancel requests older than `before` (ms) whose tree is over — its lease retired
+ * (#520): the fencing stores' retention (#909). Never by age alone: a tree not over (paused longer
+ * than the retention, resumed on another instance) keeps its mark, so its writes stay refused.
+ */
 function prunedCancelRequests(database: InMemoryDatabase, before: number): void {
   for (const [tree, request] of database.cancelRequests)
-    if (request.requestedAt < before) database.cancelRequests.delete(tree);
+    if (request.requestedAt < before && database.executionLeases.get(tree)?.isRetired === true)
+      database.cancelRequests.delete(tree);
 }
 
 /** The fenced effects' retention: their results and marks stored, and the cancel requests, before `before` (ms). */

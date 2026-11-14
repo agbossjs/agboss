@@ -69,4 +69,15 @@ describe("#909 AC2: a store whose cancel fence is broken fails the cases", () =>
       expect.stringMatching(/^#909 AC2: a cancel asked while the write's transaction is open/),
     );
   });
+
+  it("a retention that lifts the mark by age alone: the tree not over has its write and its intent land after the cancel", () => {
+    const target = "a retention that lifts the cancel's mark by age alone";
+
+    expect(failedOf("fenced effect contract", target)).toContainEqual(
+      expect.stringMatching(/^#909: a cancel's mark is not lifted by the retention/),
+    );
+    expect(failedOf("outbound call contract", target)).toContainEqual(
+      expect.stringMatching(/^#909: a cancel's mark is not lifted by the retention/),
+    );
+  });
 });

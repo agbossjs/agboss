@@ -286,7 +286,19 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
   if (found !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
-/** Removes the cancel requests older than `before` (ms): the fencing stores' retention. */
+/**
+ * Removes the cancel requests older than `before` (ms) whose tree is over — its lease retired
+ * (`released = 3`, #520): the fencing stores' retention. Never by age alone: a tree not over
+ * (paused longer than the retention, resumed on another instance) keeps its mark.
+ */
 export function prunedCancelRequests(database: DatabaseSync, before: number): void {
-  database.prepare("DELETE FROM execution_cancel_requests WHERE requested_at < ?").run(before);
+  database
+    .prepare(
+      `DELETE FROM execution_cancel_requests WHERE requested_at < ? AND EXISTS (
+         SELECT 1 FROM execution_leases AS leases
+         WHERE leases.tenant_id = execution_cancel_requests.tenant_id
+           AND leases.root_execution_id = execution_cancel_requests.root_execution_id
+           AND leases.released = 3)`,
+    )
+    .run(before);
 }

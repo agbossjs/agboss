@@ -2,6 +2,7 @@ import { registerContract } from "./define.js";
 import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-gate.js";
 import { outboundAttemptCases } from "./outbound-call-attempt.cases.js";
 import { outboundCancelCases } from "./outbound-call-cancel.cases.js";
+import { outboundCancelRetentionCases } from "./outbound-call-cancel-retention.cases.js";
 import { outboundExpiryCases } from "./outbound-call-expiry.cases.js";
 import { outboundKeyTextCases } from "./outbound-call-key-text.cases.js";
 import { outboundLeaseRaceCases } from "./outbound-call-lease.cases.js";
@@ -59,6 +60,7 @@ export function registerOutboundCallContract(
       outboundExpiryCases(),
       outboundTimeCases(),
       outboundCancelCases(),
+      outboundCancelRetentionCases(),
     ],
     (stores) => stores.calls.ping(),
     { storeOf: (stores) => stores.calls, ...optOut },
