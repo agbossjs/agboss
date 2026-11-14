@@ -225,12 +225,47 @@ echo "$n $tool $*" >> "$F1044_DIR/log"
 if [ "$n" = "\${F1044_FAIL_AT:-0}" ]; then exit 7; fi
 export F1044_IN=1
 case "$tool $1 $2" in
-  "git push"*) exit 0 ;;
-  "npm ci"*|"npm run"*|"npm view"*|"npm pack"*|make*) exit 0 ;;
+  "git push"*)
+    if [ -n "\${F1044_REAL_PUSH:-}" ]; then exec "$real" "$@"; fi
+    last="\${@: -1}"
+    case "$last" in
+      *v[0-9]*) # a pushed tag starts the release workflow's run
+        echo "\${F1044_NEW_ID:-555} push $last $("$real" rev-parse "$last^{commit}") \${F1044_NEW_AFTER:-0}" >> "$F1044_DIR/runs" ;;
+    esac
+    exit 0 ;;
+  "npm run"*|make*)
+    if [ "$tool $2" = "npm check" ] || [ "$tool" = make ]; then
+      if [ -n "\${F1044_ON_CHECK:-}" ]; then eval "$F1044_ON_CHECK"; fi
+      if [ -n "\${F1044_FAIL_CHECK:-}" ]; then exit 1; fi
+    fi
+    exit 0 ;;
+  "npm ci"*|"npm view"*|"npm pack"*) exit 0 ;;
   "gh pr list"*) echo 0; exit 0 ;;
   "gh pr create"*) echo https://example.test/pull/1; exit 0 ;;
-  "gh run list"*) echo 12345; exit 0 ;;
-  "gh run"*) exit 0 ;;
+  "gh run list"*)
+    lists=$(( $(cat "$F1044_DIR/lists" 2>/dev/null || echo 0) + 1 ))
+    echo "$lists" > "$F1044_DIR/lists"
+    ev=""; br=""; cm=""; lim=1000
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --event) ev="$2"; shift ;;
+        --branch) br="$2"; shift ;;
+        --commit) cm="$2"; shift ;;
+        --limit) lim="$2"; shift ;;
+      esac
+      shift
+    done
+    touch "$F1044_DIR/runs"
+    awk -v ev="$ev" -v br="$br" -v cm="$cm" -v lists="$lists" \\
+      '{ row[NR] = $0 } END { for (i = NR; i >= 1; i--) { split(row[i], f, " "); \\
+        if ((ev == "" || f[2] == ev) && (br == "" || f[3] == br) && (cm == "" || f[4] == cm) && (f[5] + 0) <= lists) print f[1] } }' \\
+      "$F1044_DIR/runs" | head -n "$lim"
+    exit 0 ;;
+  "gh run watch"*)
+    for a in "$@"; do case "$a" in --exit-status) flag=1 ;; [0-9]*) id="$a" ;; esac; done
+    # like gh: a failed run exits 1 only with --exit-status
+    case " \${F1044_FAILED_IDS:-} " in *" \${id:-} "*) [ -n "\${flag:-}" ] && exit 1 ;; esac
+    exit 0 ;;
 esac
 exec "$real" "$@"
 `;
@@ -242,7 +277,9 @@ const prelude = (bashBlocks(checklist.slice(checklist.indexOf("All commands star
   .replace(/^export RELEASE_VERSION=.*$/m, 'export RELEASE_VERSION="0.3.0"')
   .replace(/^export SCRATCH=.*$/m, 'export SCRATCH="$F1044_ROOT/scratch"');
 const step2 = bashBlocks(step("## Step 2", "## Step 3"))[0] ?? "";
-const [step6Prep = "", step6Tag = ""] = bashBlocks(step("## Step 6", "## Step 7"));
+const step6Blocks = bashBlocks(step("## Step 6", "## Step 7"));
+const step6Prep = step6Blocks[0] ?? "";
+const step6Tag = step6Blocks.find((block) => block.includes("git tag -a")) ?? "";
 
 const CARS = {
   agboss: { name: "core", dir: "agboss" },
@@ -379,14 +416,37 @@ interface Walk {
   readonly stderr: string;
 }
 /** Paste `block` (after the prelude) in a fresh copy of the scratch clones; the `failAt`th command exits 7. */
-async function walk(block: string, failAt: number, pre = ""): Promise<Walk> {
-  const root = mkdtempSync(join(tmpdir(), "checklist-run-"));
-  cpSync(template, root, { recursive: true });
+interface WalkOptions {
+  /** Extra environment of the shims (F1044_REAL_PUSH, F1044_ON_CHECK, F1044_FAILED_IDS, …). */
+  readonly env?: Record<string, string>;
+  /** Walk again in this root instead of a fresh copy. */
+  readonly root?: string;
+  /** The release workflow's runs that exist before the block: `<id> <event> <branch> <sha> <after>` per line. */
+  readonly runs?: string;
+}
+async function walk(
+  block: string,
+  failAt: number,
+  pre = "",
+  options: WalkOptions = {},
+): Promise<Walk> {
+  let root = options.root;
+  if (root === undefined) {
+    root = mkdtempSync(join(tmpdir(), "checklist-run-"));
+    cpSync(template, root, { recursive: true });
+  }
   writeFileSync(join(root, "shim", "count"), "0");
   writeFileSync(join(root, "shim", "log"), "");
+  writeFileSync(join(root, "shim", "lists"), "0");
+  writeFileSync(join(root, "shim", "runs"), options.runs ?? "");
   const run = await runProcess("bash", ["-c", `${prelude}\n${pre}\n${block}`], {
     cwd: root,
-    env: envOf(root, failAt),
+    env: {
+      ...envOf(root, failAt),
+      RELEASE_RUN_POLL: "0",
+      RELEASE_RUN_TRIES: "3",
+      ...options.env,
+    },
   });
   const log = readFileSync(join(root, "shim", "log"), "utf8")
     .split("\n")
@@ -429,19 +489,21 @@ describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
   it("has the blocks it walks", () => {
     expect(step2).toContain("open_release_pr agbossjs/agboss || exit 1");
     expect(step6Prep).toContain("drop_unpublished_note");
-    expect(step6Tag).toContain("watch_release_run agbossjs/postgres || exit 1");
+    expect(step6Tag).toContain(
+      'watch_release_run agbossjs/postgres "postgres-v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1',
+    );
     expect(prelude).toContain("drop_unpublished_note() {");
   });
 
-  it("every block of the checklist ends its chains in `|| exit 1` or has no chain after which a line runs", () => {
+  it("AC2 (#1085): every `a && b` chain, indented or in a subshell too, ends in `|| exit 1` (`|| return 1` in a function)", () => {
     for (const block of bashBlocks(checklist)) {
       const lines = block.split("\n");
       lines.forEach((line, i) => {
-        if (i === 0 || /^\s/.test(line) || !line.includes(" && ")) return;
-        // the first line of a chain: the chain's last line must carry `|| exit 1`
+        // a line that continues the chain above (`\`) was judged with its first line
+        if (i === 0 || !line.includes(" && ") || /\\$/.test(lines[i - 1] ?? "")) return;
         let end = i;
         while (/\\$/.test(lines[end] ?? "")) end += 1;
-        expect(lines[end], line).toMatch(/\|\| exit 1\s*$/);
+        expect(lines[end], line).toMatch(/\|\| (exit|return) 1\s*$/);
       });
     }
     expect(checklist).not.toMatch(/^gh pr create|^gh run watch/m);
@@ -456,7 +518,9 @@ describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
     );
     expect(readIn(w.root, "agboss", "CHANGELOG.md")).not.toContain("2026-11-05");
     expect(existsSync(join(w.root, "agboss", "chore.txt"))).toBe(false);
-    expect(w.log.some((l) => l.includes(" git push --force-with-lease origin HEAD"))).toBe(true);
+    expect(
+      w.log.some((l) => l.includes(" git push --force-with-lease=release/0.3.0: origin HEAD")),
+    ).toBe(true);
     expect(w.log.some((l) => l.includes(" gh pr create -R agbossjs/agboss"))).toBe(true);
     expect(w.log.at(-1)).toContain("gh pr create");
     await everyFailureStops(step2, w.log.length);
@@ -515,8 +579,222 @@ describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
     const w = await walk(step6Tag, 0);
     expect(w.status, w.stderr).toBe(0);
     expect(w.log.some((l) => l.includes(" git tag -a postgres-v0.3.0"))).toBe(true);
-    expect(w.log.at(-1)).toContain("gh run watch -R agbossjs/postgres 12345");
+    expect(w.log.at(-1)).toContain("gh run watch -R agbossjs/postgres 555 --exit-status");
     await everyFailureStops(step6Tag, w.log.length);
     rmSync(w.root, { recursive: true, force: true });
   }, 240_000);
+});
+
+// ---------------------------------------------------------------------------------------------
+// #1084: the tag block watches the run its own push started, and a failed run stops it
+
+describe("#1084: watch_release_run", () => {
+  const mainSha = async (): Promise<string> =>
+    (await plain(join(template, "postgres"), "git rev-parse main")).stdout.trim();
+
+  it("AC1: a failed release run makes the tag block exit non-zero (gh run watch --exit-status)", async () => {
+    const w = await walk(step6Tag, 0, "", { env: { F1044_FAILED_IDS: "555" } });
+    expect(w.status, w.stderr).not.toBe(0);
+    expect(w.log.at(-1)).toContain("gh run watch -R agbossjs/postgres 555 --exit-status");
+    rmSync(w.root, { recursive: true, force: true });
+  });
+
+  it("AC2: the run of the pushed tag is watched, never an older run: a PR dry run, or an old run of the same tag and commit", async () => {
+    const sha = await mainSha();
+    const runs = [
+      `400 push postgres-v0.3.0 ${sha} 0`, // an earlier push of the same tag at the same commit, deleted and re-pushed
+      `401 push postgres-v0.3.0 other 0`,
+      `999 pull_request release/0.3.0 ${sha} 0`, // the release PR's dry run, the newest
+    ].join("\n");
+    const w = await walk(step6Tag, 0, "", {
+      runs: `${runs}\n`,
+      env: { F1044_FAILED_IDS: "400 401 999" },
+    });
+    expect(w.status, w.stderr).toBe(0);
+    const watched = w.log.filter((l) => l.includes(" gh run watch "));
+    expect(watched).toHaveLength(1);
+    expect(watched[0]).toContain(" 555 --exit-status");
+    rmSync(w.root, { recursive: true, force: true });
+  });
+
+  it("AC2: a run that appears a little after the push is waited for", async () => {
+    const w = await walk(step6Tag, 0, "", { env: { F1044_NEW_AFTER: "3" } });
+    expect(w.status, w.stderr).toBe(0);
+    expect(w.log.at(-1)).toContain(" 555 --exit-status");
+    rmSync(w.root, { recursive: true, force: true });
+  });
+
+  it("AC2: only a PR dry run exists and the tag's run never appears: the wait is bounded and the block fails, watching nothing", async () => {
+    const sha = await mainSha();
+    const w = await walk(step6Tag, 0, "", {
+      runs: `999 pull_request release/0.3.0 ${sha} 0\n`,
+      env: { F1044_NEW_AFTER: "9999" },
+    });
+    expect(w.status).not.toBe(0);
+    expect(w.stderr).toContain("no release run");
+    expect(w.log.some((l) => l.includes(" gh run watch "))).toBe(false);
+    rmSync(w.root, { recursive: true, force: true });
+  });
+
+  it("Step 4 (core) uses the same function with the same arguments", () => {
+    expect(step("## Step 4", "## Step 5")).toContain(
+      'watch_release_run agbossjs/agboss "v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// #1085: the examples block fails closed
+
+describe("#1085: the examples block", () => {
+  const block = bashBlocks(checklist).find((b) => b.includes("for example in")) ?? "";
+
+  async function runExamples(failing: string): Promise<{ status: number | null; log: string }> {
+    const root = mkdtempSync(join(tmpdir(), "checklist-examples-"));
+    const examples = join(root, "agboss-examples");
+    const [failCommand = "", failExample = ""] = failing.split(" in ");
+    mkdirSync(join(root, "bin"));
+    writeFileSync(
+      join(root, "bin", "npm"),
+      `#!/bin/bash\necho "npm $* in $(basename "$PWD")" >> "${join(root, "log")}"\n` +
+        `if [ "$*" = "${failCommand}" ] && [ "$(basename "$PWD")" = "${failExample}" ]; then exit 1; fi\n`,
+      { mode: 0o755 },
+    );
+    for (const name of ["01-a", "02-b"]) {
+      mkdirSync(join(examples, name), { recursive: true });
+      writeFileSync(join(examples, name, "package.json"), '{"scripts":{"demo":"x"}}\n');
+    }
+    await plain(
+      examples,
+      "git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -q -m x",
+    );
+    writeFileSync(join(root, "log"), "");
+    const run = await runProcess("bash", ["-c", `WORKSPACE_ROOT="${root}"\n${block}`], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${join(root, "bin")}:${process.env.PATH ?? ""}`,
+        OPENROUTER_API_KEY: "k",
+      },
+    });
+    const log = readFileSync(join(root, "log"), "utf8");
+    rmSync(root, { recursive: true, force: true });
+    return { status: run.status, log };
+  }
+
+  it("has the block it runs", () => {
+    expect(block).toContain("npm run check");
+  });
+
+  it("passes when every example's check, test and demo pass", async () => {
+    const r = await runExamples("nothing in nowhere");
+    expect(r.status).toBe(0);
+    expect(r.log).toContain("npm run demo in 02-b");
+  });
+
+  it.each(["run check in 01-a", "test in 01-a", "run check in 02-b", "test in 02-b"])(
+    "AC1: %s fails the block, and nothing runs after it for that example",
+    async (failing) => {
+      const [cmd, example] = failing.split(" in ") as [string, string];
+      const r = await runExamples(failing);
+      expect(r.status).not.toBe(0);
+      const lines = r.log.split("\n").filter(Boolean);
+      expect(lines.at(-1)).toBe(`npm ${cmd} in ${example}`);
+      if (example === "01-a") expect(r.log).not.toContain("02-b");
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+// #1086: a rerun never force-pushes over a foreign commit on origin's release branch
+
+describe("#1086: a rerun of Step 2 / Step 6 keeps a foreign commit on origin/release/<version>", () => {
+  const cases = [
+    ["Step 2 (core)", "agboss", step2, "origin/agboss.git"],
+    ["Step 6 (postgres)", "postgres", step6Prep, "origin/postgres.git"],
+  ] as const;
+  const real = { F1044_REAL_PUSH: "1" };
+  const originSubjects = async (root: string, bare: string): Promise<string> =>
+    (
+      await plain(
+        join(root, "origin"),
+        `git --git-dir=${bare.replace("origin/", "")} log --format=%s release/0.3.0`,
+      )
+    ).stdout;
+  const foreignCommit = async (root: string, dir: string): Promise<void> => {
+    const clone = join(root, `foreign-${dir}`);
+    await gitIn(root, `clone -q origin/${dir}.git foreign-${dir}`);
+    await gitIn(clone, "switch -q release/0.3.0");
+    writeFileSync(join(clone, "review.txt"), "fix\n");
+    await gitIn(clone, "add -A");
+    await gitIn(clone, "commit -q -m FOREIGN");
+    await gitIn(clone, "push -q origin release/0.3.0");
+  };
+
+  it.each(cases)(
+    "AC1, AC2: %s stops with a message, origin keeps the commit",
+    async (_n, dir, block, bare) => {
+      const first = await walk(block, 0, "", { env: real });
+      expect(first.status, first.stderr).toBe(0);
+      expect(await originSubjects(first.root, bare)).not.toContain("FOREIGN");
+      await foreignCommit(first.root, dir);
+      const again = await walk(block, 0, "", { root: first.root, env: real });
+      expect(again.status).not.toBe(0);
+      expect(again.stderr).toContain("origin/release/0.3.0");
+      expect(again.log.some((l) => l.includes(" git push "))).toBe(false);
+      expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
+      rmSync(first.root, { recursive: true, force: true });
+    },
+    120_000,
+  );
+
+  it.each(cases)(
+    "AC1: %s — a foreign push between the fetch and the push is refused by the lease",
+    async (_n, dir, block, bare) => {
+      const first = await walk(block, 0, "", { env: real });
+      expect(first.status, first.stderr).toBe(0);
+      const clone = join(first.root, `foreign-${dir}`);
+      await gitIn(first.root, `clone -q origin/${dir}.git foreign-${dir}`);
+      await gitIn(clone, "switch -q release/0.3.0");
+      writeFileSync(join(clone, "review.txt"), "fix\n");
+      await gitIn(clone, "add -A");
+      await gitIn(clone, "commit -q -m FOREIGN");
+      const hook = `git -C "${clone}" push -q origin release/0.3.0`;
+      const again = await walk(block, 0, "", {
+        root: first.root,
+        env: { ...real, F1044_ON_CHECK: hook },
+      });
+      expect(again.status).not.toBe(0);
+      expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
+      rmSync(first.root, { recursive: true, force: true });
+    },
+    120_000,
+  );
+
+  it.each(cases)(
+    "%s: with nothing foreign, a rerun pushes (and a rebased local branch is not mistaken for a foreign one)",
+    async (_n, _dir, block) => {
+      const first = await walk(block, 0, "", { env: real });
+      expect(first.status, first.stderr).toBe(0);
+      const again = await walk(block, 0, "", { root: first.root, env: real });
+      expect(again.status, again.stderr).toBe(0);
+      rmSync(first.root, { recursive: true, force: true });
+    },
+    120_000,
+  );
+
+  it("a Step 6 that stopped after pin-framework: the documented recovery, then the rerun passes", async () => {
+    const recovery = 'git -C "$WORKSPACE_ROOT/postgres" restore .';
+    expect(checklist).toContain(recovery);
+    const first = await walk(step6Prep, 0, "", { env: { F1044_FAIL_CHECK: "1" } });
+    expect(first.status).not.toBe(0);
+    expect((await plain(join(first.root, "postgres"), "git status --porcelain")).stdout).toContain(
+      ".agboss-version.json",
+    );
+    const stuck = await walk(step6Prep, 0, "", { root: first.root });
+    expect(stuck.status).not.toBe(0); // the rebase refuses: unstaged changes
+    const fixed = await walk(`${recovery}\n${step6Prep}`, 0, "", { root: first.root });
+    expect(fixed.status, fixed.stderr).toBe(0);
+    rmSync(first.root, { recursive: true, force: true });
+  }, 120_000);
 });

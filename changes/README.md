@@ -55,6 +55,8 @@ validates the fragments without assembling.
 `#<issue>`; `"agbossjs/agboss#"` is the form the satellites use, so a bare `#<issue>` fails there).
 It is read, never guessed from the directory name; a `changes/` without it fails the run.
 
+**Line endings.** A `CHANGELOG.md` with CRLF line endings is folded as it is and written back in CRLF (#1087); one that mixes CRLF and LF fails before anything is written. The fragments are deleted only after the written file is read back and holds one section for the version and every entry.
+
 **If a run is interrupted.** `CHANGELOG.md` is written to a temp file and renamed over, so it is
 never torn; the fragments are deleted only after. A crash during the deletes leaves some fragments
 behind: run the same command again. A fragment whose entry is already in the section is only
