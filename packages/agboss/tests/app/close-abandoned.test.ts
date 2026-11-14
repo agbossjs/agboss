@@ -116,9 +116,15 @@ describe("#954 AC3: an abandoned resume() settles with a typed error", () => {
       const paused = await execute(app, Start, { text: "charge" });
       hung.lease = true;
 
+      let settled = false;
       const resumed = app.resume(answerOf(paused, { approved: true })).then(
-        () => undefined,
-        (error: unknown) => error,
+        () => {
+          settled = true;
+        },
+        (error: unknown) => {
+          settled = true;
+          return error;
+        },
       );
       await vi.waitFor(() => {
         expect(hung.calls).toBeGreaterThan(0);
@@ -127,6 +133,8 @@ describe("#954 AC3: an abandoned resume() settles with a typed error", () => {
       await passLive(clock, seconds(6));
       await closed;
 
+      // settled by the time close() resolved, not later (the store's bound, 15 s, is longer than the 5 s timeout)
+      expect(settled).toBe(true);
       const error = await Promise.race([
         resumed,
         new Promise((done) => setTimeout(done, 500, "pending")),
