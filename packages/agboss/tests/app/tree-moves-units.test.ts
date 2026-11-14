@@ -6,6 +6,7 @@
  * forgets the tree only when it finished.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ResumeReason } from "../../src/core/observability.js";
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
@@ -32,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   duePausesOf: vi.fn(),
   expirePauses: vi.fn(),
   byIds: vi.fn(),
+  announceResume: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../src/app/cancel-requests.js", () => ({
@@ -51,7 +53,7 @@ vi.mock("../../src/flow/runtime/compensation/unwinding-marks.js", () => ({
 vi.mock("../../src/app/tree-resume.js", () => ({
   treeResumeNow: mocks.treeResumeNow,
   markTaken: mocks.markTaken,
-  announceResume: () => Promise.resolve(),
+  announceResume: mocks.announceResume,
   // #853: no lost passes to carry — the call as it is
   callWithLostPasses: (_parts: unknown, _state: unknown, call: unknown) => Promise.resolve(call),
 }));
@@ -492,6 +494,9 @@ describe("#941: the expiry look's move (expired)", () => {
     await moves.expired(INTERRUPTED, call);
 
     expect(mocks.expirePauses).toHaveBeenCalledOnce();
+    // the pass the expiry starts is announced once, as an expiry (#941)
+    expect(mocks.announceResume).toHaveBeenCalledOnce();
+    expect(mocks.announceResume.mock.calls[0]?.[2]).toBe(ResumeReason.Expired);
     expect(mocks.observedPass).toHaveBeenCalledOnce();
     expect(lease.released()).toBe(1);
   });
