@@ -116,8 +116,9 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     expect(sync).toMatch(/permissions:\s+contents: write/);
     expect(sync).toContain("fetch-depth: 0");
     expect(sync).toContain("scripts/wiki-sync.sh");
-    expect(script).toContain('"${NEW}:refs/heads/master"');
-    expect(script).toContain('"${NEW}:refs/heads/docs/wiki-pending"');
-    for (const text of [sync, script]) expect(text).not.toMatch(/--force|\s-f\s|\+HEAD/);
+    expect(script).toContain('push "${WIKI_URL}" refs/heads/master');
+    expect(script).toContain('push "${REPO_URL}" refs/heads/docs/wiki-pending');
+    for (const text of [sync, script.replace(/^\s*#.*$/gm, "")])
+      expect(text).not.toMatch(/--force|\s-f\s|\+HEAD/);
   });
 });

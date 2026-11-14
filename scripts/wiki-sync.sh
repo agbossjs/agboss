@@ -19,8 +19,27 @@
 # The base is the Wiki's `master` or `docs/wiki-pending`, whichever contains the other (a direct
 # `scripts/wiki.sh publish` moves both); diverged → stop, never force (a page edited in the Wiki's
 # web UI and missing from the branch is not lost).
+#
+# A push the remote refuses because it moved meanwhile (a direct publish, another Sync) is retried:
+# fetch again, overlay again, push — at most 5 attempts (WIKI_SYNC_ATTEMPTS), a short backoff
+# (WIKI_SYNC_BACKOFF seconds x attempt, default 3), never --force. Other failures are not retried.
+# WIKI_SYNC_BEFORE_PUSH: a command run right before each push (a test seam: it plays the publisher
+# that wins the race).
 # (Plain bash 3.2 on purpose: the tests run it on macOS too.)
 set -euo pipefail
+
+if [[ -z "${WIKI_SYNC_INNER:-}" ]]; then
+  MAX="${WIKI_SYNC_ATTEMPTS:-5}"
+  for ((attempt = 1; attempt <= MAX; attempt++)); do
+    status=0
+    WIKI_SYNC_INNER=1 "$0" || status=$?
+    [[ "${status}" -eq 75 ]] || exit "${status}"
+    echo "The Wiki moved while publishing (attempt ${attempt} of ${MAX}); retrying from its new state."
+    [[ "${attempt}" -lt "${MAX}" ]] && sleep $((attempt * ${WIKI_SYNC_BACKOFF:-3}))
+  done
+  echo "::error::The Wiki kept moving: ${MAX} attempts, nothing was forced; rerun Sync Wiki."
+  exit 1
+fi
 
 : "${WIKI_URL:?}" "${REPO_URL:?}"
 CODE="$(pwd)"
@@ -107,13 +126,22 @@ done < <(c rev-list --first-parent --reverse "${RANGE}")
 [[ "${STARTED}" -eq 1 ]] || { echo "::error::${INTRO} is not on the first-parent history"; exit 1; }
 
 NEW="$(w rev-parse HEAD)"
+# a push the remote refused because its ref moved → 75 (the outer loop retries); anything else fails
+push() {
+  local out
+  [[ -z "${WIKI_SYNC_BEFORE_PUSH:-}" ]] || sh -c "${WIKI_SYNC_BEFORE_PUSH}" > /dev/null
+  if out="$(w push -q "$1" "${NEW}:$2" 2>&1)"; then return 0; fi
+  echo "${out}" >&2
+  if [[ "${out}" == *"fetch first"* || "${out}" == *"non-fast-forward"* || "${out}" == *"failed to update ref"* || "${out}" == *"cannot lock ref"* ]]; then exit 75; fi
+  exit 1
+}
 PUSHED=0
 if ! w merge-base --is-ancestor "${NEW}" refs/remotes/wiki/master; then
-  w push -q "${WIKI_URL}" "${NEW}:refs/heads/master"
+  push "${WIKI_URL}" refs/heads/master
   PUSHED=1
 fi
 if [[ "${HAVE_PENDING}" -eq 1 ]] && [[ "$(w rev-parse refs/remotes/pending/head)" != "${NEW}" ]]; then
-  w push -q "${REPO_URL}" "${NEW}:refs/heads/docs/wiki-pending"
+  push "${REPO_URL}" refs/heads/docs/wiki-pending
   PUSHED=1
 fi
 if [[ "${PUSHED}" -eq 0 ]]; then

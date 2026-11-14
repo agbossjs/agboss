@@ -432,4 +432,51 @@ describe("#1026: a PR's Wiki pages travel with it", { timeout: 120_000 }, () => 
 
     expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v3 later by hand"));
   });
+
+  /** A publisher that wins the race: pushes a commit to the Wiki right before Sync's push. */
+  const racer = (times: number): NodeJS.ProcessEnv => {
+    const script = join(h.root, "race.sh");
+    const wiki = join(h.root, "wiki.git");
+    writeFileSync(
+      script,
+      [
+        "#!/bin/sh",
+        "set -e",
+        `count=$(cat "${h.root}/races" 2>/dev/null || echo 0)`,
+        `[ "$count" -lt ${String(times)} ] || exit 0`,
+        `echo $((count + 1)) > "${h.root}/races"`,
+        `d=$(mktemp -d); git clone -q "${wiki}" "$d"`,
+        'echo "raced $count" > "$d/Race.md"; git -C "$d" add -A; git -C "$d" commit -q -m "raced"',
+        'git -C "$d" push -q origin HEAD:master',
+      ].join("\n"),
+    );
+    return { WIKI_SYNC_BEFORE_PUSH: `sh ${script}`, WIKI_SYNC_BACKOFF: "0" };
+  };
+
+  it("AC3: a push the Wiki refused because it moved is retried on the new state, never forced", async () => {
+    await h.pr("pr1", { "wiki/Alpha.md": page("Alpha", "v1") });
+    await h.merge("pr1");
+
+    const result = await h.sync(racer(1));
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("attempt 1 of 5");
+    expect(await h.wikiPage("Race.md")).toBe("raced 0\n"); // the other publisher's commit is kept
+    expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v1"));
+    expect(await h.pendingHead()).toBe(await h.wikiHead());
+    expect((await h.wikiLog()).filter((line) => line === "docs: feat: pr1 (#1)")).toHaveLength(1);
+  });
+
+  it("AC3: after 5 attempts a Wiki that keeps moving fails the run, and nothing is overwritten", async () => {
+    await h.pr("pr1", { "wiki/Alpha.md": page("Alpha", "v1") });
+    await h.merge("pr1");
+
+    const result = await h.sync(racer(99));
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("attempt 5 of 5");
+    expect(result.stdout + result.stderr).toContain("5 attempts");
+    expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v0"));
+    expect((await h.wikiLog()).filter((line) => line === "raced")).toHaveLength(5);
+  });
 });
