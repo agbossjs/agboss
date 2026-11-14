@@ -89,6 +89,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   the write with `ExecutionCancelFencedError`. The cancel either waits for a transaction that
   already touched the document or commits first, and the transaction's later touch conflicts and
   runs again on a snapshot that holds it; the price is that fenced writes of one tree's
+<<<<<<< HEAD
   `AnyInstance` children conflict and retry. It is **schema version 2** — run `agboss-mongodb
   migrate` before rolling out the version that writes it (an older instance neither writes nor
   reads the collection). Documents older than the fencing stores' retention are pruned with them.
@@ -99,6 +100,12 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
   later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`) — run
   `agboss-mongodb migrate` first; it backfills the pause channels.
+=======
+  `AnyInstance` children conflict and retry. It is a **schema version of its own**, the one after
+  `latest_by_step` ([below](#the-schema-and-its-versions): version 3) — run `agboss-mongodb migrate`
+  before rolling out the version that writes it (an older instance neither writes nor reads the
+  collection). Documents older than the fencing stores' retention are pruned with them.
+>>>>>>> 7d72372 (docs(#1038): latestByStep, schema versions, index step, store upgrade steps)
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not
@@ -107,6 +114,40 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   one document, changed by one update pipeline), or a transaction where several documents must
   change together (the cost ledger's counters of one save, a task's pending writes).
 - **Order** "as appended" is a sequence document's `$inc`, never a client clock or an `ObjectId`.
+
+## The schema and its versions
+
+The collections, their indexes and the ledger's pruning mark are a versioned schema, recorded in
+`agboss_schema` and migrated explicitly by `agboss-mongodb migrate` (#891). Each version is one
+migration, applied in order:
+
+| Version | Migration | What it adds |
+| --- | --- | --- |
+| 1 | `0001_stores` | every collection with the simple collation, their indexes, the ledger's mark |
+| 2 | `0002_checkpoint_latest_by_step` | the checkpoints' index `latest_by_step` — `{ threadId, namespace, step: -1, checkpointId: -1 }` (#962) |
+| 3 | the cancel's fence (#909) | `agboss_execution_cancel_requests`, with the stores that write it |
+
+**`latest_by_step`** (#962). `MongoCheckpointSaver.latestByStep` reads a marked thread's newest
+checkpoint by LangGraph's step ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962))
+with one sorted `findOne` on that index: one document examined, 1.4 ms on 10 000 checkpoints where
+listing and sorting the namespace took 3.7 s. `step` is a field of the checkpoint's own document,
+written by the same replace as the checkpoint. **A checkpoint written before has no `step`**: the
+first `latestByStep` of its thread and namespace gives each one (about 100 ms for a thread of 2 000
+checkpoints, once per thread; an indexed look then finds none missing), so the migration rewrites no
+data. A pod of an older build that keeps writing leaves checkpoints without a `step` too; the next
+read of their thread gives them one.
+
+**The rollout**:
+
+- **Run `agboss-mongodb migrate` right before the rollout** — a Kubernetes Job before the pods
+  roll, or `mongodbSchemaSetup: SchemaSetup.MigrateOnStart` for a single instance.
+- **A new pod on a database that was not migrated does not start**: `MongoSchemaMissingError`,
+  which names the command. Nothing is created by a start that checks (`SchemaSetup.Check`, the
+  default), so the pods need no right to change the schema.
+- **An old pod is refused after it**: once the database is migrated, a pod of a build that needs an
+  older version that restarts gets `MongoSchemaTooNewError` — migrations are never rolled back, so
+  roll the application forward, or run the newer image. Pods already running keep running. That is
+  why `migrate` runs right before the rollout, not days before it.
 
 ## Retries
 

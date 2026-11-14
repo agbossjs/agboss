@@ -138,9 +138,10 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
   ```
 
   Exit codes: `0` done (a second run prints `nothing to apply`), `1` the migration failed (the
-  reason on stderr), `2` a usage error.
+  reason on stderr), `2` a usage error. Its last line says what it did to the checkpoint index
+  ([below](#the-checkpoint-index-962)).
 - **Or in code**: `await migratePostgres({ url, signal })` → `{ schema, applied, version,
-  checkpointMigrations }`.
+  checkpointMigrations, stepIndex }`.
 - **Or at start** with `postgresMigrateOnStart: true` — for a single instance or a development
   database.
 
@@ -152,6 +153,41 @@ package: missing or older migrations are `PostgresSchemaMissingError` (naming th
 flag) unless the flag migrates them; a database **newer** than the package — a rolled-back
 application — is `PostgresSchemaTooNewError` with or without the flag: migrations are never rolled
 back, so roll the application forward, or run the newer image.
+
+## The checkpoint index (#962)
+
+`PostgresCheckpointSaver.latestByStep` reads a marked thread's newest checkpoint by LangGraph's step
+in one index walk ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962)).
+The index, `checkpoints_latest_by_step`, is not a numbered migration: `checkpoints` is made by
+LangGraph's setup, after the numbered files, so every `migrate` run builds it as a **step of its
+own** after them:
+
+- **`CREATE INDEX CONCURRENTLY`**, on a session of its own outside any transaction: a populated
+  table keeps taking checkpoint writes while it builds (1 000 000 rows: a 1.5 s build, no write held
+  longer than 90 ms). It waits for the transactions open in the database when it starts, so a long
+  application transaction delays the build, never the writes.
+- **One builder at a time.** A session-level `pg_try_advisory_lock` that never waits: a run that does
+  not get it (another is building) skips the step and goes on.
+- **A start that migrates does not wait for it** (`postgresMigrateOnStart`): the pod serves while
+  the index builds. `agboss-postgres migrate` and `migratePostgres` return when it is done.
+- **Reads are correct without it**, only slower (10 000 checkpoints: 38 ms listing and sorting, 1.7 ms
+  with the index). A skipped or failed build costs speed until the next run builds it.
+- **An INVALID leftover** (a build that crashed) is dropped (`DROP INDEX CONCURRENTLY`) and built
+  again by the next run that holds the lock.
+
+The command's last line says which it was:
+
+```text
+built index checkpoints_latest_by_step (public)
+index checkpoints_latest_by_step (public) is ready
+skipped index checkpoints_latest_by_step (public): another run holds its build lock; run migrate again when it ends
+```
+
+`built`: this run made it. `is ready`: it was there and valid. `skipped`: another run holds the
+build's lock, so this one did nothing to the index — run `migrate` again when that one ends. The same
+is `MigrationReport.stepIndex` (`"built"`, `"present"`, `"skipped"`; unset for a start that
+migrates). To check by hand, `\d <schema>.checkpoints` lists `checkpoints_latest_by_step`; an INVALID
+index is marked so there.
 
 ## Connections and their limits
 

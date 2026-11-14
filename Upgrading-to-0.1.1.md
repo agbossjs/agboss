@@ -34,4 +34,27 @@ A disconnect no longer cancels a run: the task goes on, and `GetTask` / `Subscri
 A client resends an ambiguous accept only to an AGBoss peer, within the retention its card declares
 — never to a foreign peer.
 
+## The stores — what to run
+
+A durable store has its own upgrade step. The order is the same for each: **migrate, then roll the
+application**. `@agboss/postgres` and `@agboss/mongodb` are first published with 0.1.1, so the steps
+below are for a database an earlier build of the package wrote; SQLite is the core's own, written by
+0.1.0.
+
+| Store | What to run | What you see if you skip it |
+| --- | --- | --- |
+| PostgreSQL | `npx agboss-postgres migrate` before the pods roll. It applies the numbered migrations, then builds the index `checkpoints_latest_by_step` (`CREATE INDEX CONCURRENTLY`: checkpoint writes keep flowing while it builds). Its last line says `built index …`, `index … is ready` or `skipped index …` (another run holds the build's lock: run it again when that one ends). | A start refuses an unmigrated schema (`PostgresSchemaMissingError`, naming the command). A start with `postgresMigrateOnStart` migrates and builds the index in the background. Without the index everything is correct, a marked thread's latest read only lists and sorts its namespace (38 ms on 10 000 checkpoints, instead of 1.7 ms). |
+| MongoDB | `npx agboss-mongodb migrate` is **mandatory before the 0.1.1 pods start**, and runs **right before the rollout**: once the database is migrated, an old pod that restarts is refused (`MongoSchemaTooNewError`). It applies `0002_checkpoint_latest_by_step` (schema version 2, the checkpoints' index `latest_by_step`) and rewrites no data. | A 0.1.1 pod on a database at version 1 does not start (`MongoSchemaMissingError`, naming the command). Checkpoints written before get their `step` when their thread is first read: about 100 ms for a thread of 2 000 checkpoints, once per thread. |
+| SQLite | Nothing: the file is migrated when 0.1.1 opens it — a generated column `step` on the metadata and an index on it, no row rewritten (57 ms for 20 000 checkpoints). | Nothing to skip. |
+
+- **SQLite and an older version**: the column is generated, so 0.1.0's own `INSERT` of a checkpoint
+  still works on a file 0.1.1 opened, and 0.1.1 reads what 0.1.0 wrote in order (#1035). A second
+  process still on 0.1.0, or a rollback to it, does not break checkpoint writes. A build before the
+  release that already made a stored `step` column has it replaced by the generated one on the next
+  open.
+- **A store of your own** is not required to change: `latestByStep` is optional, and a store
+  without it keeps the scan, correct and slower ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962)).
+- What the PostgreSQL index and the MongoDB versions are, in full: [Running on PostgreSQL](Running-on-PostgreSQL#the-checkpoint-index-962),
+  [MongoDB](MongoDB#the-schema-and-its-versions).
+
 The full list of changes of the release is in the [Changelog](Changelog).
