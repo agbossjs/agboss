@@ -73,6 +73,34 @@ describe("#954 AC3: an abandoned execute() settles with a typed error", () => {
   });
 });
 
+describe("#954 AC3: no execute() or resume() outlives close()", () => {
+  test("AC3: execute() blocked in a hung store call longer than the shutdown timeout has settled by the time close() resolves", async ({
+    app,
+    clock,
+  }) => {
+    await app.ready();
+    let settled = false;
+    execute(app, ClaimRoomItemWorkflowStart, { name: "root", delay: 0, outcome: "ok" }).then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await vi.waitFor(() => {
+      expect(roomLog.gates.has("root")).toBe(true);
+    });
+    hung.lease = true; // the store's own bound (15 s) is longer than the 5 s shutdown timeout
+
+    const closed = app.close();
+    await passLive(clock, seconds(6));
+    await closed;
+
+    expect(settled).toBe(true);
+  });
+});
+
 describe("#954 AC3: an abandoned resume() settles with a typed error", () => {
   const resumeTest = testWith(HungCheckoutApplication, { concurrency: TestConcurrency.Real });
 
