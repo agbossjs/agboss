@@ -45,7 +45,11 @@ describe("unused dependencies fail the check (#205)", () => {
     };
 
     expect(pkg.scripts["check:knip"]).toBe("knip");
-    expect(pkg.scripts.check?.split(" && ")).toContain("npm run check:knip");
+    // #1020: `check` is `check:static` + the suites + `check:models`; CI runs the same parts
+    expect(pkg.scripts.check).toBe(
+      "npm run check:static && npm run coverage && npm run check:models",
+    );
+    expect(pkg.scripts["check:static"]?.split(" && ")).toContain("npm run check:knip");
   });
 
   it("AC2: a dependency nothing imports fails knip; without it, knip passes", async () => {
