@@ -18,7 +18,7 @@ stores' state. The pages it builds on: [Several instances](Several-instances),
 
 | # | Requirement | Why | The setting |
 | --- | --- | --- | --- |
-| **R1** | **A long-lived process with CPU between requests** | An instance renews each lease it holds every 10 s (a 30 s lease, not a setting), sweeps for orphaned trees every 30 s, and claims queued children while it has a free step slot. With no CPU outside a request none of that runs: its leases expire under it and nothing it queued is picked up. | Kubernetes: any Deployment. Cloud Run: instance-based billing. Lambda: impossible (below). |
+| **R1** | **A long-lived process with CPU between requests** | An instance renews each lease it holds every 7.5 s (a 30 s lease, not a setting), sweeps for orphaned trees every 30 s, and claims queued children while it has a free step slot. With no CPU outside a request none of that runs: its leases expire under it and nothing it queued is picked up. | Kubernetes: any Deployment. Cloud Run: instance-based billing. Lambda: impossible (below). |
 | **R2** | **One shared transactional store per application, no shared disk** | Every instance reads and writes the same leases, trees, child queue, checkpoints and fenced effects; a fencing store checks its lease in its own transaction, so it lives in the lease store's database ([Guarantees](Guarantees) A2). SQLite on a `ReadWriteMany` volume, an NFS lock, or a file per pod is not a shared store. | `@agboss/postgres` ([Running on PostgreSQL](Running-on-PostgreSQL)), or MongoDB ([MongoDB](MongoDB)). |
 | **R3** | **A SIGTERM grace of at least preStop + `shutdownTimeout` + a margin** | On SIGTERM `createApp` closes the app: readiness turns `Unhealthy`, running steps get `shutdownTimeout`, what still runs is handed over. A SIGKILL inside that window is a crash: recovered, but only after the lease expires, with the step run again. | `terminationGracePeriodSeconds`, ECS `stopTimeout`, Nomad `kill_timeout`, … ([the platforms](#kubernetes-like-platforms)). |
 | **R4** | **Probes on `app.checkLiveness()` and `app.checkReadiness()`** | Readiness takes a stopping pod (and one whose stores do not answer) out of the endpoints — a pod with every step slot busy is `Degraded`, still ready; liveness restarts a dead one. Liveness must outlast a short freeze: the lease keeps correctness while a pod is frozen, and a restart turns every GC pause into a crash. | `/health/live`, `/health/ready` ([Health checks](Health-checks)). |
@@ -152,7 +152,7 @@ the run step by step.
 
 | Setting | Value | Why |
 | --- | --- | --- |
-| The execution lease | 30 s, renewed every 10 s — fixed, not a setting | two renewals may fail before it expires |
+| The execution lease | 30 s, renewed every 7.5 s — fixed, not a setting | two renewals may fail before it expires |
 | `@Application({ shutdownTimeout })` | 25 s (the default) to 30 s; below the platform's grace less the preStop | R3 |
 | `terminationGracePeriodSeconds` | preStop + `shutdownTimeout` + 10 s (45 s for 5 + 30) | R3 |
 | Readiness | every 5 s, 2 failures | a stopping pod leaves the endpoints within 10 s |
@@ -288,7 +288,7 @@ none of them is a property of the function.
 
 ## Known limitations
 
-- **The lease is not a setting** (30 s, renewed every 10 s): recovery after a crash takes up to the
+- **The lease is not a setting** (30 s, renewed every 7.5 s): recovery after a crash takes up to the
   lease plus a sweep (≤ 60 s).
 - **A pod frozen past its liveness window is restarted**: still correct (its leases were taken over),
   but its in-memory work is lost; size liveness above a takeover.

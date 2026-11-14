@@ -382,6 +382,26 @@ return {'ran'}
   lightweight and plain writes on the same cells: a plain write ignores the Paxos state. Each
   lightweight transaction costs about four round trips.
 
+## Every call is bounded (#928)
+
+The framework bounds every call it makes to your store, whatever the store does: under a held
+lease (a step's call, a pass's end, a child's run up to its completion) by the time the holder still
+trusts the lease; any other call by 15 s; a retention delete (`delete…Before`) and every call of an
+`A2AFileRepository` by 5 minutes. A call that does not answer is of unknown outcome: it may have
+taken effect. Under a lease the holder hands the tree over and does not release the lease; the next
+holder replays the fenced effect's row, reconciles the pending intent or resumes from the latest
+checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
+
+- **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s) and throw
+  `StoreCallTimeoutError` with `source: StoreOutcomeSource.Command`, the driver's error as the
+  `cause`; for an error after the request was sent — a reset connection after a commit — throw
+  `StoreOutcomeUnknownError`. Never turn either into "not done": retry nothing yourself, do not
+  report a failure for a write you cannot tell.
+- **A late commit must be fenced.** The abandoned call may still commit after the next holder took
+  over: it lands under the old token, which the store refuses (A2) — or before the takeover, which
+  then waits for it.
+- A value you give a test as an `overrides` entry is not bounded; a store class you list is.
+
 ## Prove it: `storeConformance`
 
 One call runs every contract the store set claims, with the same cases the core's own stores run

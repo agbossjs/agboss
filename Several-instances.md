@@ -263,7 +263,7 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
 `ApplicationContext.instanceId`. Whoever moves the tree holds it: `app.execute` from its first step,
 `app.resume` once it has recorded its decision. The holder:
 
-- renews the lease in the background every 10 seconds (a third of its fixed length, `seconds(30)` —
+- renews the lease in the background every 7.5 seconds (a quarter of its fixed length, `seconds(30)` —
   not a setting) and right before every checkpoint write;
 - releases it when its pass ends — the tree paused, finished or failed. A paused or finished tree
   holds no lease;
@@ -297,8 +297,8 @@ only by `acquire`, at a new epoch, recorded as a takeover from itself. Every che
 the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
 fence (`now >= trustedUntil`) — so no lease is kept by one part of the system and given up by
 another, and at the very instant of expiry only the taker wins. A healthy holder never comes near
-it: it renews every 10 s, a third of the lease, so each renewal reaches the store with 20 s left (19 s
-of its own trust, #533), and one renewal its store does not answer still leaves 10 s. What reaches it is a stop-the-world
+it: it renews every 7.5 s, a quarter of the lease, so each renewal reaches the store with 22.5 s left (21.5 s
+of its own trust, #533), and one renewal its store does not answer still leaves 15 s (7.5 s after two). What reaches it is a stop-the-world
 pause (a GC pause, a frozen VM) of 30 s or more: the holder hands the tree over at its next renewal
 or write, and recovery continues it from its last checkpoint — one owner at a time, the effects of
 its steps keyed and fenced, so none is lost and none runs twice. In tests one `clock.advance` of a
@@ -422,7 +422,7 @@ over after it expired) is handed over.
 ### A parent waiting for remote children (#516)
 
 A yielded lease is **not released**: it stays the holder's in `ExecutionLeaseRepository` and is
-renewed every 10 s like a held one. What every instance sees of a tree whose parent waits for its
+renewed every 7.5 s like a held one. What every instance sees of a tree whose parent waits for its
 `AnyInstance` children:
 
 | Who | What they get |
@@ -947,6 +947,22 @@ export class ChargeOrderAction {
   them: [Payment gateways](Payment-gateways); every payment race and what handles it:
   [Payment scenarios](Payment-scenarios).
 
+## A store call that never answers (#928)
+
+Every store call is bounded. A call a holder makes under its lease is bounded by the time it still
+trusts the lease, fixed when the call starts, or by the lease's loss, whichever comes first; at the
+bound the holder **abandons** the lease: its signal aborts as at the lease's local expiry, its
+renewals and expiry loop stop, its token is no longer a fenced holder's — and nothing is released,
+retired or announced as free. The lease expires in the store about 30 s after its last confirmed
+renewal, and only then does another instance take the tree over, so recovery after a hung call
+waits up to the lease; a late commit of the abandoned call lands under the old token before the
+takeover or is fenced after it. The step is a hand-over: no `.onError`, no undo, no failed record
+(P5). A lease renewal that does not answer is **not** a hand-over: the holder goes on while its
+fence holds: a renewal is bounded at 5 s and the renewals run on a fixed cadence of a quarter of the lease, 7.5 s (one still in flight at its tick is skipped), so of the three tries inside the 29 s of trust any two may fail and the third confirm, and three in a row cost the lease — and `fence.renewNow()` before an
+outbound send is the one renewal that hands over. Other calls (the sweep's look, a child's claim,
+`acquire`, `requestCancel`) fail with `StoreCallTimeoutError` after 15 s and run again at the next
+period. [Guarantees](Guarantees) P8, A19.
+
 ## Recovery
 
 **The orphan look** (#939): a tree whose instance died in the middle of its end — its root's record
@@ -1173,7 +1189,7 @@ another owner, `onExecutionRejected`), then:
    nothing is written.
 
 The holder reads the request **after every lease renewal the store confirms** — the background one
-every 10 seconds and the one before each checkpoint write — and before its tree rests paused. A found
+every 7.5 seconds and the one before each checkpoint write — and before its tree rests paused. A found
 request aborts the pass with `ExecutionCancelledError` (`thread "…" was cancelled`, the message of
 a local cancel): the tool loop starts no further model or tool call, the record is failed,
 `onExecutionError` fires once (on the holder's instance) and the holder's `execute` / `resume`
@@ -1186,7 +1202,7 @@ lease store's database, keyed by the tree's root, idempotent, changing no lease.
 fencing store of that database refuses, in the transaction that checks the lease, a **new**
 fenced effect (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
 tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
-nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 10 s —
+nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 7.5 s —
 cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
 step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a
 child's key is fenced by its **root's** cancel; the end of an attempt claimed before the cancel
