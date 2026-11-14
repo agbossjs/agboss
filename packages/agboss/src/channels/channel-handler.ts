@@ -2,12 +2,15 @@ import type { ChannelQuestionOf } from "../flow/generated-types.js";
 import type {
   ChannelPauseAnswerNotTakenEvent,
   ChannelPauseClosedEvent,
+  ChannelPauseExpiringEvent,
+  ChannelPauseExtendedEvent,
 } from "../pause/notice-events.js";
 import type { ChannelOutcome } from "./channel-outcome.js";
 
 /**
- * The channel contract (#267): `send`, and the optional notices (#940) — `onPauseClosed` and
- * `onPauseAnswerNotTaken`, told at least once of what happened to a pause the channel sent. Both
+ * The channel contract (#267): `send`, and the optional notices (#940, #942) — `onPauseClosed`,
+ * `onPauseAnswerNotTaken`, `onPauseExtended` and `onPauseExpiring`, told at least once of what
+ * happened to a pause the channel sent. All
  * types take the role class, like `InputOf<X>` / `Route<R>` take the component; the execution
  * comes through `deps` (`ExecutionContext` or the project's subclass), like in any component.
  */
@@ -38,6 +41,17 @@ export interface ChannelHandler<TRole> {
   readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
   /** Called at least once when its recorded answer is never applied (its run ended first). */
   readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TRole>) => Promise<void>;
+  /**
+   * Called at least once when an operator extended a pause this channel sent (#942): "extended
+   * until …" — the new and the previous deadline. Same delivery as `onPauseClosed`.
+   */
+  readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
+  /**
+   * Called at least once, once per deadline, `remindBefore` before a pause this channel sent
+   * expires (#942): "expiring at …"; again before the new deadline after an extension. Same
+   * delivery as `onPauseClosed`.
+   */
+  readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
 }
 
 /**
@@ -56,6 +70,16 @@ export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
 
   /** Its recorded answer was never applied: nothing by default. */
   onPauseAnswerNotTaken(event: ChannelPauseAnswerNotTakenEvent<TRole>): Promise<void> {
+    return Promise.resolve(event).then(() => undefined);
+  }
+
+  /** A pause this channel sent has a later deadline (#942): nothing by default. */
+  onPauseExtended(event: ChannelPauseExtendedEvent<TRole>): Promise<void> {
+    return Promise.resolve(event).then(() => undefined);
+  }
+
+  /** A pause this channel sent is about to expire (#942): nothing by default. */
+  onPauseExpiring(event: ChannelPauseExpiringEvent<TRole>): Promise<void> {
     return Promise.resolve(event).then(() => undefined);
   }
 }

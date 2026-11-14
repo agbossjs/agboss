@@ -106,9 +106,12 @@ export interface RecordedAnswer {
   readonly run: AgentExecutionOutput | undefined;
 }
 
-/** Who answers, as the pause's role says — checked; `undefined` for an unowned thread's owner. */
-async function answeredByOf(
-  parts: AnswerParts,
+/**
+ * Who answers, as the pause's role says — checked; `undefined` for an unowned thread's owner.
+ * An extension (#942) is checked the same way: who may answer may extend.
+ */
+export async function answeredByOf(
+  parts: Pick<AnswerParts, "owned">,
   pause: PauseRecord,
   call: ResumeOptions,
 ): Promise<string | undefined> {
@@ -138,7 +141,7 @@ async function answeredByOf(
 /** The tenant's pause a resume answers; `UnknownPauseError` when the tenant has none of that id. */
 export async function pauseOf(
   pauses: PausedExecutionRepository,
-  request: ResumeRequest,
+  request: { readonly pauseId: string },
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<PauseRecord> {
   const pause = await pauses.findByTenantIdAndPauseId(tenantId, request.pauseId);

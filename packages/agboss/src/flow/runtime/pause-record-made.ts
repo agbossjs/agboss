@@ -59,6 +59,21 @@ export function deadlineOf(
   };
 }
 
+/**
+ * The reminder of a pause with the deadline `expiresAt` (#942, Q6): `remindBefore` before it — and
+ * none when that is not after `at` (the pause is asked, or extended, less than a reminder's lead
+ * before its deadline), nor without a deadline or a `remindBefore`.
+ */
+export function remindAtOf(
+  expiresAt: string | undefined,
+  remindBefore: number | undefined,
+  at: Date,
+): string | undefined {
+  if (expiresAt === undefined || remindBefore === undefined) return undefined;
+  const remindAt = Date.parse(expiresAt) - remindBefore;
+  return remindAt > at.getTime() ? new Date(remindAt).toISOString() : undefined;
+}
+
 /** The record a step would make: a new id, `Pending`, not sent. */
 export function newRecordOf(
   frame: FrameSpec,
@@ -68,6 +83,8 @@ export function newRecordOf(
 ): PauseRecord {
   const { execution, step } = frame;
   const now = clock.now();
+  const deadline = deadlineOf(frame, question.expiresIn ?? channel.expiresIn, now);
+  const remindAt = remindAtOf(deadline.expiresAt, channel.remindBefore, now);
   return {
     pauseId: newPauseId(),
     tenantId: execution.tenant.tenantId,
@@ -94,6 +111,7 @@ export function newRecordOf(
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: now.toISOString(),
-    ...deadlineOf(frame, question.expiresIn ?? channel.expiresIn, now),
+    ...deadline,
+    ...(remindAt === undefined ? {} : { remindAt }),
   };
 }

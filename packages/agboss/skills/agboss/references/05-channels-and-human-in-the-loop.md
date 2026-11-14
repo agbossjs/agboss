@@ -322,7 +322,7 @@ await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", an
 | `PauseAnswerer.Channel`     | `answeredBy` — non-empty, recorded                       | only in the channel's `ask.pauseId` |
 
 The wrong credential for the role is `PauseAnswererError`. The contract of every channel is
-`ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)`;
+`ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)` / `onPauseExtended(event)` / `onPauseExpiring(event)`;
 a role's implementation gets it by extending the role (`ChannelOf<Role>` implements it, the notices no-ops you `override`). Ready-made concrete channels named on a
 tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat` / `run`),
 `AutoApproveChannel`, `AutoRejectChannel` (decide at once — scripts and tests).
@@ -563,7 +563,30 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   A pause the run's deadline bound fails the run with `DeadlineExceededError` and asks the channel
   nothing. `app.cancel` always beats an expiry (the pause is closed `expired`, the run cancelled).
   Over A2A the task goes `WORKING`, then `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up
-  before the look is `-32004 a2a.pause-closed` `reason: expired`. Reminders and extensions are #942.
+  before the look is `-32004 a2a.pause-closed` `reason: expired`.
+- **A reminder and an extension** (#942): `@ChannelRole({ expiresIn: hours(24), remindBefore: hours(2) })` —
+  a positive finite duration shorter than the role's own `expiresIn` (`[channel.remind-before-invalid]`)
+  — makes the channel's optional `onPauseExpiring(event)` (`ChannelPauseExpiringEvent`: `pauseId`,
+  `value`, `expiresAt`, `deliveryId`) and a listener's optional `onPauseExpiring` (`PauseListenerExpiringEvent`)
+  hear "expiring at …" **once** per deadline, whatever the number of instances (the store's
+  compare-and-set; no lease, nothing of the run moves). The reminder time is fixed when the pause is
+  made: `expiresAt − remindBefore`, none when that is not after the ask — a step's or a tool's
+  `expiresIn` that is no longer than `remindBefore` gives that pause no reminder
+  (`[channel.remind-before-exceeds-expiry]`, a warning, an error under `--strict`; the role alone sets
+  `remindBefore`); a pause bound by its run's deadline is reminded before that deadline; one with no
+  deadline never. `await app.extendPause({ pauseId, expiresIn: hours(24) }, { answeredBy })` (the
+  `ownerId` for a thread owner's pause — who may answer may extend; the options are
+  `PauseCallerOptions`: the caller fields only, no `signal` / `onStream` / `record`) moves an open pause's deadline to
+  `now + expiresIn` and returns `PauseExtension` (`pauseKey`, `expiresAt`, `previousExpiresAt`); the
+  channel's optional `onPauseExtended(event)` (`ChannelPauseExtendedEvent`, + `previousExpiresAt`) and a
+  listener's `onPauseExtended` (`PauseListenerExtendedEvent`) hear "extended until …", the reminder is
+  made again before the new deadline. Refused: a closed pause or one past its deadline —
+  `PauseClosedError` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
+  not later than the current one, and one past the deadline of the run (or quorum) the pause was made
+  under (exactly that deadline is allowed) — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
+  another tenant's pause is `UnknownPauseError`. An extension and the expiry look at one tick: the
+  store lets one win. A channel that overrides any of `onPauseClosed`, `onPauseAnswerNotTaken`,
+  `onPauseExtended`, `onPauseExpiring` has a mailbox.
 - `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `onPauseClosed` is
   told, `PauseClosedReason.Cancelled`).
 
@@ -621,6 +644,8 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError`                        |
 | `PauseExpiredError`                       | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `PauseExpiration.decide(…)` |
 | `[channel.expires-in-invalid]`            | a role's, tool's or question step's `expiresIn` is under `seconds(1)` or no finite duration → `hours(4)`                           |
+| `[channel.remind-before-invalid]`         | a role's `remindBefore` is not a positive duration shorter than its `expiresIn` → `hours(2)` under `hours(24)`                     |
+| `[channel.remind-before-exceeds-expiry]`  | a step's or tool's `expiresIn` ≤ its role's `remindBefore` (a warning): no reminder → a longer one                                 |
 | `[tool.expires-in-without-channel]`       | `@Tool({ expiresIn })` with no `channel` → add `channel`, or drop `expiresIn`                                                      |
 | `[question.expires-in-conflict]`          | two `.toQuestion(Q, …)` edges to one question with different `expiresIn` → one value                                               |
 | `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                                       |

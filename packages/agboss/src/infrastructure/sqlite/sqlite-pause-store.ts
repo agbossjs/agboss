@@ -1,5 +1,5 @@
 import type {
-  PauseExtension,
+  PauseDeadlineChange,
   PauseNoticeFacts,
   PauseNoticeKind,
   PauseRecipients,
@@ -145,7 +145,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   async extendByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseExtension,
+    change: PauseDeadlineChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {

@@ -4,7 +4,7 @@ import type { PlannedNotice } from "./pause-mailboxes.js";
 import {
   PauseNoticeKind,
   recipientKeysOf,
-  type PauseExtension,
+  type PauseDeadlineChange,
   type PauseNoticeFacts,
   type PauseRecipients,
 } from "./pause-notices.js";
@@ -153,7 +153,7 @@ const untakenNotices = (
 /** A pending pause's deadline moved, never to a past time (I3). */
 export function extendChange(
   pause: PauseRecord,
-  extension: PauseExtension,
+  extension: PauseDeadlineChange,
   at: Date,
   recipients: PauseRecipients,
 ): PauseChange | undefined {

@@ -47,6 +47,17 @@ export const toolLookup = (tools: readonly AnyTool[]): ((name: string) => AnyToo
   };
 };
 
+/** Whether a tool lookup knows a name: an unknown one is `false`, any other failure is thrown. */
+export function knows(lookup: (name: string) => AnyTool, name: string): boolean {
+  try {
+    lookup(name);
+    return true;
+  } catch (error) {
+    if (error instanceof UnknownToolError) return false;
+    throw error;
+  }
+}
+
 /** Eval / replay: a Jev judge, its spend counted in the application's budgets. */
 export const evaluationFor = (
   bundle: AssembledWorkflow,

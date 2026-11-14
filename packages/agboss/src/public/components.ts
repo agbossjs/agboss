@@ -143,20 +143,6 @@ export {
 } from "../channels/channel-role.decorator.js";
 export { PauseKind, questionAskOf, type PendingPauseBase } from "../pause/index.js";
 export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
-export {
-  PauseListener,
-  type PauseListenerHandler,
-  type PauseListenerOptions,
-} from "../pause/pause-listener.js";
-export type {
-  ChannelPauseAnswerNotTakenEvent,
-  ChannelPauseClosedEvent,
-  PauseDeliveredEvent,
-  PauseListenerAnswerNotTakenEvent,
-  PauseListenerClosedEvent,
-  PauseListenerEventBase,
-  PauseListenerOpenedEvent,
-} from "../pause/notice-events.js";
 export type { QuestionStepOptions } from "../flow/child-placement.js";
 export {
   PauseExpiration,

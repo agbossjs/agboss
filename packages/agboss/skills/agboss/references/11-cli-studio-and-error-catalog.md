@@ -406,6 +406,8 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[channel.role-form]`                      | a `@ChannelRole` with both `approves` and `ask` / `answer`, or half a question                      | keep one form: `approves`, or `ask` and `answer` (#659)                                                   |
 | `[channel.shared-interpreter]`             | one reply interpreter used by two roles                                                             | give each role its own `@ReplyInterpreter`                                                                |
 | `[channel.expires-in-invalid]`             | a role's, a tool's or a question step's `expiresIn` under `seconds(1)` or no finite duration        |
+| `[channel.remind-before-invalid]`          | a role's `remindBefore` is no positive finite duration, or not shorter than its `expiresIn`         |
+| `[channel.remind-before-exceeds-expiry]`   | a step's or tool's `expiresIn` is no longer than its role's `remindBefore` (a warning, no reminder) |
 | `[tool.expires-in-without-channel]`        | `@Tool({ expiresIn })` with no `channel`                                                            |
 | `[question.expires-in-conflict]`           | two `.toQuestion(Q, …)` edges to one question with different `expiresIn`                            |
 | `[reply-interpreter.not-an-interpreter]`   | `replyInterpreter:` names an undecorated class                                                      | decorate it `@ReplyInterpreter({ … })`                                                                    |

@@ -130,6 +130,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["SqlitePausedExecutionRepository", "SqliteCheckpointSaver", "override", "hours"],
     ...["NotPausedError", "PauseClosedError", "UnknownPauseError", "PauseAnswererError"],
     ...["PauseExpiration", "PauseExpiryHandler", "PauseExpiredError", "ExpiryHandlerError"],
+    ...["ExtendPauseRequest", "PauseExtension", "PauseCallerOptions", "ChannelPauseExtendedEvent"],
+    ...["ChannelPauseExpiringEvent", "PauseListenerExtendedEvent", "PauseListenerExpiringEvent"],
     ...["UninterpretableReplyError"],
     ...["ReplyInterpreterMissingError", "IncompatibleResumeError", "WorkflowSettings"],
   ],

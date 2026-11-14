@@ -1,6 +1,6 @@
 import { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
-import type { PauseExtension, PauseRecipients } from "./pause-notices.js";
+import type { PauseDeadlineChange, PauseRecipients } from "./pause-notices.js";
 import {
   decidedPause,
   PauseStatus,
@@ -136,7 +136,7 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
   extendByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseExtension,
+    change: PauseDeadlineChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {

@@ -48,6 +48,8 @@ export interface DescribedChannel {
   readonly answeredBy: PauseAnswerer;
   /** How long a pause of the role waits (#941), in ms; absent: no deadline of its own. */
   readonly expiresIn?: number;
+  /** How long before its deadline the role's pauses are reminded (#942), in ms; absent: no reminder. */
+  readonly remindBefore?: number;
   /** The role's `@ReplyInterpreter`, by name. */
   readonly replyInterpreter?: string;
   /** The class that sends; absent for a role with none listed (assembly rejects it). */
@@ -90,6 +92,7 @@ function roleChannel(
     answerer: options.answerer,
     answeredBy: options.answerer,
     ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }),
+    ...(options.remindBefore === undefined ? {} : { remindBefore: options.remindBefore }),
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined
       ? {}
@@ -143,7 +146,10 @@ const REASONS: Readonly<Record<ChannelImplementationReason, string>> = {
 
 /** ` · expires in 24 h` (#941): the role's deadline for an answer; nothing without one. */
 const expiryOf = (channel: DescribedChannel): string =>
-  channel.expiresIn === undefined ? "" : ` · expires in ${durationLabel(channel.expiresIn)}`;
+  (channel.expiresIn === undefined ? "" : ` · expires in ${durationLabel(channel.expiresIn)}`) +
+  (channel.remindBefore === undefined
+    ? ""
+    : ` · reminds ${durationLabel(channel.remindBefore)} before`);
 
 /** `payout-approval-channel (PayoutApprovalChannel): PayoutRequestDto → … · implementation …`. */
 function channelLine(channel: DescribedChannel): string {

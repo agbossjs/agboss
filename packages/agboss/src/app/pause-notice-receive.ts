@@ -11,10 +11,14 @@ import { ownDepsOf } from "./own-deps.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import {
   channelClosedOf,
+  channelExpiringOf,
+  channelExtendedOf,
   channelNotTakenOf,
   deliveryIdOf,
   hookOverridden,
   listenerClosedOf,
+  listenerExpiringOf,
+  listenerExtendedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
   type EventSources,
@@ -24,8 +28,8 @@ import {
  * One notice told to one receiver (#940): the event built from the notice and the pause's record
  * (ask and answer masked by the pause's own workflow's observability policies, I15), the hook
  * called in the pause's frame under its timeout. A receiver that does not implement the notice's
- * kind — a channel without the hook, a listener without `onPauseAnswerNotTaken`, a kind #941 and
- * later add — is told nothing and the notice counts as delivered. Loaded with the first notice.
+ * kind — a channel without the hook, a listener without `onPauseAnswerNotTaken`, `onPauseExtended`
+ * or `onPauseExpiring`, a kind later work adds — is told nothing and the notice counts as delivered. Loaded with the first notice.
  */
 
 /** A listener as the delivery calls it. */
@@ -61,6 +65,16 @@ function channelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undef
       const event = await channelNotTakenOf(sources);
       return () => sender.onPauseAnswerNotTaken?.(event) ?? Promise.resolve();
     };
+  if (kind === PauseNoticeKind.Extended && hookOverridden(sender, "onPauseExtended"))
+    return (sources) => {
+      const event = channelExtendedOf(sources);
+      return Promise.resolve(() => sender.onPauseExtended?.(event) ?? Promise.resolve());
+    };
+  if (kind === PauseNoticeKind.Expiring && hookOverridden(sender, "onPauseExpiring"))
+    return (sources) => {
+      const event = channelExpiringOf(sources);
+      return Promise.resolve(() => sender.onPauseExpiring?.(event) ?? Promise.resolve());
+    };
   return undefined;
 }
 
@@ -80,6 +94,16 @@ function listenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): Hook |
     return async (sources) => {
       const event = await listenerNotTakenOf(sources, allowAnswering);
       return () => handler.onPauseAnswerNotTaken?.(event) ?? Promise.resolve();
+    };
+  if (kind === PauseNoticeKind.Extended && handler.onPauseExtended !== undefined)
+    return async (sources) => {
+      const event = await listenerExtendedOf(sources, allowAnswering);
+      return () => handler.onPauseExtended?.(event) ?? Promise.resolve();
+    };
+  if (kind === PauseNoticeKind.Expiring && handler.onPauseExpiring !== undefined)
+    return async (sources) => {
+      const event = await listenerExpiringOf(sources, allowAnswering);
+      return () => handler.onPauseExpiring?.(event) ?? Promise.resolve();
     };
   return undefined;
 }

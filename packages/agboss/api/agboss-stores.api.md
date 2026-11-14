@@ -1566,6 +1566,12 @@ export enum PauseClosedReason {
 export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedReason | undefined;
 
 // @public
+export interface PauseDeadlineChange {
+    readonly expiresAt: string;
+    readonly remindAt?: string;
+}
+
+// @public
 export interface PausedExecution extends ResumeVersions {
     // (undocumented)
     readonly run: AgentExecutionOutput;
@@ -1583,7 +1589,7 @@ export abstract class PausedExecutionRepository {
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
     abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseExtension, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseDeadlineChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
@@ -1593,7 +1599,7 @@ export abstract class PausedExecutionRepository {
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
-    abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
@@ -1625,12 +1631,6 @@ export enum PauseExpiryBound {
     Quorum = "quorum",
     // (undocumented)
     RunDeadline = "run-deadline"
-}
-
-// @public
-export interface PauseExtension {
-    readonly expiresAt: string;
-    readonly remindAt?: string;
 }
 
 // @public

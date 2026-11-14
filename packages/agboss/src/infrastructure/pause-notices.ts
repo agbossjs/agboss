@@ -82,12 +82,12 @@ export interface PauseNoticeClaim {
 }
 
 /**
- * Where a due-scan (`findPendingByExpiresAtBefore`) continues: after the last pause of the page
+ * Where a due-scan (`findPendingByExpiresAtBefore`, `findPendingByRemindAtBefore`) continues: after the last pause of the page
  * before, by the scan's own order `(time, tenantId, pauseId)` — a keyset, so pauses that stay
  * pending (nobody can move them) are passed, never read again within one sweep (#1070, #1072).
  */
 export interface PauseScanAfter {
-  /** The last pause's time on the scanned column (`expiresAt`), ISO text. */
+  /** The last pause's time on the scanned column (`expiresAt`, or `remindAt`), ISO text. */
   readonly at: string;
   readonly tenantId: string;
   readonly pauseId: string;
@@ -123,7 +123,7 @@ export interface SetAsideMailbox {
 }
 
 /** The deadline change `extend…` applies. */
-export interface PauseExtension {
+export interface PauseDeadlineChange {
   /** The new deadline (ISO 8601); after `at`. */
   readonly expiresAt: string;
   /** The new reminder time (ISO 8601); absent: none. */

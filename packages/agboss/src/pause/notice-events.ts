@@ -46,6 +46,26 @@ export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEv
   readonly answer: ChannelAnswerOf<TRole>;
 }
 
+/** A pause this channel sent has a later deadline (#942): an operator extended it. */
+export interface ChannelPauseExtendedEvent<TRole> extends PauseDeliveredEvent {
+  readonly pauseId: string;
+  /** The question as `send` got it. */
+  readonly value: ChannelQuestionOf<TRole>;
+  /** The new deadline (ISO 8601). */
+  readonly expiresAt: string;
+  /** The deadline it had (ISO 8601). */
+  readonly previousExpiresAt: string;
+}
+
+/** A pause this channel sent is about to expire (#942): `remindBefore` before its deadline. */
+export interface ChannelPauseExpiringEvent<TRole> extends PauseDeliveredEvent {
+  readonly pauseId: string;
+  /** The question as `send` got it. */
+  readonly value: ChannelQuestionOf<TRole>;
+  /** The deadline (ISO 8601). */
+  readonly expiresAt: string;
+}
+
 /** What a listener reads of every pause: the full safe context. */
 export interface PauseListenerEventBase extends PauseDeliveredEvent {
   /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
@@ -95,4 +115,18 @@ export interface PauseListenerAnswerNotTakenEvent extends PauseListenerEventBase
   readonly answeredBy?: string;
   /** Masked. */
   readonly answer: unknown;
+}
+
+/** A pause's deadline moved (#942): an operator extended it. */
+export interface PauseListenerExtendedEvent extends PauseListenerEventBase {
+  /** The new deadline (ISO 8601). */
+  readonly expiresAt: string;
+  /** The deadline it had (ISO 8601). */
+  readonly previousExpiresAt: string;
+}
+
+/** A pause is about to expire (#942): `remindBefore` before its deadline. */
+export interface PauseListenerExpiringEvent extends PauseListenerEventBase {
+  /** The deadline (ISO 8601). */
+  readonly expiresAt: string;
 }

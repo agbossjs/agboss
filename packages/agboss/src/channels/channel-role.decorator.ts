@@ -40,6 +40,15 @@ export interface ChannelRoleBaseOptions {
    * override it. None: the pause waits forever — or until its run's deadline.
    */
   readonly expiresIn?: Milliseconds;
+  /**
+   * How long before its deadline the channel and the listeners are reminded (#942): `hours(2)` —
+   * they hear `onPauseExpiring` once, "expiring at …", again after an extension. A positive finite
+   * duration shorter than this role's `expiresIn` (`[channel.remind-before-invalid]`); a pause whose
+   * step or tool gives it no more time than this gets no reminder
+   * (`[channel.remind-before-exceeds-expiry]`, a warning). The reminder is fixed when the pause is
+   * made and again by an extension. None: no reminder.
+   */
+  readonly remindBefore?: Milliseconds;
 }
 
 /** A tool approval: the question is the tool call, its `arguments` typed by `approves`. */

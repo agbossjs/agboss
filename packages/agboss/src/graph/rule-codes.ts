@@ -195,6 +195,8 @@ export type RuleCode =
   | "channel.wrong-tool"
   | "channel.shared-interpreter"
   | "channel.expires-in-invalid"
+  | "channel.remind-before-invalid"
+  | "channel.remind-before-exceeds-expiry"
   | "tool.expires-in-without-channel"
   | "question.expires-in-conflict"
   // reply interpreters (#267 PR 3), reported at each workflow's assembly

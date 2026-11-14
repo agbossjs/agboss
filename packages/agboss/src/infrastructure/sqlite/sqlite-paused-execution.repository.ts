@@ -139,8 +139,12 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.findPendingByExpiresAtBefore(at, limit, after);
   }
 
-  findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {
-    return this.#store.findPendingByRemindAtBefore(at, limit);
+  findPendingByRemindAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
+    return this.#store.findPendingByRemindAtBefore(at, limit, after);
   }
 
   findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {

@@ -120,8 +120,16 @@ export interface ReplyResumeRequest {
  */
 export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 
-/** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
-export interface ThreadOwnerResumeOptions extends CallOptions {
+/**
+ * Who calls and for which tenant, for what acts on a pause without running anything — `app.extendPause`
+ * (#942): the caller fields of `ResumeOptions` and none of `CallOptions` (`signal`, `onStream`, …:
+ * nothing executes, so they would be ignored; an object literal with one does not compile). Who may:
+ * as an answer — the `ownerId` of a thread owner's pause, the `answeredBy` credential of a channel's.
+ */
+export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
+
+/** The caller of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
+export interface ThreadOwnerPauseOptions {
   readonly tenantId?: string | undefined;
   /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
   readonly ownerId?: string | undefined;
@@ -129,15 +137,42 @@ export interface ThreadOwnerResumeOptions extends CallOptions {
 }
 
 /**
+ * The caller of a `PauseAnswerer.Channel` pause: the channel's side authenticated who calls; the
+ * framework checks only that it is given and is a key's text (#589).
+ */
+export interface ChannelPauseOptions {
+  readonly tenantId?: string | undefined;
+  /** Who calls, as the channel's side knows them (`"manager-17"`): non-empty, a key's text (#589). */
+  readonly answeredBy: string;
+  readonly ownerId?: never;
+}
+
+/** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
+export interface ThreadOwnerResumeOptions extends ThreadOwnerPauseOptions, CallOptions {}
+
+/**
  * The answer of a `PauseAnswerer.Channel` pause: the channel's side authenticated who answers; the
  * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given
  * and is a key's text (#589).
  */
-export interface ChannelResumeOptions extends CallOptions {
-  readonly tenantId?: string | undefined;
-  /** Who answered, as the channel's side knows them (`"manager-17"`): non-empty, a key's text (#589). */
-  readonly answeredBy: string;
-  readonly ownerId?: never;
+export interface ChannelResumeOptions extends ChannelPauseOptions, CallOptions {}
+
+/** What an extension asks. */
+export interface ExtendPauseRequest {
+  /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
+  readonly pauseId: string;
+  /** How long from now the pause waits: its new deadline is `now + expiresIn` (at least `seconds(1)`). */
+  readonly expiresIn: Milliseconds;
+}
+
+/** What an extension did: the pause by its key (never its id) and the deadline before and after. */
+export interface PauseExtension {
+  /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
+  readonly pauseKey: string;
+  /** The new deadline (ISO 8601). */
+  readonly expiresAt: string;
+  /** The deadline it had (ISO 8601). */
+  readonly previousExpiresAt: string;
 }
 
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
@@ -254,6 +289,16 @@ export interface App {
    * execution pauses again with the rest. The result carries `threadId` and `executionId`.
    */
   resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
+  /**
+   * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
+   * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
+   * The channel and the listeners hear "extended" and, `remindBefore` before the new deadline,
+   * "expiring". Refused: a pause that is closed or past its deadline (`PauseClosedError`), one with
+   * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
+   * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
+   * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look.
+   */
+  extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
    * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).

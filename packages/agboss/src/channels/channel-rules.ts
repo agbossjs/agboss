@@ -1,3 +1,4 @@
+import type { Milliseconds } from "../units/index.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
@@ -108,7 +109,7 @@ export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleVi
 const MIN_EXPIRES_IN_MS = 1000;
 
 /** Whether `value` is a positive finite duration of at least `seconds(1)`. */
-export const isExpiresIn = (value: unknown): boolean =>
+export const isExpiresIn = (value: unknown): value is Milliseconds =>
   typeof value === "number" && Number.isFinite(value) && value >= MIN_EXPIRES_IN_MS;
 
 /** `[channel.expires-in-invalid]`: a role's `expiresIn` is a positive finite duration ≥ `seconds(1)`. */
@@ -126,6 +127,32 @@ function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   });
 }
 
+/** Whether `value` is a positive finite duration (a reminder may be shorter than a deadline may be). */
+export const isRemindBefore = (value: unknown): value is Milliseconds =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+/**
+ * `[channel.remind-before-invalid]` (#942): a role's `remindBefore` is a positive finite duration,
+ * shorter than the role's own `expiresIn` (a reminder at or after the deadline never goes out).
+ */
+function remindBeforeViolations(uses: readonly ChannelUse[]): RuleViolation[] {
+  return rolesOf(uses).flatMap(({ options }) => {
+    const { remindBefore, expiresIn } = options;
+    if (remindBefore === undefined) return [];
+    const problem = !isRemindBefore(remindBefore)
+      ? `remindBefore is ${String(remindBefore)} — a reminder is a positive finite duration, like hours(2)`
+      : typeof expiresIn === "number" && remindBefore >= expiresIn
+        ? `remindBefore (${String(remindBefore)} ms) is not shorter than its expiresIn (${String(expiresIn)} ms) — the reminder would go out at or before the pause is asked`
+        : undefined;
+    if (problem === undefined) return [];
+    return [
+      violation("channel.remind-before-invalid", `channel role ${options.name}: ${problem}`, [
+        options.name,
+      ]),
+    ];
+  });
+}
+
 /** The rules of one workflow's channels (its children included) over the providers it sees. */
 export function channelRuleViolations(
   uses: readonly ChannelUse[],
@@ -136,6 +163,7 @@ export function channelRuleViolations(
     ...implementationViolations(uses, modules),
     ...replyInterpreterViolations(uses),
     ...expiresInViolations(uses),
+    ...remindBeforeViolations(uses),
   ];
 }
 

@@ -1,3 +1,4 @@
+import { effectiveBoundOf } from "../../infrastructure/pause-bound.js";
 import type { BudgetCheck } from "../../budgets/budget-check.js";
 import { DeadlineExceededError } from "../../budgets/execution-deadline.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
@@ -51,7 +52,7 @@ function givenDeadline(pause: PauseRecord, expiresAt: string): Milliseconds {
 /** The failure of a step whose pause expired. */
 export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
   const expiresAt = pause.expiresAt ?? pause.askedAt;
-  if (pause.expiryBound === PauseExpiryBound.RunDeadline) {
+  if (effectiveBoundOf(pause) === PauseExpiryBound.RunDeadline) {
     // the run's own check first (its clock may be ahead of the pass's), else the pause's deadline
     try {
       site.budgets.check(site.state, site.path, site.usage);

@@ -74,8 +74,8 @@ export function channelPartsOf(
           const name = channelNameOf(cls);
           // the container gives a role's implementation (by inheritance): a channel, checked at assembly
           const sender = containerFor(bundle, services).get(cls) as ChannelSender;
-          const { expiresIn } = channelRoleOf(cls)?.options ?? {};
-          return [name, { name, sender, answerer: answererOf(cls), expiresIn }];
+          const { expiresIn, remindBefore } = channelRoleOf(cls)?.options ?? {};
+          return [name, { name, sender, answerer: answererOf(cls), expiresIn, remindBefore }];
         }),
       ),
   };

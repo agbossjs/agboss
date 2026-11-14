@@ -36,6 +36,7 @@ export interface TestApp extends Pick<
   App,
   | "execute"
   | "resume"
+  | "extendPause"
   | "close"
   | "cancel"
   | "checkLiveness"
@@ -171,6 +172,18 @@ const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
     environment.assembled.workflows.map((workflow) => [workflow.config.name, workflow.config]),
   );
 
+/** What other parts of the framework learn of a test app: its providers, mesh, trees and gate. */
+function remembering(testApp: TestApp, readyApp: () => App, gate: LeaseGate): TestApp {
+  // a listener built from this app checks its providers like the built application's (#387)
+  rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
+  rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
+  // a transport built from this app reaches its trees by id (#807: an A2A server in a test)
+  rememberExecutionControl(testApp, forwardedControlOf(readyApp));
+  // `leases.freeze(app)` closes this instance's gate (#471)
+  rememberLeaseGate(testApp, gate);
+  return testApp;
+}
+
 export function createTestApp(environment: TestEnvironment): TestApp {
   const gate = new LeaseGate();
   let building: Promise<BuiltApplication> | undefined;
@@ -201,6 +214,8 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => (await built()).app.execute(start, input, ...options)),
     resume: (request, options): Promise<ExecutionOutput> =>
       checked(environment, async () => (await built()).app.resume(request, options)),
+    extendPause: (request, options) =>
+      checked(environment, async () => (await built()).app.extendPause(request, options)),
     cancel: (thread, options) =>
       checked(environment, async () => (await built()).app.cancel(thread, options)),
     ...probesOf(environment, probed),
@@ -215,12 +230,5 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     },
     ...slicesOf(environment, built),
   };
-  // a listener built from this app checks its providers like the built application's (#387)
-  rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
-  rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
-  // a transport built from this app reaches its trees by id (#807: an A2A server in a test)
-  rememberExecutionControl(testApp, forwardedControlOf(readyApp));
-  // `leases.freeze(app)` closes this instance's gate (#471)
-  rememberLeaseGate(testApp, gate);
-  return testApp;
+  return remembering(testApp, readyApp, gate);
 }
