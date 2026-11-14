@@ -15,6 +15,8 @@ const LOOK_EVERY: Milliseconds = waitOf(50);
 interface Pending {
   readonly since: number;
   readonly bound: Milliseconds;
+  /** The action's own description of its timeout. */
+  readonly timedOut: () => Error;
   readonly fail: (error: Error) => void;
 }
 
@@ -29,12 +31,13 @@ export class ActionWatchdog {
       const pending: Pending = {
         since: systemClock.monotonicNow(),
         bound,
+        timedOut,
         fail: (error) => {
           reject(error);
         },
       };
       this.#pending.add(pending);
-      void this.#look(timedOut);
+      void this.#look();
       work.then(
         (value) => {
           this.#pending.delete(pending);
@@ -48,7 +51,7 @@ export class ActionWatchdog {
     });
   }
 
-  async #look(timedOut: () => Error): Promise<void> {
+  async #look(): Promise<void> {
     if (this.#isLooking) return;
     this.#isLooking = true;
     while (this.#pending.size > 0) {
@@ -57,7 +60,7 @@ export class ActionWatchdog {
       for (const pending of this.#pending)
         if (now - pending.since >= pending.bound) {
           this.#pending.delete(pending);
-          pending.fail(timedOut());
+          pending.fail(pending.timedOut());
         }
     }
     this.#isLooking = false;

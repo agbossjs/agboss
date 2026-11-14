@@ -106,8 +106,7 @@ export class FaultCluster {
   async cutDatabase(pod: FaultPod, how: ProxyState.Dropped | ProxyState.Frozen): Promise<void> {
     const proxy = this.#proxies.get(pod.name);
     if (proxy !== undefined) {
-      if (how === ProxyState.Dropped) proxy.drop();
-      else proxy.freeze();
+      proxy[how === ProxyState.Dropped ? "drop" : "freeze"]();
       return;
     }
     const mode = how === ProxyState.Dropped ? StoreOutageMode.Refuse : StoreOutageMode.Hang;
@@ -238,7 +237,8 @@ export class FaultCluster {
   async run(reader: FaultPod): Promise<FaultRun> {
     await this.#recordsKept();
     const roots = [...new Set(this.events.flatMap((event) => rootOf(event)))];
-    const facts = (await reader.command({ op: "read", rootExecutionIds: roots })) as FaultFacts;
+    const read = { op: "read", rootExecutionIds: roots } as const;
+    const facts = (await reader.command(read, this.waitTimeout)) as FaultFacts;
     return {
       ...facts,
       orders: this.orders,

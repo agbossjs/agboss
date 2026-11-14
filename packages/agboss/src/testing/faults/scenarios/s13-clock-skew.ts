@@ -63,7 +63,7 @@ export const s13ClockBehind: RunnableFaultScenario = {
     await holdStep(a, FaultStepPoint.ChargeBefore, "o-13b");
     const order = await startOrder(cluster, a, "o-13b");
     await heldStep(cluster, a, FaultStepPoint.ChargeBefore, "o-13b");
-    a.freeze();
+    await a.freeze();
     const b = await cluster.pod("b", { clockSkew: { offset: -TEN_LEASES } });
     const takeover = await takenOverBy(cluster, b, order.rootExecutionId);
     expectThat(

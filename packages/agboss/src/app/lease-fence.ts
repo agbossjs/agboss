@@ -178,7 +178,7 @@ class RenewalState {
 }
 
 /**
- * Renews every third of the lease until stopped or lost, on a fixed cadence from the lease's start
+ * Renews every `RENEW_EVERY` (a quarter of the lease) until stopped or lost, on a fixed cadence from the lease's start
  * (#928): a renewal that hangs does not push the next one out. Each is bounded at `RENEW_BOUND`; one
  * still in flight at its next tick is not overlapped — that tick is skipped. A store error is
  * retried at the next tick (the expiry below stops the holder when none succeeds in time).

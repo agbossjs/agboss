@@ -14,6 +14,8 @@ import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { reportHeldOperations } from "../../src/testing/faults/held-stores.js";
 import { OperationPhase } from "../../src/testing/faults/operation-history.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
+import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN, RENEW_EVERY } from "../../src/app/lease-fence.js";
+import { waitOf } from "../../src/infrastructure/clock.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
@@ -53,6 +55,10 @@ afterEach(() => {
   processHoldPoints.releaseAll();
 });
 
+/** What a holder trusts of a fresh lease, and a window that holds a whole lease and a renewal. */
+const TRUST = EXECUTION_LEASE - LEASE_SAFETY_MARGIN;
+const WINDOW = waitOf(EXECUTION_LEASE + RENEW_EVERY);
+
 describe("#928 AC1: the bound of a call under a lease", () => {
   one(
     "AC1: a call whose lease is lost while it hangs rejects at the loss, not at the trust's end",
@@ -66,14 +72,14 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       // the store no longer renews this holder: its next renewal says the lease is over
       kill("instance-1");
 
-      await passLive(clock, seconds(10));
+      await passLive(clock, waitOf(RENEW_EVERY * 2));
       await until(isSettled, "the call ended at the renewal that found the lease lost");
 
       const error = await call;
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);
       // the lease's own loss, not the bound's hand-over
       expect(causeOf(error)).not.toBeInstanceOf(StoreCallTimeoutError);
-      expect(clock.now().getTime() - startedAt).toBeLessThan(seconds(29));
+      expect(clock.now().getTime() - startedAt).toBeLessThan(TRUST);
       expect(logged.filter((entry) => entry.code === "store.call-timeout")).toEqual([]);
     },
   );
@@ -87,8 +93,8 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       const isSettled = settledFlag(call);
       await until(() => slots.asked === 1, "the slot is asked");
 
-      // two confirmed renewals move the trust to 39 s: the call's bound stays at its start's 29 s
-      await passLive(clock, seconds(28));
+      // confirmed renewals move the trust on: the call's bound stays at its start's trust
+      await passLive(clock, waitOf(TRUST - seconds(1)));
       expect(isSettled()).toBe(false);
       await passLive(clock, seconds(2));
       await until(isSettled, "the call handed over at its own bound");
@@ -96,8 +102,8 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       const cause = causeOf(await call);
       expect(cause).toBeInstanceOf(StoreCallTimeoutError);
       if (!(cause instanceof StoreCallTimeoutError)) throw new Error("not a timeout");
-      expect(cause.timeout).toBeGreaterThan(seconds(28));
-      expect(cause.timeout).toBeLessThanOrEqual(seconds(29));
+      expect(cause.timeout).toBeGreaterThan(TRUST - seconds(1));
+      expect(cause.timeout).toBeLessThanOrEqual(TRUST);
     },
   );
 
@@ -109,7 +115,7 @@ describe("#928 AC1: the bound of a call under a lease", () => {
       const call = rejectionOf(execute(app, SlotWorkflowStart, { text: "key-3" }));
       await until(() => slots.asked === 1, "the slot is asked");
 
-      await passLive(clock, seconds(40));
+      await passLive(clock, WINDOW);
       const error = await call;
 
       expect(error).toBeInstanceOf(ExecutionLeaseLostError);

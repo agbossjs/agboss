@@ -97,6 +97,8 @@ export type PodCommand =
   | { readonly op: "disarm"; readonly armId: string }
   | { readonly op: "release"; readonly holdId: string }
   | { readonly op: "release-all" }
+  /** Stops the pod itself (SIGSTOP) between two turns of its event loop, once the reply is sent. */
+  | { readonly op: "freeze" }
   | {
       readonly op: "start";
       readonly tag: string;

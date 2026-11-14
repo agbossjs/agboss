@@ -32,7 +32,7 @@ export const s05eZombieDiesUnanswered: FaultSabotage = {
     await holdStore(b, point, undefined);
     const key = (await startOrder(cluster, a, "o-5e")).rootExecutionId;
     const frozen = await heldAt(cluster, a, point, key);
-    a.freeze();
+    await a.freeze();
     await takenOverBy(cluster, b, key);
     const second = await heldAt(cluster, b, point, key);
     a.thaw();

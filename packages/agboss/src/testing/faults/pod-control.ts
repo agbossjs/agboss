@@ -135,7 +135,7 @@ function started(
   return tag;
 }
 
-/** A command on the pod's holds, done; `undefined` for another command. */
+/** A command on the pod's holds (or its own stop), done; `undefined` for another command. */
 function holdDone(
   points: HoldPoints,
   command: PodCommand,
@@ -150,6 +150,11 @@ function holdDone(
       return { result: points.release(command.holdId) };
     case "release-all":
       points.releaseAll();
+      return { result: null };
+    case "freeze":
+      // between two turns of the event loop, after the reply: no SQLite transaction (synchronous,
+      // inside one turn) is open, so the stopped pod holds no database lock a peer would wait for
+      setImmediate(() => process.kill(process.pid, "SIGSTOP"));
       return { result: null };
     default:
       return undefined;

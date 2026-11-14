@@ -210,6 +210,8 @@ class TreeMover implements TreeMoves {
     const { deps, live } = this.parts;
     // what the undo of the pass that ends the tree ran: its record lists it, as its event (#635)
     const undo: EndedTreeUndo = {};
+    // the tree's terminal record (finished, failed or cancelled) is durable (#928)
+    let isEnded = false;
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
       const requests = await cancelRequests();
@@ -220,6 +222,7 @@ class TreeMover implements TreeMoves {
       const result = await leaseScope(lease, () =>
         passesOf(this.parts, this, { state, call }, { held: { lease, watch, undo }, first }),
       );
+      isEnded = result.status === ExecutionStatus.Finished;
       // #699: the kept record first — a pod killed in the cleanup's round trips keeps it
       await keepExecutionRecord(deps, state, historyRestOf(result.status));
       if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);
@@ -229,12 +232,29 @@ class TreeMover implements TreeMoves {
       if (!isHandedOver(error)) {
         await keepExecutionRecord(deps, state, historyEndOf(error, undo.compensations));
         await forgetTree(this.parts, state, error);
+        isEnded = true;
       }
       throw error;
     } finally {
       await passEnded(live, deps, state);
-      await lease.release();
+      await this.#released(lease, state, isEnded);
     }
+  }
+
+  /**
+   * The lease released. After the tree's terminal record is durable (#928) a release that fails or
+   * hangs to its bound does not change what the caller gets — a client without an idempotency key
+   * would retry a run that already charged: it is logged and the lease expires in its store.
+   */
+  async #released(lease: HeldExecutionLease, state: TreeState, isEnded: boolean): Promise<void> {
+    if (!isEnded) return lease.release();
+    await lease.release().catch((error: unknown) => {
+      const text = `the lease of execution ${state.runId} was not released after its end (${String(error)}): it expires`;
+      this.parts.deps.log.warn("execution.lease-release-failed", text, {
+        executionId: state.runId,
+        tenantId: state.tenantId,
+      });
+    });
   }
 }
 

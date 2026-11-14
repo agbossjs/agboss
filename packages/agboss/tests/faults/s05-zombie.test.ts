@@ -9,5 +9,10 @@ faultSuite({
     "s05b-zombie-reaches-charge-first",
     "s05c-zombie-reaches-payment-first",
     "s05d-zombie-recorded-not-sent",
+    // #1059: the same zombies with pod a keeping the store-call bound
+    "s05-zombie-write-refused-bounded",
+    "s05b-zombie-reaches-charge-first-bounded",
+    "s05c-zombie-reaches-payment-first-bounded",
+    "s05d-zombie-recorded-not-sent-bounded",
   ],
 });
