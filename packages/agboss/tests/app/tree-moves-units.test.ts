@@ -6,11 +6,8 @@
  * forgets the tree only when it finished.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-<<<<<<< HEAD
 import { ResumeReason } from "../../src/core/observability.js";
-=======
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
->>>>>>> 55bcad41 (fix-928: the no-A2A fixture lists the new A2A scenarios; a test for a handed-over tree's release)
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
