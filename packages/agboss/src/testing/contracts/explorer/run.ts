@@ -2,7 +2,7 @@ import { NO_ENVIRONMENT_VALUES } from "../../../environments/resolve.js";
 import { applicationContextOf } from "../../../flow/context/application-context.js";
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
-import { StoreClock, StoreTimeSource, systemClock } from "../../../infrastructure/clock.js";
+import { StoreClock, StoreTimeSource } from "../../../infrastructure/clock.js";
 import { STORE_CALL_BOUND } from "../../../app/lease-fence.js";
 import {
   StoreCallTimeoutError,
@@ -10,6 +10,7 @@ import {
 } from "../../../infrastructure/store-call-timeout.js";
 import type { ContractTarget, StoreInstanceContext } from "../instance-context.js";
 import { trackedStore } from "../tracked-store.js";
+import { actionWatchdog } from "./action-watchdog.js";
 import { stepOf } from "./moves.js";
 import { Observer } from "./observer.js";
 import type { CallPhase } from "./calls.js";
@@ -108,27 +109,14 @@ export class ExplorerRun {
    * The action, bounded as an unleased store call (#928): the run's own clock never advances while
    * an action waits, so the bound is real time — a store that never answers fails its case within it.
    */
-  async #bounded(action: ExplorerAction): Promise<string> {
+  #bounded(action: ExplorerAction): Promise<string> {
     const timeout = this.world.callBound ?? STORE_CALL_BOUND;
-    const over = new AbortController();
-    const stepping = stepOf(this, action);
-    const late = new Promise<never>((_, reject) => {
-      void systemClock.sleep(timeout, over.signal).then(() => {
-        const store = "the store set";
-        const error = new StoreCallTimeoutError({
-          ...{ store, operation: describe(action), timeout },
-          source: StoreOutcomeSource.Framework,
-        });
-        if (!over.signal.aborted) reject(error);
+    const timedOut = (): Error =>
+      new StoreCallTimeoutError({
+        ...{ store: "the store set", operation: describe(action), timeout },
+        source: StoreOutcomeSource.Framework,
       });
-    });
-    try {
-      return await Promise.race([stepping, late]);
-    } finally {
-      over.abort();
-      // a late answer or failure of the hung action is nobody's now
-      stepping.catch((): undefined => undefined);
-    }
+    return actionWatchdog.watch(stepOf(this, action), timeout, timedOut);
   }
 
   /** What the search remembers of the state. */

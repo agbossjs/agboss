@@ -24,6 +24,13 @@ export interface FaultClusterOptions {
 export interface FaultPodOptions {
   readonly shutdownTimeout?: Milliseconds;
   readonly maxConcurrentSteps?: number;
+  /**
+   * The pod keeps the framework's store-call bound (#928; default: it does not). The scenarios
+   * that freeze a pod (SIGSTOP) and release a call it held after the thaw model a store that
+   * answers late; a bounded pod's overdue timers would give that call up first, and under load
+   * that decides the run. The scenarios of the bound itself (22) run bounded.
+   */
+  readonly isBounded?: boolean;
   /** The pod's fenced-effect store broken on purpose (#959): a sabotage scenario's. */
   readonly sabotage?: FaultStoreSabotage;
   /**

@@ -44,8 +44,11 @@ export interface StuckCall {
 
 /** Pod a held at the call, never released: the order started, the hold reached. */
 export async function stuckOn(cluster: FaultCluster, call: StuckCall): Promise<Stuck> {
-  const a = await cluster.pod("a", call.sabotage === undefined ? {} : { sabotage: call.sabotage });
-  const b = await cluster.pod("b");
+  const a = await cluster.pod("a", {
+    isBounded: true,
+    ...(call.sabotage === undefined ? {} : { sabotage: call.sabotage }),
+  });
+  const b = await cluster.pod("b", { isBounded: true });
   await holdStore(a, call.point, undefined, { phase: call.phase ?? HoldPhase.Before });
   const key = (await startOrder(cluster, a, call.orderId, call.order)).rootExecutionId;
   const held = await heldAt(cluster, a, call.point, key);

@@ -120,6 +120,12 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
     for (const app of apps) await app.ready();
     const zombie = instance(apps, 0).resolve(SqlitePausedExecutionRepository);
     const holder = instance(apps, 1).resolve(SqlitePausedExecutionRepository);
+    // what each store's own claim does, taken before it is silenced: the stores are bounded (#928),
+    // so a call of the prototype's method on the proxy would not reach their #private fields
+    const claims = new Map([
+      [zombie, zombie.claimNoticesDue.bind(zombie)],
+      [holder, holder.claimNoticesDue.bind(holder)],
+    ]);
     // neither instance delivers by itself: the test drives the claims
     for (const store of [zombie, holder]) {
       vi.spyOn(store, "claimNoticesDue").mockResolvedValue([]);
@@ -127,13 +133,7 @@ describe("#940 AC3: an instance that wrote a notice dies, the other delivers it"
     await execute(instance(apps, 0), OrderWorkflowStart, { text: "charge" });
     const at = new Date();
     const claimOf = (store: SqlitePausedExecutionRepository, when: Date) =>
-      SqlitePausedExecutionRepository.prototype.claimNoticesDue.call(
-        store,
-        when,
-        10,
-        seconds(60),
-        KEYS,
-      );
+      claims.get(store)?.(when, 10, seconds(60), KEYS) ?? Promise.resolve([]);
     const [stale] = await claimOf(zombie, at);
     const later = new Date(at.getTime() + 61_000);
     const [fresh] = await claimOf(holder, later);

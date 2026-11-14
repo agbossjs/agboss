@@ -34,7 +34,7 @@ export const s22fChildClaimNeverAnswered: RunnableFaultScenario = {
   title:
     "22f: a child's claim answered by the store and never heard — the claim ends at its bound, the child still runs once, the batch ends",
   run: async (cluster) => {
-    const a = await cluster.pod("a", { maxConcurrentSteps: 1 });
+    const a = await cluster.pod("a", { maxConcurrentSteps: 1, isBounded: true });
     await holdStore(a, StoreHoldPoint.ChildClaim, undefined, { phase: HoldPhase.After });
     const batch = await startBatch(cluster, a, ["o-22f"]);
     const held = await heldAt(cluster, a, StoreHoldPoint.ChildClaim);
@@ -58,8 +58,8 @@ export const s22gDatabaseFrozen: RunnableFaultScenario = {
   title:
     "22g: the database freezes as a's charge goes to write — a stops within its bound, writes nothing; the next holder charges once",
   run: async (cluster) => {
-    const a = await cluster.pod("a");
-    const b = await cluster.pod("b");
+    const a = await cluster.pod("a", { isBounded: true });
+    const b = await cluster.pod("b", { isBounded: true });
     await holdStep(a, FaultStepPoint.ChargeBefore, "o-22g");
     const order = await startOrder(cluster, a, "o-22g");
     const held = await heldStep(cluster, a, FaultStepPoint.ChargeBefore, "o-22g");

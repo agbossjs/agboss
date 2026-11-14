@@ -4,17 +4,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { systemClock } from "../../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
-import {
-  TIME_ORIGIN_VARIABLE,
-  CLOCK_OFFSET_VARIABLE,
-  CLOCK_DRIFT_VARIABLE,
-  TIME_SCALE_VARIABLE,
-} from "./fault-clock.js";
+import { podEnvironment } from "./pod-environment.js";
 import type { FaultPodOptions } from "./cluster-options.js";
 import { FaultStoreTime } from "./fault-stores.js";
 import type { OperationEvent } from "./operation-history.js";
 import {
-  POD_VARIABLES,
   type FromPod,
   type GatewayCall,
   type PodCommand,
@@ -222,21 +216,6 @@ export class FaultPod {
     return this.#output;
   }
 }
-
-/** The environment of a pod's process. */
-const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
-  ...process.env,
-  [POD_VARIABLES.name]: launch.name,
-  [POD_VARIABLES.stores]: launch.storesModule,
-  [POD_VARIABLES.database]: launch.databaseUrl,
-  [POD_VARIABLES.shutdownTimeout]: launch.shutdownTimeout?.toString() ?? "",
-  [POD_VARIABLES.maxConcurrentSteps]: launch.maxConcurrentSteps?.toString() ?? "",
-  [POD_VARIABLES.sabotage]: launch.sabotage ?? "",
-  [TIME_SCALE_VARIABLE]: String(launch.timeScale),
-  [TIME_ORIGIN_VARIABLE]: String(launch.timeOrigin),
-  [CLOCK_OFFSET_VARIABLE]: String(launch.clockSkew?.offset ?? 0),
-  [CLOCK_DRIFT_VARIABLE]: String(launch.clockSkew?.drift ?? 0),
-});
 
 /** Starts a pod and waits until it is ready. */
 export async function launchPod(launch: PodLaunch): Promise<FaultPod> {

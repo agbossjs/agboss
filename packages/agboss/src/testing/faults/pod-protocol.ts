@@ -157,6 +157,8 @@ export const POD_VARIABLES = {
   maxConcurrentSteps: "AGBOSS_FAULT_MAX_CONCURRENT_STEPS",
   /** The pod's store sabotage (`FaultStoreSabotage`), when it has one. */
   sabotage: "AGBOSS_FAULT_SABOTAGE",
+  /** `1` when the pod keeps the framework's store-call bound (#928). */
+  bounded: "AGBOSS_FAULT_BOUNDED",
 } as const;
 
 /** What a pod's `ready` says of A2A (#811 AC4): whether its set keeps A2A tasks, its listener. */
@@ -172,3 +174,7 @@ export function podA2AOf(ready: PodEvent): PodA2A | string {
     return `a ready event with keepsA2ATasks ${JSON.stringify(keepsA2ATasks)} and a2aUrl ${JSON.stringify(a2aUrl)} — a boolean, and a URL or null`;
   return { keepsA2ATasks, a2aUrl: a2aUrl ?? undefined };
 }
+
+/** The value of `POD_VARIABLES.bounded` for a pod that keeps the store-call bound or not (#928). */
+export const boundedValueOf = (isBounded: boolean | undefined): string =>
+  isBounded === true ? "1" : "";
