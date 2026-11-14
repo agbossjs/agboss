@@ -1,11 +1,14 @@
 import { ExecutionCancelledError } from "../core/errors.js";
 import { CompensationFailedError } from "../flow/compensation.js";
-import type { CancelParts } from "./cancel-requests.js";
-import { endedWithoutPass } from "./ended-tree.js";
+import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
+import { endedWithoutPass, rootRecordOf } from "./ended-tree.js";
+import { endOfRecord } from "./tree-end-pauses.js";
 import type { ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
+import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
+import type { TreeState } from "./tree-move-types.js";
 
 /**
  * `app.cancel` of a thread whose tree rests paused on this application (#340 PR 3, Q6): under the
@@ -28,15 +31,21 @@ export async function cancelledPaused(
   // another run of its thread, paused before the look or since
   const tree = { ...thread, runId: runId ?? found.run.runId };
   const startedVersion = found.run.startedVersion ?? deps.config.version;
-  // the mark first (#909): from here on no effect of the tree but its undo's is accepted
-  await leases.requestCancel({ tenantId: thread.tenantId, rootExecutionId: tree.runId });
+  // the mark first (#909): from here on no effect of the tree but its undo's is accepted; and the
+  // tree key (#1073), the one request an expiry's holder or a lease taken over reads
+  const requested = { tenantId: thread.tenantId, rootExecutionId: tree.runId };
+  await writeCancelRequest(parts, requested, {
+    requestedAt: parts.clock.now().toISOString(),
+    ownerId: null,
+  });
   const take = rootTakeOf(deps.pause, tree.runId, LeaseTakeoverReason.Cancelled);
   const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {
     // a holder moved it meanwhile — not paused any more, or another run of the thread paused
     // since: the caller asks its holder instead
     const run = await paused.drop(thread, tree.runId);
-    if (run === undefined) return false;
+    if (run === undefined)
+      return await endedAsCancelled(parts, { ...tree, startedVersion }, requested);
     const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
     const cause = new ExecutionCancelledError({
       message: `thread "${thread.threadId}" was cancelled while paused`,
@@ -47,4 +56,21 @@ export async function cancelledPaused(
   } finally {
     await lease.release();
   }
+}
+
+/**
+ * A holder moved the tree while this cancel waited for its lease (#1073): when it ended the tree
+ * as cancelled — it read this request — the cancel did its job; when the tree ended otherwise the
+ * request is withdrawn (it goes with the tree's keys) and the cancel was too late.
+ */
+async function endedAsCancelled(
+  parts: CancelParts,
+  state: TreeState,
+  tree: ExecutionTree,
+): Promise<boolean> {
+  const record = await rootRecordOf(parts.deps, state);
+  if (record === undefined || record.status === "running" || record.status === "paused")
+    return false;
+  await parts.trees.deleteAllInTree(tree);
+  return record.status === "failed" && endOfRecord(record) instanceof ExecutionCancelledError;
 }

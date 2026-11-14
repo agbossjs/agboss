@@ -7,6 +7,7 @@ import type {
   PauseNoticeKind,
   PausePage,
   PauseRecipients,
+  PauseScanAfter,
   PauseExtension,
   SetAsideMailbox,
 } from "./pause-notices.js";
@@ -231,9 +232,15 @@ export abstract class PausedExecutionRepository {
 
   /**
    * Every tenant's `Pending` pauses with `expiresAt ≤ at`, ascending by `(expiresAt, tenantId,
-   * pauseId)`, at most `limit` (1 to 1000; else `RangeError`).
+   * pauseId)`, at most `limit` (1 to 1000; else `RangeError`). With `after` — the last pause of
+   * the page before — only the pauses past it in that order (a keyset, #1070): a look that cannot
+   * move the first `limit` due pauses still reaches the ones behind them.
    */
-  abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+  abstract findPendingByExpiresAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]>;
 
   /** The same on `remindAt`: `Pending` pauses with `remindAt ≤ at`, ascending by `(remindAt, tenantId, pauseId)`. */
   abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;

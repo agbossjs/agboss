@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
+import type { CancelOutput } from "../../src/app/types.js";
+import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { ExecutionTreeRepository, PauseResolution, PauseStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -131,6 +133,129 @@ describe("#941 AC8: a cancel beats an expiry", () => {
     expect(pause).toMatchObject({
       status: PauseStatus.Cancelled,
       resolution: PauseResolution.Expired,
+    });
+  });
+
+  /** The public cancel racing the expiry: `app.cancel`, never the tree key (#1073). */
+  describe("#1073: app.cancel racing an expiry", () => {
+    /** `app.cancel(THREAD)`, started, and its mark durable in the lease store: the call is under way. */
+    const cancelUnderWay = async (app: TestApp): Promise<{ result: Promise<CancelOutput> }> => {
+      const leases = app.resolve(ExecutionLeaseRepository);
+      const mark = leases.requestCancel.bind(leases);
+      let marked: () => void = () => undefined;
+      const isMarked = new Promise<void>((resolve) => {
+        marked = resolve;
+      });
+      vi.spyOn(leases, "requestCancel").mockImplementation(async (tree) => {
+        await mark(tree);
+        marked();
+      });
+      const cancelled = app.cancel(THREAD);
+      await isMarked;
+      await new Promise((resolve) => setImmediate(resolve));
+      return { result: cancelled };
+    };
+
+    const decide = () => PauseExpiration.decide({ approved: true, comment: "auto" });
+
+    test("AC8: app.cancel while the handler runs: cancelled: true, the decision dropped, nothing of the decided path ran", async ({
+      app,
+      clock,
+    }) => {
+      const paused = await execute(
+        app,
+        ShortExpiryWorkflowStart,
+        { orderId: "o-1" },
+        { threadId: THREAD },
+      );
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      expiry.behavior = async () => {
+        await gate;
+        return decide();
+      };
+      await clock.advance(hours(4));
+      await until(() => expiry.asked.length === 1);
+
+      const { result: cancelled } = await cancelUnderWay(app);
+      release();
+
+      await expect(cancelled).resolves.toEqual({ cancelled: true });
+      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(expiry.recorded).toEqual([]);
+      expect(expiry.ended).toEqual([]);
+      const [pause] = await pausesOf(paused.executionId);
+      expect(pause?.status).toBe(PauseStatus.Cancelled);
+    });
+
+    test("AC8: app.cancel while the handler runs, the handler failing into the escalation: the escalation never runs", async ({
+      app,
+      clock,
+    }) => {
+      await execute(app, ExpiryWorkflowStart, { orderId: "o-1" }, { threadId: THREAD });
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      expiry.behavior = async () => {
+        await gate;
+        return PauseExpiration.fail();
+      };
+      await clock.advance(hours(24));
+      await until(() => expiry.asked.length === 1);
+
+      const { result: cancelled } = await cancelUnderWay(app);
+      release();
+
+      await expect(cancelled).resolves.toEqual({ cancelled: true });
+      expect(expiry.directorAsked).toEqual([]);
+      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+    });
+
+    test("AC8: app.cancel after the look read the due pauses, before it takes the tree: the handler is never asked", async ({
+      app,
+      clock,
+    }) => {
+      await execute(app, ShortExpiryWorkflowStart, { orderId: "o-1" }, { threadId: THREAD });
+      const store = expiryStore();
+      const read = store.findPendingByExpiresAtBefore.bind(store);
+      let started: { result: Promise<CancelOutput> } | undefined;
+      vi.spyOn(store, "findPendingByExpiresAtBefore").mockImplementation(async (...args) => {
+        const due = await read(...args);
+        if (due.length > 0) {
+          started ??= await cancelUnderWay(app);
+        }
+        return due;
+      });
+      await clock.advance(hours(4));
+      await until(() => started !== undefined);
+
+      await expect(started?.result).resolves.toEqual({ cancelled: true });
+      expect(expiry.asked).toEqual([]);
+      expect(expiry.recorded).toEqual([]);
+      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+    });
+
+    test("AC8: app.cancel after the decision is recorded, before the run continues: the decided path never runs", async ({
+      app,
+      clock,
+    }) => {
+      await execute(app, ShortExpiryWorkflowStart, { orderId: "o-1" }, { threadId: THREAD });
+      expiry.behavior = decide;
+      let started: { result: Promise<CancelOutput> } | undefined;
+      // the resume's observer is told after the expiry is recorded and before the pass starts
+      expiry.onResume = async () => {
+        started ??= await cancelUnderWay(app);
+      };
+      await clock.advance(hours(4));
+      await until(() => started !== undefined);
+
+      await expect(started?.result).resolves.toEqual({ cancelled: true });
+      expect(expiry.recorded).toEqual([]);
+      expect(expiry.ended).toEqual([]);
+      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
     });
   });
 });

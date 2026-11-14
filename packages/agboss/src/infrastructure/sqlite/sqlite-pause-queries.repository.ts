@@ -5,6 +5,7 @@ import type {
   PauseNoticeClaim,
   PauseNoticeCounts,
   PausePage,
+  PauseScanAfter,
   SetAsideMailbox,
 } from "../pause-notices.js";
 import type { PauseRecord } from "../pause-record.js";
@@ -16,9 +17,13 @@ import { SqlitePausedRunRepository } from "./sqlite-paused-runs.repository.js";
  * delete, and the delivery of notices — each one step of its own transaction.
  */
 export abstract class SqlitePauseQueryRepository extends SqlitePausedRunRepository {
-  async findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {
+  async findPendingByExpiresAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
-    return Promise.resolve(this.scans.pendingDue("expires_at", at, limit));
+    return Promise.resolve(this.scans.pendingDue("expires_at", at, limit, after));
   }
 
   async findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {

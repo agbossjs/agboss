@@ -5,6 +5,7 @@ import {
   type PausedExecutionRepository,
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
+import type { PauseScanAfter } from "../../infrastructure/pause-notices.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
@@ -73,6 +74,57 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         "default/p3",
       ]);
       expect(await second.findPendingByExpiresAtBefore(new Date(minute(0)), 1000)).toEqual([]);
+    },
+  },
+  {
+    name: "#1070: findPendingByExpiresAtBefore after a keyset continues past it in (deadline, tenant, id) order: pages join to the whole scan, pauses that stay pending are not read again",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      for (const [n, tenant] of [
+        [3, "default"],
+        [1, "acme"],
+        [2, "default"],
+        [1, "default"],
+        [3, "acme"],
+        [9, "default"],
+      ] as const)
+        await first.findOrCreateByStepKey(dueAt(n, tenant));
+      const at = new Date(minute(5));
+      const whole = await second.findPendingByExpiresAtBefore(at, 10);
+      const keys = (pauses: readonly PauseRecord[]): string[] =>
+        pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt ?? ""}`);
+
+      const paged: PauseRecord[] = [];
+      // (at most as many pages as pauses: a store that ignores `after` repeats a page, never loops)
+      let after: PauseScanAfter | undefined;
+      for (let pages = 0; pages < whole.length; pages += 1) {
+        const page = await second.findPendingByExpiresAtBefore(at, 2, after);
+        paged.push(...page);
+        const last = page.at(-1);
+        if (last === undefined || page.length < 2) break;
+        after = { at: last.expiresAt ?? "", tenantId: last.tenantId, pauseId: last.pauseId };
+      }
+
+      expect(keys(whole)).toHaveLength(5);
+      expect(keys(paged)).toEqual(keys(whole));
+      // a keyset past the last pause reads nothing; one before the first reads it all
+      const [firstDue] = whole;
+      const lastDue = whole.at(-1);
+      expect(
+        await second.findPendingByExpiresAtBefore(at, 10, {
+          at: lastDue?.expiresAt ?? "",
+          tenantId: lastDue?.tenantId ?? "",
+          pauseId: lastDue?.pauseId ?? "",
+        }),
+      ).toEqual([]);
+      expect(
+        keys(
+          await second.findPendingByExpiresAtBefore(at, 10, {
+            at: firstDue?.expiresAt ?? "",
+            tenantId: "",
+            pauseId: "",
+          }),
+        ),
+      ).toEqual(keys(whole));
     },
   },
   {

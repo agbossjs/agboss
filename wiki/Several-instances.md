@@ -1,0 +1,1912 @@
+# Several instances
+
+An application may run as several instances (processes, machines) over shared stores: any instance
+continues an execution another one paused, and two instances never move one execution tree at the
+same time. This page says what is shared, how a tree is moved by one instance at a time (its
+**lease**), and how to test it (#265). What exactly is guaranteed, under which assumptions, and what
+proves it: [Guarantees](Guarantees).
+
+## What is shared — the stores to replace
+
+Every store is an [infrastructure contract](App#infrastructure) with a built-in **in-memory**
+default, listed only in `@Application({ providers })` and found by inheritance. In memory nothing
+is shared between instances and nothing survives a restart, so with more than one instance list a
+shared implementation of each:
+
+| Contract                    | Shared because                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `BaseCheckpointSaver`       | a pause made on one instance is resumed on another                              |
+| `PausedExecutionRepository` | the same; a pause goes `Pending → Resolved` once, whichever instance answers it |
+| `ExecutionRecordRepository` | threads, owners and records are the application's, not an instance's           |
+| `CostLedgerRepository`      | budgets count the spend of every instance                                       |
+| `ExecutionLeaseRepository`  | one holder per execution tree (below)                                           |
+| `ExecutionTreeRepository`   | the shared state of one request, read by its executions on any instance         |
+| `RateLimitRepository`       | a model provider's limit, its 429 pause and its circuit breaker hold on every instance (#266) |
+| `MeshRequestRepository`     | a trusted mesh request answered once, whichever instance its repeat reaches (#398) |
+| `ChildExecutionQueueRepository` | a child launched with `ChildPlacement.AnyInstance` is claimed by one instance, whichever (#333) |
+| `ExecutionAuditLogRepository` | the audit log is read through the public API whichever instance took a lease over (#501, [below](#the-audit-log-501)) |
+
+Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreSQL** one
+([below](#postgresql--several-instances-on-several-machines)), or a project lists its own
+(`extends` the contract, `@Injectable({ deps })`, [below](#your-own-implementation)).
+
+## SQLite — several instances on one machine
+
+| Contract                    | SQLite implementation             | Tables                            |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `BaseCheckpointSaver`       | `SqliteCheckpointSaver`           | `checkpoints`, `checkpoint_writes` |
+| `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
+| `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Turn tables (`threads`, `terns`, …) |
+| `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
+| `ExecutionLeaseRepository`  | `SqliteExecutionLeaseRepository`  | `execution_leases`                |
+| `ExecutionTreeRepository`   | `SqliteExecutionTreeRepository`   | `execution_tree_keys`             |
+| `RateLimitRepository`       | `SqliteRateLimitRepository`       | `rate_limit_slots`, `rate_limit_window_entries`, `rate_limit_pauses` |
+| `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
+| `ExecutionHistoryRepository` | `SqliteExecutionHistoryRepository` | `execution_history` ([Execution history](Execution-history)) |
+| `ChildExecutionQueueRepository` | `SqliteChildExecutionQueueRepository` | `child_execution_queue` ([below](#children-on-any-instance-333)) |
+| `OutboundCallRepository` | `SqliteOutboundCallRepository` | `outbound_calls`, and the fenced effect's marks ([below](#calls-that-leave-the-system-505)) |
+
+Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
+is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
+the leases and tree keys are keyed by it; a file written before tenants is migrated on first use,
+its rows in the tenant `"default"`.
+
+Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
+contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
+driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, serializing with
+LangGraph's `serde`) and share **one file**: the environment contract's `sqlitePath`, required only
+when a SQLite implementation is listed — a contract without it fails assembly with
+`[environment.missing-field] SqliteExecutionLeaseRepository needs sqlitePath: string in
+AppEnvironment (read by SqliteConnection)` ([Environments](Environments)), an empty value fails the start naming it.
+
+<!-- snippet-context
+import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
+-->
+
+```ts
+// environments/app.environment.ts — the contract
+export class AppEnvironment {
+  sqlitePath!: string; // required because SQLite implementations are listed
+}
+
+// environments/prod.environment.ts — one file per machine; tests: sqlitePath: ":memory:"
+export const environment: AppEnvironment = {
+  sqlitePath: env("AGBOSS_SQLITE_PATH"),
+};
+
+// job-scout.application.ts: @Application({ …, environment: AppEnvironment, providers: sqliteStores })
+export const sqliteStores = [
+  SqliteExecutionRecordRepository,
+  SqliteCostLedgerRepository,
+  SqlitePausedExecutionRepository,
+  SqliteCheckpointSaver,
+  SqliteExecutionLeaseRepository,
+  SqliteExecutionTreeRepository,
+  SqliteRateLimitRepository,
+];
+```
+
+- **One connection per application instance**, shared by its SQLite stores and opened when the
+  first one is created; two instances (two processes, or `testWith(App, { instances: 2 })`) open
+  two connections to one file. The file is in WAL mode (readers never block the writer) with a
+  `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs). Several instances may
+  open one new file at once: the switch to WAL, which SQLite can refuse at once on a fresh file,
+  is tried again within the busy timeout (#911) — the whole open, SQLite's own waits included, is
+  bounded by it (the tries run with SQLite's `busy_timeout` at 0, set once the switch is done); the
+  connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is the DI token
+  of that connection (a subclass names it in its `deps`, [below](#extending-a-sqlite-implementation));
+  the container creates it — project code never constructs it.
+- **Which errors are of unknown outcome** (#1017). SQLite answers in the process, so a statement
+  either ran or threw; the one window is the commit. A COMMIT that fails with anything but
+  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreOutcomeUnknownError`
+  (`source: Transport`, the cause the driver's error): `SQLITE_IOERR` and its extended codes
+  (`_FSYNC`, `_WRITE`, …), `SQLITE_FULL`, `SQLITE_NOMEM`, `SQLITE_INTERRUPT`, `SQLITE_PROTOCOL`, any
+  other — the journal's or the WAL's sync may have failed before or after the commit point, and
+  the caller cannot tell, so when unsure it is unknown. `SQLITE_BUSY` and `SQLITE_CONSTRAINT` at
+  COMMIT leave the transaction open (SQLite documents it): it is rolled back, nothing was applied —
+  an ordinary error. A failure of any statement before the COMMIT is rolled back — ordinary,
+  whatever its code. One single write outside a transaction (its commit is implicit) that fails
+  with `SQLITE_IOERR` is unknown; any other code is the statement's own refusal. A read never is.
+  The in-memory stores have nothing to classify: they cannot fail after a partial apply.
+- **Atomic operations** — a lease `acquire`, a slot `acquire`, `saveIfAbsent`, a pause
+  `Pending → Resolved`, a ledger counter — run in one `BEGIN IMMEDIATE` transaction, so of two
+  instances exactly one wins; `renew` / `release` and the records' compare-and-set write are one
+  statement each.
+- **Time comes from the application's `Clock`** (#262, [Testing → The clock](Testing#the-clock)),
+  never from SQLite (`expiresAt`, the ledger's UTC day are parameters), so `clock.advance(…)` moves
+  SQLite leases in tests like in-memory ones.
+- `node:sqlite` is synchronous: a transaction is one group of statements with no `await`, and a
+  busy wait blocks that instance's event loop for at most the busy timeout.
+- With them, what one process wrote is there for the next: `agboss run` / `chat --thread <id>`
+  continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
+  earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause
+  is resumed after a restart, and another instance on the file recovers a run whose process
+  died ([Recovery](#recovery)). [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) lists all seven (`sqlitePath` in dev:
+  `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`); in this repository flow-patterns' two
+  applications list them between them (`.agboss/flow-patterns.sqlite`).
+
+### Extending a SQLite implementation
+
+A SQLite implementation is a class like any other: a project `extends` it, `override`s what it
+changes and lists the subclass **instead of** it (both listed → `[di.ambiguous-implementation]`).
+The subclass takes the base class's dependencies first — every one a public token (#265 S70):
+`SqliteConnection`, the application's `Clock`, for the leases, the rate-limit slots and the records
+the `ApplicationContext` (its `instanceId` is the holder of what this instance takes), and for the
+records the application's `IdGenerator` (#313: a new thread's id):
+
+| Implementation | Its `deps` |
+| --- | --- |
+| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteMeshRequestRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
+| `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
+| `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository`, `SqliteChildExecutionQueueRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
+| `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |
+
+<!-- snippet-context
+import type { ExecutionLease } from "@agboss/core";
+@Injectable()
+export class LeaseAuditService {
+  taken(_lease: ExecutionLease): void {}
+}
+-->
+
+```ts
+import {
+  ApplicationContext,
+  Injectable,
+  SqliteConnection,
+  SqliteExecutionLeaseRepository,
+  StoreClock,
+} from "@agboss/core";
+import type { Milliseconds } from "@agboss/core/units";
+
+/** The SQLite leases, each one taken written to the audit log as well. */
+@Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext, LeaseAuditService] })
+export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRepository {
+  constructor(
+    connection: SqliteConnection,
+    clock: StoreClock,
+    applicationContext: ApplicationContext,
+    private readonly leaseAuditService: LeaseAuditService,
+  ) {
+    super(connection, clock, applicationContext);
+  }
+
+  override async acquire(
+    tenantId: string,
+    rootExecutionId: string,
+    lease: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    const taken = await super.acquire(tenantId, rootExecutionId, lease);
+    if (taken !== undefined) this.leaseAuditService.taken(taken);
+    return taken;
+  }
+}
+```
+
+The subclass still needs `sqlitePath` (`[environment.missing-field]` names it) and shares the
+instance's one connection. The records the same way (#313) — a new thread's id comes from the
+`IdGenerator` it passes on ([App → Infrastructure](App#infrastructure)):
+
+<!-- snippet-context
+@Injectable()
+export class ThreadAuditService {
+  created(_threadId: string): void {}
+}
+-->
+
+```ts
+import {
+  ApplicationContext,
+  Clock,
+  IdGenerator,
+  Injectable,
+  SqliteConnection,
+  SqliteExecutionRecordRepository,
+  type NewThread,
+} from "@agboss/core";
+
+/** The SQLite records, each new thread written to the audit log as well. */
+@Injectable({
+  deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator, ThreadAuditService],
+})
+export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecordRepository {
+  constructor(
+    connection: SqliteConnection,
+    clock: Clock,
+    applicationContext: ApplicationContext,
+    idGenerator: IdGenerator,
+    private readonly threadAuditService: ThreadAuditService,
+  ) {
+    super(connection, clock, applicationContext, idGenerator);
+  }
+
+  override async createThread(thread: NewThread): Promise<string> {
+    const threadId = await super.createThread(thread);
+    this.threadAuditService.created(threadId);
+    return threadId;
+  }
+}
+```
+
+## PostgreSQL — several instances on several machines
+
+What a platform must provide for this — the grace, the probes, the clocks, a shared database — and
+the settings on Kubernetes, ECS, Cloud Run, Container Apps and Nomad: [Deploying on Kubernetes](Deploying-on-Kubernetes).
+The whole cycle on kind — backlog, scale-out, a killed and a frozen pod, scale-in — verified from
+state: agbossjs/agboss-examples `14-kubernetes-postgres-scaling` (#487).
+
+[`@agboss/postgres`](https://github.com/agbossjs/postgres) (#482, #483) implements every store on
+one PostgreSQL database, for pods on different machines with no shared disk. With all of them
+listed, a whole application runs on PostgreSQL alone: nothing of it is per pod. Each store is
+listed in `@Application({ providers })` like a SQLite one; they share one `pg` pool per instance
+(`PostgresConnection`, the environment's `postgresUrl: Secret`, optional `postgresPoolSize`).
+
+| Contract                        | PostgreSQL implementation               | Shared across pods                                                    |
+| ------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `BaseCheckpointSaver`           | `PostgresCheckpointSaver`               | checkpoints (LangGraph's `PostgresSaver` on the shared pool)          |
+| `PausedExecutionRepository`     | `PostgresPausedExecutionRepository`     | a pause made on one pod is answered on another                        |
+| `ExecutionRecordRepository`     | `PostgresExecutionRecordRepository`     | threads, records, scores, summaries                                   |
+| `ExecutionLeaseRepository`      | `PostgresExecutionLeaseRepository`      | one holder per tree, fenced by epoch; a dead pod's tree is taken over |
+| `ExecutionTreeRepository`       | `PostgresExecutionTreeRepository`       | the shared state of one request                                       |
+| `ChildExecutionQueueRepository` | `PostgresChildExecutionQueueRepository` | an `AnyInstance` child is claimed by one pod (`FOR UPDATE SKIP LOCKED`) |
+| `FencedEffectRepository`        | `PostgresFencedEffectRepository`        | an effect's write fenced by the tree's lease, in one transaction      |
+| `ExecutionAuditLogRepository` | `PostgresExecutionAuditLogRepository` | the audit log, read by `app.auditLogOf` on any pod                 |
+| `CostLedgerRepository`          | `PostgresCostLedgerRepository`          | budgets count every pod's spend: a tenant's $10 day is $10 in all     |
+| `ExecutionHistoryRepository`    | `PostgresExecutionHistoryRepository`    | `agboss records export` on any pod lists every pod's executions       |
+| `RateLimitRepository`           | `PostgresRateLimitRepository`           | `maxConcurrentCalls`, per-minute windows, a 429 pause, an open breaker |
+| `MeshRequestRepository`         | `PostgresMeshRequestRepository`         | a mesh request retried against another pod runs once                  |
+| `OutboundCallRepository`        | `PostgresOutboundCallRepository`        | a call's intent, reconciled by whichever pod runs the step next       |
+
+Each store runs its contract's published suite against PostgreSQL (`storeConformance`, the
+interleaving explorer included), the core's `faultSuite` runs on the full set, and two-process tests
+prove it across real processes: a takeover, `AnyInstance` children, a pause resumed elsewhere, a
+shared budget, a rate limit across pods, the history export, mesh deduplication and a payment
+reconciled after its pod froze mid-charge. The semantics are the SQLite stores' — the same
+contracts; each store's locking is in its doc comment, and a lease's expiry is decided by the
+database's `clock_timestamp()`. The three fencing stores declare one backend, `"postgres"`. The
+schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job
+before a rollout, or `postgresMigrateOnStart` for one instance. Installing, wiring, migrations,
+connection limits and what the guarantees assume of the database: [Running-on-PostgreSQL](Running-on-PostgreSQL).
+
+## The execution lease
+
+One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the execution's tenant
+(#261, `"default"` when it names none); the holder's `holderInstanceId` is its instance's
+`ApplicationContext.instanceId`. Whoever moves the tree holds it: `app.execute` from its first step,
+`app.resume` once it has recorded its decision. The holder:
+
+- renews the lease in the background every 7.5 seconds (a quarter of its fixed length, `seconds(30)` —
+  not a setting) and right before every checkpoint write;
+- releases it when its pass ends — the tree paused, finished or failed. A paused or finished tree
+  holds no lease;
+- while a parent node waits for children on any instance, **yields** it — in the store, not by a
+  release (#516, [below](#a-parent-waiting-for-remote-children-516)): still its own, renewed on;
+- when a renewal answers `false` (the lease expired — the instance was frozen or cut off for 30
+  seconds or longer —, whether another instance took it, `token + 1`, or not), stops: its work
+  is aborted through its signal and its call rejects with `ExecutionLeaseLostError` (`execution.lease-lost`).
+  That is not a failure of the execution: it reaches neither `.onError`, `onExecutionError` nor the execution
+  record — the new holder owns the execution and continues it;
+- fences itself locally (#335, #533): it trusts the lease until `sentAt + remaining − 1 s` of its
+  last acquire or renewal the store confirmed — `remaining` the time the store said is left,
+  `sentAt` the holder's monotonic time when it sent that request (the store counts from a later
+  moment, so its lease never ends earlier). `trustedUntil` is that deadline shown on the wall
+  clock. A lease store that errors **before** then is
+  tried again at the next renewal, and a checkpoint write goes on. When `trustedUntil` comes with
+  no confirmed renewal — the store unreachable for the whole lease — the holder stops at that
+  moment, whether or not another instance took the lease yet: its signal aborts with
+  `ExecutionLeaseLostError` (the message says the lease expired before its store confirmed a
+  renewal and that the next take of the lease continues the execution, never that another instance
+  does, #567; the class, `code` and fields are the same), an agent's tool loop starts no further model
+  or tool call, a checkpoint write at or past it throws it, and the record stays `running` for
+  [recovery](#recovery).
+
+**The lease's boundary (#534).** A lease is live while `expiresAt > now`, and only then — for
+every instance, **its holder included**. At `now >= expiresAt` it is over: another instance's
+`acquire` takes it; the holder's `renew` and `yield` answer `false`, its `reclaim` nothing, its
+`fence.renewNow()` loses the lease, and every fenced write and outbound-call write at its token is
+refused (`ExecutionFencedError`) — even when no one took it yet. The holder takes the tree again
+only by `acquire`, at a new epoch, recorded as a takeover from itself. Every check of a lease draws
+the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
+fence (`now >= trustedUntil`) — so no lease is kept by one part of the system and given up by
+another, and at the very instant of expiry only the taker wins. A healthy holder never comes near
+it: it renews every 7.5 s, a quarter of the lease, so each renewal reaches the store with 22.5 s left (21.5 s
+of its own trust, #533), and one renewal its store does not answer still leaves 15 s (7.5 s after two). What reaches it is a stop-the-world
+pause (a GC pause, a frozen VM) of 30 s or more: the holder hands the tree over at its next renewal
+or write, and recovery continues it from its last checkpoint — one owner at a time, the effects of
+its steps keyed and fenced, so none is lost and none runs twice. In tests one `clock.advance` of a
+whole lease is such a pause; to let time pass for a live holder, advance in steps shorter than the
+lease.
+
+**Whose clock (#533).** Instances' wall clocks disagree — one runs seconds ahead, another a
+little slow. None of them decides when a lease ends: **the store does, by its own time** — a
+networked store (PostgreSQL) reads its database's clock inside each statement that takes, renews,
+fences or closes a lease, so every instance agrees on the instant of expiry; in-memory and SQLite,
+on one host, read its clock. The store answers how long the lease has left (`remaining`), and the
+holder counts that down from the moment it sent the request, minus a safety margin of 1 s, on its
+**monotonic** clock and on its own wall clock at once, the earlier ending it — never comparing its
+wall clock with anyone's: an offset moves neither count, a step of its wall clock back is bounded by
+the monotonic count, a step forward or a suspend of its host (which stops the monotonic clock) by the
+wall count. A `remaining` that is not a finite number ≥ 0 counts as 0: the holder fails closed. An instance whose clock is
+ahead by half a lease, a lease or ten leases can therefore not take a lease its holder still
+trusts, and one behind takes an expired lease on time. What is left is drift — how much faster or
+slower the holder's and the database's clocks run over one 30 s lease, together; the margin covers
+up to 1 s of it (3.3 %; a healthy quartz clock drifts 0.005 %). Assumed: the database's clock is
+slewed, never stepped (a step forward ends every lease early by its size), and a pause that stops
+both of the holder's clocks while the database's runs on is outside the bound. Tests skew an instance with `testWith(App, { instances: [{},
+{ clockSkew: ClockSkew.ahead(seconds(300)) }] })` (#831: one `TestInstanceOptions` per instance): its wall time, monotonic time and
+sleeps run off the test's clock, while the stores keep the test's own (`lease-skew.test.ts`,
+`lease-skew-charge.test.ts` prove one live holder, no send after the holder's fence and one charge
+for ± lease/2, ± lease, ± 10 × lease and ± 1 % drift).
+
+**Two resumes at once.** A resume has two phases: it first records its decision on its pause (the
+pause goes `Pending → Resolved` atomically — a second resume of the same pause, a double click,
+gets `PauseClosedError`), then takes the tree's lease. While another call or instance holds it, the
+resume waits; the holder continues with one `Command({ resume })` that maps LangGraph's interrupt
+id of every answered pause of the tree, and before it lets the tree rest paused takes the decisions
+resolved meanwhile (the drain), so the waiting call then returns the tree's current
+`ExecutionOutput`, its decision taken. Two pauses of parallel branches answered at once on two
+instances are both taken, each step once ([Pauses](Pauses#concurrent-answers)). If the holder's
+lease expires while a call waits, the waiting call takes it and goes on.
+
+**Documented limit.** The renewal before a checkpoint write and the write are two round trips to the
+stores, not one atomic operation (`BaseCheckpointSaver` is taken as is, so ecosystem savers plug
+in): the race window is one round trip.
+
+## Fencing external writes (#471)
+
+The lease fences the framework's own checkpoint writes. A step's write to another system is the
+step's: a holder frozen past its lease (a GC pause, `SIGSTOP`, a VM migration) may wake and write
+after the instance that took the tree over already did. Steps run **at least once**; a write is
+**exactly once** only when the external system checks two things atomically — the step's
+idempotency key and the lease's fencing token — and the framework gives both:
+
+- `executionContext.step.idempotencyKey` — the same when a recovered step runs again;
+- `executionContext.fence` — the lease the current step runs under (`ExecutionFence`):
+
+| Member | What it is |
+| --- | --- |
+| `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
+| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and `ThisWorkflow` levels; a `ChildPlacement.AnyInstance` child itself. |
+| `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the reclaim after remote children); never a sequence across keys. |
+| `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
+| `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
+| `renewNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
+| `fencedError(observedToken?)` | The `ExecutionFencedError` a step throws when the external system refused it. |
+
+The external check, in one transaction with the idempotency key: `incoming >= highest` → accept and
+set `highest = incoming`; `incoming < highest` → refuse. SQLite (`BEGIN IMMEDIATE`, run in one
+synchronous turn) or PostgreSQL:
+
+```sql
+CREATE TABLE fence_marks (scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL);
+CREATE TABLE release_artifacts (
+  idempotency_key TEXT PRIMARY KEY,
+  scope_key TEXT NOT NULL,
+  token INTEGER NOT NULL,
+  artifact TEXT NOT NULL
+);
+
+-- 1. raise the mark: no row back = a newer token was seen → ROLLBACK, refuse
+INSERT INTO fence_marks (scope_key, highest_token) VALUES (:scope_key, :token)
+ON CONFLICT (scope_key) DO UPDATE SET highest_token = excluded.highest_token
+WHERE excluded.highest_token >= fence_marks.highest_token
+RETURNING highest_token;
+
+-- 2. write once by the step's key: 0 rows = a replay, already written
+INSERT INTO release_artifacts (idempotency_key, scope_key, token, artifact)
+VALUES (:idempotency_key, :scope_key, :token, :artifact)
+ON CONFLICT (idempotency_key) DO NOTHING;
+```
+
+A refused write throws `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+ExecutionLeaseLostError`; `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken` —
+built by `fence.fencedError(highest)` in the step or `ExecutionFencedError.of({ scopeKey, token,
+observedToken })` in a repository that has only what it wrote). It is a **hand-over**, wherever it
+is thrown and however it is wrapped (a `cause` chain, an `AggregateError`, a cycle): the runtime
+looks for it first — in a visit, a launch's branch, a child's exit, an undo, an agent's tool call
+(before `onToolEnd` and the spend tally) and a tool interceptor — aborts the holder's lease with it
+and rethrows it as it is: no `.onError` (a catch-all `.onError(Error, …)` too), no undo, nothing
+shown to the model, no failed record (it stays `running`), no `onExecutionError`; the moving call
+rejects with the `ExecutionFencedError` itself, also when the lease's own expiry aborted the signal a
+moment before. A business error still takes its `.onError`.
+
+- **Key the mark by `fence.scopeKey`**, never by a shared business row. Parallel `AnyInstance`
+  children hold independent leases: a recovered `child-1` writes with token 2 while a healthy
+  `child-2` is still at 1 — a `highest_token` on one shared `releases` row would refuse the healthy
+  child and send it through false recoveries. A shared aggregate needs its own locking.
+- **Read `fence.token` right before the write**, after `fence.assertHeld()`; across a pause or the
+  remote-children wait it rises.
+- **An API that cannot check tokens** (a webhook): `await fence.renewNow()` and an
+  `Idempotency-Key` header narrow the window, never close it.
+- **Where there is no fence:** frames that run under no held lease — a reply interpreter (it runs in
+  `app.resume`'s first phase), a budget's `maxSpend()` (read before the first pass), an eval judge,
+  a tool exported over MCP or called through a test slice — and an ancestor's `parent.fence` /
+  `root.fence` throw `ExecutionContextUnavailableError`. So does a fence kept past its step (a
+  destructured `fence` in a stray promise): every member reads the current frame when it is used.
+
+**Remote children and the lease (#471).** While a parent node waits for `AnyInstance` children it
+yields the root's lease only when every waiting caller waits **and no other step of the tree
+runs** — a sibling `ParentInstance` branch running a step keeps the lease (before #471 it ran and
+checkpointed with the lease released), and a step that starts while the lease is yielded takes it
+back first, under a new token. A step that cannot take it back (another instance took the lease
+over after it expired) is handed over.
+
+### A parent waiting for remote children (#516)
+
+A yielded lease is **not released**: it stays the holder's in `ExecutionLeaseRepository` and is
+renewed every 7.5 s like a held one. What every instance sees of a tree whose parent waits for its
+`AnyInstance` children:
+
+| Who | What they get |
+| --- | --- |
+| Another instance's recovery sweep | `acquire` is refused — the tree is live and owned; nothing is taken over, no `Takeover` row |
+| `app.resume` of a pause in the tree, on any instance | the decision is recorded, then the call waits for the lease; the holder takes the decision before the tree rests (the drain), and the call returns the tree's current output |
+| `app.cancel` on any instance | a cancel request; the holder reads it after its next renewal — renewals go on while it waits — and stops |
+| The holder itself, when the children end or a step starts | `reclaim`: the lease again at `token + 1` (a `Reclaimed` row of the [audit log](#the-audit-log-501)); `fence.token` rises |
+
+If the holder **dies** while it waits, its renewals stop and the lease expires 30 s later; the next
+sweep takes it over (`takenOverFrom` names the dead holder), re-enters the parent's node, finds
+its children's queue rows and waits for them — they go on where they run, each once — and the
+tree ends once. A holder that only froze (a GC pause, `SIGSTOP`) and wakes after that finds the
+lease over — taken, or only expired (#534): its `reclaim` fails and its call rejects with
+`ExecutionLeaseLostError` ("is over — it expired while it waited for remote children, or another
+instance took it", #551) — a hand-over, as for any lost lease.
+
+Before #516 the yield was a release plus a mark in the holder's process memory, so only that
+process knew the tree was live: another instance's sweep with a free step slot took the waiting
+root over, and the caller of an execution that succeeded got `ExecutionLeaseLostError` or "child
+execution … is no longer queued".
+
+## The fenced effect (#500)
+
+The check above is the same in every application that writes business rows: a mark per scope, the
+idempotency key, and their order — **a stale token is refused before the key is read**, so a zombie
+never receives the new holder's result. For rows in the store's own database the framework makes it
+one call, and the application defines no fencing or idempotency table. A component injects the
+application's **`FencedEffects`** (#890: a core service, `deps: [ExecutionContext, FencedEffects]`,
+over the listed store — never a store's class, so moving from SQLite to PostgreSQL changes
+`@Application({ providers })` only) and calls `runOnce(key, work)`; the work names the listed
+store's transaction type:
+
+```ts no-check: a fragment of a step; the full action is in README → Several instances
+const key = effectKeyOf(this.executionContext, "charge");
+const { status, result } = await this.fencedEffects.runOnce(
+  key,
+  (database: DatabaseSync) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
+);
+```
+
+`FencedEffectRepository<TTransaction>` is infrastructure, like the lease store: the built-in
+`InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`, from
+`@agboss/core/stores`), or
+`SqliteFencedEffectRepository` (the `work` gets the connection's `DatabaseSync`), listed in
+`@Application({ providers })`. In **one transaction**, in this order:
+
+| Step | What happens |
+| --- | --- |
+| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `token` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
+| 2. the mark | `token < highest` for `scopeKey` → `ExecutionFencedError(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
+| 3. the key | `(scopeKey, idempotencyKey, name)` found → `FencedEffectStatus.Replayed`, its stored result and the token it was written under; `work` is not called. |
+| 4. the write | `work(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
+
+- **A throwing `work`** rolls back everything — its rows, the mark, the key — and its error is
+  rethrown as it is; the next call runs it again.
+- **`work` may run more than once within one call** (#730): a store may abort an attempt and run
+  it again — MongoDB's driver does on a `TransientTransactionError` (a write conflict, a step-down),
+  for up to 120 s ([MongoDB](MongoDB)). Only the last attempt's writes through the transaction are
+  kept, so `work` writes **only** through `transaction` and does nothing else: no call to another
+  system (that is [`OutboundCalls`](#calls-that-leave-the-system-505)), nothing sent, logged or
+  counted outside it. On SQLite, in memory and on PostgreSQL it runs once per call.
+- **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
+  its result or its error) — a map of the calls in flight, never component state. Across instances
+  the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.
+- **SQLite runs `work` synchronously**: a returned promise rolls back with
+  `SyncWorkRequiredError` (`fenced-effect.sync-work-required`) — do the step's I/O before the call or
+  after it. The in-memory store takes an asynchronous `work` (one transaction per scope at a time)
+  and checks the lease and the mark again before it commits.
+- **The key** is `effectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
+  `leaseExecutionId`, `token` and the step's `idempotencyKey`; several effects of one step differ by
+  `name`. Where no lease is held it throws `ExecutionContextUnavailableError`, as `fence` does.
+- **The result** is `JsonValue<T>` (an interface or a DTO class is fine; a function, `undefined`
+  or a `Date` does not compile), at most `@Application({ fencedEffects: { maxResultSize } })`
+  (default `kilobytes(64)`) — else `FencedEffectResultTooLargeError`
+  (`fenced-effect.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
+  receipt, not a document.
+- **Retention:** results and marks are removed by the recovery sweep once older than
+  `retention.fencedEffects` (default `hours(24)`; above the lease's 30 s, else
+  `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
+- **One transactional backend (#526):** the store checks the lease in its own transaction, so it
+  and the application's lease store are on one backend — each declares it in `static store:
+  StoreDescriptor = { backend, leaseCheck? }` (#825; `"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
+  kind). A listed store of another backend than the lease store's fails assembly with
+  `[application.store-backend-mismatch]`, naming both classes and both backends and a lease store on
+  its backend to list instead (#539); one that declares none (it or its lease store) fails
+  `[application.store-backend-undeclared]`; two listed stores of one fencing contract, or two lease
+  stores, fail `[di.ambiguous-implementation]` at assembly (#539). The explicit opt-out
+  `leaseCheck: LeaseCheck.WithoutDoubleChargeProtection` in it names what it gives up — the lease
+  is read outside the write's transaction, so a holder whose lease was taken over can still write —
+  and is not checked; it passes no fencing case of `storeConformance` and must never back payments
+  ([Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543), #543); the start warns `[application.lease-check-not-atomic]` (an error under
+  `agboss check --strict`). Rate limits, the child queue and the [audit log](#the-audit-log-501) are
+  on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
+  effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
+  leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
+  not at assembly — an application that never uses an effect is not refused. A unit runner holds its
+  lease in the lease store of the store's backend: its own, a listed one, or the core's SQLite one.
+- **The connection is not listed (#526):** a component that injects `FencedEffects` or
+  `OutboundCalls` reaches `SqliteConnection` (`PostgresConnection`) through the store — the
+  workflow's graph check takes an unlisted class under an infrastructure implementation as its own
+  registration, as the container creates it, once for the instance.
+- **Typed transaction:** inject `FencedEffects` (`deps: [ExecutionContext, FencedEffects]`) — never
+  the listed store's own class — and name the transaction in the work's parameter
+  (`(database: DatabaseSync) => …`, `runOnce<TResult, TTransaction>`): the store is infrastructure,
+  `FencedEffects` hands the work the listed store's transaction; a work that writes no rows of its
+  own ignores it.
+- **What it does not do:** exactly-once for systems outside that database (HTTP APIs, email,
+  webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
+  results are not logged; what reaches a record or a trace is the step's output, masked as always.
+
+A store of another database (PostgreSQL, #482) extends the contract, declares its backend in `static store`,
+implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
+`FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers of `@agboss/core/stores`
+(#526, #890: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `runOnce` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
+`effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
+cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
+
+## Calls that leave the system (#505)
+
+A fenced effect covers rows of the store's own database. A call to **another system** — a payment
+API, an e-mail, a webhook — cannot share that transaction: a step that sent a charge and died before
+the answer leaves nobody knowing whether the charge happened. `OutboundCalls` records an **intent**
+before the call and settles it after, so a step run again never sends blindly:
+
+```ts no-check: a fragment of an action; the whole one is tests/app/fixtures/outbound-call.workflow.ts
+const outcome = await this.outboundCalls.send(effectKeyOf(this.executionContext, "charge"), {
+  target: "payments", // what it goes to, for operators
+  operation: "charge",
+  request: { orderId: order.id, amountUsd: order.amountUsd }, // JSON; send gets it as it is
+  send: (call) => this.paymentClient.charge(call.request, { idempotencyKey: call.idempotencyKey }),
+  // #657: only an error that proves nothing was charged is a failure; any other one is reconciled
+  isDefiniteFailure: (error) => error instanceof PaymentDeclinedError,
+  reconcile: async (lookup) => {
+    // asked only for an intent left pending: look the call up by its key, never by the request
+    const found = await this.paymentClient.findByIdempotencyKey(lookup.idempotencyKey);
+    if (found === undefined) return OutboundCallReconciliation.notSent();
+    return found.status === "settled"
+      ? OutboundCallReconciliation.completed(found.receipt)
+      : OutboundCallReconciliation.unknown({ reason: `charge ${found.status}` });
+  },
+  // #795, required: the lookup reads the provider's own payments, so its notSent() holds at any age
+  notSent: { trust: NotSentTrust.Lookup },
+});
+// outcome.status: OutboundCallSendStatus.Sent | Replayed | Reconciled | Joined
+```
+
+`OutboundCalls` is a core service (`deps: [ExecutionContext, OutboundCalls]`, nothing to list); the
+intents live in `OutboundCallRepository`, infrastructure like the lease store — the built-in
+`InMemoryOutboundCallRepository`, or a store of the application's database listed in
+`@Application({ providers })`. One key is one intent (`effectKeyOf(executionContext, name)`);
+the key sent with the call is the step's `idempotencyKey` and the name (`call.idempotencyKey`), the
+same on every attempt, replay and holder.
+
+| The intent found | What happens |
+| --- | --- |
+| none | recorded `Pending` (fenced), the lease renewed (`fence.renewNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
+| `Completed` | its stored result, nothing sent — `Replayed` |
+| (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
+| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — a `NotSentTrust.Lookup`'s at any age, a `NotSentTrust.KeyReplay`'s only inside its `keyRetention` (#658, #795); `unknown({ reason })` → `OutboundCallUnreconciledError` |
+| `Failed` | the other system definitely did not carry it out (`isDefiniteFailure`, #657): sent again with the same key, attempt + 1 |
+
+- **Fenced like a fenced effect:** every read and write of an intent checks the key's lease and the
+  scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
+  (`ExecutionFencedError`, a hand-over). A completion refused after the send (the lease was lost
+  meanwhile) is a hand-over too: the new holder finds the intent pending and reconciles it.
+- **One sender per attempt:** every attempt has an **owner** — `attemptOwner`, a random id the
+  caller mints when it claims the attempt (records the intent, or moves it on). A new attempt
+  (after `notSent()` or a failure) is a compare-and-set — `markPending(key, expected, claim)` moves
+  the intent only while its status, attempt and attempt owner are as the caller read them, in the
+  fenced transaction with the caller's lease check. A caller that loses it sends nothing and reads
+  the intent again: completed → the winner's result (`Replayed`), pending → the winner is sending
+  (`OutboundCallInFlightError`, `outbound-call.in-flight`, a `StepFailedError`), at most three
+  reads, then in flight. An attempt ends only for its owner: `markCompleted` / `markFailed` take the
+  attempt owner and change nothing once a newer attempt owns the intent. The owner is live in this
+  instance from before the intent is recorded or claimed, and nothing is sent once the step aborted
+  (checked after the lease's renewal). A call this instance is making now — two tool calls or two branches with
+  one key — is **joined**, never reconciled or resent: the second gets the first's outcome
+  (`OutboundCallSendStatus.Joined`) or its error. Two instances recording one key at the same
+  moment: the second is in flight, nothing sent.
+- **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
+  a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason` — a code, #890:
+  `reconcile.unknown`, `reconcile.threw`, `reconcile.no-verdict`, `key-retention.passed` — and
+  `detail`, what was said, masked) — also when `reconcile` throws (its error the `cause`) or gives
+  no verdict. Nothing is sent; the intent stays `Pending` for an operator or a retry policy;
+  `.onError(OutboundCallUnreconciledError, …)` takes it — agboss-examples' `11-safe-payments` ends
+  its capture workflow at an operator's finish that way (`tests/operator-path.test.ts`).
+- **A send that fails, for certain or not (#657).** An error `send` throws is a failure only when
+  the call says so: `isDefiniteFailure(error)` returns `true` — the other system answered that it
+  did not carry the call out (a validation error, a decline). Then the intent is `Failed` with the
+  error's name, code and message, and the next call sends it again under the same key, with no
+  `reconcile`. **Any other error is of unknown outcome** — no predicate, an answer other than
+  `true`, a predicate that throws (a warning `outbound-call.classifier-threw`): a 5xx after the
+  other system acted, a reset connection, the SDK's own timeout. The intent stays `Pending` (told
+  `Ambiguous`, a warning `outbound-call.outcome-unknown` naming the error's code, never its text),
+  and the next call asks `reconcile` before anything is sent again, exactly as after a crash.
+  The error is rethrown either way; a call this instance joined meanwhile gets the same error. A
+  send aborted by the step's signal (a lost lease, a cancel, a timeout) records nothing too. Under a
+  business key, the pending intent of an execution that still holds its lease is in flight for
+  another one (`OutboundCallInFlightError`, nothing sent) until that lease ends.
+
+  | Error | `isDefiniteFailure` | The intent | The next call |
+  | --- | --- | --- | --- |
+  | a decline, a validation error the other system answered | `true` | `Failed` | sends it again, the same key |
+  | a 5xx, a reset connection, an SDK timeout, anything not classified | not `true` (the default) | `Pending` | `reconcile`, then only on `notSent()` |
+  | the step's signal aborted it | not asked | `Pending` | `reconcile` |
+- **The key's age (#658).** `reconcile` is told when the pending attempt started
+  (`lookup.attemptStartedAt`, a `Date`) and how old its key is (`lookup.keyAge`, ms from the start
+  of the call's first attempt — before the key could reach the other system — to now). Both are
+  the **store's** time: the record's `attemptStartedAt` and `firstAttemptStartedAt`, written by
+  `saveIfAbsent` and `markPending`, and `readAt`, stamped by every `findByKey` (never stored) — on
+  PostgreSQL the database's own clock, read by the fence after it locked the lease row, so every
+  instance and every holder after a takeover sees the same times, whatever its own clock says. The
+  age adds what passed since the read on the instance's monotonic clock, from before the read, so it
+  is never less than the other system's age of the key (up to the store's millisecond and the drift
+  bound A4). An intent recorded before 0.1.1 has neither: both `undefined`.
+- **How far `notSent()` is trusted — `notSent`, required (#658, #795).** Every `send` says it; a
+  forgotten line is a compile error, never a resend of an expired key:
+  - `notSent: { trust: NotSentTrust.Lookup }` — `reconcile` reads a record the other system keeps
+    for good (its payments, a list of refunds, a search that does not lag), so its `notSent()` proves
+    the call never arrived: sent again at any age.
+  - `notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }` — its `notSent()` relies on
+    the other system **replaying the key**: a gateway with no lookup (Adyen), a search that lags
+    (Stripe; named only to identify their APIs, not affiliated with or endorsed by them:
+    [the notice](Payments#the-notice)). `keyRetention` is how long that system keeps a key, its
+    documented minimum. A `notSent()` is then sent again only while `keyAge +
+    outboundCalls.attemptTimeout` (how long the resend may take to arrive, A6) is below it, measured
+    again after `reconcile` answers; past it, or with the age unknown, nothing is sent:
+    `OutboundCallUnreconciledError` naming the age and the retention, the intent `Pending` for an
+    operator (`app.pendingOutboundCallsOf`). The framework never resends such a call by itself.
+
+  No `notSent` (a JavaScript caller), an unknown `trust`, a `KeyReplay` without a positive, finite
+  `keyRetention` or a `Lookup` with one: `InvalidNotSentTrustError`
+  (`outbound-call.invalid-not-sent-trust`) before anything is recorded or sent. A `Failed` intent is
+  sent again at any age (it moved no money).
+- **Masked when written.** Everything an intent stores — its request, its result, its failure's text
+  — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
+  also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
+  stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCallsOf`, a kept record, an export.
+  `send` and the step get the real values in memory; a **replay** gives the result as stored —
+  masked — so a result should carry receipts and ids, not personal data. `reconcile` gets the
+  **stored, masked** request (`lookup.storedRequest`) and the key: look the call up by
+  `lookup.idempotencyKey`, which is not personal data. A step with no mask while the application
+  lists PII policies is refused before anything is stored (`OutboundCallUnmaskedError`,
+  `outbound-call.unmasked`); a failure's text is stored `[redacted]` there.
+- **Limits:** `@Application({ outboundCalls: { maxPayloadSize }, retention: { outboundCalls } })` — a stored request or
+  result above `maxPayloadSize` (default `kilobytes(64)`) is `OutboundCallPayloadTooLargeError`
+  (`outbound-call.payload-too-large`): a request is neither recorded nor sent; a result leaves the
+  intent pending, so the next attempt reconciles it. `Completed` and `Failed` intents are removed by
+  the recovery sweep once they ended longer ago than `retention` (default `hours(168)`, above the
+  lease, else `[application.outbound-calls-invalid]`); a `Pending` one never is.
+- **For operators:** `app.outboundCallsOf({ tenantId, rootExecutionId })` (every call of a tree, in
+  the order recorded) and `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (what waits for reconciliation, a page at a time — #825: `{ calls, next? }`, default 100, at most 1000; a call pending for the whole read listed exactly once) —
+  `OutboundCallRecord`: the step, the workflow, `target`, `operation`, `idempotencyKey`, `status`,
+  `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`,
+  `attemptStartedAt?`, `firstAttemptStartedAt?` (#658, the store's time).
+- **What exactly-once means here:** the framework never sends twice without a definite failure
+  (`isDefiniteFailure`) or a `notSent()` from `reconcile` — a `Lookup`'s, or a `KeyReplay`'s inside
+  its `keyRetention`;
+  whether the other system charged twice depends on those answers being true — idempotency keys and
+  a lookup that does not lag or expire.
+- **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
+  on a gate, `leases.freeze(apps[0])` and `clock.advance` past the lease, then the other instance's
+  recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
+  runner's held lease; a second run of one runner is the same step run again.
+
+- **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its
+  intents in `outbound_calls` of the application's file, every fenced method one `BEGIN IMMEDIATE`
+  transaction with the lease check and the scope's mark (the fenced effect's `fenced_effect_marks`:
+  one mark per scope for both). Beside a lease store of another backend it fails assembly with
+  `[application.store-backend-mismatch]`, as `SqliteFencedEffectRepository` does (#526); the
+  in-memory default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
+  `SqliteConnection` need not be listed for it (#526).
+- **Told:** every move of a call is an `OutboundCall` row of the [audit log](#the-audit-log-501) and
+  an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
+  intents as `ExecutionHistoryRecord.outboundCalls` ([Execution history](Execution-history)).
+
+A store of another database implements `OutboundCallRepository` (fenced `findByKey` — the record
+with `readAt`, the store's time of the read —, `saveIfAbsent` — `attemptStartedAt` and
+`firstAttemptStartedAt` at the store's time —, `markPending` — the next `attemptStartedAt` at the
+store's time, the first kept; a compare-and-set, `UPDATE … WHERE status = ? AND attempt = ? AND
+attempt_owner = ?` with one row changed —, `markCompleted` and `markFailed` — each a compare-and-set
+on the attempt owner, repeating the state it read in its `WHERE` and requiring one row changed —;
+the two listings — #825: `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` paged
+on an immutable order of its own (`{ calls, next? }`, a call in the status for the whole read listed
+exactly once); `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
+renewal and the check never both win —;
+`deleteByEndedAtBefore`; `ping`; `static store`) and proves itself with
+`outboundCallContract` of `@agboss/core/testing/contracts`
+([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
+
+## Business idempotency keys (#508)
+
+A fenced effect or a call that leaves the system is keyed by its step: a second step that charges the
+same order — the model calling the charge tool twice, a second request on another thread — is a
+charge of its own. A **business key** keys it by what it is about instead:
+
+<!-- snippet-context
+import {
+  Action,
+  ExecutionContext,
+  NotSentTrust,
+  OutboundCalls,
+  OutboundCallReconciliation,
+  effectKeyOf,
+} from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
+declare const paymentClient: {
+  charge(request: { orderId: string; amountUsd: number }, idempotencyKey: string): Promise<{ chargeId: string }>;
+};
+export class ChargeDto {
+  @Text({ prompt: "the order" })
+  orderId!: string;
+  @Integer({ prompt: "the amount in dollars" })
+  amountUsd!: number;
+}
+-->
+
+```ts
+@Action({
+  name: "charge-order-action",
+  description: "Charges an order once, whoever asks",
+  input: { order: ChargeDto },
+  output: ChargeDto,
+  deps: [ExecutionContext, OutboundCalls],
+})
+export class ChargeOrderAction {
+  constructor(
+    private readonly executionContext: ExecutionContext,
+    private readonly outboundCalls: OutboundCalls,
+  ) {}
+
+  async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
+    const { orderId, amountUsd } = input.order.value;
+    const key = effectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
+    await this.outboundCalls.send(key, {
+      target: "payments",
+      operation: "charge",
+      request: { orderId, amountUsd }, // its fingerprint: another amount under order:42 is a conflict
+      send: (call) => paymentClient.charge(call.request, call.idempotencyKey),
+      reconcile: () => OutboundCallReconciliation.unknown({ reason: "no lookup" }),
+      notSent: { trust: NotSentTrust.Lookup }, // never asked: reconcile says unknown
+    });
+    return { orderId, amountUsd };
+  }
+}
+```
+
+- **One row per tenant, name and business key**, whatever step, execution or thread writes it.
+  Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
+  refused before any lookup — even where the business key already has a result.
+- **The key:** `effectKeyOf(executionContext, name, { businessKey, fingerprint })` — #825: a fenced
+  effect says what it does, `fingerprint` or `fingerprintPolicy: FingerprintPolicy.None` (on purpose:
+  work the business key fixes by itself, an event applied by its id); `{ businessKey }` alone is an
+  `OutboundCallKey`, which only `OutboundCalls.send` takes, its request the fingerprint. A fenced
+  effect under one does not compile, and a JavaScript caller's or a cast's key is refused before any
+  transaction, `FingerprintRequiredError` (`fenced-effect.fingerprint-required`): before #825 two
+  effects with one business key and other work — a charge and a refund of `order:42` — replayed
+  each other silently. The key is marked: `effectKeyOf` is an application's only maker of one — a literal or a spread copy does not compile, and a key the framework did not make is refused at run time. A
+  business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
+  `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
+  - 1–200 UTF-16 code units (`length`);
+  - no lone surrogate, half of a UTF-16 pair: SQLite and PostgreSQL would store U+FFFD, two keys in
+    one row (`lone-surrogate`);
+  - no control character, C0 (U+0000–U+001F), U+007F or C1 (U+0080–U+009F) (`control-character`);
+  - no format character, Unicode `Cf` — zero-width space and joiners (so emoji joined by U+200D
+    too), bidi controls (U+200E–U+200F, U+202A–U+202E, U+2066–U+2069), U+FEFF, the soft hyphen,
+    tag characters (`format-character`);
+  - no space but U+0020, and that one single and inside (#547): no other Unicode space separator
+    (`Zs`: U+00A0, U+1680, U+2000–U+200A, U+202F, U+205F, U+3000) and no line or paragraph
+    separator (U+2028, U+2029) — `space-separator` —, no U+0020 at the start or the end and never
+    two in a row — `spacing` (upstream systems differ in whether they trim and collapse spaces);
+  - no code point Unicode says renders as nothing (#556, `Default_Ignorable_Code_Point`, whatever
+    its category) — the combining grapheme joiner U+034F, the Hangul fillers (U+115F, U+1160,
+    U+3164, U+FFA0), the Khmer U+17B4 / U+17B5 and Mongolian free variation selectors, every
+    variation selector — the emoji ones too, so `order:❤️` (U+2764 U+FE0F) is refused, `order:❤` is
+    a key — and the code points the property reserves (`ignorable`);
+  - no private-use character (`Co`) and no noncharacter (U+FDD0–U+FDEF, U+xFFFE and U+xFFFF of every
+    plane) (`private-or-noncharacter`): their meaning is no one's but a font's or one system's;
+  - no code point unassigned in the runtime's Unicode (`Cn`, `unassigned`): a later Node may give it a
+    decomposition or make it a format character, which would refuse a key stored before. A code
+    point never becomes unassigned again, so this rule never refuses a key it once accepted. NFC is
+    stable for assigned characters too (Unicode's normalization stability policy). The other rules
+    read a character's category (`Cc`, `Cf`, `Zs`) and `Default_Ignorable_Code_Point`. Unicode does
+    not promise to keep those for assigned characters, and they have changed: U+00AD went from `Pd`
+    to `Cf` in 4.0, U+200B from `Zs` to `Cf` in 4.0.1, U+180E from `Zs` to `Cf` in 6.3 (#587). So a
+    newer Node may refuse a key an older one accepted, and during a rolling upgrade a key holding a
+    character only the newer runtime assigns is refused by an older instance. Either way it is a
+    refusal, never a second charge;
+  - no U+2800 BRAILLE PATTERN BLANK, which renders as a blank but is a symbol (`blank`);
+  - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
+    key changed on its way in would no longer replay what was stored under it. Normalize where the
+    key is made (`text.normalize("NFC")`).
+
+  A text that breaks several rules is named by the first of them in this list — `KeyTextRule`'s
+  order — wherever in the text each breach stands (#547 acceptance; #556's rules come after
+  `spacing`, before `not-nfc`): `"a\tb\uD800"` is
+  `lone-surrogate`, `"\u00A0order\t42"` is `control-character`.
+
+  Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —
+  stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
+  `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
+  a refusal is `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`) or
+  `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
+  never the key, which is not echoed in `onExecutionRejected` either. Checked by
+  `effectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
+  (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
+  `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
+  (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
+  the rule, never the id) — `t\uD800` and `t\uD801` are both `t\uFFFD` in UTF-8, one tenant in a
+  database, and an NFD or zero-width tenant id would be a second tenant of one customer. So do the
+  operator's reads (#568): `app.auditLogOf`, `app.outboundCallsOf` and `app.pendingOutboundCallsOf`
+  refuse such a tenant id before the store is asked (on SQLite `t\uD800` would read `t\uFFFD`'s
+  pending charges and audit log); a trusted A2A request or MCP call under one is never deduplicated
+  (its answer would be kept under `t\uFFFD`'s key); and its `onExecutionRejected` names the tenant
+  `"default"`, never the id. A tree's two reads check its `rootExecutionId` the same way (#580)
+  (`dto.invalid` naming `rootExecutionId`: `r\uD800` would read root `r\uFFFD`'s audit log), and
+  `agboss records export --tenant` and `agboss generate eval-case --tenant` refuse such a tenant id
+  (exit 2, `usage.option-value`, the rule named) instead of reading nothing. Who calls is held to
+  the same rules (#589): `ownerId` at `app.execute`, `app.resume` and `app.cancel`, and a `Channel`
+  pause's `answeredBy` (recorded on the pause and in the records, read by the agent), refused
+  before anything is read or written with `dto.invalid` naming the field and the rule, never the id;
+  a value that is not a text is `length`. Before, on SQLite and PostgreSQL an execute under
+  `bob\uD800` created a thread stored as `bob\uFFFD`'s and then refused its own caller. A lone
+  surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
+  name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
+  it is part of the keys that go out.
+- **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:
+  `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
+  the `onFencedEffect` / `onOutboundCall` events and their audit-log rows. The fingerprint is an
+  HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the
+  request's — under `HMAC(idempotencyKey, "agboss/fingerprint/v1")`: the **application's idempotency
+  key** (#825), `@Application({ idempotencyKeyField })`, a `Secret` field used for nothing else — so
+  it is the same in every execution and on every instance and gives no guessable request away, and
+  rotating the PII key or a provider's key changes no fingerprint. It is required once a component
+  reaches `OutboundCalls` or a fenced-effect store (`[application.idempotency-key-required]`), never
+  another key (`[application.idempotency-key-shared]`), and a key made without it is
+  `IdempotencyKeyMissingError` — never an unkeyed SHA-256. The handle below is keyed by the PII
+  key — stable across executions with `piiKeyField`; with per-execution keys (#334) within one tree
+  only. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
+  row shows it. **Rotating the idempotency key** (#825): name the new field `idempotencyKeyField` and
+  the old one `previousIdempotencyKeyField` — a fingerprint is then compared under both
+  (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
+  recorded before the rotation and retried during it replays or is reconciled: no
+  `BusinessKeyConflictError`, no second call. Remove the previous field once nothing recorded
+  under it can be retried; what is left of it then fails closed — a conflict, nothing sent — never a
+  second charge (`tests/app/idempotency-key-rotation.test.ts`).
+- **Another fingerprint is refused:** `BusinessKeyConflictError` (`fenced-effect.business-key-conflict`:
+  `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
+  `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
+  own (#334), else the application's `piiKeyField` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
+  Never a plain hash, which `order:42` would give away, and never the PII key itself: a handle must
+  not equal the PII token of the same text, or errors would tie business keys to pseudonyms. Every
+  other use of the PII key than its tokens derives a subkey under a label of its own. A key made
+  outside an execution has no handle, and the error then shows none. A concurrent
+  call of this instance under another fingerprint is refused the same way, never joined.
+- **Any text is a fingerprint, the empty one too** (#574): a key with `fingerprint: ""` and one
+  with none are two requests, refused against each other whether the first is stored or still in
+  flight on this instance. `effectKeyOf` never makes `""` (none, or 64 hex digits); a key
+  built by hand may. A store of your own keeps `""` as `""` — a column that turns it into `NULL`
+  replays it as none, which `fencedEffectContract`'s case "an empty fingerprint is not none" fails.
+- **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
+  now, whatever its key, is **joined** (`Joined`): the joiner shares a success or the other system's
+  own error, and on anything else of the first call's — its hand-over, its cancel — makes its own
+  call under its own frame — whatever the first call threw, an object or not. Under a business key,
+  one written under a lease still **live** on another instance (`leaseStateOf` →
+  `OutboundCallLeaseState.Live`: held at its token, not expired) is `OutboundCallInFlightError`,
+  nothing sent; `Ended` — released, or its token moved on — means its owner is gone. A holder
+  releases its lease only once the attempts under it settled (renewed meanwhile) and never yields it
+  under one, so a cancelled step whose client ignores its signal keeps its call in flight while it
+  sends. The wait is bounded by `@Application({ outboundCalls: { attemptTimeout } })` (default
+  `minutes(2)`), counted from the attempt's start, and by the instance's stop (`app.close()`'s
+  timeout): past it the holder stops renewing without releasing, so the call stays in flight for
+  `attemptTimeout` plus up to the lease's 30 s; a hung attempt no longer holds a yield back either,
+  and a reclaim moves its token on. `leaseStateOf` then closes the expired lease in the same atomic
+  step (`LeaseClosed`: released at the token it was held at), so its holder can neither renew it nor
+  write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
+  caller's audit log, `LeaseClosed` with `closedLease` (the tree, the execution, the token), and a
+  warning `outbound-call.lease-closed` (#825: rows written before, `lease-superseded` with
+  `supersededLease`, are read under these names). The tree itself is then taken over as after any
+  expiry — the next token, a `Takeover` row naming the holder and the token it held (the lease row
+  is marked closed by a check, not by its holder: renewals, yields, reclaims and writes at that
+  token all refused). An answer that comes back after that is
+  fenced, not stored, and logged as an error, `outbound-call.answered-after-hand-over`. **A send
+  still hung past this bound can coincide with a reconcile and a resend; the provider must
+  deduplicate on `call.idempotencyKey` (G1).** A tree that never yields keeps its lease — and the
+  call in flight — until it ends or loses the lease. Once the
+  owner is gone the next caller reconciles, and only the winner of the compare-and-set sends.
+- **A lost completion is never silent:** an attempt answered after a newer one took the intent over
+  — both reached the other system; an answer or a definite failure (its `cause`) alike, and a call
+  of this instance joined to it shares the error — fails the step with `OutboundCallSupersededError` (#795,
+  `outbound-call.superseded`, a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`,
+  `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The audit log's row
+  (`AttemptSuperseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
+  the instance's log are written first, audit log or none (a unit runner); when the intent can no
+  longer be read the newer attempt is "unknown" (`supersededBy: undefined`), never guessed. A step
+  that must go on says so: `.onError(OutboundCallSupersededError, …)` — check the other system first.
+- **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
+  the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, with a warning
+  `outbound-call.result-not-stored`, never `Failed` (which would send it again); the step gets the
+  answer. A later call under the key fails with `OutboundCallResultNotStoredError`
+  (`outbound-call.result-not-stored`, `reason`: the code, a `StepFailedError`) — nothing sent, and
+  never the marker as a result: read the result from the other system. A failure or `reconcile`
+  reason the mask cannot mask is `[redacted]`, with a warning `outbound-call.text-redacted`.
+- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the tenant and
+  the business key `encodeURIComponent`-encoded, the same from every step and execution — give it to
+  the other system as its idempotency key. Everything else names it by its handle only,
+  `business-key:<handle>:<name>`: `OutboundCallUnreconciledError.idempotencyKey`,
+  `OutboundCallOutcome.idempotencyKey` (what a tool might hand a model), `app.outboundCallsOf`,
+  `app.pendingOutboundCallsOf`, a kept record and its export — none shows `businessKey`.
+- **Stores:** the in-memory default; SQLite keeps business results in
+  `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
+  `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the
+  business-key cases (two scopes run once, a fingerprint conflict, a stale token refused, two
+  instances racing write once, the lease check) and the races a port must make atomic, each run
+  for several rounds in both orders: two moves from one read, two records of one business key, an
+  ending against a newer claim, a write against its lease's release and the next take (which must
+  land before the new holder reads, or be refused), and one business key's row moved under two
+  leases at once — no lease lock serializes those, only the row's own compare-and-set. An effect's
+  name is checked again at every store method, for a key built by hand.
+- **What a gateway must do as well** — keys, lookups, retention, and the checklist that probes
+  them: [Payment gateways](Payment-gateways); every payment race and what handles it:
+  [Payment scenarios](Payment-scenarios).
+
+## A store call that never answers (#928)
+
+Every store call is bounded. A call a holder makes under its lease is bounded by the time it still
+trusts the lease, fixed when the call starts, or by the lease's loss, whichever comes first; at the
+bound the holder **abandons** the lease: its signal aborts as at the lease's local expiry, its
+renewals and expiry loop stop, its token is no longer a fenced holder's — and nothing is released,
+retired or announced as free. The lease expires in the store about 30 s after its last confirmed
+renewal, and only then does another instance take the tree over, so recovery after a hung call
+waits up to the lease; a late commit of the abandoned call lands under the old token before the
+takeover or is fenced after it. The step is a hand-over: no `.onError`, no undo, no failed record
+(P5). A lease renewal that does not answer is **not** a hand-over: the holder goes on while its
+fence holds: a renewal is bounded at 5 s and the renewals run on a fixed cadence of a quarter of the lease, 7.5 s (one still in flight at its tick is skipped), so of the three tries inside the 29 s of trust any two may fail and the third confirm, and three in a row cost the lease — and `fence.renewNow()` before an
+outbound send is the one renewal that hands over. Other calls (the sweep's look, a child's claim,
+`acquire`, `requestCancel`) fail with `StoreCallTimeoutError` after 15 s and run again at the next
+period. [Guarantees](Guarantees) P8, A19.
+
+## Recovery
+
+**The orphan look** (#939): a tree whose instance died in the middle of its end — its root's record
+ended, a pause still open, its paused run or keys still stored — is found through the open pauses. Each
+sweep reads a page of 50 (`findOpenAfter`, a cursor kept per instance and wrapped after the last page: every
+open pause is visited within `ceil(open / 50)` sweeps); for a root whose record is `answered`, `failed` or
+`guarded` the instance takes the tree's lease (a live holder ends its own tree, never raced) and runs the
+whole idempotent end — keys, queued children, branch errors, pauses — on the cause its record gives. A root
+still running or resting, one whose lease is held, one with no record here (another application's, on a shared
+store) is skipped.
+
+An execution whose instance died mid-step is continued by another instance, automatically (#265
+S30). The record of a root is `ExecutionRecordStatus.Running` while its tree moves (a resume makes
+it `running` again just before it records its decision, #850: a resume that dies between the two
+leaves a `running` root that recovery continues with that decision, never a `paused` one whose
+`Resolved` pause nothing would take). Every instance, at its start and then every
+30 seconds (the lease length, through the framework's clock):
+
+1. lists the `running` records (`ExecutionRecordRepository.findByStatus(ExecutionRecordStatus.Running,
+   limit, after)`, page by page);
+2. tries each one's lease: a live holder renews it, so only a tree whose holder **died** (its lease
+   expired) or **stopped** (released it) is taken, with `token + 1`; of two instances sweeping
+   at once one gets it;
+3. continues the tree from its **last checkpoint**, taking a decision a resume recorded meanwhile
+   first (a `Resolved` pause). Every step that finished keeps its writes — every step is
+   checkpointed before the next one starts — so **only the interrupted step runs again**; a
+   side-effecting tool keeps its effect once through `executionContext.step.idempotencyKey`;
+4. checks compatibility as `app.resume` does: a root started under another config hash is not
+   continued unless the workflow's `onIncompatibleResume` says `"resume"` — it is left to an
+   instance of a compatible version (a rolling deploy) and logged once. The root's hash covers its
+   child workflows, recursively (#336): a deploy that changes only a child — its prompt, model,
+   flow or version — makes the roots running or paused inside it incompatible too, though the
+   root's own `@Workflow({ version })` is the same.
+
+An instance that caps its steps (`@Application({ maxConcurrentSteps })`, #332) starts at most as
+many recoveries per look as it has free step slots, and none while it is full
+([An instance's cap on steps](#an-instances-cap-on-steps-332)).
+
+Each recovery is logged (`execution.recovered`, a warning in the application's
+[log](Observability#the-frameworks-log) with its `executionId` and `tenantId`; a root left to a
+compatible instance is `recovery.incompatible`, a failed one `recovery.failed`) and traced, and
+observers get `onExecutionResume` with `reason: ResumeReason.Recovered` (`decision` when it took a
+recorded one), then `onExecutionEnd` / `onExecutionPause` / `onExecutionError` as for any pass.
+
+<!-- snippet-context
+import { Injectable, ResumeReason, type OnExecutionResume, type ExecutionResumeEvent } from "@agboss/core";
+-->
+
+```ts
+@Injectable()
+export class RecoveryCounter implements OnExecutionResume {
+  onExecutionResume(event: ExecutionResumeEvent): void {
+    if (event.reason === ResumeReason.Recovered) {
+      // an instance died or stopped while this run moved: count it, alert
+    }
+  }
+}
+```
+
+**The same sweep keeps the pause records small** (#267 S107): at each look it removes, across
+tenants, the resolved pause records (`Taken`, `Cancelled`) resolved more than
+`@Application({ retention: { pauseRecords } })` ago — default `hours(24)` —
+through `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, `cutoff` = the `Clock`'s now minus
+the retention. Every instance may run it; it is idempotent. Within the window a late answer to a
+taken or withdrawn pause gets `PauseClosedError`, after it `UnknownPauseError`; a `Pending` pause is
+never removed ([Pauses → a pause's life](Pauses#a-pauses-life)). A project's own
+`PausedExecutionRepository` implements `deleteByResolvedAtBefore` too — one statement over the records'
+status and `resolvedAt` (`SqlitePausedExecutionRepository`: an index on `(status, resolved_at)`). Who
+answered each pause is not in these records: it is written into the execution records when the
+pause is resolved (`ExecutionRecordRepository.savePauseAnswer`), so the sweep never changes
+`result.record.pauses`.
+
+A free-text reply (`app.resume({ pauseId, reply })`, #267 PR 3) is read on the instance that got
+the call, before the pause is resolved and before the tree's lease is taken: the interpreter's
+model call holds no lease, and its spend reaches the tree's budgets through the shared ledger at
+once, whichever instance then moves the tree.
+
+**A graceful stop** (`app.close()`, SIGTERM — [App → app.close()](App#appcloseoptions)) first stops
+the instance's own sweep, waits for its running executions, and interrupts what is left a grace
+before the end of the shutdown timeout (default `seconds(25)`; the grace `min(seconds(5), 20 %)` of
+it, #367 S3): each releases its lease and stays `running`, so another instance takes it at its next
+sweep, without waiting for the lease to expire. An
+interrupted pass ends before the step bodies that ignore their signal return (LangGraph's
+`invoke` / `stream` reject first, #340 S2), so the instance tracks every running body — an agent's,
+a router's or an action's visit, a branch, a tool call — per tree, in process (#367): a tree's
+lease is released only once its bodies returned, and `onDestroy` runs only once every body did,
+both at the latest at the end of the shutdown timeout — the grace is spent on them, so the instance
+ends within its shutdown timeout (`app.step-still-running` names a body still running then;
+`close({ timeout: 0 })` stops waiting at once). Another instance therefore never reruns a step — the same action, the same
+idempotency key — while its first run is still going here.
+
+## Pause notices and the pause timers (#940)
+
+Every change of a sent pause writes its notices — `opened` to the listeners, `closed`, and
+`answerNotTaken` for an answer never applied — into one ordered mailbox per pause and receiver, in
+the **same store transaction** as the change (`PausedExecutionRepository`: `claimNoticesDue`,
+`ackNotice`, `retryNotice`, `setAsideNotices`, `setAsideStaleNoticesBefore`). Any instance delivers
+them: the one that wrote them looks at once (the fast path, not awaited by the run, the resume or
+the cancel; `app.close()` waits for it within the shutdown timeout), every instance looks again at
+the **pause timers'** tick (every 5 s: one loop for the looks of the pause features, each in its own
+`try/catch` — a failing look is `pause-timers.failed` and the others and the next tick go on;
+`app.checkLiveness()` reports a stale tick as the component `pause-timers`, beside `recovery-loop`).
+A look claims up to 50 mailboxes for the instance's receivers (its channels that listen to a notice
+and its listeners) for 60 s — one mailbox per claim, so a stuck head never holds another — tells the
+head notice in the pause's frame and acknowledges it only after the receiver returned: an instance
+that dies before the acknowledgement leaves the notice to the next claim, which delivers it again
+under the same `deliveryId` — at least once, never zero times; a zombie's late acknowledgement
+changes nothing (it needs the claim's token and an unexpired claim). Two instances never deliver one
+mailbox at once; the order within it is kept. A receiver that fails is retried at 1 s × 2^attempts (at
+most 5 min); a mailbox whose head is older than `retention.pauseRecords` is set aside (`pause.notice-dead`),
+and one that no instance claims — a listener a rolling deploy removed — is set aside by the recovery
+sweep's retention step (`pause.notice-recipient-unknown`). The fault scenarios 21, 21b and 21c kill a
+pod holding a claim, after a delivery and before its acknowledgement, and right after a resume
+committed: the invariant `notices-once-each-in-order` holds on every store set.
+
+## Expiring a pause (#941)
+
+Every instance's pause timers (every 5 s, on the `Clock`) look for expiries:
+`findPendingByExpiresAtBefore(now, 50, after)` reads the pending pauses whose deadline passed (every tenant,
+the earliest first), page by page, grouped by their tree's root; the root's record names the workflow that
+moves it (a root of another application on a shared store is skipped). The look is one sweep with a keyset
+cursor `after` — the last pause of the page before, in `(expiresAt, tenantId, pauseId)` order (#1070): a
+pause nobody here can move (another application's tree, a removed workflow, an incompatible version, a tree
+in use) stays pending and is passed, so 50 of them never hide a later deadline; the next sweep starts again
+from the earliest. Each root's expiry is **started, not awaited** (#1071): the handler and the pass after it
+run beside the timers' tick (the pass's steps take the step slots), at most `maxConcurrentSteps` roots at a
+time, a look cut short by the cap going on from where it stopped; so a 30 s step after an expiry never makes
+`app.checkLiveness()` report `pause-timers` stuck, and `app.close()` waits for the expiries in flight. A
+run that fails after its expiry (its run deadline, an uncaught `fail()`) ended as its record says: it is
+not a failure of the expiry (`pause.expiry-failed` is warned only for the machinery's own failures, #1074).
+Per root, under the tree's lease:
+
+1. the lease is taken only if free — the holder's drain, or a later look, does it (one instance asks the
+   channel; the others skip);
+2. a cancel request (or an undo under way) ends the tree as at any take: **a cancel beats an expiry**;
+3. a root whose record is `running` is skipped — its holder's drain expires the pause before it rests, or
+   recovery continues it; an ended root has its end finished (the orphan look's path);
+4. a resting root with a pause due has its record made `running` again **first** (#850's order), then each due
+   pause is expired — the channel's decision asked in the pause's frame, then the store's compare-and-set
+   `expireByTenantIdAndPauseId` (one closer per pause, I1) — then the pass that takes it runs under the same
+   lease (`ResumeReason.Expired`, announced once, with a decision or without).
+
+A pod that dies after the mark and before the record leaves a `running` root at a pending, due pause:
+recovery continues it, its drain expires the pause before the tree rests, the channel may be asked
+again, one decision is recorded. A pod that dies after the record leaves a `running` root with a closed
+pause: recovery continues with it, the channel is asked no more. **Never a `paused` root beside a closed
+pause.** A pass never rests on a due pause: at every rest the holder expires its own tree's due pauses first
+(a pause of a parallel branch whose sibling still runs waits, and is refused answers from its deadline on).
+Fault scenarios 24–24e (SQLite pods, `kill -9` and `SIGSTOP`) and the invariants `one-expiry-decision`,
+`no-paused-root-with-closed-pause`, `no-answer-after-deadline` prove it; the sabotages — an expiry outside the
+compare-and-set, a forgotten root mark, a cancel mark that never lands — each fail them. A look reads 50 due
+pauses and keeps no cursor; the tree of a pause stuck behind 50 older ones whose trees keep running waits
+until they rest.
+
+## The audit log (#501)
+
+A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint
+— but not for its operators: each one is a `Takeover` row of the **audit log**, an append-only
+infrastructure contract, `ExecutionAuditLogRepository` (the in-memory default,
+`SqliteExecutionAuditLogRepository` on the application's file, a project's own one proven by
+`executionAuditLogContract` of [`@agboss/core/testing/contracts`](#writing-your-own-store-the-published-contract-suites-481)),
+and an [`onExecutionLeaseTakeover`](Observability#lease-takeovers-501) after it:
+
+- **who and at which token** — `holderInstanceId` and `token` (the new `executionContext.fence.token`),
+  and `previousHolderInstanceId` / `previousToken` when the lease store names the holder whose lease
+  had **expired**: `acquire` returns it as `ExecutionLease.takenOverFrom`, never after a release or
+  for a first lease. It is optional, so a store from before #501 still works — its takeovers name no
+  previous holder;
+- **why** — `LeaseTakeoverReason.Recovered` (the sweep continues it), `Unwinding` (the sweep
+  finishes its undo), `Cancelled`, `Resumed`, `RemoteChild` (a worker reclaims an `AnyInstance`
+  child), `Reclaimed` (a parent took its lease back after waiting for remote children, at a new
+  token, no previous holder). A takeover is a take whose store names an expired holder, and every
+  take of the recovery sweep, an undo's takeover, a reclaim and a reclaim; a lease released at a
+  pause and taken by the resume is none, and so is a take of work already over — a finished child, a
+  root whose record no longer runs ([#520](#finished-work-is-never-taken-over-520));
+- **the head checkpoint** (`checkpointId`) the taking instance continues from, where it reads it.
+
+**A step handed over** is a `HandedOver` row (`StepHandedOverRecord`) and an
+[`onStepHandedOver`](Observability#hand-overs-501): the step that stopped (`step`: `nodeId`,
+`visitNumber`, `idempotencyKey`), `reason` (`LeaseLost`, `Fenced`, `ApplicationStopping`), `site`
+(`Step`, `Tool`, `ToolInterceptor`, `Compensation`, `Branch`, `Child`), the stopped holder and its
+`token`, and `observedToken` for a refused write — once per error, at the innermost site, written
+before the moving call rejects. So the public log alone tells two zombies apart:
+
+| What the old holder did | Rows of its tree |
+| ----------------------- | ---------------- |
+| woke, reached its fenced effect and was refused | `takeover` (the new holder), `fenced-effect` `ran` (the new holder's write), `fenced-effect` `refused` (`token` 1, `observedToken` 2), `handed-over` (`reason: fenced`) |
+| woke, reached a write of its own fencing and was refused | `takeover`, then `handed-over` (`reason: fenced`, `site`, `token` 1, `observedToken` 2) |
+| froze or died before it reached a step again | `takeover` (and the new holder's `fenced-effect` `ran`) only |
+| wrote, then crashed before its checkpoint | its `fenced-effect` `ran`, the `takeover`, then the new holder's `fenced-effect` `replayed` (`writtenToken` 1): no second write |
+
+<!-- snippet-context
+import {
+  ExecutionAuditEventKind,
+  FencedEffectEventOutcome,
+  HandOverReason,
+  type App,
+} from "@agboss/core";
+declare const app: App;
+declare const rootExecutionId: string;
+-->
+
+```ts
+const rows = await app.auditLogOf({ tenantId: "acme", rootExecutionId });
+const refused = rows.some(
+  (row) => row.kind === ExecutionAuditEventKind.HandedOver && row.reason === HandOverReason.Fenced,
+);
+const replayed = rows.some(
+  (row) =>
+    row.kind === ExecutionAuditEventKind.FencedEffect &&
+    row.outcome === FencedEffectEventOutcome.Replayed,
+);
+```
+
+**A call that leaves the system** (#505, [above](#calls-that-leave-the-system-505)) is an
+`OutboundCall` row (`OutboundCallEventRecord`) per move: the step, the call's `name`, `target` and
+`operation`, the intent's `status` and `attempt` after the move, and `outcome`
+(`OutboundCallEventOutcome.Recorded`, `Sent`, `Replayed`, `Reconciled`, `NotSent`, `Unknown`,
+`Failed`, `Joined`) — never the request or the result. A crash before the answer reads `recorded`, the
+`takeover`, then the new holder's `reconciled` (or `not-sent` and `sent`): the call went out once.
+
+A kept execution ([Execution history](Execution-history)) carries its tree's rows as they stood when
+it was saved, `ExecutionHistoryRecord.auditLog`, and so does its line of `agboss records export`.
+
+The rows carry identities and tokens only — never a payload — masked like observer events. They are
+**always written**, whatever `retention.executionRecords` says, before the observers hear of them, and
+read while the tree runs, from any instance, through the public API:
+
+<!-- snippet-context
+import type { App } from "@agboss/core";
+declare const app: App;
+declare const rootExecutionId: string;
+-->
+
+```ts
+const rows = await app.auditLogOf({ tenantId: "acme", rootExecutionId });
+const takeovers = rows.filter((row) => row.kind === "takeover");
+```
+
+Another tenant's tree has none. The recovery sweep removes the rows older than
+`@Application({ retention: { auditLog } })` (default `hours(24)`, on the `Clock`). A audit log that
+cannot write is a warning (`audit-log.failed`) and never reaches the takeover.
+
+## Cancelling from any instance
+
+`app.cancel(threadId, { tenantId, ownerId })` reaches the thread's execution on whichever instance
+moves it (#360) — behind a load balancer a cancel lands on a random instance. Access is checked as
+always (`UnknownThreadError` for another tenant's or an unknown thread, `ThreadOwnerError` for
+another owner, `onExecutionRejected`), then:
+
+1. **this instance runs it** — it is aborted at once; before the abort the tree's durable **cancel
+   mark** is written (below, #909), so `app.cancel` resolves only once the cancel is fenced on every
+   instance, and rejects with the store's error — nothing aborted, a retry is idempotent — when the
+   mark cannot be written;
+2. **it is paused** — it is dropped through the shared `PausedExecutionRepository`, its pauses
+   withdrawn, as before;
+3. **otherwise** every `running` root record of the thread gets the mark and a **cancel request**: the reserved
+   tree key `@agboss/cancel-request` of the shared `ExecutionTreeRepository` (`{ requestedAt,
+   ownerId }`, `saveIfAbsentInTree`, so two cancels write it once). The records are then read
+   again: still `running` → `{ cancelled: true }`; paused meanwhile → the cancel waits for the
+   holder's lease and ends the tree as cancelled; ended meanwhile → the request is removed with the
+   tree's keys and `{ cancelled: false }`. A finished execution gets `{ cancelled: false }` and
+   nothing is written.
+
+The holder reads the request **after every lease renewal the store confirms** — the background one
+every 7.5 seconds and the one before each checkpoint write — and before its tree rests paused. A found
+request aborts the pass with `ExecutionCancelledError` (`thread "…" was cancelled`, the message of
+a local cancel): the tool loop starts no further model or tool call, the record is failed,
+`onExecutionError` fires once (on the holder's instance) and the holder's `execute` / `resume`
+rejects. A store error reading the request is not a failure: it is read again at the next renewal.
+
+**Cancel is a hard fence (#909, [ADR-0030](ADR-0030-A-cancel-is-a-fence)).** Every path that
+cancels a tree — a local `app.cancel`, a remote one, a paused tree's, an A2A `CancelTask` — first
+writes the tree's cancel mark with `ExecutionLeaseRepository.requestCancel(tree)`: durable on the
+lease store's database, keyed by the tree's root, idempotent, changing no lease. From then on every
+fencing store of that database refuses, in the transaction that checks the lease, a **new**
+fenced effect (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
+tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
+nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 7.5 s —
+cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
+step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a
+child's key is fenced by its **root's** cancel; the end of an attempt claimed before the cancel
+(`markCompleted`, `markFailed`) and every read are accepted. A stale token is still
+`ExecutionFencedError` — a hand-over first. The step that met the refusal stops the tree as
+cancelled **at once** (not at the next renewal): it is told (`onFencedEffect` / `onOutboundCall`
+with outcome `cancelled`, and the audit log), the holder aborts its own pass, the open undos run
+under its lease and the moving call rejects with `ExecutionCancelledError`. The guarantee is P7 on
+[Guarantees](Guarantees): once `app.cancel` has resolved no effect runs for the tree but its undo's;
+a write already inside its transaction may finish first, and a send already claimed may still be
+answered and recorded. A mark is lifted by the fencing stores' retention only once its tree's lease is retired and the mark is older than the cutoff — never by age alone.
+
+**The request is durable.** An instance that takes a tree's lease reads it first: a waiting
+`resume` ends the tree as cancelled and rejects with `ExecutionCancelledError`; recovery ends a
+`running` root with a request instead of continuing it — on an instance of **any** config version,
+since ending runs no graph (a root of another deploy without a request is still left to a compatible
+instance). Ending without a pass fails the record, drops the paused run, withdraws its pauses,
+removes its keys and fires `onExecutionError` once; there is no `onExecutionResume`.
+
+**Known window.** An execution's `running` record is written after its budgets are opened and its
+thread's compactions ran; a cancel from another instance before that moment finds nothing and
+returns `{ cancelled: false }` (on the instance that started it the cancel still stops it).
+
+**Reserved keys.** Tree keys starting with `@agboss/` belong to the framework — do not write them
+from your own components ([below](#the-shared-state-of-one-request)).
+
+## An undo interrupted mid-way
+
+An execution that ends without a finish undoes its open undoable actions before it ends
+([Rollback](Rollback#an-execution-that-ends-without-a-finish)). The undo is durable (#340 PR 4):
+
+- before a root's undo starts, the holder writes the reserved tree key `@agboss/unwinding`
+  (`{ reason, cause }` — why the tree ends: `CompensationReason.ExecutionFailed` or
+  `ExecutionCancelled`, the error's name and message, and its durable record — #598: its class line
+  by code and its causes, so the instance that finishes the undo routes the failure as the first
+  one; the first one written is kept), and after
+  each undo action that succeeds `@agboss/compensated/<compensationKey>` (the automatic undo's own
+  key, `<step key>:compensation`); a child's own undo writes `@agboss/unwinding:<childExecutionId>`;
+- the root's record stays `running` until the undo ended — only then is it failed with its final
+  error ([Rollback](Rollback#an-execution-that-ends-without-a-finish)) — so a stop (`app.close()`
+  interrupting the undo at its shutdown timeout), a crash or a lost lease mid-undo leaves a
+  `running` root with `@agboss/unwinding` for the recovery sweep;
+- **whoever takes the tree's lease next** reads the key: recovery checks it before the
+  compatibility check (like a cancel request, on an instance of any config version), and a waiting
+  `resume` or a recovery at its lease take too. Found, the remaining undos run on the checkpoint
+  state (pending writes applied, the children's namespaces included), the ones marked done skipped,
+  then the tree ends failed with the recorded reason — its record failed, its pauses withdrawn, its
+  keys removed, `onExecutionError` once (`ExecutionCancelledError` for a cancel, an `AGBossError`
+  with the original message for a failure; `CompensationFailedError` when an undo failed) — and no
+  pass runs; the log says `compensation.recovered`;
+- **a child re-entered mid-undo** — the root's pass continued from its checkpoint, the child's step
+  run again — reads its own key before its next step: found, the child takes no step, finishes its
+  undo the same way and raises its error again, which its parent's side path may take.
+
+An undo that failed is not marked done: the next holder runs it again. Each undo action gets the
+same idempotency key on every instance, so an undo service that honours it sees one undo.
+
+## The shared state of one request
+
+`ExecutionTreeRepository` keeps keys under the request's root execution: visible to the whole tree
+of executions at any depth and on any instance, invisible to other requests, removed when the tree
+finishes, fails or is cancelled (a pause keeps them). `saveIfAbsent` is atomic — of two branches
+claiming one key exactly one gets `true`. Keys starting with `@agboss/` are reserved for the
+framework (`@agboss/cancel-request`, [above](#cancelling-from-any-instance); `@agboss/unwinding`,
+`@agboss/unwinding:<childExecutionId>` and `@agboss/compensated/<compensationKey>`,
+[above](#an-undo-interrupted-mid-way)). Keys come from
+identifiers in DTOs, never from text:
+
+<!-- snippet-context
+import { Text } from "@agboss/core/dto";
+export class SubtopicDto {
+  @Text({ prompt: "the subtopic's id" })
+  subtopicId!: string;
+}
+export class SubtopicClaimDto {
+  @Text({ prompt: "who researches it" })
+  researcher!: string;
+}
+-->
+
+```ts
+import { ExecutionTreeRepository, Tool, type ToolHandler } from "@agboss/core";
+
+@Tool({
+  name: "claim-subtopic-tool",
+  description: "Claims a subtopic once per request",
+  input: SubtopicDto,
+  output: SubtopicClaimDto,
+  deps: [ExecutionTreeRepository],
+})
+export class ClaimSubtopicTool implements ToolHandler<SubtopicDto, SubtopicClaimDto> {
+  constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
+
+  async run(input: SubtopicDto): Promise<SubtopicClaimDto> {
+    const claimed: boolean = await this.executionTreeRepository.saveIfAbsent(
+      `subtopic:${input.subtopicId}`, // by identifier, never by normalized text
+      true,
+    );
+    return { researcher: claimed ? "this branch" : "another branch" };
+  }
+}
+```
+
+## PII tokens across instances
+
+A `replaceWithToken()` token is an HMAC of the value, so one value is one token only under one key
+([Guards → PII policies](Guards#pii-policies)). With `@Application({ piiKeyField })` every instance
+has the same key: one value is one token everywhere. Without it (S94, #334) the key is the
+**execution's**: each root execution makes a random one when it starts and keeps it in its
+checkpoint (the state's `piiKey`, next to its token map `piiTokens`); its child workflows get it
+with the tokens. Whichever instance continues it — `app.resume` on another instance, a recovery
+after its holder died — reads the key from the checkpoint, so a value the model saw as
+`<author:3f9a1c>` before the pause is `<author:3f9a1c>` after it, in the parent and in its children
+alike. Another execution gives the same value another token. The key never leaves the checkpoint:
+traces show it as `***`, and logs and traces mask with a key of the instance. A checkpoint written
+before #334 has no key: its execution goes on with the key of the instance that continues it.
+
+## Your own implementation
+
+A project's implementation `extends` the contract and is listed in `@Application({ providers })`
+(`<Qualifier><Contract>`, e.g. `RedisExecutionLeaseRepository`). Its operations are atomic, and it
+decides expiry by the store's time (#533: `deps: [StoreClock]` — the database's own clock in each
+statement, or the test's when one is injected), never by the calling instance's `Clock`; `duration` is
+a duration, and every take and renewal answers the time left (`remaining`):
+
+<!-- snippet-context
+@Injectable()
+export class LeaseTableService {
+  insertIfFree(_tenantId: string, _rootExecutionId: string, _lease: number): Promise<ExecutionLease | undefined> {
+    return Promise.resolve(undefined);
+  }
+  extendIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
+  }
+  deleteIfHeld(_executionLease: ExecutionLease): Promise<void> {
+    return Promise.resolve();
+  }
+  markYieldedIfHeld(_executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    return Promise.resolve(undefined);
+  }
+  nextEpochIfHeld(_executionLease: ExecutionLease, _lease: number): Promise<ExecutionLease | undefined> {
+    return Promise.resolve(undefined);
+  }
+  markFinishedIfHeld(_executionLease: ExecutionLease): Promise<void> {
+    return Promise.resolve();
+  }
+  insertIdIfAbsent(_identity: ExecutionIdentity): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+  insertCancelIfAbsent(_tree: ExecutionTree): Promise<void> {
+    return Promise.resolve();
+  }
+  selectOne(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+-->
+
+```ts
+import {
+  ExecutionLeaseRepository,
+  Injectable,
+  type ExecutionIdentity,
+  type ExecutionLease,
+  type ExecutionTree,
+} from "@agboss/core";
+import type { Milliseconds } from "@agboss/core/units";
+
+@Injectable({ deps: [LeaseTableService] })
+export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
+  constructor(private readonly leaseTableService: LeaseTableService) {
+    super();
+  }
+
+  override acquire(
+    tenantId: string,
+    rootExecutionId: string,
+    duration: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    return this.leaseTableService.insertIfFree(tenantId, rootExecutionId, duration);
+  }
+
+  // #533: the time the lease has left, on the store's clock; undefined once it is over
+  override renew(
+    executionLease: ExecutionLease,
+    duration: Milliseconds,
+  ): Promise<Milliseconds | undefined> {
+    return this.leaseTableService.extendIfHeld(executionLease, duration);
+  }
+
+  override release(executionLease: ExecutionLease): Promise<void> {
+    return this.leaseTableService.deleteIfHeld(executionLease);
+  }
+
+  // #591: every execution id handed out, once, by the id alone — false for one any execution had
+  override claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
+    return this.leaseTableService.insertIdIfAbsent(identity);
+  }
+
+  // #520: the work under it is over — released for good, no acquire of the key gets it again
+  override retire(executionLease: ExecutionLease): Promise<void> {
+    return this.leaseTableService.markFinishedIfHeld(executionLease);
+  }
+
+  // #516: the holder waits for remote children — still its lease, refused to every other acquire;
+  // the time it has left, not extended (undefined once it is not the caller's)
+  override yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
+    return this.leaseTableService.markYieldedIfHeld(executionLease);
+  }
+
+  // #516: the holder's lease again, at token + 1 (undefined once another took it over)
+  override reclaim(
+    executionLease: ExecutionLease,
+    duration: Milliseconds,
+  ): Promise<ExecutionLease | undefined> {
+    return this.leaseTableService.nextEpochIfHeld(executionLease, duration);
+  }
+
+  // #909: the tree's cancel mark, durable on the fencing backend, idempotent, changing no lease
+  override requestCancel(tree: ExecutionTree): Promise<void> {
+    return this.leaseTableService.insertCancelIfAbsent(tree);
+  }
+
+  override ping(): Promise<void> {
+    return this.leaseTableService.selectOne(); // one round trip: what readiness calls (#300)
+  }
+}
+```
+
+Every store contract has `ping()` (#300): one fast round trip that resolves when the store answers
+and rejects with why when it does not — `app.checkReadiness()` calls it under a `seconds(2)`
+timeout, and a rejection or a timeout is that store's `Unhealthy` ([Health checks](Health-checks)).
+
+### Writing your own store: the published contract suites (#481)
+
+> **[Your own store](Your-own-store)** (#526) is the guide: what each contract must make atomic and
+> why, recipes for SQL, MongoDB, Redis, DynamoDB and Cassandra, and `storeConformance` — one call
+> that runs every contract a store set claims and refuses a set that leaves a fencing contract out.
+
+Stores live outside the core (a PostgreSQL or a Redis one in a repository of its own), so the core
+publishes the suites its own stores run: **`@agboss/core/testing/contracts`**, one function per
+contract — `executionLeaseContract`, `executionRecordContract`, `executionTreeContract`,
+`childExecutionQueueContract`, `pausedExecutionContract`, `executionHistoryContract`,
+`costLedgerContract`, `rateLimitContract`, `meshRequestContract` and `checkpointSaverContract`. The
+in-memory defaults and the SQLite implementations pass exactly these suites in the core's CI, so a
+store that passes them behaves as they do — two-instance cases (an atomic lease takeover, fencing
+epochs, the child queue's claim order, one of two concurrent transitions) included.
+
+A **`ContractTarget<TStore>`** says how to build the store under test:
+
+| Field | What it does |
+| --- | --- |
+| `name` | in the suite's title: `lease contract (PostgreSQL)` |
+| `instance(context)` | builds one instance's store — called twice per case, two instances on one backing store; sync or async |
+| `reset?()` | before each case: an empty backing store (truncate, a new schema, a new file); a failing reset fails the case with its error |
+| `close?(store)` | after each case, per built store: close connections |
+
+The **`StoreInstanceContext`** it builds from is the suite's: `storeClock` (#533: the time the store decides
+by — in most cases the suite's `VirtualClock` injected, one per case at `2026-01-05T09:00:00.000Z`,
+shared by both instances, moved only by the case, `StoreTimeSource.Test`; in the cases of the
+store's time as the authority the database's own, on real time, `StoreTimeSource.Database`), `clock`
+(the instance's own clock: the same `VirtualClock`, or in those cases the real time skewed for the
+second instance — a store that decides by it fails them), `instanceId` (`instance-1`,
+`instance-2`: the holder of leases, the claimer of queued children) and `application` (the instance's
+`ApplicationContext`). A case that needs one instance uses the first.
+
+<!-- snippet-context
+import { ExecutionLeaseRepository, type ApplicationContext, type StoreClock } from "@agboss/core";
+declare class Pool { query(sql: string): Promise<void>; end(): Promise<void>; }
+declare const pool: Pool;
+declare const PostgresExecutionLeaseRepository: new (
+  pool: Pool,
+  clock: StoreClock,
+  applicationContext: ApplicationContext,
+) => ExecutionLeaseRepository;
+-->
+
+```ts
+// tests/postgres-lease.contract.test.ts — in the store's own repository, run by vitest
+import { executionLeaseContract } from "@agboss/core/testing/contracts";
+
+executionLeaseContract({
+  name: "PostgreSQL",
+  instance: (context) => new PostgresExecutionLeaseRepository(pool, context.storeClock, context.application),
+  reset: () => pool.query("TRUNCATE execution_leases"),
+});
+```
+
+Each function registers `describe("<contract> contract (<name>)")` with one case per rule, named as
+the core names them (`a tree's lease held by one instance is not given to the other`), and ends with
+`ping() resolves on both instances`; a failure in the store's repository reads the same as in the
+core. The suites test the store, not the framework over it: the cases that run a whole application
+(`testWith`) stay in the core's own tests. `@agboss/core/testing` does not re-export them, so a
+project's ordinary tests never load them ([ADR-0024](ADR-0024-Published-store-contract-suites)).
+
+
+#### On the public surface alone (#511)
+
+What `@agboss/postgres` needed and the core now gives every store outside it:
+
+- **Its round trips finish inside `advance`**: each case's stores are wrapped so every call that
+  returns a promise is tracked on the case's `VirtualClock` (`clock.track`, [Testing](Testing)) — the
+  framework's lease holder renewing through the store included. No wait of the store's own around
+  `advance` is needed.
+- **LangGraph's savers pass as they are**: `checkpointSaverContract` passes `put` the versions of the
+  channels it changed, as LangGraph does, so a saver that writes a value only for the versions it is
+  given (LangGraph's `PostgresSaver`, blobs by channel and version) passes without a wrapper writing
+  every channel; the core runs the suite on LangGraph's `MemorySaver` and on such a saver.
+- **Every type a contract names is exported** by the root entry or `@agboss/core/stores` (#890: the
+  store-implementer entry, which re-exports the contracts and every type they name, and alone has
+  the rows at a store's boundary and the store helpers) — `Turn`, `NewTurn`, `TurnOutcome`,
+  `Summary`, `NewSummary`, `ConfigSnapshot`, `VersionScore`, `ExecutionData`, `CostReport`, `Usd`,
+  `Milliseconds`, … — never derived with `Parameters` / `ReturnType`; a test of the core fails when a
+  contract's member names one that is not. A ledger sums the entries `saveAll` hands it with the
+  core's own **`totalCost(entries)`** (#521, a `Usd`), never a copy of it, over (each of
+  `@agboss/core/stores`)
+  **`unrecordedEntriesOf(entries, isNew)`** (#727, #817): each entry whose id it inserts in the same
+  transaction (`isNew(ledgerId, madeAt: Date)` answers whether the insert added it) — an entry
+  counts once —, after **`assertLedgerEntries(entries)`** refused anything but a `LedgerEntry` and
+  **`expiredEntriesOf(entries, prunedBefore, isHeld)`** named the entries made before its mark that
+  it does not hold (#771).
+- **Any text comes back as it was handed over (#521)** — a NUL character (U+0000) included, which a
+  model's or a tool's answer may hold: each suite of a contract that keeps text or JSON (records and
+  summaries, history, paused executions, the tree, the child queue, the audit log, mesh requests,
+  fenced effects, outbound calls, checkpoints) has a case `#521 AC4: … with a NUL character (U+0000)
+  reads back unchanged`. PostgreSQL's `jsonb` and `text` reject U+0000: keep framework JSON as
+  `text` holding JSON (where U+0000 is the escape `\u0000`), and free text as JSON text too. The
+  core's SQLite record store does so for a task, an answer, a stop reason and a summary
+  (`node:sqlite` reads a TEXT value only up to a NUL), migration 14 rewriting an older file's rows.
+- **Its mesh tests sign as a peer with `signedMeshEnvelope`** (`@agboss/core/testing`, #521,
+  [A2A](A2A#trusted-peers--signed-envelopes-398-pr-2)) — the real client's header, never a JWS built
+  by hand.
+- **Its connection declares its environment fields**, checked at assembly like `sqlitePath`
+  ([Environments](Environments)):
+
+<!-- snippet-context
+import { ApplicationContext, EnvironmentField, Injectable } from "@agboss/core";
+-->
+
+```ts
+@Injectable({
+  deps: [ApplicationContext],
+  environmentFields: {
+    postgresUrl: EnvironmentField.secret(),
+    postgresPoolSize: EnvironmentField.integer({ optional: true }),
+  },
+})
+export class PostgresConnection {
+  constructor(readonly applicationContext: ApplicationContext) {}
+}
+// a store with deps: [PostgresConnection, …] listed while the contract lacks postgresUrl:
+// [environment.missing-field] PostgresExecutionLeaseRepository needs postgresUrl: Secret in
+// AppEnvironment (read by PostgresConnection)
+```
+
+## Testing several instances
+
+> **Real processes.** What holds when real pods on one database are stopped, killed, frozen or cut off
+> — one owner per tree, every child and charge once, no undo on a hand-over — is proven by the
+> fault suite (#484): [Guarantees across processes](Guarantees-across-processes).
+
+`testWith(App, { instances: 2 })` runs two application instances in one test — `apps[0]` (= `app`)
+and `apps[1]`, each with its own container and instance id — over one set of stores and one clock
+(`clock`, shared). With the in-memory defaults the instances share their rows, so the framework's
+own implementations are tested across instances; nothing is substituted, so an application that
+lists its own implementations is tested on those (against Testcontainers, or with its injected
+client replaced by `mockOf(…)`).
+
+**SQLite stores are shared only through a file** (#458). Each instance opens its own connection
+([above](#sqlite--several-instances-on-one-machine)), and SQLite's `:memory:` is one database per connection: with
+`sqlitePath: ":memory:"` — the usual `test` environment — the two instances of
+`testWith(App, { instances: 2 })` each get an empty database of their own, and a pause made on
+`app` is not found on `apps[1]`. A multi-instance test runs on an environment whose `sqlitePath` is
+a file, a fresh one per test process, as flow-patterns' `instances` environment does:
+
+```ts no-check: AppEnvironment is the project's environment contract (see Environments)
+// src/environments/instances.environment.ts
+export const environment: AppEnvironment = {
+  sqlitePath: join(mkdtempSync(join(tmpdir(), "app-instances-")), "stores.sqlite"),
+};
+
+const test = testWith(App, { instances: 2, env: "instances" });
+```
+
+```ts no-check: the application and its workflow are a project's own (see Testing)
+const test = testWith(LeaseApplication, { instances: 2 });
+
+test("a pause made on one instance is resumed on the other", async ({ app, apps, mockLlm }) => {
+  mockLlm(ClerkAgent).thenReturn(callTool(ChargeTool, { amount: "10" }), replyWith("Charged."));
+  const paused = await app.execute(OrderWorkflowStart, { text: "charge" });
+
+  const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id
+  const resumed = await apps[1].resume({ pauseId, decision: { approved: true } });
+
+  expect(resumed.output).toEqual({ text: "Charged." });
+});
+
+test("a holder frozen past the lease loses it", async ({ clock }) => {
+  // … one instance moves the tree, the other waits for it …
+  await clock.advance(seconds(31)); // the time jumps: the waiting instance takes the lease first
+});
+```
+
+Recovery is tested the same way: kill one instance (a lease store of the test's own whose
+`renew` answers `false` and whose `acquire` gives nothing for that instance — a crashed process, as
+the store sees it), `await clock.advance(seconds(31))`, and the other instance's sweep continues the
+tree; or `await app.close({ timeout })` with an execution still running, and the other instance
+continues it at its next sweep.
+
+**A zombie writer** (#471). The `leases` fixture freezes one instance's lease while its step code
+runs on: `leases.freeze(apps[0])` holds that instance's lease store calls (taking, renewing,
+releasing — around `ExecutionLeaseRepository`, whichever implementation is listed) and its lease
+timers (the background renewal and the local expiry, on the shared `VirtualClock`);
+`leases.thaw(apps[0])` lets them go, the held timers firing at once, as after `SIGCONT`. With a
+step frozen after `fence.assertHeld()` and before its write (inside the window), `await
+clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over under token 2 and write;
+the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A frozen
+instance is resumed at the end of its test.
+
+The fenced effect is tested the same way (#500): a step frozen **before** its
+`runOnce` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
+is frozen before its own effect; a step frozen **after** it (a crash before the checkpoint) lets
+`apps[1]` replay the stored result, the write made once. Unit runners give the store their held
+lease (`fence: { token }`; `isLost` or a clock past `trustedUntil` refuses).
+
+`clock` is the test's `VirtualClock` — one for all the instances of the test, the `Clock` every one
+of them reads ([Testing → The clock](Testing#the-clock)). `await clock.advance(d)` lets the work
+already started reach its next wait, moves the time, then wakes every wait that is due in time
+order (lease renewals, a resume waiting for a lease, the recovery sweep) — a jump longer than the
+lease is a holder frozen for that long.
+
+## Probes of an instance (#300)
+
+Each instance answers its orchestrator's probes through `app.checkLiveness()` and
+`app.checkReadiness()` — the project's server maps them to its endpoints ([Health checks](Health-checks)).
+Liveness does no I/O: an instance that is stopping (`app.close()`, SIGTERM) is `Unhealthy`
+(`stopping`) so the orchestrator stops sending it traffic while it drains, and a recovery loop whose
+last sweep ended more than three sweep intervals (90 s) ago is `Unhealthy` (`stuck: …`) — a store it
+waits on that never answers. Readiness adds every store's `ping()` and the circuit breakers of the
+model providers as `RateLimitRepository` keeps them for every instance: an open breaker makes every
+instance `Degraded` at once (it still serves; calls go to the fallback or fail fast), never
+`Unhealthy`. An instance that caps its steps ([below](#an-instances-cap-on-steps-332)) is `Degraded`
+while every step slot is busy.
+
+## An instance's cap on steps (#332)
+
+One instance has finite memory and CPU: a burst of `app.execute` calls across tenants, or trees that
+fan out into many parallel agents on the same pod, would otherwise all run in it at once.
+`@Application({ maxConcurrentSteps })` caps how many **agent, router and action steps** — each
+branch of a parallel launch is one — this instance runs at once, over every tree and every tenant:
+
+<!-- snippet-context
+import { Application, EmptyEnvironment } from "@agboss/core";
+export class DeskWorkflow {}
+export class ApplicationDailyBudget {}
+export class TenantDailyBudget {}
+export class ExecutionBudget {}
+-->
+
+```ts
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [DeskWorkflow],
+  budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
+  maxConcurrentSteps: 32, // this instance's agent, router and action steps at work at once
+})
+export class DeskApplication {}
+```
+
+- A whole number from 1 (`[limits.max-concurrent-steps-invalid]` at assembly: 0, -1 and 2.5 fail);
+  **unset → no cap** — nothing changes for an application that does not set it.
+- A step takes its tree's slot ([`maxConcurrentExecutions`](FinOps#concurrency-of-a-tree-264)), then
+  one of the instance's, with the same claim; both are released when the step ends, fails or
+  pauses. A start, a finish, a join and a child workflow's node take none.
+- A step without a free slot **waits** — never an error — in the same order as the tree's queue: a
+  step that closes a branch (right after its child, or its children's join) first, then the
+  deepest execution, every 10 s of waiting counted as one level deeper (`AGING_STEP`, on the
+  `Clock`); a new root's first step is depth 1, so it comes last. A waiter whose execution is
+  cancelled, or whose launch fails fast, leaves the queue. A quorum's `deadline` excludes the
+  time its branches wait for either slot.
+- A step waiting in a model provider's rate-limit queue (#266) **keeps** its slot.
+- No deadlock: a launch's slot comes before the tree's, the tree's before the instance's, and a
+  step holding an instance slot needs nothing else to end. The one exception is your own: a tool
+  that calls `app.execute` on the same instance while its step holds a slot needs a slot of its own.
+- At `app.close()` the waiting steps wait with the running ones until a grace before the end of the
+  shutdown timeout (#367 S3), then are interrupted like them (`ApplicationStoppingError`, the record stays `running`, the lease released
+  at once) and another instance [recovers](#recovery) the tree.
+- **Recovery** on a full instance: its sweep starts at most as many recoveries per look as it has
+  free step slots — none when it is full — so the orphans go to an idle instance. A look cut short
+  that way goes on where it stopped the next time, so every `running` root is reached in turn.
+- **Children on any instance** are claimed while the instance has room: its free slots, less one
+  for each child it claimed that holds no slot at the moment (before its first step, between two)
+  — a child at work is counted once, by the slot it holds (#767). An instance of 32 free slots
+  keeps 32 children at work while the queue has more, and never claims more children than its slots.
+- **Readiness**: a full instance reports the component `step-slots`
+  ([`HealthComponentKind.StepSlots`](Health-checks#the-report)) as `Degraded` —
+  `"32 of 32 step slots busy, 7 steps waiting"` — and `Healthy` again once a slot frees; liveness is
+  not affected. A load balancer that reads readiness sends new requests to the other instances.
+- `agboss describe` prints `maxConcurrentSteps 32 (set)` (or `none (not set)`); `describe --json` has
+  `application.maxConcurrentSteps` (`null` when unset).
+- The slots are in-process (one `StepSlots` per `createApp`); they are not shared through a store —
+  each instance caps itself.
+- **Metrics** (#485): `agboss.instance.step_slots.busy` / `.free` / `.limit` and
+  `agboss.instance.steps.waiting` publish these slots through the app's OpenTelemetry meter, and
+  `agboss.cluster.children.queued` the work queued for them — [Metrics](Metrics).
+
+## Children on any instance (#333)
+
+A whole execution tree normally runs on the instance that holds its lease. A child launched with
+`placement: ChildPlacement.AnyInstance` ([Workflow as a step](Workflow-as-a-step#on-any-instance-333-pr-2))
+may run on **any** instance instead, through the application's `ChildExecutionQueueRepository`
+(#333 PR 2):
+
+1. The parent's node saves the child to the queue — `saveIfAbsent`, keyed by `(tenantId,
+   executionId)`, its row `Queued` with what a worker needs to run it (its first state, its own
+   thread, its parents as plain data, serialized with the checkpointer's `serde`) — and waits inside
+   its step on that row: woken at once when the child ends in the same process, else reading the row
+   every second on the `Clock`. While waiting, the parent yields its lease in
+   `ExecutionLeaseRepository` and reclaims it before continuing (#333 PR 4, S9) — yielded, not
+   released: other instances see the tree held ([#516](#a-parent-waiting-for-remote-children-516)).
+2. Every instance whose workflows launch such a child claims queued rows while it has a free step
+   slot ([#332](#an-instances-cap-on-steps-332); no cap → always): at once when a child is queued in
+   its own process or when the store's watch wakes it (#777, [below](#woken-by-the-store-777)), and
+   at every sweep (30 s), which claims whatever a lost wake-up left queued.
+   `claimFirstByStatusQueuedOrderByDepthDesc` takes the deepest child first, then the longest
+   waiting, and marks it `Running` with its `instanceId` — atomically (`BEGIN IMMEDIATE` on SQLite),
+   so of two instances exactly one gets it.
+3. The claiming instance holds a 30 s lease in `ExecutionLeaseRepository` under
+   `(tenantId, childExecutionId)`, runs the child as a root graph on its own thread (ADR-0022) on
+   the same checkpointer, then `completeByTenantIdAndExecutionId` marks the row `Answered`,
+   `Paused` (when the child rests at a pause) or `Failed` (the names, codes and messages of its
+   error chain). When the row is `Paused`, the parent's node interrupts with a `remote: true`
+   waiting marker so the pause appears in `result.pending`, and on `app.resume` forwards the child's
+   resume map through the queue so any instance continues it (#333 PR 4). On a worker crash or a
+   graceful stop past `shutdownTimeout` (S7), the row stays `Running`, and once the child's lease is
+   free a live worker reclaims only that child and continues it from its last checkpoint. The
+   reclaiming worker takes the lease, queues the child again and keeps the lease only for its own
+   next claim of it, in the same look; a child that look does not start (claimed elsewhere, or a
+   claim whose answer was lost) gets its lease back (#720), so a lease is never renewed with no pass
+   behind it — `s16-claim-answer-lost` ([Guarantees across processes](Guarantees-across-processes)). An
+   `Answered` or `Failed` child's lease is **finished**, not released
+   ([below](#finished-work-is-never-taken-over-520)); a `Paused` one's is released, for its resume.
+4. While it runs, the worker looks every 10 s whether the tree still waits for it: a cancel request
+   ([Cancelling from any instance](#cancelling-from-any-instance)) or the tree's end — its root's end
+   removes its rows (`deleteAllByTenantIdAndRootExecutionId`) — aborts it.
+
+List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or your own `extends
+ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
+(a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer, the
+ledger, the leases, the paused executions and `RateLimitRepository` must be shared for a child to
+run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions`
+is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
+`:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
+are checked where the child runs, and each spend reaches the root's counters the moment it is made
+(#727), the child queued only once its parent's spend is there (#732).
+
+### Woken by the store (#777)
+
+Without a wake-up from the store, an instance sees a child queued in another process only at its
+next sweep: a pod that has just scaled out, or one whose last look found the queue empty, idles up
+to 30 s while children wait. A store that can be woken implements the optional
+`watchQueued(onQueued)` of `ChildExecutionQueueRepository`, which answers a
+`ChildExecutionQueueWatch` (`close()`):
+
+- Each instance opens one watch when its claimers start, before the sweep's first look; one that
+  rejects is warned (`child-queue.watch-failed`) and opened again at the next sweep. It is closed at
+  `app.close()`.
+- `onQueued` is a **hint**: it names no child. The woken instance claims as usual — only when it has
+  room (a wake-up with every slot busy asks the store nothing), atomically, the deepest first — and
+  of several instances woken by one child, one gets it.
+- **A lost wake-up never loses work.** A dropped connection, a notification never delivered, a watch
+  that did not open: the child stays `Queued` and the next sweep (every 30 s) claims it. A watch
+  whose connection comes back calls `onQueued` once, for a child queued while it was down.
+- **No load on an empty queue**: a watch waits on the store's own push; nothing is polled.
+
+| Store | Wake-up |
+| --- | --- |
+| in-memory, SQLite | none: a child queued in the same process wakes its claimers at once (an in-process hint), any other at the sweep |
+| PostgreSQL ([Running on PostgreSQL](Running-on-PostgreSQL)) | `LISTEN` / `NOTIFY`: the save that queues a child notifies in its own statement, delivered at commit; one listening connection per instance |
+| MongoDB ([MongoDB](MongoDB)) | a change stream on the queue's collection (the replica set the stores require anyway): a document that becomes `queued` |
+
+The contract suite (`childExecutionQueueContract`) checks a store's watch when it has one: a child
+queued — or queued again — on another instance wakes it, and it is claimed on the wake-up.
+
+### Finished work is never taken over (#520)
+
+An instance that froze (a GC pause, `SIGSTOP`, a stalled network) may wake up holding a decision it
+made before: a worker that read a child's queue row `Running` and asked for its lease, a recovery
+sweep that listed a root still `running`. By then another instance may have finished that work.
+Before #520 the waking instance took the lease that had meanwhile been released — a `RemoteChild`
+or `Recovered` row in the [audit log](#the-audit-log-501) for work that was over — and a child's
+worker even kept that lease, renewed, until its instance stopped. Now:
+
+- **A finished child's lease is never given again.** The worker that ends a child `Answered` or
+  `Failed` gives its lease up with `ExecutionLeaseRepository.retire`, after it completed the queue
+  row: a release for good — every later `acquire` of `(tenantId, childExecutionId)` is refused, by
+  any instance, at any time. The refusal is the lease store's own atomic step, so a worker frozen
+  right at its `acquire` gets nothing however long it slept. A `Paused` child's lease is released
+  as before: `app.resume` runs it again.
+- **A take looks at its work before and after the store.** A worker's claim or reclaim of a child
+  reads the child's queue row — still the claim it took or wants to take over? — and the sweep's
+  takes of a root (to continue it, to end its cancel request or its undo) read the root's record —
+  still `running`? —, once before `acquire` and again once the store gave the lease. Over before →
+  no lease asked for; over after → the lease goes back at once (released, not left to expire). In
+  both cases no `Takeover` row and no `onExecutionLeaseTakeover`. A read that fails counts as not
+  over: the take goes on as before.
+- A worker's claim whose lease was not free puts the child back in the queue only while its row is
+  still that claim — never a child another worker ended or paused, nor one whose tree ended.
+
+A root's lease is released, never finished: `app.resume` of a pause the holder already took waits
+for that lease and then returns the tree's current output.
+
+## Limits
+
+- With the in-memory defaults nothing is shared between instances and nothing survives a restart:
+  run one instance, or list shared stores.
+- **SQLite on one file serves one machine**: its locks are local, so instances on several machines
+  need a networked store (your own implementation over Postgres, Redis, …). A file on a network
+  share is not supported.
+- **SQLite in memory is not SQLite on disk**: `sqlitePath: ":memory:"` gives each connection its
+  own database — instances do not share it, a restart (`recoverApp()`) starts empty, and there are
+  no locks between writers. A test of several instances or of a restart on SQLite uses a
+  temporary file.
+- With the in-memory defaults nothing survives a restart, so there is nothing to recover:
+  recovery works with persistent stores (records, checkpoints, paused executions, leases).
+- A stop releases its leases at once, but the other instances notice at their next sweep (within
+  30 s); a crashed instance's trees wait for their lease to expire first (up to 30 s more).
+- A cancel from another instance reaches a running execution within one lease renewal (10 s, or
+  its next checkpoint write), not at once; one made before the execution's `running` record exists
+  is not seen ([Cancelling from any instance](#cancelling-from-any-instance)).
+- Fairness between tenants waiting for a model provider's slots is per instance (#266): the
+  tenant-fair queue is in-process, and between instances a slot goes to whoever takes its lease
+  first. So is the AIMD slowdown after a 429 — the pause itself, the hard caps (`maxConcurrentCalls`,
+  `perMinute`) and an open circuit breaker are shared through `RateLimitRepository`.
+
+## A model provider's rate limit across instances (#266)
+
+`RateLimitRepository` holds three kinds of state, each atomic across instances:
+
+- **slots** — `acquire(key, maxSlots, lease)` / `renew` / `release`: a provider's
+  `maxConcurrentCalls` (`<provider>:slots`), a lease of a minute renewed while a call runs;
+- **windows** — `addToWindow(key, amount, window, limit?)` (the new total, `undefined` when it would
+  pass `limit`; `amount` 0 reads it) and `clearWindow(key)`: the per-minute calls and tokens, and a
+  circuit breaker's failures;
+- **pauses** — `pauseUntil(key, until)` (a later pause is kept) and `pausedUntil(key)`: the pause
+  after a 429 (`<provider>:cooldown`) and an open breaker (`<provider>:circuit-open`).
+
+`SqliteRateLimitRepository` keeps them in `rate_limit_slots`, `rate_limit_window_entries` and
+`rate_limit_pauses`; a file an older version wrote gets the two new tables when it is opened. Your
+own implementation (Redis, …) `extends RateLimitRepository` and implements all eight methods (`ping()` included, #300); the
+published `rateLimitContract` (`@agboss/core/testing/contracts`, [above](#writing-your-own-store-the-published-contract-suites-481))
+is the behaviour to match.
+
+**Standalone executable proof:** [`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

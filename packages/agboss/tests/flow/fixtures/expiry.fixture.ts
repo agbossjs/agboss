@@ -27,10 +27,11 @@ import type {
   OnExecutionResume,
 } from "../../../src/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
-import { hours, minutes } from "../../../src/units/index.js";
+import { Clock } from "../../../src/infrastructure/clock.js";
+import { hours, minutes, seconds } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { start, toQuestion } from "./paths.js";
+import { start, toAction, toQuestion } from "./paths.js";
 
 /**
  * #941 — a pause with a deadline: an order the manager approves within 24 hours; when nobody
@@ -85,9 +86,14 @@ export const expiry = {
   resumes: [] as ExecutionResumeEvent[],
   /** The executions that ended at a finish. */
   ended: [] as ExecutionEndEvent[],
+  /** The orders whose slow escalation started, and ended. */
+  slowStarted: [] as string[],
+  slowEnded: [] as string[],
   /** The application's pause store. */
   stores: [] as InMemoryPausedExecutionRepository[],
   behavior: undefined as ExpiryBehavior | undefined,
+  /** Runs inside the resume observer, between an expiry's record and its pass. */
+  onResume: undefined as (() => Promise<void>) | undefined,
 };
 
 /** The pause store of the test (an instance's: they share it). */
@@ -110,7 +116,10 @@ export function resetExpiry(): void {
   expiry.resumes.length = 0;
   expiry.ended.length = 0;
   expiry.stores.length = 0;
+  expiry.slowStarted.length = 0;
+  expiry.slowEnded.length = 0;
   expiry.behavior = undefined;
+  expiry.onResume = undefined;
 }
 
 @ChannelRole({
@@ -273,6 +282,52 @@ export class ShortExpiryWorkflowStart {}
 })
 export class ShortExpiryWorkflow {}
 
+/** The escalation of a slow desk (#1071): a step of 30 s on the injected clock (a model call, a slow tool). */
+@Action({
+  name: "slow-escalation-action",
+  description: "Escalates, slowly",
+  input: { order: ExpiryOrderDto },
+  output: ExpiryDoneDto,
+  deps: [Clock],
+})
+export class SlowEscalationAction implements ActionHandler<SlowEscalationAction> {
+  constructor(private readonly clock: Clock) {}
+
+  async execute({ order }: InputOf<SlowEscalationAction>): Promise<OutputOf<SlowEscalationAction>> {
+    expiry.slowStarted.push(order.value.orderId);
+    await this.clock.sleep(seconds(30));
+    expiry.slowEnded.push(order.value.orderId);
+    return { status: `${order.value.orderId}: escalated slowly` };
+  }
+}
+
+@WorkflowStart({
+  name: "slow-expiry-workflow-start",
+  description: "An order",
+  input: ExpiryOrderDto,
+})
+export class SlowExpiryWorkflowStart {}
+
+/** The manager has 3 seconds; the failure goes to a 30 s escalation step. */
+@Workflow({
+  name: "slow-expiry-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SlowExpiryWorkflowStart)
+      .returns(ExpiryOrderDto)
+      .toQuestion(ManagerQuestion, { expiresIn: seconds(3) })
+      .onError(
+        PauseExpiredError,
+        toAction(SlowEscalationAction).returns(ExpiryDoneDto).toFinish(ExpiryWorkflowFinish),
+      )
+      .returns(ExpiryDecisionDto)
+      .toAction(RecordExpiryAction)
+      .returns(ExpiryDoneDto)
+      .toFinish(ExpiryWorkflowFinish),
+  ],
+})
+export class SlowExpiryWorkflow {}
+
 @WorkflowStart({ name: "reviewer-workflow-start", description: "An order", input: ExpiryOrderDto })
 export class ReviewerWorkflowStart {}
 
@@ -374,8 +429,9 @@ export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecuti
     expiry.errors.push(event.error);
   }
 
-  onExecutionResume(event: ExecutionResumeEvent): void {
+  async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
     expiry.resumes.push(event);
+    await expiry.onResume?.();
   }
 }
 
@@ -383,7 +439,14 @@ export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecuti
   name: "expiry-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ExpiryWorkflow, ShortExpiryWorkflow, ReviewerWorkflow, PlainWorkflow, OwnerWorkflow],
+  workflows: [
+    ExpiryWorkflow,
+    ShortExpiryWorkflow,
+    SlowExpiryWorkflow,
+    ReviewerWorkflow,
+    PlainWorkflow,
+    OwnerWorkflow,
+  ],
   budgets: TEST_BUDGETS,
   providers: [
     ManagerChannel,

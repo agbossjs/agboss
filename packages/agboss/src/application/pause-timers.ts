@@ -18,6 +18,8 @@ export interface TimerLook {
   /** What the log names when it fails. */
   readonly name: string;
   readonly run: () => Promise<void>;
+  /** Resolves once the work this look started beyond its tick ended (the stop awaits it). */
+  readonly settled?: () => Promise<void>;
 }
 
 /** The loop of one instance. */
@@ -60,6 +62,7 @@ class Loop implements PauseTimers {
   async stop(): Promise<void> {
     this.#stopped.abort();
     await this.#loop;
+    await Promise.all(this.sources.looks.map((look) => look.settled?.()));
   }
 
   async #run(): Promise<void> {

@@ -8,6 +8,7 @@ import type {
   PauseNoticeFacts,
   PauseNoticeKind,
   PausePage,
+  PauseScanAfter,
   PauseRecipients,
   SetAsideMailbox,
 } from "./pause-notices.js";
@@ -29,6 +30,16 @@ const byTimeOf =
     compareText(a[field] ?? "", b[field] ?? "") ||
     compareText(a.tenantId, b.tenantId) ||
     compareText(a.pauseId, b.pauseId);
+
+/** Whether a pause at `time` comes after the keyset `after` in `(time, tenantId, pauseId)` order. */
+const isPast = (
+  after: PauseScanAfter,
+  time: string,
+  pause: Pick<PauseRecord, "tenantId" | "pauseId">,
+): boolean =>
+  (compareText(time, after.at) ||
+    compareText(pause.tenantId, after.tenantId) ||
+    compareText(pause.pauseId, after.pauseId)) > 0;
 
 /** Whether a pause is open: `Pending` or `Resolved`. */
 const isOpen = (pause: PauseRecord): boolean =>
@@ -55,13 +66,18 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     );
   }
 
-  async findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {
+  async findPendingByExpiresAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
     const due = this.pauses().filter(
       (pause) =>
         pause.status === PauseStatus.Pending &&
         pause.expiresAt !== undefined &&
-        pause.expiresAt <= at.toISOString(),
+        pause.expiresAt <= at.toISOString() &&
+        (after === undefined || isPast(after, pause.expiresAt, pause)),
     );
     return Promise.resolve(due.sort(byTimeOf("expiresAt")).slice(0, limit));
   }

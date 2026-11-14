@@ -81,6 +81,18 @@ export interface PauseNoticeClaim {
   readonly until: Date;
 }
 
+/**
+ * Where a due-scan (`findPendingByExpiresAtBefore`) continues: after the last pause of the page
+ * before, by the scan's own order `(time, tenantId, pauseId)` — a keyset, so pauses that stay
+ * pending (nobody can move them) are passed, never read again within one sweep (#1070, #1072).
+ */
+export interface PauseScanAfter {
+  /** The last pause's time on the scanned column (`expiresAt`), ISO text. */
+  readonly at: string;
+  readonly tenantId: string;
+  readonly pauseId: string;
+}
+
 /** A page of pauses; `next` is the opaque cursor of the page after it, absent on the last. */
 export interface PausePage {
   readonly pauses: readonly PauseRecord[];
