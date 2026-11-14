@@ -293,6 +293,29 @@ describe("#824: a task's stream", () => {
     });
   });
 
+  it("#1006: a retraction of a step the client does not show is no event; of the one shown, an empty chunk", async () => {
+    const { task, runs, parts } = await setUp();
+    let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+    void runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>(() => undefined);
+    });
+    const stream = taskStream(parts, task, {
+      end: StreamEnd.Terminal,
+      signal: new AbortController().signal,
+    });
+    await nextOf(stream);
+    const other = { ...STEP, branch: "another-execution" };
+
+    emit({ kind: "textDelta", delta: "he", step: STEP });
+    expect(await nextOf(stream)).toStrictEqual(delta(task, "he", false));
+    emit({ kind: "discarded", step: other, reason: "judge-rejected" });
+    expect(await nextOf(stream)).toBe("stuck");
+    emit({ kind: "discarded", step: STEP, reason: "judge-rejected" });
+
+    expect(await nextOf(stream)).toStrictEqual(delta(task, "", false));
+  });
+
   it("a run started after the stream is heard once the stream read a change", async () => {
     const { tasks, task, runs, parts } = await setUp();
     const stream = taskStream(parts, task, {

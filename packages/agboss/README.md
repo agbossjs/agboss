@@ -1301,6 +1301,14 @@ On A2A the output artifact shows one step at a time: a retry or another step sta
 it with an empty last chunk before its final status. `agboss run` prints `[Retracted: <reason>]`
 to stderr.
 
+The stream is **revealed and trimmed as the reply is** (#1007): when the agent has PII policies, a
+token the model wrote (`<email:9cf08e>`) is shown as the value the run's map holds, also when the
+model writes it in pieces — a `<` is held back only while what follows can still be a token, so a
+`<` in code text costs one character of delay; a token the run never minted is shown as its kind
+(`<email>`) and the attempt is refused as an invalid answer. Leading whitespace of a reply is not
+streamed and trailing whitespace is held until text follows it, so the deltas of the steps that
+were not discarded, joined, are exactly `output`.
+
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
 every instance looks for `running` roots at its start and every 30 s, takes the lease of each whose
 holder died (its lease expired) or stopped (released it), and continues it from its last

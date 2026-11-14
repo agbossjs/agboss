@@ -64,3 +64,12 @@ describe.each(READMES)("#1006 AC5: %s", (file) => {
     expect(text).toContain("append: false");
   });
 });
+
+describe.each(READMES)("#1007: %s", (file) => {
+  it("says the stream is revealed and trimmed as the reply is", () => {
+    const text = readFileSync(join(repo, file), "utf8").replace(/\s+/g, " ");
+    expect(text).toContain("revealed and trimmed as the reply is");
+    expect(text).toContain("shown as its kind");
+    expect(text).toContain("are exactly `output`");
+  });
+});

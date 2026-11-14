@@ -1,6 +1,9 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
+import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { DiscardReason, StreamStep } from "../types.js";
 import type { RunStream } from "./run-stream.js";
+import { Trimmer } from "./trim.js";
+import { Unmasker } from "./unmask.js";
 
 /**
  * What an agent's visit streams (#1006): one `AgentStream` per visit, one `AttemptStream` per model
@@ -17,22 +20,39 @@ export class AttemptStream {
   #emitted = false;
   #discarded = false;
   readonly #held: string[] = [];
+  readonly #unmask: Unmasker | undefined;
+  readonly #trim = new Trimmer();
 
+  /** `tokens`: the run's PII tokens, set when the agent's model reads through PII policies. */
   constructor(
     private readonly step: StreamStep,
     private readonly sink: RunStream,
     private readonly isHeld: boolean,
-  ) {}
+    tokens: PiiTokenMap | undefined,
+  ) {
+    this.#unmask = tokens === undefined ? undefined : new Unmasker(tokens);
+  }
 
-  /** One token of the model's text. */
+  /** One token of the model's text, revealed and trimmed as the reply will be (#1007). */
   push(token: string): void {
-    if (this.#discarded) return;
+    this.#show(this.#unmask?.push(token) ?? token);
+  }
+
+  /** The model call ended: what was held back for a possible token is text now. */
+  end(): void {
+    this.#show(this.#unmask?.end() ?? "");
+    this.#trim.end();
+  }
+
+  #show(text: string): void {
+    const shown = this.#trim.push(text);
+    if (this.#discarded || shown === "") return;
     if (this.isHeld) {
-      this.#held.push(token);
+      this.#held.push(shown);
       return;
     }
     this.#emitted = true;
-    this.sink.emit({ kind: "textDelta", delta: token, step: this.step });
+    this.sink.emit({ kind: "textDelta", delta: shown, step: this.step });
   }
 
   /** Retracts the attempt: what reached the consumer is discarded, what was held is dropped. */
@@ -64,8 +84,8 @@ export class AgentStream {
   ) {}
 
   /** The next model call of the visit, `attempt` from 1. */
-  begin(attempt: number): AttemptStream {
-    const stream = new AttemptStream({ ...this.site, attempt }, this.sink, this.isHeld);
+  begin(attempt: number, tokens?: PiiTokenMap): AttemptStream {
+    const stream = new AttemptStream({ ...this.site, attempt }, this.sink, this.isHeld, tokens);
     this.#last = stream;
     return stream;
   }
