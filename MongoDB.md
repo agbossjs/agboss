@@ -92,6 +92,13 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   `AnyInstance` children conflict and retry. It is **schema version 2** — run `agboss-mongodb
   migrate` before rolling out the version that writes it (an older instance neither writes nor
   reads the collection). Documents older than the fencing stores' retention are pruned with them.
+- **The pause store** (#938, contract v2) — a pause change is one compare-and-set on the pause's
+  document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
+  instances exactly one records an expiry or an extension, and the per-recipient notices are
+  appended in the same transaction, in order (`noticeOnce` is a guarded upsert, not a duplicate-key
+  error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
+  later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`) — run
+  `agboss-mongodb migrate` first; it backfills the pause channels.
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not
