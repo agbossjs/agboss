@@ -157,8 +157,8 @@ describe("#1017: a single write outside a transaction", () => {
     expect(insertFailing(cause)).toThrow(expect.objectContaining({ cause }));
   });
 
-  it("any other code is the store's own answer: an ordinary error", () => {
-    for (const code of [SQLITE_BUSY, SQLITE_FULL, 19]) {
+  it("a code that guarantees nothing was applied is the store's own answer: an ordinary error", () => {
+    for (const code of [SQLITE_BUSY, 19]) {
       const cause = failure(code, "refused");
       expect(insertFailing(cause)).toThrow(cause);
     }
