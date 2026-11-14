@@ -82,13 +82,18 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     return Promise.resolve(due.sort(byTimeOf("expiresAt")).slice(0, limit));
   }
 
-  async findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {
+  async findPendingByRemindAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
     const due = this.pauses().filter(
       (pause) =>
         pause.status === PauseStatus.Pending &&
         pause.remindAt !== undefined &&
-        pause.remindAt <= at.toISOString(),
+        pause.remindAt <= at.toISOString() &&
+        (after === undefined || isPast(after, pause.remindAt, pause)),
     );
     return Promise.resolve(due.sort(byTimeOf("remindAt")).slice(0, limit));
   }

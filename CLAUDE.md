@@ -2333,8 +2333,10 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `answeredByOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
   `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
   expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
-  timers: `findPendingByRemindAtBefore(now, 50)`, only trees whose root record's `bundle` is a workflow of the instance, then
-  `remindByTenantIdAndPauseId` with `PauseNoticeHub.recipientsOf`) writes `expiring` once across instances. Notices `extended` /
+  timers, `ReminderLook`: a sweep of `findPendingByRemindAtBefore(now, 50, after)` pages with the keyset `PauseScanAfter` like the expiry
+  look, only trees whose root record's `bundle` is a workflow of the instance, each pause's `remindByTenantIdAndPauseId` with
+  `PauseNoticeHub.recipientsOf` started and not awaited — at most 50 in flight, `settled()` at stop) writes `expiring` once across instances. A pause extended to exactly its `boundAt` expires
+  as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
   `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects

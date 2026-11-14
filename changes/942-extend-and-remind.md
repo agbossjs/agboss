@@ -29,3 +29,8 @@ a mailbox. `agboss describe` prints `reminds 2 h before`. Working-time durations
 is unchanged. Stores (`@agboss/core/stores`): the argument of `extendByTenantIdAndPauseId`, `{
 expiresAt, remindAt? }`, is named `PauseDeadlineChange` (it was `PauseExtension`, unreleased — no
 published version had it); `PauseExtension` now names the app's result of `extendPause`.
+
+`findPendingByRemindAtBefore` takes the optional keyset `after?: PauseScanAfter` like `findPendingByExpiresAtBefore`
+(stores entry; the contract suite has a case for it); the reminder look pages with it and starts each reminder
+without waiting, so another application's due pauses on a shared store never hide yours. A pause extended to exactly its
+run's deadline expires as the run's own (`DeadlineExceededError`, the channel's expiry decision not asked).

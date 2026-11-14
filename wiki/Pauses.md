@@ -584,7 +584,8 @@ A pause that closes is told to the channel that asked and to the application's l
 a question somewhere — buttons in Slack, a link in a mail — takes it back, or marks it answered by
 whom, from `onPauseClosed(event)`; a back office or a ticket system follows every pause through a
 `@PauseListener`. Both are optional: a channel that overrides no hook has no mailbox, and a pause
-costs it nothing.
+costs it nothing. (#942: `onPauseExtended` and `onPauseExpiring` are told the same way — a channel that
+overrides any of the four notices has a mailbox.)
 
 <!-- snippet-context
 import { Injectable } from "@agboss/core";
@@ -827,6 +828,42 @@ where the expiry reads it). Over [A2A](A2A) the task goes
 `INPUT_REQUIRED` → `WORKING` → `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up before
 the look is `-32004 a2a.pause-closed` (`reason: expired`). How the instances do it:
 [Several instances → Expiring a pause](Several-instances#expiring-a-pause-941).
+
+## Extending a pause and reminding before its deadline (#942)
+
+**A reminder.** `@ChannelRole({ expiresIn: hours(24), remindBefore: hours(2) })` makes the channel's
+optional `onPauseExpiring(event)` and a `@PauseListener`'s optional `onPauseExpiring` hear "expiring at
+`event.expiresAt`" two hours before the deadline — **once per deadline**, whatever the number of
+instances: the pause timers' reminder look writes the notice and clears the pause's `remindAt` in one
+store transaction, so the instance that gets there first reminds and the rest find nothing to do. No
+lease is taken and nothing of the run moves. `remindBefore` is a positive finite duration shorter than the
+role's own `expiresIn` (`[channel.remind-before-invalid]`). The reminder time is fixed when the pause
+is made — `expiresAt − remindBefore`, so a pause the run's deadline bound is reminded before **that**
+deadline, one with no deadline never — and again by an extension. A question step's or a tool's
+`expiresIn` that is no longer than the role's `remindBefore` gives that pause no reminder, as the
+pause is asked inside the reminder's lead (`[channel.remind-before-exceeds-expiry]`, a warning; an error
+under `--strict`; the role alone sets `remindBefore`). The look pages through the due reminders with a
+keyset cursor and hands each to the store without waiting, like the expiry look: another application's
+due pauses on a shared store never hide yours.
+
+**An extension.** `await app.extendPause({ pauseId, expiresIn: hours(24) }, { answeredBy })` — the
+`ownerId` for a thread owner's pause: whoever may answer may extend; the options are
+`PauseCallerOptions`, the caller fields of `resume`'s and none of a run's — moves an open pause's deadline
+to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt, previousExpiresAt }`. The channel's
+optional `onPauseExtended(event)` and a listener's `onPauseExtended` hear "extended until `event.expiresAt`"
+(`previousExpiresAt` too), and the reminder is made again before the new deadline. It is refused:
+
+- a pause that is closed, or already past its deadline — `PauseClosedError` (`reason: expired`);
+- a pause with **no deadline** — none is ever added to it — and a new deadline that is not later than the
+  current one — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
+- a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
+  allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
+  `DtoValidationError`, naming that deadline;
+- another tenant's pause or an unknown id — `UnknownPauseError`.
+
+The store applies the extension atomically against the expiry look: its compare-and-set on `expiresAt > now`
+lets exactly one of an extension and an expiry at one tick win. An extended pause answered on any
+instance, an expiry look on any instance, all read the new deadline from the record.
 
 ## Concurrent answers
 

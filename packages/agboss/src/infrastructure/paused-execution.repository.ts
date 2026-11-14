@@ -242,8 +242,17 @@ export abstract class PausedExecutionRepository {
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]>;
 
-  /** The same on `remindAt`: `Pending` pauses with `remindAt ≤ at`, ascending by `(remindAt, tenantId, pauseId)`. */
-  abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+  /**
+   * The same on `remindAt`: `Pending` pauses with `remindAt ≤ at`, ascending by `(remindAt,
+   * tenantId, pauseId)`, and with `after` — the last pause of the page before, its `at` its
+   * `remindAt` — only the pauses past it (#942, #1070): a look that cannot remind the first `limit`
+   * due pauses still reaches the ones behind them.
+   */
+  abstract findPendingByRemindAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]>;
 
   /**
    * Every tenant's open pauses (`Pending` or `Resolved`) in the store's stable insertion order,
