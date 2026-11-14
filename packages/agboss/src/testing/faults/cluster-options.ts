@@ -31,6 +31,12 @@ export interface FaultPodOptions {
    * that decides the run. The scenarios of the bound itself (22) run bounded.
    */
   readonly isBounded?: boolean;
+  /**
+   * The pod's application also lists the order whose question expires (#941). Only the expiry
+   * scenarios ask for it: every pod's extra workflow is extra timers and writes, and a pod frozen
+   * (SIGSTOP) in the middle of one holds the database's write lock for the other pods.
+   */
+  readonly hasExpiringOrders?: boolean;
   /** The pod's fenced-effect store broken on purpose (#959): a sabotage scenario's. */
   readonly sabotage?: FaultStoreSabotage;
   /**

@@ -256,6 +256,9 @@ export async function resumeWith(
       NO_RECIPIENTS,
     );
   }
-  const none = { values: {}, pauseIds: [], taken: [], decisions: [], answeredBy: [] };
+  const none = {
+    ...{ values: {}, pauseIds: [], taken: [], decisions: [], answeredBy: [] },
+    ...{ reasons: [], hasUnansweredExpiry: false },
+  };
   return resumeAgent(paused, (await treeResumeNow(deps, paused)) ?? none, deps);
 }

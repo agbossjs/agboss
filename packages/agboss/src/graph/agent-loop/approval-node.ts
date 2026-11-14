@@ -18,6 +18,8 @@ import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { VisitsLimitExceededError } from "../../flow/runtime/errors.js";
 import { ChannelSendError } from "../../flow/runtime/pause.js";
+import { expiryFailureOf, PauseExpirySignal } from "../../flow/runtime/pause-expiry-failure.js";
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { AgentFailedError } from "../errors.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { ToolCallRequest } from "./deps.js";
@@ -106,6 +108,21 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
  * call's task gives it as its result.
  */
 
+/** The failure of the agent whose approval or question call's pause expired (#941, D6, D8). */
+const expiryOf = (
+  signal: PauseExpirySignal,
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+): Error =>
+  expiryFailureOf(signal.pause, {
+    step: deps.agent.name,
+    stepKind: ComponentKind.Agent,
+    state: state.usage,
+    usage: loopUsage(state),
+    path: state.flowPath,
+    budgets: deps.budgets,
+  });
+
 /**
  * The ask's decision; a channel that failed fails the agent's step (its error as `cause`) — and,
  * for a question (#712), an answer its channel decided at once that is no valid answer (an
@@ -122,6 +139,8 @@ async function askedOrFailed<TAnswer>(
   } catch (error) {
     if (isQuestion && error instanceof DtoValidationError)
       throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
+    // its pause's deadline passed (#941): the whole agent step fails, its spend kept
+    if (error instanceof PauseExpirySignal) throw expiryOf(error, state, deps);
     if (!(error instanceof ChannelSendError)) throw error;
     throw new AgentFailedError({
       agent: deps.agent.name,

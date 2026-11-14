@@ -36,9 +36,12 @@ export enum FaultInvariant {
     EffectsOnce = "effects-once",
     FinishedWorkUntouched = "finished-work-untouched",
     Linearizable = "linearizable",
+    NoAnswerAfterDeadline = "no-answer-after-deadline",
     NoEffectAfterCancel = "no-effect-after-cancel",
+    NoPausedRootWithClosedPause = "no-paused-root-with-closed-pause",
     NoticesOnceEachInOrder = "notices-once-each-in-order",
     NoUndoOnHandOver = "no-undo-on-hand-over",
+    OneExpiryDecision = "one-expiry-decision",
     OneOwner = "one-owner",
     TreesFinish = "trees-finish"
 }

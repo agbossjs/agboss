@@ -1,8 +1,7 @@
 import { ResumeReason } from "../core/observability.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
-import { recordEndedOf, recoveryPassOf, resumePassOf, RootCalls } from "./recovery-pass.js";
+import { recordEndedOf, recoveryPassOf, RootCalls } from "./recovery-pass.js";
 import type {
-  AnsweredPass,
   PlannedPass,
   TreeCall,
   TreeMoveParts,
@@ -17,7 +16,8 @@ import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
-import { announceResume, callWithLostPasses, treeResumeNow } from "./tree-resume.js";
+import { announceResume, callWithLostPasses } from "./tree-resume.js";
+import { answeredPassOf, expiredMove } from "./tree-expiry.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
@@ -91,7 +91,7 @@ class TreeMover implements TreeMoves {
       // and the paused run of the rest before still stored — no pass moves an ended tree
       await refusedIfFailed(this.parts, state, { lease, pauseId: pause.pauseId });
       const call = await callWithLostPasses(this.parts, state, given);
-      const next = await this.nextPass(state, call).catch(async (error: unknown) => {
+      const next = await answeredPassOf(this.parts, state, call).catch(async (error: unknown) => {
         await lease.release();
         throw error;
       });
@@ -145,6 +145,18 @@ class TreeMover implements TreeMoves {
     return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
   }
 
+  async expired(interrupted: InterruptedRun, call: TreeCall): Promise<void> {
+    if (this.#isBusy(interrupted)) return;
+    const hooks = {
+      endedAtTake: (state: TreeState, lease: HeldExecutionLease) => this.endedAtTake(state, lease),
+      announce: (resume: TreeResume | undefined, state: TreeState) =>
+        this.announce(ResumeReason.Expired, resume, state),
+      drained: (state: TreeState, held: HeldExecutionLease, planned: PlannedPass) =>
+        this.drained(state, call, held, planned),
+    };
+    await expiredMove(this.parts, hooks, interrupted, call);
+  }
+
   /**
    * A root a resume of this instance moves. Any other root's holder is read from the store: a
    * holder waiting for remote children keeps its lease there, yielded (#516), so the take fails.
@@ -165,20 +177,6 @@ class TreeMover implements TreeMoves {
     if (cancelled !== undefined || !(await isUnwinding(this.parts.trees, treeOf(state))))
       return cancelled;
     return (await takeover()).endedUnwindingAtTake(this.parts, state, lease);
-  }
-
-  /** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
-  async nextPass(
-    state: TreeState,
-    call: TreeCall,
-    passed?: ReadonlySet<string>,
-  ): Promise<AnsweredPass | undefined> {
-    const { deps, paused } = this.parts;
-    const resume = await treeResumeNow(deps, state, passed);
-    if (resume === undefined) return undefined;
-    const stored = await paused.find(state);
-    if (stored?.run.runId !== state.runId) return undefined;
-    return { resume, pass: resumePassOf(stored, resume, call) };
   }
 
   announce(reason: ResumeReason, resume: TreeResume | undefined, state: TreeState): Promise<void> {

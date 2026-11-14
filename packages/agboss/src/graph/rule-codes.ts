@@ -194,6 +194,9 @@ export type RuleCode =
   // channels (#267 PR 1): roles found from the graph, implementations in the application's providers
   | "channel.wrong-tool"
   | "channel.shared-interpreter"
+  | "channel.expires-in-invalid"
+  | "tool.expires-in-without-channel"
+  | "question.expires-in-conflict"
   // reply interpreters (#267 PR 3), reported at each workflow's assembly
   | "reply-interpreter.not-an-interpreter"
   | "reply-interpreter.decision-model"

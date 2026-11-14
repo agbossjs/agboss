@@ -34,6 +34,11 @@ import type { Milliseconds } from "../../src/units/index.js";
  *   answer lost: recovery rests the tree at its pause again and nobody is asked a second time;
  * - `LostRunSqlitePausedExecutionRepository`: a pause store that never keeps a paused run — a pod
  *   killed while its tree is paused leaves nothing for a resume on another pod to continue.
+ *
+ * #941 — `OutsideCasExpireSqlitePausedExecutionRepository`: a pause store whose expiry is not a
+ * compare-and-set: it reopens the pause first, so it closes a pause whatever its status — a pod
+ * frozen before its expiry's record, woken after another pod expired the pause and finished the
+ * order, closes the pause a second time.
  */
 
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
@@ -138,5 +143,27 @@ export class AckedBeforeDeliverySqlitePausedExecutionRepository extends SqlitePa
     const claims = await super.claimNoticesDue(at, limit, claimFor, recipients);
     for (const claim of claims) await super.ackNotice(claim, at);
     return claims;
+  }
+}
+
+@Injectable({ deps: [SqliteConnection, Clock] })
+export class OutsideCasExpireSqlitePausedExecutionRepository extends SqlitePausedExecutionRepository {
+  readonly #connection: SqliteConnection;
+
+  constructor(connection: SqliteConnection, clock: Clock) {
+    super(connection, clock);
+    this.#connection = connection;
+  }
+
+  override expireByTenantIdAndPauseId(
+    ...args: Parameters<SqlitePausedExecutionRepository["expireByTenantIdAndPauseId"]>
+  ): Promise<PauseRecord | undefined> {
+    const [tenantId, pauseId] = args;
+    this.#connection.database
+      .prepare(
+        "UPDATE pauses SET status = 'pending', resolution = NULL, resolved_at = NULL WHERE tenant_id = ? AND pause_id = ?",
+      )
+      .run(tenantId, pauseId);
+    return super.expireByTenantIdAndPauseId(...args);
   }
 }

@@ -6,6 +6,7 @@ import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
+import type { Milliseconds } from "../units/index.js";
 
 /**
  * `@ChannelRole` (#267): a project's abstract channel class — what a pause asks and who may answer
@@ -32,6 +33,13 @@ export interface ChannelRoleBaseOptions {
   readonly answeredBy?: PauseAnswerer;
   /** Who turns a free-text reply into the role's typed answer; one interpreter belongs to one role. */
   readonly replyInterpreter?: Class;
+  /**
+   * How long a pause of this role waits for its answer (#941): `hours(24)`; at least `seconds(1)`.
+   * The deadline is fixed when the pause is made (a deploy that changes this never moves an open
+   * one); a question step (`.toQuestion(Role, { expiresIn })`) and a tool (`@Tool({ expiresIn })`)
+   * override it. None: the pause waits forever — or until its run's deadline.
+   */
+  readonly expiresIn?: Milliseconds;
 }
 
 /** A tool approval: the question is the tool call, its `arguments` typed by `approves`. */

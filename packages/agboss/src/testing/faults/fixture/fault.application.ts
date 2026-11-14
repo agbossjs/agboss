@@ -15,7 +15,12 @@ import { FaultModelProvider } from "./fault.model-provider.js";
 import { FaultObserver } from "./fault.observer.js";
 import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
 import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
-import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
+import {
+  FaultExpiringChannel,
+  FaultExpiringWorkflow,
+  FaultPauseChannel,
+  FaultPauseWorkflow,
+} from "./pause.workflow.js";
 import { FaultPauseListener } from "./pause.listener.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
@@ -61,6 +66,8 @@ export interface FaultPodSettings {
   readonly sabotage?: FaultStoreSabotage | undefined;
   readonly shutdownTimeout?: Milliseconds | undefined;
   readonly maxConcurrentSteps?: number | undefined;
+  /** The expiring order and its channel are listed too (#941). */
+  readonly hasExpiringOrders?: boolean | undefined;
 }
 
 /** The store classes as the pod lists them: each of a held contract with its hold points. */
@@ -101,7 +108,8 @@ function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
 
 /** The fixture's application on `stores`, with the pod's `settings`. */
 export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSettings = {}): Class {
-  const { shutdownTimeout, maxConcurrentSteps, sabotage } = settings;
+  const { shutdownTimeout, maxConcurrentSteps, sabotage, hasExpiringOrders } = settings;
+  const expiring = hasExpiringOrders === true;
   const a2a = a2aPartsOf(stores);
   return Application({
     name: "fault-application",
@@ -109,7 +117,13 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     environment: faultEnvironmentOf(stores.environment.contract),
     // #825: the fenced charge and the payment are under business keys: one key for every pod
     idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
-    workflows: [FaultOrderWorkflow, FaultBatchWorkflow, FaultPauseWorkflow, ...a2a.workflows],
+    workflows: [
+      FaultOrderWorkflow,
+      FaultBatchWorkflow,
+      FaultPauseWorkflow,
+      ...(expiring ? [FaultExpiringWorkflow] : []),
+      ...a2a.workflows,
+    ],
     ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
@@ -122,6 +136,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
+      ...(expiring ? [FaultExpiringChannel] : []),
       FaultPauseListener,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
       ...a2a.providers,

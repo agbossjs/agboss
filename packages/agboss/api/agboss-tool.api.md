@@ -21,6 +21,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     // (undocumented)
     readonly description: string;
     readonly excludeToolInterceptors?: readonly Class[];
+    readonly expiresIn?: Milliseconds;
     // (undocumented)
     readonly input: In;
     readonly maxResultSize?: Bytes;

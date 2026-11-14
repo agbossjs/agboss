@@ -15,6 +15,7 @@ export type RouterOptions = ModelRouterOptions | CodeRouterOptions;
 
 // @public
 export interface ToStep {
+    readonly expiresIn?: Milliseconds;
     // (undocumented)
     readonly kind: StepKind.To;
     readonly placement?: ChildPlacement;

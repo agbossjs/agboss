@@ -26,6 +26,8 @@ import type {
   RouterFailedError,
   DecisionError,
   ExecutionLeaseLostError,
+  ExpiryHandlerError,
+  PauseExpiredError,
 } from "../../src/index.js";
 
 type ErrorClassesOf<M> = {
@@ -88,6 +90,15 @@ describe("#906 AC2: the instance code is the class's literal", () => {
     expectTypeOf<AgentFailedError["code"]>().toExtend<StepFailedError["code"]>();
     expectTypeOf<"step">().toExtend<PaidStepError["code"]>();
     expectTypeOf<"step">().not.toExtend<StepFailedError["code"]>();
+  });
+});
+
+describe("#941: the pause deadline's errors", () => {
+  it("a pause that expired is a step failure with its own literal code; its cause's code is its own", () => {
+    expectTypeOf<PauseExpiredError["code"]>().toEqualTypeOf<"step.pause-expired">();
+    expectTypeOf<PauseExpiredError["code"]>().toExtend<StepFailedError["code"]>();
+    expectTypeOf<PauseExpiredError["code"]>().toExtend<PaidStepError["code"]>();
+    expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler">();
   });
 });
 

@@ -106,6 +106,10 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     reason: root.PauseClosedReason.Cancelled,
     closedAt: "2026-01-05T09:00:00.000Z",
   }),
+  fx(root.ExpiryHandlerError, {
+    channel: "refund-approval-channel",
+    problem: root.ExpiryProblem.HandlerFailed,
+  }),
   fx(root.UnknownThreadError, { message }),
   fx(root.ThreadOwnerError, { message }),
   fx(root.InvalidThreadIdError, { rule: root.KeyTextRule.Length }),

@@ -129,6 +129,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["AutoApproveChannel", "AutoRejectChannel", "TerminalUserChannel"],
     ...["SqlitePausedExecutionRepository", "SqliteCheckpointSaver", "override", "hours"],
     ...["NotPausedError", "PauseClosedError", "UnknownPauseError", "PauseAnswererError"],
+    ...["PauseExpiration", "PauseExpiryHandler", "PauseExpiredError", "ExpiryHandlerError"],
     ...["UninterpretableReplyError"],
     ...["ReplyInterpreterMissingError", "IncompatibleResumeError", "WorkflowSettings"],
   ],

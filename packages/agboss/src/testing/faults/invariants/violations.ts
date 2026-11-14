@@ -35,6 +35,21 @@ export enum FaultInvariant {
    * same `deliveryId`.
    */
   NoticesOnceEachInOrder = "notices-once-each-in-order",
+  /**
+   * A pause is closed by one compare-and-set only (#941, I1, I5): whatever pods raced — an expiry
+   * and its zombie, an expiry and an answer —, at most one closer of it answered "changed".
+   */
+  OneExpiryDecision = "one-expiry-decision",
+  /**
+   * A root never rests `paused` beside a pause that is no longer pending (#941, I4): sampled at the
+   * moment a pod died in the middle of an expiry — the root is `running` for recovery to continue.
+   */
+  NoPausedRootWithClosedPause = "no-paused-root-with-closed-pause",
+  /**
+   * No answer is recorded at or after its pause's deadline (#941, I2): every answer the log keeps
+   * of an expiring pause is dated before the pause's `expiresIn` ran out.
+   */
+  NoAnswerAfterDeadline = "no-answer-after-deadline",
 }
 
 /** One broken invariant, said plainly. */

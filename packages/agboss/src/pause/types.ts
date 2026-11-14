@@ -79,6 +79,12 @@ export interface PendingPauseBase {
   readonly childExecutionId: string | undefined;
   /** The item of a per-item launch it waits in (no copy of the item: its index is enough). */
   readonly itemIndex: number | undefined;
+  /**
+   * When the pause expires (#941, ISO 8601, the application's clock): fixed when it was asked — the
+   * smaller of its `expiresIn` and its run's deadline; absent: it waits without a deadline. An
+   * answer at or after it is refused (`PauseClosedError`, reason `expired`).
+   */
+  readonly expiresAt?: string;
 }
 
 /** A tool call waiting for its approval. */

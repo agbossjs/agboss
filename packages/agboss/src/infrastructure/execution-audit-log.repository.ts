@@ -106,6 +106,8 @@ export enum LeaseTakeoverReason {
   RemoteChild = "remote-child",
   /** Its holder took its yielded lease back after waiting for remote children, at a new token. */
   Reclaimed = "reclaimed",
+  /** A pause's deadline passed: the expiry look moves its tree (#941). */
+  Expired = "expired",
 }
 
 /** Why a step was handed over. */

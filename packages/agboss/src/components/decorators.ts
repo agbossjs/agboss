@@ -53,6 +53,12 @@ export interface ToolOptions<
   /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s). */
   readonly timeout?: Milliseconds;
   /**
+   * How long the approval of one call waits for its answer (#941): `expiresIn: hours(4)`, over its
+   * channel role's; at least `seconds(1)`. Only with `channel`. At the deadline the channel's
+   * `onPauseExpired` decides, or the agent step fails with `PauseExpiredError`.
+   */
+  readonly expiresIn?: Milliseconds;
+  /**
    * What a model reads of one result at most, in bytes of UTF-8: `maxResultSize: kilobytes(256)`
    * (#336) — longer is cut with a marker; default `defaults.tools.maxResultSize`, else 128 KB.
    */

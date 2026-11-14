@@ -129,7 +129,7 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): Nod
     case NodeKind.Workflow:
       return subgraphRunnerOf(node, deps, parts);
     case NodeKind.Question:
-      return lazyQuestionRunner(node, deps);
+      return lazyQuestionRunner(node, deps, parts.budgets);
   }
 }
 

@@ -35,6 +35,7 @@ export class PaidStepError extends AGBossError {
     | "step.router.invalid-decision"
     | "step.action"
     | "step.question"
+    | "step.pause-expired"
     | "step.child"
     | "step.arbiter"
     | "step.quorum"

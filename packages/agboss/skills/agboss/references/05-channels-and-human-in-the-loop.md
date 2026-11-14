@@ -539,8 +539,31 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   `reason`) and the pause stays `Pending`; a role without `replyInterpreter` →
   `ReplyInterpreterMissingError`. Exactly one of `decision` / a non-empty `reply`, else
   `DtoValidationError`.
-- **Timeouts** are not a channel's job: a scheduler answers with
-  `{ approved: false, reason: "timed out" }` and its own `answeredBy`.
+- **A deadline for the answer** (#941): `@ChannelRole({ expiresIn: hours(24) })` — at least
+  `seconds(1)` — gives every pause of the role an absolute deadline, fixed when the pause is made (a
+  deploy that changes `expiresIn` never moves an open pause); `.toQuestion(Role, { expiresIn })` (and
+  the side path `toQuestion(Role, { expiresIn })`) overrides it for a question step (one value per
+  node: `[question.expires-in-conflict]`), `@Tool({ channel, expiresIn })` for a tool
+  (`[tool.expires-in-without-channel]`, `[channel.expires-in-invalid]`); a run's deadline bounds
+  every pause too, the smaller wins and a tie goes to the run. `result.pending[].expiresAt` shows it.
+  The deadline is **hard**: an answer at or after it is `PauseClosedError` (`reason: expired`,
+  `closedAt` the deadline), decided atomically in the store — an answer and the expiry racing: one
+  wins. Within seconds the tree is taken and the channel's optional
+  `onPauseExpired(ask)` (`implements PauseExpiryHandler<Role>`, the `ask` as `send` got it) says what
+  the expiry means: `PauseExpiration.fail()` — the step fails with `PauseExpiredError`
+  (`step.pause-expired`, `step`, `stepKind`, `channel`, `kind`, `expiresAt`; `.onError(PauseExpiredError, …)`
+  escalates; an agent's approval or question call fails the whole agent step, its spend kept) — or
+  `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's,
+  recorded as answered by the channel (`PauseResolution.DecidedOnExpiry`, `ResumeReason.Expired`;
+  `decide({ approved: true })` runs the tool with no person having looked: choose it knowing that).
+  Without the method the expiry is `fail()`. The handler runs once per expiry — again only after a
+  crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
+  `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
+  `ExpiryHandlerError` as the cause (`pause.expiry-handler-failed` warned, never the error's message).
+  A pause the run's deadline bound fails the run with `DeadlineExceededError` and asks the channel
+  nothing. `app.cancel` always beats an expiry (the pause is closed `expired`, the run cancelled).
+  Over A2A the task goes `WORKING`, then `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up
+  before the look is `-32004 a2a.pause-closed` `reason: expired`. Reminders and extensions are #942.
 - `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `onPauseClosed` is
   told, `PauseClosedReason.Cancelled`).
 
@@ -589,21 +612,25 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 
 ## Rule codes and errors
 
-| Code / error                              | Cause → fix                                                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                                    |
-| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                              |
-| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                         |
-| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                       |
-| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError` |
-| `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                |
-| `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                            |
-| `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                            |
-| `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                             |
-| `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                             |
-| `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones          |
-| `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                  |
-| `IncompatibleResumeError`                 | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`           |
+| Code / error                              | Cause → fix                                                                                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                                                           |
+| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                                                     |
+| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                                                |
+| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                                              |
+| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError`                        |
+| `PauseExpiredError`                       | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `PauseExpiration.decide(…)` |
+| `[channel.expires-in-invalid]`            | a role's, tool's or question step's `expiresIn` is under `seconds(1)` or no finite duration → `hours(4)`                           |
+| `[tool.expires-in-without-channel]`       | `@Tool({ expiresIn })` with no `channel` → add `channel`, or drop `expiresIn`                                                      |
+| `[question.expires-in-conflict]`          | two `.toQuestion(Q, …)` edges to one question with different `expiresIn` → one value                                               |
+| `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                                       |
+| `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                                                   |
+| `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                                                   |
+| `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                                                    |
+| `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                                                    |
+| `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                 |
+| `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                         |
+| `IncompatibleResumeError`                 | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                  |
 
 ## Pitfalls
 

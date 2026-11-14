@@ -3,6 +3,7 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
+import { ResumeReason } from "../core/observability.js";
 import type { WaitingInterrupt } from "./waiting-pauses.js";
 
 /**
@@ -22,6 +23,10 @@ export interface TreeResume {
   readonly decisions: readonly unknown[];
   /** Who answered them (`answeredBy` / the owner), in the same order. */
   readonly answeredBy: readonly (string | undefined)[];
+  /** Why each decision is taken, in the same order (#941): `Answered` for a reply, `Expired` for an expiry's. */
+  readonly reasons: readonly ResumeReason[];
+  /** Whether a pause it takes was closed by its expiry without an answer (the step fails, #941). */
+  readonly hasUnansweredExpiry: boolean;
 }
 
 /**
@@ -53,12 +58,21 @@ export function treeResumeOf(
   const taken = answered.flatMap(({ pause }) =>
     pause.status === PauseStatus.Resolved ? [pause] : [],
   );
+  const isExpiryOf = (pause: PauseRecord): boolean => pause.resolution === PauseResolution.Expired;
   return {
     values: valuesOf(answered.map(({ waiting }) => waiting)),
     pauseIds: answered.map(({ pause }) => pause.pauseId),
     taken,
     decisions: taken.map((pause) => pause.answer?.decision),
     answeredBy: taken.map((pause) => pause.answer?.answeredBy),
+    reasons: taken.map((pause) =>
+      pause.resolution === PauseResolution.DecidedOnExpiry
+        ? ResumeReason.Expired
+        : ResumeReason.Answered,
+    ),
+    hasUnansweredExpiry: answered.some(
+      ({ pause }) => pause.status === PauseStatus.Cancelled && isExpiryOf(pause),
+    ),
   };
 }
 

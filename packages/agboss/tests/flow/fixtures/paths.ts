@@ -65,9 +65,9 @@ export const toFinish = (target: Class): PathBuilder =>
     .toFinish(target);
 
 /** The side path `.onError(E, toQuestion(Q)…)` (#910). */
-export const toQuestion = (target: Class): PathBuilder =>
+export const toQuestion = (target: Class, options?: unknown): PathBuilder =>
   side()
-    .toQuestion(target);
+    .toQuestion(target, options);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
 export const toWorkflow = (target: Class): PathBuilder =>

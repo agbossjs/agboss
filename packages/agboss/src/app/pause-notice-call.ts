@@ -19,7 +19,7 @@ export class NoticeTimeoutError extends Error {
 }
 
 /** Rejects when `signal` aborts, even if the work ignores it. */
-function untilAborted(work: Promise<void>, signal: AbortSignal): Promise<void> {
+function untilAborted<TResult>(work: Promise<TResult>, signal: AbortSignal): Promise<TResult> {
   return new Promise((resolve, reject) => {
     signal.addEventListener("abort", () => {
       reject(signal.reason as Error);
@@ -46,12 +46,18 @@ export interface NoticeCall {
   readonly interruption?: AbortSignal | undefined;
 }
 
-/** Runs `hook` in the frame under the timeout; rejects with what it threw or `NoticeTimeoutError`. */
-export async function callInFrame(call: NoticeCall, hook: () => Promise<void>): Promise<void> {
+/**
+ * Runs `hook` in the frame under the timeout and gives what it returned; rejects with what it threw
+ * or `NoticeTimeoutError` (an expiry's decision, #941, is such a call).
+ */
+export async function callInFrame<TResult>(
+  call: NoticeCall,
+  hook: () => Promise<TResult>,
+): Promise<TResult> {
   const timer = timeoutOn(call.clock, call.timeout, () => new NoticeTimeoutError(call.timeout));
   const ends = AbortSignal.any([timer.signal, ...(call.interruption ? [call.interruption] : [])]);
   try {
-    await untilAborted(runInFrame(withSignal(call.frame, ends), hook), ends);
+    return await untilAborted(runInFrame(withSignal(call.frame, ends), hook), ends);
   } finally {
     timer.release();
   }

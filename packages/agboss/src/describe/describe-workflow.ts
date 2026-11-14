@@ -13,6 +13,7 @@ import { compensationLines } from "./compensation.js";
 import {
   agentDefaultsLine,
   compactionSourceOf,
+  expiryLabel,
   maxResultSizeLabel,
   memoryLines,
   routerModelSource,
@@ -75,7 +76,7 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const kind = isMcpFacade(tool) ? `MCP ${tool.mcp.server}` : "local";
   const waits = tool.channel ? ", uses channel" : "";
   const deps = bundle.toolDependencies?.[tool.name];
-  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}`;
+  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
 }
 
 function bundleLines(bundle: AssembledWorkflow): string[] {

@@ -18,8 +18,10 @@ import {
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import type { FrameSpec } from "../context/frame.js";
 import { newRecordOf } from "./pause-record-made.js";
+import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
 import type { ComponentRecord } from "./records.js";
+import type { Milliseconds } from "../../units/index.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -37,6 +39,8 @@ export interface PauseChannel {
   readonly name: string;
   readonly sender: ChannelSender;
   readonly answerer: PauseAnswerer;
+  /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
+  readonly expiresIn?: Milliseconds | undefined;
 }
 
 /**
@@ -54,6 +58,8 @@ export interface PauseQuestion {
    * its tool loop (#712) — the record's `component`.
    */
   readonly component?: ComponentRecord;
+  /** The step's or the tool's own `expiresIn` (#941): over the channel role's. */
+  readonly expiresIn?: Milliseconds | undefined;
 }
 
 /** The answer a pause gives its step: the decision (validated by the caller) and who gave it. */
@@ -128,6 +134,21 @@ async function sendOnce(
   return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
 }
 
+/** Whether its channel decided the pause's answer: at once, or when its deadline passed (#941). */
+const isDecidedByChannel = ({ resolution }: PauseRecord): boolean =>
+  resolution === PauseResolution.Decided || resolution === PauseResolution.DecidedOnExpiry;
+
+/**
+ * What a pause that closed without an answer is to its step: the expiry's signal when its deadline
+ * passed (#941: the asking step fails), else its withdrawal.
+ */
+const withoutAnswer = (pause: PauseRecord): Error =>
+  pause.resolution === PauseResolution.Expired
+    ? new PauseExpirySignal(pause)
+    : new PauseWithdrawnError({
+        message: `pause ${pause.pauseId} was withdrawn: its branch was cancelled`,
+      });
+
 /**
  * A pause that is no longer pending, as its step takes it: its decision, or its withdrawal. A
  * `Resolved` answer is marked `Taken` here, durably, before the step acts on it (#939) — so a pass
@@ -141,17 +162,15 @@ async function settledAnswer(
   channel: string,
 ): Promise<StepAnswer> {
   const { answer } = pause;
-  const message = `pause ${pause.pauseId} was withdrawn: its branch was cancelled`;
-  if (pause.status === PauseStatus.Cancelled || answer === undefined)
-    throw new PauseWithdrawnError({ message });
+  if (pause.status === PauseStatus.Cancelled || answer === undefined) throw withoutAnswer(pause);
   if (pause.status === PauseStatus.Resolved) {
     // a pass that is stopped runs nothing: its tool never acts, so the answer is not taken
     site.signal?.throwIfAborted();
     await site.pauses.markTakenByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
   }
-  // a re-entry of a step its channel decided at once: the channel's decision, its spend counted already
-  if (pause.resolution === PauseResolution.Decided)
-    return { decision: answer.decision, by: channel, usage: [] };
+  // a re-entry of a step its channel decided at once, or on the pause's expiry (#941): the
+  // channel's decision, its spend counted already
+  if (isDecidedByChannel(pause)) return { decision: answer.decision, by: channel, usage: [] };
   const by = answer.answeredBy ?? THREAD_OWNER;
   return { decision: answer.decision, by, usage: answer.usage ?? [] };
 }

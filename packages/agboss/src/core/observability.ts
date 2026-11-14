@@ -165,6 +165,11 @@ export enum ResumeReason {
    * it from its last checkpoint (taking a decision recorded meanwhile, if any).
    */
   Recovered = "recovered",
+  /**
+   * A pause's deadline passed (#941): its tree continues with the expiry — the step fails with
+   * `PauseExpiredError`, or goes on with the answer the channel decided on expiry.
+   */
+  Expired = "expired",
 }
 
 /**

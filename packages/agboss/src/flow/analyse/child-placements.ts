@@ -59,7 +59,7 @@ class PlacementWalk {
 }
 
 /** The sub-paths a step holds. */
-function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly SubPath[] {
+export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly SubPath[] {
   switch (step.kind) {
     case StepKind.ChooseOne:
       return step.routes.map((route) => route.path);

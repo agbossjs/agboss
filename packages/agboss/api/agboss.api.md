@@ -1191,6 +1191,7 @@ export interface ChannelRoleBaseOptions {
     readonly answerer?: PauseAnswerer;
     // (undocumented)
     readonly description: string;
+    readonly expiresIn?: Milliseconds;
     readonly name: string;
     readonly replyInterpreter?: Class;
 }
@@ -2025,6 +2026,14 @@ export interface DecidedOutcome<TDecision> {
     readonly decision: TDecision;
     // (undocumented)
     readonly kind: ChannelOutcomeKind.Decided;
+}
+
+// @public
+export interface DecideExpiration<TAnswer> {
+    // (undocumented)
+    readonly answer: TAnswer;
+    // (undocumented)
+    readonly kind: PauseExpirationKind.Decide;
 }
 
 // @public
@@ -3038,6 +3047,29 @@ export type ExecutionTreeValue = string | number | boolean | null | readonly Exe
 };
 
 // @public
+export class ExpiryHandlerError extends AGBossError {
+    constructor(options: ExpiryHandlerErrorOptions);
+    // (undocumented)
+    readonly channel: string;
+    // (undocumented)
+    static readonly code: "pause.expiry-handler";
+    // (undocumented)
+    readonly code: typeof ExpiryHandlerError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly problem: ExpiryProblem;
+}
+
+// @public
+export interface ExpiryHandlerErrorOptions {
+    readonly cause?: unknown;
+    readonly channel: string;
+    // (undocumented)
+    readonly problem: ExpiryProblem;
+}
+
+// @public
 export enum ExpiryProblem {
     // (undocumented)
     AnswerInvalid = "answer-invalid",
@@ -3079,6 +3111,12 @@ export interface FailedToolCall<TInput> extends ToolCallRecord {
     readonly output: undefined;
     // (undocumented)
     readonly status: ToolCallStatus.Failed | ToolCallStatus.TimedOut;
+}
+
+// @public
+export interface FailExpiration {
+    // (undocumented)
+    readonly kind: PauseExpirationKind.Fail;
 }
 
 // @public
@@ -4563,6 +4601,7 @@ export enum LeaseCheck {
 // @public
 export enum LeaseTakeoverReason {
     Cancelled = "cancelled",
+    Expired = "expired",
     Reclaimed = "reclaimed",
     Recovered = "recovered",
     RemoteChild = "remote-child",
@@ -6057,7 +6096,7 @@ export class PaidStepError extends AGBossError {
     // (undocumented)
     static readonly code: string;
     // (undocumented)
-    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
+    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.pause-expired" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
     // (undocumented)
     name: string;
     // (undocumented)
@@ -6254,6 +6293,62 @@ export abstract class PausedExecutionRepository {
 }
 
 // @public
+export type PauseExpiration<TRole> = FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>>;
+
+// @public
+export const PauseExpiration: {
+    readonly fail: () => FailExpiration;
+    readonly decide: <TAnswer>(answer: TAnswer) => DecideExpiration<TAnswer>;
+};
+
+// @public
+export enum PauseExpirationKind {
+    Decide = "decide",
+    Fail = "fail"
+}
+
+// @public
+export class PauseExpiredError extends StepFailedError {
+    constructor(options: PauseExpiredErrorOptions);
+    // (undocumented)
+    readonly channel: string;
+    // (undocumented)
+    static readonly code: "step.pause-expired";
+    // (undocumented)
+    readonly code: typeof PauseExpiredError.code;
+    // (undocumented)
+    readonly expiresAt: string;
+    // (undocumented)
+    readonly kind: PauseKind;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly step: string;
+    // (undocumented)
+    readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
+}
+
+// @public
+export interface PauseExpiredErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly channel: string;
+    readonly expiresAt: string;
+    // (undocumented)
+    readonly kind: PauseKind;
+    readonly step: string;
+    readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
+    readonly usage: readonly UsageRecord[];
+}
+
+// @public
+export interface PauseExpiryHandler<TRole> {
+    // (undocumented)
+    onPauseExpired(ask: ChannelAsk<TRole>): PauseExpiration<TRole> | Promise<PauseExpiration<TRole>>;
+}
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
@@ -6421,6 +6516,7 @@ export interface PendingPauseBase {
     readonly answerer: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
+    readonly expiresAt?: string;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
     readonly step: string;
@@ -6819,6 +6915,11 @@ export interface QuestionFailedErrorOptions {
 }
 
 // @public
+export interface QuestionStepOptions {
+    readonly expiresIn?: Milliseconds;
+}
+
+// @public
 export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
@@ -7081,6 +7182,7 @@ export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
 // @public
 export enum ResumeReason {
     Answered = "answered",
+    Expired = "expired",
     Recovered = "recovered"
 }
 
@@ -7355,7 +7457,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -8590,6 +8692,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     // (undocumented)
     readonly description: string;
     readonly excludeToolInterceptors?: readonly Class[];
+    readonly expiresIn?: Milliseconds;
     // (undocumented)
     readonly input: In;
     readonly maxResultSize?: Bytes;
@@ -8637,13 +8740,14 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SideHead>;
+export function toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
 export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
 export interface ToStep {
+    readonly expiresIn?: Milliseconds;
     // (undocumented)
     readonly kind: StepKind.To;
     readonly placement?: ChildPlacement;
@@ -8672,7 +8776,7 @@ export interface Transitions<THead extends PathHead> {
     toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, THead>;
     // (undocumented)
     toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<THead>;
-    toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, THead>;
+    toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, THead>;
     // (undocumented)
     toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, THead>;
     toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, THead>;
@@ -9295,6 +9399,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "name".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "answer".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "onPauseExpired".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
@@ -9961,6 +10069,23 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/launch/quorum-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/launch/quorum-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "problem".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "problem".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "kind".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "cause".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "name".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "step".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "stepKind".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "kind".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "expiresAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "reason".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "outdated".

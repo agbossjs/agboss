@@ -515,6 +515,7 @@ export interface DescribedChannel {
     readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
+    readonly expiresIn?: number;
     readonly implementation?: string;
     // (undocumented)
     readonly isRole: boolean;
@@ -1448,7 +1449,9 @@ export function toolOf<TInput, TOutput>(instance: {
 export interface TreeResume {
     readonly answeredBy: readonly (string | undefined)[];
     readonly decisions: readonly unknown[];
+    readonly hasUnansweredExpiry: boolean;
     readonly pauseIds: readonly string[];
+    readonly reasons: readonly ResumeReason[];
     readonly taken: readonly PauseRecord[];
     readonly values: Readonly<Record<string, string>>;
 }

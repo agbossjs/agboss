@@ -18,6 +18,8 @@ export interface ToolMeta {
   readonly readOnly?: boolean;
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
+  /** The deadline of its approval pause (#941), over its channel role's; only with `channel`. */
+  readonly expiresIn?: Milliseconds;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   /** `@ToolInterceptor` classes of this tool, over its agent's, workflow's and application's (#384). */

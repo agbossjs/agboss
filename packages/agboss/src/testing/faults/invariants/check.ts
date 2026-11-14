@@ -4,6 +4,7 @@ import { a2aTaskViolations } from "./a2a-tasks.js";
 import { effectsOnceViolations } from "./effects-once.js";
 import { noEffectAfterCancelViolations } from "./no-effect-after-cancel.js";
 import { pauseNoticeViolations } from "./pause-notices.js";
+import { pauseExpiryViolations } from "./pause-expiry.js";
 import { oneOwnerViolations } from "./one-owner.js";
 import { treeViolations } from "./trees.js";
 import { FaultInvariantError, type FaultViolation } from "./violations.js";
@@ -22,6 +23,7 @@ export const faultViolationsOf = (run: FaultRun): readonly FaultViolation[] => [
   ...a2aTaskViolations(run),
   ...noEffectAfterCancelViolations(run),
   ...pauseNoticeViolations(run),
+  ...pauseExpiryViolations(run),
 ];
 
 /** Throws `FaultInvariantError` with every violation when `run` broke an invariant. */

@@ -45,33 +45,50 @@ export async function markTaken(
   }
 }
 
+/** One `onExecutionResume` event as `announceResume` tells it. */
+interface Told {
+  readonly reason: ResumeReason;
+  readonly decision: unknown;
+  readonly answeredBy: string | undefined;
+}
+
+const toldWithout = (reason: ResumeReason): Told => ({
+  reason,
+  decision: undefined,
+  answeredBy: undefined,
+});
+
 /**
- * One `onExecutionResume` per decision a pass takes (its `answeredBy` with it, #267 AC4); a recovery
- * that takes none says so once. A pass that only withdraws pauses is announced by nothing.
+ * The events a pass is announced with: one per decision it takes, with its own reason — an answer
+ * `Answered`, an expiry's decision `Expired` — and its `answeredBy` (#267 AC4); a recovery or an
+ * expiry that takes none says so once (#941, V1: a pass whose pauses closed without an answer still
+ * announces); a pass that takes an expiry that failed its step and no decision of an expiry says
+ * `Expired` once more. A pass that only withdraws pauses is announced by nothing.
  */
+function resumesToTell(reason: ResumeReason, resume: TreeResume | undefined): readonly Told[] {
+  const decisions = resume?.decisions ?? [];
+  const isNamed = reason === ResumeReason.Recovered || reason === ResumeReason.Expired;
+  if (decisions.length === 0 && isNamed) return [toldWithout(reason)];
+  // a recovery stays one reason for what it takes; any other pass says why each decision was taken
+  const told = decisions.map((decision, index): Told => ({
+    reason: reason === ResumeReason.Recovered ? reason : (resume?.reasons[index] ?? reason),
+    decision,
+    answeredBy: resume?.answeredBy[index],
+  }));
+  const hasExpiry = told.some((one) => one.reason === ResumeReason.Expired);
+  const isExpiryMissing = resume?.hasUnansweredExpiry === true && !hasExpiry;
+  return isExpiryMissing ? [...told, toldWithout(ResumeReason.Expired)] : told;
+}
+
+/** Announces a pass (`onExecutionResume`, once per event of `resumesToTell`). */
 export async function announceResume(
   observer: ExecutionObserverManager,
   event: ExecutionEvent,
   reason: ResumeReason,
   resume: TreeResume | undefined,
 ): Promise<void> {
-  // a recovery with nothing to name — no resume, or only answers a pass did not store — still says so
-  if (
-    resume === undefined ||
-    (resume.decisions.length === 0 && reason === ResumeReason.Recovered)
-  ) {
-    if (reason !== ResumeReason.Recovered) return;
-    await observer.onExecutionResume({
-      ...event,
-      reason,
-      decision: undefined,
-      answeredBy: undefined,
-    });
-    return;
-  }
-  for (const [index, decision] of resume.decisions.entries()) {
-    const answeredBy = resume.answeredBy[index];
-    await observer.onExecutionResume({ ...event, reason, decision, answeredBy });
+  for (const told of resumesToTell(reason, resume)) {
+    await observer.onExecutionResume({ ...event, ...told });
   }
 }
 
