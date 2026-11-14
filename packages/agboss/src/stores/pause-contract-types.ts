@@ -14,6 +14,7 @@ export {
   type PauseNoticeFacts,
   type PausePage,
   type PauseRecipients,
+  type PauseScanAfter,
   type SetAsideMailbox,
 } from "../infrastructure/pause-notices.js";
 export type {

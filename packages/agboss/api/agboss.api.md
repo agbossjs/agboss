@@ -6278,7 +6278,7 @@ export abstract class PausedExecutionRepository {
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
-    abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
@@ -7905,7 +7905,7 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     findPageByTenantId(...args: Parameters<PausedExecutionRepository["findPageByTenantId"]>): Promise<PausePage>;
     // (undocumented)
-    findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     // (undocumented)
     findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
     // (undocumented)

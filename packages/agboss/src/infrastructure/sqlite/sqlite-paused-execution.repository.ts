@@ -6,6 +6,7 @@ import type {
   PauseNoticeClaim,
   PauseNoticeCounts,
   PausePage,
+  PauseScanAfter,
   SetAsideMailbox,
 } from "../pause-notices.js";
 import type { PauseRecord } from "../pause-record.js";
@@ -130,8 +131,12 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.findByTenantIdAndRootExecutionIdAndStepKey(...args);
   }
 
-  findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {
-    return this.#store.findPendingByExpiresAtBefore(at, limit);
+  findPendingByExpiresAtBefore(
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
+    return this.#store.findPendingByExpiresAtBefore(at, limit, after);
   }
 
   findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]> {

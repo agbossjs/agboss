@@ -63,6 +63,21 @@ export async function isEndedAtTakeover(
   }
 }
 
+/**
+ * Writes a tree's cancel request, the one place every cancel path does (#1073): the lease store's
+ * mark first (#909, the fence on every instance), then the tree key everything that decides
+ * whether the tree goes on reads — the holder's watch, a lease taken over, the expiry look's two
+ * checks. A cancel that wrote only the mark would not be seen by them.
+ */
+export async function writeCancelRequest(
+  parts: Pick<CancelParts, "leases" | "trees">,
+  tree: ExecutionTree,
+  request: { readonly requestedAt: string; readonly ownerId: string | null },
+): Promise<void> {
+  await parts.leases.requestCancel(tree);
+  await parts.trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, request);
+}
+
 /** The holder's watch over one tree's cancel request (#360). */
 export interface CancelWatch {
   /** Aborted with the thread's `ExecutionCancelledError` once a check finds the request. */
@@ -234,7 +249,7 @@ export async function remoteCancel(
   thread: ThreadKey,
   ownerId: string | undefined,
 ): Promise<boolean> {
-  const { deps, trees, clock } = parts;
+  const { deps, clock } = parts;
   const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
   const running = records.filter(
     (record) => record.status === "running" && record.bundle === deps.config.name,
@@ -243,9 +258,7 @@ export async function remoteCancel(
   for (const record of running) {
     if (record.runId === null) continue;
     const tree = { tenantId: thread.tenantId, rootExecutionId: record.runId };
-    // the mark is the fence (#909); the key stays as the holder's watch's notification
-    await parts.leases.requestCancel(tree);
-    await trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, request);
+    await writeCancelRequest(parts, tree, request);
   }
   let isCancelled = false;
   const now = running.length === 0 ? [] : await deps.turns.byIds(running.map(({ id }) => id));

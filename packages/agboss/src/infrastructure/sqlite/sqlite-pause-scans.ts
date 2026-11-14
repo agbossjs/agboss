@@ -1,6 +1,6 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
-import type { PauseFilter, PausePage } from "../pause-notices.js";
+import type { PauseFilter, PausePage, PauseScanAfter } from "../pause-notices.js";
 import { PauseStatus, type PauseRecord } from "../pause-record.js";
 import { pageOf, type SequencedPause } from "../pause-scans.js";
 import { toPauseRecord } from "./sqlite-pause-row-statements.js";
@@ -28,13 +28,21 @@ export class SqlitePauseScans {
   constructor(private readonly database: DatabaseSync) {}
 
   /** `Pending` pauses with `column ≤ at`, by `(column, tenant, id)`, on the column's index. */
-  pendingDue(column: "expires_at" | "remind_at", at: Date, limit: number): readonly PauseRecord[] {
+  pendingDue(
+    column: "expires_at" | "remind_at",
+    at: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): readonly PauseRecord[] {
+    // `after`: the keyset past the page before, in the order's own terms (#1070)
+    const past = after === undefined ? "" : `AND (${column}, tenant_id, pause_id) > (?, ?, ?)`;
+    const keyset = after === undefined ? [] : [after.at, after.tenantId, after.pauseId];
     return this.database
       .prepare(
-        `SELECT * FROM pauses WHERE status = ? AND ${column} IS NOT NULL AND ${column} <= ?
+        `SELECT * FROM pauses WHERE status = ? AND ${column} IS NOT NULL AND ${column} <= ? ${past}
            ORDER BY ${column}, tenant_id, pause_id LIMIT ?`,
       )
-      .all(PauseStatus.Pending, at.toISOString(), limit)
+      .all(PauseStatus.Pending, at.toISOString(), ...keyset, limit)
       .map(toPauseRecord);
   }
 

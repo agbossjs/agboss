@@ -1,3 +1,4 @@
+import type { StepCapacity } from "../app/step-slots.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { expiryLookOf, type ExpiringWorkflow } from "./pause-expiry-look.js";
@@ -14,18 +15,20 @@ export function instanceTimersOf(
     readonly infrastructure: Infrastructure;
     readonly log: FrameworkLog;
     readonly notices: PauseNoticeHub;
+    /** The instance's step slots (#332): the expiries in flight are capped by them. */
+    readonly stepSlots?: StepCapacity | undefined;
   },
   workflows: readonly ExpiringWorkflow[],
   signal: AbortSignal,
 ): PauseTimers {
-  const { infrastructure, log, notices } = parts;
+  const { infrastructure, log, notices, stepSlots } = parts;
   return startPauseTimers({
     clock: infrastructure.clock,
     log,
     signal,
     looks: [
       { name: "notices", run: () => notices.look() },
-      expiryLookOf(infrastructure, log, workflows, signal),
+      expiryLookOf(infrastructure, log, workflows, signal, stepSlots),
     ],
   });
 }

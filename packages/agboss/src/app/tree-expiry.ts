@@ -3,6 +3,7 @@ import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repos
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
+import { isHandedOver } from "./handed-over.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
 import { treeOf, forgetTree } from "./tree-ends.js";
 import { endOfRecord } from "./tree-end-pauses.js";
@@ -87,13 +88,30 @@ async function isResting(parts: TreeMoveParts, state: TreeState, turnId: string)
   if (record === undefined) return false;
   const status: string = record.status;
   if (status === RESTING) return true;
-  const ended: readonly string[] = [
-    ExecutionRecordStatus.Answered,
-    ExecutionRecordStatus.Failed,
-    ExecutionRecordStatus.Guarded,
-  ];
-  if (ended.includes(status)) await forgetTree(parts, state, endOfRecord(record));
+  if (ENDED.includes(status)) await forgetTree(parts, state, endOfRecord(record));
   return false;
+}
+
+/** The statuses of a root that ended (text: a record's status may be compared with them). */
+const ENDED: readonly string[] = [
+  ExecutionRecordStatus.Answered,
+  ExecutionRecordStatus.Failed,
+  ExecutionRecordStatus.Guarded,
+];
+
+/**
+ * Whether a drain that rejected ended the run (#1074): its record is `answered`, `failed` or
+ * `guarded` — the run's own outcome (a run deadline reached, an uncaught `fail()` of the expiry),
+ * recorded and observed (`onExecutionError`) by the pass itself, not a failure of the expiry. A
+ * record that is not read, or still moving, leaves the rejection what it is: the machinery's.
+ */
+async function endedByRun(parts: TreeMoveParts, turnId: string): Promise<boolean> {
+  try {
+    const [record] = await parts.deps.turns.byIds([turnId]);
+    return record !== undefined && ENDED.includes(record.status);
+  } catch {
+    return false;
+  }
 }
 
 /** What an expiry move needs of the mover that holds the tree (`tree-moves.ts`). */
@@ -137,7 +155,13 @@ export async function expiredMove(
       return;
     }
     await hooks.announce(planned.resume, state);
-    await hooks.drained(state, lease, planned);
+    try {
+      await hooks.drained(state, lease, planned);
+    } catch (error) {
+      // the run failed or was handed over after its expiry: its outcome, not the expiry's failure
+      if (isHandedOver(error) || (await endedByRun(parts, interrupted.turnId))) return;
+      throw error;
+    }
   } catch (error) {
     await lease.release();
     throw error;

@@ -50,8 +50,8 @@ const SABOTAGES = [
   },
   {
     scenario: s24dCancel,
-    module: "unmarked",
-    store: "a lease store whose cancel mark never lands",
+    module: "unmarked-blind",
+    store: "stores where a cancel lands nowhere (no mark, no request read back)",
     invariant: FaultInvariant.NoEffectAfterCancel,
     message: /after its cancel was durable/u,
   },

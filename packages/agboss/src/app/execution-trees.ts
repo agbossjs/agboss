@@ -7,7 +7,7 @@ import { NotPausedError } from "../run/resume-agent.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import { InvalidThreadIdError } from "../core/errors.js";
 import type { Turn } from "../turns/index.js";
-import { CANCEL_REQUEST_KEY, type CancelParts } from "./cancel-requests.js";
+import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
 import { currentOutputOf } from "./current-output.js";
 import { rootRecordOf } from "./ended-tree.js";
@@ -146,12 +146,7 @@ export async function cancelExecution(
     const { trees, clock, live } = parts;
     const tree = { tenantId: request.tenantId, rootExecutionId: request.rootExecutionId };
     const requestedAt = clock.now().toISOString();
-    // the mark first (#909): the fence on every instance, then the tree key the watch reads
-    await parts.leases.requestCancel(tree);
-    await trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, {
-      requestedAt,
-      ownerId: request.ownerId ?? null,
-    });
+    await writeCancelRequest(parts, tree, { requestedAt, ownerId: request.ownerId ?? null });
     if (live.abortExecution(tree, request.threadId)) return ExecutionCancelOutcome.Aborted;
     const durable = await executionStateOf(parts, request);
     switch (durable.status) {
