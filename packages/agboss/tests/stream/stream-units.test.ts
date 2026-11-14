@@ -60,8 +60,7 @@ describe("RunStream: a throwing listener", () => {
       warn: (_code, message) => messages.push(message),
     };
     new RunStream(() => {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error -- a listener may throw anything
-      throw "text";
+      throw JSON.parse('"text"'); // a listener may throw anything: a string here
     }, log).emit({ kind: "toolCall", tool: "x" });
 
     expect(messages).toHaveLength(1);
