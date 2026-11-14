@@ -33,8 +33,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const warnings = () => logged.filter((entry) => entry.level === "warn" || entry.level === "error");
-
 describe("#1074: a run's own end after an expiry is not a warning", () => {
   test("the run deadline reached after the expiry: the run fails with DeadlineExceededError, nothing is warned", async ({
     app,
@@ -65,7 +63,7 @@ describe("#1074: a run's own end after an expiry is not a warning", () => {
 
     expect(expiry.errors[0]).toBeInstanceOf(PauseExpiredError);
     expect(logged.filter((entry) => entry.code === EXPIRY_FAILED)).toEqual([]);
-    expect(warnings().filter((entry) => entry.code.startsWith("pause."))).toEqual([]);
+    expect(logged.filter((entry) => entry.code.startsWith("pause."))).toEqual([]);
   });
 
   test("a real failure of the expiry machinery (the root's record cannot be read) is still a warning, once per look", async ({

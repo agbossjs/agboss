@@ -318,7 +318,9 @@ export class SlowExpiryWorkflowStart {}
       .toQuestion(ManagerQuestion, { expiresIn: seconds(3) })
       .onError(
         PauseExpiredError,
-        toAction(SlowEscalationAction).returns(ExpiryDoneDto).toFinish(ExpiryWorkflowFinish),
+        toAction(SlowEscalationAction)
+          .returns(ExpiryDoneDto)
+          .toFinish(ExpiryWorkflowFinish),
       )
       .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)

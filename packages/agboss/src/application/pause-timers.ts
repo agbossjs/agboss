@@ -62,7 +62,7 @@ class Loop implements PauseTimers {
   async stop(): Promise<void> {
     this.#stopped.abort();
     await this.#loop;
-    await Promise.all(this.sources.looks.map((look) => look.settled?.()));
+    for (const look of this.sources.looks) await look.settled?.();
   }
 
   async #run(): Promise<void> {

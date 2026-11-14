@@ -53,7 +53,8 @@ describe("#1072: due pauses no instance moves do not starve the ones behind them
       { threadId: "starved-1" },
     );
 
-    await clock.advance(hours(4) + minutes(1));
+    await clock.advance(hours(4));
+    await clock.advance(minutes(1));
     await until(() => expiry.asked.length === 1);
     await clock.advance(seconds(10));
 

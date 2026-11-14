@@ -249,7 +249,7 @@ export async function remoteCancel(
   thread: ThreadKey,
   ownerId: string | undefined,
 ): Promise<boolean> {
-  const { deps, trees, clock } = parts;
+  const { deps, clock } = parts;
   const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
   const running = records.filter(
     (record) => record.status === "running" && record.bundle === deps.config.name,

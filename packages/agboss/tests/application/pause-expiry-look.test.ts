@@ -177,8 +177,7 @@ describe("#941: the expiry look", () => {
       const from =
         after === undefined
           ? 0
-          : pauses.findIndex((p) => (p as never as { pauseId: string }).pauseId === after.pauseId) +
-            1;
+          : pauses.findIndex((p) => (p as { pauseId: string }).pauseId === after.pauseId) + 1;
       return Promise.resolve(pauses.slice(from));
     });
 
