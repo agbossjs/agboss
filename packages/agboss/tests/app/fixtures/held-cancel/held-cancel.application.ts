@@ -1,7 +1,12 @@
 import { Application } from "../../../../src/application/application.js";
 import { sqliteFaultStoreClasses } from "../../../faults/sqlite.fault-stores.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { DirectorChannel, PlainWorkflow } from "../../../flow/fixtures/expiry.fixture.js";
+import {
+  DirectorChannel,
+  ManagerChannel,
+  PlainWorkflow,
+  ShortExpiryWorkflow,
+} from "../../../flow/fixtures/expiry.fixture.js";
 import { HeldCancelEnvironment } from "./environments/app.environment.js";
 
 /**
@@ -12,8 +17,8 @@ import { HeldCancelEnvironment } from "./environments/app.environment.js";
   name: "held-cancel-application",
   version: "1.0.0",
   environment: HeldCancelEnvironment,
-  workflows: [PlainWorkflow],
+  workflows: [PlainWorkflow, ShortExpiryWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [...sqliteFaultStoreClasses, DirectorChannel],
+  providers: [...sqliteFaultStoreClasses, DirectorChannel, ManagerChannel],
 })
 export class HeldCancelApplication {}

@@ -101,6 +101,7 @@ const keptAlive = (app: App): App => ({
   execute: (start, input, ...options) => keepingAlive(() => app.execute(start, input, ...options)),
   resume: (request, options) => keepingAlive(() => app.resume(request, options)),
   cancel: (threadId, options) => keepingAlive(() => app.cancel(threadId, options)),
+  extendPause: (request, options) => keepingAlive(() => app.extendPause(request, options)),
   close: (options) => keepingAlive(() => app.close(options)),
   checkReadiness: () => keepingAlive(() => app.checkReadiness()),
 });
@@ -138,7 +139,6 @@ export function composeApp(
     warnings,
     models: [...new Set(workflows.flatMap((workflow) => workflow.app.models))],
     textStart: textStartOf(workflows),
-    // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
     execute: (start, input, ...options) =>
       (starts.get(start) ?? first).app.execute(start, input, ...options),

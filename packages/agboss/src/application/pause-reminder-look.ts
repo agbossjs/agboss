@@ -56,6 +56,8 @@ const afterOf = (pause: PauseRecord): PauseScanAfter => ({
 /** One instance's reminder look: the reminders it started, and where a cut-short sweep goes on. */
 export class ReminderLook {
   readonly #inFlight = new Map<string, Promise<void>>();
+  /** The in-flight reminders that write: only these count against the cap (#1092). */
+  readonly #writing = new Set<string>();
   /** Where a sweep cut short by the cap went on from: the next one continues after it. */
   #resumeAfter: PauseScanAfter | undefined;
 
@@ -78,11 +80,13 @@ export class ReminderLook {
         if (signal.aborted) return;
         const key = `${pause.tenantId}\0${pause.pauseId}`;
         if (!this.#inFlight.has(key)) {
-          if (this.#inFlight.size >= REMINDER_PAGE) {
+          if (this.#writing.size >= REMINDER_PAGE) {
             this.#resumeAfter = after;
             return;
           }
-          this.#start(key, pause, now);
+          // until it writes or ends: a pause nobody here can remind ends in one read and takes
+          // no place of the cap, so it cannot hold the reminders behind it back (#1092)
+          await this.#start(key, pause, now);
         }
         after = afterOf(pause);
       }
@@ -91,9 +95,19 @@ export class ReminderLook {
     }
   }
 
-  /** Starts the reminder of `pause`; its failure is told, never thrown. */
-  #start(key: string, pause: PauseRecord, now: Date): void {
-    const reminder = this.#remind(pause, now)
+  /**
+   * Starts the reminder of `pause`; its failure is told, never thrown. Resolves once it decided
+   * what it is: it writes (it counts against the cap from then on) or it ended without writing.
+   */
+  #start(key: string, pause: PauseRecord, now: Date): Promise<void> {
+    let decide: () => void = () => undefined;
+    const decided = new Promise<void>((resolve) => {
+      decide = resolve;
+    });
+    const reminder = this.#remind(pause, now, () => {
+      this.#writing.add(key);
+      decide();
+    })
       .catch((error: unknown) => {
         // a stop cut it: the reminder stays due for the next instance's look
         if (this.sources.signal.aborted) return;
@@ -105,14 +119,18 @@ export class ReminderLook {
       })
       .finally(() => {
         this.#inFlight.delete(key);
+        this.#writing.delete(key);
+        decide();
       });
     this.#inFlight.set(key, reminder);
+    return decided;
   }
 
-  async #remind(pause: PauseRecord, now: Date): Promise<void> {
+  async #remind(pause: PauseRecord, now: Date, onWriting: () => void): Promise<void> {
     const { pauses, records, bundles, recipientsOf, delivered } = this.sources;
     const record = await records.findByTenantIdAndRunId(pause.tenantId, pause.rootExecutionId);
     if (record === undefined || !bundles.has(record.bundle)) return;
+    onWriting();
     const done = await pauses.remindByTenantIdAndPauseId(
       pause.tenantId,
       pause.pauseId,

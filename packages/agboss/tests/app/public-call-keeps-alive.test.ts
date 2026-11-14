@@ -14,7 +14,7 @@ import type { App } from "../../src/index.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { hours } from "../../src/units/index.js";
-import { PlainWorkflowStart } from "../flow/fixtures/expiry.fixture.js";
+import { PlainWorkflowStart, ShortExpiryWorkflowStart } from "../flow/fixtures/expiry.fixture.js";
 import { execute } from "../helpers/flow.js";
 import { runProcess } from "../helpers/process.js";
 import { HeldCancelApplication } from "./fixtures/held-cancel/held-cancel.application.js";
@@ -84,6 +84,27 @@ describe("#1093: a pending public call keeps the process alive", () => {
     expect(child.stderr).not.toContain("Error");
     expect(child.stdout).toContain("result finished=true");
     expect(child.stdout).toContain("closed");
+    expect(child.status).toBe(0);
+  }, 60_000);
+
+  // extendPause takes no lease and waits on no Clock timer, so it cannot be red without the wrapper:
+  // the test pins that the call settles in a script that does nothing else
+  it("a script that only calls app.extendPause prints the result and exits 0", async () => {
+    const file = join(folder, "held-extend.sqlite");
+    const app = await createAppWith(HeldCancelApplication, {
+      env: "dev",
+      processEnv: { HELD_CANCEL_SQLITE_PATH: file },
+    });
+    opened.push(app);
+    const paused = await execute(app, ShortExpiryWorkflowStart, { orderId: "o-2" });
+    const [pause] = await app
+      .resolve(PausedExecutionRepository)
+      .findAllByTenantIdAndRootExecutionId("default", paused.executionId);
+
+    const child = await runScript(file, "extend", pause?.pauseId ?? "");
+
+    expect(child.stderr).not.toContain("Error");
+    expect(child.stdout).toContain("result extended=true");
     expect(child.status).toBe(0);
   }, 60_000);
 });

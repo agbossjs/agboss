@@ -143,9 +143,7 @@ describe("#942: the reminder look", () => {
     );
     const { instance, remind, find } = look([...foreign, due("acme", "root-ours", "ours", 5)]);
 
-    // the 50 earliest fill the in-flight cap; the next tick's sweep goes on after them
-    await instance.run();
-    await instance.settled();
+    // pauses nobody here can remind take no place of the cap: one look reaches ours
     await instance.run();
     await instance.settled();
 
@@ -155,6 +153,18 @@ describe("#942: the reminder look", () => {
       REMINDER_PAGE,
       expect.objectContaining({ pauseId: "f-049" }),
     );
+  });
+
+  it("#1092: 200 due pauses of another application ahead of one of ours — ours is reminded by the same look, not 4 ticks later", async () => {
+    const foreign = Array.from({ length: 200 }, (_, index) =>
+      due("acme", `foreign-${String(index)}`, `f-${String(index).padStart(3, "0")}`, 1),
+    );
+    const { instance, remind } = look([...foreign, due("acme", "root-ours", "ours", 5)]);
+
+    await instance.run();
+    await instance.settled();
+
+    expect(remindedIds(remind)).toEqual(["ours"]);
   });
 
   it("the in-use variant: a reminder still in flight is passed, never started again, and the ones behind it are reached", async () => {
