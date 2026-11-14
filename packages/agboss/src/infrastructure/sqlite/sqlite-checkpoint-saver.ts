@@ -15,6 +15,8 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
+import { stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
+import { latestRowOf, migrateSteps } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -26,12 +28,16 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * `running` tree from its last checkpoint. Ecosystem savers (`PostgresSaver`, …) plug in the same way.
  */
 @Injectable({ deps: [SqliteConnection] })
-export class SqliteCheckpointSaver extends BaseCheckpointSaver {
+export class SqliteCheckpointSaver
+  extends BaseCheckpointSaver
+  implements LatestByStepCheckpointSaver
+{
   constructor(private readonly connection: SqliteConnection) {
     super();
     connection.ensureSchema("checkpoints", CHECKPOINT_SCHEMA);
     for (const table of TENANT_TAGGED_TABLES)
       connection.addColumn(table, "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
+    migrateSteps(connection);
   }
 
   /** One `SELECT 1` on the file (#300): what `app.checkReadiness()` asks of the checkpoint saver. */
@@ -49,6 +55,11 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
           : "SELECT * FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?",
       )
       .get(...[threadId, namespace, ...(checkpointId === undefined ? [] : [checkpointId])]);
+    return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
+  }
+
+  async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const row = latestRowOf(this.connection, keyOf(config, "latestByStep"));
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
@@ -82,7 +93,7 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
     ]);
     this.connection.transaction(() => {
       this.connection.database
-        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(
           threadId,
           namespace,
@@ -93,6 +104,7 @@ export class SqliteCheckpointSaver extends BaseCheckpointSaver {
           metadataType,
           dumpedMetadata,
           tenantId,
+          stepOf(metadata),
         );
     });
     return configOf(threadId, namespace, checkpoint.id);

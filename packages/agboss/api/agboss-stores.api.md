@@ -4,7 +4,10 @@
 
 ```ts
 
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
+import type { CheckpointTuple } from '@langchain/langgraph';
 import type { MessageContent } from '@langchain/core/messages';
+import type { RunnableConfig } from '@langchain/core/runnables';
 
 // @public
 export interface A2ADirectMessageAttempt {
@@ -1131,6 +1134,9 @@ export enum HandOverSite {
 }
 
 // @public
+export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
+
+// @public
 export const idGeneratorNameOf: (idGenerator: object) => string;
 
 // @public
@@ -1162,6 +1168,11 @@ export interface JudgeVerdictRecord {
     // (undocumented)
     readonly passed: boolean;
     readonly reason?: string;
+}
+
+// @public
+export interface LatestByStepCheckpointSaver extends BaseCheckpointSaver {
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
 }
 
 // @public
@@ -1293,6 +1304,9 @@ export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 // @public
 export const NO_RECIPIENTS: PauseRecipients;
+
+// @public
+export const NO_STEP = -2;
 
 // @public
 export interface OutboundCallClaim {
@@ -1945,6 +1959,11 @@ export interface StepHandedOverRecord extends ExecutionAuditEventBase {
     // (undocumented)
     readonly step: AuditEventStep;
 }
+
+// @public
+export function stepOf(metadata: {
+    readonly step?: unknown;
+} | undefined): number;
 
 // @public
 export interface StepRecord {

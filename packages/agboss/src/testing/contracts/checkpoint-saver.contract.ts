@@ -5,6 +5,7 @@ import { pingCheckpointSaver } from "../../health/readiness-checks.js";
 import { registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./instance-context.js";
+import { LATEST_BY_STEP_CASES } from "./checkpoint-latest-by-step.cases.js";
 
 /** The options `list` takes. */
 type ListOptions = Parameters<BaseCheckpointSaver["list"]>[1];
@@ -139,13 +140,14 @@ const CHECKPOINT_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
  * the latest checkpoint of a thread or one by id with its parent, pending writes (a regular write
  * kept as first written, a special one replaced), `list` newest first with `limit` / `before` /
  * `filter`, and `deleteThread`. Its ping is `ping()` when the saver has one, else a read of a
- * thread that does not exist — what readiness does.
+ * thread that does not exist — what readiness does. A store with `latestByStep` (#962) declares
+ * `StoreCapability.LatestByStep` and passes its cases: the answer of the scan, by one index read.
  */
 export function checkpointSaverContract(target: ContractTarget<BaseCheckpointSaver>): void {
   registerContract(
     "checkpoint saver contract",
     target,
-    [{ cases: CHECKPOINT_CASES }],
+    [{ cases: CHECKPOINT_CASES }, { title: "latestByStep", cases: LATEST_BY_STEP_CASES }],
     pingCheckpointSaver,
   );
 }

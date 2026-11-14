@@ -20,7 +20,7 @@ import {
 import type { BudgetCheck, CounterSnapshot, ExecutionBudgetRecord } from "./budget-check.js";
 
 export * from "./budget-check.js";
-export { settledSaverOf } from "../app/leased-checkpointer.js";
+export { settledSaverOf } from "../app/settled-spend-checkpointer.js";
 
 /**
  * Budgets at run time (#261 PR 5): which budgets an execution has — its own workflow's execution

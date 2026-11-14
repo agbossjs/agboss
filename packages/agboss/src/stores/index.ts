@@ -82,3 +82,12 @@ export {
   StoredNamesUnreadableError,
   type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";
+
+// an optional capability of a checkpoint saver (#962): its newest checkpoint of a thread's
+// namespace by `(step, id)` as one indexed read, which a marked thread's latest read uses
+export {
+  hasLatestByStep,
+  NO_STEP,
+  stepOf,
+  type LatestByStepCheckpointSaver,
+} from "../infrastructure/latest-by-step.js";

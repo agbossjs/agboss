@@ -1,5 +1,5 @@
-import { BaseCheckpointSaver, MemorySaver } from "@langchain/langgraph";
-import { Injectable } from "../components/decorators.js";
+import { BaseCheckpointSaver } from "@langchain/langgraph";
+import { InMemoryCheckpointSaver } from "./in-memory-checkpoint-saver.js";
 import type { Class } from "../components/injection.js";
 import { Clock, IdGenerator, RandomIdGenerator, SystemClock } from "./clock.js";
 import { ConsoleLogger, Logger, SilentLogger } from "./logger.js";
@@ -52,15 +52,6 @@ import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
  * contract with a built-in default, one per application. Registered only in `@Application({ providers })`; the
  * implementation is found by inheritance — none listed → the default, two → ambiguous.
  */
-
-/** The default checkpointer: LangGraph's `MemorySaver` — a pause is lost on restart. */
-@Injectable()
-export class InMemoryCheckpointSaver extends MemorySaver {
-  /** In memory, always reachable (#300). */
-  ping(): Promise<void> {
-    return Promise.resolve();
-  }
-}
 
 /** Each contract with its built-in default (in memory: nothing is written to disk). */
 export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class, Class>([
@@ -224,3 +215,5 @@ export const reusableInfrastructure = (
       return isSqliteImplementation(instance) ? [] : [[instance.constructor as Class, instance]];
     }),
   );
+
+export { InMemoryCheckpointSaver };
