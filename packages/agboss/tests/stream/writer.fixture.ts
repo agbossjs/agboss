@@ -65,7 +65,7 @@ export class AuditFinish {}
   ],
   defaults: DEFAULTS,
 })
-class AuditWorkflow {}
+export class AuditWorkflow {}
 
 @Application({
   name: "audit-judge-application",

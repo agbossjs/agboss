@@ -42,6 +42,7 @@ export interface AGBossErrorOptions {
 // @public
 export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TName> {
     readonly budgets?: ApplicationBudgets | undefined;
+    readonly log?: FrameworkLog | undefined;
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
     readonly tracing?: ExecutionTracing | undefined;
     // (undocumented)
@@ -1806,8 +1807,8 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/rag/types.ts:154:3 - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts:155:3 - (ae-undocumented) Missing documentation for "retrieve".
 // src/run/continue-run.ts:42:1 - (ae-undocumented) Missing documentation for "ContinueOptions".
-// src/run/types.ts:27:3 - (ae-undocumented) Missing documentation for "turns".
-// src/run/types.ts:75:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
+// src/run/types.ts:28:3 - (ae-undocumented) Missing documentation for "turns".
+// src/run/types.ts:78:1 - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
 // src/testing/vcr-check.ts:34:3 - (ae-undocumented) Missing documentation for "file".
 // src/testing/vcr-check.ts:35:3 - (ae-undocumented) Missing documentation for "component".
 // src/testing/vcr-check.ts:36:3 - (ae-undocumented) Missing documentation for "changes".

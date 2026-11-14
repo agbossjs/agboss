@@ -23,7 +23,8 @@ const runContextOf = (
     lease,
     pii,
     fingerprintKeys,
-  }: Pick<AgentExecutionDeps<string>, "lease" | "pii" | "fingerprintKeys">,
+    log,
+  }: Pick<AgentExecutionDeps<string>, "lease" | "pii" | "fingerprintKeys" | "log">,
 ): RunContext => ({
   ...newRunContext({
     lease,
@@ -41,7 +42,14 @@ const runContextOf = (
   // what a business key's fingerprint is keyed by (#825): the application's idempotency keys
   fingerprintKeys,
   // the caller's stream (#1004): reached only by an agent's answer and its tool calls
-  ...(options.onStream === undefined ? {} : { stream: new RunStream(options.onStream) }),
+  ...(options.onStream === undefined
+    ? {}
+    : {
+        stream: new RunStream(options.onStream, log, {
+          executionId: identity.runId,
+          tenantId: identity.tenantId,
+        }),
+      }),
 });
 
 /**

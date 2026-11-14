@@ -15,6 +15,7 @@ import type { TurnRecords } from "../turns/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
 /** Graph dependencies plus the application's budgets and the Turn store. */
@@ -25,6 +26,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
    */
   readonly budgets?: ApplicationBudgets | undefined;
   readonly turns: TurnRecords;
+  /** The application's log: what reports a failed `onStream` listener (#1008); none for a workflow on its own. */
+  readonly log?: FrameworkLog | undefined;
   /** Optional tracing (e.g. local Langfuse); runs are identical without it. */
   readonly tracing?: ExecutionTracing | undefined;
   /** Its application's model providers: a transport one (#385) is part of its `configHash`. */

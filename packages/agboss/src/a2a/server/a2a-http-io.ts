@@ -2,10 +2,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { formatSSEErrorEvent, formatSSEEvent, SSE_HEADERS } from "@a2a-js/sdk";
 import { A2AError } from "@a2a-js/sdk/errors";
 import { JsonRpcTransportHandler } from "@a2a-js/sdk/server";
+import type { Clock } from "../../infrastructure/clock.js";
 import type { FrameworkLog } from "../../infrastructure/logger.js";
 import type { Bytes } from "../../units/index.js";
 import { writeRejection } from "../a2a-caller-gate.js";
 import type { ServedAgentCard } from "./a2a-card.js";
+import { nextWithKeepAlive, writeSse } from "./a2a-sse-write.js";
 import { A2AInternalError } from "./a2a-wire-errors.js";
 
 /**
@@ -101,16 +103,17 @@ async function writeEvents(
   res: ServerResponse,
   iterator: AsyncIterator<unknown>,
   first: IteratorResult<unknown>,
-  answer: { readonly id: unknown; readonly log: BindingLog },
+  answer: { readonly id: unknown; readonly log: BindingLog; readonly clock: Clock },
 ): Promise<void> {
   try {
-    for (let next = first; next.done !== true; next = await iterator.next()) {
-      if (res.destroyed) break;
-      res.write(formatSSEEvent(next.value));
+    let next: IteratorResult<unknown> | undefined = first;
+    while (next !== undefined && next.done !== true) {
+      if (!(await writeSse(res, formatSSEEvent(next.value), answer.clock))) break;
+      next = await nextWithKeepAlive(res, iterator.next(), answer.clock);
     }
   } catch (error) {
     const event = errorAnswerOf(answer.id, error, answer.log);
-    if (!res.writableEnded) res.write(formatSSEErrorEvent(event));
+    if (!res.writableEnded && !res.destroyed) res.write(formatSSEErrorEvent(event));
   }
 }
 
@@ -118,7 +121,12 @@ async function writeEvents(
 export async function sendEvents(
   res: ServerResponse,
   events: AsyncIterable<unknown>,
-  answer: { readonly id: unknown; readonly log: BindingLog; readonly headers: AnswerHeaders },
+  answer: {
+    readonly id: unknown;
+    readonly log: BindingLog;
+    readonly clock: Clock;
+    readonly headers: AnswerHeaders;
+  },
 ): Promise<void> {
   const { headers } = answer;
   const iterator = events[Symbol.asyncIterator]();

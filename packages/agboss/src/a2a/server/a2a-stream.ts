@@ -5,6 +5,7 @@ import {
 } from "../../infrastructure/a2a-task.repository.js";
 import type { ExecutionStreamEvent } from "../../run/types.js";
 import { ArtifactView } from "./a2a-artifact-view.js";
+import { droppedLog, listenerOf, SubscriberQueue } from "./a2a-subscriber-queue.js";
 import { changedTask, isAtRest } from "./a2a-task-wait.js";
 import { taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
@@ -119,8 +120,7 @@ async function changedOrHeard(
   signal: AbortSignal,
   heard: AbortSignal,
 ): Promise<A2ATaskRecord> {
-  const next = await changedTask(parts, task, AbortSignal.any([signal, heard]));
-  return next;
+  return changedTask(parts, task, AbortSignal.any([signal, heard]));
 }
 
 /** What a run's event is on the wire: a chunk of the artifact, its retraction, or a tool call. */
@@ -145,25 +145,28 @@ export async function* taskStream(
   },
 ): AsyncGenerator<StreamResponse, void, undefined> {
   const { signal } = options;
-  const queued: ExecutionStreamEvent[] = [];
+  const queued = new SubscriberQueue();
   const key = taskKeyOf(task);
   let current = task;
   let shown = task.version;
   let wake = new AbortController();
-  // what the client shows of the artifact: a run's first chunk starts it anew (#1006)
   const view = new ArtifactView();
   let heard = parts.runs.settledOf(key);
-  const hear = (event: ExecutionStreamEvent): void => {
-    queued.push(event);
-    wake.abort();
-  };
+  const hear = listenerOf(
+    queued,
+    () => {
+      wake.abort();
+    },
+    droppedLog(parts, task),
+  );
   let stopListening = parts.runs.listen(key, hear);
   try {
     yield { payload: { $case: "task", value: await wireTaskOf(current, parts) } };
     while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {
       wake = new AbortController();
-      if (queued.length === 0) current = await changedOrHeard(parts, current, signal, wake.signal);
-      for (const event of queued.splice(0)) {
+      if (queued.isWaiting) current = await changedOrHeard(parts, current, signal, wake.signal);
+      if (queued.isDropped) return;
+      for (const event of queued.take()) {
         const update = updateOf(view, current, event);
         if (update !== undefined) yield update;
       }
