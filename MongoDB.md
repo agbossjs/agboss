@@ -89,10 +89,9 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   the write with `ExecutionCancelFencedError`. The cancel either waits for a transaction that
   already touched the document or commits first, and the transaction's later touch conflicts and
   runs again on a snapshot that holds it; the price is that fenced writes of one tree's
-<<<<<<< HEAD
-  `AnyInstance` children conflict and retry. It is **schema version 2** — run `agboss-mongodb
-  migrate` before rolling out the version that writes it (an older instance neither writes nor
-  reads the collection). Documents older than the fencing stores' retention are pruned with them.
+  `AnyInstance` children conflict and retry. It is a **schema version of its own** ([below](#the-schema-and-its-versions)) — run
+  `agboss-mongodb migrate` before rolling out the version that writes it (an older instance neither
+  writes nor reads the collection). Documents older than the fencing stores' retention are pruned with them.
 - **The pause store** (#938, contract v2) — a pause change is one compare-and-set on the pause's
   document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
   instances exactly one records an expiry or an extension, and the per-recipient notices are
@@ -100,12 +99,6 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
   later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`) — run
   `agboss-mongodb migrate` first; it backfills the pause channels.
-=======
-  `AnyInstance` children conflict and retry. It is a **schema version of its own**, the one after
-  `latest_by_step` ([below](#the-schema-and-its-versions): version 3) — run `agboss-mongodb migrate`
-  before rolling out the version that writes it (an older instance neither writes nor reads the
-  collection). Documents older than the fencing stores' retention are pruned with them.
->>>>>>> 7d72372 (docs(#1038): latestByStep, schema versions, index step, store upgrade steps)
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not
@@ -123,9 +116,11 @@ migration, applied in order:
 
 | Version | Migration | What it adds |
 | --- | --- | --- |
-| 1 | `0001_stores` | every collection with the simple collation, their indexes, the ledger's mark |
-| 2 | `0002_checkpoint_latest_by_step` | the checkpoints' index `latest_by_step` — `{ threadId, namespace, step: -1, checkpointId: -1 }` (#962) |
-| 3 | the cancel's fence (#909) | `agboss_execution_cancel_requests`, with the stores that write it |
+| 1 | `stores` | every collection with the simple collation, their indexes, the ledger's mark |
+| 2 | `checkpoint_latest_by_step` | the checkpoints' index `latest_by_step` — `{ threadId, namespace, step: -1, checkpointId: -1 }` (#962) |
+| 3 | `pause-deadlines-and-notices` | the pause store's contract v2 (#938): deadlines and notices; backfills the pause channels |
+
+The cancel's fence (#909) adds `agboss_execution_cancel_requests` in a version of its own.
 
 **`latest_by_step`** (#962). `MongoCheckpointSaver.latestByStep` reads a marked thread's newest
 checkpoint by LangGraph's step ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962))
