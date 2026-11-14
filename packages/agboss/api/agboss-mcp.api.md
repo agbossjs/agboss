@@ -108,19 +108,19 @@ export type ToolsOf<TServer> = TServer extends {
 
 // Warnings were encountered during analysis:
 //
-// src/components/mcp-client.ts:7:3 - (ae-undocumented) Missing documentation for "input".
-// src/components/mcp-client.ts:8:3 - (ae-undocumented) Missing documentation for "output".
-// src/components/mcp-client.ts:13:1 - (ae-undocumented) Missing documentation for "ResultOf".
-// src/components/mcp-client.ts:14:1 - (ae-undocumented) Missing documentation for "ServerTools".
-// src/components/mcp-client.ts:39:9 - (ae-undocumented) Missing documentation for "call".
-// src/mcp/mcp-expose.decorator.ts:4:1 - (ae-undocumented) Missing documentation for "McpExposeOptions".
-// src/mcp/mcp-expose.decorator.ts:5:3 - (ae-undocumented) Missing documentation for "name".
-// src/mcp/mcp-expose.decorator.ts:6:3 - (ae-undocumented) Missing documentation for "version".
-// src/mcp/mcp-expose.decorator.ts:7:3 - (ae-undocumented) Missing documentation for "exports".
-// src/mcp/mcp-service.ts:19:1 - (ae-undocumented) Missing documentation for "McpSession".
-// src/mcp/mcp-service.ts:20:3 - (ae-undocumented) Missing documentation for "sessionId".
-// src/mcp/mcp-service.ts:21:3 - (ae-undocumented) Missing documentation for "close".
-// src/mcp/mcp-service.ts:144:1 - (ae-undocumented) Missing documentation for "createMcpService".
+// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "input".
+// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "output".
+// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ResultOf".
+// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ServerTools".
+// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "call".
+// src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "McpExposeOptions".
+// src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "name".
+// src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "version".
+// src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "exports".
+// src/mcp/mcp-service.ts - (ae-undocumented) Missing documentation for "McpSession".
+// src/mcp/mcp-service.ts - (ae-undocumented) Missing documentation for "sessionId".
+// src/mcp/mcp-service.ts - (ae-undocumented) Missing documentation for "close".
+// src/mcp/mcp-service.ts - (ae-undocumented) Missing documentation for "createMcpService".
 
 // (No @packageDocumentation comment for this package)
 

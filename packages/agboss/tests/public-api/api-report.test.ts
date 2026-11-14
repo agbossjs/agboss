@@ -38,6 +38,16 @@ describe("API reports (#195)", () => {
     ).toEqual(names.sort());
   });
 
+  it("#1040: the committed reports keep the ae-* warnings, without their source positions", () => {
+    const text = readdirSync(reports)
+      .filter((name) => name.endsWith(".api.md"))
+      .map((name) => readFileSync(join(reports, name), "utf8"))
+      .join("\n");
+
+    expect(text).toMatch(/^\/\/ src\/\S+\.ts - \(ae-undocumented\)/m);
+    expect(text).not.toMatch(/^\s*\/\/ \S+:\d+:\d+ - \(ae-/m);
+  });
+
   it("AC3: the committed reports match the build, and a surface change fails the check", async () => {
     expect((await check()).status, "npm run build, then npm run api:update").toBe(0);
 

@@ -72,18 +72,18 @@ export class SlidingWindowStrategy extends BaseMemoryStrategy {
 
 // Warnings were encountered during analysis:
 //
-// src/memory/sliding-window.ts:5:3 - (ae-undocumented) Missing documentation for "turns".
-// src/memory/sliding-window.ts:6:3 - (ae-undocumented) Missing documentation for "summaries".
-// src/memory/sliding-window.ts:23:3 - (ae-undocumented) Missing documentation for "buildContext".
-// src/memory/types.ts:8:3 - (ae-undocumented) Missing documentation for "summaries".
-// src/memory/types.ts:9:3 - (ae-undocumented) Missing documentation for "history".
-// src/memory/types.ts:19:3 - (ae-undocumented) Missing documentation for "agent".
-// src/memory/types.ts:22:3 - (ae-undocumented) Missing documentation for "limits".
-// src/memory/types.ts:29:3 - (ae-undocumented) Missing documentation for "threadId".
-// src/memory/types.ts:30:3 - (ae-undocumented) Missing documentation for "executionId".
-// src/memory/types.ts:31:3 - (ae-undocumented) Missing documentation for "turn".
-// src/memory/types.ts:38:3 - (ae-undocumented) Missing documentation for "usage".
-// src/memory/types.ts:48:3 - (ae-undocumented) Missing documentation for "buildContext".
+// src/memory/sliding-window.ts - (ae-undocumented) Missing documentation for "turns".
+// src/memory/sliding-window.ts - (ae-undocumented) Missing documentation for "summaries".
+// src/memory/sliding-window.ts - (ae-undocumented) Missing documentation for "buildContext".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "summaries".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "history".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "agent".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "limits".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "executionId".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "turn".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "usage".
+// src/memory/types.ts - (ae-undocumented) Missing documentation for "buildContext".
 
 // (No @packageDocumentation comment for this package)
 

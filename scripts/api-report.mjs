@@ -6,10 +6,19 @@
 //   node scripts/api-report.mjs --write  → rewrite the reports after an intended API change
 // Runs on the built declarations: `npm run build` first.
 import { CompilerState, Extractor, ExtractorConfig } from "@microsoft/api-extractor";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { normalizePositions } from "./api-positions.mjs";
 import { recordForgotten, strippedNames, unexportedByAnyEntry } from "./api-forgotten.mjs";
 
 // `--package <dir>`: another package folder (the tests plant a hole in a small one)
@@ -44,7 +53,10 @@ function prepare(subpath, types) {
       apiReport: {
         enabled: true,
         reportFileName: reportName(subpath),
-        reportFolder: REPORTS,
+        // api-extractor leaves its raw report in `temp` (same folder: nothing for it to compare or
+        // copy); the committed report is that text without source positions (#1040), compared and
+        // written below
+        reportFolder: temp,
         reportTempFolder: temp,
       },
       docModel: { enabled: false },
@@ -72,20 +84,24 @@ function prepare(subpath, types) {
 
 function report({ subpath, config }, compilerState, found) {
   const result = Extractor.invoke(config, {
-    localBuild: write,
+    localBuild: true, // never fails on a changed report itself: the comparison is ours, below
     showVerboseMessages: false,
     compilerState,
     messageCallback: recordForgotten(found, subpath),
   });
-  if (!write && result.apiReportChanged) {
+  const name = `${reportName(subpath)}.api.md`;
+  const text = normalizePositions(readFileSync(join(temp, name), "utf8"));
+  const committed = join(REPORTS, name);
+  const changed = !existsSync(committed) || readFileSync(committed, "utf8") !== text;
+  if (write && changed) writeFileSync(committed, text);
+  if (!write && changed) {
     // show what differs, so a CI failure is readable without the temp file
-    const name = `${reportName(subpath)}.api.md`;
-    const diff = spawnSync("diff", ["-u", join(REPORTS, name), join(temp, name)], {
-      encoding: "utf8",
-    });
+    const fresh = join(temp, `normalized-${name}`);
+    writeFileSync(fresh, text);
+    const diff = spawnSync("diff", ["-u", committed, fresh], { encoding: "utf8" });
     console.error(diff.stdout.split("\n").slice(0, 60).join("\n"));
   }
-  return { subpath, ok: result.succeeded, changed: result.apiReportChanged };
+  return { subpath, ok: result.succeeded, changed };
 }
 
 const expected = new Set(Object.keys(pkg.exports).map((s) => `${reportName(s)}.api.md`));
