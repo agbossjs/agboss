@@ -19,6 +19,7 @@ import { Application } from "../../../src/application/application.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
+import { Checkout } from "./run-context.workflow.js";
 import { ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow } from "./claim-room.workflow.js";
 
 /**
@@ -111,3 +112,15 @@ export class HungConnection {
   ],
 })
 export class HungStoreApplication {}
+
+/** The checkout workflow (it pauses for an approval) on a lease store that can go quiet: for a `resume()`. */
+@Application({
+  name: "hung-checkout-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [Checkout],
+  budgets: TEST_BUDGETS,
+  shutdownTimeout: seconds(5),
+  providers: [HungConnection, HungLeaseRepository, RecordingLogger],
+})
+export class HungCheckoutApplication {}

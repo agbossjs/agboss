@@ -5,9 +5,9 @@
  */
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ApplicationStoppingError } from "../../src/errors.js";
-import { TestConcurrency, testWith } from "../../src/testing/index.js";
+import { callTool, replyWith, TestConcurrency, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
-import { execute } from "../helpers/flow.js";
+import { answerOf, execute } from "../helpers/flow.js";
 import { passLive } from "../helpers/live-time.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import {
@@ -15,9 +15,11 @@ import {
   resetRoomLog,
   roomLog,
 } from "./fixtures/claim-room.workflow.js";
+import { Charge, Clerk, Probe, ReceiptDto, Start } from "./fixtures/run-context.workflow.js";
 import {
   answerHung,
   hung,
+  HungCheckoutApplication,
   HungStoreApplication,
   resetHung,
 } from "./fixtures/hung-store.application.js";
@@ -69,6 +71,42 @@ describe("#954 AC3: an abandoned execute() settles with a typed error", () => {
     expect(error).toBeInstanceOf(ApplicationStoppingError);
     expect(error).toMatchObject({ code: "app.stopping" });
   });
+});
+
+describe("#954 AC3: an abandoned resume() settles with a typed error", () => {
+  const resumeTest = testWith(HungCheckoutApplication, { concurrency: TestConcurrency.Real });
+
+  resumeTest(
+    "AC3: resume() blocked in a lease release nobody answers rejects ApplicationStoppingError",
+    async ({ app, clock, mockLlm }) => {
+      mockLlm(Clerk).thenReturn(
+        callTool(Probe, { text: "card" }),
+        callTool(Charge, { text: "10 USD" }),
+        replyWith(ReceiptDto, { text: "Charged." }),
+      );
+      await app.ready();
+      const paused = await execute(app, Start, { text: "charge" });
+      hung.lease = true;
+
+      const resumed = app.resume(answerOf(paused, { approved: true })).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      await vi.waitFor(() => {
+        expect(hung.calls).toBeGreaterThan(0);
+      });
+      const closed = app.close();
+      await passLive(clock, seconds(6));
+      await closed;
+
+      const error = await Promise.race([
+        resumed,
+        new Promise((done) => setTimeout(done, 500, "pending")),
+      ]);
+      expect(error).toBeInstanceOf(ApplicationStoppingError);
+      expect(error).toMatchObject({ code: "app.stopping" });
+    },
+  );
 });
 
 describe("#954 AC4: no shutdown warning after close() resolved", () => {
