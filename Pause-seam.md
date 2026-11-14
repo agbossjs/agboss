@@ -135,6 +135,12 @@ flowchart LR
    answered>[: <reason>]`. The model is **not** asked again for the turn that asked for the call — it
    continues with the results.
 5. **One call per pause**: two calls needing approval in one model turn → two pauses, in call order.
+6. **A deadline** (#941): the record carries `expiresAt` (the smaller of the tool's / role's `expiresIn` and the
+   run's deadline), `expiryBound` and `boundAt`, fixed when it is made. A re-entry of an expired pause
+   (`Cancelled` / `Expired`) throws the internal expiry signal and the loop's approval node fails the whole
+   agent step with `PauseExpiredError` (its spend kept) — or `DeadlineExceededError` when the run's deadline
+   bound it; one the channel decided on expiry (`Resolved` / `DecidedOnExpiry`) gives that decision like any
+   answer. See [Pauses → A deadline for the answer](Pauses#a-deadline-for-the-answer-941).
 
 ## Rules that keep the core consistent
 

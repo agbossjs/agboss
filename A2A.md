@@ -181,6 +181,9 @@ protocolVersion: "1.0" }`.
   `a2a.pause-closed`, the `reason` (`answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned`) and when it
   closed in its error metadata, and a fixed text per reason, never an error's own message. A pause only
   its channel answers is `TASK_STATE_WORKING`, "awaiting <channel> out of band".
+  A pause with a deadline (`expiresIn`, #941) refuses a follow-up at the deadline with `reason: expired`; the expiry look then
+  moves the task `INPUT_REQUIRED` → `WORKING` → `COMPLETED` (the channel decided) or `FAILED` (`step.pause-expired`, or
+  `run.deadline-exceeded` when the run's deadline bound the pause).
 - **Ends**: a finish is `TASK_STATE_COMPLETED` with one artifact named by the finish (a text part for
   a `WorkflowFinishTextDto` output, else a `data` part); a failure `TASK_STATE_FAILED` with its stable
   code in `status.message.metadata["https://agboss.dev/a2a/mesh/v1"].code` and that code's fixed text

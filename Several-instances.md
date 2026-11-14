@@ -1090,6 +1090,35 @@ sweep's retention step (`pause.notice-recipient-unknown`). The fault scenarios 2
 pod holding a claim, after a delivery and before its acknowledgement, and right after a resume
 committed: the invariant `notices-once-each-in-order` holds on every store set.
 
+## Expiring a pause (#941)
+
+Every instance's pause timers (every 5 s, on the `Clock`) look for expiries: `findPendingByExpiresAtBefore(now, 50)`
+reads the pending pauses whose deadline passed (every tenant, the earliest first), grouped by their tree's
+root; the root's record names the workflow that moves it (a root of another application on a shared store is
+skipped). Per root, under the tree's lease:
+
+1. the lease is taken only if free — the holder's drain, or a later look, does it (one instance asks the
+   channel; the others skip);
+2. a cancel request (or an undo under way) ends the tree as at any take: **a cancel beats an expiry**;
+3. a root whose record is `running` is skipped — its holder's drain expires the pause before it rests, or
+   recovery continues it; an ended root has its end finished (the orphan look's path);
+4. a resting root with a pause due has its record made `running` again **first** (#850's order), then each due
+   pause is expired — the channel's decision asked in the pause's frame, then the store's compare-and-set
+   `expireByTenantIdAndPauseId` (one closer per pause, I1) — then the pass that takes it runs under the same
+   lease (`ResumeReason.Expired`, announced once, with a decision or without).
+
+A pod that dies after the mark and before the record leaves a `running` root at a pending, due pause:
+recovery continues it, its drain expires the pause before the tree rests, the channel may be asked
+again, one decision is recorded. A pod that dies after the record leaves a `running` root with a closed
+pause: recovery continues with it, the channel is asked no more. **Never a `paused` root beside a closed
+pause.** A pass never rests on a due pause: at every rest the holder expires its own tree's due pauses first
+(a pause of a parallel branch whose sibling still runs waits, and is refused answers from its deadline on).
+Fault scenarios 24–24e (SQLite pods, `kill -9` and `SIGSTOP`) and the invariants `one-expiry-decision`,
+`no-paused-root-with-closed-pause`, `no-answer-after-deadline` prove it; the sabotages — an expiry outside the
+compare-and-set, a forgotten root mark, a cancel mark that never lands — each fail them. A look reads 50 due
+pauses and keeps no cursor; the tree of a pause stuck behind 50 older ones whose trees keep running waits
+until they rest.
+
 ## The audit log (#501)
 
 A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint

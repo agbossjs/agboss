@@ -773,6 +773,59 @@ applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExec
   component**: its events carry the raw id of channel pauses, so it holds the right to answer every
   channel pause of the application (`app.resume` still needs `answeredBy`).
 
+## A deadline for the answer (#941)
+
+A pause can have a deadline — an approval nobody answers should escalate, or go on with a default,
+not wait forever. `@ChannelRole({ expiresIn: hours(24) })` gives every pause of the role one
+(at least `seconds(1)`); `.toQuestion(Role, { expiresIn })` — and the side path
+`toQuestion(Role, { expiresIn })` of an `.onError` — overrides it for a question step (a question node
+has one value: two edges with different ones are `[question.expires-in-conflict]`), and
+`@Tool({ channel, expiresIn })` (`@McpTool` too) for a tool (`[tool.expires-in-without-channel]`;
+`[channel.expires-in-invalid]` for a value under `seconds(1)` or no finite duration). The step's or the
+tool's value wins over the role's. The absolute deadline is fixed **when the pause is made** — a
+deploy that changes `expiresIn` never moves an open pause — as the smaller of it and the run's
+deadline (`app.execute(…, { deadline })`, a mesh caller's remaining time): a tie goes to the run.
+`result.pending[].expiresAt` and the `onExecutionPause` event carry it; `agboss describe` prints each
+`expiresIn`.
+
+**The deadline is hard.** An answer at or after it is refused with `PauseClosedError` (`reason:
+expired`, `closedAt` the deadline) — before a reply's interpreter reads anything, and in the store's
+own compare-and-set (`expires_at > at`), so an answer and the expiry racing at the deadline leave
+exactly one winner, whatever the instances' clocks. Within seconds the tree moves.
+
+**What an expiry means** is the channel's call. A channel (`implements PauseExpiryHandler<Role>`)
+may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
+
+- `PauseExpiration.fail()` (the default without the method): the step fails with `PauseExpiredError`
+  (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
+  `.onError(PauseExpiredError, …)` escalates, a question step's side path may ask the next person.
+  Inside an agent an expired approval, or a question the agent asked as a tool, fails the whole
+  **agent step**, its spend kept, and none of the move's calls ran;
+- `PauseExpiration.decide(answer)`: the step goes on with that answer, validated like a resume's
+  and recorded as answered **by the channel** (`PauseResolution.DecidedOnExpiry`, the log's
+  `answeredBy` is the channel's name); `onExecutionResume` says `ResumeReason.Expired`. An
+  approval decided `{ approved: true }` runs its tool with no person having looked — choose it
+  knowing that; `{ approved: false, reason }` is read by the model as a refusal by the channel.
+
+The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
+expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —
+so it must only read. A throw, a timeout, a value that is no `PauseExpiration` or an invalid answer
+makes the expiry `fail()` with an `ExpiryHandlerError` (`pause.expiry-handler`, `problem`: `handler-failed`
+| `handler-timeout` | `answer-invalid`) as the cause; it is logged (`pause.expiry-handler-failed`,
+never the error's message). An instance that stops (`app.close()`) while a handler waits records no
+decision: another instance's look expires the pause.
+
+**A run's deadline bounds every pause.** A pause the run's deadline bound fails the run with
+`DeadlineExceededError` at the deadline — also while paused — and asks the channel nothing. A
+mesh caller's remaining time bounds the receiver's pause; a child's pause the root's deadline.
+
+**A cancel always beats an expiry.** `app.cancel` after the deadline cancels the run and closes the
+pause `expired`; a cancel request found when the look takes the tree, or written while the handler
+runs, ends the tree as cancelled with no decision recorded. Over [A2A](A2A) the task goes
+`INPUT_REQUIRED` → `WORKING` → `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up before
+the look is `-32004 a2a.pause-closed` (`reason: expired`). How the instances do it:
+[Several instances → Expiring a pause](Several-instances#expiring-a-pause-941).
+
 ## Concurrent answers
 
 A resume has two phases (Q58): **1. record the decision** — after the credential check and the

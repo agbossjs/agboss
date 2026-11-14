@@ -3,6 +3,23 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: a pause has a deadline — `expiresIn`, `PauseExpiration`, `PauseExpiredError` (#941, part of #910)
+
+- **Added**: `@ChannelRole({ expiresIn })`, `.toQuestion(Role, { expiresIn })` (and the side path), `@Tool({ channel, expiresIn })`;
+  the pause's absolute deadline is fixed when it is made (the smaller of it and the run's deadline); `PendingPause.expiresAt`.
+  The deadline is hard: an answer at or after it is `PauseClosedError` (`expired`), decided in the store's compare-and-set.
+  The pause timers' expiry look takes the tree under its lease and asks the channel's optional `onPauseExpired(ask)`
+  (`PauseExpiryHandler<Role>`): `PauseExpiration.fail()` fails the step with `PauseExpiredError` (`step.pause-expired`,
+  an agent's approval fails the agent step, its spend kept), `PauseExpiration.decide(answer)` goes on with the answer, recorded as
+  answered by the channel (`PauseResolution.DecidedOnExpiry`). A handler problem fails the expiry with an `ExpiryHandlerError`
+  (`pause.expiry-handler`) as the cause. A pause the run's deadline bound fails the run with `DeadlineExceededError`.
+- **Added**: `ResumeReason.Expired` (every pass an expiry starts is announced once, with a decision or without),
+  `LeaseTakeoverReason.Expired`, `QuestionStepOptions`; rules `[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`,
+  `[question.expires-in-conflict]`; log codes `pause.expiry-handler-failed`, `pause.expiry-failed`; `agboss describe` prints each `expiresIn`.
+- **Added (fault suite)**: scenarios 24, 24b, 24c, 24d, 24e, the invariants `one-expiry-decision`,
+  `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
+- Reminders, extensions and the quorum bound follow (#942, #945); PostgreSQL, Redis and MongoDB re-pin their fault suites (#1053 and its sibling).
+
 ## Unreleased — 0.1.1: A2A v1.0 — docs, federation by skill, card rules (#812, epic #805)
 
 - **Changed — breaking (the one breaking change of A2A in 0.1.1)**: the A2A wire is the v1.0 protocol; the 0.1.0
