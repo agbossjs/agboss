@@ -1,6 +1,6 @@
 import { ResumeReason } from "../core/observability.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
-import { recordEndedOf, recoveryPassOf, RootCalls } from "./recovery-pass.js";
+import { recordEndedOf, recoveryPassOf, RootCalls, takenPassOf } from "./recovery-pass.js";
 import type {
   PlannedPass,
   TreeCall,
@@ -17,7 +17,7 @@ import { isHandedOver } from "./handed-over.js";
 import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, callWithLostPasses } from "./tree-resume.js";
-import { answeredPassOf, expiredMove } from "./tree-expiry.js";
+import { expiredMove } from "./tree-expiry.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
@@ -93,7 +93,7 @@ class TreeMover implements TreeMoves {
       // and the paused run of the rest before still stored — no pass moves an ended tree
       await refusedIfFailed(this.parts, state, { lease, pauseId: pause.pauseId });
       const call = await callWithLostPasses(this.parts, state, given);
-      const next = await answeredPassOf(this.parts, state, call).catch(async (error: unknown) => {
+      const next = await takenPassOf(this.parts, state, call).catch(async (error: unknown) => {
         await lease.release();
         throw error;
       });
@@ -101,8 +101,8 @@ class TreeMover implements TreeMoves {
         await lease.release();
         return await currentOutputOf(deps, paused, state);
       }
-      await this.announce(ResumeReason.Answered, next.resume, state);
-      return await this.drained(state, call, lease, next);
+      await this.announce(next.reason, next.planned.resume, state);
+      return await this.drained(state, call, lease, next.planned);
     } finally {
       leaving();
     }

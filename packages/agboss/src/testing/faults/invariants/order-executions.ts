@@ -16,6 +16,9 @@ export const PAUSE_FINISH = "fault-pause-workflow-finish";
 /** The expiring order (#941): a paused order whose question nobody answers in time. */
 export const EXPIRING_START = "fault-expiring-workflow-start";
 export const EXPIRING_FINISH = "fault-expiring-workflow-finish";
+/** The twice-approved order (#1098): an order resting at two questions in a row before its charge. */
+export const TWICE_START = "fault-twice-pause-workflow-start";
+export const TWICE_FINISH = "fault-twice-pause-workflow-finish";
 export const BATCH_START = "fault-batch-workflow-start";
 export const BATCH_FINISH = "fault-batch-workflow-finish";
 
@@ -49,7 +52,7 @@ const childOf = (child: ChildExecutionRecord): OrderExecution => ({
 /** Every order execution of the run's records. */
 export function orderExecutionsOf(run: FaultRun): readonly OrderExecution[] {
   return run.records.flatMap((record): OrderExecution[] => {
-    if ([ORDER_START, PAUSE_START, EXPIRING_START].includes(record.start.name))
+    if ([ORDER_START, PAUSE_START, EXPIRING_START, TWICE_START].includes(record.start.name))
       return [
         {
           orderId: orderIdOf(record.input),
