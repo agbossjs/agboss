@@ -166,16 +166,26 @@ export interface FileRequest {
  */
 export async function requestTo(url: URL, signal: AbortSignal): Promise<FileRequest> {
   const secure = await connectionTo(url, signal);
-  const request = new REQUEST({
-    ...urlToHttpOptions(url),
-    // a request with no agent expects `http:`; the TLS is `connectionTo`'s, and 443 is the Host's default
-    protocol: "http:",
-    defaultPort: 443,
-    method: "GET",
-    headers: { accept: "*/*" },
-    signal,
-    createConnection: () => secure,
-  });
+  // every failure from here on destroys the TLS socket made above: it is connected, its handshake
+  // has started and nothing else holds it (the process would stay alive on it)
+  let request: ClientRequest;
+  try {
+    request = new REQUEST({
+      ...urlToHttpOptions(url),
+      // a request with no agent expects `http:`; the TLS is `connectionTo`'s, and 443 is the Host's default
+      protocol: "http:",
+      defaultPort: 443,
+      method: "GET",
+      headers: { accept: "*/*" },
+      signal,
+      createConnection: () => secure,
+    });
+  } catch {
+    // a constructor that throws (a replaced `ClientRequest` whose agent does not take the options,
+    // `ERR_INVALID_PROTOCOL`) is a request that is not ours: refused as one that has an agent
+    secure.destroy();
+    throw deniedError();
+  }
   if (Reflect.get(request, "agent") !== undefined) {
     request.destroy();
     secure.destroy();

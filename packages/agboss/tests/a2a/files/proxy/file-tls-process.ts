@@ -9,6 +9,7 @@
 import type * as DnsModule from "node:dns";
 import type * as HttpModule from "node:http";
 import { createRequire, syncBuiltinESMExports } from "node:module";
+import type * as HttpsModule from "node:https";
 import type * as NetModule from "node:net";
 import type * as TlsModule from "node:tls";
 
@@ -17,6 +18,7 @@ const dns = load("node:dns") as typeof DnsModule;
 const http = load("node:http") as typeof HttpModule;
 const net = load("node:net") as typeof NetModule;
 const tls = load("node:tls") as typeof TlsModule;
+const https = load("node:https") as typeof HttpsModule;
 
 const [url = "", mode = "plain", portText = "0", claimed = ""] = process.argv.slice(2);
 const PUBLIC = "93.184.216.34";
@@ -79,6 +81,39 @@ function instrument(): void {
   );
 }
 
+/** A replaced `ClientRequest` that gives the request an `https.Agent`: its constructor throws (#1022). */
+function giveRequestAnHttpsAgent(): void {
+  const Original = http.ClientRequest;
+  const agent = new https.Agent();
+  Reflect.set(
+    http,
+    "ClientRequest",
+    class extends Original {
+      constructor(options: HttpModule.ClientRequestArgs) {
+        super({ ...options, agent });
+      }
+    },
+  );
+}
+
+/** An OpenTelemetry SDK with an in-memory exporter, registered globally as a host would (#1021). */
+async function registerSdk(): Promise<() => unknown[]> {
+  const { trace } = await import("@opentelemetry/api");
+  const { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } =
+    await import("@opentelemetry/sdk-trace-base");
+  const exporter = new InMemorySpanExporter();
+  trace.setGlobalTracerProvider(
+    new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] }),
+  );
+  return () =>
+    exporter.getFinishedSpans().map((span) => ({
+      name: span.name,
+      kind: span.kind,
+      attributes: span.attributes,
+      status: span.status.code,
+    }));
+}
+
 function giveRequestAnAgent(): void {
   const Original = http.ClientRequest;
   // an agent that connects nowhere: the test makes no connection of its own
@@ -98,7 +133,9 @@ function giveRequestAnAgent(): void {
 async function main(): Promise<void> {
   simulateNetwork();
   if (mode === "otel") instrument();
-  if (mode === "refuse-agent") giveRequestAnAgent();
+  if (mode === "refuse-agent" || mode === "span-refuse-agent") giveRequestAnAgent();
+  if (mode === "refuse-https-agent") giveRequestAnHttpsAgent();
+  const spans = mode.startsWith("span") ? await registerSdk() : () => [];
   syncBuiltinESMExports();
   const [{ fetchedFile }, { httpsFileTransport }, { systemClock }, { kilobytes, seconds }] =
     await Promise.all([
@@ -119,8 +156,12 @@ async function main(): Promise<void> {
     () => "fetched",
     (error: unknown) => String(Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code")),
   );
-  process.stdout.write(`${JSON.stringify({ outcome, calls })}\n`);
-  process.exit(0);
+  process.stdout.write(`${JSON.stringify({ outcome, calls, spans: spans() })}\n`);
+  // a socket left open keeps the loop alive: the unref'd timer then fires and says so
+  setTimeout(() => {
+    process.stdout.write(`${JSON.stringify({ lingering: true })}\n`);
+    process.exit(0);
+  }, 1500).unref();
 }
 
 void main();
