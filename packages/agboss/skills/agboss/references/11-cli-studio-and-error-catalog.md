@@ -523,6 +523,10 @@ classes of a step's failures (reference 02, section 9). `expect(run).rejects.toF
 | `a2a.origin-refused`, `a2a.mesh-unsupported`, `a2a.deadline`, `a2a.unexpected-finish`                                | `A2AOriginError`, `A2AMeshUnsupportedError`, `A2ACallDeadlineError`, `A2AUnexpectedFinishError`                            | `A2AClient`: a card's interface or a redirect off the `url`'s origin; a peer without the mesh extension under `A2AMesh.Required`; the wait passed the deadline (`cancel: A2ACancelOutcome`); a finish `target.finishes` does not take (#809, #916)                                                                                                                                                                                                            |
 | `a2a.file-refused`, `a2a.file-unavailable`                                                                           | `A2AFileRefusedError`, `A2AFileUnavailableError`                                                                           | an `A2AFiles` read or save a step asked of a file the skill's limits refuse, or one whose bytes are gone (#859)                                                                                                                                                                                                                                                                                                                                               |
 
+One code is logged, never thrown: `stream.listener-failed` (Warn, through the `Logger`, once per run,
+with the run's ids and the error's class) — the `onStream` listener threw; the run goes on and its
+stream is still delivered.
+
 On the wire `a2aHttpListener` answers a refused caller with `{ code, error }` and a real status:
 `a2a.caller-unauthenticated` (`401`, with `WWW-Authenticate` when the resolver gives a challenge),
 `a2a.caller-forbidden` (`403`), `a2a.caller-resolution-failed` (`500`: the resolver threw — its text

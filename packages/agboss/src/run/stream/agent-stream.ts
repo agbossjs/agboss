@@ -77,9 +77,8 @@ export class AttemptStream {
     if (this.#emitted) this.sink.emit({ kind: "discarded", step: this.step, reason });
   }
 
-  /** The held text, now that the visit's checks passed. */
+  /** The held text, now that the visit's checks passed (a retracted attempt holds none). */
   release(): void {
-    if (this.#discarded) return;
     for (const token of this.#held.splice(0)) {
       this.#emitted = true;
       this.sink.emit({ kind: "textDelta", delta: token, step: this.step });

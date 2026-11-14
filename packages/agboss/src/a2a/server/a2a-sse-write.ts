@@ -33,18 +33,15 @@ export async function writeSse(res: ServerResponse, chunk: string, clock: Clock)
     res.once("drain", done);
     res.once("close", done);
     res.once("error", done);
-    stop.signal.addEventListener(
-      "abort",
-      () => {
-        res.off("drain", done);
-        res.off("close", done);
-        res.off("error", done);
-      },
-      { once: true },
-    );
+    stop.signal.addEventListener("abort", () => {
+      res.off("drain", done);
+      res.off("close", done);
+      res.off("error", done);
+    });
   });
   const timeout = clock.sleep(SSE_DRAIN_TIMEOUT, stop.signal).then(
     () => false,
+    // Stryker disable next-line ArrowFunction,BooleanLiteral: the sleep is cancelled only after the race is decided; the value of that rejection is never read
     () => true,
   );
   const drained = await Promise.race([gone, timeout]);

@@ -1,0 +1,236 @@
+import { describe, expect, it } from "vitest";
+import { EventScanner } from "../../../src/models/calls/event-stream.js";
+import {
+  eventStreamOfJson,
+  readAsStream,
+  wantsStream,
+} from "../../../src/models/calls/json-as-stream.js";
+
+/** #1049: a plain completion told as the events of a stream. */
+
+const json = (body: unknown, type = "application/json"): Response =>
+  new Response(typeof body === "string" ? body : JSON.stringify(body), {
+    headers: { "content-type": type, "content-length": "999" },
+  });
+
+const framesOf = async (response: Response): Promise<unknown[]> =>
+  (await response.text())
+    .split("\n\n")
+    .filter((frame) => frame !== "")
+    .map((frame) => {
+      const data = frame.replace(/^data: /, "");
+      return data === "[DONE]" ? data : (JSON.parse(data) as unknown);
+    });
+
+describe("wantsStream", () => {
+  it.each([
+    ['{"stream":true}', true],
+    ['{"stream":false}', false],
+    ['{"model":"m"}', false],
+    ["[true]", false],
+    ["not json", false],
+  ])("a body %s asks for a stream: %s", (body, wanted) => {
+    expect(wantsStream({ body })).toBe(wanted);
+  });
+
+  it("no body, or a body that is not a string, asks for none", () => {
+    expect(wantsStream(undefined)).toBe(false);
+    expect(wantsStream({})).toBe(false);
+    expect(wantsStream({ body: new Uint8Array([1]) })).toBe(false);
+  });
+});
+
+describe("eventStreamOfJson", () => {
+  it("tells a tool call with its index, the finish reason and the usage, then [DONE]", async () => {
+    const call = { id: "c1", type: "function", function: { name: "f", arguments: "{}" } };
+    const response = await eventStreamOfJson(
+      json({
+        id: "x",
+        provider: "Acme",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: null, tool_calls: [call], reasoning: "think" },
+            finish_reason: "tool_calls",
+          },
+        ],
+        usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5, cost: 0.5 },
+      }),
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    expect(response.headers.has("content-length")).toBe(false);
+    expect(response.status).toBe(200);
+    expect(await framesOf(response)).toEqual([
+      {
+        id: "x",
+        provider: "Acme",
+        object: "chat.completion.chunk",
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", tool_calls: [{ index: 0, ...call }], reasoning: "think" },
+            finish_reason: null,
+          },
+        ],
+      },
+      {
+        id: "x",
+        provider: "Acme",
+        object: "chat.completion.chunk",
+        choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+      },
+      {
+        id: "x",
+        provider: "Acme",
+        object: "chat.completion.chunk",
+        choices: [],
+        usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5, cost: 0.5 },
+      },
+      "[DONE]",
+    ]);
+  });
+
+  it("a missing finish reason is a stop; a completion without usage tells none", async () => {
+    const response = await eventStreamOfJson(
+      json({ choices: [{ message: { content: "hi" } }, { index: 1, message: { content: "yo" } }] }),
+    );
+
+    const frames = await framesOf(response);
+    expect(frames.map((frame) => JSON.stringify(frame))).toEqual([
+      expect.stringContaining('"delta":{"role":"assistant","content":"hi"}'),
+      expect.stringContaining('"finish_reason":"stop"'),
+      expect.stringContaining('"index":1,"delta":{"role":"assistant","content":"yo"}'),
+      expect.stringContaining('"index":1,"delta":{},"finish_reason":"stop"'),
+      '"[DONE]"',
+    ]);
+  });
+
+  it("the guard's scanner reads a completion as content, then the end", async () => {
+    const response = await eventStreamOfJson(
+      json({ choices: [{ message: { content: "hi" }, finish_reason: "stop" }] }),
+    );
+
+    const signals = new EventScanner().push(new TextEncoder().encode(await response.text()));
+
+    expect(signals.map((signal) => signal.kind)).toEqual(["content", "end", "end"]);
+  });
+
+  it("an {error} is an error event; a string error becomes its message", async () => {
+    const object = await framesOf(
+      await eventStreamOfJson(json({ error: { code: 502, message: "m" } })),
+    );
+    const text = await framesOf(await eventStreamOfJson(json({ error: "overloaded" })));
+
+    expect(object).toEqual([{ error: { code: 502, message: "m" } }, "[DONE]"]);
+    expect(text).toEqual([{ error: { message: "overloaded" } }, "[DONE]"]);
+  });
+
+  it.each([
+    ["an empty body", json("")],
+    ["a JSON array", json("[]")],
+    ["a JSON without choices", json({ choices: [] })],
+    ["not JSON", json("<html>")],
+    ["a null error with no choices", json({ error: null })],
+    ["a text body", json("hello", "text/plain")],
+  ])("%s is a failed call", async (_name, response) => {
+    await expect(eventStreamOfJson(response)).rejects.toThrow(/no completion/);
+  });
+
+  it("a message's own role is kept, a missing one is the assistant's; a missing index is 0", async () => {
+    const [first] = await framesOf(
+      await eventStreamOfJson(
+        json({ choices: [{ message: { role: "developer", content: "x" } }] }),
+      ),
+    );
+    const [second] = await framesOf(
+      await eventStreamOfJson(json({ choices: [{ message: { content: "x" } }] })),
+    );
+
+    expect(first).toMatchObject({ choices: [{ index: 0, delta: { role: "developer" } }] });
+    expect(second).toMatchObject({ choices: [{ index: 0, delta: { role: "assistant" } }] });
+  });
+
+  it("a choice that is no object is left out, and a choice without a message tells an empty one", async () => {
+    const frames = await framesOf(
+      await eventStreamOfJson(json({ choices: [null, ["x"], "y", { index: 2 }] })),
+    );
+
+    expect(frames).toEqual([
+      expect.objectContaining({
+        choices: [{ index: 2, delta: { role: "assistant" }, finish_reason: null }],
+      }),
+      expect.objectContaining({ choices: [{ index: 2, delta: {}, finish_reason: "stop" }] }),
+      "[DONE]",
+    ]);
+  });
+
+  it("a content of another type is not a delta's content", async () => {
+    const [frame] = await framesOf(
+      await eventStreamOfJson(json({ choices: [{ message: { content: 5 } }] })),
+    );
+
+    expect(frame).toMatchObject({ choices: [{ delta: { role: "assistant" } }] });
+    expect(JSON.stringify(frame)).not.toContain('"content"');
+  });
+
+  it("a content type that is no JSON is refused although the body is a completion, and its body is released", async () => {
+    let released = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"choices":[{"message":{"content":"x"}}]}'));
+      },
+      cancel() {
+        released = true;
+      },
+    });
+
+    await expect(
+      eventStreamOfJson(new Response(body, { headers: { "content-type": "text/plain" } })),
+    ).rejects.toThrow(/no completion/);
+    expect(released).toBe(true);
+    await expect(eventStreamOfJson(new Response(null))).rejects.toThrow(/no completion/);
+  });
+
+  it("a JSON null is no completion (a failed call, not a crash)", async () => {
+    await expect(eventStreamOfJson(json("null"))).rejects.toThrow(/no completion/);
+    await expect(eventStreamOfJson(json("5"))).rejects.toThrow(/no completion/);
+  });
+});
+
+describe("readAsStream", () => {
+  const STREAMED = { body: '{"stream":true}' };
+  const completion = JSON.stringify({ choices: [{ message: { content: "x" } }] });
+  const answer = (status: number, type: string, body = completion): Response =>
+    new Response(body, { status, headers: { "content-type": type } });
+
+  it("tells a JSON completion to a streamed request as an event stream", async () => {
+    const read = await readAsStream(answer(200, "application/json"), STREAMED);
+
+    expect(read.headers.get("content-type")).toBe("text/event-stream");
+    expect(await read.text()).toContain('"content":"x"');
+  });
+
+  it("leaves an event stream as it is", async () => {
+    const response = answer(200, "text/event-stream; charset=utf-8", "data: [DONE]\n\n");
+
+    expect(await readAsStream(response, STREAMED)).toBe(response);
+  });
+
+  it("leaves the answer to a request that did not ask for a stream", async () => {
+    const response = answer(200, "application/json");
+
+    expect(await readAsStream(response, { body: '{"stream":false}' })).toBe(response);
+    expect(await readAsStream(response, undefined)).toBe(response);
+  });
+
+  it("leaves an answer that is no success: a client error's body is the client's to read", async () => {
+    const response = answer(400, "application/json", '{"error":{"message":"bad"}}');
+
+    expect(await readAsStream(response, STREAMED)).toBe(response);
+  });
+
+  it("an answer with no content type is no completion", async () => {
+    await expect(readAsStream(new Response(null), STREAMED)).rejects.toThrow(/no completion/);
+  });
+});

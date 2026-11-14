@@ -1,10 +1,16 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import type { CircuitBreaker } from "./circuit-breaker.js";
+import { readAsStream } from "./calls/json-as-stream.js";
 import { guardedEventStream, type StreamEnd } from "./calls/event-stream-guard.js";
 import { runModelCall, type ResilienceOptions } from "./calls/attempt-runner.js";
 import type { Attempt, AttemptCarrier, ProviderFetch } from "./calls/model-call.js";
 import { releasedAtBodyEnd } from "./calls/response-usage.js";
-import { failureOfError, failureOfStatus, retryAfterOf } from "./model-failure.js";
+import {
+  failureOfError,
+  failureOfStatus,
+  retryAfterOf,
+  type ModelFailure,
+} from "./model-failure.js";
 
 export type { ProviderFetch } from "./calls/model-call.js";
 export type { ResilienceOptions } from "./calls/attempt-runner.js";
@@ -38,6 +44,24 @@ async function streamedAttempt(
     : { kind: "answered", answer: guarded.response };
 }
 
+/** What an answer is to the attempt: its failure (and `Retry-After`), a streamed body watched, or a plain answer. */
+async function outcomeOf(
+  response: Response,
+  failure: ModelFailure | undefined,
+  caller: AbortSignal | null | undefined,
+  clock: Clock,
+  breaker: CircuitBreaker | undefined,
+): Promise<Attempt<Response>> {
+  if (failure === undefined && isEventStream(response)) {
+    return await streamedAttempt(response, caller, breaker);
+  }
+  if (failure === undefined) return { kind: "answered", answer: response };
+  const retryAfter = retryAfterOf(response, clock.now().getTime());
+  return retryAfter === undefined
+    ? { kind: "answered", answer: response, failure }
+    : { kind: "answered", answer: response, failure, retryAfter };
+}
+
 /**
  * One HTTP request as the attempts' carrier: its status says the failure, its headers `Retry-After`;
  * a streamed answer (#1005) is read up to its first content — an `{error}` there fails the attempt
@@ -53,16 +77,11 @@ function httpCarrier(
   return {
     send: async (signal): Promise<Attempt<Response>> => {
       try {
-        const response = await send(input, { ...init, signal });
-        const failure = failureOfStatus(response.status);
-        if (failure === undefined && isEventStream(response)) {
-          return await streamedAttempt(response, init?.signal, breaker);
-        }
-        if (failure === undefined) return { kind: "answered", answer: response };
-        const retryAfter = retryAfterOf(response, clock.now().getTime());
-        return retryAfter === undefined
-          ? { kind: "answered", answer: response, failure }
-          : { kind: "answered", answer: response, failure, retryAfter };
+        const sent = await send(input, { ...init, signal });
+        const failure = failureOfStatus(sent.status);
+        // a streamed request answered 200 without events (#1049): JSON is told as a stream
+        const response = failure === undefined ? await readAsStream(sent, init) : sent;
+        return await outcomeOf(response, failure, init?.signal, clock, breaker);
       } catch (error) {
         if (init?.signal?.aborted === true) throw error;
         return { kind: "threw", error, failure: failureOfError(error) };
