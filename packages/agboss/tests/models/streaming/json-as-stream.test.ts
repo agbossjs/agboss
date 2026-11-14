@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EventScanner } from "../../../src/models/calls/event-stream.js";
-import { eventStreamOfJson, wantsStream } from "../../../src/models/calls/json-as-stream.js";
+import {
+  eventStreamOfJson,
+  readAsStream,
+  wantsStream,
+} from "../../../src/models/calls/json-as-stream.js";
 
 /** #1049: a plain completion told as the events of a stream. */
 
@@ -191,5 +195,42 @@ describe("eventStreamOfJson", () => {
   it("a JSON null is no completion (a failed call, not a crash)", async () => {
     await expect(eventStreamOfJson(json("null"))).rejects.toThrow(/no completion/);
     await expect(eventStreamOfJson(json("5"))).rejects.toThrow(/no completion/);
+  });
+});
+
+describe("readAsStream", () => {
+  const STREAMED = { body: '{"stream":true}' };
+  const completion = JSON.stringify({ choices: [{ message: { content: "x" } }] });
+  const answer = (status: number, type: string, body = completion): Response =>
+    new Response(body, { status, headers: { "content-type": type } });
+
+  it("tells a JSON completion to a streamed request as an event stream", async () => {
+    const read = await readAsStream(answer(200, "application/json"), STREAMED);
+
+    expect(read.headers.get("content-type")).toBe("text/event-stream");
+    expect(await read.text()).toContain('"content":"x"');
+  });
+
+  it("leaves an event stream as it is", async () => {
+    const response = answer(200, "text/event-stream; charset=utf-8", "data: [DONE]\n\n");
+
+    expect(await readAsStream(response, STREAMED)).toBe(response);
+  });
+
+  it("leaves the answer to a request that did not ask for a stream", async () => {
+    const response = answer(200, "application/json");
+
+    expect(await readAsStream(response, { body: '{"stream":false}' })).toBe(response);
+    expect(await readAsStream(response, undefined)).toBe(response);
+  });
+
+  it("leaves an answer that is no success: a client error's body is the client's to read", async () => {
+    const response = answer(400, "application/json", '{"error":{"message":"bad"}}');
+
+    expect(await readAsStream(response, STREAMED)).toBe(response);
+  });
+
+  it("an answer with no content type is no completion", async () => {
+    await expect(readAsStream(new Response(null), STREAMED)).rejects.toThrow(/no completion/);
   });
 });

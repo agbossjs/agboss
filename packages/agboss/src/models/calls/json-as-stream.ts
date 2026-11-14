@@ -90,8 +90,7 @@ function parsedOf(text: string): unknown {
  */
 export async function eventStreamOfJson(response: Response): Promise<Response> {
   const failure = new EventStreamError("the server answered a streamed request with no completion");
-  const type = response.headers.get("content-type");
-  if (type === null || !type.includes("json")) {
+  if (!response.headers.get("content-type")?.includes("json")) {
     await response.body?.cancel();
     throw failure;
   }
@@ -107,4 +106,17 @@ export async function eventStreamOfJson(response: Response): Promise<Response> {
     statusText: response.statusText,
     headers,
   });
+}
+
+/**
+ * The answer to `init`'s request as the call reads it (#1049): a `2xx` to a streamed request that is
+ * no event stream is told as one; anything else is as it was.
+ */
+export async function readAsStream(
+  response: Response,
+  init: RequestInit | undefined,
+): Promise<Response> {
+  if (!response.ok || !wantsStream(init)) return response;
+  if (response.headers.get("content-type")?.includes("text/event-stream") === true) return response;
+  return eventStreamOfJson(response);
 }
