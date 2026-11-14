@@ -66,6 +66,8 @@ export interface FaultPodSettings {
   readonly sabotage?: FaultStoreSabotage | undefined;
   readonly shutdownTimeout?: Milliseconds | undefined;
   readonly maxConcurrentSteps?: number | undefined;
+  /** The expiring order and its channel are listed too (#941). */
+  readonly hasExpiringOrders?: boolean | undefined;
 }
 
 /** The store classes as the pod lists them: each of a held contract with its hold points. */
@@ -106,7 +108,8 @@ function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
 
 /** The fixture's application on `stores`, with the pod's `settings`. */
 export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSettings = {}): Class {
-  const { shutdownTimeout, maxConcurrentSteps, sabotage } = settings;
+  const { shutdownTimeout, maxConcurrentSteps, sabotage, hasExpiringOrders } = settings;
+  const expiring = hasExpiringOrders === true;
   const a2a = a2aPartsOf(stores);
   return Application({
     name: "fault-application",
@@ -118,7 +121,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultOrderWorkflow,
       FaultBatchWorkflow,
       FaultPauseWorkflow,
-      FaultExpiringWorkflow,
+      ...(expiring ? [FaultExpiringWorkflow] : []),
       ...a2a.workflows,
     ],
     ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
@@ -133,7 +136,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
-      FaultExpiringChannel,
+      ...(expiring ? [FaultExpiringChannel] : []),
       FaultPauseListener,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
       ...a2a.providers,

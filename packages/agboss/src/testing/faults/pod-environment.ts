@@ -5,7 +5,7 @@ import {
   TIME_SCALE_VARIABLE,
 } from "./fault-clock.js";
 import type { PodLaunch } from "./pod.js";
-import { POD_VARIABLES, boundedValueOf } from "./pod-protocol.js";
+import { POD_VARIABLES, boundedValueOf, expiringValueOf } from "./pod-protocol.js";
 
 /** The environment of a pod's process. */
 export const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
@@ -16,6 +16,7 @@ export const podEnvironment = (launch: PodLaunch): NodeJS.ProcessEnv => ({
   [POD_VARIABLES.shutdownTimeout]: launch.shutdownTimeout?.toString() ?? "",
   [POD_VARIABLES.maxConcurrentSteps]: launch.maxConcurrentSteps?.toString() ?? "",
   [POD_VARIABLES.sabotage]: launch.sabotage ?? "",
+  [POD_VARIABLES.expiring]: expiringValueOf(launch.hasExpiringOrders),
   [POD_VARIABLES.bounded]: boundedValueOf(launch.isBounded),
   [TIME_SCALE_VARIABLE]: String(launch.timeScale),
   [TIME_ORIGIN_VARIABLE]: String(launch.timeOrigin),

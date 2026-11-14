@@ -98,6 +98,7 @@ const shutdownTimeout = numberOf(POD_VARIABLES.shutdownTimeout);
 const application = faultApplicationOf(stores, {
   shutdownTimeout: shutdownTimeout === undefined ? undefined : waitOf(shutdownTimeout),
   maxConcurrentSteps: numberOf(POD_VARIABLES.maxConcurrentSteps),
+  hasExpiringOrders: process.env[POD_VARIABLES.expiring] === "1",
   sabotage: Object.values(FaultStoreSabotage).find(
     (one) => one === process.env[POD_VARIABLES.sabotage],
   ),

@@ -59,7 +59,12 @@ export const answered = (
 
 /** The pods of a scenario: three, `a` starts the order. */
 export async function threePods(cluster: FaultCluster): Promise<readonly FaultPod[]> {
-  return [await cluster.pod("a"), await cluster.pod("b"), await cluster.pod("c")];
+  const options = { hasExpiringOrders: true };
+  return [
+    await cluster.pod("a", options),
+    await cluster.pod("b", options),
+    await cluster.pod("c", options),
+  ];
 }
 
 /** The pod that reads the end: any pod still running. */

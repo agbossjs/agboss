@@ -168,6 +168,8 @@ export const POD_VARIABLES = {
   maxConcurrentSteps: "AGBOSS_FAULT_MAX_CONCURRENT_STEPS",
   /** The pod's store sabotage (`FaultStoreSabotage`), when it has one. */
   sabotage: "AGBOSS_FAULT_SABOTAGE",
+  /** `1` when the pod's application lists the expiring order (#941). */
+  expiring: "AGBOSS_FAULT_EXPIRING",
   /** `1` when the pod keeps the framework's store-call bound (#928). */
   bounded: "AGBOSS_FAULT_BOUNDED",
 } as const;
@@ -189,3 +191,7 @@ export function podA2AOf(ready: PodEvent): PodA2A | string {
 /** The value of `POD_VARIABLES.bounded` for a pod that keeps the store-call bound or not (#928). */
 export const boundedValueOf = (isBounded: boolean | undefined): string =>
   isBounded === true ? "1" : "";
+
+/** What the environment says of `hasExpiringOrders` (#941). */
+export const expiringValueOf = (hasExpiringOrders: boolean | undefined): string =>
+  hasExpiringOrders === true ? "1" : "";
