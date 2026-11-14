@@ -1,6 +1,8 @@
 /** Public API of the pause seam. See Wiki → Pauses for the rules. */
 export {
+  noticesWritten,
   pendingPauseOf,
+  recipientsIn,
   PauseKind,
   questionAskOf,
   type ApprovalRecord,
@@ -9,8 +11,6 @@ export {
   type PendingQuestion,
   type PauseSeam,
   type PendingPause,
-  type PauseWithdrawn,
+  type PauseNotices,
   type WaitingPause,
-  type WithdrawalTree,
-  type WithdrawnPause,
 } from "./types.js";

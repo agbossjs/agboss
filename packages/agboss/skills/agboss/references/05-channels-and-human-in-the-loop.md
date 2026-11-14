@@ -100,8 +100,8 @@ export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChan
 
 ```ts file=src/refunds/channels/slack-refund-approval.channel.ts
 // channels/slack-refund-approval.channel.ts — the role's one implementation: infrastructure
-import { Channel, ChannelOutcome, ExecutionContext, PauseResolution } from "@agboss/core";
-import type { ChannelAsk, ChannelWithdrawal } from "@agboss/core";
+import { Channel, ChannelOutcome, ExecutionContext, PauseClosedReason } from "@agboss/core";
+import type { ChannelAsk, ChannelPauseClosedEvent } from "@agboss/core";
 import { SlackClientService } from "../services/slack-client.service.js";
 import { RefundApprovalChannel } from "./refund-approval.channel-role.js";
 
@@ -130,10 +130,12 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
     return ChannelOutcome.awaitReply();
   }
 
-  // once, when a sent pause closes without an answer (a FailFast sibling, a cancel, the tree ended)
-  override async withdraw(withdrawal: ChannelWithdrawal<RefundApprovalChannel>): Promise<void> {
-    const why: string = withdrawal.resolution === PauseResolution.Withdrawn ? "no longer needed" : "cancelled";
-    await this.slackClientService.closeApproval(withdrawal.pauseId, why);
+  // at least once, whenever a sent pause closes: answered elsewhere, cancelled, withdrawn, expired,
+  // its tree ended — deduplicate by event.deliveryId (the same on every redelivery)
+  override async onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
+    const why: string =
+      event.reason === PauseClosedReason.Answered ? `answered by ${event.answeredBy ?? "?"}` : event.reason;
+    await this.slackClientService.closeApproval(event.pauseId, why);
   }
 }
 ```
@@ -320,8 +322,8 @@ await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", an
 | `PauseAnswerer.Channel`     | `answeredBy` — non-empty, recorded                       | only in the channel's `ask.pauseId` |
 
 The wrong credential for the role is `PauseAnswererError`. The contract of every channel is
-`ChannelHandler<Role>` — `send(ask)` and an optional `withdraw(withdrawal)`; a role's implementation
-gets it by extending the role (`ChannelOf<Role>` implements it, `withdraw` a no-op you `override`). Ready-made concrete channels named on a
+`ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)`;
+a role's implementation gets it by extending the role (`ChannelOf<Role>` implements it, the notices no-ops you `override`). Ready-made concrete channels named on a
 tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat` / `run`),
 `AutoApproveChannel`, `AutoRejectChannel` (decide at once — scripts and tests).
 
@@ -498,9 +500,21 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`. A child's own are in its `ChildExecutionRecord.pauses`.
-- **`withdraw(withdrawal)`** is called once when a sent pause closes without an answer
-  (`PauseResolution.Withdrawn` / `Cancelled`), best-effort: a failure is a `channel.withdraw-failed`
-  warning, nothing else.
+- **`onPauseClosed(event)`** (`ChannelPauseClosedEvent`: `pauseId`, `value`, `reason`
+  (`PauseClosedReason.Answered` | `Expired` | `Cancelled` | `Withdrawn` | `TreeEnded`), `closedAt`,
+  `answeredBy?`, the masked `answer?`, `deliveryId`) is called **at least once** whenever a pause the
+  channel sent closes — written with the close, delivered after a crash by any instance, in order,
+  in the pause's frame under the tool's `timeout`; `onPauseAnswerNotTaken` when its recorded answer
+  was never applied. A channel that overrides neither has no mailbox. A throw is retried with
+  growing pauses (`pause.notice-failed`) and set aside after `retention.pauseRecords`
+  (`pause.notice-dead`); it never fails a run, a resume or a cancel. `deliveryId` is the dedupe key.
+- **`@PauseListener({ name: "back-office-pause-listener", deps, allowAnswering? })`** — an
+  application-wide `PauseListenerHandler` (`onPauseOpened`, `onPauseClosed`, optional
+  `onPauseAnswerNotTaken`), listed in `@Application({ providers })`, one instance created at start,
+  hearing every pause of every workflow with the same guarantees. It gets `pauseKey`, never the
+  answering `pauseId` of a channel pause unless `allowAnswering: true` (a trusted component: it holds
+  the right to answer every channel pause); asks and answers are masked. Rules:
+  `[name.kind-suffix]`, `[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`.
 - **A model interpreter** (`DecidedBy.Model`, a chat model) gets the role's answer tool, its
   `overrideArguments` described by the approved tool's input with every field optional — "ok but
   only up to $500" is `{ approved: true, overrideArguments: { amountUsd: 500 } }`, laid over the
@@ -527,8 +541,8 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   `DtoValidationError`.
 - **Timeouts** are not a channel's job: a scheduler answers with
   `{ approved: false, reason: "timed out" }` and its own `answeredBy`.
-- `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `withdraw` is
-  told).
+- `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `onPauseClosed` is
+  told, `PauseClosedReason.Cancelled`).
 
 ## Testing a pause
 

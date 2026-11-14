@@ -9,7 +9,6 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import { startComponents } from "../components/container/lifecycle.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import { tracingOf } from "../tracing/index.js";
@@ -33,7 +32,9 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, configKeeperOf, observedBy, treeDepsOf, releaseOf } from "./app-deps-parts.js";
+import { closeOf, configKeeperOf, observedBy, treeDepsOf } from "./app-deps-parts.js";
+import { ownNoticesOf } from "./own-notices.js";
+import { startedOwn } from "./own-start.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
 import { componentsAtStart } from "./start-components.js";
 import { piiFor } from "./pii-parts.js";
@@ -53,6 +54,7 @@ import {
 } from "../flow/context/runtime-contexts.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
+import type { PauseNoticeHub } from "../application/pause-notice-hub.js";
 
 /** Run dependencies, eval dependencies, and resources to release after the run. */
 export interface AppDeps extends AgentExecutionDeps<string> {
@@ -182,6 +184,8 @@ export interface WorkflowDepsParts {
   /** The run dependencies of the application's other workflows, its children's (#263). */
   readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
   readonly executionHistory?: Infrastructure["executionHistory"] | undefined;
+  /** The instance's pause notices (#940): each workflow's seam is made with them; absent = none. */
+  readonly notices?: PauseNoticeHub;
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
@@ -207,17 +211,6 @@ const budgetsOf = (
       };
 
 const nameOfTool = (tool: AnyTool): string => tool.name;
-
-/** A workflow on its own starts its components itself: a failing hook releases MCP and tracing. */
-async function startOwnComponents(
-  created: unknown[],
-  ...resources: Parameters<typeof releaseOf>
-): Promise<void> {
-  await startComponents(created).catch(async (error: unknown) => {
-    await releaseOf(...resources)();
-    throw error;
-  });
-}
 
 /**
  * The run dependencies of one workflow of an application: its model providers behind the model
@@ -247,6 +240,7 @@ export async function createWorkflowDeps(
   const tracing = await tracingOf(env, pii.observability);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
+  const own = ownNoticesOf(parts.notices);
   const deps = {
     config,
     registry: createModelRegistry(config, gateway),
@@ -255,7 +249,7 @@ export async function createWorkflowDeps(
     modelProviders: bundle.modelProviders, // configHash: its transport providers (#385)
     ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
-    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns),
+    pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns, own.notices),
     ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),
     ...components,
     pii,
@@ -273,9 +267,8 @@ export async function createWorkflowDeps(
   };
   const snapshot = configKeeperOf(deps);
   // with an application its stores start later: it writes the snapshot then (#747)
-  if (parts.created === undefined) await startOwnComponents(lifecycle.created, mcp, tracing);
-  if (parts.created === undefined) await snapshot.rememberConfig();
-  return { ...deps, models: models.summary, ...snapshot };
+  await startedOwn(parts.created === undefined, lifecycle.created, [mcp, tracing], snapshot);
+  return own.made({ ...deps, models: models.summary, ...snapshot });
 }
 
 export { createAppDeps } from "./standalone-deps.js";

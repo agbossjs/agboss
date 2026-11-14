@@ -1,12 +1,15 @@
 import type { ChannelQuestionOf } from "../flow/generated-types.js";
-import type { PauseCancellation } from "../infrastructure/pause-record.js";
+import type {
+  ChannelPauseAnswerNotTakenEvent,
+  ChannelPauseClosedEvent,
+} from "../pause/notice-events.js";
 import type { ChannelOutcome } from "./channel-outcome.js";
 
 /**
- * The channel contract (#267): `send`, and the optional `withdraw` (#337) — the pair of a question
- * posted and taken back. Both types take the role class, like `InputOf<X>` / `Route<R>` take the
- * component; the execution comes through `deps` (`ExecutionContext` or the project's subclass),
- * like in any component.
+ * The channel contract (#267): `send`, and the optional notices (#940) — `onPauseClosed` and
+ * `onPauseAnswerNotTaken`, told at least once of what happened to a pause the channel sent. Both
+ * types take the role class, like `InputOf<X>` / `Route<R>` take the component; the execution
+ * comes through `deps` (`ExecutionContext` or the project's subclass), like in any component.
  */
 
 /** What a channel is asked: the pause's id and the role's typed question. */
@@ -20,43 +23,39 @@ export interface ChannelAsk<TRole> {
   readonly value: ChannelQuestionOf<TRole>;
 }
 
-/**
- * A pause the channel sent (`ChannelOutcome.awaitReply()`) that closed before its answer (#337):
- * `PauseResolution.Withdrawn` — a `FailFast` sibling failed, or its launch's quorum was decided —
- * or `PauseResolution.Cancelled` — `app.cancel`, or its tree ended. The channel takes its question
- * back (disables the buttons it posted); a late answer gets `NotPausedError` anyway.
- */
-export interface ChannelWithdrawal<TRole> {
-  /** The id the channel was sent with the question (its reply key). */
-  readonly pauseId: string;
-  /** The question it was sent, typed by the role. */
-  readonly value: ChannelQuestionOf<TRole>;
-  /** Why the pause closed without an answer. */
-  readonly resolution: PauseCancellation;
-}
-
 /** Every channel: a role's implementation, or a concrete `@Channel` a tool names as is. */
 export interface ChannelHandler<TRole> {
   readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
   /**
-   * Called once when a pause this channel sent closes without an answer (#337), in the pause's
-   * execution frame, under its tool's `timeout`; never for a pause it decided at once or never sent.
-   * A throw is logged (`channel.withdraw-failed`) and changes nothing else.
+   * Called at least once whenever a pause this channel sent closes — answered (by whom, with the
+   * answer, masked), expired, cancelled, withdrawn, its tree ended — in the pause's execution
+   * frame, under its tool's `timeout`, in order per pause; the channel decides whether to update
+   * its message. The same `deliveryId` on every redelivery: deduplicate by it. A throw is retried
+   * with growing pauses and logged (`pause.notice-failed`), finally set aside (`pause.notice-dead`);
+   * it never fails a run, a resume or a cancel. Never called for a pause it decided at once or
+   * never sent.
    */
-  readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
+  readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
+  /** Called at least once when its recorded answer is never applied (its run ended first). */
+  readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TRole>) => Promise<void>;
 }
 
 /**
  * The base of a channel role: `export abstract class RefundApprovalChannel extends
  * ChannelOf<RefundApprovalChannel> {}` with `@ChannelRole`; its implementation `extends` the role
- * and may `override` `withdraw` (a no-op by default).
+ * and may `override` the notices (nothing by default: a channel that overrides none has no
+ * mailbox, a pause costs it nothing).
  */
 export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
   abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
 
-  /** Takes back the question of a pause that closed without an answer: nothing by default. */
-  withdraw(withdrawal: ChannelWithdrawal<TRole>): Promise<void> {
-    // a channel that posted nothing to take back: the withdrawal is read and dropped
-    return Promise.resolve(withdrawal).then(() => undefined);
+  /** A pause this channel sent closed: nothing by default. */
+  onPauseClosed(event: ChannelPauseClosedEvent<TRole>): Promise<void> {
+    return Promise.resolve(event).then(() => undefined);
+  }
+
+  /** Its recorded answer was never applied: nothing by default. */
+  onPauseAnswerNotTaken(event: ChannelPauseAnswerNotTakenEvent<TRole>): Promise<void> {
+    return Promise.resolve(event).then(() => undefined);
   }
 }

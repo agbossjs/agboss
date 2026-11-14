@@ -1,3 +1,5 @@
+import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import { pauseNoticeHubOf, type PauseNoticeHub } from "./pause-notice-hub.js";
 import type { StepSlots } from "../app/step-slots.js";
 import { StepEntries, type StepEntry } from "../flow/runtime/step-entries.js";
 import {
@@ -43,6 +45,8 @@ export interface SharedInstanceParts {
   readonly stepsAtStop: StepsAtStop;
   /** Its queue of children on any instance and its clock (#333 PR 2). */
   readonly remoteChildren: RemoteChildren;
+  /** Its pause notices (#940): who is told, the fast path and the delivery's loading. */
+  readonly notices: PauseNoticeHub;
 }
 
 /** The application's stores an instance's parts use (#340, #333). */
@@ -51,6 +55,8 @@ export interface InstanceStores {
   readonly childQueue: ChildExecutionQueueRepository;
   /** Where the slots of a tree that can launch on any instance are kept (#333 PR 3). */
   readonly rateLimits: RateLimitRepository;
+  /** The pause store: where the notices are written and claimed (#940). */
+  readonly pausedExecutions: PausedExecutionRepository;
 }
 
 /**
@@ -74,7 +80,12 @@ export async function instancePartsOf(
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
   const remoteChildren = { queue, rateLimits, clock };
-  return { stepSlots, stepEntries, compensation, stepsAtStop, remoteChildren };
+  const notices = pauseNoticeHubOf(
+    assembled,
+    { pausedExecutions: stores.pausedExecutions, clock },
+    log,
+  );
+  return { stepSlots, stepEntries, compensation, stepsAtStop, remoteChildren, notices };
 }
 
 /** The running step bodies at the instance's graceful stop: its end, and the wait for them. */

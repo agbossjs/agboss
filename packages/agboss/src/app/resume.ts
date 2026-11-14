@@ -28,7 +28,7 @@ import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
 import { markAnswered, refusedAfterMark } from "./paused-runs.js";
-import { recipientsOf } from "./pause-notices.js";
+import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseClosed } from "./pause-closed.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
@@ -95,6 +95,8 @@ export interface AnswerParts extends AnsweredRootParts {
   readonly clock: Clock;
   /** The execution records: who answered is written there (#267 S107). */
   readonly answers: PauseAnswerLog;
+  /** Who hears of the answer (#940): its notices are written with it. */
+  readonly notices?: PauseNotices | undefined;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -211,13 +213,15 @@ export async function recordAnswer(
     pause.pauseId,
     answer,
     at,
-    recipientsOf(pause),
+    recipientsIn(parts, pause),
   );
   if (resolved === undefined) {
     throw await (isMarked
       ? refusedAfterMark(parts, pause)
       : pauseClosed(parts.pauses, pause, parts.clock.now()));
   }
+  // its notices are written: looked for at once, before anything that may throw
+  noticesWritten(parts);
   await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };
 }

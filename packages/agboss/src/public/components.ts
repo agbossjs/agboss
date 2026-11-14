@@ -142,12 +142,21 @@ export {
   type ChannelRoleOptions,
 } from "../channels/channel-role.decorator.js";
 export { PauseKind, questionAskOf, type PendingPauseBase } from "../pause/index.js";
+export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
 export {
-  ChannelOf,
-  type ChannelAsk,
-  type ChannelHandler,
-  type ChannelWithdrawal,
-} from "../channels/channel-handler.js";
+  PauseListener,
+  type PauseListenerHandler,
+  type PauseListenerOptions,
+} from "../pause/pause-listener.js";
+export type {
+  ChannelPauseAnswerNotTakenEvent,
+  ChannelPauseClosedEvent,
+  PauseDeliveredEvent,
+  PauseListenerAnswerNotTakenEvent,
+  PauseListenerClosedEvent,
+  PauseListenerEventBase,
+  PauseListenerOpenedEvent,
+} from "../pause/notice-events.js";
 export {
   ChannelOutcome,
   ChannelOutcomeKind,

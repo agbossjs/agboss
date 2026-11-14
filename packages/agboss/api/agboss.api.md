@@ -1097,16 +1097,18 @@ export type ChannelEndEvent = EndEvent<unknown>;
 
 // @public
 export interface ChannelHandler<TRole> {
+    readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TRole>) => Promise<void>;
+    readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
-    readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
 }
 
 // @public
 export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
+    onPauseAnswerNotTaken(event: ChannelPauseAnswerNotTakenEvent<TRole>): Promise<void>;
+    onPauseClosed(event: ChannelPauseClosedEvent<TRole>): Promise<void>;
     // (undocumented)
     abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
-    withdraw(withdrawal: ChannelWithdrawal<TRole>): Promise<void>;
 }
 
 // @public
@@ -1131,6 +1133,29 @@ export const ChannelOutcome: {
 export enum ChannelOutcomeKind {
     AwaitReply = "await-reply",
     Decided = "decided"
+}
+
+// @public
+export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEvent {
+    readonly answer: ChannelAnswerOf<TRole>;
+    readonly answeredBy?: string;
+    readonly at: string;
+    // (undocumented)
+    readonly pauseId: string;
+    readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
+    // (undocumented)
+    readonly value: ChannelQuestionOf<TRole>;
+}
+
+// @public
+export interface ChannelPauseClosedEvent<TRole> extends PauseDeliveredEvent {
+    readonly answer?: ChannelAnswerOf<TRole>;
+    readonly answeredBy?: string;
+    readonly closedAt: string;
+    readonly pauseId: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason;
+    readonly value: ChannelQuestionOf<TRole>;
 }
 
 // @public
@@ -1198,13 +1223,6 @@ export interface ChannelRoles {
 
 // @public
 export type ChannelStartEvent = StartEvent<unknown>;
-
-// @public
-export interface ChannelWithdrawal<TRole> {
-    readonly pauseId: string;
-    readonly resolution: PauseCancellation;
-    readonly value: ChannelQuestionOf<TRole>;
-}
 
 // @public
 export interface ChildExecutionEnd {
@@ -3770,6 +3788,7 @@ export interface HealthCheckResultOptions {
 export enum HealthComponentKind {
     Application = "application",
     ModelProvider = "model-provider",
+    PauseTimers = "pause-timers",
     Project = "project",
     RecoveryLoop = "recovery-loop",
     StepSlots = "step-slots",
@@ -6188,6 +6207,12 @@ export enum PauseClosedReason {
 }
 
 // @public
+export interface PauseDeliveredEvent {
+    // (undocumented)
+    readonly deliveryId: string;
+}
+
+// @public
 export interface PausedExecution extends ResumeVersions {
     // (undocumented)
     readonly run: AgentExecutionOutput;
@@ -6235,6 +6260,73 @@ export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 export enum PauseKind {
     Approval = "approval",
     Question = "question"
+}
+
+// @public
+export function PauseListener<const TDeps extends readonly Token[] = []>(options: PauseListenerOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => PauseListenerHandler>(value: TClass) => TClass;
+
+// @public
+export interface PauseListenerAnswerNotTakenEvent extends PauseListenerEventBase {
+    readonly answer: unknown;
+    // (undocumented)
+    readonly answeredBy?: string;
+    // (undocumented)
+    readonly at: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
+}
+
+// @public
+export interface PauseListenerClosedEvent extends PauseListenerEventBase {
+    readonly answer?: unknown;
+    readonly answeredBy?: string;
+    // (undocumented)
+    readonly closedAt: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason;
+}
+
+// @public
+export interface PauseListenerEventBase extends PauseDeliveredEvent {
+    readonly answerer: PauseAnswerer;
+    readonly ask: unknown;
+    // (undocumented)
+    readonly askedAt: string;
+    readonly channel: string;
+    readonly executionId: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly kind: PauseKind;
+    readonly pauseId?: string;
+    readonly pauseKey: string;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    readonly step: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    readonly workflow: string;
+}
+
+// @public
+export interface PauseListenerHandler {
+    onPauseAnswerNotTaken?(event: PauseListenerAnswerNotTakenEvent): Promise<void>;
+    onPauseClosed(event: PauseListenerClosedEvent): Promise<void>;
+    onPauseOpened(event: PauseListenerOpenedEvent): Promise<void>;
+}
+
+// @public
+export type PauseListenerOpenedEvent = PauseListenerEventBase;
+
+// @public
+export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly allowAnswering?: boolean;
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    readonly name: string;
 }
 
 // @public
@@ -7263,7 +7355,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement";
 
 // @public
 export interface RuleViolation {
@@ -10414,6 +10506,22 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "deliveryId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "value".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "kind".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "askedAt".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "closedAt".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "answeredBy".
+// src/pause/pause-listener.ts - (ae-undocumented) Missing documentation for "description".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".

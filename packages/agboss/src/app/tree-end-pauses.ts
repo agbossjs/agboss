@@ -5,12 +5,11 @@ import {
   type PauseRecord,
   type PauseUntakenResolution,
 } from "../infrastructure/paused-execution.repository.js";
-import type { PauseRecipients } from "../infrastructure/pause-record.js";
 import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import type { Turn } from "../turns/index.js";
 import { CANCELLED_STOP_REASON, cancelledErrorOf } from "./live-runs.js";
-import { recipientsOf } from "./pause-notices.js";
+import { noticesWritten, recipientsIn } from "../pause/index.js";
 
 /**
  * A tree's end closes its pauses (#939, #910 I13). The tree's own paused run goes first (only that
@@ -36,8 +35,6 @@ export interface PauseEnd {
 /** What closing a tree's pauses needs: the pause stores and the root's checkpoint. */
 export interface TreePauseEnds {
   readonly stores: PauseStores;
-  /** Who is told of a closed answer; `recipientsOf` (#940 fills it) when absent. */
-  readonly recipients?: (pause: PauseRecord) => PauseRecipients;
 }
 
 /** Whether an error is a cancel, or was caused by one. */
@@ -78,9 +75,10 @@ async function closedOne(
     pauseId,
     how.resolution,
     how.at,
-    (ends.recipients ?? recipientsOf)(pause),
+    recipientsIn(stores, pause),
   );
   if (closed === undefined) return false;
+  noticesWritten(stores);
   await logPauseNotTaken(stores.answers, closed);
   return true;
 }

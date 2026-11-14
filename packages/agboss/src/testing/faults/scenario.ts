@@ -1,3 +1,4 @@
+import { settleNotices } from "./settle-notices.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { faultViolationsOf } from "./invariants/check.js";
@@ -93,6 +94,7 @@ async function checkedRun(
   // linearizability checker maps it so
   if (reader.storeTime === undefined) throw new FaultStoreTimeError(undefined);
   const timeScale = storeTimeScaleOf(reader.storeTime, cluster.options.timeScale);
+  await settleNotices(cluster);
   const run = { ...(await cluster.run(reader)), timeScale };
   const violations = faultViolationsOf(run);
   const notes = [...cluster.expectations, ...(stopped === undefined ? [] : [String(stopped)])];

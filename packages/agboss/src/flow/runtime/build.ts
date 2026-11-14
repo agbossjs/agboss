@@ -73,7 +73,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
           channelOf: deps.channelOf,
           pauses: deps.pause.pauses,
           answers: deps.pause.answers,
-          withdrawn: deps.pause.withdrawn,
+          notices: deps.pause.notices,
           observer: deps.observer,
           ...(deps.clock === undefined ? {} : { clock: deps.clock }),
         });

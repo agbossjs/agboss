@@ -24,6 +24,7 @@ import type { ExecutionAuditLogRepository } from "../infrastructure/execution-au
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import { auditLogIn, pendingCallsOf } from "./instance-reads.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
+import type { PauseTimers } from "./pause-timers.js";
 import { modelProvidersOf } from "../models/resolution.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import { rememberMeshSettings } from "../mesh/mesh-settings.js";
@@ -170,6 +171,7 @@ function lazyApplicationHealth(sources: HealthSources): ApplicationHealth {
 export interface InstanceHealthParts {
   readonly stop: GracefulStop;
   readonly sweep: RecoverySweep;
+  readonly timers: PauseTimers;
   readonly infrastructure: Infrastructure;
   /** The instance's step slots (#332): readiness reports them when the application caps them. */
   readonly stepSlots?: StepCapacity | undefined;
@@ -200,6 +202,7 @@ export function instanceHealthOf(
     application: assembled.name,
     isStopping: () => parts.stop.isStopping(),
     sweep: parts.sweep,
+    timers: parts.timers,
     infrastructure: parts.infrastructure,
     modelProviders: modelProvidersOf(assembled.providers),
     healthChecks: projectChecksOf(assembled.healthChecks, workflows),
@@ -226,11 +229,11 @@ export function instanceAppOf(
   parts: InstanceAppParts,
 ): Pick<BuiltApplication, "app" | "infrastructure" | "closed" | "log"> {
   const { infrastructure, log } = parts;
-  const { stop, sweep } = stopOf(assembled, workflows, parts);
+  const { stop, sweep, timers } = stopOf(assembled, workflows, parts);
   const warnings = startupWarningsOf(assembled, workflows, parts.isInstanceKey);
   if (parts.quiet !== true)
     logStart(log, parts.contexts.application, assembled.workflows, warnings);
-  const health = instanceHealthOf(assembled, workflows, { stop, sweep, ...parts });
+  const health = instanceHealthOf(assembled, workflows, { stop, sweep, timers, ...parts });
   const surface = { stop, warnings, health, ...infrastructure };
   const app = composeApp(assembled, workflows, surface);
   return { app, infrastructure, closed: stop.closed, log };

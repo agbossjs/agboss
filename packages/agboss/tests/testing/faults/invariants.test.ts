@@ -113,6 +113,7 @@ const orderRecord = (
     output: { orderId },
     children: [],
     compensations: [],
+    pauses: [],
     ...overrides,
   }) as Partial<ExecutionHistoryRecord> as ExecutionHistoryRecord;
 

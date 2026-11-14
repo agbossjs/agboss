@@ -11,6 +11,7 @@ import {
   ApplicationStoppingError,
   BranchStatus,
   PauseClosedError,
+  PauseClosedReason,
   PauseResolution,
   PauseStatus,
 } from "../../src/index.js";
@@ -183,9 +184,8 @@ describe("#337 AC1: a quorum found decided on restore", () => {
         status: PauseStatus.Cancelled,
         resolution: PauseResolution.Withdrawn,
       });
-      expect(seen.withdrawals).toMatchObject([
-        { orderId: "R", resolution: PauseResolution.Withdrawn },
-      ]);
+      await until(() => seen.closed.length === 1);
+      expect(seen.closed).toMatchObject([{ orderId: "R", reason: PauseClosedReason.Withdrawn }]);
     },
   );
 });

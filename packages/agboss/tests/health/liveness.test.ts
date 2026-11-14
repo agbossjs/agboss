@@ -15,7 +15,7 @@ beforeEach(resetHealth);
 afterEach(resetHealth);
 
 describe("#300 AC1: liveness", () => {
-  test("a running instance is alive: the application and its recovery loop, each healthy", async ({
+  test("a running instance is alive: the application, its recovery loop and its pause timers, each healthy", async ({
     app,
   }) => {
     const report = await app.checkLiveness();
@@ -32,6 +32,12 @@ describe("#300 AC1: liveness", () => {
         {
           name: "recovery-loop",
           kind: HealthComponentKind.RecoveryLoop,
+          status: HealthStatus.Healthy,
+          duration: 0,
+        },
+        {
+          name: "pause-timers",
+          kind: HealthComponentKind.PauseTimers,
           status: HealthStatus.Healthy,
           duration: 0,
         },

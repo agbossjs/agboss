@@ -115,7 +115,9 @@ export const SKILL_COVERAGE: SkillCoverage = {
   "references/05-channels-and-human-in-the-loop.md": [
     ...["ChannelRole", "ChannelOf", "Channel", "ChannelHandler", "ChannelOutcome", "ChannelAsk"],
     ...[
-      "ChannelWithdrawal",
+      "ChannelPauseClosedEvent",
+      "PauseListener",
+      "PauseClosedReason",
       "PauseAnswerer",
       "PauseResolution",
       "PauseStatus",

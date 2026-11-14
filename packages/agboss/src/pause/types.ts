@@ -4,14 +4,13 @@ import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import {
+  NO_RECIPIENTS,
   PauseKind,
   questionAskOf,
-  type PauseCancellation,
+  type PauseRecipients,
   type PauseRecord,
   type QuestionAsk,
 } from "../infrastructure/pause-record.js";
-import type { ExecutionContextValues } from "../flow/context/context-values.js";
-import type { FrameSpec } from "../flow/context/frame.js";
 
 /**
  * The pause seam: what an execution pauses on (#267 S35) — the checkpointer LangGraph's
@@ -23,33 +22,38 @@ export interface PauseSeam {
   readonly pauses: PausedExecutionRepository;
   /** The execution records: how each pause was resolved is written there (#267 S107). */
   readonly answers: PauseAnswerLog;
-  /** Tells a pause's channel it closed without an answer (#337); absent: nobody is told. */
-  readonly withdrawn?: PauseWithdrawn;
-}
-
-/** What the tree of a withdrawn pause is, as the pass that withdrew it knows it (#337). */
-export interface WithdrawalTree {
-  readonly contexts: ExecutionContextValues;
-  readonly ownerId: string | undefined;
-  /** The version the execution that withdrew it started on. */
-  readonly startedVersion: string;
-}
-
-/** A pause closed without an answer (#337): its record after the change, and why. */
-export interface WithdrawnPause {
-  readonly pause: PauseRecord;
-  readonly resolution: PauseCancellation;
-  /** The tree, when a pass withdrew it; read from the tree's checkpoint otherwise. */
-  readonly tree?: WithdrawalTree;
-  /** The pause's own frame, when its own step takes it back (`send` returned after it closed). */
-  readonly frame?: FrameSpec;
+  /** Who is told of a pause's changes, and the fast path of telling (#940); absent: nobody. */
+  readonly notices?: PauseNotices;
 }
 
 /**
- * Tells the channel of a sent pause that it closed without an answer — once, by whoever closed it
- * (or by its own step); best-effort: it never throws.
+ * Who hears of a pause's change and when to look for it (#940): every transition call site asks
+ * `recipientsOf` for the receivers it passes to the store — written in the transaction of the
+ * change itself —, then calls `delivered()` right after the change returned, never after code that
+ * may throw. The delivery itself is the application's (`app/pause-notice-delivery.ts`).
  */
-export type PauseWithdrawn = (withdrawn: WithdrawnPause) => Promise<void>;
+export interface PauseNotices {
+  /** The pause's receivers: its channel when that listens to anything, and every listener. */
+  readonly recipientsOf: (pause: PauseRecord) => PauseRecipients;
+  /**
+   * A transaction that wrote notices returned: this instance looks for them at once instead of at
+   * its next tick. Not awaited; it never throws.
+   */
+  readonly delivered: () => void;
+}
+
+/** The receivers of a pause's change; nobody without the application's notices. */
+export const recipientsIn = (
+  seam: { readonly notices?: PauseNotices | undefined } | undefined,
+  pause: PauseRecord,
+): PauseRecipients => seam?.notices?.recipientsOf(pause) ?? NO_RECIPIENTS;
+
+/** Tells the application a change that wrote notices returned (no-op without its notices). */
+export const noticesWritten = (
+  seam: { readonly notices?: PauseNotices | undefined } | undefined,
+): void => {
+  seam?.notices?.delivered();
+};
 
 export { PauseKind, questionAskOf };
 

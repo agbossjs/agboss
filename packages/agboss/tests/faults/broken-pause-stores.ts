@@ -10,11 +10,17 @@ import {
   type TurnOutcome,
 } from "../../src/index.js";
 import {
+  NO_RECIPIENTS,
   PauseResolution,
   PauseStatus,
   type PauseAnswer,
+  type PauseRecipients,
   type PauseRecord,
 } from "../../src/infrastructure/pause-record.js";
+import type { PauseNoticeClaim } from "../../src/infrastructure/pause-notices.js";
+import { resolveChange } from "../../src/infrastructure/pause-transitions.js";
+import { SqlitePauseNoticeRows } from "../../src/infrastructure/sqlite/sqlite-pause-notice-rows.js";
+import type { Milliseconds } from "../../src/units/index.js";
 
 /**
  * #959 AC3 — deliberately broken SQLite stores the pause scenarios (19, 19b, 19c) must catch:
@@ -67,5 +73,70 @@ export class LostAnswerSqlitePausedExecutionRepository extends SqlitePausedExecu
 export class LostRunSqlitePausedExecutionRepository extends SqlitePausedExecutionRepository {
   override save(): Promise<void> {
     return Promise.resolve();
+  }
+}
+
+/**
+ * #940 AC3 — `OutsideCloseSqlitePausedExecutionRepository`: a pause store that writes the notice of
+ * an answer in a transaction of its own, a moment after the answer's — not in the answer's. A pod
+ * killed in between leaves a pause answered and told to nobody: the notice is lost for good.
+ */
+@Injectable({ deps: [SqliteConnection, Clock] })
+export class OutsideCloseSqlitePausedExecutionRepository extends SqlitePausedExecutionRepository {
+  readonly #connection: SqliteConnection;
+
+  constructor(connection: SqliteConnection, clock: Clock) {
+    super(connection, clock);
+    this.#connection = connection;
+  }
+
+  override async resolveByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    answer: PauseAnswer,
+    at: Date,
+    recipients: PauseRecipients,
+  ): Promise<PauseRecord | undefined> {
+    const before = await this.findByTenantIdAndPauseId(tenantId, pauseId);
+    const planned =
+      before === undefined ? undefined : resolveChange(before, answer, at, recipients);
+    const resolved = await super.resolveByTenantIdAndPauseId(
+      tenantId,
+      pauseId,
+      answer,
+      at,
+      NO_RECIPIENTS,
+    );
+    if (resolved === undefined || planned === undefined) return resolved;
+    const connection = this.#connection;
+    setTimeout(() => {
+      try {
+        connection.transaction(() => {
+          new SqlitePauseNoticeRows(connection.database).append(resolved, planned.notices);
+        });
+      } catch {
+        // the instance stopped first: its notice is lost, as when it dies
+      }
+    }, 3000);
+    return resolved;
+  }
+}
+
+/**
+ * #940 AC3 — `AckedBeforeDeliverySqlitePausedExecutionRepository`: a pause store that acknowledges
+ * the head notice of every mailbox it claims, before the receiver was told. A pod killed after its
+ * claim leaves the notice acknowledged and delivered to nobody: lost for good.
+ */
+@Injectable({ deps: [SqliteConnection, Clock] })
+export class AckedBeforeDeliverySqlitePausedExecutionRepository extends SqlitePausedExecutionRepository {
+  override async claimNoticesDue(
+    at: Date,
+    limit: number,
+    claimFor: Milliseconds,
+    recipients: readonly string[],
+  ): Promise<readonly PauseNoticeClaim[]> {
+    const claims = await super.claimNoticesDue(at, limit, claimFor, recipients);
+    for (const claim of claims) await super.ackNotice(claim, at);
+    return claims;
   }
 }

@@ -17,7 +17,7 @@ import {
   contextsOf,
   pauseFrameOf,
   treeStateOf,
-  withdrawalTreeOf,
+  pauseTreeOf,
   type TreeState,
 } from "./pause-frame.js";
 
@@ -73,8 +73,7 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
   budgets: deps.budgets,
   tracing: deps.tracing,
   treeStateOf: (rootExecutionId) => treeStateOf(deps, rootExecutionId),
-  frameOf: async (pause, state) =>
-    pauseFrameOf(deps, pause, await withdrawalTreeOf(deps, pause, state)),
+  frameOf: async (pause, state) => pauseFrameOf(deps, pause, await pauseTreeOf(deps, pause, state)),
   piiOf: (state) => {
     const known = state.piiTokens ?? {};
     const { pii } = deps;

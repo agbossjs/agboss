@@ -9,6 +9,8 @@ import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { CostLedgerRepository } from "./cost-ledger.repository.js";
 import type { Clock } from "./clock.js";
+import type { FrameworkLog } from "./logger.js";
+import { pauseKeyOf } from "./pause-record.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -24,6 +26,8 @@ export interface RetentionSources {
   readonly clock: Clock;
   /** The application's pause records: the resolved ones are removed after their retention. */
   readonly pauses: PausedExecutionRepository;
+  /** Where a mailbox nobody delivers is reported (`pause.notice-recipient-unknown`, #940). */
+  readonly log?: FrameworkLog | undefined;
   /** Where a closed pause's answer is logged: a lost entry is written before its record goes (#939). */
   readonly answers?: PauseAnswerLog | undefined;
   /** `@Application({ retention: { pauseRecords } })`: how long a resolved pause record is kept. */
@@ -54,10 +58,39 @@ export interface RetentionSources {
   readonly ledgerEntryRetention?: Milliseconds | undefined;
 }
 
+/** How many mailboxes of unknown receivers one look sets aside. */
+const UNKNOWN_PER_LOOK = 200;
+
+/**
+ * A mailbox whose head notice is older than the retention and that no instance claims (a listener
+ * a deploy removed, a rolling deploy's channel) is set aside and reported — the one way it ends:
+ * then its pause goes with the retention (#940 V2, I11).
+ */
+async function setAsideUnknown(sources: RetentionSources, cutoff: Date): Promise<void> {
+  const { pauses, clock, log } = sources;
+  const asides = await pauses.setAsideStaleNoticesBefore(
+    cutoff,
+    clock.now(),
+    "recipient-unknown",
+    UNKNOWN_PER_LOOK,
+  );
+  for (const { tenantId, pauseId, recipient } of asides)
+    log?.warn(
+      "pause.notice-recipient-unknown",
+      `the notices of pause ${pauseKeyOf(tenantId, pauseId)} to ${recipient} were set aside: no instance knows that receiver`,
+      { tenantId },
+    );
+}
+
 const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
   const { pauses, meshRequests, executionHistory, fencedEffects, auditLog, outboundCalls } =
     sources;
   return [
+    {
+      what: "the notices of a receiver no instance knows",
+      remove: (cutoff) => setAsideUnknown(sources, cutoff),
+      retention: sources.pauseRecordRetention,
+    },
     {
       what: "the resolved pause records",
       remove: (cutoff) =>

@@ -15,6 +15,8 @@ import type { StepsAtStop } from "./instance-steps.js";
 import type { AuditLogWriter } from "../app/execution-leases.js";
 
 import { retentionSourcesOf } from "./retention-sources.js";
+import type { PauseNoticeHub } from "./pause-notice-hub.js";
+import { startPauseTimers, type PauseTimers } from "./pause-timers.js";
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
@@ -160,6 +162,8 @@ export interface InstanceParts {
   readonly stepsAtStop: StepsAtStop;
   /** The instance's audit log (#501): its remote children's takeovers and hand-overs. */
   readonly auditLog?: AuditLogWriter;
+  /** The instance's pause notices (#940): the pause timers' look, and the fast path's looks. */
+  readonly notices: PauseNoticeHub;
 }
 
 /** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
@@ -200,6 +204,7 @@ function childWorkersOf(
 export interface InstanceStop {
   readonly stop: GracefulStop;
   readonly sweep: RecoverySweep;
+  readonly timers: PauseTimers;
 }
 
 /** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
@@ -221,8 +226,19 @@ export function stopOf(
   });
   const { shutdownTimeout } = assembled;
   const workers = childWorkersOf(workflows, parts, interruption.signal);
+  parts.notices.interruptedBy(interruption.signal);
+  const timers = startPauseTimers({
+    clock,
+    log: parts.log,
+    signal: interruption.signal,
+    looks: [{ name: "notices", run: () => parts.notices.look() }],
+  });
+  const stopTimers = async (): Promise<void> => {
+    await timers.stop();
+    await parts.notices.settled();
+  };
   const stopping: RecoverySweep = {
-    stop: () => parts.stepsAtStop.within(Promise.all([sweep.stop(), workers.stop()])),
+    stop: () => parts.stepsAtStop.within(Promise.all([sweep.stop(), workers.stop(), stopTimers()])),
     lastSweptAt: () => sweep.lastSweptAt(),
     isStopped: () => sweep.isStopped(),
   };
@@ -235,7 +251,7 @@ export function stopOf(
     shutdownTimeout,
     steps: parts.stepsAtStop,
   });
-  return { stop, sweep };
+  return { stop, sweep, timers };
 }
 
 /** The leases of the instance's lease holders (its child workers), on its leasing (#471). */

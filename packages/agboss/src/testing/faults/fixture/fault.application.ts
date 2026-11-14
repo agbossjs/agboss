@@ -16,6 +16,7 @@ import { FaultObserver } from "./fault.observer.js";
 import { FaultBatchWorkflow, FaultOrderWorkflow } from "./order.workflow.js";
 import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.js";
 import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
+import { FaultPauseListener } from "./pause.listener.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
@@ -120,6 +121,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
+      FaultPauseListener,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),
       ...a2a.providers,
     ],

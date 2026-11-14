@@ -59,9 +59,10 @@ export type ChannelEndEvent = EndEvent<unknown>;
 
 // @public
 export interface ChannelHandler<TRole> {
+    readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TRole>) => Promise<void>;
+    readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
-    readonly withdraw?: (withdrawal: ChannelWithdrawal<TRole>) => Promise<void>;
 }
 
 // @public

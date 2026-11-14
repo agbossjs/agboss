@@ -29,6 +29,12 @@ export enum FaultInvariant {
    * except an undo's, the cancel's own unwinding.
    */
   NoEffectAfterCancel = "no-effect-after-cancel",
+  /**
+   * Every pause closed is told to its listener at least once, never zero times (#940): exactly one
+   * `opened` and one `closed` per pause, `opened` first, and a notice heard twice only under the
+   * same `deliveryId`.
+   */
+  NoticesOnceEachInOrder = "notices-once-each-in-order",
 }
 
 /** One broken invariant, said plainly. */

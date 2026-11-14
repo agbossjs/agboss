@@ -5,19 +5,26 @@ import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { contextsOutsideExecution, tenantOfExecution } from "../flow/context/runtime-contexts.js";
 import { DEFAULT_TENANT, type ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
-import { NodeKind } from "../flow/ast.js";
 import type { GraphDeps } from "../graph/deps.js";
+import { ownDepsOf } from "./own-deps.js";
 import { callIdOfPause, type PauseRecord } from "../infrastructure/pause-record.js";
 import { runConfig } from "../run/paused.js";
 import { readingGraphOf } from "../run/run-budgets.js";
-import type { WithdrawalTree } from "../pause/index.js";
 import type { AppDeps } from "./app-deps.js";
 
 /**
  * The frame of a pause's execution and waiting step, rebuilt outside its step: what a free-text
- * reply is read in (#267 PR 3) and what a channel's `withdraw` runs in (#337) — its tenant, its
+ * reply is read in (#267 PR 3) and what a channel's or a listener's notice hook runs in (#940) — its tenant, its
  * fields, its owner, its step. Loaded with the modules that use it, never by the root import.
  */
+
+/** What a pause's frame is made of beside the pause: the tree's contexts, owner and version. */
+export interface PauseTree {
+  readonly contexts: ExecutionContextValues;
+  readonly ownerId: string | undefined;
+  /** The version the execution that started it ran on. */
+  readonly startedVersion: string;
+}
 
 /** The tree's state as its root's last checkpoint keeps it (empty before its first one). */
 export type TreeState = Partial<ExecutionStateType>;
@@ -34,11 +41,11 @@ export const contextsOf = (state: TreeState, tenantId: string): ExecutionContext
   state.contexts ?? { tenant: { ...DEFAULT_TENANT, tenantId }, execution: {} };
 
 /** The tree a pause's frame is made from, read from its checkpoint and its thread's owner. */
-export async function withdrawalTreeOf(
+export async function pauseTreeOf(
   deps: AppDeps,
   pause: PauseRecord,
   state: TreeState,
-): Promise<WithdrawalTree> {
+): Promise<PauseTree> {
   const owner = await deps.turns.threadOwner(deps.config.name, pause.tenantId, pause.threadId);
   return {
     contexts: contextsOf(state, pause.tenantId),
@@ -47,26 +54,11 @@ export async function withdrawalTreeOf(
   };
 }
 
-/** The graph deps of a workflow of the tree, by name: the given one's, or a child's (#263). */
-function graphDepsNamed(deps: GraphDeps<string>, name: string): GraphDeps<string> | undefined {
-  if (deps.config.name === name) return deps;
-  for (const node of deps.graph.nodes.values()) {
-    const child = node.kind === NodeKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
-    const found = child === undefined ? undefined : graphDepsNamed(child, name);
-    if (found !== undefined) return found;
-  }
-  return undefined;
-}
-
-/** The graph deps of the tree's workflow `name`; the given ones when none is so named. */
-export const ownDepsOf = (deps: GraphDeps<string>, name: string): GraphDeps<string> =>
-  graphDepsNamed(deps, name) ?? deps;
-
 /** The workflow a pause waits in, as its frame names it, and its graph deps. */
 function pauseWorkflowOf(
   deps: GraphDeps<string>,
   pause: PauseRecord,
-  tree: WithdrawalTree,
+  tree: PauseTree,
 ): { readonly own: GraphDeps<string>; readonly workflow: WorkflowDescriptor } {
   const own = ownDepsOf(deps, pause.workflow);
   // the version it started on is the tree's for the workflow given; a child's is its own
@@ -98,7 +90,7 @@ function pauseStepOf(pause: PauseRecord, own: GraphDeps<string>): StepDescriptor
 export function pauseFrameOf(
   deps: GraphDeps<string>,
   pause: PauseRecord,
-  tree: WithdrawalTree,
+  tree: PauseTree,
   signal: AbortSignal = new AbortController().signal,
 ): FrameSpec {
   const { own, workflow } = pauseWorkflowOf(deps, pause, tree);

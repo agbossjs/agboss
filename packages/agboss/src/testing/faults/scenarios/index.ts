@@ -26,6 +26,7 @@ import {
 import { s19Paused, s19bAnswering, s19cResuming } from "./s19-pause.js";
 
 import { s20bCancelAtPayment, s20CancelAtCharge } from "./s20-cancel-at-payment.js";
+import { s21bDelivered, s21cCommitted, s21Claimed } from "./s21-pause-notices.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -66,6 +67,9 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s19cResuming,
   s20CancelAtCharge,
   s20bCancelAtPayment,
+  s21Claimed,
+  s21bDelivered,
+  s21cCommitted,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

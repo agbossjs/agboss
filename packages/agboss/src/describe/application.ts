@@ -15,6 +15,7 @@ import {
   modelProviderOf,
 } from "../models/model-provider.decorator.js";
 import { modelProvidersOf } from "../models/resolution.js";
+import { listenersOf, pauseListenerOf } from "../pause/pause-listener.js";
 
 /**
  * What `agboss describe` says about an application as a whole (#261, #268 AC4): its infrastructure —
@@ -53,6 +54,12 @@ export interface DescribedModelProvider {
   readonly isTransport: boolean;
 }
 
+/** One listed `@PauseListener`: its name, and whether it is trusted with the ids of channel pauses. */
+export interface DescribedPauseListener {
+  readonly name: string;
+  readonly allowAnswering: boolean;
+}
+
 /** An application, as `describe` shows it. */
 export interface DescribedApplication {
   readonly name: string;
@@ -64,6 +71,8 @@ export interface DescribedApplication {
   readonly budgets: readonly DescribedBudget[];
   readonly executionBudgets: readonly DescribedExecutionBudget[];
   readonly observers: readonly string[];
+  /** Its `@PauseListener`s (#940): each pause of the application is told to every one. */
+  readonly pauseListeners: readonly DescribedPauseListener[];
   readonly warnings: readonly string[];
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
@@ -139,6 +148,10 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
       executionBudgetOf(budgets, workflow.graph.type, workflow.config.name),
     ),
     observers: assembled.observers.map(tokenName),
+    pauseListeners: listenersOf(assembled.providers).flatMap((cls) => {
+      const meta = pauseListenerOf(cls);
+      return meta === undefined ? [] : [{ name: meta.name, allowAnswering: meta.allowAnswering }];
+    }),
     warnings: applicationWarningsOf(assembled).map(warningText),
     ...(assembled.maxConcurrentSteps === undefined
       ? {}
@@ -188,6 +201,19 @@ const modelProviderLine = (provider: DescribedModelProvider): string =>
     provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
   }`;
 
+/** `pause listeners ledger-pause-listener (allowAnswering: sees the ids of channel pauses), …`. */
+const pauseListenerLines = (described: DescribedApplication): string[] =>
+  described.pauseListeners.length === 0
+    ? []
+    : [
+        `pause listeners ${described.pauseListeners
+          .map(
+            ({ name, allowAnswering }) =>
+              `${name}${allowAnswering ? " (allowAnswering: sees the ids of channel pauses)" : ""}`,
+          )
+          .join(", ")}`,
+      ];
+
 /** The application's implementations, model providers, budgets, observers and warnings. */
 export function applicationLines(described: DescribedApplication): string[] {
   return [
@@ -197,6 +223,7 @@ export function applicationLines(described: DescribedApplication): string[] {
     ...described.modelProviders.map(modelProviderLine),
     ...budgetLines(described),
     `observers ${described.observers.join(", ") || "none"}`,
+    ...pauseListenerLines(described),
     stepCapLine(described),
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];

@@ -2,13 +2,12 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
 import {
   logPauseAnswer,
-  NO_RECIPIENTS,
   PauseResolution,
   PauseStatus,
   type PauseCancellation,
   type PauseRecord,
 } from "../../../infrastructure/pause-record.js";
-import type { PauseSeam, WithdrawalTree } from "../../../pause/index.js";
+import { noticesWritten, recipientsIn, type PauseSeam } from "../../../pause/index.js";
 import { rootFactsOf } from "../../context/frame.js";
 import { branchKeyOf, PauseWithdrawnError } from "../pause.js";
 import type { ExecutionStateType } from "../state.js";
@@ -22,45 +21,40 @@ import type { BranchTicket } from "./records.js";
  * for answers nobody needs, and a late answer gets `NotPausedError`; a withdrawn branch ends
  * `Cancelled` when it runs again. A pause belongs to a branch when it waits in the branch's step or
  * in any execution under it (a child workflow, #263): its record keeps the keys of the launching
- * steps above it (`branchKeys`). Whoever closes a sent pause tells its channel (`withdraw`).
+ * steps above it (`branchKeys`). Whoever closes a sent pause writes its notices in the same
+ * transaction (`recipientsOf`, #940) and looks for them at once (`delivered`).
  */
 
-/** The pause records, the log of how each was resolved, and who tells the channels. */
-export type PauseStores = Pick<PauseSeam, "pauses" | "answers" | "withdrawn">;
+/** The pause records, the log of how each was resolved, and who hears of a change. */
+export type PauseStores = Pick<PauseSeam, "pauses" | "answers" | "notices">;
 
 /** A pause's branch keys; one stored before #337 has its own step's only. */
 const branchKeysOf = (pause: PauseRecord): readonly string[] =>
   pause.branchKeys ?? [branchKeyOf(pause)];
 
 /**
- * Closes one pending pause without an answer: logged, and its channel told when it was sent — the
- * record read after the change, so a `send` that returned meanwhile is seen (else its own step
- * tells it). `false` when it was no longer pending.
+ * Closes one pending pause without an answer: its notices written with the close, the close logged
+ * and the instance told to deliver. `false` when it was no longer pending.
  */
 export async function withdrawPause(
   stores: PauseStores,
   pause: PauseRecord,
-  closing: {
-    readonly resolution: PauseCancellation;
-    readonly at: Date;
-    readonly tree?: WithdrawalTree;
-  },
+  closing: { readonly resolution: PauseCancellation; readonly at: Date },
 ): Promise<boolean> {
   const { tenantId, pauseId } = pause;
-  const { resolution, at, tree } = closing;
+  const { resolution, at } = closing;
   const cancelled = await stores.pauses.cancelByTenantIdAndPauseId(
     tenantId,
     pauseId,
     resolution,
     at,
-    NO_RECIPIENTS,
+    recipientsIn(stores, pause),
   );
   if (cancelled === undefined) return false;
+  // looked for at once, before anything that may throw
+  noticesWritten(stores);
   // the store may record `Expired` for a close at or after the deadline (I3): logged as it did
   await logPauseAnswer(stores.answers, cancelled, cancelled.resolution ?? resolution);
-  const closed = await stores.pauses.findByTenantIdAndPauseId(tenantId, pauseId);
-  if (closed?.isSent === true && stores.withdrawn !== undefined)
-    await stores.withdrawn({ pause: closed, resolution, ...(tree === undefined ? {} : { tree }) });
   return true;
 }
 
@@ -71,7 +65,6 @@ export interface LaunchPauses {
   readonly rootExecutionId: string;
   /** The execution whose step launched the branches. */
   readonly launchExecutionId: string;
-  readonly tree: WithdrawalTree;
   /** When (the application's clock): the pauses' `resolvedAt`. */
   readonly now: () => Date;
 }
@@ -92,7 +85,6 @@ export function launchPausesOf(
     tenantId: state.contexts.tenant.tenantId,
     rootExecutionId: root,
     launchExecutionId: state.runId,
-    tree: { contexts: state.contexts, ownerId: run.ownerId, startedVersion: state.startedVersion },
     now: () => clock.now(),
   };
 }
@@ -106,7 +98,7 @@ export async function withdrawBranchPauses(
   const keys = new Set(
     branches.map((branch) => branchKeyOf({ ...branch, executionId: site.launchExecutionId })),
   );
-  const { stores, tenantId, rootExecutionId, tree } = site;
+  const { stores, tenantId, rootExecutionId } = site;
   const records = await stores.pauses.findAllByTenantIdAndRootExecutionId(
     tenantId,
     rootExecutionId,
@@ -117,7 +109,7 @@ export async function withdrawBranchPauses(
   );
   const at = site.now();
   for (const pause of waiting)
-    await withdrawPause(stores, pause, { resolution: PauseResolution.Withdrawn, at, tree });
+    await withdrawPause(stores, pause, { resolution: PauseResolution.Withdrawn, at });
 }
 
 /** Whether a branch stopped because its pause was withdrawn (also through a cause). */

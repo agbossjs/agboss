@@ -1,5 +1,6 @@
 import { SWEEP_EVERY } from "../infrastructure/recovery.js";
 import { waitOf } from "../infrastructure/clock.js";
+import { PAUSE_TIMERS_EVERY } from "../application/pause-timers.js";
 import { componentReportOf, type ProbeOutcome } from "./health-probe.js";
 import {
   HealthComponentKind,
@@ -19,6 +20,9 @@ import { readinessProbes } from "./readiness-checks.js";
 
 /** A sweep that ended longer ago than this is stuck: three sweep intervals. */
 export const STUCK_AFTER = waitOf(SWEEP_EVERY * 3);
+
+/** A tick of the pause timers that ended longer ago than this is stuck: three intervals. */
+export const TIMERS_STUCK_AFTER = waitOf(PAUSE_TIMERS_EVERY * 3);
 
 const HEALTHY: ProbeOutcome = { status: HealthStatus.Healthy };
 
@@ -56,6 +60,18 @@ function recoveryLoopOutcome(sources: HealthSources): ProbeOutcome {
   };
 }
 
+/** The pause timers: stopped with the instance, or stuck when their last tick is too old. */
+function pauseTimersOutcome(sources: HealthSources): ProbeOutcome {
+  const { timers, infrastructure } = sources;
+  if (timers.isStopped()) return { status: HealthStatus.Unhealthy, reason: "stopped" };
+  const since = infrastructure.clock.now().getTime() - timers.lastTickAt().getTime();
+  if (since <= TIMERS_STUCK_AFTER) return HEALTHY;
+  return {
+    status: HealthStatus.Unhealthy,
+    reason: `stuck: its last tick ended ${String(since / 1000)} s ago (more than ${String(TIMERS_STUCK_AFTER / 1000)} s)`,
+  };
+}
+
 /** Liveness's components: no I/O, so each takes no time. */
 const livenessComponents = (sources: HealthSources): HealthComponentReport[] => [
   componentReportOf(
@@ -66,6 +82,11 @@ const livenessComponents = (sources: HealthSources): HealthComponentReport[] => 
   componentReportOf(
     { name: "recovery-loop", kind: HealthComponentKind.RecoveryLoop },
     recoveryLoopOutcome(sources),
+    waitOf(0),
+  ),
+  componentReportOf(
+    { name: "pause-timers", kind: HealthComponentKind.PauseTimers },
+    pauseTimersOutcome(sources),
     waitOf(0),
   ),
 ];
