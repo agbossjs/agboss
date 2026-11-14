@@ -1,36 +1,42 @@
-import { backfillStepsSql, LATEST_BY_STEP_SQL, STEP_INDEXES } from "./sqlite-checkpoint-rows.js";
+import { z } from "zod";
+import { LATEST_BY_STEP_SQL, STEP_COLUMN, STEP_INDEX } from "./sqlite-checkpoint-rows.js";
 import type { SqliteConnection } from "./sqlite-connection.js";
 
-/** `checkpoints.step`, its indexes, and the backfill of the rows a file written before has (#962). */
+/** `checkpoints.step`, the generated column the newest-by-step index is on (#962, #1035). */
 
-/** Adds the column and the indexes, and gives every old row the step its metadata names. */
+const ColumnInfo = z.object({ name: z.string(), hidden: z.number() });
+
+/** `PRAGMA table_xinfo` `hidden`: 0 an ordinary column, 2 a VIRTUAL generated one, 3 a STORED one. */
+const ORDINARY = 0;
+
+/**
+ * Gives the file its generated `step` column and the index on it; nothing is written to any row.
+ * A file a build before this one converted (a stored `step` column, and an index of rows without
+ * one) loses them first.
+ */
 export function migrateSteps(connection: SqliteConnection): void {
-  connection.addColumn("checkpoints", "step", "INTEGER");
+  const { database } = connection;
   connection.transaction(() => {
-    for (const index of STEP_INDEXES) connection.database.exec(index);
-    connection.database.exec(backfillStepsSql(""));
+    const step = database
+      .prepare("PRAGMA table_xinfo(checkpoints)")
+      .all()
+      .map((row) => ColumnInfo.parse(row))
+      .find((column) => column.name === "step");
+    if (step?.hidden === ORDINARY) {
+      database.exec("DROP INDEX IF EXISTS checkpoints_latest_by_step");
+      database.exec("DROP INDEX IF EXISTS checkpoints_without_step");
+      database.exec("ALTER TABLE checkpoints DROP COLUMN step");
+    }
+    if (step === undefined || step.hidden === ORDINARY)
+      database.exec(`ALTER TABLE checkpoints ADD COLUMN step ${STEP_COLUMN}`);
+    database.exec(STEP_INDEX);
   });
 }
 
-/**
- * The newest row of the thread and namespace by `(step, id)`: one walk of the index. Rows written
- * without a step (by an older version still on the file) are given one first, so none is passed over.
- */
+/** The newest row of the thread and namespace by `(step, id)`: one walk of the index. */
 export function latestRowOf(
   connection: SqliteConnection,
   { threadId, namespace }: { readonly threadId: string; readonly namespace: string },
 ): Record<string, unknown> | undefined {
-  const { database } = connection;
-  const unstepped = database
-    .prepare(
-      "SELECT 1 FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND step IS NULL LIMIT 1",
-    )
-    .get(threadId, namespace);
-  if (unstepped !== undefined)
-    connection.transaction(() => {
-      database
-        .prepare(backfillStepsSql("AND thread_id = ? AND checkpoint_ns = ?"))
-        .run(threadId, namespace);
-    });
-  return database.prepare(LATEST_BY_STEP_SQL).get(threadId, namespace);
+  return connection.database.prepare(LATEST_BY_STEP_SQL).get(threadId, namespace);
 }

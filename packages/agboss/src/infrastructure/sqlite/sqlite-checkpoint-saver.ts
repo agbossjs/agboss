@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { BaseCheckpointSaver, copyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
 import { Injectable } from "../../components/decorators.js";
 import {
+  CHECKPOINT_COLUMNS,
   CHECKPOINT_SCHEMA,
   TENANT_TAGGED_TABLES,
   CheckpointRow,
@@ -15,7 +16,7 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
-import { stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
+import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
 import { latestRowOf, migrateSteps } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -23,9 +24,9 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * LangGraph's `BaseCheckpointSaver` on the application's SQLite file (#265 S32, our own on
  * `node:sqlite` — no second driver): checkpoints and pending writes, serialized by `this.serde`,
  * each row tagged with its run's tenant (#261: `configurable.tenant_id`).
- * Listed in `@Application({ providers })` (needs `sqlitePath`) with `SqlitePausedExecutionRepository`,
- * a pause survives a restart and is resumed on any instance on the file; recovery continues a
- * `running` tree from its last checkpoint. Ecosystem savers (`PostgresSaver`, …) plug in the same way.
+ * Listed in `@Application({ providers })` (needs `sqlitePath`) with `SqlitePausedExecutionRepository`, a
+ * pause survives a restart and is resumed on any instance; recovery continues a `running` tree from
+ * its last checkpoint. Ecosystem savers (`PostgresSaver`, …) plug in the same way.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteCheckpointSaver
@@ -50,9 +51,9 @@ export class SqliteCheckpointSaver
     const row = this.connection.database
       .prepare(
         checkpointId === undefined
-          ? `SELECT * FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ?
+          ? `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ?
              ORDER BY checkpoint_id DESC LIMIT 1`
-          : "SELECT * FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?",
+          : `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?`,
       )
       .get(...[threadId, namespace, ...(checkpointId === undefined ? [] : [checkpointId])]);
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
@@ -69,7 +70,7 @@ export class SqliteCheckpointSaver
   ): AsyncGenerator<CheckpointTuple> {
     const { where, params } = listQueryOf(config, options);
     const rows = this.connection.database
-      .prepare(`SELECT * FROM checkpoints ${where} ORDER BY checkpoint_id DESC`)
+      .prepare(`SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints ${where} ORDER BY checkpoint_id DESC`)
       .all(...params);
     let left = options.limit ?? Number.POSITIVE_INFINITY;
     for (const row of rows) {
@@ -93,7 +94,7 @@ export class SqliteCheckpointSaver
     ]);
     this.connection.transaction(() => {
       this.connection.database
-        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(
           threadId,
           namespace,
@@ -104,7 +105,6 @@ export class SqliteCheckpointSaver
           metadataType,
           dumpedMetadata,
           tenantId,
-          stepOf(metadata),
         );
     });
     return configOf(threadId, namespace, checkpoint.id);

@@ -13,7 +13,8 @@ import {
   type CheckpointTuple,
 } from "@langchain/langgraph";
 import { describe } from "vitest";
-import { checkpointSaverContract } from "../../src/testing/contracts/index.js";
+import { newestFirstOrder, stepOf } from "../../src/infrastructure/latest-by-step.js";
+import { checkpointSaverContract, StoreCapability } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, sharedInMemory } from "./contracts/store-kinds.js";
 
 /** The versions `put` is given (LangGraph's `ChannelVersions`, not re-exported by `@langchain/langgraph`). */
@@ -63,6 +64,19 @@ class VersionedBlobSaver extends MemorySaver {
   }
 }
 
+/** The same with `latestByStep` (#1037): the newest by step of the listed checkpoints, read as a blob join does. */
+class VersionedBlobLatestSaver extends VersionedBlobSaver {
+  async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const { thread_id, checkpoint_ns } = config.configurable ?? {};
+    const ranked: { id: string; step: number }[] = [];
+    for await (const tuple of this.list({ configurable: { thread_id, checkpoint_ns } }))
+      ranked.push({ id: tuple.checkpoint.id, step: stepOf(tuple.metadata) });
+    const newest = ranked.sort(newestFirstOrder)[0];
+    if (newest === undefined) return undefined;
+    return this.getTuple({ configurable: { thread_id, checkpoint_ns, checkpoint_id: newest.id } });
+  }
+}
+
 describe("#511 AC2: LangGraph's MemorySaver passes checkpointSaverContract", () => {
   checkpointSaverContract({
     ...inMemoryTarget((seam) => sharedInMemory(seam, "memory-saver", () => new MemorySaver())),
@@ -76,5 +90,15 @@ describe("#511 AC2: a saver that writes only the versions it is given passes, as
       sharedInMemory(seam, "versioned-blobs", () => new VersionedBlobSaver()),
     ),
     name: "versioned blobs",
+  });
+});
+
+describe("#1037 AC1: the latestByStep cases are valid LangGraph checkpoints, with channel versions", () => {
+  checkpointSaverContract({
+    ...inMemoryTarget((seam) =>
+      sharedInMemory(seam, "versioned-blobs-latest", () => new VersionedBlobLatestSaver()),
+    ),
+    name: "versioned blobs with latestByStep",
+    capabilities: [StoreCapability.LatestByStep],
   });
 });
