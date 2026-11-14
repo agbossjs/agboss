@@ -1,20 +1,10 @@
-import type { RunnableConfig } from "@langchain/core/runnables";
-import {
-  emptyCheckpoint,
-  type BaseCheckpointSaver,
-  type CheckpointMetadata,
-  type CheckpointTuple,
-} from "@langchain/langgraph";
+import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { expect } from "vitest";
-import {
-  hasLatestByStep,
-  newestFirstOrder,
-  stepOf,
-  type LatestByStepCheckpointSaver,
-} from "../../infrastructure/latest-by-step.js";
+import { hasLatestByStep } from "../../infrastructure/latest-by-step.js";
 import type { CapabilityCheck, ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import { StoreCapability } from "./store-capability.js";
+import { at, capable, IDS, put, random, scanned } from "./checkpoint-latest-by-step-data.js";
 
 /**
  * #962: a store's `latestByStep` answers what the full scan answers — the checkpoint newest by
@@ -27,64 +17,6 @@ const LATEST: CapabilityCheck<BaseCheckpointSaver> = {
 };
 
 type Instances = ContractInstances<BaseCheckpointSaver>;
-
-const at = (thread: string, namespace = ""): RunnableConfig => ({
-  configurable: { thread_id: thread, checkpoint_ns: namespace },
-});
-
-/** The store as the capability, failing the case when it has none (the capability gate ran first). */
-function capable(store: BaseCheckpointSaver): LatestByStepCheckpointSaver {
-  if (!hasLatestByStep(store)) throw new Error("the store has no latestByStep");
-  return store;
-}
-
-/** The metadata of a checkpoint; none for `undefined`: as an older writer left it. */
-function withStep(step: number | undefined): CheckpointMetadata {
-  const metadata: CheckpointMetadata = { source: "loop", step: step ?? 0, parents: {} };
-  if (step === undefined) Reflect.deleteProperty(metadata, "step");
-  return metadata;
-}
-
-/** Puts checkpoint `id` at `step` of `thread`'s `namespace`, its marker in a channel value. */
-const put = (
-  store: BaseCheckpointSaver,
-  where: RunnableConfig,
-  id: string,
-  step: number | undefined,
-): Promise<RunnableConfig> =>
-  store.put(
-    where,
-    { ...emptyCheckpoint(), id, channel_values: { marker: `${id}@${String(step)}` } },
-    withStep(step),
-    {},
-  );
-
-/** What the full scan answers: the newest by `(step, id)` of the namespace's listed checkpoints. */
-async function scanned(
-  store: BaseCheckpointSaver,
-  where: RunnableConfig,
-): Promise<string | undefined> {
-  const tuples: CheckpointTuple[] = [];
-  for await (const tuple of store.list(where)) tuples.push(tuple);
-  const [newest] = tuples.sort((a, b) =>
-    newestFirstOrder(
-      { step: stepOf(a.metadata), id: a.checkpoint.id },
-      { step: stepOf(b.metadata), id: b.checkpoint.id },
-    ),
-  );
-  return newest?.checkpoint.id;
-}
-
-/** A small seeded generator: the same histories on every store and run. */
-function random(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    return state / 2 ** 32;
-  };
-}
-
-const IDS = ["a", "b", "B", "Z", "a-1", "a-2", "0f", "zz", "A-1", "m"];
 
 export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
   {
@@ -166,26 +98,37 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
     run: async ({ first, second }: Instances): Promise<void> => {
       const writes = 40;
       let written = 0;
+      let writing = true;
+      let stopped = false;
+      // the writer stops when a read fails, and is awaited either way: none is left running
       const writer = (async () => {
-        for (let step = 0; step < writes; step += 1) {
-          await put(first, at("t"), `id-${String(step).padStart(3, "0")}`, step);
-          written = step + 1;
+        try {
+          for (let step = 0; step < writes && !stopped; step += 1) {
+            await put(first, at("t"), `id-${String(step).padStart(3, "0")}`, step);
+            written = step + 1;
+          }
+        } finally {
+          writing = false;
         }
       })();
       let seen = -1;
-      while (written < writes) {
-        const tuple = await capable(second).latestByStep(at("t"));
-        if (tuple === undefined) continue;
-        const step = Number(tuple.checkpoint.id.slice(3));
-        expect(tuple.checkpoint.channel_values).toEqual({
-          marker: `${tuple.checkpoint.id}@${String(step)}`,
-        });
-        expect(tuple.metadata).toMatchObject({ step });
-        expect(step).toBeGreaterThanOrEqual(seen);
-        expect(step).toBeLessThanOrEqual(written);
-        seen = step;
+      try {
+        while (writing) {
+          const tuple = await capable(second).latestByStep(at("t"));
+          if (tuple === undefined) continue;
+          const step = Number(tuple.checkpoint.id.slice(3));
+          expect(tuple.checkpoint.channel_values).toEqual({
+            marker: `${tuple.checkpoint.id}@${String(step)}`,
+          });
+          expect(tuple.metadata).toMatchObject({ step });
+          expect(step).toBeGreaterThanOrEqual(seen);
+          expect(step).toBeLessThanOrEqual(written);
+          seen = step;
+        }
+      } finally {
+        stopped = true;
+        await writer;
       }
-      await writer;
       expect((await capable(second).latestByStep(at("t")))?.checkpoint.id).toBe("id-039");
     },
   },

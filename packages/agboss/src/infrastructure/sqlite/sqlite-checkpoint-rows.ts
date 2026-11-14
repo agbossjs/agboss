@@ -21,30 +21,29 @@ CREATE TABLE IF NOT EXISTS checkpoint_writes (
   PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
 
 /**
- * The newest checkpoint of a thread's namespace by `(step, id)` is one index read (#962): `step` is
- * `metadata.step` written with the row (a file written before has it `NULL` until the backfill).
- * The indexes are made after the column exists; the backfill reads the step from the JSON the saver's
- * serde dumps the metadata as, and counts a missing or non-number one as -2.
+ * The newest checkpoint of a thread's namespace by `(step, id)` is one index read (#962). `step` is
+ * a VIRTUAL generated column: `metadata.step` read from the JSON the saver's serde dumps the metadata
+ * as (a missing or non-number one is -2), never stored in the row. A positional `INSERT` of a
+ * version before the column (nine values) still works on the file, because SQLite leaves a generated
+ * column out of `VALUES` (#1035), and an old row needs no backfill. REAL affinity keeps a step of
+ * 2^53 or more a double, as JavaScript reads it (#1036: an INTEGER above 2^53 is a `RangeError`).
  */
-export const STEP_INDEXES = [
-  `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
-   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`,
-  // the rows still without a step: empty once backfilled, so looking for them reads nothing
-  `CREATE INDEX IF NOT EXISTS checkpoints_without_step
-   ON checkpoints (thread_id, checkpoint_ns) WHERE step IS NULL`,
-];
-
-/** The read of `latestByStep`: one walk of `checkpoints_latest_by_step`, no sort. */
-export const LATEST_BY_STEP_SQL = `SELECT * FROM checkpoints WHERE thread_id = ? AND checkpoint_ns = ?
-  ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
-
-/** Gives every row without a step the one its metadata names; `WHERE` narrows it (a thread). */
-export const backfillStepsSql = (where: string): string => `UPDATE checkpoints SET step = COALESCE(
+export const STEP_COLUMN = `REAL GENERATED ALWAYS AS (COALESCE(
   CASE WHEN metadata_type = 'json'
     AND json_valid(CAST(metadata AS TEXT))
     AND json_type(CAST(metadata AS TEXT), '$.step') IN ('integer', 'real')
-    THEN json_extract(CAST(metadata AS TEXT), '$.step') END, -2)
-  WHERE step IS NULL ${where}`;
+    THEN json_extract(CAST(metadata AS TEXT), '$.step') END, -2)) VIRTUAL`;
+
+export const STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
+  ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`;
+
+/** The columns a checkpoint is read with (not `step`, which only orders). */
+export const CHECKPOINT_COLUMNS = `thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id,
+  checkpoint_type, checkpoint, metadata_type, metadata`;
+
+/** The read of `latestByStep`: one walk of `checkpoints_latest_by_step`, no sort. */
+export const LATEST_BY_STEP_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
+  WHERE thread_id = ? AND checkpoint_ns = ? ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
 
 /** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
 export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
