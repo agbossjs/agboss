@@ -39,8 +39,14 @@ describe("#942: PauseCallerOptions", () => {
   });
 
   it("app.resume's options are unchanged: the caller fields and the call options", () => {
-    expectTypeOf<ThreadOwnerResumeOptions>().toExtend<{ onStream?: unknown; ownerId?: string | undefined }>();
-    expectTypeOf<ChannelResumeOptions>().toExtend<{ record?: boolean | undefined; answeredBy: string }>();
+    expectTypeOf<ThreadOwnerResumeOptions>().toExtend<{
+      onStream?: unknown;
+      ownerId?: string | undefined;
+    }>();
+    expectTypeOf<ChannelResumeOptions>().toExtend<{
+      record?: boolean | undefined;
+      answeredBy: string;
+    }>();
     expectTypeOf<ResumeOptions>().toExtend<PauseCallerOptions>();
     void app.resume({ pauseId: "p", decision: {} }, { answeredBy: "m", record: true });
   });

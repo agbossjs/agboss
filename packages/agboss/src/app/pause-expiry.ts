@@ -1,3 +1,4 @@
+import { effectiveBoundOf } from "../infrastructure/pause-bound.js";
 import { isPauseExpiration, PauseExpirationKind } from "../channels/pause-expiration.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import { answerValidatorOf } from "../channels/decision.js";
@@ -7,7 +8,6 @@ import {
   logPauseAnswer,
   pauseKeyOf,
   PauseExpiryBound,
-  effectiveBoundOf,
   PauseResolution,
   PauseStatus,
   type PauseExpiry,

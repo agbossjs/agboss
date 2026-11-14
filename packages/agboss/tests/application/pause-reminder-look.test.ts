@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from "vitest";
 import { REMINDER_PAGE, ReminderLook } from "../../src/application/pause-reminder-look.js";
 
 const AT = "2026-01-01T00:00:00.000Z";
-const minute = (n: number): string => new Date(Date.parse(AT) - 3_600_000 + n * 60_000).toISOString();
+const minute = (n: number): string =>
+  new Date(Date.parse(AT) - 3_600_000 + n * 60_000).toISOString();
 
 interface Due {
   readonly tenantId: string;
@@ -28,30 +29,29 @@ const due = (tenantId: string, rootExecutionId: string, pauseId: string, n = 0):
 
 /** The store's due-scan: ascending by (remindAt, tenant, id), only past `after` — unless told to ignore it. */
 function scanOf(pauses: readonly Due[], options: { ignoreAfter?: boolean } = {}) {
-  return vi.fn((_at: Date, limit: number, after?: { at: string; tenantId: string; pauseId: string }) => {
-    const sorted = [...pauses].sort(
-      (a, b) =>
-        a.remindAt.localeCompare(b.remindAt) ||
-        a.tenantId.localeCompare(b.tenantId) ||
-        a.pauseId.localeCompare(b.pauseId),
-    );
-    const past =
-      after === undefined || options.ignoreAfter === true
-        ? sorted
-        : sorted.filter(
-            (pause) =>
-              (pause.remindAt.localeCompare(after.at) ||
-                pause.tenantId.localeCompare(after.tenantId) ||
-                pause.pauseId.localeCompare(after.pauseId)) > 0,
-          );
-    return Promise.resolve(past.slice(0, limit));
-  });
+  return vi.fn(
+    (_at: Date, limit: number, after?: { at: string; tenantId: string; pauseId: string }) => {
+      const sorted = [...pauses].sort(
+        (a, b) =>
+          a.remindAt.localeCompare(b.remindAt) ||
+          a.tenantId.localeCompare(b.tenantId) ||
+          a.pauseId.localeCompare(b.pauseId),
+      );
+      const past =
+        after === undefined || options.ignoreAfter === true
+          ? sorted
+          : sorted.filter(
+              (pause) =>
+                (pause.remindAt.localeCompare(after.at) ||
+                  pause.tenantId.localeCompare(after.tenantId) ||
+                  pause.pauseId.localeCompare(after.pauseId)) > 0,
+            );
+      return Promise.resolve(past.slice(0, limit));
+    },
+  );
 }
 
-function look(
-  pauses: readonly Due[],
-  extra: { signal?: AbortSignal; ignoreAfter?: boolean } = {},
-) {
+function look(pauses: readonly Due[], extra: { signal?: AbortSignal; ignoreAfter?: boolean } = {}) {
   const find = scanOf(pauses, extra);
   const remind = vi.fn((..._call: unknown[]) => Promise.resolve(true));
   const warn = vi.fn();
@@ -150,7 +150,11 @@ describe("#942: the reminder look", () => {
     await instance.settled();
 
     expect(remindedIds(remind)).toEqual(["ours"]);
-    expect(find).toHaveBeenLastCalledWith(new Date(AT), REMINDER_PAGE, expect.objectContaining({ pauseId: "f-049" }));
+    expect(find).toHaveBeenLastCalledWith(
+      new Date(AT),
+      REMINDER_PAGE,
+      expect.objectContaining({ pauseId: "f-049" }),
+    );
   });
 
   it("the in-use variant: a reminder still in flight is passed, never started again, and the ones behind it are reached", async () => {
@@ -237,11 +241,10 @@ describe("#942: the reminder look", () => {
     await instance.settled();
 
     expect(remind).toHaveBeenCalledTimes(2);
-    expect(warn).toHaveBeenCalledWith(
-      "pause.reminder-failed",
-      expect.stringContaining("root-1"),
-      { tenantId: "acme", executionId: "root-1" },
-    );
+    expect(warn).toHaveBeenCalledWith("pause.reminder-failed", expect.stringContaining("root-1"), {
+      tenantId: "acme",
+      executionId: "root-1",
+    });
     expect(delivered).toHaveBeenCalledOnce();
   });
 

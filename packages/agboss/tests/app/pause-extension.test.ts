@@ -257,7 +257,9 @@ describe("#942 AC2: refused extensions", () => {
 });
 
 describe("#942: the caller's options", () => {
-  test("an id of who calls that is no key's text is a DtoValidationError on PauseCallerOptions", async ({ app }) => {
+  test("an id of who calls that is no key's text is a DtoValidationError on PauseCallerOptions", async ({
+    app,
+  }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
@@ -267,14 +269,16 @@ describe("#942: the caller's options", () => {
     expect(refused).toMatchObject({ dto: "PauseCallerOptions" });
   });
 
-  test("call options a JS caller passes are not read: nothing runs (the types refuse them)", async ({ app }) => {
+  test("call options a JS caller passes are not read: nothing runs (the types refuse them)", async ({
+    app,
+  }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const streamed: unknown[] = [];
 
-    const extension = await app.extendPause(
-      { pauseId: pauseIdOf(), expiresIn: hours(30) },
-      { answeredBy: "manager-17", onStream: (event: unknown) => streamed.push(event) } as never,
-    );
+    const extension = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, {
+      answeredBy: "manager-17",
+      onStream: (event: unknown) => streamed.push(event),
+    } as never);
 
     expect(extension.expiresAt).toBeDefined();
     expect(streamed).toEqual([]);
