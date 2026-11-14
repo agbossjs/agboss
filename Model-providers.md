@@ -499,6 +499,12 @@ What `onStream` hears depends on the provider kind:
   to `retryOn` to retry it. After text went out the call is not retried: it fails and counts once in
   the `circuitBreakerPolicy` breaker, which is told at the end of the stream (not at its headers). A
   stream that ends without `[DONE]` or a finish fails; a caller's abort is neither.
+- **A server that ignores `stream: true`** and answers a plain JSON completion (some self-hosted
+  servers and proxies do) is read as that completion: one delta, the plain call's output, usage,
+  cost and finish reason (#1049). A streamed answer that is neither a stream nor a completion (an
+  empty body, another content type, an `{error}` inside the 200) fails that call like any other
+  failed call — retried under the retry policy, counted by the breaker — never as a configuration
+  error.
 - **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end
   (a streaming form is #1011).
 - **A fallback model** streams like the primary. A primary that dies mid-stream with its breaker
