@@ -6,7 +6,11 @@
  * forgets the tree only when it finished.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+<<<<<<< HEAD
 import { ResumeReason } from "../../src/core/observability.js";
+=======
+import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
+>>>>>>> 55bcad41 (fix-928: the no-A2A fixture lists the new A2A scenarios; a test for a handed-over tree's release)
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
 import type { RecordedAnswer } from "../../src/app/resume.js";
@@ -551,6 +555,18 @@ describe("#928: a release that fails after the tree's terminal record is durable
   it("a tree that rests paused is not ended: its release failure is the caller's, nothing logged for it", async () => {
     const { moves, warn } = partsOf(leaseReleasing(failing) as never);
     mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Paused));
+
+    await expect(moves.recovered(INTERRUPTED, call)).rejects.toThrow("the store is gone");
+    expect(warn).not.toHaveBeenCalledWith(
+      "execution.lease-release-failed",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("a tree handed over has no terminal record: its release failure is the caller's, nothing logged for it", async () => {
+    const { moves, warn } = partsOf(leaseReleasing(failing) as never);
+    mocks.observedPass.mockRejectedValue(new ExecutionLeaseLostError({ rootExecutionId: ROOT }));
 
     await expect(moves.recovered(INTERRUPTED, call)).rejects.toThrow("the store is gone");
     expect(warn).not.toHaveBeenCalledWith(

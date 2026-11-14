@@ -13,6 +13,10 @@ faultSuite({
   scenarios: [
     "s17-a2a-accept-crash",
     "s17b-a2a-id-kept-crash",
+    "s17-a2a-accept-crash-bounded",
+    "s17b-a2a-id-kept-crash-bounded",
+    "s17c-a2a-claim-never-answers",
+    "s17d-a2a-accept-never-answers",
     "s18-a2a-resume-vs-cancel",
     "s18b-a2a-cancel-vs-resume",
     "s18c-a2a-resumed-cancel-before-pass",
