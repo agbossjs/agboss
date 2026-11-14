@@ -192,6 +192,15 @@ protocolVersion: "1.0" }`.
   the artifacts' text reads the answer once. A task that ends without completing has no output:
   the stream's view keeps the text streamed so far (never a `lastChunk`), and `GetTask` shows no
   artifact.
+- **A slow or idle stream** (#1008): the SSE writer waits for the socket to drain before the next
+  event, and the run never waits for a reader (a reader that takes nothing for 60 s on the
+  application's `Clock` is cut). Each subscriber's queue joins the text deltas of one step and holds
+  at most 1 MiB of text and 1000 events; a subscriber over that is dropped with a clean close
+  (`stream.subscriber-dropped` in the log) and subscribes again with `SubscribeToTask`. An idle
+  stream writes the comment `: keep-alive` every 15 s of the `Clock`, so proxies with idle timeouts
+  do not cut it. A throwing `onStream` listener is logged once per execution
+  (`stream.listener-failed`, with the `executionId` and `tenantId`, never the text); the run and
+  the other listeners go on.
 
 | The resolver returns                       | The caller gets                                                                                     |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
