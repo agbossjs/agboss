@@ -1300,6 +1300,7 @@ import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-s
 
 const app = await createApp(HelpdeskApplication, { env: "prod" });
 
+const shown = new Map<string, string>(); // the text of each step, as the user sees it
 const result = await app.execute(
   HelpdeskWorkflowStart,
   { text: "Why was I charged twice?" },
@@ -1307,11 +1308,15 @@ const result = await app.execute(
     tenant: { tenantId: "acme" },
     threadId: "ticket-88",
     onStream: (event) => {
-      if (event.kind === "textDelta") process.stdout.write(event.delta); // also "toolCall"
+      if (event.kind === "toolCall") return; // the tool's name only
+      const { agent, visit, branch, attempt } = event.step;
+      const key = `${branch}/${agent}#${visit}/${attempt}`; // streamed text is provisional, per step
+      if (event.kind === "textDelta") shown.set(key, (shown.get(key) ?? "") + event.delta);
+      else shown.delete(key); // "discarded": a judge rejected it, a tool turn, a retry, a failure
     },
   },
 );
-console.log("\n", result.spend.totalUsd);
+console.log("\n", result.output?.text, result.spend.totalUsd); // the kept steps' text is the output
 
 // other applications call this workflow as an A2A v1.0 agent: its card at
 // /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the resolver
