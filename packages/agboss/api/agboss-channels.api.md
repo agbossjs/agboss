@@ -30,12 +30,12 @@ export class TerminalUserChannel {
 
 // Warnings were encountered during analysis:
 //
-// src/channels/terminal-channel.ts:13:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/terminal-channel.ts:15:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:19:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:21:3 - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts:32:3 - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts:34:3 - (ae-undocumented) Missing documentation for "send".
+// src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
 
 // (No @packageDocumentation comment for this package)
 

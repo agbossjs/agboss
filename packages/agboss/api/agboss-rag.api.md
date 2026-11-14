@@ -207,29 +207,29 @@ export interface SqliteFtsOptions {
 
 // Warnings were encountered during analysis:
 //
-// src/dto/standard/framework.ts:116:3 - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts:119:3 - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts:122:3 - (ae-undocumented) Missing documentation for "score".
-// src/rag/rerank.ts:60:3 - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts:61:3 - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts:62:12 - (ae-undocumented) Missing documentation for "name".
-// src/rag/reranker.decorator.ts:17:3 - (ae-undocumented) Missing documentation for "description".
-// src/rag/reranker.decorator.ts:18:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/rag/reranker.decorator.ts:21:3 - (ae-undocumented) Missing documentation for "deps".
-// src/rag/reranker.decorator.ts:28:3 - (ae-undocumented) Missing documentation for "description".
-// src/rag/reranker.decorator.ts:29:3 - (ae-undocumented) Missing documentation for "decidedBy".
-// src/rag/reranker.decorator.ts:30:3 - (ae-undocumented) Missing documentation for "model".
-// src/rag/reranker.decorator.ts:31:3 - (ae-undocumented) Missing documentation for "deps".
-// src/rag/sqlite-fts.ts:145:9 - (ae-undocumented) Missing documentation for "retrieve".
-// src/rag/types.ts:6:3 - (ae-undocumented) Missing documentation for "results".
-// src/rag/types.ts:13:3 - (ae-undocumented) Missing documentation for "documents".
-// src/rag/types.ts:14:3 - (ae-undocumented) Missing documentation for "chunks".
-// src/rag/types.ts:17:3 - (ae-undocumented) Missing documentation for "costUsd".
-// src/rag/types.ts:35:3 - (ae-undocumented) Missing documentation for "topK".
-// src/rag/types.ts:36:3 - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts:48:3 - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts:67:3 - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts:85:3 - (ae-undocumented) Missing documentation for "rerank".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "source".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "score".
+// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "name".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "model".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/rag/sqlite-fts.ts - (ae-undocumented) Missing documentation for "retrieve".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "results".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "documents".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "chunks".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "costUsd".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "rerank".
 
 // (No @packageDocumentation comment for this package)
 

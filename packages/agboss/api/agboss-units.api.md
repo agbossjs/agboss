@@ -49,11 +49,11 @@ export const usd: (amount: number) => Usd;
 
 // Warnings were encountered during analysis:
 //
-// src/core/errors.ts:24:3 - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts:25:3 - (ae-undocumented) Missing documentation for "cause".
-// src/units/index.ts:24:3 - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts:25:3 - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts:26:12 - (ae-undocumented) Missing documentation for "name".
+// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
+// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
+// src/units/index.ts - (ae-undocumented) Missing documentation for "name".
 
 // (No @packageDocumentation comment for this package)
 
