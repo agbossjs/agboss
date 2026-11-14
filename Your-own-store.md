@@ -392,7 +392,7 @@ taken effect. Under a lease the holder hands the tree over and does not release 
 holder replays the fenced effect's row, reconciles the pending intent or resumes from the latest
 checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
 
-- **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s) and throw
+- **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s; a lease's `renew` is bounded at 5 s, so answer it faster than that or the framework's bound ends it first) and throw
   `StoreCallTimeoutError` with `source: StoreOutcomeSource.Command`, the driver's error as the
   `cause`; for an error after the request was sent — a reset connection after a commit — throw
   `StoreOutcomeUnknownError` with `source: StoreOutcomeSource.Transport` (#1017). Never turn either into "not done": retry nothing yourself, do not
