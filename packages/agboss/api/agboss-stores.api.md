@@ -1592,7 +1592,7 @@ export abstract class PausedExecutionRepository {
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
-    abstract findPendingByExpiresAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
+    abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number): Promise<readonly PauseRecord[]>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
@@ -1769,6 +1769,15 @@ export enum PauseResolution {
     Replied = "replied",
     TreeEnded = "tree-ended",
     Withdrawn = "withdrawn"
+}
+
+// @public
+export interface PauseScanAfter {
+    readonly at: string;
+    // (undocumented)
+    readonly pauseId: string;
+    // (undocumented)
+    readonly tenantId: string;
 }
 
 // @public
@@ -2489,6 +2498,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "mailbox".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "until".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauses".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "next".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "channel".
