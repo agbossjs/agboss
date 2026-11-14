@@ -26,6 +26,7 @@ export async function streamedAnswer(
 ): Promise<AIMessageChunk> {
   const stream = await model.stream(messages, {
     callbacks: [],
+    // Stryker disable next-line ConditionalExpression: a `signal` of `undefined` is no signal for the config
     ...(signal === undefined ? {} : { signal }),
   });
   let answer: AIMessageChunk | undefined;
@@ -48,20 +49,25 @@ export function markedChunk(
 ): AIMessageChunk {
   const whole = new AIMessage({
     content: answer.content,
+    // Stryker disable next-line ArrayDeclaration: a chunk always has its calls, the default is the type's
     tool_calls: answer.tool_calls ?? [],
-    invalid_tool_calls: answer.invalid_tool_calls ?? [],
     additional_kwargs: answer.additional_kwargs,
     response_metadata: answer.response_metadata,
+    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
     ...(answer.usage_metadata === undefined ? {} : { usage_metadata: answer.usage_metadata }),
+    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
     ...(answer.id === undefined ? {} : { id: answer.id }),
   });
   const marked = markedFallbackMessage(whole, model, cost);
   return new AIMessageChunk({
     content: marked.content,
+    // Stryker disable next-line ArrayDeclaration: a message always has its calls, the default is the type's
     tool_calls: whole.tool_calls ?? [],
     additional_kwargs: whole.additional_kwargs,
     response_metadata: marked.response_metadata,
+    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
     ...(whole.usage_metadata === undefined ? {} : { usage_metadata: whole.usage_metadata }),
+    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
     ...(whole.id === undefined ? {} : { id: whole.id }),
   });
 }

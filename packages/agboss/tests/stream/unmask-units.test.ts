@@ -104,3 +104,50 @@ describe("#1007 AC2: a hallucinated token is never shown as written", () => {
     expect(shown(["<email:9cf08e>"], {})).toBe("<email>");
   });
 });
+
+describe("#1048: the bounds of a held candidate", () => {
+  const label = (length: number): string => `<${"a".repeat(length - 1)}`;
+
+  it("a candidate of 96 characters is still held, one of 97 is text", () => {
+    const held = new Unmasker(KNOWN);
+    expect(held.push(label(96))).toBe(""); // 96 characters: still can be a token
+    expect(held.end()).toBe(label(96));
+
+    const flushed = new Unmasker(KNOWN);
+    expect(flushed.push(label(96))).toBe("");
+    expect(flushed.push("a")).toBe(label(97)); // 97: cannot be a token, shown as written
+  });
+
+  it("a candidate is held only from its own <: text before a second < is shown", () => {
+    const unmask = new Unmasker(KNOWN);
+
+    expect(unmask.push("<a<b")).toBe("<a"); // the first candidate is text, the second starts
+    expect(unmask.end()).toBe("<b");
+    expect(unmask.push("<a<")).toBe("<a");
+    expect(unmask.push("b:0a1b2c>")).toBe("<b>"); // a token the run never minted: its kind
+  });
+
+  it("a made-up token is its kind, a known one its value, at once on the closing >", () => {
+    const unmask = new Unmasker(KNOWN);
+
+    expect(unmask.push("<email:9cf08e")).toBe("");
+    expect(unmask.push(">")).toBe("alice@example.com");
+    expect(unmask.push("<phone:123456>")).toBe("<phone>");
+  });
+
+  it("a token with fewer than six hex digits is text when closed", () => {
+    const unmask = new Unmasker(KNOWN);
+
+    expect(unmask.push("<email:9cf0>")).toBe("<email:9cf0>");
+    expect(unmask.end()).toBe("");
+  });
+
+  it("nothing is held after a flush, and an empty end is empty", () => {
+    const unmask = new Unmasker(KNOWN);
+
+    expect(unmask.end()).toBe("");
+    unmask.push("<x");
+    expect(unmask.end()).toBe("<x");
+    expect(unmask.end()).toBe("");
+  });
+});

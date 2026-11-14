@@ -1,5 +1,5 @@
 import type { A2ATaskRecord } from "../../infrastructure/a2a-task.repository.js";
-import type { ExecutionStreamEvent } from "../../run/types.js";
+import type { ExecutionStreamEvent, StreamStep } from "../../run/types.js";
 import type { A2AServerParts } from "./a2a-server-parts.js";
 import { kilobytes, type Bytes } from "../../units/index.js";
 
@@ -18,15 +18,13 @@ export const SUBSCRIBER_MAX_EVENTS = 1000;
 export const SUBSCRIBER_MAX_BYTES: Bytes = kilobytes(1024);
 
 const textBytesOf = (event: ExecutionStreamEvent): number =>
-  event.kind === "textDelta" ? Buffer.byteLength(event.delta, "utf8") : 0;
+  event.kind === "textDelta" ? Buffer.byteLength(event.delta) : 0;
 
-const sameStep = (left: ExecutionStreamEvent, right: ExecutionStreamEvent): boolean =>
-  left.kind === "textDelta" &&
-  right.kind === "textDelta" &&
-  left.step.agent === right.step.agent &&
-  left.step.visit === right.step.visit &&
-  left.step.branch === right.step.branch &&
-  left.step.attempt === right.step.attempt;
+const sameStep = (left: StreamStep, right: StreamStep): boolean =>
+  left.agent === right.agent &&
+  left.visit === right.visit &&
+  left.branch === right.branch &&
+  left.attempt === right.attempt;
 
 /** A subscriber's bounded queue. */
 export class SubscriberQueue {
@@ -48,8 +46,12 @@ export class SubscriberQueue {
   push(event: ExecutionStreamEvent): boolean {
     if (this.#dropped) return false;
     const last = this.#events.at(-1);
-    if (last !== undefined && event.kind === "textDelta" && sameStep(last, event)) {
-      this.#events[this.#events.length - 1] = { ...event, delta: textOf(last) + event.delta };
+    if (
+      last?.kind === "textDelta" &&
+      event.kind === "textDelta" &&
+      sameStep(last.step, event.step)
+    ) {
+      this.#events[this.#events.length - 1] = { ...event, delta: last.delta + event.delta };
     } else {
       this.#events.push(event);
     }
@@ -71,9 +73,6 @@ export class SubscriberQueue {
     return taken;
   }
 }
-
-const textOf = (event: ExecutionStreamEvent): string =>
-  event.kind === "textDelta" ? event.delta : "";
 
 /** What a subscriber hears a run with: each event is queued and wakes the reader; the drop calls `onDrop`. */
 export const listenerOf =

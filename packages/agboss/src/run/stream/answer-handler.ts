@@ -29,7 +29,7 @@ export class AnswerTokenHandler extends BaseCallbackHandler {
   }
 
   override handleLLMNewToken(token: string): void {
-    if (token !== "") this.attempt.push(token);
+    this.attempt.push(token); // an empty token shows nothing
   }
 }
 

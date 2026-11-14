@@ -248,6 +248,20 @@ const SHARDS = {
       "src/infrastructure/**/*a2a-direct-message*.ts",
     ],
   },
+  // #1048: what the run's stream tells, retracts, reveals and holds back (#1004-#1007), the fallback's
+  // streamed answer, the JSON answer to a streamed request (#1049), and the A2A artifact view, the SSE
+  // writer and the subscribers' queue (#1008)
+  stream: {
+    configFile: "vitest.mutation-stream.config.ts",
+    mutate: [
+      "src/run/stream/*.ts",
+      "src/models/fallback-stream.ts",
+      "src/models/calls/json-as-stream.ts",
+      "src/a2a/server/a2a-sse-write.ts",
+      "src/a2a/server/a2a-subscriber-queue.ts",
+      "src/a2a/server/a2a-artifact-view.ts",
+    ],
+  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

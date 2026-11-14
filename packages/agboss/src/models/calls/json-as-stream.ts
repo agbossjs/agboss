@@ -15,6 +15,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /** Whether a request asks for a stream (its JSON body says `stream: true`). */
 export function wantsStream(init: RequestInit | undefined): boolean {
   const body = init?.body;
+  // Stryker disable next-line ConditionalExpression: no other body is JSON that says `stream: true` (`JSON.parse` reads it as text)
   if (typeof body !== "string") return false;
   try {
     const parsed: unknown = JSON.parse(body);
@@ -37,16 +38,10 @@ function deltaOf(message: Record<string, unknown>): Record<string, unknown> {
   return delta;
 }
 
-/** What a chunk does not repeat of the completion. */
-const OMITTED: ReadonlySet<string> = new Set(["choices", "usage", "object"]);
-
 /** The chunks that tell a completion's choices, then its usage. */
 function chunksOf(completion: Record<string, unknown>, choices: readonly unknown[]): unknown[] {
-  const { usage } = completion;
-  const base = {
-    ...Object.fromEntries(Object.entries(completion).filter(([key]) => !OMITTED.has(key))),
-    object: "chat.completion.chunk",
-  };
+  const { usage, ...shared } = completion;
+  const base = { ...shared, object: "chat.completion.chunk" };
   const told = choices.flatMap((choice) => {
     if (!isRecord(choice)) return [];
     const index = typeof choice.index === "number" ? choice.index : 0;
@@ -66,8 +61,7 @@ function errorEvent(error: unknown): unknown {
 }
 
 /** The events a JSON body is told as, or `undefined` when it is no completion and no error. */
-function eventsOfJson(parsed: unknown): unknown[] | undefined {
-  if (!isRecord(parsed)) return undefined;
+function eventsOfJson(parsed: Record<string, unknown>): unknown[] | undefined {
   if (parsed.error !== undefined && parsed.error !== null) return [errorEvent(parsed.error)];
   const { choices } = parsed;
   if (!Array.isArray(choices) || choices.length === 0) return undefined;
@@ -79,23 +73,31 @@ const asEvents = (events: readonly unknown[]): string =>
     .map((event) => `data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`)
     .join("");
 
+/** A body's JSON, `undefined` when it is none. */
+// Stryker disable BlockStatement: an emptied `catch` leaves the function returning the `undefined` it returns
+function parsedOf(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+// Stryker restore BlockStatement
+
 /**
  * A `200` answer to a streamed request that is not an event stream, as an event stream.
  * @throws EventStreamError when it is no completion.
  */
 export async function eventStreamOfJson(response: Response): Promise<Response> {
-  const type = response.headers.get("content-type") ?? "";
-  const text = type.includes("json") ? await response.text() : "";
-  if (!type.includes("json")) await response.body?.cancel();
-  let events: unknown[] | undefined;
-  try {
-    events = eventsOfJson(JSON.parse(text));
-  } catch {
-    events = undefined;
+  const failure = new EventStreamError("the server answered a streamed request with no completion");
+  const type = response.headers.get("content-type");
+  if (type === null || !type.includes("json")) {
+    await response.body?.cancel();
+    throw failure;
   }
-  if (events === undefined) {
-    throw new EventStreamError("the server answered a streamed request with no completion");
-  }
+  const parsed = parsedOf(await response.text());
+  const events = isRecord(parsed) ? eventsOfJson(parsed) : undefined;
+  if (events === undefined) throw failure;
   const headers = new Headers(response.headers);
   headers.set("content-type", "text/event-stream");
   headers.delete("content-length");

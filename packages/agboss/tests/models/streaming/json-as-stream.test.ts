@@ -132,4 +132,64 @@ describe("eventStreamOfJson", () => {
   ])("%s is a failed call", async (_name, response) => {
     await expect(eventStreamOfJson(response)).rejects.toThrow(/no completion/);
   });
+
+  it("a message's own role is kept, a missing one is the assistant's; a missing index is 0", async () => {
+    const [first] = await framesOf(
+      await eventStreamOfJson(
+        json({ choices: [{ message: { role: "developer", content: "x" } }] }),
+      ),
+    );
+    const [second] = await framesOf(
+      await eventStreamOfJson(json({ choices: [{ message: { content: "x" } }] })),
+    );
+
+    expect(first).toMatchObject({ choices: [{ index: 0, delta: { role: "developer" } }] });
+    expect(second).toMatchObject({ choices: [{ index: 0, delta: { role: "assistant" } }] });
+  });
+
+  it("a choice that is no object is left out, and a choice without a message tells an empty one", async () => {
+    const frames = await framesOf(
+      await eventStreamOfJson(json({ choices: [null, ["x"], "y", { index: 2 }] })),
+    );
+
+    expect(frames).toEqual([
+      expect.objectContaining({
+        choices: [{ index: 2, delta: { role: "assistant" }, finish_reason: null }],
+      }),
+      expect.objectContaining({ choices: [{ index: 2, delta: {}, finish_reason: "stop" }] }),
+      "[DONE]",
+    ]);
+  });
+
+  it("a content of another type is not a delta's content", async () => {
+    const [frame] = await framesOf(
+      await eventStreamOfJson(json({ choices: [{ message: { content: 5 } }] })),
+    );
+
+    expect(frame).toMatchObject({ choices: [{ delta: { role: "assistant" } }] });
+    expect(JSON.stringify(frame)).not.toContain('"content"');
+  });
+
+  it("a content type that is no JSON is refused although the body is a completion, and its body is released", async () => {
+    let released = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"choices":[{"message":{"content":"x"}}]}'));
+      },
+      cancel() {
+        released = true;
+      },
+    });
+
+    await expect(
+      eventStreamOfJson(new Response(body, { headers: { "content-type": "text/plain" } })),
+    ).rejects.toThrow(/no completion/);
+    expect(released).toBe(true);
+    await expect(eventStreamOfJson(new Response(null))).rejects.toThrow(/no completion/);
+  });
+
+  it("a JSON null is no completion (a failed call, not a crash)", async () => {
+    await expect(eventStreamOfJson(json("null"))).rejects.toThrow(/no completion/);
+    await expect(eventStreamOfJson(json("5"))).rejects.toThrow(/no completion/);
+  });
 });

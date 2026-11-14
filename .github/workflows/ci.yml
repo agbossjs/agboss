@@ -193,6 +193,7 @@ jobs:
             a2a-server,
             a2a-client,
             a2a-direct,
+            stream,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}
