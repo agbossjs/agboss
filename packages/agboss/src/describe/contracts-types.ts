@@ -15,7 +15,8 @@ export interface A2AExportContract {
   readonly kind: "a2a";
   readonly expose: string;
   readonly version: string;
-  readonly start: string;
+  /** The skill's id on the card: the exported start's name (#812). */
+  readonly skill: string;
   readonly workflow: string;
   /** The start's input; `null` when it is a map of fields, not one DTO. */
   readonly input: ContractDto | null;
@@ -41,21 +42,40 @@ export interface ContractUse {
   readonly tool: string;
 }
 
-/** An `@A2AAgent`: what it calls, sends and gets back. */
-export interface A2AImportContract {
+/** What an `@A2AAgent` of any peer lists: its client, the tools that use it and its price. */
+export interface A2AImportBase {
   readonly kind: "a2a";
   readonly client: string;
-  /** `finishes` (#916): the start's finishes the client takes; absent: every one. */
-  readonly target: {
-    readonly application: string;
-    readonly start: string;
-    readonly finishes?: readonly string[];
-  };
   readonly usedBy: readonly ContractUse[];
-  readonly input: ContractDto;
-  readonly output: ContractDto;
   /** The contract price of one call, in USD; `null` without one. */
   readonly price: number | null;
+}
+
+/**
+ * An `@A2AAgent` of an AGBoss application (#812): the skill it calls, paired with an export
+ * `skill` of `target.application`. `finishes` (#916): the skill's finishes the client takes;
+ * absent: every one.
+ */
+export interface A2AImportContract extends A2AImportBase {
+  readonly foreign: false;
+  readonly target: {
+    readonly application: string;
+    readonly skill: string;
+    readonly finishes?: readonly string[];
+  };
+  readonly input: ContractDto;
+  readonly output: ContractDto;
+}
+
+/**
+ * An `@A2AAgent` without `target.application` (#812): a peer that is not an AGBoss application.
+ * Listed, never compared; untyped, its `input` and `output` are `null`.
+ */
+export interface A2AForeignImportContract extends A2AImportBase {
+  readonly foreign: true;
+  readonly target: null;
+  readonly input: ContractDto | null;
+  readonly output: ContractDto | null;
 }
 
 /** An `@McpServer` tool the application calls. */
@@ -74,7 +94,7 @@ export interface McpImportContract {
 /** `application.contracts` of `describe --json`. */
 export interface ContractsSnapshot {
   readonly exports: readonly (A2AExportContract | McpExportContract)[];
-  readonly imports: readonly (A2AImportContract | McpImportContract)[];
+  readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
   readonly schemas: Readonly<
     Record<string, { readonly schemaHash: string; readonly jsonSchema: JsonSchema }>
   >;

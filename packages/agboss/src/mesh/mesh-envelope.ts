@@ -3,7 +3,7 @@ import type { MeshHop } from "./mesh-hop.js";
 
 /**
  * The mesh envelope (#398 PR 1): what an AGBoss call to another application carries besides its
- * input — A2A in the `agboss-mesh` request header, MCP in `_meta["agboss.dev/mesh"]`, both as a
+ * input — A2A in `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`, MCP in `_meta["agboss.dev/mesh"]`, both as a
  * compact JWS: signed (`EdDSA`) when the caller's `@Application({ mesh: { signingKey } })` is set,
  * else unsecured (`alg: "none"`). On the receiver it is a **claim** — parsed into
  * `A2ACallerRequest.envelope` — trusted (its `budget`, `deadline`, `origin` and idempotency key)
@@ -85,9 +85,6 @@ export interface MeshOriginStep {
   readonly tool?: string;
 }
 
-/** The A2A request header that carries the envelope. */
-export const MESH_HEADER = "agboss-mesh";
-
 /** The MCP `_meta` key that carries the envelope. */
 export const MESH_META_KEY = "agboss.dev/mesh";
 
@@ -96,7 +93,7 @@ export const MESH_ERROR_META_KEY = "agboss.dev/error";
 
 /**
  * What a receiver tells its caller of the run (#398 PR 2), signed by the receiver's `signingKey`:
- * `A2AExecutionResponse.report`, `_meta["agboss.dev/report"]` over MCP. A caller records `spend` as
+ * `task.metadata["https://agboss.dev/a2a/mesh/v1"].report` over A2A, `_meta["agboss.dev/report"]` over MCP. A caller records `spend` as
  * a service's spend only when it verifies the report with that application's `verifyKey`.
  */
 export interface MeshRunReport {

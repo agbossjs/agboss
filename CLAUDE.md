@@ -1464,7 +1464,7 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `OutboundCal
   (U+0000) included — a NUL case in each JSON-storing suite (#521: the SQLite record store keeps
   free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
   signs mesh envelopes as a peer with `signedMeshEnvelope({ issuer, signingKey, body, issuedAt,
-origin, callChain, … })` (`@agboss/core/testing`, the real client's header); and a class declares the environment fields it reads —
+origin, callChain, … })` (`@agboss/core/testing`, the real client's `_meta["agboss.dev/mesh"]` value of an MCP call; an A2A call is signed by a test application's own `A2AClient`); and a class declares the environment fields it reads —
   `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.secret(), postgresPoolSize:
 EnvironmentField.integer({ optional: true }) } })` (#834: made only by `EnvironmentField.text()`, `.integer()`, `.flag()`,
   `.secret()`, a literal does not compile, a key that is not a camelCase field name is refused when
@@ -1970,6 +1970,22 @@ decision }` or a text reply; another task's pause `-32602`; a resume that loses 
   `[federation.incompatible-schema]` with its blast radius (the consumer's workflows and tools),
   `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own
   earlier snapshot `[federation.version-not-bumped]` (a warning, an error under `--strict`).
+  **Federation is keyed by skill (#812):** an `@A2AAgent` is paired by `(target.application,
+target.skill)` with the export whose `skill` — the exported start's name — it names
+  (`A2AExportContract.skill`, `A2AImportContract.target.skill`; the Hub CLI's edges the same); a
+  snapshot written before (exports and targets named `start`) is read as skills. An `@A2AAgent`
+  without `target.application` (a foreign A2A agent) is listed in `imports` with `foreign: true`
+  (`A2AForeignImportContract`: `target: null`, and `input` / `output` `null` when untyped), never
+  compared — `check --federation` skips it and `[federation.missing-target]` does not apply to it.
+  The assembly rules of an A2A side: `[a2a.expose-description-required]` (a blank `description`),
+  `[a2a.skill-tags]` (a warning: a skill with no `tags`, its card says the application's name),
+  `[a2a.unpriced-foreign-peer]` (a warning: a foreign `@A2AAgent` without `price`), with the store,
+  file and direct-reply rules above; a resend of a follow-up whose reply was lost is told apart by
+  its kept message and gets its task, not `a2a.task-over` (#939). The 0.1.1 migration from the 0.1.0
+  wire: `target.start` → `target.skill`, `cancel(threadId)` → `cancel(taskId)`, `A2ARoute` →
+  `A2AOperation` (`SendMessage` with a `taskId` is a resume), `publicUrl` on `a2aHttpListener`,
+  `retention.a2aTasks` / `a2aMessages` / `a2aFiles`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
+  and `A2AExecutionResponse` are gone.
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name` (`-pii-policy`),
   `description`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
@@ -2720,9 +2736,11 @@ today; tenant-daily-budget allows $40`).
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
   `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /
-  `HopsLimitExceededError`, #398: an A2A or MCP call chain — the `agboss-mesh` envelope every call
-  made inside an execution carries — that comes back to an application's start or is longer than
-  its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs, `409`, and
+  `HopsLimitExceededError`, #398: an A2A or MCP call chain — the mesh envelope every call
+  made inside an execution carries (`message.metadata[A2A_MESH_EXTENSION].envelope` over A2A,
+  `_meta["agboss.dev/mesh"]` over MCP) — that comes back to an application's start or is longer than
+  its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs (MCP `409`,
+  A2A a `REJECTED` task), and
   the calling tool's step fails with it, never read by the model; with `@Application({ mesh: {
 signingKey, peers } })` the envelope is a signed JWS and a peer the caller resolver names whose
   signature verifies is trusted: its budget becomes `caller-budget`, its deadline the execution's

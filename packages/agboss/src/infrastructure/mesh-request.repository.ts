@@ -23,7 +23,7 @@ export interface MeshRequestKey {
 export interface MeshRequestRecord extends MeshRequestKey {
   /** When the receiver admitted it (ISO 8601, the `Clock`). */
   readonly createdAt: string;
-  /** The answer sent (the `A2AExecutionResponse`); `undefined` while it runs. */
+  /** The answer sent (the MCP result, #398); `undefined` while it runs. */
   readonly response?: unknown;
 }
 

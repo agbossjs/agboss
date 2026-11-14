@@ -136,7 +136,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     });
   const { name, description, input } = declaration.options;
   const found = contracts.exports.find(
-    (entry) => entry.kind === "a2a" && entry.start === name && entry.expose === sources.expose.name,
+    (entry) => entry.kind === "a2a" && entry.skill === name && entry.expose === sources.expose.name,
   );
   if (found?.kind !== "a2a")
     throw new ComponentError({

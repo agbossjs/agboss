@@ -39,14 +39,14 @@ const nameOfImport = (contract: Import): string =>
 
 const targetName = (contract: Import): string =>
   contract.kind === "a2a"
-    ? `${contract.target.application} › ${contract.target.start}`
+    ? `${contract.target.application} › ${contract.target.skill}`
     : `${contract.target?.application ?? ""} › ${contract.target?.expose ?? ""} ${contract.tool}`;
 
 /** The export a consumed contract names, in its target application. */
 function exportOf(target: FederationMember, contract: Import): Export | undefined {
   return target.contracts.exports.find((exported) => {
     if (contract.kind === "a2a")
-      return exported.kind === "a2a" && exported.start === contract.target.start;
+      return exported.kind === "a2a" && exported.skill === contract.target.skill;
     return (
       exported.kind === "mcp" &&
       exported.expose === contract.target?.expose &&
@@ -113,7 +113,7 @@ function unknownFinishProblems(
         pairing,
         FederationProblemCode.UnknownFinish,
         where,
-        `${finish} is not a finish of ${exported.start} (its finishes: ${listed.join(", ")})`,
+        `${finish} is not a finish of ${exported.skill} (its finishes: ${listed.join(", ")})`,
       ),
     );
 }
@@ -125,7 +125,7 @@ function schemaProblems(
   exported: Export,
 ): FederationProblem[] {
   const { consumer, contract } = pairing;
-  const where = `${producer.name} › ${exported.kind === "a2a" ? exported.start : exported.tool}`;
+  const where = `${producer.name} › ${exported.kind === "a2a" ? exported.skill : exported.tool}`;
   const problems: FederationProblem[] = [];
   if (exported.input !== null) {
     const reasons = differences(
@@ -183,6 +183,8 @@ export function checkFederation(
   let compared = 0;
   for (const consumer of named.values()) {
     for (const contract of consumer.contracts.imports) {
+      // #812: a foreign peer is no member of the federation: nothing to pair, no missing target
+      if (contract.kind === "a2a" && contract.foreign) continue;
       const targetApplication =
         contract.kind === "a2a" ? contract.target.application : contract.target?.application;
       const producer = targetApplication === undefined ? undefined : named.get(targetApplication);

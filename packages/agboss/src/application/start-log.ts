@@ -18,6 +18,8 @@ import { NodeKind } from "../flow/ast.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
 import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
+import { a2aCardWarningsOf } from "../a2a/a2a-card-warnings.js";
+import type { ProviderModule } from "../components/container/registrations.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -53,6 +55,8 @@ export interface WarningSources {
   readonly name?: string;
   readonly exposes?: readonly Class[];
   readonly a2aFiles?: A2AFileOptions | undefined;
+  /** The application's own and its workflows' providers (#812: where an `@A2AAgent` is listed). */
+  readonly modules?: readonly ProviderModule[];
 }
 
 const IN_MEMORY_LEDGER: AssemblyWarning = {
@@ -191,6 +195,7 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),
     ...notAtomicStoresOf(sources.providers).map(notAtomic),
     ...inlineFilesOf(sources),
+    ...a2aCardWarningsOf(sources),
   ];
 }
 

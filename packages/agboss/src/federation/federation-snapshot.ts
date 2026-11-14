@@ -14,19 +14,27 @@ import type { FederationMember } from "./federation-types.js";
 const DTO = z.object({ dto: z.string(), schemaHash: z.string() });
 const USE = z.object({ workflow: z.string(), tool: z.string() });
 
-const A2A_EXPORT = z.object({
-  kind: z.literal("a2a"),
-  expose: z.string(),
-  version: z.string(),
-  start: z.string(),
-  workflow: z.string(),
-  input: DTO.nullable(),
-  outputs: z.array(DTO.extend({ finish: z.string() })),
-  // #860: a snapshot written before it has no reply — its skills answered with tasks
-  reply: z.enum(A2AReply).default(A2AReply.Task),
-  // #904: a snapshot written before it has none — its card's file fields as by default
-  cardFileFields: z.enum(A2ACardFileFields).default(A2ACardFileFields.Extension),
-});
+/** #812: a snapshot written before names the skill `start` — the same id, the start's name. */
+const A2A_EXPORT = z
+  .object({
+    kind: z.literal("a2a"),
+    expose: z.string(),
+    version: z.string(),
+    skill: z.string().optional(),
+    start: z.string().optional(),
+    workflow: z.string(),
+    input: DTO.nullable(),
+    outputs: z.array(DTO.extend({ finish: z.string() })),
+    // #860: a snapshot written before it has no reply — its skills answered with tasks
+    reply: z.enum(A2AReply).default(A2AReply.Task),
+    // #904: a snapshot written before it has none — its card's file fields as by default
+    cardFileFields: z.enum(A2ACardFileFields).default(A2ACardFileFields.Extension),
+  })
+  .refine((entry) => entry.skill !== undefined || entry.start !== undefined, {
+    path: ["skill"],
+    message: "Invalid input: expected string, received undefined",
+  })
+  .transform(({ start, skill, ...rest }) => ({ ...rest, skill: skill ?? start ?? "" }));
 
 const MCP_EXPORT = z.object({
   kind: z.literal("mcp"),
@@ -36,17 +44,41 @@ const MCP_EXPORT = z.object({
   input: DTO.nullable(),
 });
 
-const A2A_IMPORT = z.object({
+/** #812: a snapshot written before has `target.start` for `target.skill` and no `foreign`. */
+const A2A_IMPORT = z
+  .object({
+    kind: z.literal("a2a"),
+    client: z.string(),
+    foreign: z.literal(false).default(false),
+    target: z.object({
+      application: z.string(),
+      skill: z.string().optional(),
+      start: z.string().optional(),
+      finishes: z.array(z.string()).optional(),
+    }),
+    usedBy: z.array(USE),
+    input: DTO,
+    output: DTO,
+    price: z.number().nullable(),
+  })
+  .refine((entry) => entry.target.skill !== undefined || entry.target.start !== undefined, {
+    path: ["target", "skill"],
+    message: "Invalid input: expected string, received undefined",
+  })
+  .transform(({ target: { start, skill, ...target }, ...rest }) => ({
+    ...rest,
+    target: { ...target, skill: skill ?? start ?? "" },
+  }));
+
+/** #812: a peer that is not an AGBoss application, listed and never compared. */
+const A2A_FOREIGN_IMPORT = z.object({
   kind: z.literal("a2a"),
   client: z.string(),
-  target: z.object({
-    application: z.string(),
-    start: z.string(),
-    finishes: z.array(z.string()).optional(),
-  }),
+  foreign: z.literal(true),
+  target: z.null(),
   usedBy: z.array(USE),
-  input: DTO,
-  output: DTO,
+  input: DTO.nullable(),
+  output: DTO.nullable(),
   price: z.number().nullable(),
 });
 
@@ -68,8 +100,8 @@ const SNAPSHOT = z.object({
       name: z.string(),
       version: z.string(),
       contracts: z.object({
-        exports: z.array(z.discriminatedUnion("kind", [A2A_EXPORT, MCP_EXPORT])),
-        imports: z.array(z.discriminatedUnion("kind", [A2A_IMPORT, MCP_IMPORT])),
+        exports: z.array(z.union([A2A_EXPORT, MCP_EXPORT])),
+        imports: z.array(z.union([A2A_IMPORT, A2A_FOREIGN_IMPORT, MCP_IMPORT])),
         schemas: z.record(
           z.string(),
           z.object({ schemaHash: z.string(), jsonSchema: z.record(z.string(), z.unknown()) }),

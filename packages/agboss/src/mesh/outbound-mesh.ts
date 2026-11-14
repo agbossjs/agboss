@@ -14,7 +14,7 @@ import { contextMeshSettingsOf, signingKeyOf } from "./mesh-settings.js";
  * a test's `new A2AClient(…)`), or in a frame without a call chain, nothing.
  */
 export interface OutboundMesh {
-  /** The envelope, encoded (`agboss-mesh` / `_meta["agboss.dev/mesh"]`). */
+  /** The envelope, encoded (the mesh extension's `envelope` / `_meta["agboss.dev/mesh"]`). */
   readonly envelope: string;
   /** `00-<trace id>-<span id>-01`: the caller's trace continued, else one of its root execution. */
   readonly traceparent: string;

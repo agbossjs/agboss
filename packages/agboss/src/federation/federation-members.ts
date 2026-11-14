@@ -42,7 +42,7 @@ export function versionProblems(
   return current.contracts.exports.flatMap((exported): FederationProblem[] => {
     if (exported.kind !== "a2a") return [];
     const before = earlier.contracts.exports.find(
-      (old) => old.kind === "a2a" && old.expose === exported.expose && old.start === exported.start,
+      (old) => old.kind === "a2a" && old.expose === exported.expose && old.skill === exported.skill,
     );
     if (before?.kind !== "a2a" || before.version !== exported.version) return [];
     const hashes = (contract: A2AExportContract): string =>
@@ -54,7 +54,7 @@ export function versionProblems(
     return [
       {
         code: FederationProblemCode.VersionNotBumped,
-        producer: `${current.name} › ${exported.start}`,
+        producer: `${current.name} › ${exported.skill}`,
         consumer: "",
         message: `${exported.expose} ${exported.version}: its schema changed since ${earlier.file} — raise its version`,
         file: current.file,

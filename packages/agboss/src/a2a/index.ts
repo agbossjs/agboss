@@ -1,11 +1,5 @@
 import "../polyfills/symbol-metadata.js";
 
-export {
-  A2AStatus,
-  type A2AEvent,
-  type A2AExecutionRequest,
-  type A2AExecutionResponse,
-} from "./types.js";
 export * from "./a2a-decorator.js";
 // #809: the A2A v1.0 client on the official SDK
 export { A2AClient } from "./client/a2a-client.js";

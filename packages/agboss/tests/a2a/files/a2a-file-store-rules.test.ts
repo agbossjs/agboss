@@ -46,7 +46,9 @@ const appWith = (
     version: "1.0.0",
     description: "files",
     exports: [FileReviewWorkflowStart],
-    skills: { "file-review-workflow-start": { ...(files === undefined ? {} : { files }) } },
+    skills: {
+      "file-review-workflow-start": { tags: ["files"], ...(files === undefined ? {} : { files }) },
+    },
   })
   class RulesA2AExpose {}
 

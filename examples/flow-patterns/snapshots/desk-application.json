@@ -66,6 +66,21 @@
           "reason": "default"
         },
         {
+          "contract": "A2ATaskRepository",
+          "implementation": "InMemoryA2ATaskRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "A2AFileRepository",
+          "implementation": "InlineA2AFileRepository",
+          "reason": "default"
+        },
+        {
+          "contract": "A2ADirectMessageRepository",
+          "implementation": "InMemoryA2ADirectMessageRepository",
+          "reason": "default"
+        },
+        {
           "contract": "ExecutionHistoryRepository",
           "implementation": "SqliteExecutionHistoryRepository",
           "reason": "listed"
@@ -147,7 +162,7 @@
             "kind": "a2a",
             "expose": "desk-a2a-expose",
             "version": "1.0.0",
-            "start": "desk-workflow-start",
+            "skill": "desk-workflow-start",
             "workflow": "desk-workflow",
             "input": {
               "dto": "DeskQuestionDto",
@@ -159,7 +174,9 @@
                 "dto": "WorkflowFinishTextDto",
                 "schemaHash": "e12b4532bfe77e787b44f743446d7f2a97e53fb3aac1dc06ce19147c9644bb16"
               }
-            ]
+            ],
+            "reply": "task",
+            "cardFileFields": "extension"
           }
         ],
         "imports": [],
@@ -207,7 +224,8 @@
           "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
           "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>",
           "sqlitePath": "\".agboss/flow-patterns.sqlite\"",
-          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>"
+          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>",
+          "idempotencyKey": "<missing IDEMPOTENCY_KEY>"
         }
       }
     },

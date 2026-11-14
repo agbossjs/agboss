@@ -64,10 +64,11 @@ function edgesOf(
   problems: readonly FederationProblem[],
 ): DeclaredEdge[] {
   return member.contracts.imports.flatMap((contract): DeclaredEdge[] => {
+    if (contract.kind === "a2a" && contract.foreign) return []; // #812: no application behind it
     const to = contract.kind === "a2a" ? contract.target.application : contract.target?.application;
     if (to === undefined) return []; // a third-party MCP server: no application behind it
     const target =
-      contract.kind === "a2a" ? contract.target.start : (contract.target?.expose ?? contract.tool);
+      contract.kind === "a2a" ? contract.target.skill : (contract.target?.expose ?? contract.tool);
     const name = contract.kind === "a2a" ? contract.client : `${contract.server}.${contract.tool}`;
     const consumer = `${member.name} › ${name}`;
     return [

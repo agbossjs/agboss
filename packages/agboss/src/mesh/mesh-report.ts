@@ -37,7 +37,7 @@ export interface RunReportFacts {
   readonly issuedAt: Date;
 }
 
-/** The signed report of a run (`A2AExecutionResponse.report`, `_meta["agboss.dev/report"]`). */
+/** The signed report of a run (`task.metadata[<mesh extension>].report` over A2A, `_meta["agboss.dev/report"]` over MCP). */
 export function encodeRunReport(facts: RunReportFacts, signingKey: KeyObject): string {
   const report: MeshRunReport = {
     schema: 1,

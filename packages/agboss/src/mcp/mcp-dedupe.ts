@@ -14,8 +14,8 @@ import { errorResult } from "./mcp-service-helpers.js";
 /**
  * A trusted MCP call's idempotency (#398 PR 2b, S5): a `tools/call` whose envelope carries the
  * session peer's valid signature and a `_meta.callId` is kept in the application's
- * `MeshRequestRepository` by `(tenant, peer, callId)` — as `POST /execute` over A2A is by the
- * envelope's idempotency key. A repeat gets the kept result without running again, one while the
+ * `MeshRequestRepository` by `(tenant, peer, callId)` (A2A deduplicates by `messageId` in its task and
+ * message stores). A repeat gets the kept result without running again, one while the
  * first still runs an error result with `_meta["agboss.dev/error"]` `mesh.request-in-progress`; a
  * call that threw is forgotten, so the caller may try again. Untrusted calls, and calls without a
  * `callId`, are never deduplicated.

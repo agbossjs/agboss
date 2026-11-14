@@ -363,7 +363,7 @@ export interface ContractsSnapshot {
     // (undocumented)
     readonly exports: readonly (A2AExportContract | McpExportContract)[];
     // (undocumented)
-    readonly imports: readonly (A2AImportContract | McpImportContract)[];
+    readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
     // (undocumented)
     readonly schemas: Readonly<Record<string, {
         readonly schemaHash: string;
@@ -1684,9 +1684,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/channels.ts:39:3 - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts:47:3 - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts:52:3 - (ae-undocumented) Missing documentation for "reason".
-// src/describe/contracts-types.ts:76:3 - (ae-undocumented) Missing documentation for "exports".
-// src/describe/contracts-types.ts:77:3 - (ae-undocumented) Missing documentation for "imports".
-// src/describe/contracts-types.ts:78:3 - (ae-undocumented) Missing documentation for "schemas".
+// src/describe/contracts-types.ts:96:3 - (ae-undocumented) Missing documentation for "exports".
+// src/describe/contracts-types.ts:97:3 - (ae-undocumented) Missing documentation for "imports".
+// src/describe/contracts-types.ts:98:3 - (ae-undocumented) Missing documentation for "schemas".
 // src/describe/limits.ts:22:3 - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts:25:3 - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts:28:3 - (ae-undocumented) Missing documentation for "worstCases".
