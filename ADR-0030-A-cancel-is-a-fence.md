@@ -20,7 +20,7 @@ charge that had already left was a refund, not a prevention.
   possible before the tree's first `acquire` — beside the leases, in the database the fencing stores
   already share with the lease store (A2). It is idempotent, changes no lease (the holder keeps it,
   renews it and runs the tree's undo under it), and is kept until the fencing stores' retention
-  prunes it.
+  prunes it — only once its tree is over (its lease retired) and the mark is older than the cutoff, never by age alone.
 - **Every fencing store reads it in the transaction that checks the lease**, after the lease and the
   scope's mark and — for an effect — after the key's lookup: a stored result replays; a new effect, a
   new intent (`saveIfAbsent`) or a new attempt (`markPending`) is refused with

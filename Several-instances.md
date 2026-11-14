@@ -1213,7 +1213,7 @@ with outcome `cancelled`, and the audit log), the holder aborts its own pass, th
 under its lease and the moving call rejects with `ExecutionCancelledError`. The guarantee is P7 on
 [Guarantees](Guarantees): once `app.cancel` has resolved no effect runs for the tree but its undo's;
 a write already inside its transaction may finish first, and a send already claimed may still be
-answered and recorded. The marks are pruned by the fencing stores' retention.
+answered and recorded. A mark is lifted by the fencing stores' retention only once its tree's lease is retired and the mark is older than the cutoff — never by age alone.
 
 **The request is durable.** An instance that takes a tree's lease reads it first: a waiting
 `resume` ends the tree as cancelled and rejects with `ExecutionCancelledError`; recovery ends a
