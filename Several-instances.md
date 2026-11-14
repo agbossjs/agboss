@@ -1092,10 +1092,20 @@ committed: the invariant `notices-once-each-in-order` holds on every store set.
 
 ## Expiring a pause (#941)
 
-Every instance's pause timers (every 5 s, on the `Clock`) look for expiries: `findPendingByExpiresAtBefore(now, 50)`
-reads the pending pauses whose deadline passed (every tenant, the earliest first), grouped by their tree's
-root; the root's record names the workflow that moves it (a root of another application on a shared store is
-skipped). Per root, under the tree's lease:
+Every instance's pause timers (every 5 s, on the `Clock`) look for expiries:
+`findPendingByExpiresAtBefore(now, 50, after)` reads the pending pauses whose deadline passed (every tenant,
+the earliest first), page by page, grouped by their tree's root; the root's record names the workflow that
+moves it (a root of another application on a shared store is skipped). The look is one sweep with a keyset
+cursor `after` — the last pause of the page before, in `(expiresAt, tenantId, pauseId)` order (#1070): a
+pause nobody here can move (another application's tree, a removed workflow, an incompatible version, a tree
+in use) stays pending and is passed, so 50 of them never hide a later deadline; the next sweep starts again
+from the earliest. Each root's expiry is **started, not awaited** (#1071): the handler and the pass after it
+run beside the timers' tick (the pass's steps take the step slots), at most `maxConcurrentSteps` roots at a
+time, a look cut short by the cap going on from where it stopped; so a 30 s step after an expiry never makes
+`app.checkLiveness()` report `pause-timers` stuck, and `app.close()` waits for the expiries in flight. A
+run that fails after its expiry (its run deadline, an uncaught `fail()`) ended as its record says: it is
+not a failure of the expiry (`pause.expiry-failed` is warned only for the machinery's own failures, #1074).
+Per root, under the tree's lease:
 
 1. the lease is taken only if free — the holder's drain, or a later look, does it (one instance asks the
    channel; the others skip);

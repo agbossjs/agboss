@@ -821,7 +821,9 @@ mesh caller's remaining time bounds the receiver's pause; a child's pause the ro
 
 **A cancel always beats an expiry.** `app.cancel` after the deadline cancels the run and closes the
 pause `expired`; a cancel request found when the look takes the tree, or written while the handler
-runs, ends the tree as cancelled with no decision recorded. Over [A2A](A2A) the task goes
+runs, or after its decision was recorded and before the run goes on, ends the tree as cancelled with no
+decision applied and `app.cancel` returning `{ cancelled: true }` (#1073: every cancel writes its request
+where the expiry reads it). Over [A2A](A2A) the task goes
 `INPUT_REQUIRED` → `WORKING` → `FAILED` (`step.pause-expired`) or `COMPLETED`; a follow-up before
 the look is `-32004 a2a.pause-closed` (`reason: expired`). How the instances do it:
 [Several instances → Expiring a pause](Several-instances#expiring-a-pause-941).
