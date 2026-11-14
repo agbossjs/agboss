@@ -111,10 +111,25 @@ function stepsAtStopOf(
   deadline: StopDeadline,
   log: FrameworkLog,
 ): StepsAtStop {
+  // #954: the bodies warned about, and whether the stop has finished — a warning is never logged after it
+  const warned = new WeakSet<StepEntry>();
+  let isFinished = false;
+  const warn = (still: readonly StepEntry[]): void => {
+    if (isFinished) return;
+    const fresh = still.filter((entry) => !warned.has(entry));
+    for (const entry of fresh) warned.add(entry);
+    warnStillRunning(log, fresh);
+  };
   return {
     ...deadline,
+    // the stop has finished: the bodies still running are logged now, the stop's end passed
+    release: () => {
+      deadline.release();
+      warn(entries.open());
+      isFinished = true;
+    },
     settled: async () => {
-      warnStillRunning(log, await entries.allClosed(deadline.signal));
+      warn(await entries.allClosed(deadline.signal));
     },
     within: async (stopping, what = "the recovery sweep or the child workers") => {
       const ended = await untilInterrupted(

@@ -26,6 +26,7 @@ import { LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { leasingOf } from "../infrastructure/contracts.js";
 import { treeMovesOf } from "./tree-moves.js";
+import type { TreeMoves } from "./tree-move-types.js";
 import {
   contextValuesOf,
   defaultTenantOf,
@@ -123,7 +124,14 @@ export async function buildApp(
     events: parts.auditLog,
     stopping: live.interruption,
   });
-  const moves = treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog });
+  const moved = treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog });
+  // a caller's wait ends when the stop gives the run up (#954)
+  const moves: TreeMoves = {
+    first: (...call) => live.untilAbandoned(moved.first(...call)),
+    resumed: (...call) => live.untilAbandoned(moved.resumed(...call)),
+    recovered: (...call) => moved.recovered(...call),
+    endIfEnding: (...call) => moved.endIfEnding(...call),
+  };
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.turns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.turns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.turns, deps.config.name, access);

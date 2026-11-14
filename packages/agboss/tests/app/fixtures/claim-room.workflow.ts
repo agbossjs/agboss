@@ -31,11 +31,14 @@ export const roomLog = {
   atWork: new Set<string>(),
   most: 0,
   gates: new Map<string, () => void>(),
+  /** The gates ignore the abort of their step (a body deaf to its signal, #954). */
+  deaf: false,
 };
 
 export function resetRoomLog(): void {
   roomLog.atWork.clear();
   roomLog.most = 0;
+  roomLog.deaf = false;
   for (const open of roomLog.gates.values()) open();
   roomLog.gates.clear();
 }
@@ -52,9 +55,10 @@ export function releaseItem(item: string): void {
 function atItemGate(item: string, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     roomLog.gates.set(item, resolve);
-    signal.addEventListener("abort", () => {
-      reject(new Error("aborted at the gate"));
-    });
+    if (!roomLog.deaf)
+      signal.addEventListener("abort", () => {
+        reject(new Error("aborted at the gate"));
+      });
   });
 }
 

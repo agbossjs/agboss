@@ -41,6 +41,21 @@ const never = <T>(): Promise<T> => {
   return new Promise<T>(() => undefined);
 };
 
+const waiting: Array<() => void> = [];
+
+/** A call that waits until `answerHung()` (a server that came back). */
+const held = (): Promise<void> => {
+  hung.calls += 1;
+  return new Promise<void>((resolve) => {
+    waiting.push(resolve);
+  });
+};
+
+/** Answers every lease release left hanging: the server came back. */
+export const answerHung = (): void => {
+  for (const answer of waiting.splice(0)) answer();
+};
+
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
 export class HungQueueRepository extends InMemoryChildExecutionQueueRepository {
   override claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined> {
@@ -65,7 +80,7 @@ export class HungLeaseRepository extends InMemoryExecutionLeaseRepository {
   override release(
     lease: Parameters<InMemoryExecutionLeaseRepository["release"]>[0],
   ): Promise<void> {
-    return hung.lease ? never() : super.release(lease);
+    return hung.lease ? held() : super.release(lease);
   }
 }
 
