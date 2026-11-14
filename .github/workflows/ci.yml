@@ -97,6 +97,8 @@ jobs:
         with:
           name: blob-${{ matrix.project }}-${{ matrix.shard }}-${{ matrix.of }}
           path: packages/agboss/.vitest-reports/
+          # the directory's name starts with a dot: v4 skips hidden files unless told
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
