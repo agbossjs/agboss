@@ -394,7 +394,7 @@ value for the steps after it. Everything else is a pause like an approval's:
   interpreter → `ReplyInterpreterMissingError`). Who answers is `answeredBy`, checked as above.
 - Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
-  (its channel's `withdraw` told); `retention.pauseRecords` and `result.record.pauses` as for any
+  (its channel's `onPauseClosed` told); `retention.pauseRecords` and `result.record.pauses` as for any
   pause — the record's `kind` is `PauseKind.Question` (stored, never inferred), its step the
   question's (`component.kind: "question"`, no `callId`).
 - The step is code, no model: no step slot, not one of `maxSteps`; the execution's budgets are
@@ -577,12 +577,14 @@ answer gets `NotPausedError`. A deadline that passes while the tree rests (every
 nothing running) withdraws nothing until the tree moves again: the next pass — a resume, a recovery
 — finds the quorum decided, cancels the unfinished branches and withdraws their pauses then.
 
-## Taking a question back: `withdraw` (#337)
+## Telling the channel and the listeners (#940)
 
-A channel that posted a question somewhere — buttons in Slack, a link in a mail — is told when its
-pause closes without an answer, so it can take the question back instead of leaving buttons that
-lead to `NotPausedError`. `withdraw(withdrawal)` is the pair of `send`: a no-op on `ChannelOf` (a
-role's implementation writes `override`), optional on a concrete `@Channel` (`ChannelHandler`).
+A pause that closes is told to the channel that asked and to the application's listeners —
+**at least once**, also when the instance that closed it dies a moment later. A channel that posted
+a question somewhere — buttons in Slack, a link in a mail — takes it back, or marks it answered by
+whom, from `onPauseClosed(event)`; a back office or a ticket system follows every pause through a
+`@PauseListener`. Both are optional: a channel that overrides no hook has no mailbox, and a pause
+costs it nothing.
 
 <!-- snippet-context
 import { Injectable } from "@agboss/core";
@@ -639,9 +641,9 @@ import {
   ChannelRole,
   ExecutionContext,
   PauseAnswerer,
-  PauseResolution,
+  PauseClosedReason,
   type ChannelAsk,
-  type ChannelWithdrawal,
+  type ChannelPauseClosedEvent,
 } from "@agboss/core";
 
 @ChannelRole({
@@ -674,32 +676,102 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
     return ChannelOutcome.awaitReply();
   }
 
-  // called once when a pause this channel sent is withdrawn or cancelled before an answer
-  override async withdraw(withdrawal: ChannelWithdrawal<RefundApprovalChannel>): Promise<void> {
-    const { orderId } = withdrawal.value.arguments;
-    const why = withdrawal.resolution === PauseResolution.Withdrawn ? "no longer needed" : "cancelled";
-    await this.slackClient.closeApproval(withdrawal.pauseId, `Refund of order ${orderId}: ${why}`);
+  // at least once whenever a pause this channel sent closes; deduplicate by event.deliveryId
+  override async onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
+    const { orderId } = event.value.arguments;
+    const why =
+      event.reason === PauseClosedReason.Answered
+        ? `answered by ${event.answeredBy ?? "someone"}`
+        : event.reason;
+    await this.slackClient.closeApproval(event.pauseId, `Refund of order ${orderId}: ${why}`);
   }
 }
 ```
 
-- **What it gets** — `ChannelWithdrawal<Role>`: the `pauseId` and `value` it was sent, and
-  `resolution: PauseCancellation` — `PauseResolution.Withdrawn` (a `FailFast` sibling failed, the
-  launch's quorum was decided) or `PauseResolution.Cancelled` (`app.cancel`, the tree ended).
-- **Once, by whoever closed the pause** — the closing is one atomic `Pending → Cancelled` change
-  (`cancelByTenantIdAndPauseId`), so of two instances (or a cancel racing a join) exactly one tells
-  the channel. A pause closed while its `send` was still returning is told by its own step, once
-  `send` returned. Never for a pause its channel decided at once (`ChannelOutcome.decided`) or never
-  sent (its `send` threw).
+- **What a channel gets** — `ChannelPauseClosedEvent<Role>`: the `pauseId` and `value` as `send` got
+  them, `reason: PauseClosedReason` (`Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`),
+  `closedAt`, and for an answer `answeredBy` (the resume's `answeredBy`, or the thread's owner) and the
+  `answer` (masked by the PII policies), and `deliveryId`. The channel hears an answer **given
+  elsewhere** too — a manager approves in the back office, the Slack message loses its buttons — and
+  its own. `onPauseAnswerNotTaken(event)` is told, after the `closed`, when a recorded answer is never
+  applied because its run ended first (`Cancelled` / `TreeEnded`, with the answer).
+- **Written with the change, delivered by any instance** — the notice goes into the same store
+  transaction as the pause's change: no close without its notice, no notice without its close. Any
+  instance claims it, so a crash between the close and the delivery, or between the delivery and its
+  acknowledgement, still delivers it: the receiver may be told twice, under the same `deliveryId`,
+  never zero times. **`deliveryId` is the idempotency key** of one notice to one receiver — the same on
+  every redelivery, different for every other notice; deduplicating by it is the receiver's job. Per
+  pause and receiver the order is kept: `opened` before `closed`, `closed` before `answerNotTaken`.
 - **Where it runs** — in the pause's execution frame (its `ExecutionContext`: tenant, the project's
-  fields, the thread's owner, the waiting step), under its tool's `timeout` on the application's
-  `Clock`: `executionContext.signal` aborts at the timeout and the call is cut off.
-- **Best-effort** — a `withdraw` that throws or runs past its timeout is one warning in the log,
-  `channel.withdraw-failed` (`LogLevel.Warn`, the `executionId` / `tenantId`), and nothing else: the
-  join, `.onError` / `.onJoinError` and `app.cancel` go on as if it had returned.
-- Tests: `mockOf(SlackRefundApprovalChannel).withdraw` records the calls
-  (`toHaveBeenCalledTimes(1)`); a contract that resolves to a mocked implementation (a role, any
-  `extends`) gets the mock too.
+  fields, the thread's owner, the waiting step), under its tool's `timeout` (a question's, a
+  listener's: 30 s) on the application's `Clock`: `executionContext.signal` aborts at the timeout and
+  the call is cut off. A run, a resume and a cancel never wait for a receiver.
+- **Retried, then set aside** — a hook that throws or runs past its timeout is retried after 1 s, 2 s,
+  4 s … (at most 5 min) and logged each time (`pause.notice-failed`, `LogLevel.Warn`: the receiver, the
+  pause's `pauseKey` and a fixed problem code — never the error's text); once the first undelivered
+  notice is older than `retention.pauseRecords` the mailbox is set aside — `pause.notice-dead`
+  (`LogLevel.Error`), counted — and the other pauses' notices go on flowing. There is no API to
+  deliver a set-aside notice again: retries and queueing are the receiver's.
+- **Never for a pause its channel decided at once** (`ChannelOutcome.decided`) or never sent (its
+  `send` threw). A pause opened before a listener was added has no `opened` for it (its mailbox did not
+  exist); a receiver a deploy removed has its mailboxes set aside by the recovery sweep after the
+  retention (`pause.notice-recipient-unknown`, once per mailbox) and its pauses removed with theirs.
+- Tests: `mockOf(SlackRefundApprovalChannel).onPauseClosed` records the calls; a contract that
+  resolves to a mocked implementation (a role, any `extends`) gets the mock too.
+
+### `@PauseListener`: every pause of the application
+
+<!-- snippet-context
+import { Injectable } from "@agboss/core";
+@Injectable()
+export class BackOfficeApi {
+  track(_pauseKey: string, _channel: string, _ask: unknown): Promise<void> {
+    return Promise.resolve();
+  }
+  settle(_pauseKey: string, _reason: string, _by: string | undefined, _answer: unknown): Promise<void> {
+    return Promise.resolve();
+  }
+}
+-->
+
+```ts
+import {
+  PauseListener,
+  type PauseListenerClosedEvent,
+  type PauseListenerHandler,
+  type PauseListenerOpenedEvent,
+} from "@agboss/core";
+
+@PauseListener({ name: "back-office-pause-listener", deps: [BackOfficeApi] })
+export class BackOfficePauseListener implements PauseListenerHandler {
+  constructor(private readonly backOffice: BackOfficeApi) {}
+
+  async onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+    await this.backOffice.track(event.pauseKey, event.channel, event.ask);
+  }
+
+  async onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+    await this.backOffice.settle(event.pauseKey, event.reason, event.answeredBy, event.answer);
+  }
+}
+```
+
+List it in `@Application({ providers })`: the container creates it at start (its `onInit` /
+`onStart` run with the application's), one instance for every workflow. It hears `onPauseOpened`
+(its channel was asked) and `onPauseClosed` of **every** pause — also those of child workflows
+(`executionId` is the child's) — and, with the optional `onPauseAnswerNotTaken`, the answers never
+applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExecutionId`,
+`executionId`, `threadId`, `workflow`, `step`, `kind`, `channel`, `answerer`, the masked `ask`,
+`askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.kind-suffix]`
+(`-pause-listener`), `[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`;
+`agboss describe` lists the listeners.
+
+- **A correlation key, never the right to answer** — a `PauseAnswerer.Channel` pause's id is the
+  right to answer it (#267), so a listener gets `pauseKey` (`pauseKeyOf(tenantId, pauseId)`, one-way)
+  and no `pauseId`; the id of a `PauseAnswerer.ThreadOwner` pause is no secret (the owner check
+  guards it) and is always there. `@PauseListener({ allowAnswering: true })` declares a **trusted
+  component**: its events carry the raw id of channel pauses, so it holds the right to answer every
+  channel pause of the application (`app.resume` still needs `answeredBy`).
 
 ## Concurrent answers
 

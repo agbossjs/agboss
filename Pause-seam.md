@@ -156,3 +156,14 @@ the same Turn as `failed`. Decision recorded in [ADR-0004](ADR-0004-Pause-seam).
 The loop goes on after the decision: the model reads the call's result (or the rejection) and
 answers. **Then the turn ends** — the router is not asked again
 (`stop: the agent answered after the approval decision`); a follow-up goes to the next turn (#100).
+
+## Its notices (#940)
+
+`PauseSeam.notices` (`recipientsOf(pause)`, `delivered()`) replaced the old `withdrawn` hook: every
+transition call site — the pause step's `markSent`, `app.resume`, a cancel, a `FailFast` or quorum
+withdrawal, a tree's end — asks `recipientsOf` who hears of the change (the channel that asked when
+it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@PauseListener`), passes it to
+the store transition — the notices are written in its transaction — and calls `delivered()` right
+after the transition returned, before anything that may throw. See
+[Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940)
+and [Several instances → Pause notices](Several-instances#pause-notices-and-the-pause-timers-940).

@@ -1038,6 +1038,30 @@ ends within its shutdown timeout (`app.step-still-running` names a body still ru
 `close({ timeout: 0 })` stops waiting at once). Another instance therefore never reruns a step — the same action, the same
 idempotency key — while its first run is still going here.
 
+## Pause notices and the pause timers (#940)
+
+Every change of a sent pause writes its notices — `opened` to the listeners, `closed`, and
+`answerNotTaken` for an answer never applied — into one ordered mailbox per pause and receiver, in
+the **same store transaction** as the change (`PausedExecutionRepository`: `claimNoticesDue`,
+`ackNotice`, `retryNotice`, `setAsideNotices`, `setAsideStaleNoticesBefore`). Any instance delivers
+them: the one that wrote them looks at once (the fast path, not awaited by the run, the resume or
+the cancel; `app.close()` waits for it within the shutdown timeout), every instance looks again at
+the **pause timers'** tick (every 5 s: one loop for the looks of the pause features, each in its own
+`try/catch` — a failing look is `pause-timers.failed` and the others and the next tick go on;
+`app.checkLiveness()` reports a stale tick as the component `pause-timers`, beside `recovery-loop`).
+A look claims up to 50 mailboxes for the instance's receivers (its channels that listen to a notice
+and its listeners) for 60 s — one mailbox per claim, so a stuck head never holds another — tells the
+head notice in the pause's frame and acknowledges it only after the receiver returned: an instance
+that dies before the acknowledgement leaves the notice to the next claim, which delivers it again
+under the same `deliveryId` — at least once, never zero times; a zombie's late acknowledgement
+changes nothing (it needs the claim's token and an unexpired claim). Two instances never deliver one
+mailbox at once; the order within it is kept. A receiver that fails is retried at 1 s × 2^attempts (at
+most 5 min); a mailbox whose head is older than `retention.pauseRecords` is set aside (`pause.notice-dead`),
+and one that no instance claims — a listener a rolling deploy removed — is set aside by the recovery
+sweep's retention step (`pause.notice-recipient-unknown`). The fault scenarios 21, 21b and 21c kill a
+pod holding a claim, after a delivery and before its acknowledgement, and right after a resume
+committed: the invariant `notices-once-each-in-order` holds on every store set.
+
 ## The audit log (#501)
 
 A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint

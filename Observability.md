@@ -586,8 +586,14 @@ More at start is the project's own: a component with `OnStart` logs what it want
 component and can be injected).
 
 **While it runs**, only problems of the system: `LogLevel.Warn` at risk (`execution.recovered`,
-`recovery.incompatible`, `observer.failed`) and `LogLevel.Error` broken (`recovery.failed`,
-`app.close-failed`), each with its `executionId` / `tenantId` for search. One execution's details
+`recovery.incompatible`, `observer.failed`, `pause.notice-failed`, `pause.notice-recipient-unknown`) and
+`LogLevel.Error` broken (`recovery.failed`, `app.close-failed`, `pause.notice-dead`,
+`pause-timers.failed`), each with its `executionId` / `tenantId` for search. The pause notices
+(#940, [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940))
+log a failed attempt (`pause.notice-failed`: the receiver, the pause's `pauseKey`, a fixed problem
+code), a mailbox set aside after `retention.pauseRecords` (`pause.notice-dead`) and a receiver no
+instance knows (`pause.notice-recipient-unknown`); a look of the pause timers that failed is
+`pause-timers.failed` (the other looks and the next tick go on). One execution's details
 are its trace; a tenant's spend is the cost ledger; a rejected execution is `onExecutionRejected`.
 
 **Assembly warnings** (in `app.warnings` and the start log; errors under `agboss check --strict`;

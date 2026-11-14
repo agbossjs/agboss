@@ -328,6 +328,15 @@ tree it waits, and returns the tree's current output once the holder took its de
 one per decision taken, with `answeredBy` — and `reason: ResumeReason.Answered`
 (`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues a tree).
 
+## `@PauseListener` (#940)
+
+A class listed in `@Application({ providers })` with `@PauseListener({ name: "…-pause-listener",
+deps?, allowAnswering? })` and `implements PauseListenerHandler` hears every pause of the
+application open and close, at least once ([Pauses → Telling the channel and the
+listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container creates it at start —
+its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
+describe` lists the listeners and marks `allowAnswering`.
+
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with

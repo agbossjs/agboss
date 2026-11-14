@@ -35,3 +35,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0028 — Failures cross instances as their records](ADR-0028-Failures-cross-instances-as-their-records) | Accepted |
 | [0029 — Skills in .agents/skills with a Claude link](ADR-0029-Skills-in-agents-skills-with-claude-link) | Accepted |
 | [0030 — A cancel is a fence](ADR-0030-A-cancel-is-a-fence) | Accepted |
+| [0031 — At-least-once pause notices written with the pause's change](ADR-0031-At-least-once-pause-notices) | Accepted |
