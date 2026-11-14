@@ -4,7 +4,11 @@
  * 0.1.0 (its 9-value INSERT) and read in order; a populated 0.1.0 file migrates; a file a build
  * with a stored `step` column opened is converted.
  */
-import { emptyCheckpoint, type CheckpointTuple } from "@langchain/langgraph";
+import {
+  emptyCheckpoint,
+  type CheckpointMetadata,
+  type CheckpointTuple,
+} from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { newestFirstOrder, stepOf } from "../../../src/infrastructure/latest-by-step.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
@@ -16,7 +20,7 @@ installPublished010();
 const at = (threadId: string, namespace = ""): { configurable: Record<string, string> } => ({
   configurable: { thread_id: threadId, checkpoint_ns: namespace },
 });
-const loop = (step: number): Record<string, unknown> => ({ source: "loop", step, parents: {} });
+const loop = (step: number): CheckpointMetadata => ({ source: "loop", step, parents: {} });
 
 /** The answer the scan gives: every checkpoint of the thread, newest by step then id. */
 async function scanLatest(saver: SqliteCheckpointSaver, threadId: string): Promise<string> {
