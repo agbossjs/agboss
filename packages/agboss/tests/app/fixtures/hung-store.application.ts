@@ -85,7 +85,8 @@ export class HungConnection {
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
   maxConcurrentSteps: 3,
-  shutdownTimeout: seconds(60),
+  // below the store calls' bound (#928, 15 s): the stop gives up on a hung call first
+  shutdownTimeout: seconds(5),
   providers: [
     HungConnection,
     HungLeaseRepository,

@@ -6,6 +6,7 @@
  * each command of the test and acks it. Its held stores report every operation, its holds every
  * held operation. Nothing is shared with the other pods but the database and the test.
  */
+import { BOUNDED_CONTRACTS } from "../../infrastructure/contracts.js";
 import { pathToFileURL } from "node:url";
 import { applicationOf } from "../../application/assemble.js";
 import { buildApplication } from "../../application/create-app.js";
@@ -88,6 +89,8 @@ reportHeldOperations({
     sendToTest({ kind: "event", event: { ...held, type: "held" } });
   },
 });
+// #928: unbounded unless the scenario asks (a frozen pod's held call is answered after its thaw)
+if (process.env[POD_VARIABLES.bounded] !== "1") BOUNDED_CONTRACTS.clear();
 const stores = await storesOf(process.env[POD_VARIABLES.stores] ?? "");
 // #799: the time the history is read on is the set's own declaration — none, and the pod does not start
 const storeTime = storeTimeOf(stores);

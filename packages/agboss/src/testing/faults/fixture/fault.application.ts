@@ -18,7 +18,7 @@ import { FaultApprovalWorkflow, FaultCallerChannel } from "./approval.workflow.j
 import { FaultPauseChannel, FaultPauseWorkflow } from "./pause.workflow.js";
 import { FaultPauseListener } from "./pause.listener.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
-import { breaksContract, sabotagedStoreOf } from "../sabotage-stores.js";
+import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
 
@@ -71,11 +71,12 @@ export const heldProvidersOf = (
   providers.map((provider) => {
     const methods = heldMethodsOf(provider);
     if (methods === undefined) return provider;
-    const broken =
-      sabotage !== undefined && breaksContract(sabotage, methods)
-        ? sabotagedStoreOf(provider, sabotage)
-        : provider;
-    return withHoldPoints(broken);
+    if (sabotage === undefined || !breaksContract(sabotage, methods))
+      return withHoldPoints(provider);
+    // #928 S2b: a sabotage that answers over a hold wraps the held store
+    return isOutsideHolds(sabotage)
+      ? sabotagedStoreOf(withHoldPoints(provider), sabotage)
+      : withHoldPoints(sabotagedStoreOf(provider, sabotage));
   });
 
 /**

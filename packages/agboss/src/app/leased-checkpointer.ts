@@ -18,6 +18,7 @@ import {
   threadOf,
 } from "./checkpoint-keys.js";
 import type { HeldExecutionLease } from "./execution-leases.js";
+import { leaseScope } from "./lease-scope.js";
 import { withUsageRead, withUsageReadOf } from "./restored-usage.js";
 
 /** What LangGraph's checkpointer contract takes (its types are not all re-exported). */
@@ -47,14 +48,19 @@ export class LeasedCheckpointSaver extends BaseCheckpointSaver {
     return this.saver.list(...listArguments);
   }
 
-  async put(...putArguments: PutArguments): Promise<RunnableConfig> {
-    await this.lease.renew();
-    return this.saver.put(...putArguments);
+  // the renewal inside is the lease store's own, never a hand-over; the write is (#928)
+  put(...putArguments: PutArguments): Promise<RunnableConfig> {
+    return leaseScope(this.lease, async () => {
+      await this.lease.renew();
+      return this.saver.put(...putArguments);
+    });
   }
 
-  async putWrites(...putWritesArguments: PutWritesArguments): Promise<void> {
-    await this.lease.renew();
-    return this.saver.putWrites(...putWritesArguments);
+  putWrites(...putWritesArguments: PutWritesArguments): Promise<void> {
+    return leaseScope(this.lease, async () => {
+      await this.lease.renew();
+      return this.saver.putWrites(...putWritesArguments);
+    });
   }
 
   deleteThread(threadId: string): Promise<void> {

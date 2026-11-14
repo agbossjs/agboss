@@ -46,6 +46,11 @@ const DOCUMENTED = {
   "agboss.instance.executions.ended": [MetricKind.Counter, "{execution}", ["workflow", "outcome"]],
   "agboss.instance.costs.unknown": [MetricKind.Counter, "{pass}", ["workflow"]],
   "agboss.instance.costs.unknown_unrecorded": [MetricKind.Counter, "{read}", ["workflow"]],
+  "agboss.instance.store_calls.timed_out": [
+    MetricKind.Counter,
+    "{call}",
+    ["contract", "operation", "source", "kind"],
+  ],
   "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "outcome"]],
 } as const;
 

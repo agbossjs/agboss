@@ -1276,7 +1276,7 @@ throws `PauseClosedError` (`reason: "cancelled"`);
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
-`execute` and `resume` hold its lease (`seconds(30)`, renewed every 10 s and before every checkpoint
+`execute` and `resume` hold its lease (`seconds(30)`, renewed every 7.5 s and before every checkpoint
 write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
 Resolved`, atomic) — of two resumes of one pause the second gets `PauseClosedError`
 (`reason: "answered"`), as does an answer to a pause its step already took (`Taken`) or one closed

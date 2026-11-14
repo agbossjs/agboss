@@ -6,6 +6,9 @@ import {
   ExecutionAuditLogRepository,
 } from "../../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
+import { systemClock } from "../../infrastructure/clock.js";
+import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { seconds } from "../../units/index.js";
 import { effectKeyForTesting } from "../contracts/effect-key.js";
 import { FaultStoreSabotage } from "./pod-protocol.js";
 import { FENCED_EFFECT_METHODS, LEASE_METHODS, type StoreMethod } from "./store-points.js";
@@ -72,6 +75,46 @@ export function staleThenKilled<TStore extends Class>(store: TStore): TStore {
   return typed as TStore;
 }
 
+/** How long the sabotage waits for the store before it answers `Ran`: far below any lease's trust. */
+const GIVES_UP_AFTER = seconds(0.5);
+
+/**
+ * `store` (a fenced-effect store class) that answers `Ran` when the write it asked of its own
+ * (held) store does not answer within `GIVES_UP_AFTER` (#928 S2b): an unknown outcome taken for
+ * done, below the framework's bound — which therefore never fires. It gives no result (the work's
+ * is in the store, or nowhere); the fixture's charge carries on with its own receipt. Named
+ * `TimeoutAsRan<Store>`; it wraps the store with its hold points, so the hold it gives up on is the
+ * held store's.
+ */
+export function timeoutAsRan<TStore extends Class>(store: TStore): TStore {
+  const Concrete = concreteOf(store);
+  const original: unknown = Reflect.get(store.prototype, "runInTransaction");
+  if (typeof original !== "function")
+    throw new TypeError(`${store.name} has no runInTransaction: it is not a fenced-effect store`);
+  const base = original as RunInTransaction;
+  const giving = class extends Concrete {
+    async runInTransaction(key: EffectKey, work: unknown): Promise<unknown> {
+      const given = new AbortController();
+      const answered = base.call(this, key, work);
+      const gaveUp = systemClock.sleep(GIVES_UP_AFTER, given.signal).then(() => ({
+        status: FencedEffectStatus.Ran,
+        result: undefined,
+        token: key.token,
+      }));
+      try {
+        return await Promise.race([answered, gaveUp]);
+      } finally {
+        given.abort();
+      }
+    }
+  };
+  Object.defineProperty(giving, "name", { value: `TimeoutAsRan${store.name}` });
+  const deps: readonly Token[] = depsOf(store);
+  Injectable({ deps: deps as [] })(giving);
+  const typed: unknown = giving;
+  return typed as TStore;
+}
+
 type Release = (this: object, lease: unknown) => Promise<unknown>;
 
 /**
@@ -100,12 +143,26 @@ export function retireReleases<TStore extends Class>(store: TStore): TStore {
 const BREAKS: Readonly<
   Record<
     FaultStoreSabotage,
-    { readonly of: Readonly<Record<string, StoreMethod>>; readonly break: (store: Class) => Class }
+    {
+      readonly of: Readonly<Record<string, StoreMethod>>;
+      readonly break: (store: Class) => Class;
+      /** Wraps the store with its hold points, not the store the holds wrap. */
+      readonly isOutside?: true;
+    }
   >
 > = {
   [FaultStoreSabotage.StaleThenKilled]: { of: FENCED_EFFECT_METHODS, break: staleThenKilled },
   [FaultStoreSabotage.RetireReleases]: { of: LEASE_METHODS, break: retireReleases },
+  [FaultStoreSabotage.TimeoutAsRan]: {
+    of: FENCED_EFFECT_METHODS,
+    break: timeoutAsRan,
+    isOutside: true,
+  },
 };
+
+/** Whether `sabotage` breaks the store with its hold points on (it answers before a hold does). */
+export const isOutsideHolds = (sabotage: FaultStoreSabotage): boolean =>
+  BREAKS[sabotage].isOutside === true;
 
 /** Whether `sabotage` breaks the stores of the contract with `methods`. */
 export const breaksContract = (

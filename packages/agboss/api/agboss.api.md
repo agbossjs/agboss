@@ -8023,6 +8023,25 @@ export interface StepValues<TInstance> extends ValuesSource {
 }
 
 // @public
+export class StoreCallTimeoutError extends StoreOutcomeUnknownError {
+    constructor(options: StoreCallTimeoutErrorOptions);
+    // (undocumented)
+    static readonly code: "store.call-timeout";
+    // (undocumented)
+    readonly code: typeof StoreCallTimeoutError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export interface StoreCallTimeoutErrorOptions extends StoreOutcomeUnknownErrorOptions {
+    // (undocumented)
+    readonly timeout: Milliseconds;
+}
+
+// @public
 export class StoreClock {
     constructor(source?: StoreTimeSource, clock?: Pick<Clock, "now">);
     now(): StoreTime;
@@ -8034,6 +8053,39 @@ export class StoreClock {
 export interface StoreDescriptor {
     readonly backend: string | undefined;
     readonly leaseCheck?: LeaseCheck;
+}
+
+// @public
+export enum StoreOutcomeSource {
+    Command = "command",
+    Framework = "framework",
+    Transport = "transport"
+}
+
+// @public
+export class StoreOutcomeUnknownError extends AGBossError {
+    constructor(options: StoreOutcomeUnknownErrorOptions & {
+        readonly message?: string;
+    });
+    // (undocumented)
+    static readonly code: string;
+    readonly code: "store.outcome-unknown" | "store.call-timeout";
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly operation: string;
+    // (undocumented)
+    readonly source: StoreOutcomeSource;
+    // (undocumented)
+    readonly store: string;
+}
+
+// @public
+export interface StoreOutcomeUnknownErrorOptions extends AGBossErrorOptions {
+    readonly operation: string;
+    // (undocumented)
+    readonly source: StoreOutcomeSource;
+    readonly store: string;
 }
 
 // @public
@@ -10438,6 +10490,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "clearWindow".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pauseUntil".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pausedUntil".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "operation".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "name".

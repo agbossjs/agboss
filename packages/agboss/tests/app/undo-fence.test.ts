@@ -8,7 +8,9 @@
  * `onCompensationStart` from it either), #640's check right before the undo action one held in
  * between. Its call rejects with `ExecutionLeaseLostError`.
  */
-import { beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, onTestFinished } from "vitest";
+import { BOUNDED_CONTRACTS } from "../../src/infrastructure/contracts.js";
+import { ExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { ExecutionLeaseLostError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -33,7 +35,14 @@ import {
 
 const test = testWith(UndoObserverGateApplication, { instances: 2 });
 
+// #928: the hold at the done mark's read stands for a stall of the holder itself, which the
+// check under test must stop; a held store call would be given up by the store calls' bound
+// first (its own tests are store-call-bound-*), so the tree store is left unbounded here
 beforeEach(() => {
+  BOUNDED_CONTRACTS.delete(ExecutionTreeRepository);
+  onTestFinished(() => {
+    BOUNDED_CONTRACTS.add(ExecutionTreeRepository);
+  });
   resetYield();
   resetEndOnce();
   resetUndo();

@@ -4,6 +4,7 @@ import type { ExecutionLease } from "../infrastructure/execution-lease.repositor
 import type { AuditLogWriter } from "./execution-leases.js";
 import type * as AuditLog from "./audit-log.js";
 import type { HandOverReport } from "./audit-log.js";
+import { outsideLease } from "./lease-scope.js";
 /**
  * When a held lease is yielded (#333 PR 4, #471): while every caller of the tree waits for remote
  * children (`yieldWhile`) and no step of the tree runs — a sibling branch's step keeps the lease, and
@@ -185,7 +186,10 @@ export class AuditLogReports {
     write: (recording: typeof AuditLog, log: AuditLogWriter) => Promise<void>,
   ): void {
     if (events === undefined) return;
-    this.#tail = this.#tail.then(async () => write(await events.recording, events));
+    // never a hand-over of the lease it records (#928): outside it, whatever frame wrote it
+    this.#tail = this.#tail.then(async () =>
+      outsideLease(async () => write(await events.recording, events)),
+    );
   }
 }
 

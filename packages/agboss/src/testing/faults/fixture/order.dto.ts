@@ -13,9 +13,20 @@ export class FaultOrderDto {
 
   @OneOf({
     prompt: "how its payment talks to the gateway",
-    values: ["lookup", "replay-only", "replay-only-trusted-as-lookup", "every-error-definite"],
+    values: [
+      "lookup",
+      "replay-only",
+      "replay-only-trusted-as-lookup",
+      "every-error-definite",
+      "unknown-as-not-sent",
+    ],
   })
-  payment!: "lookup" | "replay-only" | "replay-only-trusted-as-lookup" | "every-error-definite";
+  payment!:
+    | "lookup"
+    | "replay-only"
+    | "replay-only-trusted-as-lookup"
+    | "every-error-definite"
+    | "unknown-as-not-sent";
 }
 
 /** The order, reserved. */

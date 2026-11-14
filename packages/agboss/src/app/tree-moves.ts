@@ -16,14 +16,15 @@ import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
 import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
-import { observedPass } from "./observed-pass.js";
 import type { RecordedAnswer } from "./resume.js";
-import { announceResume, callWithLostPasses, markTaken, treeResumeNow } from "./tree-resume.js";
+import { announceResume, callWithLostPasses, treeResumeNow } from "./tree-resume.js";
 import { withPauseAnswers } from "./result.js";
 import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
+import { leaseScope } from "./lease-scope.js";
+import { passesOf } from "./drain-passes.js";
 import { withTreeOrigin } from "./tree-origin.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
@@ -167,7 +168,7 @@ class TreeMover implements TreeMoves {
   }
 
   /** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
-  private async nextPass(
+  async nextPass(
     state: TreeState,
     call: TreeCall,
     passed?: ReadonlySet<string>,
@@ -180,11 +181,7 @@ class TreeMover implements TreeMoves {
     return { resume, pass: resumePassOf(stored, resume, call) };
   }
 
-  private announce(
-    reason: ResumeReason,
-    resume: TreeResume | undefined,
-    state: TreeState,
-  ): Promise<void> {
+  announce(reason: ResumeReason, resume: TreeResume | undefined, state: TreeState): Promise<void> {
     const event = executionEventAt(state, this.parts.deps);
     return announceResume(this.parts.deps.observer, event, reason, resume);
   }
@@ -220,21 +217,11 @@ class TreeMover implements TreeMoves {
       const requests = await cancelRequests();
       const watch = requests.cancelWatchOf(this.parts.trees, state);
       requests.watchedBy(lease, watch);
-      let planned: PlannedPass | undefined = first;
-      let result: ExecutionOutput;
-      const passed = new Set<string>();
-      do {
-        result = await observedPass(this.parts, state, call, { lease, watch, undo }, planned.pass);
-        if (planned.resume !== undefined) {
-          await markTaken(deps, planned.resume);
-          for (const pauseId of planned.resume.pauseIds) passed.add(pauseId);
-        }
-        await requests.endIfCancelledAtRest(this.parts, state, { result, watch, lease, undo });
-        const isPaused = result.status === ExecutionStatus.Paused;
-        planned = isPaused ? await this.nextPass(state, call, passed) : undefined;
-        if (planned !== undefined)
-          await this.announce(ResumeReason.Answered, planned.resume, state);
-      } while (planned !== undefined);
+      // the passes up to the terminal record's completion hold the lease (#928): an unanswered call
+      // there hands over; the cleanup after them (kept record, keys) stays outside it
+      const result = await leaseScope(lease, () =>
+        passesOf(this.parts, this, { state, call }, { held: { lease, watch, undo }, first }),
+      );
       // #699: the kept record first — a pod killed in the cleanup's round trips keeps it
       await keepExecutionRecord(deps, state, historyRestOf(result.status));
       if (result.status === ExecutionStatus.Finished) await forgetTree(this.parts, state);

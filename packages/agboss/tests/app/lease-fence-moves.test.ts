@@ -78,6 +78,26 @@ describe("#533: the background renewal", () => {
     ).resolves.toBe(1);
   });
 
+  it("#928: a renewal still in flight at its tick is not overlapped, and the cadence is not pushed out", async () => {
+    const clock = new VirtualClock();
+    const working = new AbortController();
+    const settles: (() => void)[] = [];
+    let renewals = 0;
+    const loop = renewInBackground(clock, working.signal, () => {
+      renewals += 1;
+      return new Promise<void>((resolve) => settles.push(resolve));
+    });
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+    expect(renewals).toBe(1);
+    settles.shift()?.();
+    await clock.advance(seconds(10));
+    expect(renewals).toBe(2);
+    working.abort();
+    await loop;
+  });
+
   it("retries any other failure at the next period", async () => {
     await expect(renewalsWhile(new Error("the lease store is down"))).resolves.toBe(3);
   });

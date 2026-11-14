@@ -44,6 +44,17 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(root.SyncWorkRequiredError, { effect: "charge" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
+  fx(root.StoreOutcomeUnknownError, {
+    store: "PgFencedEffectRepository",
+    operation: "runOnce",
+    source: root.StoreOutcomeSource.Transport,
+  }),
+  fx(root.StoreCallTimeoutError, {
+    store: "PgFencedEffectRepository",
+    operation: "runOnce",
+    source: root.StoreOutcomeSource.Command,
+    timeout: seconds(10),
+  }),
   fx(root.ExecutionFencedError, {
     scopeKey: "acme:root-1",
     tenantId: "acme",

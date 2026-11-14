@@ -16,7 +16,7 @@ import { ExecutionOutcome, METRICS, type MetricSpec } from "./metric-catalog.js"
  * reads enums and workflow names only, never a tenant, an id or a message.
  */
 
-const counterOf = (meter: Meter, spec: MetricSpec): Counter =>
+export const counterOf = (meter: Meter, spec: MetricSpec): Counter =>
   meter.createCounter(spec.name, { unit: spec.unit, description: spec.description });
 
 /** `agboss.instance.executions.ended`'s outcome of a failure: a cancel, or a failure. */

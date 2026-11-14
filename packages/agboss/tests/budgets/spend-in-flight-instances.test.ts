@@ -140,7 +140,8 @@ describe.each(STORES)("#727, #732 on two instances, on $stores", ({ application,
       const run = outcomeOf(
         execute(app, ParentPayWorkflowStart, { name: "a", delay: 0, outcome: "ok" }),
       );
-      for (let i = 0; i < 30; i += 1) await clock.advance("1s");
+      // held below the store calls' bound (#928): a held write kept longer is given up on, its tree handed over
+      for (let i = 0; i < 12; i += 1) await clock.advance("1s");
 
       expect(inFlight.ran).toEqual(["a:parent-pay"]);
       release();

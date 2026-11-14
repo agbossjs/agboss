@@ -27,6 +27,18 @@ import { s19Paused, s19bAnswering, s19cResuming } from "./s19-pause.js";
 
 import { s20bCancelAtPayment, s20CancelAtCharge } from "./s20-cancel-at-payment.js";
 import { s21bDelivered, s21cCommitted, s21Claimed } from "./s21-pause-notices.js";
+import {
+  s22aChargeNeverAnswers,
+  s22bChargeCommittedNeverAnswered,
+} from "./s22-store-never-answers.js";
+import {
+  s22c2AnswerRecordedNeverAnswered,
+  s22cPaymentAnswerNeverRecorded,
+  s22d2IntentRecordedNeverAnswered,
+  s22dIntentNeverAnswered,
+  s22eFailureNeverRecorded,
+} from "./s22-outbound-never-answers.js";
+import { s22fChildClaimNeverAnswered, s22gDatabaseFrozen } from "./s22-child-database.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -70,6 +82,15 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s21Claimed,
   s21bDelivered,
   s21cCommitted,
+  s22aChargeNeverAnswers,
+  s22bChargeCommittedNeverAnswered,
+  s22cPaymentAnswerNeverRecorded,
+  s22c2AnswerRecordedNeverAnswered,
+  s22dIntentNeverAnswered,
+  s22d2IntentRecordedNeverAnswered,
+  s22eFailureNeverRecorded,
+  s22fChildClaimNeverAnswered,
+  s22gDatabaseFrozen,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

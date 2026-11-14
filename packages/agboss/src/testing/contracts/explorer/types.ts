@@ -112,6 +112,8 @@ export interface ExplorerWorld {
   readonly treeOf: (instance: number) => string;
   /** How each instance's own clock is off (the store keeps the run's time). */
   readonly skewOf: (instance: number) => ClockSkew;
+  /** What one action may take, in real time (default `STORE_CALL_BOUND`, #928); a test's shorter one. */
+  readonly callBound?: Milliseconds;
 }
 
 /** The business key every explored call sends under. */

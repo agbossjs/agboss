@@ -3,8 +3,9 @@
  * from `close()` on) and its recovery loop (`Unhealthy` when its last sweep ended more than three
  * sweep intervals ago on the `Clock`). It never rejects.
  */
-import { afterEach, beforeEach, describe, expect } from "vitest";
-import { HealthComponentKind, HealthStatus } from "../../src/index.js";
+import { afterEach, beforeEach, describe, expect, onTestFinished } from "vitest";
+import { ExecutionRecordRepository, HealthComponentKind, HealthStatus } from "../../src/index.js";
+import { BOUNDED_CONTRACTS } from "../../src/infrastructure/contracts.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { levers, PlainProbeApplication, resetHealth } from "./fixtures/health.application.js";
@@ -73,10 +74,28 @@ describe("#300 AC1: liveness", () => {
     expect((await app.checkLiveness()).status).toBe(HealthStatus.Healthy);
   });
 
+  test("a recovery loop whose look-up never answers is freed by the store calls' bound (#928) and stays healthy", async ({
+    app,
+    clock,
+  }) => {
+    levers.isSweepStuck = true;
+    await app.ready();
+
+    await clock.advance(seconds(120));
+
+    expect((await app.checkLiveness()).status).toBe(HealthStatus.Healthy);
+  });
+
+  // a look-up the bound does not cover stands for any other reason a loop stops (a hot loop, a
+  // wait of its own): the liveness probe finds it by the loop's last sweep, whatever it is stuck on
   test("a recovery loop stuck in its look-up past three intervals is unhealthy", async ({
     app,
     clock,
   }) => {
+    BOUNDED_CONTRACTS.delete(ExecutionRecordRepository);
+    onTestFinished(() => {
+      BOUNDED_CONTRACTS.add(ExecutionRecordRepository);
+    });
     levers.isSweepStuck = true;
     await app.ready();
     await clock.advance(seconds(90));

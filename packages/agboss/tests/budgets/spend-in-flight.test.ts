@@ -82,7 +82,8 @@ describe("#732: a child on any instance right after its parent paid", () => {
   }) => {
     ({ release } = resetInFlight());
     const run = outcomeOf(execute(app, ParentPayWorkflowStart, items[0]));
-    for (let i = 0; i < 30; i += 1) await clock.advance("1s");
+    // held below the store calls' bound (#928): a held write kept longer is given up on, its tree handed over
+    for (let i = 0; i < 12; i += 1) await clock.advance("1s");
 
     // the child is not queued before the parent's $90 is in the ledger, nor is any state that
     // holds the $90 checkpointed: a takeover never finds it marked as in the ledger and missing

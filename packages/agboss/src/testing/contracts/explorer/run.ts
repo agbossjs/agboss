@@ -3,8 +3,14 @@ import { applicationContextOf } from "../../../flow/context/application-context.
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
 import { StoreClock, StoreTimeSource } from "../../../infrastructure/clock.js";
+import { STORE_CALL_BOUND } from "../../../app/lease-fence.js";
+import {
+  StoreCallTimeoutError,
+  StoreOutcomeSource,
+} from "../../../infrastructure/store-call-timeout.js";
 import type { ContractTarget, StoreInstanceContext } from "../instance-context.js";
 import { trackedStore } from "../tracked-store.js";
+import { actionWatchdog } from "./action-watchdog.js";
 import { stepOf } from "./moves.js";
 import { Observer } from "./observer.js";
 import type { CallPhase } from "./calls.js";
@@ -90,13 +96,27 @@ export class ExplorerRun {
   async step(action: ExplorerAction): Promise<void> {
     let label: string;
     try {
-      label = await stepOf(this, action);
+      label = await this.#bounded(action);
     } catch (error) {
       label = `threw ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`;
       if (!isFenced(error) && !isCancelFenced(error))
         this.observer.fail(ExplorerInvariant.StoreError, `${describe(action)} ${label}`);
     }
     this.steps.push({ action, label });
+  }
+
+  /**
+   * The action, bounded as an unleased store call (#928): the run's own clock never advances while
+   * an action waits, so the bound is real time — a store that never answers fails its case within it.
+   */
+  #bounded(action: ExplorerAction): Promise<string> {
+    const timeout = this.world.callBound ?? STORE_CALL_BOUND;
+    const timedOut = (): Error =>
+      new StoreCallTimeoutError({
+        ...{ store: "the store set", operation: describe(action), timeout },
+        source: StoreOutcomeSource.Framework,
+      });
+    return actionWatchdog.watch(stepOf(this, action), timeout, timedOut);
   }
 
   /** What the search remembers of the state. */
