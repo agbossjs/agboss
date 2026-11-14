@@ -1279,6 +1279,20 @@ warned, never its message). A pause the run's deadline bound fails the run with
 and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then `FAILED`
 (`step.pause-expired`) or `COMPLETED`.
 
+**Extend a pause, remind before its deadline** (#942). `await app.extendPause({ pauseId, expiresIn:
+hours(24) }, { answeredBy })` (the `ownerId` for a thread owner's pause: who may answer may extend)
+moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
+`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseExtended(event)` and a
+`@PauseListener`'s `onPauseExtended` hear "extended until …". Refused: a closed pause or one past its
+deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
+deadline not later than the current one, and one past the deadline of the run the pause was made
+under (`DtoValidationError`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
+expiry look: one wins. `@ChannelRole({ expiresIn: hours(24), remindBefore: hours(2) })` makes the
+channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
+once per deadline, whatever the number of instances, and again before the new deadline after an
+extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
+(`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`).
+
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
 `onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.

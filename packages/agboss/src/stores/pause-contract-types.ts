@@ -5,7 +5,7 @@ export {
   NO_RECIPIENTS,
   PauseNoticeKind,
   recipientKeysOf,
-  type PauseExtension,
+  type PauseDeadlineChange,
   type PauseFilter,
   type PauseMailbox,
   type PauseNotice,

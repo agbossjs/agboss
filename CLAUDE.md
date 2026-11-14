@@ -2324,7 +2324,19 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   rest (`TreeMover.afterRest`): a pass never rests on a due pause (I6). `settledAnswer` throws `PauseExpirySignal` for `Cancelled / Expired`;
   `questionRunner` and the agent's approval node turn it into `PauseExpiredError` (or, bound by the run, `DeadlineExceededError`:
   `flow/runtime/pause-expiry-failure.ts`). Fault scenarios `s24*` (`faults/scenarios/s24-pause-expiry.ts`) and the invariants
-  `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
+  **Extension and reminder (#942):** `@ChannelRole({ remindBefore })` → `PauseChannel.remindBefore` (`components/channel-parts.ts`) →
+  `remindAtOf(expiresAt, remindBefore, askedAt)` in `newRecordOf` (`remindAt` only when after the ask; the effective `expiresAt`, so a
+  run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
+  warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a question step's or a tool's `expiresIn` ≤ the
+  role's `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
+  `answeredByOf` as an answer, then refusals (`DtoValidationError` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
+  `PauseClosedError` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
+  expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
+  timers: `findPendingByRemindAtBefore(now, 50)`, only trees whose root record's `bundle` is a workflow of the instance, then
+  `remindByTenantIdAndPauseId` with `PauseNoticeHub.recipientsOf`) writes `expiring` once across instances. Notices `extended` /
+  `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
+  four hooks has a mailbox) and a listener's optional methods of the same names. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept

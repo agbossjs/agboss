@@ -41,6 +41,8 @@ export interface PauseChannel {
   readonly answerer: PauseAnswerer;
   /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
   readonly expiresIn?: Milliseconds | undefined;
+  /** How long before its deadline its pauses are reminded (#942): its role's `remindBefore`; none → no reminder. */
+  readonly remindBefore?: Milliseconds | undefined;
 }
 
 /**

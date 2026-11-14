@@ -523,6 +523,7 @@ export interface DescribedChannel {
     readonly question: string;
     // (undocumented)
     readonly reason?: ChannelImplementationReason;
+    readonly remindBefore?: number;
     readonly replyInterpreter?: string;
     readonly tools: readonly string[];
 }

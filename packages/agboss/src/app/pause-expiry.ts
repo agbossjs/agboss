@@ -7,6 +7,7 @@ import {
   logPauseAnswer,
   pauseKeyOf,
   PauseExpiryBound,
+  effectiveBoundOf,
   PauseResolution,
   PauseStatus,
   type PauseExpiry,
@@ -125,11 +126,8 @@ async function expiryOf(
   pause: PauseRecord,
   interruption: AbortSignal | undefined,
 ): Promise<PauseExpiry> {
-  if (
-    pause.expiryBound === PauseExpiryBound.RunDeadline ||
-    pause.expiryBound === PauseExpiryBound.Quorum
-  )
-    return FAILED;
+  const bound = effectiveBoundOf(pause);
+  if (bound === PauseExpiryBound.RunDeadline || bound === PauseExpiryBound.Quorum) return FAILED;
   const sender = senderOf(parts, pause);
   if (sender?.onPauseExpired === undefined) return FAILED;
   return askedChannel(parts, (ask) => sender.onPauseExpired?.(ask), pause, interruption);

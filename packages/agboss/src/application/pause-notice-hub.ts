@@ -8,7 +8,7 @@ import type { Class } from "../components/injection.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import type { PauseRecord } from "../infrastructure/pause-record.js";
+import type { PauseRecipients, PauseRecord } from "../infrastructure/pause-record.js";
 import type { PauseNotices } from "../pause/types.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import {
@@ -35,6 +35,13 @@ export interface PauseNoticeHub {
   readonly interruptedBy: (signal: AbortSignal) => void;
   /** Knows the instance's workflows once they are built. */
   readonly bind: (workflows: readonly BuiltApp[]) => void;
+  /**
+   * Who is told of a change of a pause (#942: the reminder look writes without a workflow at hand):
+   * its channel when that listens, found in whichever workflow of the instance has it, and every listener.
+   */
+  readonly recipientsOf: (pause: PauseRecord) => PauseRecipients;
+  /** Notices were written by the caller: a look for them at once, not awaited, never throws. */
+  readonly delivered: () => void;
   /** One look for notices due (the timers' look). */
   readonly look: () => Promise<void>;
   /** Resolves when the looks started by the fast path ended (`app.close()` waits for them). */
@@ -59,6 +66,17 @@ const listeningChannels = (workflows: readonly BuiltApp[]): readonly string[] =>
     ),
   ),
 ];
+
+/** The sender of a pause's channel in the workflow `deps` has the pause's workflow in; `undefined`: none. */
+function senderIn(deps: AppDeps, pause: PauseRecord): ChannelSender | undefined {
+  const own = graphDepsNamed(deps, pause.workflow);
+  try {
+    return own?.channelOf?.(pause.channel).sender;
+  } catch {
+    // a channel this workflow does not have: nobody to tell
+    return undefined;
+  }
+}
 
 /** The instance's hub over its assembled application and stores. */
 export function pauseNoticeHubOf(
@@ -101,6 +119,15 @@ class Hub implements PauseNoticeHub {
   async settled(): Promise<void> {
     await Promise.allSettled([...this.#fast]);
     if (this.#loading !== undefined) await (await this.#loading).settled();
+  }
+
+  recipientsOf(pause: PauseRecord): PauseRecipients {
+    const sender = this.#workflows.map((one) => senderIn(one.deps, pause)).find(Boolean);
+    return recipientsOf({ senderOf: () => sender, listeners: this.#names })(pause);
+  }
+
+  delivered(): void {
+    this.#kick();
   }
 
   noticesFor(depsOf: () => AppDeps): PauseNotices {

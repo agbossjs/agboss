@@ -6,6 +6,8 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type {
   PauseListenerAnswerNotTakenEvent,
   PauseListenerClosedEvent,
+  PauseListenerExpiringEvent,
+  PauseListenerExtendedEvent,
   PauseListenerOpenedEvent,
 } from "./notice-events.js";
 
@@ -24,6 +26,10 @@ export interface PauseListenerHandler {
   onPauseClosed(event: PauseListenerClosedEvent): Promise<void>;
   /** A recorded answer was never applied: its run ended first. */
   onPauseAnswerNotTaken?(event: PauseListenerAnswerNotTakenEvent): Promise<void>;
+  /** A pause's deadline moved: an operator extended it (#942). */
+  onPauseExtended?(event: PauseListenerExtendedEvent): Promise<void>;
+  /** A pause is about to expire: `remindBefore` before its deadline, once per deadline (#942). */
+  onPauseExpiring?(event: PauseListenerExpiringEvent): Promise<void>;
 }
 
 /** `@PauseListener` options. */

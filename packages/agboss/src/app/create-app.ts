@@ -21,7 +21,7 @@ import {
   type WorkflowDepsParts,
 } from "./app-deps.js";
 import { pausedRunBook } from "./paused-runs.js";
-import { UnknownToolError } from "./parts.js";
+import { knows } from "./parts.js";
 import { LiveRuns, runOptionsOf } from "./live-runs.js";
 import { executionLeasesOf } from "./execution-leases.js";
 import { leasingOf } from "../infrastructure/contracts.js";
@@ -41,6 +41,7 @@ import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
+import { extendPauseOf } from "./pause-extension.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
@@ -213,6 +214,7 @@ export async function buildApp(
     cancel: async (threadId, options = {}) =>
       (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
     resume: resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf }),
+    extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     close: async () => {
       closed = true;
       if (released) return;
@@ -220,15 +222,7 @@ export async function buildApp(
       await deps.close(() => live.settledByStop());
     },
     resolve: (token) => deps.container.get(token),
-    hasTool: (name) => {
-      try {
-        deps.tools(name);
-        return true;
-      } catch (error) {
-        if (error instanceof UnknownToolError) return false;
-        throw error;
-      }
-    },
+    hasTool: (name) => knows(deps.tools, name),
   };
   const workflow = workflowIdentityOf(deps);
   rememberAppWorkflow(app, { workflow, tenant: defaultTenantOf(contexts) });

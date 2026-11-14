@@ -16,6 +16,7 @@ import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
 import { childPlacementRules } from "./rules/child-placement.js";
 import { questionExpiryRules } from "./question-expiry.js";
+import { remindBeforeWarnings } from "./remind-before.js";
 import { judgeFamilyWarnings } from "./rules/judge-family.js";
 import { childRules } from "./rules/children.js";
 import { compensationRules, compensationWarnings } from "./rules/compensation.js";
@@ -126,6 +127,7 @@ const warningsOf = (context: AnalysisContext): readonly RuleViolation[] => [
   ...compensationWarnings(context),
   ...judgeFamilyWarnings(context),
   ...worstCaseStepsWarnings(context),
+  ...remindBeforeWarnings(context),
 ];
 
 /** Checks a workflow without throwing. */

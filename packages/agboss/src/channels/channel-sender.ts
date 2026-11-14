@@ -10,6 +10,8 @@ export interface ChannelSender {
   send(ask: ChannelSenderAsk): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
+  onPauseExtended?(event: ChannelSenderExtended): Promise<void>;
+  onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
   /** What the expiry of a pause it sent means (#941); absent: `PauseExpiration.fail()`. */
   onPauseExpired?(ask: ChannelSenderAsk): unknown;
 }
@@ -34,4 +36,15 @@ export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredE
   readonly at: string;
   readonly answeredBy?: string;
   readonly answer: unknown;
+}
+
+/** An extension as the framework builds it (#942). */
+export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredEvent {
+  readonly expiresAt: string;
+  readonly previousExpiresAt: string;
+}
+
+/** A reminder as the framework builds it (#942). */
+export interface ChannelSenderExpiring extends ChannelSenderAsk, PauseDeliveredEvent {
+  readonly expiresAt: string;
 }

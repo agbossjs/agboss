@@ -8,7 +8,7 @@ import type {
   PausePage,
   PauseRecipients,
   PauseScanAfter,
-  PauseExtension,
+  PauseDeadlineChange,
   SetAsideMailbox,
 } from "./pause-notices.js";
 import type {
@@ -187,7 +187,7 @@ export abstract class PausedExecutionRepository {
   abstract extendByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseExtension,
+    change: PauseDeadlineChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined>;

@@ -3,11 +3,12 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { expiryLookOf, type ExpiringWorkflow } from "./pause-expiry-look.js";
 import type { PauseNoticeHub } from "./pause-notice-hub.js";
+import { reminderLookOf } from "./pause-reminder-look.js";
 import { startPauseTimers, type PauseTimers } from "./pause-timers.js";
 
 /**
- * The pause timers of an application instance (#940, #941): one loop whose looks are the delivery of
- * pause notices and the expiry of the pauses whose deadline passed — started now, stopped by the
+ * The pause timers of an application instance (#940, #941, #942): one loop whose looks are the delivery
+ * of pause notices, the expiry of the pauses whose deadline passed and the reminders before it — started now, stopped by the
  * instance's `interruption`.
  */
 export function instanceTimersOf(
@@ -29,6 +30,18 @@ export function instanceTimersOf(
     looks: [
       { name: "notices", run: () => notices.look() },
       expiryLookOf(infrastructure, log, workflows, signal, stepSlots),
+      reminderLookOf(
+        infrastructure,
+        log,
+        {
+          bundles: new Set(workflows.map((one) => one.deps.config.name)),
+          recipientsOf: (pause) => notices.recipientsOf(pause),
+          delivered: () => {
+            notices.delivered();
+          },
+        },
+        signal,
+      ),
     ],
   });
 }

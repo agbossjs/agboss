@@ -129,6 +129,8 @@ export function composeApp(
       (starts.get(start) ?? first).app.execute(start, input, ...options),
     resume: async (request, options) =>
       (await ofPause(request.pauseId, options?.tenantId)).app.resume(request, options),
+    extendPause: async (request, options) =>
+      (await ofPause(request.pauseId, options?.tenantId)).app.extendPause(request, options),
     cancel: async (threadId, options) =>
       (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
     close: (options) => stop.close(options),

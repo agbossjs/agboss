@@ -123,7 +123,7 @@ export interface SetAsideMailbox {
 }
 
 /** The deadline change `extend…` applies. */
-export interface PauseExtension {
+export interface PauseDeadlineChange {
   /** The new deadline (ISO 8601); after `at`. */
   readonly expiresAt: string;
   /** The new reminder time (ISO 8601); absent: none. */

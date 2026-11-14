@@ -113,12 +113,17 @@ export {
   type ExecutionOptions,
   type ExecutionOutput,
   type ExecutionTreeQuery,
+  type ExtendPauseRequest,
+  type PauseCallerOptions,
+  type PauseExtension,
   type PendingOutboundCallsQuery,
+  type ChannelPauseOptions,
   type ChannelResumeOptions,
   type DecisionResumeRequest,
   type ReplyResumeRequest,
   type ResumeOptions,
   type ResumeRequest,
+  type ThreadOwnerPauseOptions,
   type ThreadOwnerResumeOptions,
 } from "../app/types.js";
 export type { ExecutionId } from "../core/run-context.js";

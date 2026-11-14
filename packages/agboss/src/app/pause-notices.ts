@@ -10,11 +10,18 @@ import {
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
-import type { ChannelSenderClosed, ChannelSenderNotTaken } from "../channels/channel-sender.js";
+import type {
+  ChannelSenderClosed,
+  ChannelSenderExpiring,
+  ChannelSenderExtended,
+  ChannelSenderNotTaken,
+} from "../channels/channel-sender.js";
 import type {
   PauseListenerAnswerNotTakenEvent,
   PauseListenerClosedEvent,
   PauseListenerEventBase,
+  PauseListenerExpiringEvent,
+  PauseListenerExtendedEvent,
   PauseListenerOpenedEvent,
 } from "../pause/notice-events.js";
 
@@ -26,7 +33,12 @@ import type {
  */
 
 /** The notice hooks of a channel: it listens when its sender overrides any of them. */
-const NOTICE_HOOKS = ["onPauseClosed", "onPauseAnswerNotTaken"] as const;
+const NOTICE_HOOKS = [
+  "onPauseClosed",
+  "onPauseAnswerNotTaken",
+  "onPauseExtended",
+  "onPauseExpiring",
+] as const;
 
 /** Whether a channel's sender has a hook of its own: a function, not `ChannelOf`'s default. */
 export function hookOverridden(
@@ -117,6 +129,38 @@ export async function channelNotTakenOf(sources: EventSources): Promise<ChannelS
   };
 }
 
+/** The deadline a notice names; a notice of a deadline always carries it (the store writes it). */
+function deadlineOf(notice: PauseNotice): string {
+  if (notice.expiresAt === undefined)
+    throw new TypeError(`a ${notice.kind} notice names its deadline`);
+  return notice.expiresAt;
+}
+
+/** The deadline an extension moved from. */
+function previousDeadlineOf(notice: PauseNotice): string {
+  if (notice.previousExpiresAt === undefined)
+    throw new TypeError("an extended notice names the deadline it moved from");
+  return notice.previousExpiresAt;
+}
+
+/** The `extended` event of a channel (#942). */
+export function channelExtendedOf(sources: EventSources): ChannelSenderExtended {
+  const { pause, notice, deliveryId } = sources;
+  return {
+    deliveryId,
+    pauseId: pause.pauseId,
+    value: pause.ask,
+    expiresAt: deadlineOf(notice),
+    previousExpiresAt: previousDeadlineOf(notice),
+  };
+}
+
+/** The `expiring` event of a channel (#942). */
+export function channelExpiringOf(sources: EventSources): ChannelSenderExpiring {
+  const { pause, notice, deliveryId } = sources;
+  return { deliveryId, pauseId: pause.pauseId, value: pause.ask, expiresAt: deadlineOf(notice) };
+}
+
 /** What a listener reads of every pause: the safe context; the id only when it may answer. */
 async function listenerBaseOf(
   sources: EventSources,
@@ -179,4 +223,23 @@ export async function listenerNotTakenOf(
     ...(by === undefined ? {} : { answeredBy: by }),
     answer: await sources.masked(pause.answer?.decision),
   };
+}
+
+/** The `extended` event of a listener (#942). */
+export async function listenerExtendedOf(
+  sources: EventSources,
+  allowAnswering: boolean,
+): Promise<PauseListenerExtendedEvent> {
+  const base = await listenerBaseOf(sources, allowAnswering);
+  const { notice } = sources;
+  return { ...base, expiresAt: deadlineOf(notice), previousExpiresAt: previousDeadlineOf(notice) };
+}
+
+/** The `expiring` event of a listener (#942). */
+export async function listenerExpiringOf(
+  sources: EventSources,
+  allowAnswering: boolean,
+): Promise<PauseListenerExpiringEvent> {
+  const base = await listenerBaseOf(sources, allowAnswering);
+  return { ...base, expiresAt: deadlineOf(sources.notice) };
 }
