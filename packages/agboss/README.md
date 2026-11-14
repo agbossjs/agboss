@@ -1285,6 +1285,18 @@ to stream (#1004). An agent with an `output` DTO answers with an answer tool, so
 text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
 fails the run.
 
+What streams depends on the provider (#1005). An HTTP provider (OpenRouter, any OpenAI-compatible
+server) streams the answer token by token: the call goes out as a server-sent stream only for that
+answering call in a run that has `onStream`, with `stream_options.include_usage`, so usage, cost and
+budgets are exactly a plain call's. A stream that fails before its first text (an `{error}` inside
+the 200, a cut) is retried like any failed call (a cut is a `ModelFailure.NetworkError`, which the
+default `TRANSIENT_FAILURES` does not list: add it to `retryOn` to retry it); one that fails after
+text is not retried — the call fails and counts once in the provider's breaker, never as a success.
+A transport provider (`complete()`) streams the whole answer as one delta at the end. A fallback
+model's answer streams like the primary's; when the primary dies mid-stream and its breaker opens,
+the text so far is retracted (`stream-broken`) and the fallback answers from the start. `agboss run`
+prints the answer from the result when nothing streamed.
+
 Streamed text is **provisional** (#1006). Every `textDelta` carries `step: { agent, visit, branch,
 attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
 that makes it (a child workflow has its own) and the agent's model call in the visit — so parallel

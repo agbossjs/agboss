@@ -9,19 +9,35 @@ import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
 import { askWith } from "./cli/ask.js";
-import { memoryLine, outputText, summaryLine, threadLine, untilDone } from "./cli/approve.js";
+import {
+  memoryLine,
+  outputText,
+  summaryLine,
+  threadLine,
+  unstreamedAnswer,
+  untilDone,
+} from "./cli/approve.js";
 import { loadChosenStart } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
 import { envOption } from "./cli/environment.js";
 import { runInputOf } from "./cli/run-input.js";
 
+/** Whether any text of the reply streamed (a provider that streams nothing leaves the reply to the result). */
+interface Streamed {
+  text: boolean;
+}
+
 /** The reply streams to stdout (stderr under --json); tool use and the summary go to stderr. */
-function streamTo(context: CommandContext): (event: ExecutionStreamEvent) => void {
+function streamTo(
+  context: CommandContext,
+  streamed: Streamed,
+): (event: ExecutionStreamEvent) => void {
   const reply = context.json ? context.io.stderr : context.io.stdout;
   return (event) => {
     switch (event.kind) {
       case "textDelta":
+        streamed.text = true;
         reply.write(event.delta);
         break;
       case "discarded":
@@ -40,13 +56,14 @@ async function execute(
   app: App,
   start: ApplicationStart,
   input: unknown,
+  streamed: Streamed,
 ): Promise<ExecutionOutput> {
   const thread = textOption(context.values, "thread");
   const rl = createInterface({ input: process.stdin, terminal: false });
   try {
     const first = await executeWithoutInputCheck(app, start.component, input, {
       ...(thread === undefined ? {} : { threadId: thread }),
-      onStream: streamTo(context),
+      onStream: streamTo(context, streamed),
     });
     return await untilDone(
       first,
@@ -58,8 +75,17 @@ async function execute(
   }
 }
 
-function report(context: CommandContext, app: App, result: ExecutionOutput): void {
-  (context.json ? context.io.stderr : context.io.stdout).write("\n");
+function report(
+  context: CommandContext,
+  app: App,
+  result: ExecutionOutput,
+  streamed: Streamed,
+): void {
+  const reply = context.json ? context.io.stderr : context.io.stdout;
+  // nothing streamed (a provider or an agent that does not stream): the answer is the result's
+  const answer = context.json ? undefined : unstreamedAnswer(result, streamed.text);
+  if (answer !== undefined) reply.write(answer);
+  reply.write("\n");
   context.warn(`${threadLine(result)}  (continue with --thread ${result.threadId})`);
   context.warn(`config: ${app.name} | ${summaryLine(result)}`);
   const memory = memoryLine(result);
@@ -86,8 +112,9 @@ export const handle: CommandHandler = async (context) => {
   });
   // the startup warnings are in the app's start log (its Logger); --json returns them too
   try {
-    const result = await execute(context, app, start, input);
-    report(context, app, result);
+    const streamed: Streamed = { text: false };
+    const result = await execute(context, app, start, input, streamed);
+    report(context, app, result, streamed);
     const { threadId: thread, status, finish, output: answer } = result;
     const output = {
       start: start.name,

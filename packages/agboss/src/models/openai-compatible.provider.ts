@@ -47,6 +47,8 @@ export abstract class OpenAiCompatibleProvider<
         ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
         // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
         maxRetries: 0,
+        // a streamed call (the run has `onStream`, #1005) reports its real usage, so budgets stay exact
+        streamUsage: true,
         configuration: {
           baseURL: connection.baseUrl,
           fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),

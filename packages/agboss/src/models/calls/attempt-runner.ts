@@ -80,7 +80,7 @@ async function outcomeOf<T>(
   carrier: AttemptCarrier<T>,
 ): Promise<AttemptOutcome<T>> {
   if (attempt.kind === "answered" && attempt.failure === undefined) {
-    await options.breaker?.recordSuccess();
+    if (attempt.settledAtEnd !== true) await options.breaker?.recordSuccess();
     return { kind: "answer", answer: attempt.answer };
   }
   await slowDownOn429(attempt, tries, options);

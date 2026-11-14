@@ -12,6 +12,10 @@ import { fakeChatFactory, fakeDeps, routeTo, runText } from "../helpers.js";
 
 /** Writes its answer in two tokens and notes what the listener had heard between them. */
 class Observed extends FakeListChatModel {
+  // writes its tokens through `_generate`: an answering call asks for a stream (#1005), which would
+  // take the fake's own chunks instead
+  override disableStreaming = true;
+
   constructor(
     private readonly heard: () => number,
     private readonly seen: number[],
