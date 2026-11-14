@@ -4,7 +4,7 @@
  * ends up correct.
  */
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, symlinkSync, unlinkSync, utimesSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, symlinkSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ import { LOCK_NAME } from "../../src/skills/lock.js";
 import { LinkStatus, SkillsSyncStatus } from "../../src/skills/status.js";
 import { linkClaudeSkills, REAL_LINK_OPS, type LinkOps } from "../../src/skills/link.js";
 import { syncSkills } from "../../src/skills/sync.js";
+import { deadPid, thisHost, writeLock } from "./lock-helpers.js";
 
 const child = new URL("../fixtures/cli/skills-sync-child.ts", import.meta.url).pathname;
 const noHome = { home: () => undefined };
@@ -53,7 +54,7 @@ describe("#983 D3: concurrent syncs", () => {
   it("#983 D3: a lock held by a live sync for the whole wait: end state current, silent; not current, one warning", () => {
     const root = projectRoot();
     syncSkills({ root, isEnabled: true }, "check", noHome);
-    mkdirSync(join(root, ".agents", LOCK_NAME));
+    writeLock(root, {});
 
     const current = syncSkills({ root, isEnabled: true }, "check", {
       ...noHome,
@@ -64,7 +65,7 @@ describe("#983 D3: concurrent syncs", () => {
     expect(current.result.status).toBe(SkillsSyncStatus.Current);
 
     const fresh = projectRoot();
-    mkdirSync(join(fresh, ".agents", LOCK_NAME), { recursive: true });
+    writeLock(fresh, {});
     const skipped = syncSkills({ root: fresh, isEnabled: true }, "check", {
       ...noHome,
       lock: { waitMs: 60, staleMs: 60_000 },
@@ -73,12 +74,9 @@ describe("#983 D3: concurrent syncs", () => {
     expect(readdirSync(join(fresh, ".agents"))).toEqual([LOCK_NAME]);
   });
 
-  it("#983 D3: the lock of a killed holder is stale after a bound and taken over; the lock is released after a sync", () => {
+  it("#983 D3: the lock of a killed holder is taken over; the lock is released after a sync", () => {
     const root = projectRoot();
-    const lock = join(root, ".agents", LOCK_NAME);
-    mkdirSync(lock, { recursive: true });
-    const old = new Date(Date.now() - 60_000);
-    utimesSync(lock, old, old);
+    writeLock(root, { pid: deadPid(), host: thisHost });
 
     const done = syncSkills({ root, isEnabled: true }, "check", {
       ...noHome,

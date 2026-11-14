@@ -10,6 +10,7 @@ import {
   type LegacyPlan,
 } from "./migrate.js";
 import { readManifest } from "./manifest.js";
+import { ownLinksOf } from "./own-links.js";
 import { planSync, type SyncPlan } from "./plan.js";
 import { replaceSkillsFolder, type KeptFile, type ReplaceOps } from "./replace.js";
 import type { SkillFile } from "./source.js";
@@ -61,6 +62,7 @@ const keptOf = (target: string, paths: readonly string[]): KeptFile[] =>
 
 /** The copy of a project with no 0.1.x folder to move: written when it differs from the source. */
 function syncInPlace(
+  root: string,
   target: string,
   files: readonly SkillFile[],
   version: string,
@@ -70,8 +72,17 @@ function syncInPlace(
   const plan = planSync(target, manifest, files, version);
   const result = resultOf(plan, version, manifest?.version);
   if (plan.status === SkillsSyncStatus.Current) return { result, warnings: [], isMoveOpen: false };
-  replaceSkillsFolder(target, files, version, keptOf(target, plan.unmanaged), replace);
-  return { result, warnings: planWarnings(plan, version), isMoveOpen: false };
+  const links = ownLinksOf(
+    root,
+    files.map((file) => file.path),
+  );
+  const kept = [...keptOf(target, plan.unmanaged), ...links.kept];
+  replaceSkillsFolder(target, files, version, kept, replace);
+  return {
+    result,
+    warnings: [...planWarnings(plan, version), ...links.warnings],
+    isMoveOpen: false,
+  };
 }
 
 /** The result of a fresh move: the old folder's plan, every file written. */
@@ -93,6 +104,7 @@ function movedResultOf(
  * carries over the old folder's own files. The old folder goes last.
  */
 function moveLegacy(
+  root: string,
   target: string,
   legacy: Extract<Legacy, { kind: "managed" }>,
   files: readonly SkillFile[],
@@ -102,7 +114,12 @@ function moveLegacy(
   const manifest = readManifest(target);
   const plan = planSync(target, manifest, files, version);
   const old = legacyPlanOf(legacy, files, version);
-  const own = keptOf(target, plan.unmanaged);
+  const links = ownLinksOf(
+    root,
+    files.map((file) => file.path),
+  );
+  const own = [...keptOf(target, plan.unmanaged), ...links.kept];
+  let carried: readonly SkillsWarning[] = [];
   if (manifest === undefined) {
     const kept = [...old.kept, ...own.filter((k) => !old.kept.some((o) => o.path === k.path))];
     replaceSkillsFolder(target, files, version, kept, replace);
@@ -110,7 +127,7 @@ function moveLegacy(
     assertCarryable(target, old.kept);
     if (plan.status !== SkillsSyncStatus.Current)
       replaceSkillsFolder(target, files, version, own, replace);
-    carryOver(target, old.kept);
+    carried = carryOver(target, old.kept);
   }
   const removal = removeLegacy(legacy.folder, replace);
   const isMoved = removal.some((warning) => warning.code === SkillsWarningCode.Moved);
@@ -123,6 +140,8 @@ function moveLegacy(
     result: isMoved ? { ...base, moved: { from: CLAUDE_SKILLS_LINK } } : base,
     warnings: [
       ...(isRewritten ? planWarnings(plan, version) : []),
+      ...(isRewritten || manifest === undefined ? links.warnings : []),
+      ...carried,
       ...planWarnings(old.plan, version),
       ...removal,
     ],
@@ -140,6 +159,6 @@ export function syncCopy(
   const target = join(root, SKILLS_FOLDER);
   const legacy = legacyOf(root, deps.link);
   return legacy.kind === "managed"
-    ? moveLegacy(target, legacy, files, version, deps.replace)
-    : syncInPlace(target, files, version, deps.replace);
+    ? moveLegacy(root, target, legacy, files, version, deps.replace)
+    : syncInPlace(root, target, files, version, deps.replace);
 }
