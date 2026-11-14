@@ -482,6 +482,29 @@ keeping some headroom (about 80 %) for other clients of the same key:
   no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its
   @ModelProvider` (#521; before, its first read crashed with `Cannot read properties of undefined`).
 
+## Streaming (#1005)
+
+What `onStream` hears depends on the provider kind:
+
+- **HTTP providers** (OpenRouter, any OpenAI-compatible server) stream the agent's answer token by
+  token. The call goes out as a server-sent stream (`stream: true`, `stream_options.include_usage`)
+  only for the agent's own answering call in a run that has `onStream`; every other call, and every
+  run without `onStream`, is a plain call. An agent whose text is held back (a blocking output
+  check) is a plain call too. Usage, cost and budgets are exactly a plain call's: `usage.cost`, the
+  host that served the call (`servedBy`, kept when only early chunks name it) and `finish_reason`
+  survive the chunks. Empty tokens are not events.
+- **A failed stream is never a success.** An `{error}` inside the HTTP 200, or a cut, before the
+  first text is a failed attempt: it is retried under `retryPolicy`, a 429 pauses the provider like a
+  429 status. A cut is a `ModelFailure.NetworkError`, which `TRANSIENT_FAILURES` does not list: add it
+  to `retryOn` to retry it. After text went out the call is not retried: it fails and counts once in
+  the `circuitBreakerPolicy` breaker, which is told at the end of the stream (not at its headers). A
+  stream that ends without `[DONE]` or a finish fails; a caller's abort is neither.
+- **Transport providers** (`complete()`, #385) stream the whole answer as one delta at the end
+  (a streaming form is #1011).
+- **A fallback model** streams like the primary. A primary that dies mid-stream with its breaker
+  open is answered by the fallback from the start, after a `discarded` event (`stream-broken`).
+- `agboss run` prints the answer from the result when nothing streamed.
+
 ## Fail fast: settings must fit their models
 
 At **every startup** (with the production gateway) and with **`agboss check --models`** ([CLI](CLI),
