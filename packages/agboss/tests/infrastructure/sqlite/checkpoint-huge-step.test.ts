@@ -53,11 +53,11 @@ describe("#1036 AC1: a huge or fractional step leaves the thread readable", () =
     for (const [index, step] of STEPS.entries())
       await saver.put(
         at,
-        { ...emptyCheckpoint(), id: `id-${index}` },
+        { ...emptyCheckpoint(), id: `id-${String(index)}` },
         { source: "loop", step, parents: {} },
       );
 
     expect((await saver.latestByStep(at))?.metadata?.step).toBe(Number.MAX_VALUE);
-    expect((await saver.getTuple(at))?.checkpoint.id).toBe(`id-${STEPS.length - 1}`);
+    expect((await saver.getTuple(at))?.checkpoint.id).toBe(`id-${String(STEPS.length - 1)}`);
   });
 });

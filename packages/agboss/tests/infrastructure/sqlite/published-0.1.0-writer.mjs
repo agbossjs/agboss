@@ -1,5 +1,7 @@
 // Run inside the folder 0.1.0 is installed in: `node writer.mjs <sqlite file> <json list of puts>`.
 // Deep imports: 0.1.0 does not export its SQLite classes, its dist files are what ran in production.
+import process from "node:process";
+import { URL } from "node:url";
 import { emptyCheckpoint } from "@langchain/langgraph";
 
 const dist = new URL("./node_modules/@agboss/core/dist/infrastructure/sqlite/", import.meta.url);

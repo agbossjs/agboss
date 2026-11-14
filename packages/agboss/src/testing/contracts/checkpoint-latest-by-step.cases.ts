@@ -98,22 +98,27 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
     run: async ({ first, second }: Instances): Promise<void> => {
       const writes = 40;
       let written = 0;
-      let writing = true;
-      let stopped = false;
+      const state: { writing: boolean; stopped: boolean; failure?: { readonly error: unknown } } = {
+        writing: true,
+        stopped: false,
+      };
       // the writer stops when a read fails, and is awaited either way: none is left running
       const writer = (async () => {
         try {
-          for (let step = 0; step < writes && !stopped; step += 1) {
+          for (let step = 0; step < writes && !state.stopped; step += 1) {
             await put(first, at("t"), `id-${String(step).padStart(3, "0")}`, step);
             written = step + 1;
           }
+        } catch (error) {
+          // held until the reader is done: a rejection nobody awaits yet is an unhandled one
+          state.failure = { error };
         } finally {
-          writing = false;
+          state.writing = false;
         }
       })();
       let seen = -1;
       try {
-        while (writing) {
+        while (state.writing) {
           const tuple = await capable(second).latestByStep(at("t"));
           if (tuple === undefined) continue;
           const step = Number(tuple.checkpoint.id.slice(3));
@@ -126,9 +131,10 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
           seen = step;
         }
       } finally {
-        stopped = true;
+        state.stopped = true;
         await writer;
       }
+      if (state.failure !== undefined) throw state.failure.error;
       expect((await capable(second).latestByStep(at("t")))?.checkpoint.id).toBe("id-039");
     },
   },

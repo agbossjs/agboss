@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll } from "vitest";
+import { runProcess } from "../../helpers/process.js";
 
 /**
  * The published `@agboss/core@0.1.0` as a real writer of a SQLite file (#1035): installed once into
@@ -22,13 +22,13 @@ let folder = "";
 
 /** Installs 0.1.0 before the tests of the file and removes it after them. */
 export function installPublished010(): void {
-  beforeAll(() => {
+  beforeAll(async () => {
     folder = mkdtempSync(join(tmpdir(), "agboss-0.1.0-"));
     writeFileSync(join(folder, "package.json"), '{"name":"old","private":true,"type":"module"}');
-    const installed = spawnSync(
+    const installed = await runProcess(
       "npm",
       ["install", "--ignore-scripts", "--no-audit", "--no-fund", "@agboss/core@0.1.0"],
-      { cwd: folder, encoding: "utf8" },
+      { cwd: folder },
     );
     if (installed.status !== 0)
       throw new Error(`npm install @agboss/core@0.1.0: ${installed.stderr}`);
@@ -37,17 +37,18 @@ export function installPublished010(): void {
       join(folder, "writer.mjs"),
     );
   }, 240_000);
-  afterAll(() => rmSync(folder, { recursive: true, force: true }));
+  afterAll(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
 }
 
 /** 0.1.0 puts `puts` into the file at `path`, in order (a failure throws with 0.1.0's message). */
-export function oldPuts(path: string, puts: readonly OldPut[]): void {
-  const run = spawnSync("node", ["writer.mjs", path, JSON.stringify(puts)], {
+export async function oldPuts(path: string, puts: readonly OldPut[]): Promise<void> {
+  const run = await runProcess("node", ["writer.mjs", path, JSON.stringify(puts)], {
     cwd: folder,
-    encoding: "utf8",
   });
   if (run.status !== 0)
     throw new Error(
-      `0.1.0 put failed: ${run.stderr.split("\n").find((line) => line.includes("Error"))}`,
+      `0.1.0 put failed: ${run.stderr.split("\n").find((line) => line.includes("Error")) ?? run.stderr}`,
     );
 }
