@@ -1,5 +1,5 @@
-import { existsSync, readdirSync, readlinkSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { existsSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { MANIFEST_FILE } from "./manifest.js";
 import type { KeptFile } from "./replace.js";
 import { SKILLS_FOLDER, SkillsWarningCode, type SkillsWarning } from "./status.js";
@@ -32,25 +32,44 @@ function linksUnder(folder: string): string[] {
   return found.sort();
 }
 
-/** True when the link at `path` lands inside the project, judged by its text, nothing followed. */
+/** `realpath` of the longest existing prefix of `path`, the rest appended as written. */
+function realPrefix(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join(realPrefix(parent), basename(path));
+  }
+}
+
+/**
+ * True when the link at `path` lands inside the project, judged by real paths (#1076): the root and
+ * the target's longest existing prefix go through `realpath`, so `/tmp` and `/private/tmp` agree.
+ * The link itself is never followed; a dangling one is judged by its resolved parent.
+ */
 function staysInside(root: string, path: string): boolean {
   const from = join(root, path);
-  const found = relative(root, resolve(dirname(from), readlinkSync(from)));
+  const target = resolve(realpathSync(dirname(from)), readlinkSync(from));
+  const found = relative(realpathSync(root), realPrefix(target));
   return found !== ".." && !found.startsWith(`..${sep}`) && !isAbsolute(found);
 }
 
-/** The links of `.agents/skills/agboss/` at `root` that the source does not own, and the warnings. */
-export function ownLinksOf(root: string, sourcePaths: readonly string[]): OwnLinks {
+/** The links of `folder` (`.agents/skills/agboss/`, or the 0.1.x one) at `root` that the source does not own, and the warnings. */
+export function ownLinksOf(
+  root: string,
+  sourcePaths: readonly string[],
+  folder: string = SKILLS_FOLDER,
+): OwnLinks {
   const kept: KeptFile[] = [];
   const warnings: SkillsWarning[] = [];
   const say = (path: string, text: string): void => {
     warnings.push({
       code: SkillsWarningCode.UnmanagedFile,
-      message: `${SKILLS_FOLDER}/${path} is a link ${text}; put project rules in AGENTS.md`,
+      message: `${folder}/${path} is a link ${text}; put project rules in AGENTS.md`,
     });
   };
-  for (const path of linksUnder(join(root, SKILLS_FOLDER))) {
-    const at = join(SKILLS_FOLDER, path);
+  for (const path of linksUnder(join(root, folder))) {
+    const at = join(folder, path);
     if (sourcePaths.some((own) => own === path || own.startsWith(`${path}/`)))
       say(path, "where agboss has a file — replaced by agboss's");
     else if (staysInside(root, at)) {

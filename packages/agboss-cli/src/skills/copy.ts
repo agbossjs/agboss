@@ -113,7 +113,7 @@ function moveLegacy(
 ): CopyOutcome {
   const manifest = readManifest(target);
   const plan = planSync(target, manifest, files, version);
-  const old = legacyPlanOf(legacy, files, version);
+  const old = legacyPlanOf(root, legacy, files, version);
   const links = ownLinksOf(
     root,
     files.map((file) => file.path),
@@ -142,6 +142,7 @@ function moveLegacy(
       ...(isRewritten ? planWarnings(plan, version) : []),
       ...(isRewritten || manifest === undefined ? links.warnings : []),
       ...carried,
+      ...old.warnings,
       ...planWarnings(old.plan, version),
       ...removal,
     ],

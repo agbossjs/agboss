@@ -1,8 +1,16 @@
-import { copyFileSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  copyFileSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { LinkedPathError, linkedBelow } from "./containment.js";
 import type { LinkOps } from "./link.js";
 import { readManifest, type SkillsManifest } from "./manifest.js";
+import { ownLinksOf } from "./own-links.js";
 import { planSync, type SyncPlan } from "./plan.js";
 import type { KeptFile, ReplaceOps } from "./replace.js";
 import type { SkillFile } from "./source.js";
@@ -46,18 +54,33 @@ const MOVED = `${CLAUDE_SKILLS_LINK}/ moved to ${SKILLS_FOLDER}/ (one copy for e
 export interface LegacyPlan {
   readonly plan: SyncPlan;
   readonly kept: readonly KeptFile[];
+  /** What is said about the old folder's own links. */
+  readonly warnings: readonly SkillsWarning[];
 }
 
-/** The old folder's plan and its unmanaged files, as files to carry over. */
+/**
+ * The old folder's plan, its unmanaged files and its own links that stay inside the project (the
+ * extra-(a) rule of the new folder), as files to carry over; every link is named (#1077).
+ */
 export function legacyPlanOf(
+  root: string,
   legacy: Extract<Legacy, { kind: "managed" }>,
   files: readonly SkillFile[],
   version: string,
 ): LegacyPlan {
   const plan = planSync(legacy.folder, legacy.manifest, files, version);
+  const links = ownLinksOf(
+    root,
+    files.map((file) => file.path),
+    CLAUDE_SKILLS_LINK,
+  );
   return {
     plan,
-    kept: plan.unmanaged.map((path) => ({ from: join(legacy.folder, path), path })),
+    kept: [
+      ...plan.unmanaged.map((path) => ({ from: join(legacy.folder, path), path })),
+      ...links.kept,
+    ],
+    warnings: links.warnings,
   };
 }
 
@@ -90,32 +113,48 @@ export function assertCarryable(target: string, kept: readonly KeptFile[]): void
   }
 }
 
-/** True when `a` and `b` are regular files of the same bytes. */
-const sameFile = (a: string, b: string): boolean =>
-  lstatSync(a, { throwIfNoEntry: false })?.isFile() === true &&
-  lstatSync(b, { throwIfNoEntry: false })?.isFile() === true &&
-  readFileSync(a).equals(readFileSync(b));
+/** True when `a` and `b` are regular files of the same bytes, or links of the same text. */
+const sameFile = (a: string, b: string): boolean => {
+  const first = lstatSync(a, { throwIfNoEntry: false });
+  const second = lstatSync(b, { throwIfNoEntry: false });
+  if (first?.isSymbolicLink() === true && second?.isSymbolicLink() === true)
+    return readlinkSync(a) === readlinkSync(b);
+  return (
+    first?.isFile() === true && second?.isFile() === true && readFileSync(a).equals(readFileSync(b))
+  );
+};
+
+/** Makes `to` from the old folder's `file`: its bytes, or — an own link — its text, never followed. */
+function copyEntry(file: KeptFile, to: string): void {
+  if (file.isLink === true) symlinkSync(readlinkSync(file.from), to);
+  else copyFileSync(file.from, to);
+}
 
 /**
- * Saves the old folder's `file`, which differs from the copy's `to`, as `<name>.legacy` beside it
- * (`.legacy.2` … when that name is another content's): the copy's file stays, nothing is lost.
+ * Saves the old folder's `file` as `<name>.legacy` beside the copy's `to`, which holds something
+ * else (`.legacy.2` … when that name is another content's): the copy's entry stays, nothing is lost.
  */
-function saveLegacy(file: KeptFile, to: string): SkillsWarning {
+function saveLegacy(file: KeptFile, to: string, isFile: boolean): SkillsWarning {
   let copy = `${to}.legacy`;
   for (let n = 2; lstatSync(copy, { throwIfNoEntry: false }) !== undefined; n += 1) {
     if (sameFile(file.from, copy)) break;
     copy = `${to}.legacy.${String(n)}`;
   }
-  if (lstatSync(copy, { throwIfNoEntry: false }) === undefined) copyFileSync(file.from, copy);
+  if (lstatSync(copy, { throwIfNoEntry: false }) === undefined) copyEntry(file, copy);
+  const what = isFile
+    ? `differs from ${CLAUDE_SKILLS_LINK}/${file.path} — kept the ${SKILLS_FOLDER} one`
+    : `is a link or a folder where ${CLAUDE_SKILLS_LINK}/${file.path} has an own entry — kept as it is`;
   return {
     code: SkillsWarningCode.UnmanagedFile,
-    message: `${SKILLS_FOLDER}/${file.path} differs from ${CLAUDE_SKILLS_LINK}/${file.path} — kept the ${SKILLS_FOLDER} one; the old content is saved as ${SKILLS_FOLDER}/${copy.slice(to.length - file.path.length)}`,
+    message: `${SKILLS_FOLDER}/${file.path} ${what}; the old content is saved as ${SKILLS_FOLDER}/${copy.slice(to.length - file.path.length)}`,
   };
 }
 
 /**
- * Copies the old folder's own files the new one lacks (an interrupted move finishing). A file in
- * both with other bytes keeps the new folder's and saves the old one as `<name>.legacy`.
+ * Copies the old folder's own files and links the new one lacks (an interrupted move finishing).
+ * An entry in both with other content keeps the new folder's and saves the old one as
+ * `<name>.legacy` — also when the new folder has a link or a folder there. If a save fails, this
+ * throws and the old folder stays for the next run.
  */
 export function carryOver(target: string, kept: readonly KeptFile[]): SkillsWarning[] {
   assertCarryable(target, kept);
@@ -125,11 +164,11 @@ export function carryOver(target: string, kept: readonly KeptFile[]): SkillsWarn
     // lstat: a dangling link at `to` is "there" — copying would write through it
     const there = lstatSync(to, { throwIfNoEntry: false });
     if (there !== undefined) {
-      if (there.isFile() && !sameFile(file.from, to)) warnings.push(saveLegacy(file, to));
+      if (!sameFile(file.from, to)) warnings.push(saveLegacy(file, to, there.isFile()));
       continue;
     }
     mkdirSync(dirname(to), { recursive: true });
-    copyFileSync(file.from, to);
+    copyEntry(file, to);
   }
   return warnings;
 }
