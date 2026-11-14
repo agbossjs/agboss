@@ -1283,7 +1283,9 @@ judges are silent, and so is a model call any future component makes: the stream
 the run, so a model does not hear it by inheriting one; only the agent's answering call is marked
 to stream (#1004). An agent with an `output` DTO answers with an answer tool, so it streams no
 text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
-fails the run.
+fails the run and the stream goes on: the first failure of a run is logged once through the
+`Logger` (`stream.listener-failed`, Warn, with the run's ids and the error's class, never the event;
+later ones of that run are not repeated).
 
 What streams depends on the provider (#1005). An HTTP provider (OpenRouter, any OpenAI-compatible
 server) streams the answer token by token: the call goes out as a server-sent stream only for that
@@ -1292,6 +1294,10 @@ budgets are exactly a plain call's. A stream that fails before its first text (a
 the 200, a cut) is retried like any failed call (a cut is a `ModelFailure.NetworkError`, which the
 default `TRANSIENT_FAILURES` does not list: add it to `retryOn` to retry it); one that fails after
 text is not retried — the call fails and counts once in the provider's breaker, never as a success.
+A server that ignores `stream: true` and answers a plain JSON completion is read as that completion —
+one delta, the plain call's output, usage, cost and finish reason (#1049); a body that is neither a
+stream nor a completion (empty, another content type) fails that call like any other failed call,
+never as a configuration error.
 A transport provider (`complete()`) streams the whole answer as one delta at the end. A fallback
 model's answer streams like the primary's; when the primary dies mid-stream and its breaker opens,
 the text so far is retracted (`stream-broken`) and the fallback answers from the start. `agboss run`

@@ -1,5 +1,6 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import type { CircuitBreaker } from "./circuit-breaker.js";
+import { eventStreamOfJson, wantsStream } from "./calls/json-as-stream.js";
 import { guardedEventStream, type StreamEnd } from "./calls/event-stream-guard.js";
 import { runModelCall, type ResilienceOptions } from "./calls/attempt-runner.js";
 import type { Attempt, AttemptCarrier, ProviderFetch } from "./calls/model-call.js";
@@ -53,8 +54,13 @@ function httpCarrier(
   return {
     send: async (signal): Promise<Attempt<Response>> => {
       try {
-        const response = await send(input, { ...init, signal });
-        const failure = failureOfStatus(response.status);
+        const sent = await send(input, { ...init, signal });
+        const failure = failureOfStatus(sent.status);
+        // a streamed request answered 200 without events (#1049): JSON is told as a stream
+        const response =
+          failure === undefined && sent.ok && wantsStream(init) && !isEventStream(sent)
+            ? await eventStreamOfJson(sent)
+            : sent;
         if (failure === undefined && isEventStream(response)) {
           return await streamedAttempt(response, init?.signal, breaker);
         }

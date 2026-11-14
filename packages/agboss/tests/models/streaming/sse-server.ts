@@ -131,7 +131,12 @@ export interface SseServer {
 }
 
 /** Starts the server; each chat completion takes the next script (the last repeats). */
-export async function sseServer(scripts: readonly SseScript[], json?: unknown): Promise<SseServer> {
+export async function sseServer(
+  scripts: readonly SseScript[],
+  json?: unknown,
+  /** The server ignores `stream: true`: it answers `json` (a body and a content type) always (#1049). */
+  ignoresStream?: { readonly type?: string; readonly status?: number; readonly raw?: string },
+): Promise<SseServer> {
   const requests: ServedRequest[] = [];
   let next = 0;
   const server: Server = createServer((request, response) => {
@@ -143,6 +148,12 @@ export async function sseServer(scripts: readonly SseScript[], json?: unknown): 
       }
       const parsed = await body(request);
       requests.push({ url, body: parsed });
+      if (ignoresStream !== undefined) {
+        response.writeHead(ignoresStream.status ?? 200, {
+          "content-type": ignoresStream.type ?? "application/json",
+        });
+        return void response.end(ignoresStream.raw ?? JSON.stringify(json));
+      }
       const script = scripts[Math.min(next, scripts.length - 1)];
       next += 1;
       if (script === undefined) return void response.end();

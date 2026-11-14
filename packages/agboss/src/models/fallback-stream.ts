@@ -4,7 +4,7 @@ import { AIMessage, AIMessageChunk, type BaseMessage } from "@langchain/core/mes
 import type { Runnable } from "@langchain/core/runnables";
 import type { ModelCost } from "./cost.js";
 import { markedFallbackMessage } from "./fallback.js";
-import { ModelProviderError } from "./model-provider.decorator.js";
+import { EventStreamError } from "./calls/event-stream-guard.js";
 
 /** A streamed call of a fallback model's chat model (#1005). */
 
@@ -36,7 +36,7 @@ export async function streamedAnswer(
     }
     answer = answer === undefined ? chunk : answer.concat(chunk);
   }
-  if (answer === undefined) throw new ModelProviderError({ message: "the model answered nothing" });
+  if (answer === undefined) throw new EventStreamError("the model answered nothing");
   return answer;
 }
 
