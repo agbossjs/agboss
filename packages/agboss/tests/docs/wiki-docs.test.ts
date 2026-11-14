@@ -107,7 +107,13 @@ describe("#240: the wiki is checked like the repo's docs", { timeout: 60_000 }, 
     expect(sync).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(sync).toContain("workflow_dispatch:");
     expect(sync).toMatch(/permissions:\s+contents: write/);
-    expect(sync).toContain('git push "$wiki" HEAD:master');
-    expect(sync).not.toMatch(/--force|\s-f\s|\+HEAD/);
+    // the push is scripts/sync-wiki.sh (#981), from main: the pages branch has no scripts/
+    expect(sync).toContain('tooling/scripts/sync-wiki.sh "https://x-access-token:');
+    expect(sync).toMatch(
+      /path: tooling\s+persist-credentials: false\s+sparse-checkout: scripts\/sync-wiki\.sh/,
+    );
+    const script = readFileSync(join(repo, "scripts/sync-wiki.sh"), "utf8");
+    expect(script).toContain('git push --quiet "$wiki" HEAD:master');
+    for (const text of [sync, script]) expect(text).not.toMatch(/--force|\s-f\s|\+HEAD/);
   });
 });
