@@ -13,8 +13,7 @@
   (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
   `<base>/.well-known/agent-card.json` and the JSON-RPC 2.0 binding at `POST <base>`. Any A2A v1.0
   client calls it — the official SDK `@a2a-js/sdk`, which the server is built on, or another
-  vendor's. This page is mostly about this side. (The 0.1.0 wire — `POST /execute`, `/resume`,
-  `/cancel` — is gone, with no shim.)
+  vendor's. This page is mostly about this side. (The 0.1.0 wire is gone, with no shim: [Upgrading to 0.1.1](Upgrading-to-0.1.1).)
 
 ## 1. Who calls — the caller resolver
 
@@ -344,7 +343,7 @@ export class QuotesA2AExpose {}
 ## 4. The client side — A2A v1.0 (#809)
 
 The client speaks A2A v1.0 (`https://a2a-protocol.org/v1.0.0/specification/`) on the official SDK;
-the 0.1.0 wire (`POST <url>/execute`) is gone from it — the server above follows in #808.
+the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1)).
 
 - **Discovery.** `url` is the agent's base URL: its card is read from
   `<url>/.well-known/agent-card.json` on first use and kept `cardTtl` (5 minutes). Before anything
@@ -464,10 +463,20 @@ const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, F
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
   const { url } = await a2aServer({ expose: ShopA2AExpose, callerResolver: ShopA2aCallerResolver });
 
-  const sent = await fetch(`${url}/execute`, {
+  // any A2A v1.0 client calls the listener; a plain JSON-RPC SendMessage is the smallest one
+  const sent = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: "Bearer key-unknown" },
-    body: JSON.stringify({ input: { text: "hi" } }),
+    headers: {
+      "content-type": "application/json",
+      "a2a-version": "1.0",
+      authorization: "Bearer key-unknown",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "SendMessage",
+      params: { message: { messageId: "m-1", role: "ROLE_USER", parts: [{ text: "hi" }] } },
+    }),
   });
 
   expect(sent.status).toBe(401);
@@ -480,22 +489,15 @@ after an `execute`) — before that it fails with `test.app-not-ready`.
 
 ## 6. The mesh — call chains, hops and loops (#398)
 
-> **On the A2A v1.0 listener (#810)** the envelope travels as the mesh extension
-> [`https://agboss.dev/a2a/mesh/v1`](A2A-Mesh-Extension) in `message.metadata[uri].envelope`, its
-> `bodyHash` the message's canonical JSON without that entry (`meshBodyHashOf`), and a task is
-> deduplicated by its `messageId` (§2), never by an envelope's key — see
-> [§6.1](#61-the-mesh-on-the-a2a-v10-listener-810). The rest of this section describes the envelope
-> itself, and the 0.1.0 wire's and MCP's receivers.
-
 Applications calling each other over A2A (and MCP, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398))
-form a mesh. On the 0.1.0 wire the server below still reads, every call made **inside an
-execution** — a tool's or an action's — sends, with no code of yours (the 0.1.1 `A2AClient` carries
-the same envelope in the message's metadata, [§4](#4-the-client-side--a2a-v10-809)):
-
-| Header        | What it is                                                                                                             |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `agboss-mesh` | the `MeshEnvelope`, a JWS — unsecured (`alg: "none"`) or signed (`EdDSA`, [below](#trusted-peers--signed-envelopes-398-pr-2)): `schema`, `issuer`, `origin`, `callChain` |
-| `traceparent` | W3C trace context: the caller's trace id continued (its own request's `traceparent`), else one of its root execution   |
+form a mesh. Every call made **inside an execution** — a tool's or an action's — sends, with no code
+of yours, the **mesh envelope**: over A2A in `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`
+(the [mesh extension](A2A-Mesh-Extension), its `bodyHash` the message's canonical JSON without that
+entry, `meshBodyHashOf`; the task is deduplicated by its `messageId` (§2), never by an envelope's
+key), over MCP in `_meta["agboss.dev/mesh"]`. Both are a JWS — unsecured (`alg: "none"`) or signed
+(`EdDSA`, [below](#trusted-peers--signed-envelopes-398-pr-2)): `schema`, `issuer`, `origin`,
+`callChain`. A W3C `traceparent` (the caller's trace id continued, else one of its root execution)
+rides beside it. The A2A listener's side, in order, is [§6.1](#61-the-mesh-on-the-a2a-v10-listener-810).
 
 `origin` (`MeshOrigin`) names the calling `rootExecutionId`, `executionId`, `parentExecutionId?`,
 `workflow { name, version }` and `step { component, idempotencyKey }` (`MeshOriginStep`; a tool
@@ -506,12 +508,11 @@ caller's own hop last. Ids only: no `ownerId`, no `tenantId`, no input values. O
 
 **On the receiver the envelope is a claim** — unless a trusted peer signed it
 ([below](#trusted-peers--signed-envelopes-398-pr-2)). The listener reads it into
-`A2ACallerRequest.envelope` for the resolver: never the tenant. A header it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
-its id) is ignored: the request runs as one without — stripping the header is no different. What
-the listener applies anyway, after the caller is resolved and before the body is read (a caller can
-only make its own request fail with it):
+`A2ACallerRequest.envelope` for the resolver: never the tenant. An envelope it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
+its id) is ignored: the request runs as one without — stripping it is no different. What
+the receiver applies anyway (a caller can only make its own request fail with it):
 
-| The chain the request arrives with                             | The answer                                                                       |
+| The chain the request arrives with                             | The answer (MCP; over A2A a `REJECTED` task, §6.1)                               |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | already lists this application **and** this start              | `409 { "code": "limit.mesh-loop", "error", "details": { "entry", "chain" } }`    |
 | already lists `@Application({ maxMeshHops })` applications (8) | `409 { "code": "limit.hops", "error", "details": { …, "maxMeshHops", "hops" } }` |
@@ -522,11 +523,10 @@ A refusal runs nothing (no observer event, no record), like a refused caller. A 
 `maxMeshHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
-**On the caller** (the 0.1.0 client; the 0.1.1 one reads the same limits from a REJECTED task, [§4](#4-the-client-side--a2a-v10-809)) a `409` is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
+**On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
 `entry`, `chain`) or `HopsLimitExceededError` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
 `hops`) — both `LimitExceededError`s. `execute` does the same for a remote run that another hop's
-limit stopped: a failed response now carries the error's `code`, and for these two limits its
-`details`. A tool that meets one **fails its step** with it — the model never reads it (a retry
+limit stopped: a failed task carries the error's `code`, and for these two limits its `details`. A tool that meets one **fails its step** with it — the model never reads it (a retry
 would loop again) — so a whole chain `A → B → A` fails at every hop, deterministically; take it on
 the path (its side path leads to actions and finishes only, as for every limit):
 
@@ -616,57 +616,24 @@ deadline, the earlier). `origin.step.tool` names the calling tool.
    `expiresIn` on the application's `Clock` (30 s of tolerance): a bad one is `401`
    `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the resolver;
 2. the caller resolved (above), then the chain (loops, hops);
-3. the body read: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
-4. a trusted `POST /execute` deduplicated by `(tenant, peer, origin.step.idempotencyKey)` in the
-   application's `MeshRequestRepository` ([Several instances](Several-instances); over MCP by
-   `_meta.callId`, [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): a repeat gets the
-   kept answer without running, one while the first still runs `409 mesh.request-in-progress`; a
-   run that did not answer is forgotten;
+3. the body: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
+4. over MCP a trusted call is deduplicated by `(tenant, peer, _meta.callId)` in the application's
+   `MeshRequestRepository` ([Several instances](Several-instances);
+   [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): a repeat gets the kept answer
+   without running, one while the first still runs an error result `mesh.request-in-progress`; a
+   run that did not answer is forgotten. Over A2A every caller, signed or not, is deduplicated by
+   `messageId` in the task and message stores (§2);
 5. the run.
 
 A peer's public key comes from `mesh.peers`.
 
-**Signing as a peer in a test (#521):** `signedMeshEnvelope` (`@agboss/core/testing`) gives the
-`agboss-mesh` value an application with `mesh.signingKey` sends — the framework's own encoder, so
-the same call gives the very header the A2A client sends, and a listener trusts it exactly as a
-real client's request (a store's deduplication test, a receiver's limits):
-
-<!-- snippet-context
-import type { KeyObject } from "node:crypto";
-declare const ordersPrivateKey: KeyObject; // or its PKCS #8 PEM
-declare const billingUrl: string;
--->
-
-```ts
-import { signedMeshEnvelope } from "@agboss/core/testing";
-
-const body = JSON.stringify({ input: { text: "is invoice 7 paid?" } });
-const mesh = signedMeshEnvelope({
-  issuer: "orders-application",
-  audience: "billing-application", // optional: another receiver refuses it, 401
-  signingKey: ordersPrivateKey,
-  body, // its sha256 is the envelope's bodyHash
-  issuedAt: new Date(), // the caller's clock — a test's clock.now()
-  origin: {
-    rootExecutionId: "orders-root-1",
-    executionId: "orders-root-1",
-    workflow: { name: "orders-workflow", version: "1.0.0" },
-    // a retry repeats the key: a receiver answers it once
-    step: { component: "orders-desk-agent", idempotencyKey: "orders-root-1:orders-desk-agent:1:call_1" },
-  },
-  callChain: [
-    { application: "orders-application", start: "orders-workflow-start", executionId: "orders-root-1" },
-  ],
-  // lifetime (default 60 s), budget and deadline claims are optional
-});
-await fetch(`${billingUrl}/execute`, {
-  method: "POST",
-  headers: { "content-type": "application/json", "agboss-mesh": mesh },
-  body,
-});
-```
-
-A key that is not an Ed25519 private key is a `TestSetupError`, never an unsigned envelope.
+**Signing as a peer in a test (#521):** for an MCP call `signedMeshEnvelope` (`@agboss/core/testing`)
+gives the `_meta["agboss.dev/mesh"]` value an application with `mesh.signingKey` sends — the
+framework's own encoder, so a store's deduplication test or a receiver's limits speak the real wire
+format. A key that is not an Ed25519 private key is a `TestSetupError`, never an unsigned envelope.
+An A2A call is signed by the `A2AClient` of a test application that has a `mesh.signingKey`: its
+envelope is bound to the very message it sends, and the listener trusts it exactly as a real
+client's request.
 
 What a trusted request gets — an untrusted one none of it:
 
@@ -678,8 +645,8 @@ What a trusted request gets — an untrusted one none of it:
 | its body and idempotency key         | the body checked, the request deduplicated                                                                    |
 
 `ExecutionOrigin` is the caller's `MeshOrigin` plus `application` (the peer) and `hops` (the
-applications before this one). Its answer — the `A2AExecutionResponse` — carries `executionId`,
-`spend { total, currency }` and `report`: a run report (`MeshRunReport`: `issuer`, `executionId`,
+applications before this one). Its answer carries the run report (A2A: `task.metadata[uri].report`; MCP:
+`_meta["agboss.dev/report"]`): a run report (`MeshRunReport`: `issuer`, `executionId`,
 `spend`, `bodyHash`, `issuedAt`) the receiver signs. The caller verifies it with its own
 `mesh.peers` key of the issuer and its request's `bodyHash`, then records the reported spend in the
 calling tool's spend (`a2a:<issuer>` as its model, `byModel`) and the remote execution in
@@ -834,7 +801,12 @@ export class BillingApplication {}
 - `[name.kind-suffix]` (`-a2a-expose`, a `…A2AExpose` class), `[application.expose-unknown-start]`
   (an export that is no start of the application's workflows), `[application.not-an-expose]`,
   `[application.duplicate-expose]` at assembly.
-- With one export a request may leave `start` out; with several it names one.
+- With one export a message may leave its skill out; with several it names one in
+  `metadata["https://agboss.dev/a2a/skills/v1"].skill`, or the expose sets a `defaultSkill`.
+- `[a2a.expose-description-required]` (a blank `description`), and two warnings, errors under
+  `--strict`: `[a2a.skill-tags]` (a skill with no `skills: { [start]: { tags } }`; the card says the
+  application's name) and `[a2a.unpriced-foreign-peer]` (an `@A2AAgent` without `target.application`
+  and without `price`: a foreign peer's spend is invisible to the budgets) (#812).
 
 **`describe --json`** — `application.contracts`:
 
@@ -843,7 +815,7 @@ export class BillingApplication {}
   "exports": [
     {
       "kind": "a2a", "expose": "billing-a2a-expose", "version": "1.0.0",
-      "start": "billing-workflow-start", "workflow": "billing-workflow",
+      "skill": "billing-workflow-start", "workflow": "billing-workflow", "reply": "task", "cardFileFields": "extension",
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
     },
@@ -851,20 +823,25 @@ export class BillingApplication {}
   ],
   "imports": [
     {
-      "kind": "a2a", "client": "billing-desk-a2a-agent",
-      "target": { "application": "billing-application", "start": "billing-workflow-start" },
+      "kind": "a2a", "client": "billing-desk-a2a-agent", "foreign": false,
+      "target": { "application": "billing-application", "skill": "billing-workflow-start" },
       "usedBy": [{ "workflow": "orders-workflow", "tool": "ask-billing-tool" }],
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "output": { "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" },
       "price": 0.05
     },
+    { "kind": "a2a", "client": "weather-a2a-agent", "foreign": true, "target": null, "usedBy": [], "input": null, "output": null, "price": null },
     { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "usedBy": [{ "workflow": "orders-workflow", "tool": "search-kb-tool" }], "input": { "…": "…" }, "output": { "…": "…" } }
   ],
   "schemas": { "InvoiceQuestionDto": { "schemaHash": "600a…", "jsonSchema": {} } }
 }
 ```
 
-An `@McpServer` without a `target` (a third-party server) is listed with `target: null`. A start's
+An `@McpServer` without a `target` (a third-party server) is listed with `target: null`. An
+`@A2AAgent` without `target.application` (a foreign A2A agent, typed or not) is listed with
+`foreign: true`, `target: null` and — untyped — `input` / `output` `null`; every other import has
+`foreign: false`, and federation never compares a foreign one (§8). A snapshot saved by 0.1.0
+(exports and targets named `start`, no `foreign`) is still read as skills (#812). A start's
 input that is a map of fields, not one DTO, is `null` there (only its hash is in the workflow's
 snapshot).
 
@@ -882,11 +859,11 @@ npx agboss check --federation ../snapshots            # in this application, bef
 
 Every consumed contract whose target application is among the snapshots (or is this application)
 is checked against that application's exports — an `@A2AAgent`'s `target.application` and
-`target.skill` (the export's start), an `@McpServer`'s `target: { application, expose }` and its tools:
+`target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, expose }` and its tools:
 
 | Code | When |
 | --- | --- |
-| `[federation.missing-target]` | the target application exports no such start (or no such tool under that expose) |
+| `[federation.missing-target]` | the target application exports no such skill (or no such tool under that expose); never for a foreign `@A2AAgent`, which is skipped |
 | `[federation.incompatible-schema]` | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
 | `[federation.unknown-finish]` | the consumer's `target.finishes` names a finish the export's start does not have (#916) |
 | `[federation.snapshot-schema]` | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist) |

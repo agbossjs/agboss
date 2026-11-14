@@ -4,8 +4,8 @@ A profile extension of A2A v1.0 (spec §4.6): what an AGBoss application adds to
 AGBoss applications — the caller's **call chain** (loop and hop limits), its **budget** and
 **deadline** left, and the receiver's **signed run report** of what the call spent. An agent that
 does not support it is called without it, and the caller says so (`mesh: false`); nothing of it is
-ever assumed. A breaking change takes a new URI. (#809 the client, #810 the server; to be mirrored at
-agboss.dev.)
+ever assumed. A breaking change takes a new URI. (#809 the client, #810 the server.) Canonical
+specification: <https://agboss.dev/a2a/mesh/v1>.
 
 ## Declaration — the Agent Card
 

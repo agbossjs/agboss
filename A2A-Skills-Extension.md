@@ -2,7 +2,7 @@
 
 A data-only extension of A2A v1.0 (spec §4.6): the JSON Schemas of an AGBoss agent's skills — what
 A2A's `AgentSkill` has no field for — and the skill a message runs. (#808 the server, #809 the
-client; to be mirrored at agboss.dev.)
+client.) Canonical specification: <https://agboss.dev/a2a/skills/v1>.
 
 ## Declaration — the Agent Card
 
@@ -39,7 +39,8 @@ client; to be mirrored at agboss.dev.)
 
 ## In a message — `message.metadata[uri].skill`
 
-The skill the message runs: optional when the agent serves one, else required
+The skill the message runs: optional when the agent serves one, or sets a `defaultSkill` (what a
+foreign caller that knows nothing of this extension gets); else required
 (`-32602 a2a.skill-required`; an unknown one `a2a.unknown-skill`). A completed task's artifact names
 its finish in `artifact.metadata[uri].finish`.
 

@@ -3,6 +3,22 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: A2A v1.0 — docs, federation by skill, card rules (#812, epic #805)
+
+- **Changed — breaking (the one breaking change of A2A in 0.1.1)**: the A2A wire is the v1.0 protocol; the 0.1.0
+  wire (`POST <url>/execute`, `/resume`, `/cancel`, the `agboss-mesh` header, `A2AExecutionResponse`) is gone with no
+  shim — a 0.1.1 client and a 0.1.0 server do not interoperate. The leftover `A2AStatus`, `A2AEvent`,
+  `A2AExecutionRequest`, `A2AExecutionResponse` are removed. Migration: [Upgrading to 0.1.1](Upgrading-to-0.1.1)
+  (`target.start` → `target.skill`, `cancel(threadId)` → `cancel(taskId)`, `A2ARoute` → `A2AOperation`,
+  `publicUrl`, `retention.a2aTasks` / `a2aMessages` / `a2aFiles`).
+- **Changed**: federation pairs `(target.application, target.skill)` with an export `skill`; `describe --json` writes
+  `skill` for `start` and `foreign` on every A2A import. An `@A2AAgent` without `target.application` is listed with
+  `foreign: true` (`input` / `output` `null` when untyped) and skipped by `check --federation`. A 0.1.0 snapshot is
+  still read.
+- **Added**: `[a2a.expose-description-required]`; warnings `[a2a.skill-tags]` and `[a2a.unpriced-foreign-peer]`.
+- **Docs**: the extension specifications are published at `https://agboss.dev/a2a/mesh/v1` and
+  `https://agboss.dev/a2a/skills/v1`.
+
 ## Unreleased — 0.1.1: cancel is a hard fence for effects (#909)
 
 - **Added — store contract (breaking for a store of your own)**: `ExecutionLeaseRepository` has one

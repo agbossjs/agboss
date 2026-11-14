@@ -49,6 +49,7 @@
   - [The mesh extension](A2A-Mesh-Extension)
   - [The skills extension](A2A-Skills-Extension)
   - [Conformance — the official TCK](A2A-Conformance)
+  - [Upgrading to 0.1.1](Upgrading-to-0.1.1)
 - [FinOps](FinOps)
 - [Tracing](Tracing)
 - [Observability](Observability)

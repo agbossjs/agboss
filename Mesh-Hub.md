@@ -64,7 +64,7 @@ site, a bucket behind IAP). The Hub has no login of its own.
 ## Blast radius & federation
 
 Every contract a snapshot declares — `application.contracts.imports` of `describe --json`: an
-`@A2AAgent`'s target start, an `@McpServer` tool's target expose ([A2A](A2A)) — is a **declared
+`@A2AAgent`'s target skill (a foreign one, without `target.application`, is no edge), an `@McpServer` tool's target expose ([A2A](A2A)) — is a **declared
 edge**, consumer → producer, with the consumer's workflows and tools that use it. A producer no
 snapshot describes is drawn as a dashed box and its contract marked "producer not among the
 inputs"; a third-party MCP server (no target application) is no edge at all.
