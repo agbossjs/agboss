@@ -395,8 +395,16 @@ checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
 - **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s) and throw
   `StoreCallTimeoutError` with `source: StoreOutcomeSource.Command`, the driver's error as the
   `cause`; for an error after the request was sent — a reset connection after a commit — throw
-  `StoreOutcomeUnknownError`. Never turn either into "not done": retry nothing yourself, do not
+  `StoreOutcomeUnknownError` with `source: StoreOutcomeSource.Transport` (#1017). Never turn either into "not done": retry nothing yourself, do not
   report a failure for a write you cannot tell.
+- **Classify what you cannot tell, and only that.** Unknown: an error of a *write* (or of a COMMIT)
+  after the request was sent — a reset, a broken pipe, a timeout on the wire, the server going away
+  mid-commit; when you are unsure, unknown: a wrong "unknown" costs one takeover, a wrong "known"
+  undoes an order whose charge was taken. Known, an ordinary error: a connect that never got
+  through, a pool or queue wait, a statement refused by the database (a constraint, a
+  serialization failure), an error before the COMMIT was sent (the session died, the transaction
+  rolled back), and every read — a read has no effect. `fencedEffectContract` has a case for it: an
+  ambiguous error thrown inside the effect must reach the caller as it is.
 - **A late commit must be fenced.** The abandoned call may still commit after the next holder took
   over: it lands under the old token, which the store refuses (A2) — or before the takeover, which
   then waits for it.

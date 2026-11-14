@@ -96,6 +96,18 @@ export const sqliteStores = [
   connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is the DI token
   of that connection (a subclass names it in its `deps`, [below](#extending-a-sqlite-implementation));
   the container creates it — project code never constructs it.
+- **Which errors are of unknown outcome** (#1017). SQLite answers in the process, so a statement
+  either ran or threw; the one window is the commit. A COMMIT that fails with anything but
+  `SQLITE_BUSY` or `SQLITE_CONSTRAINT` (a deferred foreign key) is `StoreOutcomeUnknownError`
+  (`source: Transport`, the cause the driver's error): `SQLITE_IOERR` and its extended codes
+  (`_FSYNC`, `_WRITE`, …), `SQLITE_FULL`, `SQLITE_NOMEM`, `SQLITE_INTERRUPT`, `SQLITE_PROTOCOL`, any
+  other — the journal's or the WAL's sync may have failed before or after the commit point, and
+  the caller cannot tell, so when unsure it is unknown. `SQLITE_BUSY` and `SQLITE_CONSTRAINT` at
+  COMMIT leave the transaction open (SQLite documents it): it is rolled back, nothing was applied —
+  an ordinary error. A failure of any statement before the COMMIT is rolled back — ordinary,
+  whatever its code. One single write outside a transaction (its commit is implicit) that fails
+  with `SQLITE_IOERR` is unknown; any other code is the statement's own refusal. A read never is.
+  The in-memory stores have nothing to classify: they cannot fail after a partial apply.
 - **Atomic operations** — a lease `acquire`, a slot `acquire`, `saveIfAbsent`, a pause
   `Pending → Resolved`, a ledger counter — run in one `BEGIN IMMEDIATE` transaction, so of two
   instances exactly one wins; `renew` / `release` and the records' compare-and-set write are one
