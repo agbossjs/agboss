@@ -26,15 +26,17 @@ commit is left alone, from another commit the run fails. Every pull request that
 workflow runs its dry run (`npm publish --dry-run`), and **Actions → Release → Run workflow** runs it
 by hand; neither ever publishes.
 
-Cars 1 and 2 have the workflow today. agbossjs/mongodb and agbossjs/redis
-ride once their repository has copied agbossjs/postgres's release path —
-`.github/workflows/release.yml`, `scripts/release/release-plan.mjs` and `ci-gate.mjs` (the tag
-prefix comes from the package's name), `scripts/pin-framework.mjs` and the registry mode of
-`scripts/pack-framework.mjs` — and its 0.1.1 issues are done; a car that is not ready waits for the
-next release, it never holds the train.
+All four repositories have the release path today: `.github/workflows/release.yml`,
+`scripts/release/release-plan.mjs` and `ci-gate.mjs` (the tag prefix comes from the package's name),
+`scripts/pin-framework.mjs` and the registry mode of `scripts/pack-framework.mjs`. A car rides when
+its 0.1.1 issues are done; a car that is not ready waits for the next release, it never holds the
+train.
 
 All commands start with `set -euo pipefail` and use `$WORKSPACE_ROOT`, the folder holding the
-clones; scratch work goes under `worktrees.noindex`:
+clones; scratch work goes under `worktrees.noindex`. `set -e` does not stop a script when a command
+fails inside an `&&` list, so every chain of a block ends in `|| exit 1` (and what must follow a
+chain, such as opening the pull request, is part of it): a failed step stops the block, nothing after
+it runs:
 
 ```bash
 set -euo pipefail
@@ -49,30 +51,89 @@ mkdir -p "$SCRATCH"
 # repository. Every line stops the function: bash switches `set -e` off inside a function called in an
 # `&&` chain, so each command ends in `|| return 1`.
 release_branch() {
+  local local_ref=0 remote_ref=0
   git fetch origin || return 1
-  if git show-ref --verify --quiet "refs/heads/release/$RELEASE_VERSION"; then
+  # show-ref exits 1 for a missing ref; any other status is an error, never "missing"
+  git show-ref --verify --quiet "refs/heads/release/$RELEASE_VERSION" || local_ref=$?
+  test "$local_ref" -le 1 || return 1
+  git show-ref --verify --quiet "refs/remotes/origin/release/$RELEASE_VERSION" || remote_ref=$?
+  test "$remote_ref" -le 1 || return 1
+  if [ "$local_ref" = 0 ]; then
     git switch "release/$RELEASE_VERSION" || return 1
-  elif git show-ref --verify --quiet "refs/remotes/origin/release/$RELEASE_VERSION"; then
+  elif [ "$remote_ref" = 0 ]; then
     git switch -c "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION" || return 1
   else
     git switch --no-track -c "release/$RELEASE_VERSION" origin/main || return 1
   fi
 }
 
+# Commit the index with the message $1 unless nothing is staged (`git diff --cached --quiet` exits 0
+# for nothing, 1 for changes; any other status is an error and stops).
+commit_staged() {
+  local rc=0
+  git diff --cached --quiet || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) git commit -m "$1" || return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Fold the changes/ fragments into the version's CHANGELOG.md section (the unreleased one is dated; see
 # changes/README.md) and commit it. A rerun is safe. Run it inside the repository, on release/$RELEASE_VERSION.
 assemble_changelog() {
-  node scripts/changelog-assemble.mjs "$RELEASE_VERSION" --date "$(date -u +%Y-%m-%d)" || return 1
+  local today
+  today="$(date -u +%Y-%m-%d)" || return 1
+  node scripts/changelog-assemble.mjs "$RELEASE_VERSION" --date "$today" || return 1
   git add -A changes CHANGELOG.md || return 1
-  git diff --cached --quiet || git commit -m "chore($1#691): changelog $RELEASE_VERSION" || return 1
+  commit_staged "chore($1#691): changelog $RELEASE_VERSION" || return 1
 }
 
 # A satellite's own version: package.json and package-lock.json (the pin's `version` is written by
 # pin-framework in Step 6), committed. Run it inside the repository, on release/$RELEASE_VERSION.
 bump_version() {
+  local name
+  name="$(node -p "require('./package.json').name")" || return 1
+  test -n "$name" || return 1
   npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version > /dev/null || return 1
   git add package.json package-lock.json || return 1
-  git diff --cached --quiet || git commit -m "chore(agbossjs/agboss#691): $(node -p "require('./package.json').name") $RELEASE_VERSION" || return 1
+  commit_staged "chore(agbossjs/agboss#691): $name $RELEASE_VERSION" || return 1
+}
+
+# Drop the `Not published to npm yet` note from README.md (mongodb: the sentence at the end of the
+# first quote; redis: the line `> Not published to npm yet: it ships with the 0.1.1 release.` and the
+# blank line after it) and commit it, before the pin commit. Nothing to do (and no commit) when the
+# README has no such note — postgres — or the note is already gone (grep exits 1 for no match; any
+# other status is an error). Run it inside the repository, on release/$RELEASE_VERSION.
+drop_unpublished_note() {
+  local rc=0 tmp
+  grep -q 'Not published to npm yet' README.md || rc=$?
+  case "$rc" in 0) ;; 1) return 0 ;; *) return 1 ;; esac
+  tmp="$(mktemp "${TMPDIR:-/tmp}/readme.XXXXXX")" || return 1
+  sed -e 's/ Not published to npm yet\.$//' \
+    -e '/^> Not published to npm yet: it ships with the .* release\.$/{N;d;}' README.md > "$tmp" || return 1
+  cat "$tmp" > README.md || return 1
+  rm -f "$tmp" || return 1
+  rc=0
+  grep -q 'Not published to npm yet' README.md || rc=$?
+  test "$rc" = 1 || return 1
+  git add README.md || return 1
+  commit_staged "docs(agbossjs/agboss#691): drop the not-published note from the README" || return 1
+}
+
+# Open the release PR of a repository (agbossjs/<repo>) unless one is open from release/$RELEASE_VERSION.
+open_release_pr() {
+  local n
+  n="$(gh pr list -R "$1" --head "release/$RELEASE_VERSION" --state open --json number --jq length)" || return 1
+  test "$n" -gt 0 || gh pr create -R "$1" --fill --base main || return 1
+}
+
+# Watch the newest run of the release workflow (the one the tag just started).
+watch_release_run() {
+  local id
+  id="$(gh run list -R "$1" --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')" || return 1
+  test -n "$id" && test "$id" != null || return 1
+  gh run watch -R "$1" "$id" || return 1
 }
 ```
 
@@ -99,7 +160,7 @@ credential that can publish.
    set -euo pipefail
    gh secret set NPM_TOKEN --env npm -R agbossjs/agboss      # paste the token when asked
    gh secret set NPM_TOKEN --env npm -R agbossjs/postgres
-   gh secret list --env npm -R agbossjs/agboss && gh secret list --env npm -R agbossjs/postgres
+   gh secret list --env npm -R agbossjs/agboss && gh secret list --env npm -R agbossjs/postgres || exit 1
    ```
 
 - **Expected:** both listings show `NPM_TOKEN`. Revoke the token on npmjs.com after the train.
@@ -110,7 +171,7 @@ credential that can publish.
 ```bash
 set -euo pipefail
 gh issue list -R agbossjs/agboss --milestone "$RELEASE_VERSION" --state open
-gh pr list -R agbossjs/agboss --state open && gh pr list -R agbossjs/postgres --state open
+gh pr list -R agbossjs/agboss --state open && gh pr list -R agbossjs/postgres --state open || exit 1
 ```
 
 - **Expected:** nothing open that the maintainer has not deferred to the next milestone.
@@ -136,10 +197,10 @@ set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && release_branch && git rebase origin/main && \
   test "$(node -p "require('./packages/agboss/package.json').version")" = "$RELEASE_VERSION" && \
   assemble_changelog "" && \
-  npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && npm run check:packed && \
+  npm ci && REAL_TMPDIR="$(realpath "$TMPDIR")" && TMPDIR="$REAL_TMPDIR" make check && npm run check:packed && \
   node scripts/release/release-plan.mjs --tag "v$RELEASE_VERSION" && \
-  git push --force-with-lease origin HEAD
-gh pr create -R agbossjs/agboss --fill --base main   # or the PR already open from the branch
+  git push --force-with-lease origin HEAD && \
+  open_release_pr agbossjs/agboss || exit 1
 ```
 
 - **Expected:** `release-plan` prints `vX.Y.Z: @agboss/core@X.Y.Z, then @agboss/cli@X.Y.Z`; the PR's
@@ -150,9 +211,9 @@ gh pr create -R agbossjs/agboss --fill --base main   # or the PR already open fr
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main && \
-  export RELEASE_SHA="$(git rev-parse HEAD)" && echo "RELEASE_SHA=$RELEASE_SHA" && \
-  npm ci && TMPDIR="$(realpath "$TMPDIR")" make check && \
-  export AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" && npm run check:packed && \
+  RELEASE_SHA="$(git rev-parse HEAD)" && export RELEASE_SHA && echo "RELEASE_SHA=$RELEASE_SHA" && \
+  npm ci && REAL_TMPDIR="$(realpath "$TMPDIR")" && TMPDIR="$REAL_TMPDIR" make check && \
+  AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" && export AGBOSS_NPM_BEFORE && npm run check:packed && \
   npm pack -w @agboss/core --pack-destination "$SCRATCH" > /dev/null && \
   rm -rf "$SCRATCH/audit-core" && mkdir -p "$SCRATCH/audit-core" && \
   (cd "$SCRATCH/audit-core" && npm init -y > /dev/null && \
@@ -165,7 +226,7 @@ cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main
       "$SCRATCH/agboss-cli-$RELEASE_VERSION.tgz" && \
     npm audit --omit=dev --audit-level=high) && \
   npm pack --dry-run -w @agboss/core 2>&1 | grep -c ' src/' && \
-  gh run list -R agbossjs/agboss --workflow ci.yml --commit "$RELEASE_SHA" --event push
+  gh run list -R agbossjs/agboss --workflow ci.yml --commit "$RELEASE_SHA" --event push || exit 1
 ```
 
 - **Expected:** `make check` and `check:packed` pass (the packed packages in a project of their own,
@@ -191,8 +252,8 @@ cd "$WORKSPACE_ROOT/agboss" && \
   test "$(git rev-parse HEAD)" = "$RELEASE_SHA" && test -z "$(git status --short)" && \
   if npm view "@agboss/core@$RELEASE_VERSION" version > /dev/null 2>&1; then echo "already on npm"; exit 1; fi && \
   git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION" "$RELEASE_SHA" && \
-  git push origin "v$RELEASE_VERSION"
-gh run watch -R agbossjs/agboss "$(gh run list -R agbossjs/agboss --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+  git push origin "v$RELEASE_VERSION" && \
+  watch_release_run agbossjs/agboss || exit 1
 ```
 
 - Approve the `npm` environment's deployment when GitHub asks (Actions → the run → Review
@@ -211,11 +272,11 @@ set -euo pipefail
 test "$(npm view "@agboss/core@$RELEASE_VERSION" version)" = "$RELEASE_VERSION"
 test "$(npm view "@agboss/cli@$RELEASE_VERSION" version)" = "$RELEASE_VERSION"
 test "$(npm view "@agboss/core@$RELEASE_VERSION" gitHead)" = "$RELEASE_SHA"
-npm view @agboss/core dist-tags --json && npm view @agboss/cli dist-tags --json
+npm view @agboss/core dist-tags --json && npm view @agboss/cli dist-tags --json || exit 1
 # a project of its own, from the registry (AGBOSS_NPM_BEFORE: this install may take the release minutes old)
 rm -rf "$SCRATCH/core-app" && cd "$SCRATCH" && \
   npm exec --yes --package="@agboss/cli@$RELEASE_VERSION" -- agboss create core-app --yes && \
-  cd "$SCRATCH/core-app" && npm run check && npm test && npm audit signatures
+  cd "$SCRATCH/core-app" && npm run check && npm test && npm audit signatures || exit 1
 ```
 
 - **Expected:** `latest` is `X.Y.Z` on both; the new project passes `check` and `test`;
@@ -230,14 +291,14 @@ rm -rf "$SCRATCH/core-app" && cd "$SCRATCH" && \
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/postgres" && release_branch && git rebase origin/main && \
-  assemble_changelog "agbossjs/agboss" && bump_version && \
+  assemble_changelog "agbossjs/agboss" && bump_version && drop_unpublished_note && \
   node scripts/pin-framework.mjs --registry "$RELEASE_VERSION" && \
   test "$(node -p "require('./.agboss-version.json').source")" = registry && \
   npm ci && npm run pack:framework && npm run install:packed && \
   AGBOSS_POSTGRES_TEST_URL="${AGBOSS_POSTGRES_TEST_URL:?a PostgreSQL for the tests}" VITEST_MAX_FORKS=3 npm run check && \
-  git commit -am "chore(agbossjs/agboss#691): pin @agboss/core $RELEASE_VERSION from npm" && \
-  git push --force-with-lease origin HEAD
-gh pr create -R agbossjs/postgres --fill --base main   # or the PR already open from the branch
+  git add -u && commit_staged "chore(agbossjs/agboss#691): pin @agboss/core $RELEASE_VERSION from npm" && \
+  git push --force-with-lease origin HEAD && \
+  open_release_pr agbossjs/postgres || exit 1
 ```
 
 - **Expected:** `pack:framework` prints `downloaded @agboss/core@X.Y.Z … (sha512-…)`; the PR's CI
@@ -247,11 +308,11 @@ gh pr create -R agbossjs/postgres --fill --base main   # or the PR already open 
 ```bash
 set -euo pipefail
 cd "$WORKSPACE_ROOT/postgres" && git switch main && git pull --ff-only origin main && \
-  export POSTGRES_SHA="$(git rev-parse HEAD)" && \
+  POSTGRES_SHA="$(git rev-parse HEAD)" && export POSTGRES_SHA && \
   node scripts/release/release-plan.mjs --tag "postgres-v$RELEASE_VERSION" && \
   git tag -a "postgres-v$RELEASE_VERSION" -m "Release @agboss/postgres $RELEASE_VERSION" "$POSTGRES_SHA" && \
-  git push origin "postgres-v$RELEASE_VERSION"
-gh run watch -R agbossjs/postgres "$(gh run list -R agbossjs/postgres --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+  git push origin "postgres-v$RELEASE_VERSION" && \
+  watch_release_run agbossjs/postgres || exit 1
 ```
 
 - Approve the `npm` deployment. **Expected:** `@agboss/postgres@X.Y.Z: sha512-…`. The job waits for
@@ -265,7 +326,7 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
   npx agboss-postgres migrate --url "$AGBOSS_POSTGRES_TEST_URL" && \
   npx agboss-postgres migrate --url "$AGBOSS_POSTGRES_TEST_URL" | grep -q "nothing to apply" && \
   node --input-type=module -e 'import("@agboss/postgres").then((m) => console.log(Object.keys(m).length, "exports"))' && \
-  npm audit signatures
+  npm audit signatures || exit 1
 ```
 
 - **Expected:** the first migration applies every file (on a fresh database) or nothing, the second
@@ -275,12 +336,19 @@ rm -rf "$SCRATCH/pg-app" && mkdir -p "$SCRATCH/pg-app" && cd "$SCRATCH/pg-app" &
 ## Step 7 — ⚠️ [PUBLIC / IRREVERSIBLE] The next cars
 
 For each of agbossjs/mongodb and agbossjs/redis that has the release path (see the top) and
-whose issues are done: Step 6 in its repository (`cd "$WORKSPACE_ROOT/mongodb"` or `redis`, with its `release_branch`, `assemble_changelog "agbossjs/agboss"` and
-`bump_version` lines), with its tag prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is
-not ready; say so in the release notes. The release PRs of agbossjs/mongodb and agbossjs/redis also drop the
-`Not published to npm yet` note from their `README.md` (mongodb: the sentence at the end of the first
-quote; redis: the line `> Not published to npm yet: it ships with the 0.1.1 release.`): edit it on
-`release/<version>` before the pin commit.
+whose issues are done: Step 6 in its repository — the same blocks with `postgres` replaced by
+`mongodb` or `redis` in the `cd "$WORKSPACE_ROOT/postgres"` and `agbossjs/postgres` words, its tag
+prefix (`mongodb-v`, `redis-v`) and its own store for the verification. Skip a car that is not ready;
+say so in the release notes.
+
+The release PRs of agbossjs/mongodb and agbossjs/redis also drop the `Not published to npm yet` note
+from their `README.md` (mongodb: the sentence at the end of the first quote; redis: the line
+`> Not published to npm yet: it ships with the 0.1.1 release.`). Nothing is edited by hand:
+`drop_unpublished_note` is in Step 6's chain, after `bump_version` and before the pin commit, and
+commits the README change on `release/<version>` as its own commit (in postgres, whose README has no
+such note, it does nothing). **Expected:** the release PR has a commit for the changelog, one for the
+version, one for the README note and the pin commit, and `grep 'Not published to npm yet' README.md`
+prints nothing.
 
 ## Step 8 — The release notes and the site
 
