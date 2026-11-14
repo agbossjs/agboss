@@ -50,7 +50,31 @@ issue alone is a spec defect and gets `blocked`.
 | `scripts/ticket.sh status <N> "<Stage>"` | move a ticket                      |
 | `scripts/ticket.sh list "<Stage>"`       | tickets in a column                |
 | `scripts/ticket.sh sub <parent> <child>` | sub-issue                          |
-| `scripts/wiki.sh pull / publish`         | Wiki working copy `../<repo>.wiki` |
+| `scripts/wiki.sh stage / check`          | a PR's Wiki pages (`wiki/`)        |
+| `scripts/wiki.sh pull / publish`         | Wiki edits with no code change     |
+
+## Documenting a change
+
+A change that touches the public API, the DSL or the architecture documents it **in its own PR**.
+The Wiki's pages for it live in the folder `wiki/` of the PR, flat `<Page>.md` files named like the
+Wiki's pages, reviewed together with the code:
+
+1. `scripts/wiki.sh stage Routers.md` copies the current shared version of a page into `wiki/` (a new
+   page: create `wiki/<Page>.md`); edit it there.
+2. `scripts/wiki.sh check` is what CI runs: the shared Wiki plus your pages, every ts block
+   compiled, every command and link checked. A page that does not compile fails only your PR.
+3. Commit `wiki/` with the code. Open the PR; the PR template has a "Wiki pages" section.
+4. After the merge there is nothing to do. When `main`'s CI has passed, **Sync Wiki** writes the
+   pages to the Wiki and to the branch `docs/wiki-pending`, exactly once (a commit trailer
+   `Wiki-Overlay-Source: <main sha>` marks how far it got). `wiki/` is not emptied: only the files a
+   PR changes count, so a stale copy there is never published again.
+
+Why not push the Wiki first: the CI of **every** PR compiles the shared Wiki (`docs/wiki-pending`)
+against its own code. A page for an unmerged change on that branch breaks every other PR, so the
+branch only ever holds pages for code that is on `main`. Two PRs that edit one page conflict in
+git at the merge, and the second is rebased. Deleting or renaming a page is not done through a PR:
+`scripts/wiki.sh publish` after the merge. Wiki edits with no code change (typos, ADR notes) go the
+same way.
 
 ## Promotion
 
