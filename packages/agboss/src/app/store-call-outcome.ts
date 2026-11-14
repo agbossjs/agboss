@@ -30,6 +30,15 @@ export interface CallFacts extends StoreCallLimit {
   readonly operation: string;
 }
 
+/** Runs a report (a log line, a counter): one that throws never changes how the call ends. */
+function quietly(report: () => void): void {
+  try {
+    report();
+  } catch {
+    // the report is lost, the call's outcome is not
+  }
+}
+
 /** Logs and counts a call given up on: `store.call-timeout`, `agboss.instance.store_calls.timed_out`. */
 function reportTimeout(
   parts: StoreCallParts,
@@ -44,10 +53,12 @@ function reportTimeout(
     executionId: facts.lease?.leaseExecutionId,
     tenantId: facts.lease?.tenantId,
   };
-  parts.log?.warn("store.call-timeout", `${error.message} (${how})`, { executionId, tenantId });
   const { source } = error;
   const { contract, operation, kind } = facts;
-  parts.timedOut?.add(1, { contract, operation, source, kind });
+  quietly(() =>
+    parts.log?.warn("store.call-timeout", `${error.message} (${how})`, { executionId, tenantId }),
+  );
+  quietly(() => parts.timedOut?.add(1, { contract, operation, source, kind }));
 }
 
 /** What the holder is told and the log shows when the bound fired. */
@@ -79,12 +90,25 @@ export async function failure(
   if (lease === undefined || !(error instanceof StoreOutcomeUnknownError))
     return error instanceof Error ? error : new Error(String(error), { cause: error });
   if (error.source !== StoreOutcomeSource.Framework)
-    parts.log?.warn(
-      "store.outcome-unknown",
-      `${error.message} (${facts.kind} call: the tree is handed over, the next holder reconciles it)`,
-      { executionId: lease.leaseExecutionId, tenantId: lease.tenantId },
+    quietly(() =>
+      parts.log?.warn(
+        "store.outcome-unknown",
+        `${error.message} (${facts.kind} call: the tree is handed over, the next holder reconciles it)`,
+        { executionId: lease.leaseExecutionId, tenantId: lease.tenantId },
+      ),
     );
-  await lease.abandon?.(error);
+  // an abandon that fails leaves the lease to expire in its store, which is what a hand-over does anyway
+  try {
+    await lease.abandon?.(error);
+  } catch (abandonError) {
+    quietly(() =>
+      parts.log?.warn(
+        "execution.lease-abandon-failed",
+        `abandoning the lease failed (${abandonError instanceof Error ? abandonError.message : String(abandonError)}); it expires in its store`,
+        { executionId: lease.leaseExecutionId, tenantId: lease.tenantId },
+      ),
+    );
+  }
   return new ExecutionLeaseLostError({ rootExecutionId: lease.leaseExecutionId, cause: error });
 }
 

@@ -46,25 +46,28 @@ function trustedLease(lease: FrameLease | undefined, method: string): FrameLease
   return isHeld ? lease : undefined;
 }
 
+/** Whether `contract` is `base` or extends it: a subclass registered as a contract is that contract everywhere. */
+const isContractOf = (contract: Class, base: Class): boolean =>
+  contract === base || contract.prototype instanceof base;
+
 /** Whether a call of `contract` can be leased at all: the lease store only reclaims and renews on request. */
 function canBeLeased(contract: Class, method: string, isRenewal: boolean): boolean {
-  if (!(
-    contract === ExecutionLeaseRepository || contract.prototype instanceof ExecutionLeaseRepository
-  ))
-    return true;
+  if (!isContractOf(contract, ExecutionLeaseRepository)) return true;
   return method === "reclaim" || (method === "renew" && isRenewal);
 }
 
 /** The limit of the call of `method` on a store of `contract` that starts now. */
 export function limitOf(contract: Class, method: string): StoreCallLimit {
-  const isLong = LONG_CONTRACTS.has(contract) || MAINTENANCE_METHODS.test(method);
+  const isLong =
+    [...LONG_CONTRACTS].some((long) => isContractOf(contract, long)) ||
+    MAINTENANCE_METHODS.test(method);
   if (isLong) return { kind: StoreCallKind.Long, bound: LONG_CALL_BOUND, lease: undefined };
   const scope = callScopeOf();
   const lease = canBeLeased(contract, method, scope.isRenewal)
     ? trustedLease(scope.lease, method)
     : undefined;
   if (lease?.left === undefined) {
-    const isRenewal = method === "renew" && contract === ExecutionLeaseRepository;
+    const isRenewal = method === "renew" && isContractOf(contract, ExecutionLeaseRepository);
     const bound = isRenewal ? RENEW_BOUND : STORE_CALL_BOUND;
     return { kind: StoreCallKind.Unleased, bound, lease: undefined };
   }

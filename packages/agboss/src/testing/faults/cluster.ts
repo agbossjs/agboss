@@ -106,8 +106,7 @@ export class FaultCluster {
   async cutDatabase(pod: FaultPod, how: ProxyState.Dropped | ProxyState.Frozen): Promise<void> {
     const proxy = this.#proxies.get(pod.name);
     if (proxy !== undefined) {
-      if (how === ProxyState.Dropped) proxy.drop();
-      else proxy.freeze();
+      proxy[how === ProxyState.Dropped ? "drop" : "freeze"]();
       return;
     }
     const mode = how === ProxyState.Dropped ? StoreOutageMode.Refuse : StoreOutageMode.Hang;
@@ -239,7 +238,6 @@ export class FaultCluster {
     await this.#recordsKept();
     const roots = [...new Set(this.events.flatMap((event) => rootOf(event)))];
     const read = { op: "read", rootExecutionIds: roots } as const;
-    // within the cluster's own wait, so a stuck read names itself before the scenario's timeout does
     const facts = (await reader.command(read, this.waitTimeout)) as FaultFacts;
     return {
       ...facts,

@@ -50,15 +50,35 @@ function bounded<T>(parts: StoreCallParts, facts: CallFacts, pending: PromiseLik
         if (end()) resolve(value);
       },
       (error: unknown) => {
-        if (end()) void failure(parts, facts, error).then(reject);
+        if (end()) void settleWith(parts, facts, error, reject);
       },
     );
-    void parts.clock.sleep(facts.bound, waiting).then(async () => {
+    // a clock that fails its sleep cannot time the call: the bound counts as reached
+    const reached = async (): Promise<void> => {
       if (!end()) return;
       if (lost?.aborted === true) reject(lostOf(facts, lost.reason));
-      else reject(await failure(parts, facts, timedOut(parts, facts)));
-    });
+      else await settleWith(parts, facts, timedOut(parts, facts), reject);
+    };
+    parts.clock.sleep(facts.bound, waiting).then(reached, reached);
   });
+}
+
+/**
+ * Rejects the call with what `failure` makes of `error`: every path of a bounded call settles, so a
+ * failure that itself throws (the lease's `abandon`, the log, the counter) still ends the call, with
+ * the error it was reporting — the original is never lost and nothing is left unhandled.
+ */
+async function settleWith(
+  parts: StoreCallParts,
+  facts: CallFacts,
+  error: unknown,
+  reject: (reason: unknown) => void,
+): Promise<void> {
+  try {
+    reject(await failure(parts, facts, error));
+  } catch {
+    reject(error instanceof Error ? error : new Error(String(error), { cause: error }));
+  }
 }
 
 /**

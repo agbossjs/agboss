@@ -120,7 +120,7 @@ export const s24cZombie: RunnableFaultScenario = {
     if (a === undefined) throw new Error("no pod");
     const order = await pausedOrderOn(cluster, a, "o-24c", FIXTURE_EXPIRING);
     const { holder, held } = await firstToExpire(cluster, pods, order, HoldPhase.Before);
-    holder.freeze();
+    await holder.freeze();
     // another pod's recovery takes the frozen holder's tree over, expires the pause, finishes the order
     const end = await cluster.ended(order.rootExecutionId);
     expectThat(
