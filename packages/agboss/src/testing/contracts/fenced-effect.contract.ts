@@ -11,6 +11,7 @@ import { keyTextCases } from "./fenced-effect-key-text.cases.js";
 import { housekeepingCases, isolationCases } from "./fenced-effect-isolation.cases.js";
 import { concurrencyCases, rollbackCases } from "./fenced-effect-rollback.cases.js";
 import { textCases } from "./fenced-effect-text.cases.js";
+import { unknownOutcomeCases } from "./fenced-effect-unknown.cases.js";
 import { refusalCases, writeCases } from "./fenced-effect-write.cases.js";
 import { zombieCases } from "./fenced-effect-zombie.cases.js";
 import type { ContractTarget } from "./instance-context.js";
@@ -49,6 +50,7 @@ export function registerFencedEffectContract<TTransaction>(
       refusalCases<TTransaction>(),
       expiryCases<TTransaction>(),
       rollbackCases<TTransaction>(),
+      unknownOutcomeCases<TTransaction>(),
       concurrencyCases<TTransaction>(),
       isolationCases<TTransaction>(),
       housekeepingCases<TTransaction>(),

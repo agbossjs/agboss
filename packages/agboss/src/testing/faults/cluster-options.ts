@@ -55,3 +55,25 @@ export const throughProxy = (url: string, port: number): string => {
   parsed.port = String(port);
   return parsed.toString();
 };
+
+/**
+ * The bytes of a client's message that apply a write, by the database's protocol (#1017: where
+ * `DatabaseProxy.dropAfter` cuts to lose a COMMIT's answer): PostgreSQL's `COMMIT`, MongoDB's
+ * `commitTransaction`, Redis's `EVALSHA` (a script runs whole). `undefined` for another address.
+ */
+export function commitBytesOf(url: string): string | undefined {
+  if (!URL.canParse(url)) return undefined;
+  switch (new URL(url).protocol) {
+    case "postgres:":
+    case "postgresql:":
+      return "COMMIT";
+    case "mongodb:":
+    case "mongodb+srv:":
+      return "commitTransaction";
+    case "redis:":
+    case "rediss:":
+      return "EVALSHA";
+    default:
+      return undefined;
+  }
+}

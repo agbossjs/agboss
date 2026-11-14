@@ -13,6 +13,7 @@ import {
   s22UnknownAsDone,
   s22UnknownAsNotSent,
 } from "../../src/testing/faults/scenarios/s22-sabotages.js";
+import { s23ResetAsDefinite } from "../../src/testing/faults/scenarios/s23-sabotages.js";
 import { sqliteFaultTarget } from "./sqlite-target.js";
 
 it("S2a: a timed-out markCompleted taken for not sent — sent again, two gateway charges", async () => {
@@ -23,4 +24,8 @@ it("S2a: a timed-out markCompleted taken for not sent — sent again, two gatewa
 
 it("S2b: a timed-out fenced write answered Ran — the tree finishes with no business row", async () => {
   await expect(sabotaged(s22UnknownAsDone, sqliteFaultTarget(), expect)).resolves.toBeUndefined();
+}, 120_000);
+
+it("#1017 S3: a transport error after the charge's COMMIT taken for a definite failure — the reservation is undone, no-undo-on-hand-over fails", async () => {
+  await expect(sabotaged(s23ResetAsDefinite, sqliteFaultTarget(), expect)).resolves.toBeUndefined();
 }, 120_000);

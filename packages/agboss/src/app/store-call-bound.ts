@@ -69,11 +69,21 @@ function timedOut(parts: StoreCallParts, facts: CallFacts): StoreCallTimeoutErro
   return error;
 }
 
-/** What a rejection of the store becomes: a hand-over when the call was leased and its outcome is unknown. */
-async function failure(facts: CallFacts, error: unknown): Promise<Error> {
+/**
+ * What a failure of the store becomes: a hand-over when the call was leased and its outcome is
+ * unknown — whoever found it out (the bound, the store's command timeout, a transport error after
+ * the send, #1017) — else the error itself. A store's own finding is logged here: the bound logs its own.
+ */
+async function failure(parts: StoreCallParts, facts: CallFacts, error: unknown): Promise<Error> {
   const { lease } = facts;
   if (lease === undefined || !(error instanceof StoreOutcomeUnknownError))
     return error instanceof Error ? error : new Error(String(error), { cause: error });
+  if (error.source !== StoreOutcomeSource.Framework)
+    parts.log?.warn(
+      "store.outcome-unknown",
+      `${error.message} (${facts.kind} call: the tree is handed over, the next holder reconciles it)`,
+      { executionId: lease.leaseExecutionId, tenantId: lease.tenantId },
+    );
   await lease.abandon?.(error);
   return new ExecutionLeaseLostError({ rootExecutionId: lease.leaseExecutionId, cause: error });
 }
@@ -102,13 +112,13 @@ function bounded<T>(parts: StoreCallParts, facts: CallFacts, pending: PromiseLik
         if (end()) resolve(value);
       },
       (error: unknown) => {
-        if (end()) void failure(facts, error).then(reject);
+        if (end()) void failure(parts, facts, error).then(reject);
       },
     );
     void parts.clock.sleep(facts.bound, waiting).then(async () => {
       if (!end()) return;
       if (lost?.aborted === true) reject(lostOf(facts, lost.reason));
-      else reject(await failure(facts, timedOut(parts, facts)));
+      else reject(await failure(parts, facts, timedOut(parts, facts)));
     });
   });
 }
@@ -138,6 +148,19 @@ function boundedResult(parts: StoreCallParts, facts: CallFacts, result: unknown)
   return result;
 }
 
+/**
+ * One call of the store: its result bounded; a synchronous throw of unknown outcome — a method that
+ * is not `async` — is a hand-over as a rejection is (a leased call), any other is thrown as it is.
+ */
+function boundedCall(parts: StoreCallParts, facts: CallFacts, apply: () => unknown): unknown {
+  try {
+    return boundedResult(parts, facts, apply());
+  } catch (error) {
+    if (facts.lease === undefined || !(error instanceof StoreOutcomeUnknownError)) throw error;
+    return failure(parts, facts, error).then((handedOver) => Promise.reject(handedOver));
+  }
+}
+
 /** Lifecycle hooks the container calls: never a store call. */
 const HOOKS: ReadonlySet<string> = new Set(["onInit", "onStart", "onStop", "onDestroy"]);
 
@@ -164,7 +187,7 @@ export function boundedStoreOf<T extends object>(
           store: target.constructor.name,
           operation: property,
         };
-        return boundedResult(parts, facts, Reflect.apply(value, target, args));
+        return boundedCall(parts, facts, () => Reflect.apply(value, target, args));
       };
     },
   });

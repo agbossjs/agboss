@@ -168,6 +168,7 @@ export class HoldPoints {
 
 // @public
 export interface HoldRequest {
+    readonly asTransportError?: boolean;
     readonly key?: string;
     readonly loseAnswer?: boolean;
     readonly phase?: HoldPhase;

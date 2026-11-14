@@ -45,6 +45,7 @@ describe("#484 AC1: the scenarios and their files", () => {
       "s15-sabotage-replay-trusted-as-lookup",
       "s22-sabotage-unknown-as-not-sent",
       "s22-sabotage-unknown-as-done",
+      "s23-sabotage-reset-as-definite",
     ]);
     for (const one of [...FAULT_SCENARIOS, ...FAULT_SABOTAGE_SCENARIOS]) {
       expect(Object.keys(one).sort()).toEqual(["id", "title"]);
@@ -63,7 +64,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       plan.cases.filter((one) => one.sabotage !== undefined).map((one) => one.scenario.id),
     ).toEqual(SABOTAGES.map((one) => one.id));
     expect(plan.summary).toBe(
-      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 6 of 6 sabotages`,
+      `runs ${String(ALL.length)} of ${String(ALL.length)} cases: ${String(SCENARIOS.length)} of ${String(SCENARIOS.length)} scenarios, 7 of 7 sabotages`,
     );
   });
 
@@ -89,7 +90,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
       new Set(["not selected: scenarios: names others"]),
     );
     expect(plan.summary).toBe(
-      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 6 sabotages (selected by scenarios:)`,
+      `runs 3 of ${String(ALL.length)} cases: 2 of ${String(SCENARIOS.length)} scenarios, 1 of 7 sabotages (selected by scenarios:)`,
     );
   });
 
@@ -176,7 +177,7 @@ describe("#831 AC2: what the suite runs, and what it shows it leaves out", () =>
 
     expect(skipped.map((one) => one.scenario.id)).toEqual(SABOTAGES.map((one) => one.id));
     expect(skipped[0]?.skipped).toMatch(/^sabotages: false — /u);
-    expect(plan.summary).toMatch(/0 of 6 sabotages \(sabotages: false\)$/u);
+    expect(plan.summary).toMatch(/0 of 7 sabotages \(sabotages: false\)$/u);
     expect(() => faultSuitePlanOf({ ...BASE, sabotages: untypedFlag("no") }, {})).toThrow(
       /sabotages is no — true or false/u,
     );

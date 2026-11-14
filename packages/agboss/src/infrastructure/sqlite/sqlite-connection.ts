@@ -11,6 +11,7 @@ import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { pauseThread } from "../clock.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
+import { afterFailedCommit, classifiedDatabase } from "./sqlite-outcome.js";
 
 /**
  * The SQLite file of an application instance (#265 S32): one `DatabaseSync` (`node:sqlite`, loaded
@@ -99,21 +100,28 @@ export function openSqliteDatabase(path: string, busyTimeout: number = BUSY_TIME
 /**
  * `work` in one `BEGIN IMMEDIATE` transaction: the write lock is taken first, so of two connections
  * one waits (up to the busy timeout) and each sees the other's committed rows. Rolled back when
- * `work` throws. `work` is synchronous — nothing else runs on this connection meanwhile.
+ * `work` throws. `work` is synchronous — nothing else runs on this connection meanwhile. A COMMIT
+ * that fails is `StoreOutcomeUnknownError` unless SQLite leaves the transaction open (#1017).
  */
 export function inImmediateTransaction<TResult>(
   database: DatabaseSync,
   work: () => TResult,
 ): TResult {
   database.exec("BEGIN IMMEDIATE");
+  let result: TResult;
   try {
-    const result = work();
-    database.exec("COMMIT");
-    return result;
+    result = work();
   } catch (error) {
     if (database.isTransaction) database.exec("ROLLBACK");
     throw error;
   }
+  try {
+    database.exec("COMMIT");
+  } catch (error) {
+    // #1017: a failed COMMIT may have been applied (sqlite-outcome.ts)
+    throw afterFailedCommit(database, error);
+  }
+  return result;
 }
 
 /**
@@ -141,7 +149,7 @@ export class SqliteConnection implements OnDestroy {
       );
     }
     this.path = parsed.data.sqlitePath;
-    this.#database = openSqliteDatabase(this.path);
+    this.#database = classifiedDatabase(openSqliteDatabase(this.path));
   }
 
   /** The database itself: for the statements of one store. */

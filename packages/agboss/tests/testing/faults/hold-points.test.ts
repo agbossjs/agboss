@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { StoreOutcomeSource, StoreOutcomeUnknownError } from "../../../src/index.js";
 import {
   HoldPhase,
   HoldPoints,
@@ -124,6 +125,32 @@ describe("#720: a lost answer — the operation took effect, its caller hears an
     await expect(points.reach("childQueue.claim", HoldPhase.After, "c-3")).resolves.toBeUndefined();
     expect(heard).toEqual([]);
     expect(points.held).toEqual([]);
+  });
+
+  it("#1017: asTransportError loses the answer as a transport error of unknown outcome, the lost answer its cause", async () => {
+    const points = new HoldPoints();
+    points.arm({
+      ...{ point: "fencedEffect.write", phase: HoldPhase.After, loseAnswer: true },
+      asTransportError: true,
+    });
+
+    const error: unknown = await points
+      .reach("fencedEffect.write", HoldPhase.After, "k-1")
+      .catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(StoreOutcomeUnknownError);
+    expect(error).toMatchObject({
+      operation: "fencedEffect.write",
+      source: StoreOutcomeSource.Transport,
+      cause: expect.any(StoreAnswerLostError),
+    });
+  });
+
+  it("#1017: asTransportError reads a lost answer: armed without loseAnswer it is refused", () => {
+    const points = new HoldPoints();
+    expect(() =>
+      points.arm({ point: "fencedEffect.write", phase: HoldPhase.After, asTransportError: true }),
+    ).toThrow(RangeError);
   });
 
   it("only an answer can be lost: a lose before the store is refused when armed", () => {

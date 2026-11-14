@@ -69,6 +69,8 @@ export const holdStore = (
     readonly phase?: HoldPhase;
     readonly times?: number;
     readonly loseAnswer?: boolean;
+    /** With `loseAnswer`: heard as a transport error of unknown outcome (#1017). */
+    readonly asTransportError?: boolean;
   } = {},
 ): Promise<unknown> => {
   const request: HoldRequest = {
@@ -76,6 +78,7 @@ export const holdStore = (
     phase: options.phase ?? HoldPhase.Before,
     times: options.times ?? 1,
     ...(options.loseAnswer === true ? { loseAnswer: true } : {}),
+    ...(options.asTransportError === true ? { asTransportError: true } : {}),
     ...(key === undefined ? {} : { key }),
   };
   return pod.command({ op: "arm", request });
