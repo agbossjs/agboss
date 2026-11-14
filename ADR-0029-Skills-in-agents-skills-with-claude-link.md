@@ -28,7 +28,10 @@ Windsurf scan it natively. Claude Code and Cline do not (checked by hand with Cl
 - A 0.1.x project's real `.claude/skills/agboss/` is moved on the first sync (`[skills.moved]`),
   removed only after the new folder is swapped in, so a crash leaves both and the next run finishes.
 - The atomic swap's temporary folder lives in `.agents/`, not in `skills/` (agents scan every child of
-  `skills/`; a leftover would be a second `agboss` skill); leftovers are removed on the next run.
+  `skills/`; a leftover would be a second `agboss` skill). A leftover is not simply removed on the
+  next run: when `.agents/skills/agboss` is missing the newest complete one (valid manifest) is
+  restored first, and a leftover idle for 5 minutes is deleted only when every file of the project's
+  own in it is byte-identical in the live folder, else it is kept with `[skills.unmanaged-file]`.
   `EPERM` / `EBUSY` renames are retried a bounded number of times.
 - Hashes are compared with CRLF read as LF, and `agboss create` writes `.gitattributes`
   (`.agents/skills/agboss/** text eol=lf`), so a Windows checkout is no local edit.

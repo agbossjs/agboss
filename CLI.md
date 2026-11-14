@@ -226,7 +226,21 @@ skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files) · linked .clau
   kept with `[skills.unmanaged-file]`.
 - The folder is written to `.agents/.agboss-skills-<random>/` — beside `skills/`, never in it, since
   agents scan every child of `skills/` — and renamed into place (a rename held by an antivirus or
-  indexer, `EPERM` / `EBUSY`, is retried a few times); a leftover of a crash is removed on the next run.
+  indexer, `EPERM` / `EBUSY`, is retried a few times). A crash can leave `.agents/.agboss-skills-<random>`
+  (and `-old`). When `.agents/skills/agboss` is then missing, the next run first puts back the newest
+  complete leftover (one with a valid manifest), so the project's own files come back with it. A
+  leftover idle for 5 minutes is removed only when every file of the project's own in it is
+  byte-identical in the live folder; otherwise it is kept, with `[skills.unmanaged-file] .agents/.agboss-skills-… holds your own files (…) — kept; copy them back or remove the folder`.
+- **The lock.** The sync of one project runs one at a time (`npm install`'s postinstall beside a `dev`
+  pass): `.agents/.agboss-skills-lock/` holds the owner's pid, host and start time. A lock whose
+  owner is dead on this host is taken over at once; a live owner is waited for up to about 12 s,
+  and then the check only reads: `current` prints nothing, anything else prints one
+  `[skills.sync-failed] … another agboss check holds …` — run `npx agboss check` again. A lock of
+  another host, or with an unreadable owner, is taken over after 10 minutes. Ctrl-C releases it.
+- **The project's links.** A symlink of the project's inside `.agents/skills/agboss/` is never
+  followed: one that stays inside the project is kept as it is, one that leaves it is dropped, and
+  `[skills.unmanaged-file]` names each. An interrupted move that finds the same own file with other
+  bytes in both folders keeps the `.agents` one and saves the old one as `<name>.legacy`.
 - **The link.** `.claude/skills/agboss` → `.agents/skills/agboss` (a relative symlink; on Windows a
   junction, which needs no rights) is checked on every run, the copy current or not, so a fresh clone
   gets it from `npm install`. Claude Code and Cline read only `.claude/skills/`; Codex, Cursor, GitHub
