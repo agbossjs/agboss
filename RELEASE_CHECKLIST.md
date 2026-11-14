@@ -51,7 +51,7 @@ mkdir -p "$SCRATCH"
 # repository. Every line stops the function: bash switches `set -e` off inside a function called in an
 # `&&` chain, so each command ends in `|| return 1`.
 release_branch() {
-  local local_ref=0 remote_ref=0
+  local local_ref=0 remote_ref=0 foreign rc
   git fetch origin || return 1
   # show-ref exits 1 for a missing ref; any other status is an error, never "missing"
   git show-ref --verify --quiet "refs/heads/release/$RELEASE_VERSION" || local_ref=$?
@@ -59,6 +59,23 @@ release_branch() {
   git show-ref --verify --quiet "refs/remotes/origin/release/$RELEASE_VERSION" || remote_ref=$?
   test "$remote_ref" -le 1 || return 1
   if [ "$local_ref" = 0 ]; then
+    if [ "$remote_ref" = 0 ]; then
+      # a commit only on origin's branch (a review fix, the maintainer's second clone) is never guessed
+      # about and never pushed over: stop. `git cherry` marks with `+` what the local branch lacks, a
+      # rebased copy of its own commits (`-`) is not foreign.
+      foreign="$(git cherry "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION")" || return 1
+      rc=0
+      printf '%s\n' "$foreign" | grep -q '^+' || rc=$?
+      case "$rc" in
+        0)
+          echo "origin/release/$RELEASE_VERSION has commits this clone does not; nothing was changed:" >&2
+          git log --oneline "release/$RELEASE_VERSION..origin/release/$RELEASE_VERSION" >&2 || return 1
+          echo "Recovery: to keep them, git switch release/$RELEASE_VERSION, then git rebase origin/release/$RELEASE_VERSION, then rerun the step. To drop them on purpose (the maintainer's call): git branch -D release/$RELEASE_VERSION, then git push origin --delete release/$RELEASE_VERSION, then rerun." >&2
+          return 1 ;;
+        1) ;;
+        *) return 1 ;;
+      esac
+    fi
     git switch "release/$RELEASE_VERSION" || return 1
   elif [ "$remote_ref" = 0 ]; then
     git switch -c "release/$RELEASE_VERSION" "origin/release/$RELEASE_VERSION" || return 1
@@ -128,12 +145,53 @@ open_release_pr() {
   test "$n" -gt 0 || gh pr create -R "$1" --fill --base main || return 1
 }
 
-# Watch the newest run of the release workflow (the one the tag just started).
+# Push release/$RELEASE_VERSION with a lease on exactly what release_branch fetched of origin's branch
+# (none there: the branch must not exist), so a commit pushed meanwhile is refused, never overwritten.
+# Run it inside the repository, on release/$RELEASE_VERSION.
+push_release_branch() {
+  local ref="refs/remotes/origin/release/$RELEASE_VERSION" rc=0 expect=""
+  git show-ref --verify --quiet "$ref" || rc=$?
+  case "$rc" in
+    0) expect="$(git rev-parse "$ref")" || return 1 ;;
+    1) ;;
+    *) return 1 ;;
+  esac
+  git push --force-with-lease="release/$RELEASE_VERSION:$expect" origin HEAD || return 1
+}
+
+# The ids of the release workflow's runs started by a push of the tag $2 in the repository $1.
+release_run_ids() {
+  gh run list -R "$1" --workflow release.yml --event push --branch "$2" --limit 100 --json databaseId --jq '.[].databaseId' || return 1
+}
+
+# Watch the run the push of the tag $2 started in the repository $1 and fail when it fails. $3 is the
+# output of release_run_ids taken BEFORE the push: a run of the tag that already existed (a deleted and
+# re-pushed tag) or a pull request's dry run is never the one watched. Waits for the run to appear
+# (RELEASE_RUN_TRIES polls, RELEASE_RUN_POLL seconds apart; 60 x 5 s), then fails.
 watch_release_run() {
-  local id
-  id="$(gh run list -R "$1" --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')" || return 1
-  test -n "$id" && test "$id" != null || return 1
-  gh run watch -R "$1" "$id" || return 1
+  local repo="$1" tag="$2" before="$3" sha ids candidate id="" rc tries=0
+  sha="$(git rev-parse "$tag^{commit}")" || return 1
+  while [ -z "$id" ]; do
+    ids="$(gh run list -R "$repo" --workflow release.yml --event push --branch "$tag" --commit "$sha" --limit 100 --json databaseId --jq '.[].databaseId')" || return 1
+    for candidate in $ids; do
+      rc=0
+      printf '%s\n' "$before" | grep -qxF "$candidate" || rc=$?
+      case "$rc" in
+        0) ;;
+        1) id="$candidate"; break ;;
+        *) return 1 ;;
+      esac
+    done
+    if [ -z "$id" ]; then
+      tries=$((tries + 1))
+      if [ "$tries" -ge "${RELEASE_RUN_TRIES:-60}" ]; then
+        echo "no release run for $tag in $repo after $tries looks" >&2
+        return 1
+      fi
+      sleep "${RELEASE_RUN_POLL:-5}" || return 1
+    fi
+  done
+  gh run watch -R "$repo" "$id" --exit-status || return 1
 }
 ```
 
@@ -199,7 +257,7 @@ cd "$WORKSPACE_ROOT/agboss" && release_branch && git rebase origin/main && \
   assemble_changelog "" && \
   npm ci && REAL_TMPDIR="$(realpath "$TMPDIR")" && TMPDIR="$REAL_TMPDIR" make check && npm run check:packed && \
   node scripts/release/release-plan.mjs --tag "v$RELEASE_VERSION" && \
-  git push --force-with-lease origin HEAD && \
+  push_release_branch && \
   open_release_pr agbossjs/agboss || exit 1
 ```
 
@@ -251,9 +309,10 @@ set -euo pipefail
 cd "$WORKSPACE_ROOT/agboss" && \
   test "$(git rev-parse HEAD)" = "$RELEASE_SHA" && test -z "$(git status --short)" && \
   if npm view "@agboss/core@$RELEASE_VERSION" version > /dev/null 2>&1; then echo "already on npm"; exit 1; fi && \
+  RUNS_BEFORE="$(release_run_ids agbossjs/agboss "v$RELEASE_VERSION")" && \
   git tag -a "v$RELEASE_VERSION" -m "Release v$RELEASE_VERSION" "$RELEASE_SHA" && \
   git push origin "v$RELEASE_VERSION" && \
-  watch_release_run agbossjs/agboss || exit 1
+  watch_release_run agbossjs/agboss "v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1
 ```
 
 - Approve the `npm` environment's deployment when GitHub asks (Actions → the run → Review
@@ -297,9 +356,22 @@ cd "$WORKSPACE_ROOT/postgres" && release_branch && git rebase origin/main && \
   npm ci && npm run pack:framework && npm run install:packed && \
   AGBOSS_POSTGRES_TEST_URL="${AGBOSS_POSTGRES_TEST_URL:?a PostgreSQL for the tests}" VITEST_MAX_FORKS=3 npm run check && \
   git add -u && commit_staged "chore(agbossjs/agboss#691): pin @agboss/core $RELEASE_VERSION from npm" && \
-  git push --force-with-lease origin HEAD && \
+  push_release_branch && \
   open_release_pr agbossjs/postgres || exit 1
 ```
+
+- **A rerun is safe, and never overwrites.** `release_branch` stops, printing the commits and a recovery,
+  when `origin/release/<version>` has a commit this clone does not (a review fix on the PR, a second
+  clone); `push_release_branch` leases exactly the origin head it fetched, so a commit pushed during the
+  run is refused too (Steps 2 and 6).
+- **If the chain stops after `pin-framework`** (a flaky `npm run check`, a failed `install:packed`): the
+  pin is an unstaged edit (`.agboss-version.json`) and `git rebase` refuses to start on it. Undo it, then
+  rerun the block above from its first line (the commits already made are kept, the pin is redone):
+
+  ```bash
+  set -euo pipefail
+  git -C "$WORKSPACE_ROOT/postgres" restore .
+  ```
 
 - **Expected:** `pack:framework` prints `downloaded @agboss/core@X.Y.Z … (sha512-…)`; the PR's CI
   (`check` and the three fault-suite shards, all on the registry's core) and its `Release / dry run`
@@ -310,9 +382,10 @@ set -euo pipefail
 cd "$WORKSPACE_ROOT/postgres" && git switch main && git pull --ff-only origin main && \
   POSTGRES_SHA="$(git rev-parse HEAD)" && export POSTGRES_SHA && \
   node scripts/release/release-plan.mjs --tag "postgres-v$RELEASE_VERSION" && \
+  RUNS_BEFORE="$(release_run_ids agbossjs/postgres "postgres-v$RELEASE_VERSION")" && \
   git tag -a "postgres-v$RELEASE_VERSION" -m "Release @agboss/postgres $RELEASE_VERSION" "$POSTGRES_SHA" && \
   git push origin "postgres-v$RELEASE_VERSION" && \
-  watch_release_run agbossjs/postgres || exit 1
+  watch_release_run agbossjs/postgres "postgres-v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1
 ```
 
 - Approve the `npm` deployment. **Expected:** `@agboss/postgres@X.Y.Z: sha512-…`. The job waits for
@@ -401,7 +474,7 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
    cd "$WORKSPACE_ROOT/agboss-examples" && \
      npm ci && \
      AGBOSS_REPO_DIR="$WORKSPACE_ROOT/agboss" npm run pack:framework && \
-     npm run install:packed
+     npm run install:packed || exit 1
    ```
 
 2. **Run every example with real models** — `check`, `test`, then `demo:live` where the example has it (`01`, `08`), else its `demo` — with `OPENROUTER_API_KEY` set:
@@ -413,7 +486,7 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
    for example in [0-9][0-9]-*/; do
      (
        cd "$example"
-       npm run check && npm test
+       npm run check && npm test || exit 1
        if node -e 'process.exit(require("./package.json").scripts?.["demo:live"] ? 0 : 1)'; then
          npm run demo:live
        else
@@ -421,7 +494,7 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
        fi
      )
    done
-   npm run install:packed:restore && test -z "$(git status --short | grep -v '/.agents/skills/agboss/')"
+   npm run install:packed:restore && test -z "$(git status --short | grep -v '/.agents/skills/agboss/')" || exit 1
    ```
 
    `agboss check` syncs each example's `.agents/skills/agboss/` to the candidate's skills (and makes the
@@ -436,7 +509,7 @@ The examples live in [`agbossjs/agboss-examples`](https://github.com/agbossjs/ag
    set -euo pipefail
    cd "$WORKSPACE_ROOT/agboss-examples" && \
      AGBOSS_NPM_BEFORE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-     npm run verify:published -- --live-registry --version "$RELEASE_VERSION"
+     npm run verify:published -- --live-registry --version "$RELEASE_VERSION" || exit 1
    # then pin .agboss-version.json (frameworkSha) to the release commit — Step 1.2 — in a PR there
    ```
 
