@@ -113,7 +113,7 @@ function moveLegacy(
 ): CopyOutcome {
   const manifest = readManifest(target);
   const plan = planSync(target, manifest, files, version);
-  const old = legacyPlanOf(legacy, files, version);
+  const old = legacyPlanOf(root, legacy, files, version);
   const links = ownLinksOf(
     root,
     files.map((file) => file.path),
@@ -127,7 +127,7 @@ function moveLegacy(
     assertCarryable(target, old.kept);
     if (plan.status !== SkillsSyncStatus.Current)
       replaceSkillsFolder(target, files, version, own, replace);
-    carried = carryOver(target, old.kept);
+    carried = carryOver(root, target, old.kept);
   }
   const removal = removeLegacy(legacy.folder, replace);
   const isMoved = removal.some((warning) => warning.code === SkillsWarningCode.Moved);
@@ -142,6 +142,7 @@ function moveLegacy(
       ...(isRewritten ? planWarnings(plan, version) : []),
       ...(isRewritten || manifest === undefined ? links.warnings : []),
       ...carried,
+      ...old.warnings,
       ...planWarnings(old.plan, version),
       ...removal,
     ],

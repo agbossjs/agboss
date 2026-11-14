@@ -6,13 +6,16 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readlinkSync,
+  realpathSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { SkillsSyncStatus, SkillsWarningCode } from "../../src/skills/status.js";
 import { syncSkills } from "../../src/skills/sync.js";
@@ -56,5 +59,23 @@ describe("#1013 (a): the project's links in the skills folder", () => {
 
     expect(lstatSync(join(copy, "references/02-flow-dsl-all-combinations.md")).isFile()).toBe(true);
     expect(done.warnings.map((w) => w.message).join("\n")).toContain("replaced by agboss's");
+  });
+
+  it("#1076: an absolute link spelled through an alias of the project's path is kept; one that really leaves is not", () => {
+    const root = oldProject();
+    const copy = join(root, ".agents/skills/agboss");
+    mkdirSync(join(root, "docs"));
+    writeFileSync(join(root, "docs/rules.md"), "rules");
+    const alias = join(mkdtempSync(join(tmpdir(), "agboss-alias-")), "project");
+    symlinkSync(realpathSync(root), alias, "dir");
+    symlinkSync(join(alias, "docs/rules.md"), join(copy, "via-alias.md"));
+    symlinkSync(join(alias, "docs/missing.md"), join(copy, "dangling.md"));
+    symlinkSync(join(alias, "..", "elsewhere.md"), join(copy, "leaves.md"));
+
+    syncSkills({ root, isEnabled: true }, "check", noHome);
+
+    expect(readlinkSync(join(copy, "via-alias.md"))).toBe(join(alias, "docs/rules.md"));
+    expect(readlinkSync(join(copy, "dangling.md"))).toBe(join(alias, "docs/missing.md"));
+    expect(lstatSync(join(copy, "leaves.md"), { throwIfNoEntry: false })).toBeUndefined();
   });
 });

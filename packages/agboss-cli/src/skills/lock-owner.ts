@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import { readdirSync, readFileSync, rmdirSync, statSync, unlinkSync } from "node:fs";
+import { readdirSync, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { z } from "zod";
 
 /**
@@ -69,7 +69,20 @@ function isReused(owner: LockOwner): boolean {
   return elapsed !== undefined && Math.abs(Date.now() - elapsed * 1000 - owner.procStart) > 5000;
 }
 
-/** The lock folder's owner; undefined when there is no folder. */
+/** How long ago `path` was last written; undefined when it cannot be stat'ed. */
+function ageOf(path: string): number | undefined {
+  try {
+    return Date.now() - statSync(path).mtimeMs;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The lock folder's owner; undefined when there is no folder. What cannot be read is judged by its
+ * age on disk (the older of the file's and the folder's mtime), never as "just now": an empty or
+ * garbage owner file, or a folder with no owner file, must age out (#1075).
+ */
 export function readHolder(lock: string): Holder | undefined {
   let names: string[];
   try {
@@ -78,17 +91,16 @@ export function readHolder(lock: string): Holder | undefined {
     return undefined;
   }
   const name = names.find((entry) => entry.startsWith(OWNER_PREFIX));
-  if (name === undefined) return { token: undefined, owner: undefined, ageMs: 0 };
+  const folderAge = ageOf(lock) ?? 0;
+  if (name === undefined) return { token: undefined, owner: undefined, ageMs: folderAge };
   const file = join(lock, name);
+  const token = name.slice(OWNER_PREFIX.length);
+  const ageMs = Math.max(ageOf(file) ?? 0, folderAge);
   try {
     const parsed = OwnerSchema.safeParse(JSON.parse(readFileSync(file, "utf8")));
-    return {
-      token: name.slice(OWNER_PREFIX.length),
-      owner: parsed.success ? parsed.data : undefined,
-      ageMs: Date.now() - statSync(file).mtimeMs,
-    };
+    return { token, owner: parsed.success ? parsed.data : undefined, ageMs };
   } catch {
-    return { token: name.slice(OWNER_PREFIX.length), owner: undefined, ageMs: 0 };
+    return { token, owner: undefined, ageMs };
   }
 }
 
@@ -129,4 +141,21 @@ export function clearEmpty(lock: string): void {
   } catch {
     // not empty (a new holder), not there, or held by the system: not ours to remove
   }
+}
+
+/**
+ * Clears a lock folder that has no owner file but something else in it (the pre-#1013 format, a
+ * stray file): its entries go by name, then the folder through `clearEmpty`. A fresh lock made
+ * meanwhile holds an `owner-` file, which is never swept, so it keeps the folder.
+ */
+export function sweepStray(lock: string): void {
+  let names: string[];
+  try {
+    names = readdirSync(lock);
+  } catch {
+    return;
+  }
+  for (const name of names)
+    if (!name.startsWith(OWNER_PREFIX)) rmSync(join(lock, name), { recursive: true, force: true });
+  clearEmpty(lock);
 }

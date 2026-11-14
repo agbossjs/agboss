@@ -130,6 +130,22 @@ describe("#983 D1: a crash between the swap's two renames", () => {
   });
 });
 
+describe("#1013 acceptance: only a leftover with a valid manifest is restored", () => {
+  it("a leftover without a manifest is not put back in place of a missing folder", () => {
+    const root = projectWithOwnFile();
+    const bare = join(root, ".agents/.agboss-skills-9999");
+    mkdirSync(bare);
+    writeFileSync(join(bare, "partial.md"), "half written");
+    renameSync(copyOf(root), join(root, "gone"));
+
+    sync(root);
+
+    expect(readFileSync(join(bare, "partial.md"), "utf8")).toBe("half written");
+    expect(existsSync(join(copyOf(root), "partial.md"))).toBe(false);
+    expect(readManifest(copyOf(root))).toBeDefined();
+  });
+});
+
 describe("#983 D2: no write through a link inside the managed folder", () => {
   /** The crafted layout: a managed 0.1.x folder with `extra/planted.md`; the copy's `extra` is a link outside. */
   function craftedMigration(): { root: string; outside: string } {
