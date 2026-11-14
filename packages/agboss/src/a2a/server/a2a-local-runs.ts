@@ -1,5 +1,6 @@
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
+import { SILENT_LOG, type FrameworkLog } from "../../infrastructure/logger.js";
 import type { ExecutionStreamEvent } from "../../run/types.js";
 import { seconds } from "../../units/index.js";
 import { onTaskChange } from "../tasks/task-changes.js";
@@ -26,6 +27,9 @@ const keyOf = (key: A2ATaskKey): string => `${key.tenantId}\u0000${key.taskId}`;
 export class LocalRuns {
   readonly #runs = new Map<string, LocalRun>();
 
+  /** `log` hears a listener that threw (#1008); a listener of a run never stops the others. */
+  constructor(private readonly log: FrameworkLog = SILENT_LOG) {}
+
   /**
    * Starts a task's run: `run` gets the stream callback to pass on; its end — a result or an error,
    * the task's state says which — is kept only as "settled". Never rejects.
@@ -35,8 +39,16 @@ export class LocalRuns {
     run: (onStream: (event: ExecutionStreamEvent) => void) => Promise<unknown>,
   ): Promise<void> {
     const listeners = new Set<(event: ExecutionStreamEvent) => void>();
+    let reported = false;
     const onStream = (event: ExecutionStreamEvent): void => {
-      for (const listener of listeners) listener(event);
+      for (const listener of listeners) {
+        try {
+          listener(event);
+        } catch (error) {
+          if (!reported) this.#report(key, error);
+          reported = true;
+        }
+      }
     };
     const text = keyOf(key);
     // the run's own error is its task's status (the projection writes it): nothing to rethrow here
@@ -50,6 +62,16 @@ export class LocalRuns {
       if (this.#runs.get(text) === entry) this.#runs.delete(text);
     });
     return settled;
+  }
+
+  /** Says once per run that a listener threw: its ids and its error's class, never the event. */
+  #report(key: A2ATaskKey, error: unknown): void {
+    const kind = error instanceof Error ? error.name : typeof error;
+    this.log.warn(
+      "stream.listener-failed",
+      `a stream listener of task ${key.taskId} threw (${kind}); the other listeners and the run go on`,
+      { executionId: key.taskId, tenantId: key.tenantId },
+    );
   }
 
   /** The end of the task's run in this process, if one runs here. */

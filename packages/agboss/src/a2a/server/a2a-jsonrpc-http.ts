@@ -208,7 +208,8 @@ async function serveAdmitted(binding: A2AHttpBinding, rpc: AdmittedRpc): Promise
   const answer = await rpc.transport.handle(body as Record<string, unknown>, context);
   const headers = extensionHeadersOf(context);
   const id = fieldOf(body, "id");
-  if (isAsyncIterable(answer)) await sendEvents(res, answer, { id, log, headers });
+  if (isAsyncIterable(answer))
+    await sendEvents(res, answer, { id, log, clock: binding.mesh.clock, headers });
   else sendJson(res, wireSafeAnswer(answer, log), headers);
 }
 

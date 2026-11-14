@@ -169,6 +169,7 @@ async function bindingOf<TStart extends Class>(
     messageIdempotencyRetention: mesh.a2aMessageRetention,
     madeAt: clock.now(),
   });
+  const log = frameworkLogOf(app.resolve(Logger), clock);
   const parts = {
     app,
     tasks: app.resolve(A2ATaskRepository),
@@ -176,8 +177,8 @@ async function bindingOf<TStart extends Class>(
     clock,
     ids: app.resolve(IdGenerator),
     skills,
-    runs: new LocalRuns(),
-    log: frameworkLogOf(app.resolve(Logger), clock),
+    runs: new LocalRuns(log),
+    log,
     maxTaskDuration: options.maxTaskDuration,
     mesh,
     files: serverFilesOf(app, options),
