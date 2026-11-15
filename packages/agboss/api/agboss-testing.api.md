@@ -921,7 +921,7 @@ export interface StudioOptions {
 export function testAction<TAction extends Class<ExecuteMethod>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(action: TAction, options?: UnitOptions<TExecution, TTenant>): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>>;
 
 // @public
-export interface TestApp extends Pick<App, "execute" | "resume" | "extendPause" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "resolve"> {
+export interface TestApp extends Pick<App, "execute" | "resume" | "extendPause" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)

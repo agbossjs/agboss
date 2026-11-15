@@ -23,7 +23,7 @@ import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.j
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionAuditLogRepository } from "../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-import { auditLogIn, pendingCallsOf } from "./instance-reads.js";
+import { auditLogIn, listPausesOf, pendingCallsOf } from "./instance-reads.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import type { PauseTimers } from "./pause-timers.js";
 import { modelProvidersOf } from "../models/resolution.js";
@@ -51,12 +51,8 @@ function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> 
   return starts;
 }
 
-/** The start a plain text goes to: the first listed workflow's that has one. */
-const textStartOf = (workflows: readonly BuiltApp[]): Class | undefined =>
-  workflows.map((workflow) => workflow.app.textStart).find((start) => start !== undefined);
-
 /** What an instance adds to its workflows' apps: its graceful stop, warnings and probes. */
-export interface InstanceSurface {
+export interface InstanceSurface extends Pick<Infrastructure, "pausedExecutions"> {
   readonly stop: GracefulStop;
   /** `app.checkLiveness()` / `app.checkReadiness()` (#300). */
   readonly health: ApplicationHealth;
@@ -138,7 +134,8 @@ export function composeApp(
     version: assembled.version,
     warnings,
     models: [...new Set(workflows.flatMap((workflow) => workflow.app.models))],
-    textStart: textStartOf(workflows),
+    // the start a plain text goes to: the first listed workflow's that has one
+    textStart: workflows.map((one) => one.app.textStart).find((start) => start !== undefined),
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
     execute: (start, input, ...options) =>
       (starts.get(start) ?? first).app.execute(start, input, ...options),
@@ -150,6 +147,7 @@ export function composeApp(
       (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
     close: (options) => stop.close(options),
     ...instanceReadsOf(surface),
+    listPauses: listPausesOf(workflows, ofThread, surface.pausedExecutions),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   });

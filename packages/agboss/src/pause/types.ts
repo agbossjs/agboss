@@ -3,6 +3,7 @@ import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import type { PauseTally } from "./pause-tally.js";
 import {
   NO_RECIPIENTS,
   PauseKind,
@@ -33,6 +34,8 @@ export interface PauseSeam {
  * may throw. The delivery itself is the application's (`app/pause-notice-delivery.ts`).
  */
 export interface PauseNotices {
+  /** Where the instance counts the changes it applies (#943); absent: nowhere. */
+  readonly tally?: PauseTally | undefined;
   /** The pause's receivers: its channel when that listens to anything, and every listener. */
   readonly recipientsOf: (pause: PauseRecord) => PauseRecipients;
   /**

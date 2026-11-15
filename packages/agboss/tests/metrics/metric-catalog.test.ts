@@ -52,11 +52,23 @@ const DOCUMENTED = {
     ["contract", "operation", "source", "kind"],
   ],
   "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "outcome"]],
+  "agboss.instance.pauses.opened": [MetricKind.Counter, "{pause}", ["workflow", "role"]],
+  "agboss.instance.pauses.closed": [MetricKind.Counter, "{pause}", ["workflow", "role", "reason"]],
+  "agboss.instance.pauses.time_to_answer": [MetricKind.Histogram, "s", ["workflow", "role"]],
+  "agboss.instance.pauses.extended": [MetricKind.Counter, "{pause}", ["workflow", "role"]],
+  "agboss.instance.pauses.answers_not_taken": [
+    MetricKind.Counter,
+    "{pause}",
+    ["workflow", "role", "reason"],
+  ],
+  "agboss.cluster.pauses.notices.waiting": [MetricKind.ObservableGauge, "{mailbox}", []],
+  "agboss.cluster.pauses.notices.dead": [MetricKind.ObservableGauge, "{mailbox}", []],
 } as const;
 
 const KIND_OF_TYPE: Readonly<Record<string, MetricKind>> = {
   [DataPointType.GAUGE]: MetricKind.ObservableGauge,
   [DataPointType.SUM]: MetricKind.Counter,
+  [DataPointType.HISTOGRAM]: MetricKind.Histogram,
 };
 
 /** Every label value the code can give, by key. */

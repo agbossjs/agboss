@@ -44,6 +44,7 @@ export interface TestApp extends Pick<
   | "auditLogOf"
   | "outboundCallsOf"
   | "pendingOutboundCallsOf"
+  | "listPauses"
   | "resolve"
 > {
   readonly clock: VirtualClock;
@@ -144,7 +145,12 @@ const probesOf = (
   probed: () => Promise<BuiltApplication>,
 ): Pick<
   TestApp,
-  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
+  | "checkLiveness"
+  | "checkReadiness"
+  | "auditLogOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCallsOf"
+  | "listPauses"
 > => ({
   checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
   checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
@@ -153,6 +159,7 @@ const probesOf = (
     checked(environment, async () => (await probed()).app.outboundCallsOf(tree)),
   pendingOutboundCallsOf: (query) =>
     checked(environment, async () => (await probed()).app.pendingOutboundCallsOf(query)),
+  listPauses: (query) => checked(environment, async () => (await probed()).app.listPauses(query)),
 });
 
 /** The built app's execution control (#807), reached once the app is built. */

@@ -669,6 +669,7 @@ export interface App {
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, ...options: ExecutionOptionsArgs<InstanceType<TStart>>): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
     extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
     hasTool(name: string): boolean;
+    listPauses(query: PausesQuery): Promise<PausesPage>;
     readonly models: readonly string[];
     // (undocumented)
     readonly name: string;
@@ -4742,6 +4743,28 @@ export interface LimitExceededErrorOptions {
     readonly usage?: readonly UsageRecord[];
 }
 
+// @public
+export interface ListedPause extends Omit<PendingPauseBase, "answeredBy"> {
+    readonly answeredBy?: string;
+    readonly ask: unknown;
+    // (undocumented)
+    readonly askedAt: string;
+    // (undocumented)
+    readonly closedAt?: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly kind: PauseKind;
+    readonly pauseKey: string;
+    readonly reason?: PauseClosedReason;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly status: PauseStatus;
+    // (undocumented)
+    readonly threadId: string;
+}
+
 // @public (undocumented)
 export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
 
@@ -6595,6 +6618,25 @@ export interface PauseSite {
     // (undocumented)
     readonly visitNumber: number;
     readonly workflow: string;
+}
+
+// @public
+export interface PausesPage {
+    // (undocumented)
+    readonly next?: string;
+    // (undocumented)
+    readonly pauses: readonly ListedPause[];
+}
+
+// @public
+export interface PausesQuery {
+    readonly after?: string;
+    readonly expiringBefore?: Date;
+    readonly limit?: number;
+    readonly role?: string;
+    readonly status?: PauseStatus | readonly PauseStatus[];
+    // (undocumented)
+    readonly tenantId: string;
 }
 
 // @public
@@ -9581,6 +9623,16 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "version".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "status".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "askedAt".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "closedAt".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "pauses".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "next".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/application/application.ts - (ae-undocumented) Missing documentation for "Application".

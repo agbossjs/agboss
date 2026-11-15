@@ -41,19 +41,13 @@ Prometheus name is the official exporter's: `.` → `_`, a counter gets `_total`
 dropped. No name carries its unit (OpenTelemetry's naming; #889): a collector that appends unit
 suffixes scrapes `agboss_cluster_children_oldest_queued_age_seconds`, never a doubled suffix.
 
-### Pauses
-
-> **TODO (#943, not on main yet):** the pause metrics — pauses open now, opened and closed by reason,
-> overdue, the age at the answer — their names, kinds, units and labels are written here when #943
-> merges ([Pauses → List and watch pauses](Pauses#list-and-watch-pauses)).
-
 ### Cluster — read from the shared store, the same on every instance
 
-| Name (Prometheus) | Kind | Unit | Value |
-| --- | --- | --- | --- |
-| `agboss.cluster.children.queued` (`agboss_cluster_children_queued`) | gauge | `{execution}` | children launched with `ChildPlacement.AnyInstance` waiting to be claimed, every tenant and tree |
-| `agboss.cluster.children.running` (`agboss_cluster_children_running`) | gauge | `{execution}` | those claimed by an instance |
-| `agboss.cluster.children.oldest_queued.age` (`agboss_cluster_children_oldest_queued_age`) | gauge | `s` | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none |
+| Name (Prometheus)                                                                         | Kind  | Unit          | Value                                                                                            |
+| ----------------------------------------------------------------------------------------- | ----- | ------------- | ------------------------------------------------------------------------------------------------ |
+| `agboss.cluster.children.queued` (`agboss_cluster_children_queued`)                       | gauge | `{execution}` | children launched with `ChildPlacement.AnyInstance` waiting to be claimed, every tenant and tree |
+| `agboss.cluster.children.running` (`agboss_cluster_children_running`)                     | gauge | `{execution}` | those claimed by an instance                                                                     |
+| `agboss.cluster.children.oldest_queued.age` (`agboss_cluster_children_oldest_queued_age`) | gauge | `s`           | how long the longest-waiting queued child has waited, on the app's `Clock`; `0` when none        |
 
 All three come from **one** call of `ChildExecutionQueueRepository.countByStatus()` per
 collection — an aggregate, never a read per tree (the SQLite store: one statement over its claims
@@ -62,26 +56,33 @@ value — and the log warns `metrics.child-queue-unreadable` once per failure st
 
 ### Per instance — this pod's own numbers
 
-| Name (Prometheus) | Kind | Unit | Labels | Value |
-| --- | --- | --- | --- | --- |
-| `agboss.instance.step_slots.limit` | gauge | `{slot}` | — | [`maxConcurrentSteps`](Several-instances#an-instances-cap-on-steps-332) |
-| `agboss.instance.step_slots.busy` | gauge | `{slot}` | — | steps at work now |
-| `agboss.instance.step_slots.free` | gauge | `{slot}` | — | `limit − busy` |
-| `agboss.instance.steps.waiting` | gauge | `{step}` | — | steps waiting for a slot now |
-| `agboss.instance.leases.held` | gauge | `{lease}` | — | tree leases it holds: roots it moves, children it claimed, a parent waiting for children (its lease yielded, still its own); a released or lost lease is not held |
-| `agboss.instance.leases.takeovers` (`…_total`) | counter | `{takeover}` | `reason` | [takeovers](Observability#lease-takeovers-501) it made — recoveries are `reason="recovered"` (and `"unwinding"`) |
-| `agboss.instance.steps.handed_over` (`…_total`) | counter | `{step}` | `reason` | [hand-overs](Observability#hand-overs-501) of its steps |
-| `agboss.instance.executions.ended` (`…_total`) | counter | `{execution}` | `workflow`, `outcome` | executions that ended on it, children included: `finished` (`onExecutionEnd`), `failed` or `cancelled` (`onExecutionError`) |
-| `agboss.instance.compensations` (`…_total`) | counter | `{action}` | `workflow`, `outcome` | [automatic undo actions](Observability#automatic-undo) that ended on it: `compensated` or `failed` |
-| `agboss.instance.store_calls.timed_out` (`…_total`) | counter | `{call}` | `contract`, `operation`, `source`, `kind` | store calls the instance gave up on at their bound (#928): `source` `framework` (the bound) or `command` (the store's own timeout); `kind` `leased` (a hand-over), `unleased` or `long`; logged as `store.call-timeout` |
-| `agboss.instance.costs.unknown` (`…_total`) | counter | `{pass}` | `workflow` | [lost passes of unknown cost](FinOps#a-lost-pass-unknown-cost-853) its passes recorded, whether the execution then finished, failed or was cancelled (#853, #875) |
-| `agboss.instance.costs.unknown_unrecorded` (`…_total`) | counter | `{read}` | `workflow` | its takeovers whose read of the lost passes failed: no Unknown entry recorded for them, logged `cost.unknown-unrecorded` (#875) |
+| Name (Prometheus)                                            | Kind      | Unit          | Labels                                    | Value                                                                                                                                                                                                                   |
+| ------------------------------------------------------------ | --------- | ------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agboss.instance.step_slots.limit`                           | gauge     | `{slot}`      | —                                         | [`maxConcurrentSteps`](Several-instances#an-instances-cap-on-steps-332)                                                                                                                                                 |
+| `agboss.instance.step_slots.busy`                            | gauge     | `{slot}`      | —                                         | steps at work now                                                                                                                                                                                                       |
+| `agboss.instance.step_slots.free`                            | gauge     | `{slot}`      | —                                         | `limit − busy`                                                                                                                                                                                                          |
+| `agboss.instance.steps.waiting`                              | gauge     | `{step}`      | —                                         | steps waiting for a slot now                                                                                                                                                                                            |
+| `agboss.instance.leases.held`                                | gauge     | `{lease}`     | —                                         | tree leases it holds: roots it moves, children it claimed, a parent waiting for children (its lease yielded, still its own); a released or lost lease is not held                                                       |
+| `agboss.instance.leases.takeovers` (`…_total`)               | counter   | `{takeover}`  | `reason`                                  | [takeovers](Observability#lease-takeovers-501) it made — recoveries are `reason="recovered"` (and `"unwinding"`)                                                                                                        |
+| `agboss.instance.steps.handed_over` (`…_total`)              | counter   | `{step}`      | `reason`                                  | [hand-overs](Observability#hand-overs-501) of its steps                                                                                                                                                                 |
+| `agboss.instance.executions.ended` (`…_total`)               | counter   | `{execution}` | `workflow`, `outcome`                     | executions that ended on it, children included: `finished` (`onExecutionEnd`), `failed` or `cancelled` (`onExecutionError`)                                                                                             |
+| `agboss.instance.compensations` (`…_total`)                  | counter   | `{action}`    | `workflow`, `outcome`                     | [automatic undo actions](Observability#automatic-undo) that ended on it: `compensated` or `failed`                                                                                                                      |
+| `agboss.instance.pauses.opened` (`…_total`)                  | counter   | `{pause}`     | `workflow`, `role`                        | pauses whose channel it asked (#943); a re-entry of a sent pause is not counted; at least once under a takeover race — a zombie that asks again after its tree was taken over can count a pause twice                   |
+| `agboss.instance.pauses.closed` (`…_total`)                  | counter   | `{pause}`     | `workflow`, `role`, `reason`              | pauses it closed: `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned`                                                                                                                           |
+| `agboss.instance.pauses.time_to_answer` (`…_seconds_bucket`) | histogram | `s`           | `workflow`, `role`                        | how long a pause waited for a human answer, asked to answered; buckets 1 min, 5 min, 15 min, 1 h, 4 h, 1 day, 3 days; an expiry's decision is no answer                                                                 |
+| `agboss.instance.pauses.extended` (`…_total`)                | counter   | `{pause}`     | `workflow`, `role`                        | deadlines it extended ([`app.extendPause`](App#appextendpause-pauseid-expiresin--tenantid-ownerid--answeredby-942))                                                                                                     |
+| `agboss.instance.pauses.answers_not_taken` (`…_total`)       | counter   | `{pause}`     | `workflow`, `role`, `reason`              | answers it closed because no step took them: `cancelled` or `tree-ended`                                                                                                                                                |
+| `agboss.cluster.pauses.notices.waiting`                      | gauge     | `{mailbox}`   | —                                         | pause mailboxes with notices waiting for delivery, read from the pause store (aggregate with `max`)                                                                                                                     |
+| `agboss.cluster.pauses.notices.dead`                         | gauge     | `{mailbox}`   | —                                         | pause mailboxes set aside after delivery kept failing (aggregate with `max`)                                                                                                                                            |
+| `agboss.instance.store_calls.timed_out` (`…_total`)          | counter   | `{call}`      | `contract`, `operation`, `source`, `kind` | store calls the instance gave up on at their bound (#928): `source` `framework` (the bound) or `command` (the store's own timeout); `kind` `leased` (a hand-over), `unleased` or `long`; logged as `store.call-timeout` |
+| `agboss.instance.costs.unknown` (`…_total`)                  | counter   | `{pass}`      | `workflow`                                | [lost passes of unknown cost](FinOps#a-lost-pass-unknown-cost-853) its passes recorded, whether the execution then finished, failed or was cancelled (#853, #875)                                                       |
+| `agboss.instance.costs.unknown_unrecorded` (`…_total`)       | counter   | `{read}`      | `workflow`                                | its takeovers whose read of the lost passes failed: no Unknown entry recorded for them, logged `cost.unknown-unrecorded` (#875)                                                                                         |
 
 The four slot gauges exist only when the application sets `maxConcurrentSteps`. Counters count
 since the instance started.
 
 **Labels are bounded by the code**: `reason` is a `LeaseTakeoverReason` or a `HandOverReason`,
-`outcome` one of three on `executions.ended` and a `CompensationStatus` on `compensations`, `workflow` one of the application's
+`role` the pause's channel name (a role's or a concrete channel's), `outcome` one of three on `executions.ended` and a `CompensationStatus` on `compensations`, `workflow` one of the application's
 workflow names. Never a tenant, an execution, a thread, an instance id or an error message — the pod
 is the scrape target's own label (`pod`, `instance`) or the OTel resource's `service.instance.id`.
 The counters come from a built-in observer the instance calls before the project's
@@ -106,10 +107,10 @@ interval is cheap.
 
 ## Scale signals
 
-| Signal | Expression | Meaning |
-| --- | --- | --- |
-| **Demand** (scale out) | `max(agboss_cluster_children_queued) + sum(agboss_instance_steps_waiting) + sum(agboss_instance_step_slots_busy)` | the steps that want a slot now; target per pod = its `maxConcurrentSteps` |
-| **Idle** (safe to scale in to a minimum of one or more) | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running, held or at work anywhere |
+| Signal                                                  | Expression                                                                                                                                                                                       | Meaning                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| **Demand** (scale out)                                  | `max(agboss_cluster_children_queued) + sum(agboss_instance_steps_waiting) + sum(agboss_instance_step_slots_busy)`                                                                                | the steps that want a slot now; target per pod = its `maxConcurrentSteps` |
+| **Idle** (safe to scale in to a minimum of one or more) | `max(agboss_cluster_children_queued) + max(agboss_cluster_children_running) + sum(agboss_instance_leases_held) + sum(agboss_instance_step_slots_busy) + sum(agboss_instance_steps_waiting) == 0` | nothing queued, running, held or at work anywhere                         |
 
 A parent waiting for its children holds its lease, and a claimed child between two steps holds its
 lease: neither reads idle (`tests/metrics/scale-signals.test.ts` looks at every turn of a tree and
@@ -169,6 +170,6 @@ test("an idle instance holds no lease", async ({ app }) => {
 Every `ChildExecutionQueueRepository` answers `countByStatus(): Promise<ChildExecutionQueueCounts>`
 — `{ queued, running, oldestQueuedAt? }` over every tenant and tree, in one round trip. The queue
 contract (`childExecutionQueueContract`, and so `storeConformance`) checks it: empty, rows of
-several tenants and trees by status, the oldest *still queued* (a claim of the oldest moves it),
+several tenants and trees by status, the oldest _still queued_ (a claim of the oldest moves it),
 both instances read the same, a tree's rows gone with its root, a lost claim queued again, forty
 rows claimed by two instances at once counted once. [Your own store](Your-own-store).

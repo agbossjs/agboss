@@ -16,6 +16,7 @@ import {
 import { lazyLoad } from "../infrastructure/clock.js";
 import { DEFAULT_TOOL_TIMEOUT } from "../tools/index.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
+import { pauseTallyOf } from "../pause/pause-tally.js";
 import { treeQuestionAnswersOf, treeToolsOf } from "./child-deps.js";
 import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
@@ -163,6 +164,7 @@ export async function expirePauses(
     );
     if (applied === undefined) continue;
     noticesWritten(stores);
+    pauseTallyOf(stores)?.closed(applied);
     await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
     closed += 1;
   }

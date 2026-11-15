@@ -13,7 +13,10 @@ import type { ChildExecutionQueueRepository } from "../infrastructure/child-exec
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { frameworkPackageJson } from "../package-json.js";
+import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import type { PauseTally } from "../pause/pause-tally.js";
 import { METRICS, type MetricSpec } from "./metric-catalog.js";
+import { pauseTallyOn } from "./pause-metrics.js";
 import { counterOf, metricsObserverOf, unknownCostTallyOf } from "./metrics-observer.js";
 import { HeldLeaseTally } from "./held-lease-tally.js";
 
@@ -32,6 +35,8 @@ export const METER_NAME = "@agboss/core";
 export interface MetricSources {
   readonly meterProvider: MeterProvider;
   readonly queue: ChildExecutionQueueRepository;
+  /** The pause store: its mailboxes are counted at collection (#943). */
+  readonly pauses: Pick<PausedExecutionRepository, "countNotices">;
   readonly clock: Clock;
   readonly log: FrameworkLog;
   /** The instance's step slots; absent = no `maxConcurrentSteps`, no slot gauges. */
@@ -82,6 +87,28 @@ function clusterGaugesOf(meter: Meter, sources: MetricSources): Registration {
   return { callback, observables: [queued, running, oldest] };
 }
 
+/** The cluster's pause mailboxes: one store read per collection; a failed read reports none. */
+function noticeGaugesOf(meter: Meter, sources: MetricSources): Registration {
+  const waiting = gaugeOf(meter, METRICS.noticesWaiting);
+  const dead = gaugeOf(meter, METRICS.noticesDead);
+  let isFailing = false;
+  const callback: BatchObservableCallback = async (result) => {
+    try {
+      const counts = await sources.pauses.countNotices();
+      isFailing = false;
+      result.observe(waiting, counts.live);
+      result.observe(dead, counts.dead);
+    } catch (error) {
+      if (!isFailing) {
+        const message = `the pause notices could not be counted for the metrics: ${String(error)}`;
+        sources.log.warn("metrics.pause-notices-unreadable", message);
+      }
+      isFailing = true;
+    }
+  };
+  return { callback, observables: [waiting, dead] };
+}
+
 /** The instance's own gauges: its held leases, and its step slots when it caps them. */
 function instanceGaugesOf(
   meter: Meter,
@@ -117,6 +144,8 @@ export class InstanceMetrics {
   readonly heldLeases = new HeldLeaseTally();
   /** Where a pass counts the Unknown-cost entries it records, or fails to (#875). */
   readonly unknownCosts: UnknownCostTally;
+  /** Where the pauses the instance changes are counted (#943). */
+  readonly pauses: PauseTally;
   /** Where a store call given up at its bound is counted (#928). */
   readonly storeCallsTimedOut: Counter;
   readonly #meter: Meter;
@@ -127,8 +156,10 @@ export class InstanceMetrics {
     this.observer = metricsObserverOf(this.#meter);
     this.storeCallsTimedOut = counterOf(this.#meter, METRICS.storeCallsTimedOut);
     this.unknownCosts = unknownCostTallyOf(this.#meter, sources.log);
+    this.pauses = pauseTallyOn(this.#meter, sources.log);
     this.#registrations = [
       clusterGaugesOf(this.#meter, sources),
+      noticeGaugesOf(this.#meter, sources),
       instanceGaugesOf(this.#meter, sources, this.heldLeases),
     ];
     for (const { callback, observables } of this.#registrations)

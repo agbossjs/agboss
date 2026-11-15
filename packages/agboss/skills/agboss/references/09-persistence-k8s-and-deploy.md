@@ -305,21 +305,25 @@ compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 exporter to a Collector); none given → no metrics, nothing loaded. `testWith(App, { instances:
 [{ meterProvider }, …] })` gives each instance its own, read with an in-memory `MetricReader`.
 
-| Metric                                                                                  | Kind                                                        | Labels                | Aggregate                                |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------- | ---------------------------------------- |
-| `agboss.cluster.children.queued` / `.running` / `.oldest_queued.age`                    | gauge, read from the shared child queue (`countByStatus()`) | —                     | `max` — every pod reports the same value |
-| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                      | —                     | `sum`                                    |
-| `agboss.instance.leases.held`                                                           | gauge                                                       | —                     | `sum`                                    |
-| `agboss.instance.leases.takeovers`                                                      | counter                                                     | `reason`              | `sum`                                    |
-| `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`              | `sum`                                    |
-| `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome` | `sum`                                    |
-| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `outcome` | `sum`                                    |
-| `agboss.instance.costs.unknown`                                                         | counter                                                     | `workflow`            | `sum`                                    |
-| `agboss.instance.costs.unknown_unrecorded`                                              | counter                                                     | `workflow`            | `sum`                                    |
+| Metric                                                                                  | Kind                                                        | Labels                       | Aggregate                                |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------- | ---------------------------------------- |
+| `agboss.cluster.children.queued` / `.running` / `.oldest_queued.age`                    | gauge, read from the shared child queue (`countByStatus()`) | —                            | `max` — every pod reports the same value |
+| `agboss.instance.step_slots.limit` / `.busy` / `.free`, `agboss.instance.steps.waiting` | gauge (only with `maxConcurrentSteps`)                      | —                            | `sum`                                    |
+| `agboss.instance.leases.held`                                                           | gauge                                                       | —                            | `sum`                                    |
+| `agboss.instance.leases.takeovers`                                                      | counter                                                     | `reason`                     | `sum`                                    |
+| `agboss.instance.steps.handed_over`                                                     | counter                                                     | `reason`                     | `sum`                                    |
+| `agboss.instance.executions.ended`                                                      | counter                                                     | `workflow`, `outcome`        | `sum`                                    |
+| `agboss.instance.compensations`                                                         | counter                                                     | `workflow`, `outcome`        | `sum`                                    |
+| `agboss.instance.costs.unknown`                                                         | counter                                                     | `workflow`                   | `sum`                                    |
+| `agboss.instance.costs.unknown_unrecorded`                                              | counter                                                     | `workflow`                   | `sum`                                    |
+| `agboss.instance.pauses.opened` / `.extended`                                           | counter, `{pause}` (#943)                                   | `workflow`, `role`           | `sum`                                    |
+| `agboss.instance.pauses.closed` / `.answers_not_taken`                                  | counter, `{pause}` (#943)                                   | `workflow`, `role`, `reason` | `sum`                                    |
+| `agboss.instance.pauses.time_to_answer`                                                 | histogram, `s`, human answers only (#943)                   | `workflow`, `role`           | `sum` the buckets                        |
+| `agboss.cluster.pauses.notices.waiting` / `.dead`                                       | gauge, `{mailbox}`, read from the pause store (#943)        | —                            | `max` — every pod reports the same value |
 
 Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
 the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +
-sum(waiting)` is 0. Never sum a cluster gauge over pods; never label by tenant or execution. Match
+sum(waiting)` is 0. Never sum a cluster gauge over pods; never label by tenant or execution (a pause's `role` is its channel's name). `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` lists a tenant's pauses page by page for an operator's queue. Match
 `terminationGracePeriodSeconds` to `shutdownTimeout` plus the preStop delay. Wiki → Metrics,
 Autoscaling.
 

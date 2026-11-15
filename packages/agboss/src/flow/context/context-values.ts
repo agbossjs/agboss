@@ -107,7 +107,7 @@ function checkDecorated(type: Class): void {
 }
 
 /** Why a tenant id is not one (#552): the key-text rule it breaks, never the id. */
-const tenantIdReason = (tenantId: string): string | undefined => {
+export const tenantIdReason = (tenantId: string): string | undefined => {
   const rule = keyTextRuleOf(tenantId);
   return rule === undefined
     ? undefined
