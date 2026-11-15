@@ -368,6 +368,7 @@ describe("#811 AC4: the A2A hold points and the fixture's A2A", () => {
       "expireByTenantIdAndPauseId",
       "closeUntakenByTenantIdAndPauseId",
       "extendByTenantIdAndPauseId",
+      "reassignByTenantIdAndPauseId",
       "remindByTenantIdAndPauseId",
       "noticeOnceByTenantIdAndPauseId",
       "claimNoticesDue",

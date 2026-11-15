@@ -136,6 +136,14 @@ export interface PauseDeadlineChange {
   readonly remindAt?: string;
 }
 
+/** The replacement a `reassign…` makes (#946): its id and the addressee; the store copies the rest from the old pause. */
+export interface PauseReplacement {
+  /** The new pause's id: a random 128-bit token the caller made (`newPauseId()`), never the old one's. */
+  readonly pauseId: string;
+  /** The addressee (a key's text, #589): who the channel asks now. */
+  readonly assignee: string;
+}
+
 /** The receivers of a kind: `opened` goes to listeners only, every other kind to the channel too. */
 export function recipientKeysOf(
   recipients: PauseRecipients,

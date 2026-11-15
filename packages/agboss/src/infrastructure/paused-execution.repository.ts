@@ -7,6 +7,7 @@ import type {
   PauseNoticeKind,
   PausePage,
   PauseRecipients,
+  PauseReplacement,
   PauseScanAfter,
   PauseDeadlineChange,
   SetAsideMailbox,
@@ -195,6 +196,40 @@ export abstract class PausedExecutionRepository {
   ): Promise<PauseRecord | undefined>;
 
   /**
+   * Atomic: moves a `Pending` pause to another addressee (#946) — only while it is `Pending` and
+   * `expiresAt` is absent or after `at`. The old pause becomes `Cancelled` / `PauseResolution.Reassigned`
+   * with `reassignedTo = replacement.pauseId`, `resolvedAt = at`; the replacement is inserted `Pending`
+   * and unsent, a copy of it with its `pauseId` and `assignee`, `reassignedFrom` the old id, `askedAt =
+   * at`, and its `stepKey` the old one with any `~r<n>` taken off and `~r<n>` of the next number no
+   * pause of the tree uses (`replacementStepKeyOf`), so the unique `(tenant, root, step key)` holds; its
+   * deadline, `expiryBound`, `boundAt`, `remindAt`, `branchKeys`, `kind` and `ask` are the old pause's.
+   * A sent old pause's `closed` (`Reassigned`) goes to the channel and the listeners in the same
+   * transaction (I7); the replacement's `opened` is written by its `markSent`. Returns the replacement,
+   * `undefined` when it does not apply (of two racing reassignments, or a reassignment and an answer,
+   * exactly one does; I1, I3).
+   */
+  abstract reassignByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    replacement: PauseReplacement,
+    at: Date,
+    recipients: PauseRecipients,
+  ): Promise<PauseRecord | undefined>;
+
+  /**
+   * The replacements a reassignment made (`reassignedFrom` set) that are still `Pending` and unsent
+   * and were made before `cutoff` (`askedAt < cutoff`), ascending by `(askedAt, tenantId, pauseId)`, at
+   * most `limit` (1 to 1000; else `RangeError`); with `after` — the last pause of the page before, its `at`
+   * its `askedAt` — only the pauses past it (a keyset, as #942's `after` on the reminder scan): the
+   * re-send look (#946) asks their channel again and still reaches the ones behind a stuck first page.
+   */
+  abstract findPendingUnsentReassignedBefore(
+    cutoff: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]>;
+
+  /**
    * Atomic, once: the reminder of a `Pending` pause with `remindAt ≤ at < expiresAt` — clears
    * `remindAt` and writes `expiring` (`expiresAt`) in the same transaction. `false` when it does
    * not apply, the second call included (I7).
@@ -289,7 +324,9 @@ export abstract class PausedExecutionRepository {
   /**
    * Removes every `Taken` and `Cancelled` pause of every tenant resolved before `cutoff` (the
    * recovery sweep, `now - retention.pauseRecords`); `Pending` and `Resolved` ones are never
-   * removed, and neither is one with a mailbox that is neither fully delivered nor dead (I11). The
+   * removed, and neither is one with a mailbox that is neither fully delivered nor dead (I11), nor
+   * a reassigned one (`reassignedTo`) while its replacement is still stored — the step's interrupt
+   * names the first pause of the chain, and its re-entry finds the chain by the step key (#946). The
    * mailboxes of a removed pause go with it.
    */
   abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;

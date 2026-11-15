@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CostSource } from "../finops/usage.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import {
   ExpiryProblem,
@@ -7,7 +8,7 @@ import {
   PauseResolution,
   PauseStatus,
   questionAskOf,
-  StoredAnswer,
+  type PauseAnswer,
   type PauseAsk,
   type PauseRecord,
 } from "./pause-record.js";
@@ -19,6 +20,30 @@ import { readStored, StoredComponent } from "./stored-step.js";
  * checked inside. Parsing is reading: the record that comes out has the new names.
  */
 
+/** What reading a reply cost (#267 S107): the fields the ledger is written from, the rest as written. */
+const StoredUsage = z.looseObject({
+  caller: z.string(),
+  model: z.string(),
+  ...{ inputTokens: z.number(), outputTokens: z.number() },
+  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
+  costUsd: z.number(),
+  costSource: z.enum(CostSource),
+  servedBy: z.string().optional(),
+});
+
+/** The answer a pause keeps (#267 S107): the decision, who gave it — 0.1.0 called that `answerer` —, its cost. */
+export const StoredAnswer = z
+  .object({
+    decision: z.unknown(),
+    answerer: z.string().optional(),
+    answeredBy: z.string().optional(),
+    usage: z.array(StoredUsage).optional(),
+  })
+  .transform((stored): PauseAnswer => ({
+    decision: stored.decision,
+    answeredBy: stored.answeredBy ?? stored.answerer,
+    ...(stored.usage === undefined ? {} : { usage: stored.usage }),
+  }));
 /** The tool call an approval's pause asks about. */
 export const StoredApprovalAsk = z.object({
   callId: z.string(),
@@ -79,6 +104,10 @@ export const StoredPause = z
     closedFirst: z
       .object({ resolution: z.enum(PauseResolution), resolvedAt: z.string() })
       .optional(),
+    // #946: who a reassigned pause is for, the pause it replaced, the pause that replaced it
+    assignee: z.string().optional(),
+    reassignedTo: z.string().optional(),
+    reassignedFrom: z.string().optional(),
     answer: StoredAnswer.optional(),
   })
   .transform((stored, context): PauseRecord => {

@@ -1,10 +1,7 @@
-import { PauseAnswererError, UnknownPauseError } from "../run/resume-agent.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { PauseStatus, type PauseRecord } from "../infrastructure/paused-execution.repository.js";
-import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import {
   checkResume,
   type IncompatibleResumePolicy,
@@ -16,11 +13,7 @@ import type { AnyTool } from "../tools/index.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
-import {
-  logPauseAnswer,
-  pauseAnswererOf,
-  PauseResolution,
-} from "../infrastructure/pause-record.js";
+import { logPauseAnswer, PauseResolution } from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
@@ -31,6 +24,7 @@ import { markAnswered, refusedAfterMark } from "./paused-runs.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
+import { answeredByOf, pauseOf } from "./pause-answerer.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
@@ -107,50 +101,7 @@ export interface RecordedAnswer {
   readonly run: AgentExecutionOutput | undefined;
 }
 
-/**
- * Who answers, as the pause's role says — checked; `undefined` for an unowned thread's owner.
- * An extension (#942) is checked the same way: who may answer may extend.
- */
-export async function answeredByOf(
-  parts: Pick<AnswerParts, "owned">,
-  pause: PauseRecord,
-  call: ResumeOptions,
-): Promise<string | undefined> {
-  const { ownerId, answeredBy } = call;
-  if (pauseAnswererOf(pause) === PauseAnswerer.ThreadOwner) {
-    if (answeredBy !== undefined) {
-      throw new PauseAnswererError({
-        message: `pause ${pause.pauseId} is answered by the thread's owner (${pause.channel}): pass ownerId, not answeredBy`,
-      });
-    }
-    await parts.owned({ tenantId: pause.tenantId, threadId: pause.threadId, ownerId });
-    return ownerId;
-  }
-  if (ownerId !== undefined) {
-    throw new PauseAnswererError({
-      message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): pass answeredBy, not ownerId`,
-    });
-  }
-  if (typeof answeredBy !== "string" || answeredBy.trim() === "") {
-    throw new PauseAnswererError({
-      message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): answeredBy must name who answered`,
-    });
-  }
-  return answeredBy;
-}
-
-/** The tenant's pause a resume answers; `UnknownPauseError` when the tenant has none of that id. */
-export async function pauseOf(
-  pauses: PausedExecutionRepository,
-  request: { readonly pauseId: string },
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<PauseRecord> {
-  const pause = await pauses.findByTenantIdAndPauseId(tenantId, request.pauseId);
-  if (pause === undefined) {
-    throw new UnknownPauseError({ message: `tenant ${tenantId} has no pause ${request.pauseId}` });
-  }
-  return pause;
-}
+export { answeredByOf, pauseOf } from "./pause-answerer.js";
 
 /** The tree's run as it rests, its versions checked against the app's; `undefined` while it moves. */
 async function restingRunOf(
@@ -199,8 +150,20 @@ export async function recordAnswer(
   request: ResumeRequest,
   call: ResumeOptions,
 ): Promise<RecordedAnswer> {
+  return recordedAnswer(parts, pause, request, await answeredByOf(parts, pause, call));
+}
+
+/**
+ * The answer recorded on its pause by `answeredBy` (already checked, or a channel's own name — #946):
+ * what `recordAnswer` does once it knows who answers.
+ */
+export async function recordedAnswer(
+  parts: AnswerParts,
+  pause: PauseRecord,
+  request: ResumeRequest,
+  answeredBy: string | undefined,
+): Promise<RecordedAnswer> {
   const { tenantId } = pause;
-  const answeredBy = await answeredByOf(parts, pause, call);
   // refused at its deadline before the interpreter reads a reply or the tree is marked (#941, I2):
   // the store's compare-and-set is the final word
   const isDue = pause.expiresAt !== undefined && pause.expiresAt <= parts.clock.now().toISOString();

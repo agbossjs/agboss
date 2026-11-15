@@ -25,6 +25,17 @@ export interface ChannelAsk<TRole> {
   readonly pauseId: string;
   /** The question, typed by the role (`approves` → the tool call; `ask` → that DTO). */
   readonly value: ChannelQuestionOf<TRole>;
+  /**
+   * Who the question is for, as the channel reads it (a Slack user, an address, a queue) — set only
+   * on the send of a reassignment (`app.reassignPause`, #946); absent on a first send.
+   */
+  readonly assignee?: string;
+  /**
+   * The pause this send replaces (#946): the old message's id, so the channel can take its buttons
+   * off from `send` — or wait for `onPauseClosed(Reassigned)` of that pause; no order is imposed. Absent
+   * on a first send. The old id answers nothing any more; this one is the new pause's capability.
+   */
+  readonly replaces?: { readonly pauseId: string };
 }
 
 /** Every channel: a role's implementation, or a concrete `@Channel` a tool names as is. */

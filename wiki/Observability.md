@@ -593,7 +593,8 @@ component and can be injected).
 
 **While it runs**, only problems of the system: `LogLevel.Warn` at risk (`execution.recovered`,
 `recovery.incompatible`, `observer.failed`, `pause.notice-failed`, `pause.notice-recipient-unknown`,
-`pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.reminder-failed`) and
+`pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.reminder-failed`, `pause.reassign-send-failed`,
+`pause.resend-failed`) and
 `LogLevel.Error` broken (`recovery.failed`, `app.close-failed`, `pause.notice-dead`,
 `pause-timers.failed`), each with its `executionId` / `tenantId` for search. The pause notices
 (#940, [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940))
@@ -604,7 +605,9 @@ instance knows (`pause.notice-recipient-unknown`); a look of the pause timers th
 warnings, each with the tenant and the root execution and never an error's message: an expiry handler that
 threw, timed out or answered wrongly (`pause.expiry-handler-failed`, the expiry then fails the step), the
 expiry machinery itself failing for a pause (`pause.expiry-failed`) and a reminder that failed
-(`pause.reminder-failed`) — the look goes on with the other pauses. One execution's details
+(`pause.reminder-failed`) — the look goes on with the other pauses. A reassignment (#946) adds two more, each with the
+tenant and the root execution and never the new pause's id: the new send that failed right after the write
+(`pause.reassign-send-failed`) and the re-send look's failed attempt (`pause.resend-failed`); the look asks again. One execution's details
 are its trace; a tenant's spend is the cost ledger; a rejected execution is `onExecutionRejected`.
 
 **Assembly warnings** (in `app.warnings` and the start log; errors under `agboss check --strict`;

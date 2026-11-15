@@ -2,6 +2,11 @@
 export { closedAtOf, pauseClosedReasonOf } from "../infrastructure/pause-closing.js";
 export { PauseExpiryBound } from "../infrastructure/pause-record.js";
 export {
+  originalStepKeyOf,
+  replacementStepKeyOf,
+  type ReplacementKeyed,
+} from "../infrastructure/pause-replacement.js";
+export {
   NO_RECIPIENTS,
   PauseNoticeKind,
   recipientKeysOf,
@@ -14,6 +19,7 @@ export {
   type PauseNoticeFacts,
   type PausePage,
   type PauseRecipients,
+  type PauseReplacement,
   type PauseScanAfter,
   type SetAsideMailbox,
 } from "../infrastructure/pause-notices.js";

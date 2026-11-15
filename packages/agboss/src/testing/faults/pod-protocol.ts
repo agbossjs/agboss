@@ -114,6 +114,13 @@ export type PodCommand =
   | { readonly op: "outage"; readonly mode: StoreOutageMode | null }
   /** #959: answers the pause `pauseId` (approved) with `app.resume`, in the background; its end is an event. */
   | { readonly op: "resume"; readonly tag: string; readonly pauseId: string }
+  /** #946: `app.reassignPause` of the pause to `assignee`, in the background; its end is an event (`reassigned`). */
+  | {
+      readonly op: "reassign";
+      readonly tag: string;
+      readonly pauseId: string;
+      readonly assignee: string;
+    }
   /** #941: `app.cancel` of the thread, in the background; its end is an event (`cancelled`). */
   | { readonly op: "cancel"; readonly tag: string; readonly threadId: string }
   /** #939: the tree's pauses, its paused run and its answer log, as the pod's stores hold them. */

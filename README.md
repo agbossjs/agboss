@@ -1441,6 +1441,23 @@ once per deadline, whatever the number of instances, and again before the new de
 extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
 (`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`).
 
+**Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })`
+(the `ownerId` for a thread owner's pause: who may answer may reassign; `PauseCallerOptions`) moves an
+open pause to another addressee of the same channel without running the agent or the step again. The
+channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignee` and `ChannelAsk.replaces`
+(`{ pauseId }` of the old message; both absent on a first send) — and its optional
+`onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
+may edit the old message from `send` or from the notice. The old id answers nothing
+(`PauseClosedError`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
+the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
+channel and to a `@PauseListener({ allowAnswering })`, never to the caller or a log). One implementation
+of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
+Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
+(`DtoValidationError`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
+reassignments, or a reassignment and an answer, at the same moment: exactly one wins. `send` of the new
+pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
+made up by the pause timers of another instance within a minute.
+
 **Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `expiresIn`,
 `remindBefore` and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
 (`@agboss/core/units`) beside `hours(n)`. A calendar turns "now + N working time" into a date:

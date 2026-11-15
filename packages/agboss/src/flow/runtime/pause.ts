@@ -1,7 +1,7 @@
 import { interrupt } from "@langchain/langgraph";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import type { ChannelSender } from "../../channels/channel-sender.js";
+import type { ChannelSender, ChannelSenderSend } from "../../channels/channel-sender.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
@@ -19,6 +19,7 @@ import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { newRecordOf } from "./pause-record-made.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
+import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
 import { pauseTallyOf } from "../../pause/pause-tally.js";
 import type { ComponentRecord } from "./records.js";
@@ -110,7 +111,7 @@ export class ChannelSendError extends Error {
 /** The channel asked once: its outcome, a failure (not a cancellation) as `ChannelSendError`. */
 export async function sentBy(
   channel: Pick<PauseChannel, "name" | "sender">,
-  ask: { readonly pauseId: string; readonly value: PauseAsk },
+  ask: ChannelSenderSend & { readonly value: PauseAsk },
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
   try {
@@ -132,7 +133,7 @@ async function sendOnce(
   pause: PauseRecord,
   signal: AbortSignal | undefined,
 ): Promise<{ decision: unknown } | undefined> {
-  const outcome = await sentBy(channel, { pauseId: pause.pauseId, value: pause.ask }, signal);
+  const outcome = await sentBy(channel, askOfPause(pause), signal);
   if (!isChannelOutcome(outcome)) {
     throw new TypeError(
       `channel ${channel.name}: send() must return ChannelOutcome.awaitReply() or ChannelOutcome.decided(…)`,
@@ -242,7 +243,9 @@ async function openedPause(site: PauseStepSite, question: PauseQuestion): Promis
 export async function pauseStep(site: PauseStepSite, question: PauseQuestion): Promise<StepAnswer> {
   const { pauses, channel, frame } = site;
   const { tenantId } = frame.execution.tenant;
-  let pause = await openedPause(site, question);
+  const found = await openedPause(site, question);
+  assertSameQuestion(found, question);
+  let pause = await livePauseAfter(pauses, found);
   if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause, channel.name);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {

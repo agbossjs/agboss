@@ -1,6 +1,6 @@
 import { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
-import type { PauseDeadlineChange, PauseRecipients } from "./pause-notices.js";
+import type { PauseDeadlineChange, PauseRecipients, PauseReplacement } from "./pause-notices.js";
 import {
   decidedPause,
   PauseStatus,
@@ -10,6 +10,7 @@ import {
   type PauseRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
+import { reassignChange } from "./pause-reassign-transition.js";
 import {
   cancelChange,
   closeUntakenChange,
@@ -145,6 +146,21 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     );
   }
 
+  reassignByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    replacement: PauseReplacement,
+    at: Date,
+    recipients: PauseRecipients,
+  ): Promise<PauseRecord | undefined> {
+    const reassigned = this.book.change(tenantId, pauseId, (pause) =>
+      reassignChange(pause, replacement, this.#stepKeysOf(pause), at, recipients),
+    );
+    return Promise.resolve(
+      reassigned === undefined ? undefined : this.book.find(tenantId, replacement.pauseId),
+    );
+  }
+
   remindByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
@@ -164,6 +180,15 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
         : undefined,
     );
     return Promise.resolve();
+  }
+
+  /** The step keys of the pause's tree. */
+  #stepKeysOf({ tenantId, rootExecutionId }: PauseRecord): ReadonlySet<string> {
+    return new Set(
+      this.pauses()
+        .filter((pause) => pause.tenantId === tenantId && pause.rootExecutionId === rootExecutionId)
+        .map((pause) => pause.stepKey),
+    );
   }
 
   #find(tenantId: string, rootExecutionId: string, stepKey: string): PauseRecord | undefined {

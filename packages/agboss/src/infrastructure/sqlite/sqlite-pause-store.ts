@@ -3,6 +3,7 @@ import type {
   PauseNoticeFacts,
   PauseNoticeKind,
   PauseRecipients,
+  PauseReplacement,
 } from "../pause-notices.js";
 import {
   decidedPause,
@@ -25,6 +26,7 @@ import {
   type PauseChange,
 } from "../pause-transitions.js";
 import { oneRowChanged } from "./sqlite-connection.js";
+import { reassignedIn } from "./sqlite-pause-reassign.js";
 import { SqlitePauseQueryRepository } from "./sqlite-pause-queries.repository.js";
 
 /**
@@ -152,6 +154,17 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     return Promise.resolve(
       this.#change(tenantId, pauseId, (pause) => extendChange(pause, change, at, recipients)),
     );
+  }
+
+  async reassignByTenantIdAndPauseId(
+    tenantId: string,
+    pauseId: string,
+    replacement: PauseReplacement,
+    at: Date,
+    recipients: PauseRecipients,
+  ): Promise<PauseRecord | undefined> {
+    const rows = { connection: this.connection, pauses: this.pauses, notices: this.notices };
+    return Promise.resolve(reassignedIn(rows, { tenantId, pauseId, replacement }, at, recipients));
   }
 
   async remindByTenantIdAndPauseId(

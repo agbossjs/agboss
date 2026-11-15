@@ -61,6 +61,10 @@ export const told = {
   expiryAsked: [] as ChannelAsk<ExtendManagerQuestion>[],
   /** The errors executions failed with. */
   errors: [] as Error[],
+  /** Every close the manager's channel was told, with the pause it names (#946). */
+  closed: [] as { readonly pauseId: string; readonly reason: string }[],
+  /** The decision the owner's channel gives at once to a reassigned send (#946); none: it waits. */
+  ownerDecides: undefined as unknown,
 };
 
 export function resetTold(): void {
@@ -70,6 +74,8 @@ export function resetTold(): void {
   told.recorded.length = 0;
   told.expiryAsked.length = 0;
   told.errors.length = 0;
+  told.closed.length = 0;
+  told.ownerDecides = undefined;
 }
 
 @ChannelRole({
@@ -106,6 +112,7 @@ export class ExtendManagerChannel extends ExtendManagerQuestion {
 
   override onPauseClosed(event: ChannelPauseClosedEvent<ExtendManagerQuestion>): Promise<void> {
     told.other.push(`channel closed ${event.reason}`);
+    told.closed.push({ pauseId: event.pauseId, reason: event.reason });
     return Promise.resolve();
   }
 
@@ -147,7 +154,10 @@ export abstract class ExtendOwnerQuestion extends ChannelOf<ExtendOwnerQuestion>
 
 @Channel({ name: "extendable-owner-channel", description: "Waits for the owner" })
 export class ExtendOwnerChannel extends ExtendOwnerQuestion {
-  send(): Promise<ChannelOutcome<ExtendOwnerQuestion>> {
+  send(ask: ChannelAsk<ExtendOwnerQuestion>): Promise<ChannelOutcome<ExtendOwnerQuestion>> {
+    // #946: the owner's channel decides at once for a reassigned send, when the test says so
+    if (ask.replaces !== undefined && told.ownerDecides !== undefined)
+      return Promise.resolve(ChannelOutcome.decided(told.ownerDecides as never));
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }

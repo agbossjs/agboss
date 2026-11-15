@@ -280,6 +280,7 @@ export enum StoreHoldPoint {
     PauseNoticeAck = "pauseNotice.ack",
     PauseNoticeClaim = "pauseNotice.claim",
     PauseNoticeOnce = "pause.noticeOnce",
+    PauseReassign = "pause.reassign",
     PauseRemind = "pause.remind",
     PauseResolve = "pause.resolve",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"

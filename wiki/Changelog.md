@@ -14,6 +14,30 @@ Breaking changes and notable additions, newest first. The API reports
   histogram `agboss.instance.pauses.time_to_answer` (seconds, `MetricKind.Histogram`) and the cluster gauges
   `agboss.cluster.pauses.notices.waiting` / `.dead` — [Metrics](Metrics).
 
+## Unreleased — 0.1.1: reassign an open pause — `app.reassignPause`, `ChannelAsk.assignee` / `replaces` (#946, part of #910)
+
+- **Added**: `app.reassignPause({ pauseId, assignee }, options?: PauseCallerOptions)` → `PauseReassignment`
+  (`pauseKey` only: the new pause id is a capability, given to the channel's `send` and to a
+  `@PauseListener({ allowAnswering })`). The same channel is asked again — `ChannelAsk.assignee` and
+  `ChannelAsk.replaces` (`{ pauseId }`, the old message), absent on a first send — and `onPauseClosed` hears
+  `reason: reassigned` for the old one, in no fixed order; the old id is `PauseClosedError` (`reassigned`,
+  `PauseResolution.Reassigned`); the deadline is kept. Refusals: `PauseClosedError` (closed, expired),
+  `DtoValidationError` (`ReassignPauseRequest`: an `assignee` that is no key's text), `UnknownPauseError`;
+  two reassignments, or a reassignment and an answer, at once: exactly one wins.
+- **Added**: a reassignment is counted by #943's metrics: the old pause `agboss.instance.pauses.closed{reason="reassigned"}` (once, by the call whose transaction won), the replacement `agboss.instance.pauses.opened` (once it was asked) — labels `workflow` and `role` only, never an id.
+- **Added**: a step key names no question by itself — a record found by it is reused only for the question it was made for (its kind and ask); another's is refused with an internal `PauseStepKeyMismatchError` (`pause.step-key-mismatch`), never answered. A replacement's `~r<n>` is cut from a step key only for a real replacement (`reassignedFrom` set): an ordinary key a model's tool call id made end in `~r1` is never read as a chain. The failure logs of a reassignment carry error class names only, never a message or an id. Stores: `originalStepKeyOf(pause)` and `replacementStepKeyOf(pause, taken)` take the pause record.
+- **Added**: a channel that decides at once (`ChannelOutcome.decided`) for a reassigned send answers the replacement as the channel — `answeredBy` its name, for a thread owner's pause too — through the store's compare-and-set: applied once, a crash's re-send finds it answered; a hand-over or an ended run after it is the run's own outcome.
+- **Added**: the pause timers' re-send look — a replacement still unsent 30 seconds after the reassignment (the
+  instance died, the channel failed) is sent again by another instance; fault scenario 28
+  (`s28-pause-reassign-kill-before-send`, kill -9 between the write and the new send) and the contract cases of
+  `pausedExecutionContract` (13 groups).
+- **Changed — stores** (`@agboss/core/stores`, unreleased): `PausedExecutionRepository` gets
+  `reassignByTenantIdAndPauseId` and `findPendingUnsentReassignedBefore`; `PauseRecord` gets `assignee?`,
+  `reassignedTo?`, `reassignedFrom?`; `PauseReplacement`, `replacementStepKeyOf` and `originalStepKeyOf` are
+  exported; the retention keeps a reassigned pause while its replacement is stored. The step key of a
+  replacement is `<original>~r<n>`; the execution record shows the step under its own key. PostgreSQL and
+  MongoDB follow at their re-pin (#1064).
+
 ## Unreleased — 0.1.1: expiry in quorums and plain joins — `BranchStatus.Expired`, settled answers, `joinFailed` (#945, part of #910)
 
 - **Added**: `BranchStatus.Expired` — a branch whose pause expired (its own, the run's or the quorum's), the error

@@ -35,6 +35,15 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     return Promise.resolve(this.scans.pendingDue("remind_at", at, limit, after));
   }
 
+  async findPendingUnsentReassignedBefore(
+    cutoff: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
+    assertScanLimit(limit);
+    return Promise.resolve(this.scans.reassignedUnsent(cutoff, limit, after));
+  }
+
   async findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {
     assertScanLimit(limit);
     return Promise.resolve(this.scans.open(seqOfCursor(after), limit));

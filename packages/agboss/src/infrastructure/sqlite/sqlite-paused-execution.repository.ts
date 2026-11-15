@@ -109,6 +109,18 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.extendByTenantIdAndPauseId(...args);
   }
 
+  reassignByTenantIdAndPauseId(
+    ...args: Parameters<PausedExecutionRepository["reassignByTenantIdAndPauseId"]>
+  ): Promise<PauseRecord | undefined> {
+    return this.#store.reassignByTenantIdAndPauseId(...args);
+  }
+
+  findPendingUnsentReassignedBefore(
+    ...args: Parameters<PausedExecutionRepository["findPendingUnsentReassignedBefore"]>
+  ): Promise<readonly PauseRecord[]> {
+    return this.#store.findPendingUnsentReassignedBefore(...args);
+  }
+
   remindByTenantIdAndPauseId(
     ...args: Parameters<PausedExecutionRepository["remindByTenantIdAndPauseId"]>
   ): Promise<boolean> {

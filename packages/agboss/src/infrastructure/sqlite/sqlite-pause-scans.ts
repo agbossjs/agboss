@@ -15,6 +15,8 @@ const SequenceRow = z.object({ seq: z.number() });
 
 /** What the retention removes: closed, resolved before the cutoff, with no live mailbox (I11). */
 const REMOVABLE = `(p.status IN ('taken', 'cancelled') AND p.resolved_at IS NOT NULL AND p.resolved_at < ?
+  AND NOT EXISTS (SELECT 1 FROM pauses r WHERE r.tenant_id = p.tenant_id
+    AND r.pause_id = CASE WHEN json_valid(p.pause) THEN json_extract(p.pause, '$.reassignedTo') END)
   AND NOT EXISTS (SELECT 1 FROM pause_notices n WHERE n.tenant_id = p.tenant_id
     AND n.pause_id = p.pause_id AND n.is_dead = 0 AND n.head_written_at IS NOT NULL))`;
 
@@ -43,6 +45,22 @@ export class SqlitePauseScans {
            ORDER BY ${column}, tenant_id, pause_id LIMIT ?`,
       )
       .all(PauseStatus.Pending, at.toISOString(), ...keyset, limit)
+      .map(toPauseRecord);
+  }
+
+  /** The replacements of a reassignment still `Pending` and unsent, made before `cutoff` (#946), by `seq`. */
+  reassignedUnsent(cutoff: Date, limit: number, after?: PauseScanAfter): readonly PauseRecord[] {
+    const asked = "CASE WHEN json_valid(pause) THEN json_extract(pause, '$.askedAt') END";
+    const past = after === undefined ? "" : `AND (${asked}, tenant_id, pause_id) > (?, ?, ?)`;
+    const keyset = after === undefined ? [] : [after.at, after.tenantId, after.pauseId];
+    return this.database
+      .prepare(
+        `SELECT * FROM pauses WHERE status = 'pending' AND is_sent = 0
+           AND CASE WHEN json_valid(pause) THEN json_extract(pause, '$.reassignedFrom') END IS NOT NULL
+           AND ${asked} < ? ${past}
+           ORDER BY ${asked}, tenant_id, pause_id LIMIT ?`,
+      )
+      .all(cutoff.toISOString(), ...keyset, limit)
       .map(toPauseRecord);
   }
 

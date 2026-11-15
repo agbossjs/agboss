@@ -363,6 +363,17 @@ invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the applicati
 pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
 union of every workflow's policies (fail closed).
 
+## `app.reassignPause({ pauseId, assignee }, { tenantId, ownerId | answeredBy })` (#946)
+
+Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
+`ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
+message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
+Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
+(`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
+or expired pause (`PauseClosedError`), an `assignee` that is no key's text (`DtoValidationError`, `dto:
+"ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); of two reassignments, or a
+reassignment and an answer, at once exactly one wins. [Pauses → Reassigning a pause](Pauses#reassigning-a-pause-to-someone-else-946).
+
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with

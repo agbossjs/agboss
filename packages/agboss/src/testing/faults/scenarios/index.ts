@@ -61,6 +61,7 @@ import { s24dCancel } from "./s24d-pause-expiry-cancel.js";
 import { s25bRequested, s25Dropped } from "./s25-cancel-resting.js";
 import { s26aWritesSavedBeforeCharge, s26bWritesSavedAfterCharge } from "./s26-writes-window.js";
 import { s27aChildAnswerSaved, s27bSecondAnswerSaved } from "./s27-writes-window-pauses.js";
+import { s28ReassignKill } from "./s28-pause-reassign.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -133,6 +134,7 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s26bWritesSavedAfterCharge,
   s27aChildAnswerSaved,
   s27bSecondAnswerSaved,
+  s28ReassignKill,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

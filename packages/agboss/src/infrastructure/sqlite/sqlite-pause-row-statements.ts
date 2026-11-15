@@ -84,6 +84,9 @@ const storedOf = (pause: PauseRecord): string =>
     boundAt: pause.boundAt,
     expiryProblem: pause.expiryProblem,
     closedFirst: pause.closedFirst,
+    assignee: pause.assignee,
+    reassignedTo: pause.reassignedTo,
+    reassignedFrom: pause.reassignedFrom,
   });
 
 /** The statements of the pauses, on one connection's database. */

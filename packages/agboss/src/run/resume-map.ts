@@ -4,7 +4,7 @@ import {
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
 import { ResumeReason } from "../core/observability.js";
-import type { WaitingInterrupt } from "./waiting-pauses.js";
+import { livePauseOf, type WaitingInterrupt } from "./waiting-pauses.js";
 
 /**
  * The second phase of a resume (#267 S35, Q58): one `Command({ resume })` for the whole tree, mapping
@@ -51,8 +51,11 @@ export function treeResumeOf(
 ): TreeResume | undefined {
   const byId = new Map(pauses.map((pause) => [pause.pauseId, pause]));
   const answered = interrupts.flatMap((waiting) => {
-    const pause = byId.get(waiting.pauseId);
-    return isAnswered(pause) && !passed.has(pause.pauseId) ? [{ waiting, pause }] : [];
+    // the interrupt keeps the first id of a reassigned approval (#946): its live pause answers under it
+    const pause = livePauseOf(byId, waiting.pauseId);
+    return isAnswered(pause) && !passed.has(pause.pauseId)
+      ? [{ waiting: { ...waiting, pauseId: pause.pauseId }, pause }]
+      : [];
   });
   if (answered.length === 0) return undefined;
   const taken = answered.flatMap(({ pause }) =>

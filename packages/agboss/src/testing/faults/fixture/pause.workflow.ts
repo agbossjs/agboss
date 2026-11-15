@@ -49,10 +49,34 @@ const start = (source: Class): PathBuilder<PathSource> =>
 })
 export abstract class FaultPauseQuestion extends ChannelOf<FaultPauseQuestion> {}
 
-/** Nobody is sent anything: the question waits for its `app.resume`. */
-@Channel({ name: "fault-pause-channel", description: "Waits for the order's answer" })
+/**
+ * Nobody is sent anything: the question waits for its `app.resume`. Each send is told to the test
+ * (#946): the pause's key and, for a reassignment, its assignee and the key of the pause it
+ * replaces — and its id, which a channel is given to be answered with (the test resumes it).
+ */
+@Channel({
+  name: "fault-pause-channel",
+  description: "Waits for the order's answer",
+  deps: [FaultPodLink],
+})
 export class FaultPauseChannel extends FaultPauseQuestion {
-  send(): Promise<ChannelOutcome<FaultPauseQuestion>> {
+  constructor(private readonly faultPodLink: FaultPodLink) {
+    super();
+  }
+
+  send(ask: {
+    readonly pauseId: string;
+    readonly assignee?: string;
+    readonly replaces?: { readonly pauseId: string };
+  }): Promise<ChannelOutcome<FaultPauseQuestion>> {
+    this.faultPodLink.emit("pause-sent", {
+      pauseKey: pauseKeyOf("default", ask.pauseId),
+      pauseId: ask.pauseId,
+      ...(ask.assignee === undefined ? {} : { assignee: ask.assignee }),
+      ...(ask.replaces === undefined
+        ? {}
+        : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),
+    });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
