@@ -99,6 +99,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.A2AFileConflictError, { fileId: "f-1" }),
   fx(root.InvalidA2APageTokenError, {}),
   fx(root.PauseAnswererError, { message }),
+  fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
   fx(root.UnknownPauseError, { message }),
   fx(root.NotPausedError, { message }),
   fx(root.PauseClosedError, {

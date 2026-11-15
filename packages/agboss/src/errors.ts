@@ -125,7 +125,7 @@ export {
   type EvalCaseInvalidErrorOptions,
   type EvalCaseIssue,
 } from "./eval/suite/errors.js";
-export { PauseClosedError, type PauseClosedErrorOptions } from "./app/pause-closed-error.js";
+export * from "./app/pause-closed-error.js";
 export * from "./flow/runtime/pause-expired-error.js";
 export { NotPausedError, PauseAnswererError, UnknownPauseError } from "./run/resume-agent.js";
 export {

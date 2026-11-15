@@ -13,6 +13,7 @@ import { ownDepsOf } from "./own-deps.js";
 import type { AnswerParts } from "./resume.js";
 import { answeredByOf, pauseOf } from "./resume.js";
 import { pauseClosed } from "./pause-closed.js";
+import { PauseExtensionContendedError } from "./pause-closed-error.js";
 import type { App, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
 
 /**
@@ -24,7 +25,9 @@ import type { App, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
  * past its deadline, is `PauseClosedError`. The store applies it atomically (`extend…`, its
  * compare-and-set over the deadline this call read, to a later one, while the pause is open — the
  * expiry look, an answer and another extension: one wins); the channel and the listeners are told
- * `extended` in the same transaction, once, by the winner. No lease is taken and no tree moves.
+ * `extended` in the same transaction, once, by the winner. A call that loses the compare-and-set
+ * `MAX_EXTEND_ATTEMPTS` (8) times in a row is `PauseExtensionContendedError` (`pause.extension-contended`);
+ * it changed nothing, retrying is safe. No lease is taken and no tree moves.
  */
 
 /** What an extension needs from the workflow's app. */
@@ -98,8 +101,14 @@ async function assertOpen(parts: ExtendParts, pause: PauseRecord): Promise<void>
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
 }
 
-/** How many times an extension re-reads and tries again after another writer moved the pause first. */
-const MAX_ATTEMPTS = 8;
+/**
+ * How many times an extension reads and tries before it gives up with `PauseExtensionContendedError`.
+ * A lost compare-and-set means another writer moved the deadline in the same instant; each retry
+ * re-reads, so losing again needs yet another writer to win in between. Eight lost rounds in a row
+ * is a hot pause, not a normal race (a handful of operators clicking together settle in two or three),
+ * and an unbounded loop would hold the caller; a typed error lets it decide.
+ */
+export const MAX_EXTEND_ATTEMPTS = 8;
 
 /**
  * `app.extendPause` of one workflow's app. The store's compare-and-set decides: the write applies
@@ -118,7 +127,7 @@ export const extendPauseOf =
     const request = checked(given);
     let pause = await pauseOf(parts.pauses, request, tenantId);
     await answeredByOf(parts, pause, call);
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= MAX_EXTEND_ATTEMPTS; attempt += 1) {
       await assertOpen(parts, pause);
       const now = parts.clock.now();
       const expiresAt = new Date(now.getTime() + request.expiresIn).toISOString();
@@ -138,7 +147,8 @@ export const extendPauseOf =
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left
       pause = await pauseOf(parts.pauses, request, tenantId);
     }
-    throw new Error(
-      `extendPause of pause ${request.pauseId} lost its compare-and-set ${String(MAX_ATTEMPTS)} times to other writers`,
-    );
+    throw new PauseExtensionContendedError({
+      pauseKey: pauseKeyOf(tenantId, request.pauseId),
+      attempts: MAX_EXTEND_ATTEMPTS,
+    });
   };

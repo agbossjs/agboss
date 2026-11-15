@@ -6392,6 +6392,29 @@ export interface PauseExtension {
 }
 
 // @public
+export class PauseExtensionContendedError extends AGBossError {
+    constructor(options: PauseExtensionContendedErrorOptions);
+    // (undocumented)
+    readonly attempts: number;
+    // (undocumented)
+    static readonly code: "pause.extension-contended";
+    // (undocumented)
+    readonly code: typeof PauseExtensionContendedError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly pauseKey: string;
+}
+
+// @public
+export interface PauseExtensionContendedErrorOptions {
+    readonly attempts: number;
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly pauseKey: string;
+}
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
@@ -9406,6 +9429,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "reason".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "closedAt".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "pauseKey".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "attempts".
+// src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
