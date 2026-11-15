@@ -6,6 +6,7 @@ import { forgetTree, treeOf, type TreeEndParts } from "./tree-ends.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { CancelParts } from "./cancel-requests.js";
+import { wakeAnsweredOf, type WakeAnswered } from "./answered-wake.js";
 
 /**
  * Finishing the end of a tree whose instance died in the middle of it (#939, #910 I13): under the
@@ -21,7 +22,7 @@ const PAUSED: string = ExecutionRecordStatus.Paused;
 /** What a workflow's app needs to finish a tree's end. */
 export type OrphanTreeParts = TreeEndParts & CancelParts;
 
-export const closeOrphanTreeOf =
+const closeOrphanTreeOf =
   (parts: OrphanTreeParts): CloseOrphanTree =>
   async (record) => {
     const { runId, threadId, tenantId } = record;
@@ -44,3 +45,16 @@ export const closeOrphanTreeOf =
       await lease.release();
     }
   };
+
+/** What the sweep's look at a workflow's open pauses does with its trees (#939, #1152, #1187). */
+export interface OrphanEnds {
+  /** Finishes the end of one of its trees an instance died in (the orphan look, #939). */
+  readonly closeOrphan: CloseOrphanTree;
+  /** Marks `running` one of its `paused` roots beside an untaken answer (the same look, #1187). */
+  readonly wakeAnswered: WakeAnswered;
+}
+
+export const orphanEndsOf = (parts: OrphanTreeParts): OrphanEnds => ({
+  closeOrphan: closeOrphanTreeOf(parts),
+  wakeAnswered: wakeAnsweredOf(parts),
+});

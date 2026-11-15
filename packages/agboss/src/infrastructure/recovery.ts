@@ -1,4 +1,5 @@
 import { orphanLookOf, type OrphanLook } from "./orphan-pauses.js";
+import type { WakeAnswered } from "../app/answered-wake.js";
 import type { CloseOrphanTree } from "../app/orphan-tree.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
@@ -57,6 +58,8 @@ export interface RecoverySources extends RetentionSources {
   readonly workflows: ReadonlyMap<string, RecoverRoot>;
   /** Each workflow's ending of a tree whose end an instance died in (#939); none = no orphan look. */
   readonly orphans?: ReadonlyMap<string, CloseOrphanTree> | undefined;
+  /** Each workflow's wake of a `paused` root beside an untaken answer (#1187), by bundle. */
+  readonly wakes?: ReadonlyMap<string, WakeAnswered> | undefined;
   /** Where its problems go: the application's log. */
   readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
@@ -100,6 +103,8 @@ class Sweeper implements RecoverySweep {
 
   async #run(): Promise<void> {
     while (!this.#stopped.signal.aborted) {
+      // the open pauses first: a root it woke (#1187) is `running` for this look's recoveries
+      await this.#orphans?.lookSafely(() => this.#stopped.signal.aborted);
       try {
         await this.#sweep();
       } catch (error) {
@@ -110,7 +115,6 @@ class Sweeper implements RecoverySweep {
           isBroken: true,
         });
       }
-      await this.#orphans?.lookSafely(() => this.#stopped.signal.aborted);
       await removeExpired(this.sources, (text) => {
         this.#log({ code: "recovery.failed", text, isBroken: true });
       });

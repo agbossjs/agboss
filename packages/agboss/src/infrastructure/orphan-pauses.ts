@@ -1,15 +1,19 @@
+import type { WakeAnswered } from "../app/answered-wake.js";
 import type { CloseOrphanTree } from "../app/orphan-tree.js";
 import {
   ExecutionRecordStatus,
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
+import { PauseStatus } from "./pause-record.js";
 
 /**
  * The orphan look of the recovery sweep (#939, #910 I13): a tree that ended while one of its pauses
  * stayed open — its instance died between the end's writes — is found through the open pauses, a
  * page per sweep, and its end finished under its lease. Every open pause is visited at least once
  * per `ceil(open / PAGE)` sweeps: the cursor is this instance's, and wraps after the last page.
+ * The same look wakes a root left `paused` beside an answer no pass took (#1187, `answered-wake.ts`):
+ * its record marked `running` under its lease, recovery's to continue.
  */
 
 /** How many open pauses one look reads. */
@@ -22,6 +26,8 @@ export interface OrphanSources {
   readonly records: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId">;
   /** Each workflow's ending of an orphaned tree, by the bundle its records name. */
   readonly orphans: ReadonlyMap<string, CloseOrphanTree>;
+  /** Each workflow's wake of a `paused` root beside an untaken answer (#1187), by bundle. */
+  readonly wakes?: ReadonlyMap<string, WakeAnswered> | undefined;
   /** Where a tree whose end failed is told (it is looked at again at its next visit). */
   readonly report: (text: string) => void;
 }
@@ -33,7 +39,14 @@ const ENDED: readonly string[] = [
 ];
 const isEnded = (status: string): boolean => ENDED.includes(status);
 const RESTING: string = ExecutionRecordStatus.Paused;
-const isResting = (status: string): boolean => status === RESTING;
+
+/** A pause's root: what the look reads its record by. */
+interface PauseRoot {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}
+
+const rootKeyOf = (root: PauseRoot): string => `${root.tenantId}\0${root.rootExecutionId}`;
 
 /** One instance's look: its cursor, and one page of open pauses per call. */
 export class OrphanLook {
@@ -50,26 +63,47 @@ export class OrphanLook {
     }
   }
 
-  /** Reads one page of open pauses and finishes the end of every ended tree among them. */
+  /**
+   * Reads one page of open pauses: finishes the end of every ended tree among them and of every
+   * resting one whose cancel nobody finished (#1152), and wakes every other `paused` root beside an
+   * answer recorded and not taken yet (#1187).
+   */
   async look(isStopped: () => boolean): Promise<void> {
-    const { pauses, records, orphans, report } = this.sources;
-    const page = await pauses.findOpenAfter(this.#cursor, ORPHAN_PAGE);
+    const page = await this.sources.pauses.findOpenAfter(this.#cursor, ORPHAN_PAGE);
     this.#cursor = page.next;
-    const roots = new Map(
-      page.pauses.map((pause) => [`${pause.tenantId}\0${pause.rootExecutionId}`, pause]),
+    const roots = new Map(page.pauses.map((pause) => [rootKeyOf(pause), pause]));
+    const answered = new Set(
+      page.pauses.filter((pause) => pause.status === PauseStatus.Resolved).map(rootKeyOf),
     );
-    for (const { tenantId, rootExecutionId } of roots.values()) {
+    for (const [key, root] of roots) {
       if (isStopped()) return;
       try {
-        // a root with no record (another application's tree on a shared store) is skipped
-        const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
-        // an ended tree whose pause stayed open, or a resting one whose cancel nobody finished (#1152)
-        if (record === undefined || !(isEnded(record.status) || isResting(record.status))) continue;
-        await orphans.get(record.bundle)?.(record);
+        await this.#visit(root, answered.has(key));
       } catch (error) {
-        report(`the end of execution ${rootExecutionId} could not be finished: ${String(error)}`);
+        const text = `the end of execution ${root.rootExecutionId} could not be finished`;
+        this.sources.report(`${text}: ${String(error)}`);
       }
     }
+  }
+
+  /**
+   * One root of the page: its end finished when it ended; when it rests, ended when its cancel was
+   * requested, else woken beside an untaken answer.
+   */
+  async #visit(root: PauseRoot, isAnswered: boolean): Promise<void> {
+    const { records, orphans, wakes } = this.sources;
+    // a root with no record (another application's tree on a shared store) is skipped
+    const record = await records.findByTenantIdAndRunId(root.tenantId, root.rootExecutionId);
+    if (record === undefined) return;
+    if (isEnded(record.status)) {
+      await orphans.get(record.bundle)?.(record);
+      return;
+    }
+    if (record.status !== RESTING) return;
+    // a resting tree with a cancel nobody finished is ended (#1152), never woken; else an answer
+    // recorded and not taken wakes it (#1187)
+    const isCancelled = (await orphans.get(record.bundle)?.(record)) === true;
+    if (!isCancelled && isAnswered) await wakes?.get(record.bundle)?.(record);
   }
 }
 

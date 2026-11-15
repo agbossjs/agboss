@@ -391,7 +391,9 @@ describe("#633: the drain", () => {
         return Promise.resolve(answers.shift());
       },
     );
-    paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+    paused.find.mockResolvedValue({
+      run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } },
+    } as never);
     mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Paused));
 
     await moves.resumed(answerOf("1.0.0"), call);

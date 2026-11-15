@@ -175,7 +175,8 @@ export async function restedPassOf(
   call: TreeCall,
   track: { readonly passed: ReadonlySet<string>; readonly tried: Set<string> },
 ): Promise<{ readonly planned: PlannedPass; readonly reason: ResumeReason } | undefined> {
-  const answered = await answeredPassOf(parts, state, call, track.passed);
+  // the drain's own rest went before it: the record marked running again (#1187)
+  const answered = await answeredPassOf(parts, state, call, track.passed, true);
   if (answered !== undefined) return { planned: answered, reason: ResumeReason.Answered };
   const expired = await expiredPassOf(parts, state, call, track);
   return expired === undefined ? undefined : { planned: expired, reason: ResumeReason.Expired };

@@ -11,7 +11,7 @@ import {
   type OrphanSources,
 } from "../../src/infrastructure/orphan-pauses.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
-import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import { APPROVED_BY_MANAGER, pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import type { Turn } from "../../src/turns/index.js";
 
 const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow"): Turn => ({

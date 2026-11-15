@@ -2,6 +2,7 @@ import type { TurnStore } from "../turns/index.js";
 import type { PausedExecution } from "./paused-runs.js";
 import { continueAgent, type InterruptedRun } from "../run/continue-agent.js";
 import { resumeAgent } from "../run/resume-agent.js";
+import { runningOutcome } from "../run/execute.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { runOptionsOf } from "./live-runs.js";
 import { ResumeReason } from "../core/observability.js";
@@ -103,19 +104,51 @@ export class RootCalls {
   }
 }
 
-/** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
-export async function answeredPassOf(
-  parts: TreeMoveParts,
+/** The answers recorded for the tree now and its stored rest; `undefined` when it has none (or rests no more). */
+async function answeredRunOf(
+  parts: Pick<TreeMoveParts, "deps" | "paused">,
   state: TreeState,
-  call: TreeCall,
   passed?: ReadonlySet<string>,
-): Promise<AnsweredPass | undefined> {
+): Promise<{ readonly resume: TreeResume; readonly stored: PausedExecution } | undefined> {
   const { deps, paused } = parts;
   const resume = await treeResumeNow(deps, state, passed);
   if (resume === undefined) return undefined;
   const stored = await paused.find(state);
   if (stored?.run.runId !== state.runId) return undefined;
-  return { resume, pass: resumePassOf(stored, resume, call) };
+  return { resume, stored };
+}
+
+/**
+ * The tree has work again: its record `running` before anything moves it (#1187, #850's order) —
+ * a drain that rested (its pass wrote `paused`) and goes on with an answer recorded meanwhile,
+ * killed in that pass, leaves a record recovery continues, never a `paused` root beside an answer it
+ * took. A compare-and-set from `paused`: its caller holds the lease.
+ */
+async function markedRunning(
+  deps: Pick<TreeMoveParts["deps"], "turns">,
+  stored: PausedExecution,
+): Promise<boolean> {
+  const { run } = stored;
+  const outcome = runningOutcome(run.path, run.cost.totalUsd);
+  return deps.turns.completeIfStatus(run.turnId, ExecutionRecordStatus.Paused, outcome);
+}
+
+/**
+ * The pass that takes the tree's recorded answers now (`answeredRunOf`); `undefined` when it has
+ * none. `isAfterRest`: the drain's pass after its rest — the record is marked `running` first
+ * (`markedRunning`); a resume or an expiry marked it before taking the lease.
+ */
+export async function answeredPassOf(
+  parts: TreeMoveParts,
+  state: TreeState,
+  call: TreeCall,
+  passed?: ReadonlySet<string>,
+  isAfterRest = false,
+): Promise<AnsweredPass | undefined> {
+  const answered = await answeredRunOf(parts, state, passed);
+  if (answered === undefined) return undefined;
+  if (isAfterRest) await markedRunning(parts.deps, answered.stored);
+  return { resume: answered.resume, pass: resumePassOf(answered.stored, answered.resume, call) };
 }
 
 /**
