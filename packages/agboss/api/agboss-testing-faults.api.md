@@ -235,6 +235,8 @@ export class StoreAnswerLostError extends Error {
 export enum StoreHoldPoint {
     A2ATaskSaveIfAbsent = "a2aTask.saveIfAbsent",
     A2ATaskStatusWrite = "a2aTask.compareAndSetStatus",
+    CheckpointPut = "checkpoint.put",
+    CheckpointPutWrites = "checkpoint.putWrites",
     // (undocumented)
     ChildClaim = "childQueue.claim",
     // (undocumented)
