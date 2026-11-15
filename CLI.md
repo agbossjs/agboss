@@ -236,7 +236,10 @@ skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files) · linked .clau
   owner is dead on this host is taken over at once; a live owner is waited for up to about 12 s,
   and then the check only reads: `current` prints nothing, anything else prints one
   `[skills.sync-failed] … another agboss check holds …` — run `npx agboss check` again. A lock of
-  another host, or with an unreadable owner, is taken over after 10 minutes. Ctrl-C releases it.
+  another host, or with an unreadable owner, is taken over after 10 minutes; one dated more than a
+  minute in the future (a clock set back, a folder from a host that runs ahead) is taken over 10 minutes
+  after a check first saw it, not when its date comes; a live owner on this host is never taken because
+  of a date, and a dead owner's lock is cleared whole, stray files in it included. Ctrl-C releases it.
 - **The project's links.** A symlink of the project's inside `.agents/skills/agboss/` is never
   followed: one that stays inside the project is kept as it is, one that leaves it is dropped, and
   `[skills.unmanaged-file]` names each. An interrupted move that finds the same own file with other
@@ -257,7 +260,11 @@ skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files) · linked .clau
 - **Containment.** Before anything is written, moved, removed or linked, `.claude`, `.claude/skills`,
   `.agents`, `.agents/skills` and `.agents/skills/agboss` must really be inside the project
   (`realpath`): one that is a link leaving it — a cloned repository may ship `.claude -> ~` — is
-  `[skills.outside-project]`, nothing is touched, exit code unchanged. A link that stays inside is fine.
+  `[skills.outside-project]`, nothing is touched, exit code unchanged. A link that stays inside is fine,
+  with one exception: a 0.1.x `.claude/skills/agboss/` behind a linked `.claude` or `.claude/skills` is not
+  moved through the link (`[skills.link-blocked]` names the link and what to do; `.agents/skills/agboss/`
+  is still synced and the folder stays where it is, on every run until the link is a real folder). An own
+  link in the skills folder is judged by where it really leads, each link followed before the next `..`.
 - **Shadow.** A personal `~/.claude/skills/agboss` of another version, which Claude Code prefers over
   the project's, is `[skills.shadowed]` with `rm -rf ~/.claude/skills/agboss`; the home folder is
   `os.homedir()`, none or unreadable is silent.
