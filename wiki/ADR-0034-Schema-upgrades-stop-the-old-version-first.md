@@ -25,8 +25,11 @@ processes on one file.
   `pre-upgrade` / `PreSync` hook stays right for it (`migrate` prints `nothing to apply`).
 - **The rule is enforced where a tool can see a violation.** `agboss-postgres migrate` and
   `agboss-mongodb migrate`, when the database's applied version is below the build's, refuse while
-  execution leases are live on the server's clock (a named error with the count and sample holder ids;
-  `--allow-live-leases` / `allowLiveLeases: true` overrides); when the applied version equals the
+  execution leases are live on the server's clock (`PostgresLiveLeasesError`, `postgres.live-leases`, and
+  its MongoDB twin: the count and up to five holder ids; `--allow-live-leases` / `allowLiveLeases: true`
+  overrides). A start with `SchemaSetup.MigrateOnStart` is held to the same rule: with migrations pending
+  it waits up to a minute for live leases to lapse (a stopped single instance's own do) and fails with
+  the same error while one is live; `allowLiveLeases: true` in the store's settings overrides it; when the applied version equals the
   build's, `migrate` stays a no-op and exits 0. A lease check cannot see an **idle** old pod — it holds
   no lease — so the docs name the blind spot, and the sequence stays the operator's.
 - **A file or database says what version it is, and an older build refuses it.** SQLite is stamped

@@ -48,7 +48,7 @@ import {
 export class AppEnvironment {
   postgresUrl!: Secret; // required as soon as one PostgreSQL store is listed
   postgresPoolSize?: number; // this instance's pool: at most this many connections, default 10
-  postgresMigrateOnStart?: boolean; // default off
+  postgresSchemaSetup?: string; // "check" (default) or "migrate-on-start"
 }
 
 // environments/prod.environment.ts
@@ -138,7 +138,9 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
   (`migrate` prints `nothing to apply`); see [Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-a-schema-change).
   An old pod that is still running after the migration writes in the old shape (a pause without its
   channel, no notice, a lease under a renamed column), and an idle one holds no lease, so no check can
-  see it: stopping it is yours.
+  see it: stopping it is yours. When migrations are pending and an execution lease is live, `migrate`
+  applies nothing and fails with `PostgresLiveLeasesError` (`postgres.live-leases`: the count and up to
+  five holder ids); `--allow-live-leases` (in code `allowLiveLeases: true`) migrates anyway.
 
   ```sh
   npx agboss-postgres migrate --url "$DATABASE_URL"   # or DATABASE_URL alone
@@ -152,8 +154,10 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
   are [below](#the-checkpoint-index-962).
 - **Or in code**: `await migratePostgres({ url, signal })` → `{ schema, applied, version,
   checkpointMigrations, stepIndex }`.
-- **Or at start** with `postgresMigrateOnStart: true` — for a single instance or a development
-  database.
+- **Or at start** with `postgresSchemaSetup: SchemaSetup.MigrateOnStart` — for a single instance or a
+  development database. With migrations pending the start waits up to a minute for live leases to
+  lapse and fails with `PostgresLiveLeasesError` while one is live (a rolling restart over a running
+  old pod is refused); `allowLiveLeases: true` in the connection's settings overrides it.
 
 Every run takes one advisory lock per schema (`pg_advisory_lock`, a session lock), so concurrent
 runs serialize; each file runs in its own transaction; `agboss_schema_migrations` records each with
@@ -178,7 +182,7 @@ own** after them:
   application transaction delays the build, never the writes.
 - **One builder at a time.** A session-level `pg_try_advisory_lock` that never waits: a run that does
   not get it (another is building) skips the step and goes on.
-- **A start that migrates does not wait for it** (`postgresMigrateOnStart`): the pod serves while
+- **A start that migrates does not wait for it** (`SchemaSetup.MigrateOnStart`): the pod serves while
   the index builds. `agboss-postgres migrate` and `migratePostgres` return when it is done.
 - **Reads are correct without it**, only slower (10 000 checkpoints: 38 ms listing and sorting, 1.7 ms
   with the index). A skipped or failed build costs speed until the next run builds it.
