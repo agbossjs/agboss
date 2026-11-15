@@ -70,6 +70,10 @@ export enum StoreHoldPoint {
   PauseNoticeClaim = "pauseNotice.claim",
   /** A mailbox's head acknowledged (#935), keyed by the mailbox's recipient and pause id. */
   PauseNoticeAck = "pauseNotice.ack",
+  /** A checkpoint saved (#1090), keyed by its thread: the root's execution id. */
+  CheckpointPut = "checkpoint.put",
+  /** A task's writes saved (#1090), keyed by their thread: the root's execution id. */
+  CheckpointPutWrites = "checkpoint.putWrites",
   /** A thread's paused run removed when it is the run's (#935), keyed by the run id. */
   PausedRunDelete = "pausedRun.delete",
 }

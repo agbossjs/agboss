@@ -10,6 +10,7 @@ import type { ExecutionStateType } from "../state.js";
 import { visitNumberOf } from "../step-frame.js";
 import { modelRouterLaunch } from "../launch/router-decision.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
+import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
 import { maskedModelText, type MaskedModelText } from "../../../pii/model-boundary.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { GuardrailSide } from "../../../components/policy-decorators.js";
@@ -106,6 +107,22 @@ function shownRequest(
 }
 
 /**
+ * Spend counted at the call, like an agent's (#1090): in the ledger and marked before it reaches
+ * the state, so no checkpoint write holds spend the ledger lacks, and an exhausted budget stops here.
+ */
+const counterOf =
+  (budgets: BudgetMeter, spent: readonly UsageRecord[], path: readonly string[]) =>
+  (records: readonly UsageRecord[]): readonly UsageRecord[] => {
+    const kept = budgets.tally(records, path);
+    budgets.check(spent, path, kept);
+    return kept;
+  };
+
+/** A call's spend as a list: none when it reported none. */
+const spendOf = (usage: UsageRecord | undefined): readonly UsageRecord[] =>
+  usage === undefined ? [] : [usage];
+
+/**
  * A model router (`DecidedBy.Model`, #272): its model decides on its `input` only — never the whole
  * path scope — through the decision gateway. A failed model call fails the step with
  * `RouterFailedError` (its cause and spend kept); an answer that is not one of its routes, or not a
@@ -116,16 +133,21 @@ export function routerRunner(
   router: LoadedRouter,
   engine: RouterEngine,
   deps: GraphDeps<string>,
+  budgets: BudgetMeter,
 ): NodeRunner {
   return async (state, config) => {
     const name = node.id;
+    const path = [...state.path, node.id];
+    const counted = counterOf(budgets, state.usage, path);
     const isGuarded = (deps.guardrails?.inputOf(node.id) ?? []).length > 0;
-    const masked = await maskedInputOf(node, state, deps, isGuarded);
-    const { usage: guarded, decisions: guardrailDecisions } = await guardedInput(
+    const maskedAt = await maskedInputOf(node, state, deps, isGuarded);
+    const masked = { ...maskedAt, usage: counted(maskedAt.usage) };
+    const { usage: guardedAt, decisions: guardrailDecisions } = await guardedInput(
       node,
       masked,
       deps,
     );
+    const guarded = counted(guardedAt);
     const request = requestOf(router, masked.text);
     const input = masked.text;
     const piiTokens = masked.tokens;
@@ -137,20 +159,21 @@ export function routerRunner(
       const launch = await modelRouterLaunch({ node, router, step, input, decider, ...{ config } });
       const update = { route: launch.launch.join(", "), reason: launch.reason };
       await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
-      const usage = [...masked.usage, ...guarded, ...launch.usage];
+      const usage = [...masked.usage, ...guarded, ...counted(launch.usage)];
       return { launch: launch.launch, read, usage, piiTokens, guardrailDecisions };
     }
     const outcome = await engine.route(shownRequest(node, request, deps));
-    if (outcome.kind === "failed")
-      throw routerFailureOf(step, outcome, [...masked.usage, ...guarded]);
+    if (outcome.kind === "failed") {
+      const failed = {
+        ...outcome,
+        usage: counted(spendOf(outcome.usage))[0],
+      };
+      throw routerFailureOf(step, failed, [...masked.usage, ...guarded]);
+    }
     const { next, reason } = outcome.decision;
     const update = { route: next, reason };
     await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
-    const usage = [
-      ...masked.usage,
-      ...guarded,
-      ...(outcome.usage === undefined ? [] : [outcome.usage]),
-    ];
+    const usage = [...masked.usage, ...guarded, ...counted(spendOf(outcome.usage))];
     return { route: next, read, usage, piiTokens, guardrailDecisions };
   };
 }

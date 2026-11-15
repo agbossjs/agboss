@@ -23,6 +23,7 @@ import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
+import { startedOrSaid } from "./unstarted-run.js";
 import { leaseScope } from "./lease-scope.js";
 import { passesOf } from "./drain-passes.js";
 import { withTreeOrigin } from "./tree-origin.js";
@@ -57,7 +58,8 @@ class TreeMover implements TreeMoves {
   async first(state: TreeState, call: TreeCall, pass: TreePass): Promise<ExecutionOutput> {
     // #860: a run no recovery continues says so before its first pass, in its tree's keys
     await markedIfWithoutRecovery(call, this.parts.trees, treeOf(state));
-    return this.drained(state, call, await this.parts.leases.hold(treeOf(state)), { pass });
+    const lease = await this.parts.leases.hold(treeOf(state));
+    return startedOrSaid(lease, this.drained(state, call, lease, { pass }));
   }
 
   async resumed(answer: RecordedAnswer, given: TreeCall): Promise<ExecutionOutput> {

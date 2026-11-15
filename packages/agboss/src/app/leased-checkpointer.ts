@@ -27,6 +27,17 @@ type PutArguments = Parameters<BaseCheckpointSaver["put"]>;
 type PutWritesArguments = Parameters<BaseCheckpointSaver["putWrites"]>;
 type CheckpointListOptions = NonNullable<ListArguments[1]>;
 
+/** The leases whose holder started a checkpoint write: before that a run has no checkpoint of its own. */
+const writing = new WeakSet<object>();
+
+/**
+ * Whether the holder of `lease` began writing a checkpoint (its `put` or `putWrites` was asked for,
+ * answered or not). Until then a run it started has stored nothing: a hand-over leaves the next
+ * holder nothing to continue (#1090).
+ */
+export const hasStartedWriting = (lease: object | undefined): boolean =>
+  lease !== undefined && writing.has(lease);
+
 /**
  * The application's checkpointer as one pass over a tree sees it (#265, Q58): every write renews
  * the tree's lease first, so a holder that lost it never writes. Documented limit: the renewal and
@@ -50,6 +61,7 @@ export class LeasedCheckpointSaver extends BaseCheckpointSaver {
 
   // the renewal inside is the lease store's own, never a hand-over; the write is (#928)
   put(...putArguments: PutArguments): Promise<RunnableConfig> {
+    writing.add(this.lease);
     return leaseScope(this.lease, async () => {
       await this.lease.renew();
       return this.saver.put(...putArguments);
@@ -57,6 +69,7 @@ export class LeasedCheckpointSaver extends BaseCheckpointSaver {
   }
 
   putWrites(...putWritesArguments: PutWritesArguments): Promise<void> {
+    writing.add(this.lease);
     return leaseScope(this.lease, async () => {
       await this.lease.renew();
       return this.saver.putWrites(...putWritesArguments);

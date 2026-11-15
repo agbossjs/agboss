@@ -16,6 +16,8 @@ export default defineConfig({
       "tests/budgets/{exemption-takeover,spend-once-takeover}.test.ts",
       // #860: a run no recovery continues, and its lost pass's call of unknown cost (D1)
       "tests/app/{without-recovery,lost-attempt}.test.ts",
+      // #1090: a new run handed over before its first checkpoint, and after it
+      "tests/app/{first-checkpoint-hand-over,writes-window-takeover}.test.ts",
     ],
   },
 });

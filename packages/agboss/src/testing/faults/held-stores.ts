@@ -1,6 +1,7 @@
 import { Injectable } from "../../components/decorators.js";
 import { depsOf } from "../../components/container/container.js";
 import type { Class } from "../../components/injection.js";
+import { BaseCheckpointSaver } from "@langchain/langgraph";
 import { ChildExecutionQueueRepository } from "../../infrastructure/child-execution-queue.repository.js";
 import { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
 import { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
@@ -22,6 +23,7 @@ import {
   type OperationEvent,
   type OperationRecorder,
 } from "./operation-history.js";
+import { CHECKPOINT_METHODS } from "./checkpoint-points.js";
 import {
   CHILD_QUEUE_METHODS,
   HISTORY_METHODS,
@@ -138,6 +140,7 @@ const CONTRACTS: readonly (readonly [Class, Readonly<Record<string, StoreMethod>
   [ExecutionTreeRepository, TREE_METHODS],
   [A2ATaskRepository, A2A_TASK_METHODS],
   [PausedExecutionRepository, PAUSE_METHODS],
+  [BaseCheckpointSaver, CHECKPOINT_METHODS],
 ];
 
 /** The methods of the contract `store` implements; `undefined` for another class. */

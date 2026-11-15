@@ -113,7 +113,7 @@ function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): Nod
       if (isCodeRouterNode(node)) return codeRouterRunner(node, deps);
       const router = deps.routers.find((loaded) => loaded.name === node.id);
       if (router === undefined) throw new UnknownAgentError(`No router texts for ${node.id}`);
-      return routerRunner(node, router, deps.routerFor(router), deps);
+      return routerRunner(node, router, deps.routerFor(router), deps, parts.budgets);
     }
     case NodeKind.Agent:
     case NodeKind.Workflow:

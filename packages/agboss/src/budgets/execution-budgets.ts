@@ -45,9 +45,9 @@ export { settledSaverOf } from "../app/settled-spend-checkpointer.js";
  * since that the read does not hold.
  *
  * The live tally (#338): the pass's spend is also counted as it is made (`tally` — an agent's
- * model calls, guardrails and judges, a tool's or a step's service spend, an arbiter's decision),
- * before it reaches the state; what is not tallied (a router's decision) is written when its step
- * ends. A check takes the larger of the caller's view (its state's spend) and the meter's (what it
+ * model calls, guardrails and judges, a tool's or a step's service spend, an arbiter's decision, a
+ * model router's decision with its PII and guardrail calls, #1090), before it reaches the state —
+ * so every record in a checkpoint's writes is in the ledger already. A check takes the larger of the caller's view (its state's spend) and the meter's (what it
  * recorded plus the tally not in the ledger yet), so a branch of a parallel launch sees its
  * siblings' spend while they run. A tally that exhausts a budget aborts `exhausted`
  * with that `BudgetExceededError`: every branch of the pass's launches watches it, so their

@@ -24,6 +24,7 @@ import type { PiiRuntime } from "../../pii/runtime.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
 import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
 import { drainRun, outcomeError } from "../../run/execute.js";
+import { hasGraphEnded } from "../../run/graph-end.js";
 import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
 import { piiKeysOf, streamConfig } from "../../run/stream-config.js";
 import type { AppDeps } from "../app-deps.js";
@@ -134,7 +135,7 @@ interface StreamedPass {
 }
 
 const passOf = (snapshot: Awaited<ReturnType<ExecutionGraph["getState"]>>): StreamedPass => ({
-  rests: snapshot.next.length > 0,
+  rests: !hasGraphEnded(snapshot),
   last: isExecutionState(snapshot.values) ? snapshot.values : undefined,
 });
 
@@ -178,16 +179,14 @@ async function streamed(
     const record = recorder(budgets.meter, []);
     return passRunOf(graph, config, initial, (states) => drainRun(states, record, initial.usage));
   }
-  if (before.next.length === 0) return passOf(before);
+  if (hasGraphEnded(before)) return passOf(before);
   const interrupts = interruptIdsOf(before);
   const isResuming = resume !== undefined && interrupts.some((id) => id in resume);
   if (interrupts.length > 0 && !isResuming) return { rests: true };
   if (resume === undefined) {
-    const text = `execution ${row.executionId} is recovered: it continues from its last checkpoint`;
-    rootDeps.log.warn("execution.recovered", text, {
-      executionId: row.executionId,
-      tenantId: row.tenantId,
-    });
+    const { executionId, tenantId } = row;
+    const text = `execution ${executionId} is recovered: it continues from its last checkpoint`;
+    rootDeps.log.warn("execution.recovered", text, { executionId, tenantId });
   }
   const spent = isResuming
     ? await resumedSpendOf(reading, rootDeps, row, run.thread, before.values.usage, resume)
