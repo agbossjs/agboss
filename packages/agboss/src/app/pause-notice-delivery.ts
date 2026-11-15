@@ -2,7 +2,7 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { PauseNoticeClaim } from "../infrastructure/pause-notices.js";
 import { pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
-import { waitOf } from "../infrastructure/clock.js";
+import { timeoutOn, waitOf } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { NoticeTimeoutError } from "./pause-notice-call.js";
@@ -22,6 +22,10 @@ import { receive, UnknownReceiverError, type ReceiveParts } from "./pause-notice
 const CLAIMS_PER_LOOK = 50;
 /** How long a claim holds its mailbox: one look's work on it. */
 const CLAIM_FOR: Milliseconds = seconds(60);
+/** How often the claim is renewed while its receiver runs: a third of it, so two tries may fail (#1131). */
+const RENEW_EVERY: Milliseconds = waitOf(CLAIM_FOR / 3);
+/** The bound of one renewal: below `RENEW_EVERY`, so the next tick finds it settled. */
+const RENEW_BOUND: Milliseconds = seconds(5);
 /** The longest pause between two attempts. */
 const MAX_BACKOFF: Milliseconds = seconds(300);
 
@@ -117,8 +121,59 @@ export class PauseNoticeDelivery {
     } while (this.#isAnother());
   }
 
-  /** The claimed mailbox's notices, head first, until one fails or none is left. */
+  /**
+   * The claimed mailbox's notices, head first, until one fails or none is left — the claim renewed
+   * all the while (#1131): a receiver that runs past the claim is never called again beside itself.
+   */
   async #deliver(first: PauseNoticeClaim): Promise<void> {
+    const stop = new AbortController();
+    const renewing = this.#renewing(first, AbortSignal.any([stop.signal, ...this.#stops()]));
+    try {
+      await this.#delivered(first);
+    } finally {
+      stop.abort();
+      await renewing;
+    }
+  }
+
+  /** The instance's stop, when it has one. */
+  #stops(): AbortSignal[] {
+    const stop = this.parts.interruption();
+    return stop === undefined ? [] : [stop];
+  }
+
+  /**
+   * Renews the claim every `RENEW_EVERY` until `stop`, each renewal bounded; ends when the store
+   * says the token is lost (the receiver's ack is then refused, another look delivers). A store
+   * that fails or hangs is tried again at the next tick.
+   */
+  async #renewing(claim: PauseNoticeClaim, stop: AbortSignal): Promise<void> {
+    const { clock, pauses } = this.parts;
+    for (;;) {
+      await clock.sleep(RENEW_EVERY, stop);
+      if (stop.aborted) return;
+      const timer = timeoutOn(clock, RENEW_BOUND, () => new Error("a claim renewal timed out"));
+      const bound = new Promise<never>((_resolve, reject) => {
+        timer.signal.addEventListener("abort", () => {
+          reject(timer.signal.reason as Error);
+        });
+      });
+      try {
+        if (
+          (await Promise.race([pauses.renewNotice(claim, clock.now(), CLAIM_FOR), bound])) ===
+          undefined
+        )
+          return;
+      } catch {
+        // tried again at the next tick: the claim still has two thirds of its length
+      } finally {
+        timer.release();
+      }
+    }
+  }
+
+  /** The claimed mailbox's notices, head first, until one fails or none is left. */
+  async #delivered(first: PauseNoticeClaim): Promise<void> {
     let claim: PauseNoticeClaim | undefined = first;
     while (claim !== undefined) {
       try {

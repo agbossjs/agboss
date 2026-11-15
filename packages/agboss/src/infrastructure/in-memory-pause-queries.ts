@@ -154,6 +154,14 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     return Promise.resolve(this.book.ack(claim, at));
   }
 
+  renewNotice(
+    claim: PauseNoticeClaim,
+    at: Date,
+    claimFor: Milliseconds,
+  ): Promise<PauseNoticeClaim | undefined> {
+    return Promise.resolve(this.book.renew(claim, at, claimFor));
+  }
+
   retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean> {
     return Promise.resolve(this.book.retry(claim, nextAttemptAt, problem));
   }

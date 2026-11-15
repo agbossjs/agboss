@@ -9,6 +9,7 @@ import {
   isHeldBy,
   isLive,
   mailboxOf,
+  renewedMailbox,
   retriedMailbox,
   setAsideMailbox,
   type PlannedNotice,
@@ -138,6 +139,19 @@ export class SqlitePauseNoticeRows {
     return acknowledged.claim === undefined
       ? undefined
       : { mailbox: mailboxOf(acknowledged), token: claim.token, until: acknowledged.claim.until };
+  }
+
+  renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
+    const held = this.held(claim);
+    const until = held?.claim?.until;
+    if (held === undefined || until === undefined || until <= at) return undefined;
+    const renewed = renewedMailbox(held, new Date(at.getTime() + claimFor));
+    this.put(renewed);
+    return {
+      mailbox: mailboxOf(renewed),
+      token: claim.token,
+      until: renewed.claim?.until ?? until,
+    };
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {

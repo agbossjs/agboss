@@ -133,6 +133,12 @@ export function acknowledgedMailbox(mailbox: StoredMailbox, at: Date): StoredMai
   return next === undefined ? releasedMailbox(moved) : moved;
 }
 
+/** The mailbox with its claim held until `until` at the latest (the claim only ever grows). */
+export const renewedMailbox = (mailbox: StoredMailbox, until: Date): StoredMailbox =>
+  mailbox.claim === undefined || mailbox.claim.until >= until
+    ? mailbox
+    : { ...mailbox, claim: { token: mailbox.claim.token, until } };
+
 /** The mailbox after a failed attempt: one more, due at `nextAttemptAt`, the claim released. */
 export const retriedMailbox = (
   mailbox: StoredMailbox,

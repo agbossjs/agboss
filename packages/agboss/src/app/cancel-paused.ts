@@ -42,9 +42,12 @@ export async function cancelledPaused(
   const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {
     // a holder moved it meanwhile — not paused any more, or another run of the thread paused
-    // since: the caller asks its holder instead
-    const run = await paused.drop(thread, tree.runId);
-    if (run === undefined)
+    // since: the caller asks its holder instead. The run is read, not dropped: the end below
+    // marks the tree unwinding and moves its record off `paused` first, then drops the run and
+    // closes its pauses (#1132) — an instance that dies between any two of these leaves a tree
+    // the recovery sweep or a second cancel finishes, never a pause open under a run that is gone
+    const run = (await paused.find(thread))?.run;
+    if (run?.runId !== tree.runId)
       return await endedAsCancelled(parts, { ...tree, startedVersion }, requested);
     const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
     const cause = new ExecutionCancelledError({

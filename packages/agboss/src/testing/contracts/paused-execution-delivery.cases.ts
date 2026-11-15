@@ -82,6 +82,32 @@ export const DELIVERY_CASES: readonly ContractCase<PausedExecutionRepository>[] 
     },
   },
   {
+    name: "renew extends the claim for its token only, while it holds; a lapsed or lost claim is never revived (#1131)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await closedPause(first, "pause-a");
+      const [claim] = await first.claimNoticesDue(AT, 10, seconds(60), [AUDIT]);
+      if (claim === undefined) throw new Error("a claim was expected");
+
+      const renewed = await second.renewNotice(claim, at(50_000), seconds(60));
+      expect(renewed).toMatchObject({ token: claim.token, until: at(110_000) });
+      // never shortened
+      const shorter = await first.renewNotice(claim, at(51_000), seconds(1));
+      expect(shorter?.until).toEqual(at(110_000));
+      // held past the first claim's end: nobody else gets the mailbox
+      expect(await second.claimNoticesDue(at(70_000), 10, seconds(60), [AUDIT])).toEqual([]);
+      expect(await second.claimNoticesDue(at(109_999), 10, seconds(60), [AUDIT])).toEqual([]);
+      // a forged token renews nothing
+      expect(
+        await first.renewNotice({ ...claim, token: "forged" }, at(60_000), seconds(60)),
+      ).toBeUndefined();
+      // lapsed: not revived, the mailbox goes to the next claimant
+      expect(await first.renewNotice(claim, at(110_000), seconds(60))).toBeUndefined();
+      const [taken] = await second.claimNoticesDue(at(110_000), 10, seconds(60), [AUDIT]);
+      expect(taken?.token).not.toBe(claim.token);
+      expect(await first.renewNotice(claim, at(110_001), seconds(60))).toBeUndefined();
+    },
+  },
+  {
     name: "retry sets nextAttemptAt and releases; not claimable before it",
     run: async ({ first, second }: Instances): Promise<void> => {
       await closedPause(first, "pause-a");
