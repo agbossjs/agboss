@@ -212,6 +212,12 @@ const budgetsOf = (
 
 const nameOfTool = (tool: AnyTool): string => tool.name;
 
+/** A workflow's tracing route (#1130): its spans go to its application instance's Langfuse only. */
+const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
+  workflow,
+  owner: parts.infrastructure, // one per application instance
+});
+
 /**
  * The run dependencies of one workflow of an application: its model providers behind the model
  * gateway (every model setting checked against its model first), MCP servers, and the application's
@@ -237,7 +243,7 @@ export async function createWorkflowDeps(
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
   const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);
-  const tracing = await tracingOf(env, pii.observability, config.name);
+  const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const own = ownNoticesOf(parts.notices);

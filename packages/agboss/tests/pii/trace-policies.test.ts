@@ -27,22 +27,32 @@ import {
 } from "./pii.fixture.js";
 
 /** What every Langfuse span processor of the process exported (kept past its shutdown). */
-const exported = vi.hoisted(() => ({ spans: [] as ReadableSpan[], processors: 0 }));
+const exported = vi.hoisted(() => ({
+  spans: [] as ReadableSpan[],
+  byKey: new Map<string, ReadableSpan[]>(),
+  processors: 0,
+}));
 
 vi.mock("@langfuse/otel", async (original) => {
   const real = await original<typeof import("@langfuse/otel")>();
   const { InMemorySpanExporter: Memory } = await import("@opentelemetry/sdk-trace-base");
   /** An in-memory exporter whose spans go to `exported.spans` as they are exported. */
   class KeepingExporter extends Memory {
+    constructor(private readonly publicKey: string) {
+      super();
+    }
     override export(...args: Parameters<InMemorySpanExporter["export"]>): void {
       exported.spans.push(...args[0]);
+      const own = exported.byKey.get(this.publicKey) ?? [];
+      exported.byKey.set(this.publicKey, [...own, ...args[0]]);
       super.export(...args);
     }
   }
   class RecordedProcessor extends real.LangfuseSpanProcessor {
     constructor(params: ConstructorParameters<typeof real.LangfuseSpanProcessor>[0]) {
       exported.processors += 1;
-      super({ ...params, exporter: new KeepingExporter(), exportMode: "immediate" });
+      const exporter = new KeepingExporter(params?.publicKey ?? "");
+      super({ ...params, exporter, exportMode: "immediate" });
     }
   }
   return { ...real, LangfuseSpanProcessor: RecordedProcessor };
@@ -82,11 +92,38 @@ class BreakingObserver implements OnAgentStart {
 })
 class TracePoliciesApplication {}
 
+/** A second application of the process: open-workflow alone, its own Langfuse project. */
+@Application({
+  name: "other-tracing-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [OpenWorkflow],
+  piiPolicies: [ContactPiiPolicy],
+  budgets: TEST_BUDGETS,
+})
+class OtherTracingApplication {}
+
+const OTHER_LANGFUSE = {
+  ...LANGFUSE,
+  LANGFUSE_PUBLIC_KEY: "pk-lf-other",
+  [PII_KEY_VARIABLE]: "test-key",
+};
+
 const appOf = (book: ScriptBook) =>
   createAppWith(TracePoliciesApplication, {
     processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
     gateway: createScriptedGateway(book),
   });
+
+/** The workflow names on the spans one Langfuse project received. */
+const workflowsAt = (publicKey: string): string[] => [
+  ...new Set(
+    (exported.byKey.get(publicKey) ?? []).flatMap((span) => {
+      const name = span.attributes["langfuse.observation.metadata.workflowName"];
+      return typeof name === "string" ? [name] : [];
+    }),
+  ),
+];
 
 /** What the application's log said of the observer's failure. */
 const observerFailures = (): string =>
@@ -107,6 +144,7 @@ afterEach(() => {
   seen.length = 0;
   resetLogged();
   exported.spans.length = 0;
+  exported.byKey.clear();
   exported.processors = 0;
 });
 
@@ -161,5 +199,25 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
 
     expect(observerFailures()).toContain("observer broke on <employee-id>");
     expect(observerFailures()).not.toContain(EMPLOYEE_ID);
+  });
+
+  it("AC4: two applications in one process — each run's spans reach only its own Langfuse, masked by its own policies", async () => {
+    const book = new ScriptBook();
+    book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
+    book.scriptOf("agent:open-agent").thenReturn(replyWith("ok"));
+    const app = await appOf(book);
+    const other = await createAppWith(OtherTracingApplication, {
+      processEnv: OTHER_LANGFUSE,
+      gateway: createScriptedGateway(book),
+    });
+
+    await execute(app, PiiStart, { text: `about ${EMPLOYEE_ID}` });
+    await execute(other, OpenStart, { text: "hello" });
+    await other.close();
+    await app.close();
+
+    expect(workflowsAt(LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["pii-workflow"]);
+    expect(workflowsAt(OTHER_LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["open-workflow"]);
+    expect(exportedText()).not.toContain(EMPLOYEE_ID);
   });
 });
