@@ -1,11 +1,11 @@
 import { z } from "zod";
 import {
-  FOREIGN_METADATA_INDEX,
-  HAS_FOREIGN_METADATA_SQL,
+  HAS_UNREADABLE_STEP_SQL,
   LATEST_BY_STEP_SQL,
   NAMESPACE_ROWS_SQL,
   STEP_COLUMN,
   STEP_INDEX,
+  UNREADABLE_STEP_INDEX,
 } from "./sqlite-checkpoint-rows.js";
 import type { SqliteConnection } from "./sqlite-connection.js";
 
@@ -37,7 +37,8 @@ export function migrateSteps(connection: SqliteConnection): void {
     if (step === undefined || step.hidden === ORDINARY)
       database.exec(`ALTER TABLE checkpoints ADD COLUMN step ${STEP_COLUMN}`);
     database.exec(STEP_INDEX);
-    database.exec(FOREIGN_METADATA_INDEX);
+    database.exec("DROP INDEX IF EXISTS checkpoints_foreign_metadata");
+    database.exec(UNREADABLE_STEP_INDEX);
   });
 }
 
@@ -50,7 +51,7 @@ export function latestRowOf(
 }
 
 /**
- * The rows of the namespace when one of them has metadata the generated `step` cannot read (#1101),
+ * The rows of the namespace when one of them has a `step` the generated column cannot vouch for (#1101, #1114),
  * else `undefined`: the caller then orders them by the serde's own reading, never by a `step` of -2
  * that is a guess. One probe of a partial index.
  */
@@ -59,7 +60,7 @@ export function rowsToReadBySerde(
   { threadId, namespace }: { readonly threadId: string; readonly namespace: string },
 ): Record<string, unknown>[] | undefined {
   const { database } = connection;
-  if (database.prepare(HAS_FOREIGN_METADATA_SQL).get(threadId, namespace) === undefined)
+  if (database.prepare(HAS_UNREADABLE_STEP_SQL).get(threadId, namespace) === undefined)
     return undefined;
   return database.prepare(NAMESPACE_ROWS_SQL).all(threadId, namespace);
 }

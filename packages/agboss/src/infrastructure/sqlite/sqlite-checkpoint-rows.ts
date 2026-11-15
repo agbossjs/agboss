@@ -38,12 +38,16 @@ export const STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`;
 
 /**
- * The rows whose metadata is not stored as `json` (a saver whose `serde` names another type, #1101):
- * `step` cannot be read from them in SQL (it is -2), so a thread that has one is read by the saver's
- * serde instead. A partial index, empty in the ordinary case, makes "has one?" a single probe.
+ * The rows whose `step` SQL cannot vouch for (#1101, #1114): `step` reads -2. That is a metadata not
+ * typed `json` (a serde that names another type, `""` included), bytes that are not plain JSON or
+ * have another shape (a serde that keeps the type `json` and encrypts, compresses or envelopes them),
+ * or a metadata that truly has no step. SQL cannot tell those apart, so a thread's namespace that
+ * has such a row is read by the saver's serde instead: the indexed path never answers what the scan would not. A partial index,
+ * empty in the ordinary case (LangGraph's metadata always has a step), makes "has one?" a single probe.
+ * It replaces `checkpoints_foreign_metadata` of #1101, which only knew the first kind.
  */
-export const FOREIGN_METADATA_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_foreign_metadata
-  ON checkpoints (thread_id, checkpoint_ns) WHERE metadata_type <> 'json'`;
+export const UNREADABLE_STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_unreadable_step
+  ON checkpoints (thread_id, checkpoint_ns) WHERE step = -2`;
 
 /** The columns a checkpoint is read with (not `step`, which only orders). */
 export const CHECKPOINT_COLUMNS = `thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id,
@@ -53,10 +57,14 @@ export const CHECKPOINT_COLUMNS = `thread_id, checkpoint_ns, checkpoint_id, pare
 export const LATEST_BY_STEP_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
   WHERE thread_id = ? AND checkpoint_ns = ? ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
 
-/** Whether a thread's namespace holds a row whose metadata `step` SQL cannot read (see above). */
-export const HAS_FOREIGN_METADATA_SQL = `SELECT 1 AS found FROM checkpoints
-  INDEXED BY checkpoints_foreign_metadata
-  WHERE thread_id = ? AND checkpoint_ns = ? AND metadata_type <> 'json' LIMIT 1`;
+/**
+ * Whether a thread's namespace holds a row whose `step` SQL cannot vouch for (see above). The
+ * `INDEXED BY` is performance only: the answer is the same without it, but a statement the partial
+ * index cannot serve fails loudly instead of scanning the namespace.
+ */
+export const HAS_UNREADABLE_STEP_SQL = `SELECT 1 AS found FROM checkpoints
+  INDEXED BY checkpoints_unreadable_step
+  WHERE thread_id = ? AND checkpoint_ns = ? AND step = -2 LIMIT 1`;
 
 /** Every row of a thread's namespace, for the read by the serde. */
 export const NAMESPACE_ROWS_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints

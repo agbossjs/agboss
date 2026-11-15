@@ -20,7 +20,7 @@ type Instances = ContractInstances<BaseCheckpointSaver>;
 
 export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
   {
-    name: "the newest by step; equal steps by the greatest id (by code unit); none for an empty thread",
+    name: "the newest by step; equal steps by the greatest id (by code point); none for an empty thread",
     capability: LATEST,
     run: async ({ first, second }: Instances): Promise<void> => {
       expect(await capable(second).latestByStep(at("t"))).toBeUndefined();
@@ -29,7 +29,7 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
       await put(first, at("t"), "Z", 5);
       await put(first, at("t"), "z0", 3);
 
-      // 5 beats 3 whatever the ids; of the tie "Z" < "a" by code unit
+      // 5 beats 3 whatever the ids; of the tie "Z" < "a" by code point
       const latest = await capable(second).latestByStep(at("t"));
       expect(latest?.checkpoint.id).toBe("a");
       expect(latest?.checkpoint.channel_values).toEqual({ marker: "a@5" });
@@ -37,6 +37,26 @@ export const LATEST_BY_STEP_CASES: readonly ContractCase<BaseCheckpointSaver>[] 
       // the checkpoint id of the config is ignored
       const named = { configurable: { thread_id: "t", checkpoint_ns: "", checkpoint_id: "b" } };
       expect((await capable(second).latestByStep(named))?.checkpoint.id).toBe("a");
+    },
+  },
+  {
+    name: "#1115: equal steps are ordered by code point: a character above U+FFFF beats one in U+E000..U+FFFF, in latestByStep and in the scan",
+    capability: LATEST,
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const astral = "\u{10000}";
+      // a UTF-16 code unit order would put the astral id (a surrogate pair) below U+FFFF
+      await put(first, at("tie"), "\uFFFF", 3);
+      await put(first, at("tie"), astral, 3);
+      expect((await capable(second).latestByStep(at("tie")))?.checkpoint.id).toBe(astral);
+      expect(await scanned(second, at("tie"))).toBe(astral);
+
+      // mixed: ASCII, U+E000, U+FFFF and the astral one at one step, and a higher step beating all
+      for (const id of ["z", "\uE000", "\uFFFF", "\u{1F600}", "\u{10000}"])
+        await put(first, at("mix"), id, 4);
+      expect((await capable(second).latestByStep(at("mix")))?.checkpoint.id).toBe("\u{1F600}");
+      expect(await scanned(second, at("mix"))).toBe("\u{1F600}");
+      await put(second, at("mix"), "a", 5);
+      expect((await capable(first).latestByStep(at("mix")))?.checkpoint.id).toBe("a");
     },
   },
   {
