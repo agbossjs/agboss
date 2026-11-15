@@ -164,3 +164,160 @@ describe("#911: pauseThread, the one blocking wait (synchronous SQLite startup)"
     expect([index, expected, timeout]).toEqual([0, 0, 2]);
   });
 });
+
+/** #1141: a delay a Node timer cannot take is waited out in parts, each a timer of its own. */
+describe("#1141: SystemClock.sleep splits a delay above the timer's limit", () => {
+  const MAX = 2 ** 31 - 1;
+
+  /** The delays of the timers a sleep sets, with the sleep's handle (its timers, in order). */
+  function sleeping(delay: number, signal?: AbortSignal) {
+    vi.useFakeTimers();
+    const set = vi.spyOn(globalThis, "setTimeout");
+    let isDone = false;
+    void new SystemClock().sleep(delay as Milliseconds, signal).then(() => {
+      isDone = true;
+    });
+    return {
+      delays: (): number[] => set.mock.calls.map((call) => Number(call[1])),
+      timers: (): { hasRef: () => boolean }[] =>
+        set.mock.results.map((result) => result.value as { hasRef: () => boolean }),
+      isDone: async (): Promise<boolean> => {
+        await vi.advanceTimersByTimeAsync(0);
+        return isDone;
+      },
+    };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a delay at the limit is one timer, at the limit plus one two: the limit and 1 ms", async () => {
+    expect(sleeping(MAX).delays()).toEqual([MAX]);
+    await vi.advanceTimersByTimeAsync(MAX);
+    vi.useRealTimers();
+    expect(sleeping(MAX + 1).delays()).toEqual([MAX]);
+    await vi.advanceTimersByTimeAsync(MAX);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("splits into exactly the right parts, the last a rest, never an empty one", async () => {
+    const parts = async (delay: number): Promise<number[]> => {
+      const sleep = sleeping(delay);
+      await vi.advanceTimersByTimeAsync(delay);
+      const delays = sleep.delays();
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      return delays;
+    };
+    expect(await parts(MAX + 1000)).toEqual([MAX, 1000]);
+    expect(await parts(2 * MAX)).toEqual([MAX, MAX]);
+    expect(await parts(2 * MAX + 1)).toEqual([MAX, MAX, 1]);
+    expect(await parts(5)).toEqual([5]);
+  });
+
+  it("the total elapsed time equals the request: not done a millisecond early, done on time", async () => {
+    const sleep = sleeping(MAX + 1000);
+    await vi.advanceTimersByTimeAsync(MAX + 999);
+    expect(await sleep.isDone()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await sleep.isDone()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("an abort during the first part resolves at once, leaving no timer behind and none set after", async () => {
+    const stop = new AbortController();
+    const sleep = sleeping(2 * MAX, stop.signal);
+    await vi.advanceTimersByTimeAsync(MAX - 1);
+    stop.abort();
+    expect(await sleep.isDone()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(2 * MAX);
+    expect(sleep.delays()).toEqual([MAX]);
+    expect(getEventListeners(stop.signal, "abort")).toHaveLength(0);
+  });
+
+  it("an abort during the second part resolves at once, leaving no timer behind", async () => {
+    const stop = new AbortController();
+    const sleep = sleeping(2 * MAX + 5, stop.signal);
+    await vi.advanceTimersByTimeAsync(MAX + 10);
+    expect(await sleep.isDone()).toBe(false);
+    expect(vi.getTimerCount()).toBe(1);
+    stop.abort();
+    expect(await sleep.isDone()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(sleep.delays()).toEqual([MAX, MAX]);
+  });
+
+  it("every part's timer leaves the process free to exit", async () => {
+    const sleep = sleeping(MAX + 1000);
+    await vi.advanceTimersByTimeAsync(MAX);
+    expect(sleep.timers()).toHaveLength(2);
+    expect(sleep.timers().map((timer) => timer.hasRef())).toEqual([false, false]);
+  });
+
+  it("a delay that is no number or below zero fires at once, as a timer does", async () => {
+    const sleep = sleeping(Number.NaN);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await sleep.isDone()).toBe(true);
+    const below = sleeping(-5);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await below.isDone()).toBe(true);
+  });
+
+  it("never returns before the delay has passed, though every timer fires a millisecond early", async () => {
+    // a manual clock and timers: each fires 1 ms before its delay (Node's may), the rest is waited
+    let now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const timers: { fire: () => void; delay: number }[] = [];
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((fire: () => void, delay: number) => {
+      timers.push({ fire, delay });
+      return { unref: () => undefined };
+    }) as never);
+    vi.spyOn(globalThis, "clearTimeout").mockImplementation(() => undefined);
+    let finishedAt: number | undefined;
+    const request = 2 * MAX + 500;
+    void new SystemClock().sleep(request as Milliseconds).then(() => {
+      finishedAt = now;
+    });
+    const start = now;
+    for (let fired = 0; fired < 20 && finishedAt === undefined; fired += 1) {
+      const next = timers.at(-1);
+      if (next === undefined) throw new Error("no timer is waiting");
+      timers.pop();
+      now += next.delay > 1 ? next.delay - 1 : next.delay;
+      next.fire();
+      await Promise.resolve();
+    }
+    expect(finishedAt).toBeDefined();
+    expect((finishedAt ?? 0) - start).toBeGreaterThanOrEqual(request);
+    // the shortfall is re-waited: every part stays within the timer's limit, none is empty
+    expect(timers).toHaveLength(0);
+  });
+
+  it("a timer that fires late is harmless: the sleep ends at once, with no further timer", async () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const timers: (() => void)[] = [];
+    const set = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fire: () => void) => {
+      timers.push(fire);
+      return { unref: () => undefined };
+    }) as never);
+    vi.spyOn(globalThis, "clearTimeout").mockImplementation(() => undefined);
+    let isDone = false;
+    void new SystemClock().sleep(MAX as Milliseconds).then(() => {
+      isDone = true;
+    });
+    now = MAX + 5000;
+    timers[0]?.();
+    await Promise.resolve();
+    expect(isDone).toBe(true);
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it("a delay of zero resolves at once and leaves no listener on the signal", async () => {
+    const stop = new AbortController();
+    await new SystemClock().sleep(0 as Milliseconds, stop.signal);
+    expect(getEventListeners(stop.signal, "abort")).toHaveLength(0);
+  });
+});
