@@ -16,8 +16,8 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
-import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
-import { latestRowOf, migrateSteps } from "./sqlite-latest-by-step.js";
+import { newestFirstOrder, stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
+import { latestRowOf, migrateSteps, rowsToReadBySerde } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -60,8 +60,25 @@ export class SqliteCheckpointSaver
   }
 
   async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    const row = latestRowOf(this.connection, keyOf(config, "latestByStep"));
+    const key = keyOf(config, "latestByStep");
+    const foreign = rowsToReadBySerde(this.connection, key);
+    if (foreign !== undefined)
+      return this.#latestBySerde(foreign.map((row) => CheckpointRow.parse(row)));
+    const row = latestRowOf(this.connection, key);
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
+  }
+
+  /** The newest by `(step, id)` of rows whose step SQL cannot read: each metadata read by `this.serde` (#1101). */
+  async #latestBySerde(rows: readonly CheckpointRow[]): Promise<CheckpointTuple | undefined> {
+    const ranked = await Promise.all(
+      rows.map(async (row) => ({
+        row,
+        id: row.checkpoint_id,
+        step: stepOf(metadataOf(await this.serde.loadsTyped(row.metadata_type, row.metadata))),
+      })),
+    );
+    const newest = ranked.sort(newestFirstOrder)[0];
+    return newest === undefined ? undefined : this.#tupleOf(newest.row);
   }
 
   async *list(
