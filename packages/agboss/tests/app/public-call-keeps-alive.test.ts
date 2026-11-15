@@ -87,8 +87,8 @@ describe("#1093: a pending public call keeps the process alive", () => {
     expect(child.status).toBe(0);
   }, 60_000);
 
-  // extendPause takes no lease and waits on no Clock timer, so it cannot be red without the wrapper:
-  // the test pins that the call settles in a script that does nothing else
+  // the fixture's store takes a second over the extension on Clock.sleep (an unref'd timer), as a slow database does:
+  // the call settles in a script that does nothing else only while the wrapper keeps it alive
   it("a script that only calls app.extendPause prints the result and exits 0", async () => {
     const file = join(folder, "held-extend.sqlite");
     const app = await createAppWith(HeldCancelApplication, {

@@ -1,3 +1,4 @@
+import { SqlitePausedExecutionRepository } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { sqliteFaultStoreClasses } from "../../../faults/sqlite.fault-stores.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -7,6 +8,7 @@ import {
   PlainWorkflow,
   ShortExpiryWorkflow,
 } from "../../../flow/fixtures/expiry.fixture.js";
+import { SlowPauseStore } from "./slow-pause-store.js";
 import { HeldCancelEnvironment } from "./environments/app.environment.js";
 
 /**
@@ -19,6 +21,11 @@ import { HeldCancelEnvironment } from "./environments/app.environment.js";
   environment: HeldCancelEnvironment,
   workflows: [PlainWorkflow, ShortExpiryWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [...sqliteFaultStoreClasses, DirectorChannel, ManagerChannel],
+  providers: [
+    ...sqliteFaultStoreClasses.filter((store) => store !== SqlitePausedExecutionRepository),
+    SlowPauseStore,
+    DirectorChannel,
+    ManagerChannel,
+  ],
 })
 export class HeldCancelApplication {}
