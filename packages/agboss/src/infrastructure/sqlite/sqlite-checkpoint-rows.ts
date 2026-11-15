@@ -37,6 +37,14 @@ export const STEP_COLUMN = `REAL GENERATED ALWAYS AS (COALESCE(
 export const STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`;
 
+/**
+ * The rows whose metadata is not stored as `json` (a saver whose `serde` names another type, #1101):
+ * `step` cannot be read from them in SQL (it is -2), so a thread that has one is read by the saver's
+ * serde instead. A partial index, empty in the ordinary case, makes "has one?" a single probe.
+ */
+export const FOREIGN_METADATA_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_foreign_metadata
+  ON checkpoints (thread_id, checkpoint_ns) WHERE metadata_type <> 'json'`;
+
 /** The columns a checkpoint is read with (not `step`, which only orders). */
 export const CHECKPOINT_COLUMNS = `thread_id, checkpoint_ns, checkpoint_id, parent_checkpoint_id,
   checkpoint_type, checkpoint, metadata_type, metadata`;
@@ -44,6 +52,15 @@ export const CHECKPOINT_COLUMNS = `thread_id, checkpoint_ns, checkpoint_id, pare
 /** The read of `latestByStep`: one walk of `checkpoints_latest_by_step`, no sort. */
 export const LATEST_BY_STEP_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
   WHERE thread_id = ? AND checkpoint_ns = ? ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
+
+/** Whether a thread's namespace holds a row whose metadata `step` SQL cannot read (see above). */
+export const HAS_FOREIGN_METADATA_SQL = `SELECT 1 AS found FROM checkpoints
+  INDEXED BY checkpoints_foreign_metadata
+  WHERE thread_id = ? AND checkpoint_ns = ? AND metadata_type <> 'json' LIMIT 1`;
+
+/** Every row of a thread's namespace, for the read by the serde. */
+export const NAMESPACE_ROWS_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
+  WHERE thread_id = ? AND checkpoint_ns = ?`;
 
 /** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
 export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
