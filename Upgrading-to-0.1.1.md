@@ -36,20 +36,41 @@ A client resends an ambiguous accept only to an AGBoss peer, within the retentio
 
 ## The stores — what to run
 
-A durable store has its own upgrade step. The order is the same for each: **migrate, then roll the
-application**. `@agboss/postgres` and `@agboss/mongodb` are first published with 0.1.1, so the steps
+A durable store has its own upgrade step. The order is the same for each, and it is **not a rolling
+upgrade** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)):
+
+1. **Stop every instance of the old version** — scale to zero and let the pods drain, or stop the
+   processes. A pod that stays up writes in the old shape into the database you are about to
+   migrate: a pause without its channel, a lease under a column that is renamed, no notice for a
+   pause it closes, a side effect that commits after a cancel (the fence of [#909](Several-instances#cancelling-from-any-instance)
+   holds only when no instance of the old version runs).
+2. **Run the migration** (`agboss-postgres migrate`, `agboss-mongodb migrate`; SQLite migrates when the
+   first new process opens the file).
+3. **Start the new version.**
+
+This holds for every 0.1.x upgrade that changes a store schema, and 0.1.1 does for all three
+stores. A Helm `pre-upgrade` hook or an Argo CD `PreSync` Job runs the migration **while the old pods
+still serve**: use it only for an upgrade that changes no schema (`migrate` then prints `nothing to
+apply`), see [Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-a-schema-change).
+`@agboss/postgres` and `@agboss/mongodb` are first published with 0.1.1, so the steps
 below are for a database an earlier build of the package wrote; SQLite is the core's own, written by
 0.1.0.
 
 | Store | What to run | What you see if you skip it |
 | --- | --- | --- |
-| PostgreSQL | `npx agboss-postgres migrate` before the pods roll. It applies the numbered migrations, then builds the index `checkpoints_latest_by_step` (`CREATE INDEX CONCURRENTLY`: checkpoint writes keep flowing while it builds). Its last line says `built index …`, `index … is ready` or `skipped index …` (another run holds the build's lock: run it again when that one ends). | A start refuses an unmigrated schema (`PostgresSchemaMissingError`, naming the command). A start with `postgresMigrateOnStart` migrates and builds the index in the background. Without the index everything is correct, a marked thread's latest read only lists and sorts its namespace (38 ms on 10 000 checkpoints, instead of 1.7 ms). |
-| MongoDB | `npx agboss-mongodb migrate` is **mandatory before the 0.1.1 pods start**, and runs **right before the rollout**: once the database is migrated, an old pod that restarts is refused (`MongoSchemaTooNewError`). It applies `checkpoint_latest_by_step` (schema version 2, the checkpoints' index `latest_by_step`) and rewrites no data. | A 0.1.1 pod on a database at version 1 does not start (`MongoSchemaMissingError`, naming the command). Checkpoints written before get their `step` when their thread is first read: about 100 ms for a thread of 2 000 checkpoints, once per thread. |
-| SQLite | Nothing: the file is migrated when 0.1.1 opens it — a generated column `step` on the metadata and an index on it, no row rewritten (57 ms for 20 000 checkpoints). | Nothing to skip. |
+| PostgreSQL | `npx agboss-postgres migrate` **after the old pods are stopped** and before the new ones start. It applies the numbered migrations, then builds the index `checkpoints_latest_by_step` (`CREATE INDEX CONCURRENTLY`: checkpoint writes keep flowing while it builds). Its last line says `built index …`, `index … is ready` or `skipped index …` (another run holds the build's lock: run it again when that one ends). | A start refuses an unmigrated schema (`PostgresSchemaMissingError`, naming the command). A start with `postgresMigrateOnStart` migrates and builds the index in the background. Without the index everything is correct, a marked thread's latest read only lists and sorts its namespace (38 ms on 10 000 checkpoints, instead of 1.7 ms). |
+| MongoDB | `npx agboss-mongodb migrate` is **mandatory before the 0.1.1 pods start**, and runs **after the old pods are stopped**: once the database is migrated, an old pod that restarts is refused (`MongoSchemaTooNewError`), but an old pod that is still running is not stopped by it. It applies the schema versions up to the build's (`checkpoint_latest_by_step`, version 2, the checkpoints' index `latest_by_step`; `pause-deadlines-and-notices`, version 3, the pause channels) and rewrites no checkpoint. | A 0.1.1 pod on a database at version 1 does not start (`MongoSchemaMissingError`, naming the command). Checkpoints written before get their `step` when their thread is first read: about 100 ms for a thread of 2 000 checkpoints, once per thread. |
+| SQLite | Nothing to run, but stop every 0.1.0 process on the file first: it is migrated when the first 0.1.1 process opens it — a generated column `step` on the metadata and an index on it, no row rewritten (57 ms for 20 000 checkpoints), and the file is stamped with its schema version (table `agboss_schema`). A file with no stamp is a 0.1.0 file and is migrated. | Nothing to skip. A 0.1.0 process that is still running is **not refused** (0.1.0 never reads the stamp): it writes pauses with no channel, and takes no part in the cancel fence. |
 
 - **SQLite and an older version**: the column is generated, so 0.1.0's own `INSERT` of a checkpoint
   still works on a file 0.1.1 opened, and 0.1.1 reads what 0.1.0 wrote in order (#1035). A second
-  process still on 0.1.0, or a rollback to it, does not break checkpoint writes. A build before the
+  process still on 0.1.0, or a rollback to it, does not break checkpoint writes — but it is not
+  supported: the file is stamped, and **a later build** that finds a stamp above its own refuses the
+  file at open (`SqliteSchemaTooNewError`, code `sqlite.schema-too-new`, before it creates a table
+  or writes a row), as `PostgresSchemaTooNewError` and `MongoSchemaTooNewError` do. 0.1.0 is already
+  released and cannot be taught that: stopping it is the rule (#1104). A pause that a 0.1.0 process
+  writes without its `channel` is found by a page filtered by channel all the same, and the column is
+  filled at the next open. A build before the
   release that already made a stored `step` column has it replaced by the generated one on the next
   open.
 - **A store of your own** is not required to change: `latestByStep` is optional, and a store

@@ -90,15 +90,17 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   already touched the document or commits first, and the transaction's later touch conflicts and
   runs again on a snapshot that holds it; the price is that fenced writes of one tree's
   `AnyInstance` children conflict and retry. It is a **schema version of its own** ([below](#the-schema-and-its-versions)) — run
-  `agboss-mongodb migrate` before rolling out the version that writes it (an older instance neither
-  writes nor reads the collection). Documents older than the fencing stores' retention are pruned with them.
+  `agboss-mongodb migrate` with no instance of an older version running, then start the version that
+  writes it (an older instance neither writes nor reads the collection, so the fence of
+  [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then). Documents older than the fencing stores' retention are pruned with them.
 - **The pause store** (#938, contract v2) — a pause change is one compare-and-set on the pause's
   document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
   instances exactly one records an expiry or an extension, and the per-recipient notices are
   appended in the same transaction, in order (`noticeOnce` is a guarded upsert, not a duplicate-key
   error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
-  later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`) — run
-  `agboss-mongodb migrate` first; it backfills the pause channels.
+  later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`; the cancel's fence below makes it 4) — stop the
+  old instances, then run `agboss-mongodb migrate`; it backfills the pause channels once, so a pause an
+  older instance writes afterwards has none.
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not
@@ -120,7 +122,8 @@ migration, applied in order:
 | 2 | `checkpoint_latest_by_step` | the checkpoints' index `latest_by_step` — `{ threadId, namespace, step: -1, checkpointId: -1 }` (#962) |
 | 3 | `pause-deadlines-and-notices` | the pause store's contract v2 (#938): deadlines and notices; backfills the pause channels |
 
-The cancel's fence (#909) adds `agboss_execution_cancel_requests` in a version of its own.
+The cancel's fence (#909) adds `agboss_execution_cancel_requests` in version 4. A database stays at the
+version of the build that migrated it: run the command of the build you deploy.
 
 **`latest_by_step`** (#962). `MongoCheckpointSaver.latestByStep` reads a marked thread's newest
 checkpoint by LangGraph's step ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962))
@@ -134,15 +137,19 @@ read of their thread gives them one.
 
 **The rollout**:
 
-- **Run `agboss-mongodb migrate` right before the rollout** — a Kubernetes Job before the pods
-  roll, or `mongodbSchemaSetup: SchemaSetup.MigrateOnStart` for a single instance.
+- **Stop, migrate, deploy** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)): stop every
+  instance of the old version, run `agboss-mongodb migrate` (a Kubernetes Job, a pipeline step), start the
+  new version — or `mongodbSchemaSetup: SchemaSetup.MigrateOnStart` for a single instance. This is not a
+  rolling upgrade: a Helm `pre-upgrade` or Argo CD `PreSync` Job runs while the old pods serve, so use
+  it only for an upgrade that changes no schema ([Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-a-schema-change)).
 - **A new pod on a database that was not migrated does not start**: `MongoSchemaMissingError`,
   which names the command. Nothing is created by a start that checks (`SchemaSetup.Check`, the
   default), so the pods need no right to change the schema.
 - **An old pod is refused after it**: once the database is migrated, a pod of a build that needs an
   older version that restarts gets `MongoSchemaTooNewError` — migrations are never rolled back, so
-  roll the application forward, or run the newer image. Pods already running keep running. That is
-  why `migrate` runs right before the rollout, not days before it.
+  roll the application forward, or run the newer image. Pods already running keep running — and keep
+  writing in the old shape, which the check at start cannot see. That is why the old instances are
+  stopped **before** `migrate`, and `migrate` runs right before the new ones start, not days before.
 
 ## Retries
 

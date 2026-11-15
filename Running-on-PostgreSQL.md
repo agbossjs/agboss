@@ -130,8 +130,15 @@ constrained, though nothing is gained by splitting them.
 The schema is versioned SQL files shipped in the package (`migrations/NNNN_<name>.sql`) plus
 LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitly:
 
-- **A command**, before the new version of the application starts — a Kubernetes Job (a Helm
-  `pre-upgrade` hook, an Argo CD `PreSync` hook) or a pipeline step:
+- **A command**, after the old version is stopped and before the new one starts — a Kubernetes Job
+  or a pipeline step. **An upgrade that changes the schema is stop → migrate → deploy**, never a
+  rolling one ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)): scale the old
+  Deployment to zero, run the Job, deploy the new version. A Helm `pre-upgrade` hook or an Argo CD
+  `PreSync` Job runs while the old pods still serve, so it fits only an upgrade that changes no schema
+  (`migrate` prints `nothing to apply`); see [Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-a-schema-change).
+  An old pod that is still running after the migration writes in the old shape (a pause without its
+  channel, no notice, a lease under a renamed column), and an idle one holds no lease, so no check can
+  see it: stopping it is yours.
 
   ```sh
   npx agboss-postgres migrate --url "$DATABASE_URL"   # or DATABASE_URL alone
@@ -222,8 +229,11 @@ index is marked so there.
 ## The cancel's fence (#909)
 
 Migration `0032_execution_cancel_requests` adds `agboss_execution_cancel_requests` (the cancel's mark
-per tree: tenant, root, `requested_at`) — additive, so run `agboss-postgres migrate` **before** rolling
-out the version that writes it (an older instance neither writes nor reads it). The mark is written
+per tree: tenant, root, `requested_at`) — a table of its own, so run
+`agboss-postgres migrate` **with no instance of an older version running**, then start the version
+that writes it. The fence of [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then: an older
+instance neither writes the mark nor reads it, so a tree it holds could commit an effect after a
+cancel that a newer instance requested. The mark is written
 by `PostgresExecutionLeaseRepository.requestCancel` and read by the fenced-effect and outbound-call
 stores in their own transactions, each under a pair of advisory locks of the tree's identity
 (namespace 909, beside the business key's 508): the cancel takes the exclusive one, so it waits for

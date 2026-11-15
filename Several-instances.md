@@ -51,6 +51,15 @@ is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged wit
 the leases and tree keys are keyed by it; a file written before tenants is migrated on first use,
 its rows in the tenant `"default"`.
 
+**Upgrading the file** (#1104): the file carries its schema version (table `agboss_schema`; 0.1.0
+wrote none, so a file without it is a 0.1.0 file). The first process of a newer build migrates and
+stamps it; a build older than the stamp refuses the file at open (`SqliteSchemaTooNewError`,
+`sqlite.schema-too-new`) before it writes a row. The published 0.1.0 never reads the stamp and cannot
+be refused, so the sequence is the same as for the other stores: **stop every process of the old
+version, then start the new one** ([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)). A
+0.1.0 process left running writes pauses without a channel (a page filtered by channel still finds
+them, and the column is filled at the next open) and does not take part in the cancel's fence.
+
 Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
 contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
 driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, serializing with
@@ -264,8 +273,10 @@ shared budget, a rate limit across pods, the history export, mesh deduplication 
 reconciled after its pod froze mid-charge. The semantics are the SQLite stores' — the same
 contracts; each store's locking is in its doc comment, and a lease's expiry is decided by the
 database's `clock_timestamp()`. The three fencing stores declare one backend, `"postgres"`. The
-schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job
-before a rollout, or `postgresMigrateOnStart` for one instance. Installing, wiring, migrations,
+schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job once
+the old instances are stopped (**stop → migrate → deploy**, no rolling upgrade across a schema change —
+[ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), or `postgresMigrateOnStart` for one
+instance. Installing, wiring, migrations,
 connection limits and what the guarantees assume of the database: [Running-on-PostgreSQL](Running-on-PostgreSQL).
 
 ## The execution lease

@@ -98,9 +98,10 @@ spec:
           exec: { command: ["sleep", "5"] } # endpoints drop the pod before the app stops taking work
 ```
 
-- **The stores**: every store of `@agboss/postgres`, migrated by a Job before the pods start
-  (`agboss-postgres migrate`), never on start from several pods at once
-  ([Running on PostgreSQL → Migrations](Running-on-PostgreSQL#migrations)).
+- **The stores**: every store of `@agboss/postgres`, migrated by a Job once, never on start from
+  several pods at once ([Running on PostgreSQL → Migrations](Running-on-PostgreSQL#migrations)).
+  When the upgrade changes a store schema, the Job runs **after the old pods are stopped**
+  ([below](#upgrading-across-a-schema-change)).
 - **PID 1**: run node under an init (`tini`) or make sure node is PID 1 and handles SIGTERM — it does
   (`createApp` listens). An init also lets `kubectl exec … kill` reach node, which a PID 1 of a
   namespace ignores.
@@ -323,3 +324,24 @@ and on PostgreSQL in agbossjs/postgres
 | 12, 12b | a real failure undoes once, across a kill; a marked undo never again | [`s12-real-failure.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s12-real-failure.ts), [`s12b-marked-undo.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s12b-marked-undo.ts) |
 | 13 | a pod's clock ten leases ahead or behind | [`s13-clock-skew.ts`](https://github.com/agbossjs/agboss/blob/main/packages/agboss/src/testing/faults/scenarios/s13-clock-skew.ts) |
 | #487 | the whole cycle on kind and PostgreSQL, verified from state | [`scenario.mjs`](https://github.com/agbossjs/agboss-examples/blob/main/14-kubernetes-postgres-scaling/scripts/cluster/scenario.mjs), [`verify.ts`](https://github.com/agbossjs/agboss-examples/blob/main/14-kubernetes-postgres-scaling/src/verification/verify.ts) |
+
+## Upgrading across a schema change
+
+An upgrade that changes a store schema (PostgreSQL, MongoDB, SQLite) is **stop → migrate → deploy**
+([ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), not a rolling update. A Helm
+`pre-upgrade` hook and an Argo CD `PreSync` Job run the migration while the old Deployment's pods are
+still serving, and the rolling update then runs old and new pods together; an old pod writes in the old
+shape (a pause without its channel, a lease under a renamed column, no notice for a pause it closes, a
+fence that never sees a cancel). Do this instead:
+
+```sh
+kubectl scale deployment/agboss --replicas=0 && kubectl wait --for=delete pod -l app=agboss --timeout=120s
+kubectl apply -f migrate-job.yaml && kubectl wait --for=condition=complete job/agboss-migrate --timeout=300s
+kubectl apply -f deployment.yaml   # the new image, replicas: N
+```
+
+With Helm, run the Job as a release of its own (or a pipeline step) between a scale-to-zero and the
+chart's upgrade; with Argo CD, a sync wave that sets the replicas to zero before the migration Job.
+A `pre-upgrade` / `PreSync` hook stays right for an upgrade that changes no schema: `migrate` prints
+`nothing to apply` and exits 0. What `migrate` can check is the leases of running executions; an idle
+old pod holds none, so only scaling to zero proves that nothing old is running.
