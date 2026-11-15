@@ -58,23 +58,29 @@ export class SystemClock extends Clock {
         resolve();
         return;
       }
-      let left: number = delay;
-      let timer: NodeJS.Timeout;
+      const startedAt = performance.now();
+      let timer: NodeJS.Timeout | undefined;
       const done = (): void => {
         clearTimeout(timer);
         signal?.removeEventListener("abort", done);
         resolve();
       };
-      // a delay past what a timer takes (#1141) is waited out in parts: Node would fire it at once
+      // A delay past what a timer takes (#1141) is waited out in parts: Node would fire it at once.
+      // Each firing re-reads the monotonic time, so a timer that fires a millisecond early (as Node's
+      // may) costs one more short wait, never an early return: a lease's fence relies on `delay`
+      // having really passed. A late firing is harmless.
       const wait = (): void => {
-        const part = Math.min(left, MAX_TIMER_DELAY);
-        left -= part;
-        timer = setTimeout(left > 0 ? wait : done, part);
+        const left = delay - (performance.now() - startedAt);
+        if (!(left > 0)) {
+          done();
+          return;
+        }
+        timer = setTimeout(wait, Math.min(left, MAX_TIMER_DELAY));
         timer.unref();
       };
-      wait();
       // Stryker disable next-line ObjectLiteral,BooleanLiteral: an abort event fires once, and `done` removes the listener itself either way
       signal?.addEventListener("abort", done, { once: true });
+      wait();
     });
   }
 }

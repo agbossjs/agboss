@@ -264,4 +264,60 @@ describe("#1141: SystemClock.sleep splits a delay above the timer's limit", () =
     await vi.advanceTimersByTimeAsync(1);
     expect(await below.isDone()).toBe(true);
   });
+
+  it("never returns before the delay has passed, though every timer fires a millisecond early", async () => {
+    // a manual clock and timers: each fires 1 ms before its delay (Node's may), the rest is waited
+    let now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const timers: { fire: () => void; delay: number }[] = [];
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((fire: () => void, delay: number) => {
+      timers.push({ fire, delay });
+      return { unref: () => undefined };
+    }) as never);
+    vi.spyOn(globalThis, "clearTimeout").mockImplementation(() => undefined);
+    let finishedAt: number | undefined;
+    const request = 2 * MAX + 500;
+    void new SystemClock().sleep(request as Milliseconds).then(() => {
+      finishedAt = now;
+    });
+    const start = now;
+    for (let fired = 0; fired < 20 && finishedAt === undefined; fired += 1) {
+      const next = timers.at(-1);
+      if (next === undefined) throw new Error("no timer is waiting");
+      timers.pop();
+      now += next.delay > 1 ? next.delay - 1 : next.delay;
+      next.fire();
+      await Promise.resolve();
+    }
+    expect(finishedAt).toBeDefined();
+    expect((finishedAt ?? 0) - start).toBeGreaterThanOrEqual(request);
+    // the shortfall is re-waited: every part stays within the timer's limit, none is empty
+    expect(timers).toHaveLength(0);
+  });
+
+  it("a timer that fires late is harmless: the sleep ends at once, with no further timer", async () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const timers: (() => void)[] = [];
+    const set = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fire: () => void) => {
+      timers.push(fire);
+      return { unref: () => undefined };
+    }) as never);
+    vi.spyOn(globalThis, "clearTimeout").mockImplementation(() => undefined);
+    let isDone = false;
+    void new SystemClock().sleep(MAX as Milliseconds).then(() => {
+      isDone = true;
+    });
+    now = MAX + 5000;
+    timers[0]?.();
+    await Promise.resolve();
+    expect(isDone).toBe(true);
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it("a delay of zero resolves at once and leaves no listener on the signal", async () => {
+    const stop = new AbortController();
+    await new SystemClock().sleep(0 as Milliseconds, stop.signal);
+    expect(getEventListeners(stop.signal, "abort")).toHaveLength(0);
+  });
 });
