@@ -98,6 +98,7 @@ async function buildWorkflows(
   options: BuildOptions,
   parts: Omit<WorkflowDepsParts, "childDepsOf">,
   built: BuiltApp[],
+  mask: ReturnType<typeof applicationPiiMaskOf>, // each workflow's policies join its union (#1130)
 ): Promise<void> {
   const byClass = new Map<Class, GraphDeps<string>>();
   const childDepsOf = (workflow: Class): GraphDeps<string> | undefined => byClass.get(workflow);
@@ -109,6 +110,7 @@ async function buildWorkflows(
     const workflow = await buildApp(bundle, options, { ...parts, ...history, childDepsOf });
     byClass.set(type, workflow.deps);
     built.push(workflow);
+    mask.withWorkflow(workflow.deps.pii);
   }
   const order = [...bundles.keys()];
   built.sort(
@@ -191,7 +193,7 @@ export async function buildApplication(
     // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
     const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);
     const parts = { ...common, contexts, observer, piiKey, budgets: budgetsOf(assembled), ...keys };
-    await buildWorkflows(assembled, { ...options, container }, parts, workflows);
+    await buildWorkflows(assembled, { ...options, container }, parts, workflows, mask);
     createListed(assembled, workflows);
     await startAll(created, workflows);
   } catch (error) {
