@@ -14,7 +14,7 @@ import { fetchedFile } from "../../../src/a2a/files/a2a-file-fetch.js";
 import { connectionTo, rawSocketTo } from "../../../src/a2a/files/a2a-file-connect.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../../src/units/index.js";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startNetwork, type Network } from "./proxy/servers.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-fetch-process.ts", import.meta.url));
@@ -30,11 +30,14 @@ afterAll(async () => {
 /** One fetch of `localhost` in a child process (timeout 1500 ms) that applies `mode`. */
 async function fetchedUnder(mode: string): Promise<unknown> {
   const url = `https://localhost:${String(network.targetPort)}/document.pdf`;
-  const run = await runNode(["--import", "tsx", CHILD, url, mode, network.proxyUrl, "1500"], {
-    env: { ...process.env, NO_PROXY: "", no_proxy: "" },
-  });
+  const run = await runNodeReporting(
+    ["--import", "tsx", CHILD, url, mode, network.proxyUrl, "1500"],
+    {
+      env: { ...process.env, NO_PROXY: "", no_proxy: "" },
+    },
+  );
   if (run.status !== 0) throw new Error(`the child failed:\n${run.stderr}`);
-  return JSON.parse(run.stdout.trim());
+  return run.messages[0];
 }
 
 describe("#916 D3: a replaced https.Agent class does not reach the file fetch", () => {

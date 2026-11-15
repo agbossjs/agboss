@@ -16,7 +16,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startNetwork, type Network } from "./proxy/servers.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-fetch-process.ts", import.meta.url));
@@ -101,14 +101,14 @@ async function fetchedWith(setup: Setup, proxied: boolean): Promise<Record<strin
       GLOBAL_AGENT_HTTP_PROXY: network.proxyUrl,
     });
   const url = `https://localhost:${String(network.targetPort)}/document.pdf`;
-  const run = await runNode(
+  const run = await runNodeReporting(
     [...setup.flags, ...setup.script(), url, setup.mode, network.proxyUrl],
     {
       env: environment,
     },
   );
   if (run.status !== 0) throw new Error(`the child failed:\n${run.stderr}`);
-  return JSON.parse(run.stdout.trim()) as Record<string, unknown>;
+  return run.messages[0] as Record<string, unknown>;
 }
 
 describe("#916 D1: no patch of the HTTP client reaches a file fetch around the guard", () => {

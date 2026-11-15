@@ -1,10 +1,11 @@
 /**
  * #911: one of N processes opening one SQLite file at the same moment, as an application instance
- * does: `node --import tsx concurrent-open-process.ts <path>`. It prints `ready`, waits for a line
- * on stdin (the barrier — every process has loaded by then), opens the connection and creates a
- * store's table, and prints `opened`; a failure prints `failed: <message>` and exits 1.
+ * does: `node --import tsx concurrent-open-process.ts <path>`. It reports `ready`, waits for `go`
+ * from the parent (the barrier — every process has loaded by then), opens the connection and creates a
+ * store's table, and reports `opened`; a failure reports `failed: <message>` and exits 1. Reports go
+ * over IPC (#1128), never stdout.
  */
-import { createInterface } from "node:readline";
+import { nextFromParent, report } from "../../helpers/child-channel.js";
 import { createContainer } from "../../../src/components/container/container.js";
 import type { Token } from "../../../src/components/injection.js";
 import { resolveEnvironment } from "../../../src/environments/resolve.js";
@@ -15,8 +16,8 @@ import {
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 
 const path = process.argv[2] ?? "";
-process.stdout.write("ready\n");
-for await (const _line of createInterface({ input: process.stdin })) break;
+await report("ready");
+await nextFromParent();
 try {
   const application = applicationContextOf({
     name: "concurrent-open",
@@ -39,9 +40,9 @@ try {
   connection.transaction(() => {
     connection.database.exec("INSERT INTO notes VALUES ('x')");
   });
-  process.stdout.write("opened\n");
+  await report("opened");
   process.exit(0);
 } catch (error) {
-  process.stdout.write(`failed: ${error instanceof Error ? error.message : String(error)}\n`);
+  await report(`failed: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 }

@@ -4,7 +4,7 @@
 // `mode`: "plain" (nothing else), "otel" (pass-through wrappers over `net.connect`, `tls.connect`
 // and `http.ClientRequest`, as an APM agent installs them: they change nothing) and "refuse-agent"
 // (a replaced `ClientRequest` that gives the request an agent). Everything is installed before the
-// core is loaded, as a patch applied at start-up is. Prints one JSON line: the outcome and how many
+// core is loaded, as a patch applied at start-up is. Reports (IPC, never stdout) one message: the outcome and how many
 // times each wrapper ran (a wrapper that never ran proves nothing).
 import type * as DnsModule from "node:dns";
 import type * as HttpModule from "node:http";
@@ -12,6 +12,7 @@ import { createRequire, syncBuiltinESMExports } from "node:module";
 import type * as HttpsModule from "node:https";
 import type * as NetModule from "node:net";
 import type * as TlsModule from "node:tls";
+import { report } from "../../../helpers/child-channel.js";
 
 const load = createRequire(import.meta.url);
 const dns = load("node:dns") as typeof DnsModule;
@@ -156,11 +157,10 @@ async function main(): Promise<void> {
     () => "fetched",
     (error: unknown) => String(Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code")),
   );
-  process.stdout.write(`${JSON.stringify({ outcome, calls, spans: spans() })}\n`);
+  await report({ outcome, calls, spans: spans() });
   // a socket left open keeps the loop alive: the unref'd timer then fires and says so
   setTimeout(() => {
-    process.stdout.write(`${JSON.stringify({ lingering: true })}\n`);
-    process.exit(0);
+    void report({ lingering: true }).then(() => process.exit(0));
   }, 1500).unref();
 }
 

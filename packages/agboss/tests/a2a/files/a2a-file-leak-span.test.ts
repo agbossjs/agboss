@@ -6,7 +6,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startVhost, type Vhost } from "./proxy/file-vhost.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-tls-process.ts", import.meta.url));
@@ -30,7 +30,7 @@ interface Report {
 
 async function fetchedUnder(path: string, mode: string): Promise<Report> {
   vhost.requests.length = 0;
-  const result = await runNode(
+  const result = await runNodeReporting(
     [
       "--import",
       "tsx",
@@ -42,10 +42,9 @@ async function fetchedUnder(path: string, mode: string): Promise<Report> {
     { env: { ...process.env, NODE_EXTRA_CA_CERTS: vhost.trust } },
   );
   if (result.status !== 0) throw new Error(`the child failed:\n${result.stderr}`);
-  const lines = result.stdout.trim().split("\n");
   return {
-    ...(JSON.parse(lines[0] ?? "{}") as Omit<Report, "lingering">),
-    lingering: lines.length > 1,
+    ...(result.messages[0] as Omit<Report, "lingering">),
+    lingering: result.messages.length > 1,
   };
 }
 

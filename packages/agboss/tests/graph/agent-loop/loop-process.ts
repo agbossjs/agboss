@@ -2,11 +2,12 @@
  * A separate process for the kill-and-resume tests:
  * `node --import tsx loop-process.ts <dir> <start|resume|recover> <approval|parallel>`.
  * Effects and model calls are appended to files in <dir>, so they add up across processes; the
- * checkpoints live in <dir>/checkpoints.json.
+ * checkpoints live in <dir>/checkpoints.json. The result goes to the parent over IPC (#1128), never stdout.
  */
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { report } from "../../helpers/child-channel.js";
 import { runInFrame } from "../../../src/flow/context/frame.js";
 import { liveExecutionContextOf } from "../../../src/flow/context/live-context.js";
 import { testExecutionContext } from "../../../src/testing/execution-context.js";
@@ -91,6 +92,6 @@ const frame = {
   step: agent.step,
 };
 const result = await runInFrame(frame, () => runLoop(graph, input, THREAD));
-process.stdout.write(`${JSON.stringify(result)}\n`);
+await report(result);
 // a paused run waits for its decision: the process stays up until it is killed
 if (mode === "start") setInterval(() => undefined, 60_000);

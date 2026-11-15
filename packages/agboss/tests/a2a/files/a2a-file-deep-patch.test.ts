@@ -12,7 +12,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startNetwork, type Network } from "./proxy/servers.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-fetch-process.ts", import.meta.url));
@@ -28,11 +28,11 @@ afterAll(async () => {
 /** One fetch of `localhost` in a child process that applies the patch `mode` names. */
 async function fetchedUnder(mode: string): Promise<Record<string, unknown>> {
   const url = `https://localhost:${String(network.targetPort)}/document.pdf`;
-  const run = await runNode(["--import", "tsx", CHILD, url, mode, network.proxyUrl], {
+  const run = await runNodeReporting(["--import", "tsx", CHILD, url, mode, network.proxyUrl], {
     env: { ...process.env, NO_PROXY: "", no_proxy: "" },
   });
   if (run.status !== 0) throw new Error(`the child failed:\n${run.stderr}`);
-  return JSON.parse(run.stdout.trim()) as Record<string, unknown>;
+  return run.messages[0] as Record<string, unknown>;
 }
 
 const REFUSED = { outcome: "a2a.file-address-denied", isProxying: true };

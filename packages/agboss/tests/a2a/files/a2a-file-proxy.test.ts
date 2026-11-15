@@ -9,7 +9,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startNetwork, type Network } from "./proxy/servers.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-fetch-process.ts", import.meta.url));
@@ -37,11 +37,14 @@ async function fetchedBehindProxy(url: string, mode: string): Promise<ChildOutco
     flags.push("--use-env-proxy");
     Object.assign(environment, { HTTPS_PROXY: network.proxyUrl });
   }
-  const run = await runNode([...flags, "--import", "tsx", CHILD, url, mode, network.proxyUrl], {
-    env: environment,
-  });
+  const run = await runNodeReporting(
+    [...flags, "--import", "tsx", CHILD, url, mode, network.proxyUrl],
+    {
+      env: environment,
+    },
+  );
   if (run.status !== 0) throw new Error(`the child failed:\n${run.stderr}`);
-  return JSON.parse(run.stdout.trim()) as ChildOutcome;
+  return run.messages[0] as ChildOutcome;
 }
 
 describe("#916 item 1 AC1: no file fetch goes through a proxy", () => {

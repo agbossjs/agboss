@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { startNode } from "../../helpers/process.js";
 
 const SCRIPT = fileURLToPath(new URL("./loop-process.ts", import.meta.url));
 let dir = "";
@@ -22,16 +23,19 @@ interface Child {
 }
 
 function launch(args: readonly string[], env: Readonly<Record<string, string>> = {}): Child {
-  const child = spawn(process.execPath, ["--import", "tsx", SCRIPT, dir, ...args], {
+  // the result comes over IPC (#1128): stdout is for logs, never parsed
+  const child = startNode(["--import", "tsx", SCRIPT, dir, ...args], {
     env: { ...process.env, ...env },
-    stdio: ["ignore", "pipe", "inherit"],
   });
-  let output = "";
-  child.stdout.on("data", (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  const exited = new Promise<number | null>((resolve) => child.on("exit", resolve));
-  return { process: child, output: () => output, exited };
+  return {
+    process: child.process,
+    output: () =>
+      child
+        .messages()
+        .map((message) => JSON.stringify(message))
+        .join("\n"),
+    exited: child.exited.then((run) => run.status),
+  };
 }
 
 async function until(condition: () => boolean, timeoutMs = 20_000): Promise<void> {

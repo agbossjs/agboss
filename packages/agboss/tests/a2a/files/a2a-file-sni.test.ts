@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { createSecureContext, type SecureContext } from "node:tls";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { runNode } from "../../helpers/process.js";
+import { runNodeReporting } from "../../helpers/process.js";
 import { startNetwork, type Network } from "./proxy/servers.js";
 
 const CHILD = fileURLToPath(new URL("./proxy/file-tls-process.ts", import.meta.url));
@@ -84,11 +84,14 @@ async function fetchedUnder(
   target: number,
   claimed = "",
 ): Promise<{ outcome: string; calls: Record<string, number> }> {
-  const result = await runNode(["--import", "tsx", CHILD, url, mode, String(target), claimed], {
-    env: { ...process.env, NODE_EXTRA_CA_CERTS: join(directory, "trust.pem") },
-  });
+  const result = await runNodeReporting(
+    ["--import", "tsx", CHILD, url, mode, String(target), claimed],
+    {
+      env: { ...process.env, NODE_EXTRA_CA_CERTS: join(directory, "trust.pem") },
+    },
+  );
   if (result.status !== 0) throw new Error(`the child failed:\n${result.stderr}`);
-  return JSON.parse(result.stdout.trim()) as { outcome: string; calls: Record<string, number> };
+  return result.messages[0] as { outcome: string; calls: Record<string, number> };
 }
 
 describe("#916 SNI: the handshake of a file fetch names the host", () => {
