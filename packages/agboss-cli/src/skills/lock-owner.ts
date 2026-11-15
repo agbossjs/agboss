@@ -2,7 +2,15 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import { readdirSync, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from "node:fs";
+import {
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { z } from "zod";
 
 /**
@@ -42,10 +50,16 @@ export interface Holder {
   /** The parsed file; undefined when it is unreadable. */
   readonly owner: LockOwner | undefined;
   readonly ageMs: number;
+  /**
+   * A time on disk lies more than `SKEW_MS` ahead of this clock: the clock was set back, or the
+   * folder came from a host that runs ahead (#1105). `ageMs` is then "just now" (0), never
+   * negative and never infinite: the age is not trusted either way, see `observedFutureMs`.
+   */
+  readonly isFuture?: boolean;
 }
 
 /** The pid is a live process on this host (`EPERM`: alive, not ours to signal). */
-function isAlive(pid: number): boolean {
+export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -73,18 +87,12 @@ function isReused(owner: LockOwner): boolean {
 export const SKEW_MS = 60_000;
 
 /**
- * How long ago `path` was last written; undefined when it cannot be stat'ed. A time up to
- * `SKEW_MS` ahead (two clocks that disagree a little) is "just now". A time further ahead cannot
- * come from a holder that wrote it a moment ago on a clock that is right: the clock was set back
- * after a crash, or the folder came from a host that runs ahead (#1105). Its age cannot be trusted
- * and counting it as negative would never age out, so it is infinite: stale for every check that
- * judges by age — another host, an owner nobody can read, no owner file. A live owner on this
- * host is judged by its pid and never by this age, so it is never taken over because of it.
+ * How long ago `path` was last written, signed (negative: the time lies ahead); undefined when it
+ * cannot be stat'ed. What to make of a time far ahead is the caller's (`readHolder`, `observed`).
  */
 function ageOf(path: string): number | undefined {
   try {
-    const age = Date.now() - statSync(path).mtimeMs;
-    return age < -SKEW_MS ? Infinity : Math.max(age, 0);
+    return Date.now() - statSync(path).mtimeMs;
   } catch {
     return undefined;
   }
@@ -104,16 +112,48 @@ export function readHolder(lock: string): Holder | undefined {
   }
   const name = names.find((entry) => entry.startsWith(OWNER_PREFIX));
   const folderAge = ageOf(lock) ?? 0;
-  if (name === undefined) return { token: undefined, owner: undefined, ageMs: folderAge };
-  const file = join(lock, name);
+  const file = name === undefined ? undefined : join(lock, name);
+  const ages = [folderAge, ...(file === undefined ? [] : [ageOf(file) ?? 0])];
+  const isFuture = ages.some((age) => age < -SKEW_MS);
+  const ageMs = Math.max(0, ...ages);
+  if (file === undefined || name === undefined)
+    return { token: undefined, owner: undefined, ageMs, isFuture };
   const token = name.slice(OWNER_PREFIX.length);
-  const ageMs = Math.max(ageOf(file) ?? 0, folderAge);
   try {
     const parsed = OwnerSchema.safeParse(JSON.parse(readFileSync(file, "utf8")));
-    return { token, owner: parsed.success ? parsed.data : undefined, ageMs };
+    return { token, owner: parsed.success ? parsed.data : undefined, ageMs, isFuture };
   } catch {
-    return { token, owner: undefined, ageMs };
+    return { token, owner: undefined, ageMs, isFuture };
   }
+}
+
+/** The marker a waiter leaves in a future-dated lock folder: its mtime is when a waiter first saw it. */
+export const SEEN_MARKER = "seen-future";
+
+/** This waiter's own first sight of a lock, on the monotonic clock (immune to a stepped wall clock). */
+const firstSeen = new Map<string, number>();
+
+/**
+ * How long a lock with a time in the future has been watched (#1105). The time on disk says
+ * nothing, so the age counts from the first sight, never from the file: this process's monotonic
+ * clock, and a marker file in the folder (its mtime is this host's own clock at the first sight),
+ * so a run per `agboss check` still sees the lock age across processes. The longer of the two
+ * counts; a marker dated ahead (the clock stepped back again) counts as nothing. A lock a live
+ * holder of this host owns is never asked about: it is judged by its pid.
+ */
+export function observedFutureMs(lock: string, token: string | undefined): number {
+  const key = `${lock}|${token ?? ""}`;
+  const now = performance.now();
+  const first = firstSeen.get(key) ?? now;
+  firstSeen.set(key, first);
+  const marker = join(lock, SEEN_MARKER);
+  let onDisk = 0;
+  try {
+    writeFileSync(marker, "", { flag: "wx" });
+  } catch {
+    onDisk = Math.max(0, ageOf(marker) ?? 0);
+  }
+  return Math.max(now - first, onDisk);
 }
 
 /** Waiting this long on a pid that "lives" before asking `ps` whether it is the same process. */

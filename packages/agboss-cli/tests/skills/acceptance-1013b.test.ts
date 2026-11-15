@@ -51,35 +51,77 @@ function legacyProject(): string {
   return root;
 }
 
-describe("#1105: a lock whose time is in the future does not block forever", () => {
+describe("#1105: a lock whose time is in the future ages out from when it was first seen, never at once", () => {
   const foreign = { host: "some-other-host" };
+  const STALE = 800;
+  const watching = { waitMs: 6_000, staleMs: STALE };
+  const syncWith = (root: string, lock: { waitMs: number; staleMs: number }) =>
+    syncSkills({ root, isEnabled: true }, "check", { ...noHome, lock });
+  const YEAR = 365 * 86_400_000;
+  const dateAll = (root: string, offsetMs: number): void => {
+    for (const name of readdirSync(lockOf(root))) setTime(join(lockOf(root), name), offsetMs);
+    setTime(lockOf(root), offsetMs);
+  };
 
-  it("another host's lock dated a year ahead is stale at once: the sync writes in the first run", () => {
+  it("another host's lock a year ahead is not taken before staleMs, and is taken after about staleMs", () => {
     const root = oldProject();
-    const owner = writeLock(root, foreign);
-    setTime(join(lockOf(root), `${OWNER_PREFIX}${owner.token}`), 365 * 86_400_000);
-    setTime(lockOf(root), 365 * 86_400_000);
+    writeLock(root, foreign);
+    dateAll(root, YEAR);
 
-    const done = syncQuick(root);
+    const early = syncWith(root, { waitMs: 300, staleMs: STALE });
+    expect(early.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+
+    const begun = performance.now();
+    const done = syncWith(root, watching);
+    const waited = performance.now() - begun;
 
     expect(done.warnings).toEqual([]);
     expect(done.result.status).toBe(SkillsSyncStatus.Updated);
+    expect(waited).toBeLessThan(watching.waitMs);
+    // the first sight was in the run before: what is left of staleMs is waited, not the year
+    expect(waited).toBeGreaterThan(STALE - 700);
   });
 
-  it("an unreadable owner and a stray-file-only folder, a day ahead, are stale too", () => {
+  it("an unreadable owner and a stray-file-only folder, a day ahead, age out the same way", () => {
     for (const make of ["garbage", "stray"]) {
       const root = oldProject();
       mkdirSync(lockOf(root), { recursive: true });
       if (make === "garbage") writeFileSync(join(lockOf(root), `${OWNER_PREFIX}gg`), "not json");
       else writeFileSync(join(lockOf(root), "stray"), "x");
-      for (const name of readdirSync(lockOf(root))) setTime(join(lockOf(root), name), 86_400_000);
-      setTime(lockOf(root), 86_400_000);
+      dateAll(root, 86_400_000);
 
-      const done = syncQuick(root);
+      const begun = performance.now();
+      const done = syncWith(root, watching);
+      const waited = performance.now() - begun;
 
       expect(done.warnings).toEqual([]);
       expect(done.result.status).toBe(SkillsSyncStatus.Updated);
+      expect(waited).toBeGreaterThanOrEqual(STALE - 100);
+      expect(waited).toBeLessThan(watching.waitMs);
     }
+  });
+
+  it("a folder with no owner, a day ahead, is kept before staleMs: the age is not read off the disk", () => {
+    const root = oldProject();
+    mkdirSync(lockOf(root), { recursive: true });
+    writeFileSync(join(lockOf(root), "stray"), "x");
+    dateAll(root, 86_400_000);
+
+    const done = syncWith(root, { waitMs: 300, staleMs: 60_000 });
+
+    expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(existsSync(join(lockOf(root), "stray"))).toBe(true);
+  });
+
+  it("a dead owner on this host, a year ahead, is taken over at once", () => {
+    const root = oldProject();
+    writeLock(root, { pid: deadPid(), host: thisHost });
+    dateAll(root, YEAR);
+
+    const done = syncWith(root, { waitMs: 300, staleMs: 60_000 });
+
+    expect(done.warnings).toEqual([]);
+    expect(done.result.status).toBe(SkillsSyncStatus.Updated);
   });
 
   it("a small skew (30 s ahead) is not future: a fresh lock of another host is kept", () => {
@@ -93,13 +135,25 @@ describe("#1105: a lock whose time is in the future does not block forever", () 
     expect(readHolder(lockOf(root))?.ageMs).toBeLessThan(DEFAULT_LOCK.staleMs);
   });
 
-  it("a live holder on this host is never taken over, whatever its time says", () => {
+  it("a live holder on this host is kept indefinitely, whatever its time says, and nothing is written into its lock", () => {
     const root = oldProject();
     const owner = writeLock(root, {});
-    setTime(join(lockOf(root), `${OWNER_PREFIX}${owner.token}`), 365 * 86_400_000);
-    setTime(lockOf(root), 365 * 86_400_000);
+    dateAll(root, YEAR);
 
-    const done = syncQuick(root);
+    const done = syncWith(root, { waitMs: 400, staleMs: 50 });
+
+    expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(readdirSync(lockOf(root))).toEqual([`${OWNER_PREFIX}${owner.token}`]);
+  });
+
+  it("the clock stepped back while the holder holds: its start time reads as ahead, the live holder is kept", () => {
+    const root = oldProject();
+    // written on a clock one hour ahead of this one: the file's time and the start it records
+    const ahead = Date.now() + 3_600_000;
+    const owner = writeLock(root, { procStart: ahead });
+    dateAll(root, 3_600_000);
+
+    const done = syncWith(root, { waitMs: 400, staleMs: 50 });
 
     expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
     expect(existsSync(join(lockOf(root), `${OWNER_PREFIX}${owner.token}`))).toBe(true);

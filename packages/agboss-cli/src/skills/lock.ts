@@ -1,15 +1,19 @@
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { TEMP_PREFIX } from "./status.js";
 import {
   clearEmpty,
   dropOwner,
+  isAlive,
   isStale,
+  observedFutureMs,
   newOwner,
   OWNER_PREFIX,
   readHolder,
   sweepStray,
+  type Holder,
   type LockOwner,
 } from "./lock-owner.js";
 
@@ -24,7 +28,8 @@ import {
  *
  * A live holder keeps its lock however long it takes; only a dead one (its pid is gone on this
  * host) is taken over, at once. A lock from another host, or with an unreadable owner, ages out
- * after `staleMs`; a time more than a minute in the future counts as stale at once (#1105). A holder releases only a lock that is still its own, and Ctrl-C releases it.
+ * after `staleMs`, counted from when this waiter first saw it if its time lies a minute or more in
+ * the future (#1105). A holder releases only a lock that is still its own, and Ctrl-C releases it.
  */
 
 /** The lock folder's name, in `.agents/`. */
@@ -70,12 +75,25 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
  * sweep never removes an `owner-` file, so a lock made meanwhile is safe.
  */
 function clearIfStale(lock: string, staleMs: number): void {
-  const holder = readHolder(lock);
-  if (holder === undefined) return;
+  const seen = readHolder(lock);
+  if (seen === undefined) return;
+  const holder = withObserved(lock, seen);
   if (holder.token === undefined) {
     clearEmpty(lock);
     if (holder.ageMs > staleMs) sweepStray(lock);
   } else if (isStale(holder, staleMs) && dropOwner(lock, holder.token)) sweepStray(lock);
+}
+
+/**
+ * A lock whose time is in the future is not stale at once and does not wait for that time (#1105):
+ * its age is how long this waiter has watched it. A live holder of this host is never judged by
+ * time (its pid is), and a dead one is taken over at once by `isStale`; only a lock of another
+ * host, an owner nobody can read or a folder with no owner ages out this way.
+ */
+function withObserved(lock: string, holder: Holder): Holder {
+  if (!holder.isFuture) return holder;
+  if (holder.owner?.host === hostname() && isAlive(holder.owner.pid)) return holder;
+  return { ...holder, ageMs: Math.max(holder.ageMs, observedFutureMs(lock, holder.token)) };
 }
 
 /** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */
