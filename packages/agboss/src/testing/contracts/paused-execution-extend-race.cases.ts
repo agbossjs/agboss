@@ -117,17 +117,21 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
 
         expect(results.filter((won) => won !== undefined)).toHaveLength(1);
         const stored = (await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt;
-        expect(stored).toBe(results[0] === undefined ? LATER : EVEN_LATER);
-        // the loser re-reads: the shorter one is now refused, the longer one goes through
-        expect(
-          await second.extendByTenantIdAndPauseId(
-            "default",
-            pauseId,
-            { expiresAt: EVEN_LATER, previousExpiresAt: stored ?? "" },
-            BEFORE_DEADLINE,
-            R,
-          ),
-        ).toBeUndefined();
+        // whichever reached the store first won: the longer one in call order on a store that
+        // applies calls in order, either one on a store whose two instances race for real
+        const longerWon = results[0] !== undefined;
+        expect(stored).toBe(longerWon ? EVEN_LATER : LATER);
+        // the loser re-reads: after the longer one won nothing is later; after the shorter one won
+        // the longer one goes through, from the deadline it now reads
+        const retried = await second.extendByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          { expiresAt: EVEN_LATER, previousExpiresAt: stored ?? "" },
+          BEFORE_DEADLINE,
+          R,
+        );
+        if (longerWon) expect(retried).toBeUndefined();
+        else expect(retried?.expiresAt).toBe(EVEN_LATER);
       }
     },
   },
