@@ -5,7 +5,7 @@ import type {
 import type { Turn } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
-import { isCancelMarked } from "./cancel-marks.js";
+import { isMarkedAlive } from "./cancel-marks.js";
 import { CompensationFailedError } from "../flow/compensation.js";
 import { endedWithoutPass } from "./ended-tree.js";
 import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
@@ -142,7 +142,7 @@ export async function endedAtTake(
   lease: HeldExecutionLease,
 ): Promise<Error | undefined> {
   const tree = treeOf(state);
-  if (!(await isEndedAtTakeover(parts.trees, tree)) && !(await isCancelMarked(parts.leases, tree)))
+  if (!(await isEndedAtTakeover(parts.trees, tree)) && !(await isMarkedAlive(parts, state)))
     return undefined;
   try {
     return await endCancelled(parts, state, lease);
@@ -210,7 +210,7 @@ export async function endIfCancelled(
   state: TreeState & SweptRoot,
 ): Promise<boolean> {
   const tree = treeOf(state);
-  if (!(await isEndedAtTakeover(parts.trees, tree)) && !(await isCancelMarked(parts.leases, tree)))
+  if (!(await isEndedAtTakeover(parts.trees, tree)) && !(await isMarkedAlive(parts, state)))
     return false;
   await endHeld(parts, state, state);
   return true;
