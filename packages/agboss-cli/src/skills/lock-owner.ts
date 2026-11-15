@@ -69,10 +69,22 @@ function isReused(owner: LockOwner): boolean {
   return elapsed !== undefined && Math.abs(Date.now() - elapsed * 1000 - owner.procStart) > 5000;
 }
 
-/** How long ago `path` was last written; undefined when it cannot be stat'ed. */
+/** How far ahead of this clock a time on disk may lie before it is not a clock skew any more. */
+export const SKEW_MS = 60_000;
+
+/**
+ * How long ago `path` was last written; undefined when it cannot be stat'ed. A time up to
+ * `SKEW_MS` ahead (two clocks that disagree a little) is "just now". A time further ahead cannot
+ * come from a holder that wrote it a moment ago on a clock that is right: the clock was set back
+ * after a crash, or the folder came from a host that runs ahead (#1105). Its age cannot be trusted
+ * and counting it as negative would never age out, so it is infinite: stale for every check that
+ * judges by age — another host, an owner nobody can read, no owner file. A live owner on this
+ * host is judged by its pid and never by this age, so it is never taken over because of it.
+ */
 function ageOf(path: string): number | undefined {
   try {
-    return Date.now() - statSync(path).mtimeMs;
+    const age = Date.now() - statSync(path).mtimeMs;
+    return age < -SKEW_MS ? Infinity : Math.max(age, 0);
   } catch {
     return undefined;
   }

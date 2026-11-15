@@ -5,6 +5,7 @@ import {
   carryOver,
   legacyOf,
   legacyPlanOf,
+  linkedLegacyWarning,
   removeLegacy,
   type Legacy,
   type LegacyPlan,
@@ -159,7 +160,14 @@ export function syncCopy(
 ): CopyOutcome {
   const target = join(root, SKILLS_FOLDER);
   const legacy = legacyOf(root, deps.link);
-  return legacy.kind === "managed"
-    ? moveLegacy(root, target, legacy, files, version, deps.replace)
-    : syncInPlace(root, target, files, version, deps.replace);
+  if (legacy.kind === "managed")
+    return moveLegacy(root, target, legacy, files, version, deps.replace);
+  const copy = syncInPlace(root, target, files, version, deps.replace);
+  if (legacy.kind !== "linked") return copy;
+  // only the move is refused: the copy is synced, the link step waits for the move
+  return {
+    ...copy,
+    warnings: [...copy.warnings, linkedLegacyWarning(legacy.parent)],
+    isMoveOpen: true,
+  };
 }

@@ -24,7 +24,7 @@ import {
  *
  * A live holder keeps its lock however long it takes; only a dead one (its pid is gone on this
  * host) is taken over, at once. A lock from another host, or with an unreadable owner, ages out
- * after `staleMs`. A holder releases only a lock that is still its own, and Ctrl-C releases it.
+ * after `staleMs`; a time more than a minute in the future counts as stale at once (#1105). A holder releases only a lock that is still its own, and Ctrl-C releases it.
  */
 
 /** The lock folder's name, in `.agents/`. */
@@ -62,14 +62,20 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
   }
 }
 
-/** Takes a dead holder's lock away (at most one waiter's `unlink` wins); a live one is left. */
+/**
+ * Takes a dead holder's lock away (at most one waiter's `unlink` wins); a live one is left. The
+ * winner also sweeps what else the folder holds (a `.DS_Store`, a 0.1.0 `owner`): the holder just
+ * proved abandoned, and dropping its file refreshed the folder's mtime, so judging the rest by age
+ * would wait `staleMs` again (#1106). While any entry stands no new lock can be renamed in, and a
+ * sweep never removes an `owner-` file, so a lock made meanwhile is safe.
+ */
 function clearIfStale(lock: string, staleMs: number): void {
   const holder = readHolder(lock);
   if (holder === undefined) return;
   if (holder.token === undefined) {
     clearEmpty(lock);
     if (holder.ageMs > staleMs) sweepStray(lock);
-  } else if (isStale(holder, staleMs)) dropOwner(lock, holder.token);
+  } else if (isStale(holder, staleMs) && dropOwner(lock, holder.token)) sweepStray(lock);
 }
 
 /** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */

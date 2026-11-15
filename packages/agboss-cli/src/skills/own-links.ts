@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { MANIFEST_FILE } from "./manifest.js";
+import { realPrefix, resolveReal } from "./real-target.js";
 import type { KeptFile } from "./replace.js";
 import { SKILLS_FOLDER, SkillsWarningCode, type SkillsWarning } from "./status.js";
 
@@ -32,24 +33,17 @@ function linksUnder(folder: string): string[] {
   return found.sort();
 }
 
-/** `realpath` of the longest existing prefix of `path`, the rest appended as written. */
-function realPrefix(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join(realPrefix(parent), basename(path));
-  }
-}
-
 /**
  * True when the link `file` (its text is read, nothing followed), written at `place`, lands inside
- * the project (#1076): the root, the place's longest existing parent and the target's longest
- * existing prefix go through `realpath`, so `/tmp` and `/private/tmp` agree and a symlinked parent
- * of the place counts. A dangling link is judged by its resolved parent.
+ * the project (#1076, #1107): the root, the place's longest existing parent and the target go
+ * through real paths, so `/tmp` and `/private/tmp` agree and a symlinked parent of the place counts.
+ * The target is walked one component at a time with every link followed before the next `..`
+ * (`real-target.ts`), never collapsed as text. A dangling link is judged by its resolved parent;
+ * a loop of links is outside.
  */
 export function staysInside(root: string, file: string, place: string): boolean {
-  const target = resolve(realPrefix(dirname(place)), readlinkSync(file));
+  const target = resolveReal(realPrefix(dirname(place)), readlinkSync(file));
+  if (target === undefined) return false;
   const found = relative(realpathSync(root), realPrefix(target));
   return found !== ".." && !found.startsWith(`..${sep}`) && !isAbsolute(found);
 }
