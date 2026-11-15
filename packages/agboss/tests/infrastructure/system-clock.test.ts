@@ -320,6 +320,8 @@ describe("#1141: SystemClock.sleep splits a delay above the timer's limit", () =
     const stop = new AbortController();
     await new SystemClock().sleep(0 as Milliseconds, stop.signal);
     expect(getEventListeners(stop.signal, "abort")).toHaveLength(0);
+  });
+});
 
 describe("#1093: keepingAlive holds the process for a pending call", () => {
   it("a ref'd timer lives exactly as long as the work, and is cleared when it returns", async () => {
