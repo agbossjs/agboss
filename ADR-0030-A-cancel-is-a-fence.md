@@ -1,6 +1,6 @@
 # ADR-0030 — A cancel is a fence
 
-- **Status:** Accepted (#909)
+- **Status:** Accepted (#909); amended (#1117): the mark is permanent and lives on the tree's lease row
 - **Issue:** #909 (after #360, #500, #505, #901)
 
 ## Context
@@ -19,8 +19,7 @@ charge that had already left was a refund, not a prevention.
   writes a row keyed by the tree's `(tenantId, rootExecutionId)` — never by a child's lease, and
   possible before the tree's first `acquire` — beside the leases, in the database the fencing stores
   already share with the lease store (A2). It is idempotent, changes no lease (the holder keeps it,
-  renews it and runs the tree's undo under it), and is kept until the fencing stores' retention
-  prunes it — only once its tree is over (its lease retired) and the mark is older than the cutoff, never by age alone.
+  renews it and runs the tree's undo under it), and is permanent (#1117, see the amendment below).
 - **Every fencing store reads it in the transaction that checks the lease**, after the lease and the
   scope's mark and — for an effect — after the key's lookup: a stored result replays; a new effect, a
   new intent (`saveIfAbsent`) or a new attempt (`markPending`) is refused with
@@ -56,3 +55,39 @@ charge that had already left was a refund, not a prevention.
   migration, MongoDB schema +1); an older instance neither writes nor reads it, so a rolling
   deployment migrates first and rolls out after.
 - On MongoDB, fenced writes of one tree's `AnyInstance` children conflict and retry.
+
+## Amendment (#1117): the mark is permanent and lives on the tree's lease row
+
+**Context.** The retention lifted a mark once the tree's root lease was retired (#1056). A lease of
+the tree is not only the root's: an `AnyInstance` child holds its own, keyed by its own id, and the
+lease store does not know which tree a child's lease belongs to. A store-level probe on PostgreSQL
+retired the root's lease, swept, and a still-live child lease of the cancelled tree then wrote. In
+practice roots never retire, so marks never pruned either: the rule was both unsafe at the contract
+boundary and dead in the application.
+
+**Decision.**
+
+- **A mark is permanent.** No retention pass lifts it, at any cutoff; no release, retire, take or
+  takeover of a lease lifts it. A child of a cancelled tree — live, paused, or taken later — is
+  refused for good. The mark has the life of the lease rows (#500) and the execution ids (#591),
+  which are kept forever already: one more value per cancelled tree, never scanned.
+- **The mark lives on the tree's lease row**, `(tenantId, rootExecutionId)` — `cancel_requested_at`
+  on `execution_leases` (SQLite, PostgreSQL), a field of the lease document (MongoDB),
+  `cancelRequestedAt` on the in-memory row. A cancel before the tree's first `acquire` writes a seed
+  row: token 0, released, never held — the first `acquire` is token 1 and no takeover. Every write of
+  the row keeps the mark (an `acquire` updates the lease columns, never replaces the row). The
+  separate cancel table or collection is gone: SQLite moves its rows onto the lease rows and drops
+  it at open (schema version 2); PostgreSQL and MongoDB migrate the same way.
+- **The fence reads it where it already reads the lease.** A root's or a `SameInstance` key's
+  fencing transaction already locks or reads that very row; a child's key reads its root's row
+  (`cancelTreeOf`). PostgreSQL: a share lock on the root's lease row, which the cancel's write waits
+  for — advisory lock 909 is no longer needed. MongoDB: a write to the root's lease document, so a
+  racing cancel conflicts. A child's check that may find no root row yet inserts a seed row (no mark)
+  first, so there is always a row to lock or to conflict on. SQLite: one `BEGIN IMMEDIATE`. In memory: the synchronous check.
+- Root leases still do not retire (no change to hold, resume or cancel paths).
+
+**Consequences.** P7 holds unconditionally, for every child and every pre-`acquire` cancel. No
+retention can reopen the fence; a port's sweep that lifts a mark, or an `acquire` that drops it,
+fails the contract (`sabotage-cancel.test.ts`). The lease store's contract has no new method or
+field: `requestCancel` keeps its signature, its rule is stricter. An older instance reads the old
+table: migrate first, then roll out (SQLite refuses an older build by its stamp).
