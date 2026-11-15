@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: expiry in quorums and plain joins — `BranchStatus.Expired`, settled answers, `joinFailed` (#945, part of #910)
+
+- **Added**: `BranchStatus.Expired` — a branch whose pause expired (its own, the run's or the quorum's), the error
+  `step.pause-expired` kept in `result.launches`. Under a quorum it did not vote and never fails the launch;
+  `QuorumNotReachedError.expired` lists the node ids. A pause asked in a quorum branch is bound by the quorum's
+  deadline (`PauseExpiryBound.Quorum`, contexts `quorumDeadlineAt`): at it the tree wakes by itself.
+- **Added**: a plain `.join()` follows its `FailurePolicy` on an expired branch (`Skip` drops it, `FailFast` fails
+  the launch with `PauseExpiredError` and withdraws the waiting branches); the `.onJoinError(…)` side path reads
+  the answers already settled as `optional(…)` inputs; `onPauseJoinFailed` on `ChannelOf` and `@PauseListener`
+  (`ChannelPauseJoinFailedEvent`, `PauseListenerJoinFailedEvent`), once per answered pause.
+- **Changed**: a quorum's deadline that passes while a branch waits closes its pause `Expired` (it was
+  `Withdrawn`) and the branch ends `Expired` (it was `Cancelled`).
+
 ## Unreleased — 0.1.1: extend a pause, remind before its deadline — `app.extendPause`, `remindBefore` (#942, part of #910)
 
 - **Added**: `app.extendPause({ pauseId, expiresIn }, options?: PauseCallerOptions)` → `PauseExtension`

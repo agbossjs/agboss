@@ -790,6 +790,23 @@ applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExec
   component**: its events carry the raw id of channel pauses, so it holds the right to answer every
   channel pause of the application (`app.resume` still needs `answeredBy`).
 
+## Expiry in parallel launches (#945)
+
+A pause asked in a **quorum** branch is bound by the quorum's deadline (`PauseExpiryBound.Quorum`, the smaller of
+it and the pause's own and the run's): at it the tree wakes by itself — no answer, no resume — and the quorum
+decides. The branch ends `BranchStatus.Expired`: it did not vote, never fails the launch, whatever its
+`FailurePolicy`; `QuorumNotReachedError.expired` names the branches that expired. In a plain `.join()` an expired
+branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the launch with the branch's
+`PauseExpiredError` for `.onJoinError(PauseExpiredError, …)` and withdraws the branches still waiting. The side
+path reads the answers already settled — each branch output as an `optional(XDto)` input of its first step —
+so it continues or escalates without asking anyone again. Each branch that had answered hears
+`onPauseJoinFailed` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`; a listener's
+`PauseListenerJoinFailedEvent`) once: "the parallel step this answer belongs to did not collect all its answers;
+its error path is running" — neutral, the handler may still carry the work on. A channel that overrides it has a
+mailbox like for the other notices.
+
+A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
+
 ## A deadline for the answer (#941)
 
 A pause can have a deadline — an approval nobody answers should escalate, or go on with a default,
