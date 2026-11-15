@@ -144,9 +144,12 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
   npx agboss-postgres migrate --url "$DATABASE_URL"   # or DATABASE_URL alone
   ```
 
-  Exit codes: `0` done (a second run prints `nothing to apply`), `1` the migration failed (the
-  reason on stderr), `2` a usage error. Its last line says what it did to the checkpoint index
-  ([below](#the-checkpoint-index-962)).
+  Exit codes: `0` done (a second run prints `nothing to apply`), `1` the run failed, `2` a usage
+  error. Exit `1` means either "the migration failed" (stderr: `agboss-postgres: the migration failed
+  — <reason>`) or "the migrations are applied, only the index step failed" (stdout lists what was
+  applied, stderr is one `index checkpoints_latest_by_step (<schema>) failed: …` line). Its last
+  stdout line says what it did to the checkpoint index; the failure and how to tell the two apart
+  are [below](#the-checkpoint-index-962).
 - **Or in code**: `await migratePostgres({ url, signal })` → `{ schema, applied, version,
   checkpointMigrations, stepIndex }`.
 - **Or at start** with `postgresMigrateOnStart: true` — for a single instance or a development
@@ -180,7 +183,8 @@ own** after them:
 - **Reads are correct without it**, only slower (10 000 checkpoints: 38 ms listing and sorting, 1.7 ms
   with the index). A skipped or failed build costs speed until the next run builds it.
 - **An INVALID leftover** (a build that crashed) is dropped (`DROP INDEX CONCURRENTLY`) and built
-  again by the next run that holds the lock.
+  again by the next run that holds the lock. The drop waits at most 3 s (`lock_timeout`, [see
+  below](#when-the-index-step-fails-exit-1)): it never holds the run for another transaction.
 
 The command's last line says which it was:
 
@@ -195,6 +199,52 @@ build's lock, so this one did nothing to the index — run `migrate` again when 
 is `MigrationReport.stepIndex` (`"built"`, `"present"`, `"skipped"`; unset for a start that
 migrates). To check by hand, `\d <schema>.checkpoints` lists `checkpoints_latest_by_step`; an INVALID
 index is marked so there.
+
+### When the index step fails (exit 1)
+
+The numbered migrations commit before the index step runs. When only the index step fails, the schema
+**is** migrated and every read answers correctly (`latestByStep` slower), but the command still exits
+`1`. So exit `1` has two readings, and the output tells them apart:
+
+| Exit `1` with | Schema | What to do |
+| --- | --- | --- |
+| stderr `agboss-postgres: the migration failed — <reason>` | not fully migrated | fix the reason, run `migrate` again |
+| stdout the `applied …` (or `nothing to apply …`) lines and no index line; stderr one `index checkpoints_latest_by_step (<schema>) failed: …` line | migrated | deploy; run `migrate` again for the index |
+
+The index line, in full:
+
+```text
+index checkpoints_latest_by_step (public) failed: <cause>; the migrations are applied and reads stay correct; the next migrate run rebuilds the index (an INVALID one is dropped first)
+```
+
+`<cause>` is why the build failed: it was cancelled, or the role does not own `checkpoints`. The failed
+build's own INVALID leftover is dropped on the spot.
+
+**The drop is bounded (3 s).** `DROP INDEX CONCURRENTLY` waits for every transaction that holds a
+lock on `checkpoints`, an idle one included. The drop of an INVALID index (at the start of a run, and
+after a failed build) therefore gives up after 3 s (`lock_timeout`) instead of holding the run. The run
+then exits `1` with the INVALID-stays variant:
+
+```text
+index checkpoints_latest_by_step (public) failed: canceling statement due to lock timeout; the migrations are applied and reads stay correct; an INVALID index checkpoints_latest_by_step stays: the next migrate run drops and rebuilds it
+```
+
+A transaction left idle on `checkpoints` (a reader that ran `SELECT 1 FROM checkpoints` and neither
+committed nor rolled back, or an idle writer) makes every following run fail like that until it ends
+(about 3.4 s per run). The operator finds it, ends it (or fixes the client that leaks it), and runs
+`migrate` again, which drops the leftover and builds the index:
+
+```sql
+SELECT pid, state, xact_start, query FROM pg_stat_activity WHERE state LIKE 'idle in transaction%';
+SELECT pg_terminate_backend(<pid>);
+```
+
+**In code**, `migratePostgres` throws `PostgresStepIndexError` (`code` `postgres.step-index-failed`)
+when only the index step failed; any other error means the migration did not run to its end. Its
+`report` is the `MigrationReport` of what the run committed (`applied`, `version`,
+`checkpointMigrations`), `invalidIndexLeft` is `true` when an INVALID index stays for the next run to
+drop, and `cause` is why the step failed. A script that catches it deploys; one that catches anything
+else stops.
 
 ## Connections and their limits
 

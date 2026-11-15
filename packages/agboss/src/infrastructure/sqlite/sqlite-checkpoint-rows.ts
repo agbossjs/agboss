@@ -66,9 +66,22 @@ export const HAS_UNREADABLE_STEP_SQL = `SELECT 1 AS found FROM checkpoints
   INDEXED BY checkpoints_unreadable_step
   WHERE thread_id = ? AND checkpoint_ns = ? AND step = -2 LIMIT 1`;
 
-/** Every row of a thread's namespace, for the read by the serde. */
-export const NAMESPACE_ROWS_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
-  WHERE thread_id = ? AND checkpoint_ns = ?`;
+/**
+ * The newest row among those whose `step` SQL reads (not -2), by the index: its id and step, no blob.
+ * The walk skips the rows at -2, which sit in the index between the real steps, so it costs the rows at -2.
+ */
+export const NEWEST_READABLE_STEP_SQL = `SELECT checkpoint_id, step FROM checkpoints
+  WHERE thread_id = ? AND checkpoint_ns = ? AND step <> -2
+  ORDER BY step DESC, checkpoint_id DESC LIMIT 1`;
+
+/** The rows whose `step` SQL cannot vouch for (by the partial index), as much as the serde needs: id and metadata. */
+export const UNREADABLE_STEP_ROWS_SQL = `SELECT checkpoint_id, metadata_type, metadata FROM checkpoints
+  INDEXED BY checkpoints_unreadable_step
+  WHERE thread_id = ? AND checkpoint_ns = ? AND step = -2`;
+
+/** One checkpoint row by its key, every column: the winner of the read by the serde. */
+export const CHECKPOINT_ROW_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
+  WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?`;
 
 /** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
 export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];

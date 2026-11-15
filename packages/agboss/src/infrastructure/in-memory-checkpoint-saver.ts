@@ -1,12 +1,15 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { MemorySaver, type CheckpointTuple } from "@langchain/langgraph";
+import type { CheckpointListOptions } from "./in-memory-checkpoint-order.js";
 import { Injectable } from "../components/decorators.js";
 import {
+  compareCodePoints,
   newestFirstOrder,
   NO_STEP,
   stepOf,
   type LatestByStepCheckpointSaver,
 } from "./latest-by-step.js";
+import { newestFirstByCodePoint } from "./in-memory-checkpoint-order.js";
 
 /** The steps of a thread's namespace by checkpoint id, and the newest by `(step, id)` of them. */
 class StepIndex {
@@ -62,6 +65,39 @@ export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStep
   override async deleteThread(threadId: string): Promise<void> {
     await super.deleteThread(threadId);
     this.#threads.delete(threadId);
+  }
+
+  /**
+   * Without a `checkpoint_id`, the thread's greatest id by code point (#1143): `MemorySaver` sorts ids by UTF-16
+   * code unit, which puts an astral id below U+E000..U+FFFF, where the stores order the other way (#1115).
+   */
+  override async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const configurable = config.configurable;
+    if (configurable?.checkpoint_id) return super.getTuple(config);
+    const [thread, namespace] = place(config);
+    const ids = Object.keys(this.storage[thread]?.[namespace] ?? {});
+    if (ids.length === 0) return super.getTuple(config);
+    const newest = ids.reduce((best, each) => (compareCodePoints(each, best) > 0 ? each : best));
+    const tuple = await super.getTuple({
+      configurable: { ...configurable, checkpoint_id: newest },
+    });
+    return tuple === undefined
+      ? undefined
+      : {
+          ...tuple,
+          config: {
+            configurable: { thread_id: thread, checkpoint_id: newest, checkpoint_ns: namespace },
+          },
+        };
+  }
+
+  /** `MemorySaver.list`, each thread and namespace newest first by code point (#1143). */
+  override list(
+    config: RunnableConfig,
+    options?: CheckpointListOptions,
+  ): AsyncGenerator<CheckpointTuple> {
+    const all = super.list(config, { ...options, before: undefined, limit: undefined });
+    return newestFirstByCodePoint(all, options);
   }
 
   /** The newest checkpoint by step of the thread and namespace: one map read, one `getTuple`. */
