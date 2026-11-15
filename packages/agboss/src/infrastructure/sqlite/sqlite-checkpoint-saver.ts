@@ -17,7 +17,13 @@ import {
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
 import { newestFirstOrder, stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
-import { latestRowOf, migrateSteps, rowsToReadBySerde } from "./sqlite-latest-by-step.js";
+import {
+  latestRowOf,
+  migrateSteps,
+  rowOf,
+  stepsToRank,
+  type StepsToRank,
+} from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -61,24 +67,31 @@ export class SqliteCheckpointSaver
 
   async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const key = keyOf(config, "latestByStep");
-    const foreign = rowsToReadBySerde(this.connection, key);
-    if (foreign !== undefined)
-      return this.#latestBySerde(foreign.map((row) => CheckpointRow.parse(row)));
+    const toRank = stepsToRank(this.connection, key);
+    if (toRank !== undefined) return this.#latestBySerde(key, toRank);
     const row = latestRowOf(this.connection, key);
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
-  /** The newest by `(step, id)` of rows whose step SQL cannot read: each metadata read by `this.serde` (#1101). */
-  async #latestBySerde(rows: readonly CheckpointRow[]): Promise<CheckpointTuple | undefined> {
-    const ranked = await Promise.all(
-      rows.map(async (row) => ({
-        row,
+  /**
+   * The newest by `(step, id)` of the index's newest readable row and the rows whose step SQL cannot
+   * read, each metadata read by `this.serde` (#1101); only the winner's whole row is read (#1144).
+   */
+  async #latestBySerde(
+    key: Parameters<typeof rowOf>[1],
+    { readable, unreadable }: StepsToRank,
+  ): Promise<CheckpointTuple | undefined> {
+    const decoded = await Promise.all(
+      unreadable.map(async (row) => ({
         id: row.checkpoint_id,
         step: stepOf(metadataOf(await this.serde.loadsTyped(row.metadata_type, row.metadata))),
       })),
     );
-    const newest = ranked.sort(newestFirstOrder)[0];
-    return newest === undefined ? undefined : this.#tupleOf(newest.row);
+    const newest = (readable === undefined ? decoded : [readable, ...decoded]).sort(
+      newestFirstOrder,
+    )[0];
+    const row = newest === undefined ? undefined : rowOf(this.connection, key, newest.id);
+    return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
   async *list(

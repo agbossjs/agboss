@@ -6,7 +6,7 @@ import {
   type CheckpointMetadata,
   type CheckpointTuple,
 } from "@langchain/langgraph";
-import { hasLatestByStep } from "../infrastructure/latest-by-step.js";
+import { compareCodePoints, hasLatestByStep } from "../infrastructure/latest-by-step.js";
 import {
   idOf,
   keyOf,
@@ -150,7 +150,8 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
     // a marked thread needs no floor: its order is by step, not by id
     if (!this.#marked.has(threadIdOf(config))) {
       const floor = await this.#greatestOf(config);
-      if (floor !== undefined && checkpoint.id < floor) await this.#mark(config);
+      if (floor !== undefined && compareCodePoints(checkpoint.id, floor) < 0)
+        await this.#mark(config);
     }
     this.#see(config, checkpoint.id);
     return this.saver.put(config, checkpoint, metadata, newVersions);
@@ -184,7 +185,7 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
   #see(config: RunnableConfig, id: string): void {
     const key = keyOf(config);
     const known = this.#greatest.get(key);
-    if (known === undefined || id > known) this.#greatest.set(key, id);
+    if (known === undefined || compareCodePoints(id, known) > 0) this.#greatest.set(key, id);
   }
 
   async #isMarked(config: RunnableConfig): Promise<boolean> {
