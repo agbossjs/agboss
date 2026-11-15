@@ -23,3 +23,7 @@ export type * from "./public/dsl-types.js";
 export type * as FlowTypes from "./public/flow-types.js";
 export * from "./errors.js";
 export * from "./infrastructure/store-call-timeout.js";
+export {
+  SqliteSchemaTooNewError,
+  type SqliteSchemaTooNewErrorOptions,
+} from "./infrastructure/sqlite/sqlite-schema-version.js";

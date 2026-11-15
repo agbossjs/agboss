@@ -8008,6 +8008,29 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
 }
 
 // @public
+export class SqliteSchemaTooNewError extends AGBossError {
+    constructor(options: SqliteSchemaTooNewErrorOptions);
+    // (undocumented)
+    readonly applied: number;
+    // (undocumented)
+    static readonly code: "sqlite.schema-too-new";
+    // (undocumented)
+    readonly code: typeof SqliteSchemaTooNewError.code;
+    // (undocumented)
+    readonly expected: number;
+    // (undocumented)
+    name: string;
+}
+
+// @public
+export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
+    // (undocumented)
+    readonly applied: number;
+    // (undocumented)
+    readonly expected: number;
+}
+
+// @public
 export function start<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
@@ -10675,6 +10698,13 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "clearWindow".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pauseUntil".
 // src/infrastructure/sqlite/sqlite-rate-limit.repository.ts - (ae-undocumented) Missing documentation for "pausedUntil".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "applied".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "expected".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "name".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "applied".
+// src/infrastructure/sqlite/sqlite-schema-version.ts - (ae-undocumented) Missing documentation for "expected".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".

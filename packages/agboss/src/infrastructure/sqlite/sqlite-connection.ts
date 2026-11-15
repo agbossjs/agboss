@@ -12,6 +12,9 @@ import { pauseThread } from "../clock.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 import { afterFailedCommit, classifiedDatabase } from "./sqlite-outcome.js";
+import { checkedSchemaVersion } from "./sqlite-schema-version.js";
+
+export { SQLITE_SCHEMA_VERSION } from "./sqlite-schema-version.js";
 
 /**
  * The SQLite file of an application instance (#265 S32): one `DatabaseSync` (`node:sqlite`, loaded
@@ -149,7 +152,9 @@ export class SqliteConnection implements OnDestroy {
       );
     }
     this.path = parsed.data.sqlitePath;
-    this.#database = classifiedDatabase(openSqliteDatabase(this.path));
+    const database = openSqliteDatabase(this.path);
+    checkedSchemaVersion(database);
+    this.#database = classifiedDatabase(database);
   }
 
   /** The database itself: for the statements of one store. */
