@@ -96,6 +96,19 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
     expect(waited).toBeGreaterThanOrEqual(STALE - 100);
   });
 
+  it("what an earlier run saw counts: a marker left staleMs ago ages the lock out in the first poll", () => {
+    const root = oldProject();
+    writeLock(root, foreign);
+    writeFileSync(join(lockOf(root), SEEN_MARKER), "");
+    dateAll(root, YEAR);
+    setTime(join(lockOf(root), SEEN_MARKER), -2 * STALE);
+
+    const done = syncWith(root, { waitMs: 300, staleMs: STALE });
+
+    expect(done.warnings).toEqual([]);
+    expect(done.result.status).toBe(SkillsSyncStatus.Updated);
+  });
+
   it("an unreadable owner and a stray-file-only folder, a day ahead, age out the same way", () => {
     for (const make of ["garbage", "stray"]) {
       const root = oldProject();
