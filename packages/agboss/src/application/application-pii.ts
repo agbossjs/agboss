@@ -1,7 +1,8 @@
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
-import type { ObservabilityMask } from "../pii/observability-mask.js";
-import { piiRuntimeOf } from "../pii/runtime.js";
+import { observabilityMaskOf, type ObservabilityMask } from "../pii/observability-mask.js";
+import { PiiPolicySet } from "../pii/policy-set.js";
+import { piiRuntimeOf, type PiiRuntime } from "../pii/runtime.js";
 import type { ModelDetection } from "../pii/runtime-policy.js";
 import { resolveListed } from "./application-container.js";
 import { applicationPseudonymKeyOf, type ApplicationKeySource } from "../pii/application-key.js";
@@ -43,7 +44,25 @@ export function applicationPiiKeyOf(
 const noDetection = (): ModelDetection => () =>
   Promise.reject(new Error("the application's log masks without a model"));
 
-/** What the application's own log is masked with (#120 AC7): its `piiPolicies`, formats only. */
+/**
+ * What the application's own log and audit log are masked with (#120 AC7, #1130): what belongs
+ * to no one run — an observer's failure, a takeover, a startup line — is masked by the UNION of
+ * every policy the application and its workflows list for observability (fail closed: never
+ * weaker than any run's own mask). Formats only, never a model. Each workflow adds its policies
+ * as it is built (`withWorkflow`); before that the application's own lists mask.
+ */
+export interface ApplicationPiiMask extends ObservabilityMask {
+  /** The union grows by a built workflow's observability policies. */
+  readonly withWorkflow: (pii: Pick<PiiRuntime, "workflowPolicies"> | undefined) => void;
+}
+
+/** One set of every policy of `sets`, each once (by name), on the first set's field key. */
+const unionOf = (sets: readonly PiiPolicySet[]): PiiPolicySet => {
+  const byName = new Map(sets.flatMap((set) => set.policies).map((each) => [each.name, each]));
+  return new PiiPolicySet([...byName.values()], sets[0]?.fieldKey ?? "");
+};
+
+/** The application's mask (#1130): its own `piiPolicies` at first, the union once workflows are added. */
 export function applicationPiiMaskOf(
   assembled: AssembledApplication,
   application: ApplicationContainer,
@@ -53,16 +72,28 @@ export function applicationPiiMaskOf(
     readonly fieldKey: string;
     readonly contexts: RuntimeContexts;
   },
-): ObservabilityMask {
+): ApplicationPiiMask {
   const classes = assembled.piiPolicies;
   const created = resolveListed(application, options, classes);
   const instances = new Map(classes.map((cls, index) => [cls, created[index]]));
   const pii = { byElement: new Map(), observability: classes, classes, detectors: [] };
-  return piiRuntimeOf(pii, {
+  const own = piiRuntimeOf(pii, {
     resolve: (cls) => instances.get(cls),
     processEnv: parts.processEnv,
     detectionOf: noDetection,
     contexts: parts.contexts,
     fieldKey: parts.fieldKey,
-  }).observability;
+  });
+  const sets: PiiPolicySet[] = [own.workflowPolicies];
+  let mask = own.observability;
+  return {
+    value: (data) => mask.value(data),
+    text: (line) => mask.text(line),
+    traceData: (data) => mask.traceData(data),
+    withWorkflow: (workflow) => {
+      if (workflow === undefined) return;
+      sets.push(workflow.workflowPolicies);
+      mask = observabilityMaskOf(unionOf(sets), parts.contexts);
+    },
+  };
 }

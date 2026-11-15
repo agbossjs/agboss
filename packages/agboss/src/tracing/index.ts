@@ -7,13 +7,16 @@ export type { ExecutionTracing, TraceContext, TraceMask } from "./types.js";
 
 /**
  * The app's tracing: Langfuse when configured, else none. The Langfuse and OpenTelemetry modules are
- * loaded only here, when tracing is on — importing `@agboss/core` never loads them (#195).
+ * loaded only here, when tracing is on — importing `@agboss/core` never loads them (#195). `mask`
+ * masks the spans of `route.workflow`'s runs (#1130: its policies, whatever another workflow lists),
+ * exported only through the processor of its application instance (`route.owner`).
  */
 export async function tracingOf(
   env: NodeJS.ProcessEnv,
-  mask?: TraceMask,
+  mask: TraceMask | undefined,
+  route: { readonly workflow: string; readonly owner: object },
 ): Promise<ExecutionTracing | undefined> {
   if (langfuseSettings(env) === undefined) return undefined;
   const { langfuseTracing } = await lazyLoad(import("./langfuse.js"));
-  return langfuseTracing(env, mask);
+  return langfuseTracing(env, mask, route);
 }

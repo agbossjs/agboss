@@ -5,6 +5,9 @@ import { langfuseTracing } from "../src/tracing/langfuse.js";
 import { tracingOf, type ExecutionTracing, type TraceContext } from "../src/tracing/index.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
+/** A workflow's route of the process's tracing (#1130). */
+const ROUTE = { workflow: "job-scout", owner: {} };
+
 /** Records which graph nodes started — proves callbacks reach the graph. */
 class NodeRecorder extends BaseCallbackHandler {
   name = "node-recorder";
@@ -18,30 +21,40 @@ class NodeRecorder extends BaseCallbackHandler {
 
 describe("tracing", () => {
   it("is off without Langfuse settings", () => {
-    expect(langfuseTracing({})).toBeUndefined();
+    expect(langfuseTracing({}, undefined, ROUTE)).toBeUndefined();
     expect(
-      langfuseTracing({ LANGFUSE_PUBLIC_KEY: "pk", LANGFUSE_SECRET_KEY: "sk" }),
+      langfuseTracing({ LANGFUSE_PUBLIC_KEY: "pk", LANGFUSE_SECRET_KEY: "sk" }, undefined, ROUTE),
     ).toBeUndefined();
   });
 
   it("tracingOf loads Langfuse only when it is configured (#195)", async () => {
-    await expect(tracingOf({ LANGFUSE_PUBLIC_KEY: "pk" })).resolves.toBeUndefined();
-    const tracing = await tracingOf({
-      LANGFUSE_PUBLIC_KEY: "pk-lf-test",
-      LANGFUSE_SECRET_KEY: "sk-lf-test",
-      LANGFUSE_BASE_URL: "http://localhost:3000",
-      LANGFUSE_PROJECT_ID: "p1",
-    });
+    await expect(
+      tracingOf({ LANGFUSE_PUBLIC_KEY: "pk" }, undefined, ROUTE),
+    ).resolves.toBeUndefined();
+    const tracing = await tracingOf(
+      {
+        LANGFUSE_PUBLIC_KEY: "pk-lf-test",
+        LANGFUSE_SECRET_KEY: "sk-lf-test",
+        LANGFUSE_BASE_URL: "http://localhost:3000",
+        LANGFUSE_PROJECT_ID: "p1",
+      },
+      undefined,
+      ROUTE,
+    );
     expect(tracing?.sessionUrl("t1")).toBe("http://localhost:3000/project/p1/sessions/t1");
     await tracing?.shutdown();
   });
 
   it("with settings: one Langfuse handler per run, session = thread, tag = bundle", async () => {
-    const tracing = langfuseTracing({
-      LANGFUSE_PUBLIC_KEY: "pk-lf-test",
-      LANGFUSE_SECRET_KEY: "sk-lf-test",
-      LANGFUSE_BASE_URL: "http://127.0.0.1:9",
-    });
+    const tracing = langfuseTracing(
+      {
+        LANGFUSE_PUBLIC_KEY: "pk-lf-test",
+        LANGFUSE_SECRET_KEY: "sk-lf-test",
+        LANGFUSE_BASE_URL: "http://127.0.0.1:9",
+      },
+      undefined,
+      ROUTE,
+    );
 
     const [handler] =
       tracing?.callbacks({
@@ -90,12 +103,16 @@ describe("tracing", () => {
   });
 
   it("links the conversation when the project id is known, and has no link without tracing", async () => {
-    const tracing = langfuseTracing({
-      LANGFUSE_PUBLIC_KEY: "pk",
-      LANGFUSE_SECRET_KEY: "sk",
-      LANGFUSE_BASE_URL: "http://localhost:3000/",
-      LANGFUSE_PROJECT_ID: "my project",
-    });
+    const tracing = langfuseTracing(
+      {
+        LANGFUSE_PUBLIC_KEY: "pk",
+        LANGFUSE_SECRET_KEY: "sk",
+        LANGFUSE_BASE_URL: "http://localhost:3000/",
+        LANGFUSE_PROJECT_ID: "my project",
+      },
+      undefined,
+      ROUTE,
+    );
 
     expect(tracing?.sessionUrl("t 1")).toBe(
       "http://localhost:3000/project/my%20project/sessions/t%201",

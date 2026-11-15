@@ -453,7 +453,13 @@ nothing — what the [Mesh Hub](Mesh-Hub)'s radar counts), `judgeVerdicts` (`Jud
 Every event an observer gets, every line of the framework's log, every span a trace exports and
 `result.record` are masked by the PII policies of the application and of the workflow (#120 AC7) —
 always the whole list: an agent's or a router's `excludePiiPolicies` changes only what its own
-model reads. The masking uses the formats and a project's own detectors, never a model (nothing
+model reads. It is the workflow **of that run** (#1130): a run of a workflow that lists a policy is
+masked by it whatever the application's other workflows list (a child's steps by the child's own
+workflow); a run is never masked by another workflow's list. What belongs to no one run — the
+application's own log (an observer's failure, a startup line) and its audit log — is masked by the
+union of the application's and every workflow's policies, as is a span that names none of its
+application's workflows: fail closed, never weaker than any run's own mask
+([Tracing → Off by default](Tracing#off-by-default)). The masking uses the formats and a project's own detectors, never a model (nothing
 outside a step calls one); a `blockWithRefusal` kind is shown as `<kind>` and fails nothing. An
 event keeps its shape — every string masked, a model call's `rawPayload` messages rebuilt with
 their content masked, class instances (an `Error`) kept. A trace of the graph's state also hides
