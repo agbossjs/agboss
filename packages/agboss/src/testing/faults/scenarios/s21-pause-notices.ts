@@ -50,10 +50,17 @@ export const s21Claimed: RunnableFaultScenario = {
     const b = await cluster.pod("b");
     const order = await pausedOrderOn(cluster, a, "o-21");
     await restedAndOpened(cluster, order);
-    await holdStore(b, StoreHoldPoint.PauseNoticeClaim, undefined, { phase: HoldPhase.After });
+    // pod a's look waits at its claim until b is dead, and b is held only after a claim of this
+    // pause's mailbox (never after an empty one): the kill lands between the claim and the
+    // delivery whatever the load (#1131)
+    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined);
+    await holdStore(b, StoreHoldPoint.PauseNoticeClaim, mailboxOf(order), {
+      phase: HoldPhase.After,
+    });
     await answerOn(b, order.pauseId);
-    await heldAt(cluster, b, StoreHoldPoint.PauseNoticeClaim);
+    await heldAt(cluster, b, StoreHoldPoint.PauseNoticeClaim, mailboxOf(order));
     await b.kill();
+    await release(a, await heldAt(cluster, a, StoreHoldPoint.PauseNoticeClaim));
     await endedOn(cluster, order.rootExecutionId, a);
     await told(cluster, order, "closed");
     const closed = deliveries(cluster, "closed").map(([pod]) => pod);
