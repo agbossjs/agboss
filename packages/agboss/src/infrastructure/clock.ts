@@ -58,24 +58,21 @@ export class SystemClock extends Clock {
         resolve();
         return;
       }
-      const startedAt = performance.now();
-      let left = Number.isNaN(delay) ? 0 : delay;
-      const part = (): void => {
-        left = delay - (performance.now() - startedAt);
-        timer = setTimeout(
-          left > MAX_TIMER_DELAY ? part : done,
-          Math.max(0, Math.min(left, MAX_TIMER_DELAY)),
-        );
-        timer.unref();
-      };
+      let left: number = delay;
+      let timer: NodeJS.Timeout;
       const done = (): void => {
         clearTimeout(timer);
         signal?.removeEventListener("abort", done);
         resolve();
       };
       // a delay past what a timer takes (#1141) is waited out in parts: Node would fire it at once
-      let timer = setTimeout(left > MAX_TIMER_DELAY ? part : done, Math.min(left, MAX_TIMER_DELAY));
-      timer.unref();
+      const wait = (): void => {
+        const part = Math.min(left, MAX_TIMER_DELAY);
+        left -= part;
+        timer = setTimeout(left > 0 ? wait : done, part);
+        timer.unref();
+      };
+      wait();
       // Stryker disable next-line ObjectLiteral,BooleanLiteral: an abort event fires once, and `done` removes the listener itself either way
       signal?.addEventListener("abort", done, { once: true });
     });
