@@ -27,7 +27,7 @@ import {
   LegalApproverAgent,
   LegalDecisionDto,
   resetJoinExpiry,
-} from "./fixtures/join-expiry.workflow.js";
+} from "../flow/fixtures/join-expiry.fixture.js";
 
 const test = testWith(JoinExpiryApplication);
 const THING = { what: "the merger" };

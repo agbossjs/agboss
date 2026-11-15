@@ -3,8 +3,6 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
-import type { ActionHandler } from "../../../src/flow/handlers.js";
-import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { ScreeningFailedDto } from "../fixtures/launch-dtos.js";
 import {
@@ -35,9 +33,10 @@ type Flow = WorkflowOptions["flow"];
   input: { research: optional(ResearchDto), critiques: listOf(CritiqueDto) },
   output: ScreeningFailedDto,
 })
-class SettledOptionalAction implements ActionHandler<SettledOptionalAction> {
-  execute(input: InputOf<SettledOptionalAction>): Promise<OutputOf<SettledOptionalAction>> {
-    return Promise.resolve({ reason: input.research === undefined ? "none" : "some" });
+class SettledOptionalAction {
+  // analysed only, never run: no generated types, so the handler is typed by hand
+  execute(_input: unknown): Promise<never> {
+    return Promise.reject(new Error("not run"));
   }
 }
 
@@ -47,9 +46,9 @@ class SettledOptionalAction implements ActionHandler<SettledOptionalAction> {
   input: { research: ResearchDto },
   output: ScreeningFailedDto,
 })
-class SettledRequiredAction implements ActionHandler<SettledRequiredAction> {
-  execute(): Promise<OutputOf<SettledRequiredAction>> {
-    return Promise.resolve({ reason: "x" });
+class SettledRequiredAction {
+  execute(_input: unknown): Promise<never> {
+    return Promise.reject(new Error("not run"));
   }
 }
 

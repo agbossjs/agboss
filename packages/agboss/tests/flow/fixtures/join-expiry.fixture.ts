@@ -33,10 +33,9 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { minutes } from "../../../src/units/index.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { start, toAction } from "../../helpers/flow.js";
-import { SeenPausedExecutionRepository } from "./pauses.workflow.js";
+import { start, toAction } from "./paths.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
@@ -77,10 +76,10 @@ export class EscalationDto {
 
 export const je = {
   /** The asks the approvers' desk was sent. */
-  sent: [] as ChannelAsk<ApproverQuestion>[],
-  closed: [] as ChannelPauseClosedEvent<ApproverQuestion>[],
+  sent: [] as ChannelAsk<JoinApproverQuestion>[],
+  closed: [] as ChannelPauseClosedEvent<JoinApproverQuestion>[],
   /** `joinFailed` told to the desk, and to the listener. */
-  joinFailed: [] as ChannelPauseJoinFailedEvent<ApproverQuestion>[],
+  joinFailed: [] as ChannelPauseJoinFailedEvent<JoinApproverQuestion>[],
   heard: [] as PauseListenerJoinFailedEvent[],
   /** What the escalation read, by approver. */
   escalation: [] as Record<string, boolean | undefined>[],
@@ -93,27 +92,27 @@ export function resetJoinExpiry(): void {
 }
 
 @ChannelRole({
-  name: "approver-question-channel",
+  name: "join-approver-question-channel",
   description: "Asks an approver",
   approves: ApprovalRequestDto,
   answerer: PauseAnswerer.Channel,
 })
-export abstract class ApproverQuestion extends ChannelOf<ApproverQuestion> {}
+export abstract class JoinApproverQuestion extends ChannelOf<JoinApproverQuestion> {}
 
-@Channel({ name: "approver-desk-channel", description: "Asks the approvers" })
-export class ApproverDeskChannel extends ApproverQuestion {
-  send(ask: ChannelAsk<ApproverQuestion>): Promise<ChannelOutcome<ApproverQuestion>> {
+@Channel({ name: "join-approver-desk-channel", description: "Asks the approvers" })
+export class JoinApproverDeskChannel extends JoinApproverQuestion {
+  send(ask: ChannelAsk<JoinApproverQuestion>): Promise<ChannelOutcome<JoinApproverQuestion>> {
     je.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<ApproverQuestion>): Promise<void> {
+  override onPauseClosed(event: ChannelPauseClosedEvent<JoinApproverQuestion>): Promise<void> {
     je.closed.push(event);
     return Promise.resolve();
   }
 
   override onPauseJoinFailed(
-    event: ChannelPauseJoinFailedEvent<ApproverQuestion>,
+    event: ChannelPauseJoinFailedEvent<JoinApproverQuestion>,
   ): Promise<void> {
     je.joinFailed.push(event);
     return Promise.resolve();
@@ -139,7 +138,7 @@ export class JoinFailedPauseListener implements PauseListenerHandler {
 @Tool({
   name: "approve-tool",
   description: "An approver approves",
-  channel: ApproverQuestion,
+  channel: JoinApproverQuestion,
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
@@ -152,7 +151,7 @@ export class ApproveTool implements ToolHandler<ApprovalRequestDto, ApprovalRequ
 @Tool({
   name: "approve-in-30-tool",
   description: "An approver approves within 30 minutes",
-  channel: ApproverQuestion,
+  channel: JoinApproverQuestion,
   expiresIn: minutes(30),
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
@@ -232,6 +231,10 @@ export class JoinExpiryApprovedWorkflowFinish {}
 })
 export class JoinExpiryEscalatedWorkflowFinish {}
 
+/** The approval an optional input holds, when its branch answered. */
+const approvedOf = (decision: { readonly value: { readonly approved: boolean } } | undefined) =>
+  decision?.value.approved;
+
 /** The CEO is told what the approvers already said. */
 @Action({
   name: "escalate-to-ceo-action",
@@ -247,10 +250,10 @@ export class JoinExpiryEscalatedWorkflowFinish {}
 export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
   execute(input: InputOf<EscalateToCeoAction>): Promise<OutputOf<EscalateToCeoAction>> {
     je.escalation.push({
-      legal: input.legal?.value.approved,
-      finance: input.finance?.value.approved,
-      cfo: input.cfo?.value.approved,
-      coo: input.coo?.value.approved,
+      legal: approvedOf(input.legal),
+      finance: approvedOf(input.finance),
+      cfo: approvedOf(input.cfo),
+      coo: approvedOf(input.coo),
     });
     return Promise.resolve({ text: "escalated" });
   }
@@ -301,9 +304,8 @@ export class JoinExpiryLog implements OnExecutionEnd, OnExecutionError {
   environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],
   providers: [
-    ApproverDeskChannel,
+    JoinApproverDeskChannel,
     JoinFailedPauseListener,
-    SeenPausedExecutionRepository,
     RecordingLogger,
   ],
   observers: [JoinExpiryLog],

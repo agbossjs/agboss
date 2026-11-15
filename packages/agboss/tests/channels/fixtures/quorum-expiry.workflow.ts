@@ -6,8 +6,6 @@ import {
   FailurePolicy,
   Router,
   SpawnPolicy,
-  type RouterAnswerOf,
-  type RouterHandler,
   ChannelOf,
   ChannelOutcome,
   ChannelRole,
@@ -187,7 +185,7 @@ export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
   send(
     ask: ChannelAsk<ShortRefundApprovalChannel>,
   ): Promise<ChannelOutcome<ShortRefundApprovalChannel>> {
-    qe.shortAsks.push({ pauseId: ask.pauseId, orderId: ask.value.orderId });
+    qe.shortAsks.push({ pauseId: ask.pauseId, orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.value))?.[1] ?? "?" });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -379,18 +377,16 @@ export class PlainExpiryHandledWorkflow {}
 @Router({
   name: "skip-panel-router",
   description: "Launches both desks; the short policy desk's failure drops it",
-  decidedBy: DecidedBy.Code,
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: "Pick the desks the order needs.",
   input: { request: RefundRequestDto },
   routes: [
     { target: ShortPolicyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-    { target: ShortRiskAgent, spawn: SpawnPolicy.OnDemand },
+    { target: ShortRiskAgent, spawn: SpawnPolicy.OnDemand, prompt: "The order is risky" },
   ],
 })
-export class SkipPanelRouter implements RouterHandler<SkipPanelRouter> {
-  route(): RouterAnswerOf<SkipPanelRouter> {
-    return [ShortRiskAgent];
-  }
-}
+export class SkipPanelRouter {}
 
 @WorkflowStart({
   name: "skip-expiry-workflow-start",

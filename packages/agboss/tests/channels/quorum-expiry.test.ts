@@ -5,10 +5,10 @@
  */
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { BranchStatus, PauseResolution, PauseStatus } from "../../src/index.js";
+import { BranchStatus, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
 import { PauseExpiredError } from "../../src/flow/runtime/pause-expired-error.js";
 import { QuorumNotReachedError } from "../../src/flow/runtime/launch/quorum-errors.js";
-import { callTool, replyWith, testWith } from "../../src/testing/index.js";
+import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { answerFor, askFor, manager, until } from "./fixtures/pause-scripts.js";
@@ -27,6 +27,7 @@ import {
   QuorumExpiryOneWorkflowStart,
   QuorumExpiryShortOneWorkflowStart,
   SkipExpiryWorkflowStart,
+  SkipPanelRouter,
   QuorumExpiryShortWorkflowStart,
   PlainExpiryHandledWorkflowStart,
   PlainExpiryWorkflowStart,
@@ -87,7 +88,9 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
     await until(() => seen.closed.some((event) => event.orderId === "F"));
     for (let tick = 0; tick < 200; tick += 1) await new Promise((r) => setImmediate(r));
     expect(
-      seen.closed.filter((event) => event.orderId === "F" && event.reason === "expired"),
+      seen.closed.filter(
+        (event) => event.orderId === "F" && event.reason === PauseClosedReason.Expired,
+      ),
     ).toHaveLength(1);
   });
 
@@ -254,6 +257,7 @@ describe("Q11: a plain .join() with FailurePolicy.Skip", () => {
     clock,
     mockLlm,
   }) => {
+    mockLlm(SkipPanelRouter).thenReturn(decideWith({ "short-risk-agent": 0.9 }));
     mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
     mockLlm(ShortRiskAgent).thenReturn(score(9));
     const paused = await execute(app, SkipExpiryWorkflowStart, ORDER);

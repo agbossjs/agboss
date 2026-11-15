@@ -21,6 +21,7 @@ import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, Looku
 import type { PublicExpiryWorkflow, PublicExpiryWorkflowStart } from "../tests/flow/fixtures/expiry-public.fixture.js";
 import type { DirectorQuestion, ExpiryDoneDto, ExpiryWorkflow, ExpiryWorkflowFinish, ExpiryWorkflowStart, ManagerQuestion, OwnerQuestion, OwnerWorkflow, OwnerWorkflowStart, PlainWorkflow, PlainWorkflowStart, RecordEscalatedAction, RecordExpiryAction, ReviewerQuestion, ReviewerWorkflow, ReviewerWorkflowStart, ShortExpiryWorkflow, ShortExpiryWorkflowStart, SlowEscalationAction, SlowExpiryWorkflow, SlowExpiryWorkflowStart } from "../tests/flow/fixtures/expiry.fixture.js";
 import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
+import type { ApprovalRequestDto, ApproveInThirtyTool, ApproveTool, CfoApproverAgent, CfoDecisionDto, CooApproverAgent, CooDecisionDto, EscalateToCeoAction, EscalationDto, FinanceApproverAgent, FinanceDecisionDto, JoinApproverQuestion, JoinExpiryApprovedWorkflowFinish, JoinExpiryEscalatedWorkflowFinish, JoinExpiryWorkflow, JoinExpiryWorkflowStart, LegalApproverAgent, LegalDecisionDto } from "../tests/flow/fixtures/join-expiry.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
 import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, RejectedWorkflowFinish, VerdictAgent, VerdictWorkflow, VerdictWorkflowStart } from "../tests/flow/fixtures/markers.fixture.js";
@@ -72,6 +73,7 @@ declare module "../src/flow/generated-types.js" {
     "buyer-agent": NoOutput;
     "buyer-workflow-start": WorkflowStartTextDto;
     "candidate-review-workflow-start": CandidateDto;
+    "cfo-approver-agent": CfoDecisionDto;
     "charge-card-action": ChargeResultDto;
     "charge-payment-action": PaymentDto;
     "chart-merger-agent": TeamChartDto;
@@ -92,6 +94,7 @@ declare module "../src/flow/generated-types.js" {
     "company-search-workflow-start": WorkflowStartTextDto;
     "company-shortlist-agent": CompanyShortlistDto;
     "company-vet-agent": CompanyCheckDto;
+    "coo-approver-agent": CooDecisionDto;
     "credit-workflow-start": WorkflowStartTextDto;
     "critic-agent": CritiqueDto;
     "critic-panel-agent": DealCritiqueDto;
@@ -116,6 +119,7 @@ declare module "../src/flow/generated-types.js" {
     "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": OfferDraftDto;
     "escalate-refund-action": AgentRefundDoneDto;
+    "escalate-to-ceo-action": EscalationDto;
     "expert-answer-agent": ExpertDraftDto;
     "expiring-director-question": ExpiryDecisionDto;
     "expiring-manager-question": ExpiryDecisionDto;
@@ -138,6 +142,7 @@ declare module "../src/flow/generated-types.js" {
     "fast-panel-agent": FastScreenDto;
     "fast-screen-agent": FastScreenDto;
     "final-reviewer-agent": ReviewDto;
+    "finance-approver-agent": FinanceDecisionDto;
     "first-draft-agent": OfferDraftDto;
     "fit-review-workflow-start": CandidateDto;
     "fit-summary-agent": FitSummaryDto;
@@ -152,7 +157,9 @@ declare module "../src/flow/generated-types.js" {
     "item-blind-agent": CompanyCheckDto;
     "job-offer-agent": JobOfferDto;
     "job-offer-workflow-start": WorkflowStartTextDto;
+    "join-expiry-workflow-start": ApprovalRequestDto;
     "legal-agent": LegalReviewDto;
+    "legal-approver-agent": LegalDecisionDto;
     "legal-panel-agent": LegalReviewDto;
     "link-offer-workflow-start": readonly [WorkflowStartTextDto, CompanyLinkDto];
     "lookup-agent": NoOutput;
@@ -302,6 +309,7 @@ declare module "../src/flow/generated-types.js" {
     "buyer-workflow-finish": NoInput;
     "buyer-workflow-start": WorkflowStartTextDto;
     "candidate-review-workflow-start": CandidateDto;
+    "cfo-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
     "charge-card-action":
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
       | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval?: undefined };
@@ -334,6 +342,7 @@ declare module "../src/flow/generated-types.js" {
     "company-shortlist-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyVetAgent>[] };
     "company-shortlist-workflow-finish": NoInput;
     "company-vet-agent": { company: Produced<CompanyDto, typeof BoardSearchAgent> };
+    "coo-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
     "credit-limit-by-model-router": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
     "credit-limit-router": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
     "credit-workflow-finish": NoInput;
@@ -371,6 +380,7 @@ declare module "../src/flow/generated-types.js" {
     "edge-twice-workflow-start": WorkflowStartTextDto;
     "editor-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewerAgent> };
     "escalate-refund-action": { request: Produced<AgentRefundDto, typeof AgentExpiryWorkflowStart> };
+    "escalate-to-ceo-action": { legal: Produced<LegalDecisionDto, typeof LegalApproverAgent>; finance: Produced<FinanceDecisionDto, typeof FinanceApproverAgent>; cfo: Produced<CfoDecisionDto, typeof CfoApproverAgent>; coo: Produced<CooDecisionDto, typeof CooApproverAgent> };
     "expense-reply-interpreter": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ExpenseRequestDto }; readonly reply: string };
     "expert-answer-agent":
       | { message: Produced<WorkflowStartTextDto, typeof SupportWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderAgent>; loyalty: Produced<LoyaltyOfferDto, typeof LoyaltyAgent> }
@@ -398,6 +408,7 @@ declare module "../src/flow/generated-types.js" {
     "fast-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "fast-screen-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
     "final-reviewer-agent": { article: Produced<ArticleDto, typeof WriterAgent> };
+    "finance-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
     "first-draft-agent": { shortlist: Produced<ShortlistDto, typeof HistoryOfferWorkflowStart> };
     "fit-review-workflow-start": CandidateDto;
     "fit-summary-agent":
@@ -428,7 +439,11 @@ declare module "../src/flow/generated-types.js" {
     "job-offer-agent": { grade: Produced<CompanyGradeDto, typeof CompanyReviewWorkflow | typeof TwinGradeWorkflow> };
     "job-offer-workflow-finish": NoInput;
     "job-offer-workflow-start": WorkflowStartTextDto;
+    "join-expiry-approved-workflow-finish": NoInput;
+    "join-expiry-escalated-workflow-finish": NoInput;
+    "join-expiry-workflow-start": ApprovalRequestDto;
     "legal-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
+    "legal-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
     "legal-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
     "lookup-agent": { message: Produced<AskDto, typeof AskWorkflowStart> };
@@ -639,6 +654,7 @@ declare module "../src/flow/generated-types.js" {
     "edge-twice-question": SpendingLimitAnswerDto;
     "edge-twice-reply-interpreter": SpendingLimitAnswerDto;
     "escalate-refund-action": AgentRefundDoneDto;
+    "escalate-to-ceo-action": EscalationDto;
     "expense-reply-interpreter": Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ExpenseRequestDto };
     "expiring-director-question": ExpiryDecisionDto;
     "expiring-manager-question": ExpiryDecisionDto;
@@ -657,6 +673,8 @@ declare module "../src/flow/generated-types.js" {
     "hand-over-workflow-finish": HandOverDto;
     "help-desk-workflow-finish": CustomerReplyDto;
     "job-offer-workflow-finish": JobOfferDto;
+    "join-expiry-approved-workflow-finish": CooDecisionDto;
+    "join-expiry-escalated-workflow-finish": EscalationDto;
     "manual-quote-workflow-finish": QuoteRequestDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
     "mark-unit-failed-action": OrgChartFailedDto;
@@ -768,6 +786,7 @@ declare module "../src/flow/generated-types.js" {
     "history-offer-workflow-start": { input: ShortlistDto; output: DraftChangesDto };
     "intake-workflow-start": { input: WorkflowStartTextDto; output: OpeningsDto | ResumeMissingDto | WorkflowStartTextDto };
     "job-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "join-expiry-workflow-start": { input: ApprovalRequestDto; output: CooDecisionDto | EscalationDto };
     "link-offer-workflow-start": { input: { message: WorkflowStartTextDto; link: CompanyLinkDto }; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
     "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto };
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
@@ -847,6 +866,7 @@ declare module "../src/flow/generated-types.js" {
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(deal-critic-agent, deal-critic-agent)": readonly DealCritiqueDto[];
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(fast-screen-agent)": FastScreenDto;
     "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(legal-agent, deal-critic-agent)": readonly [LegalReviewDto, readonly DealCritiqueDto[]];
+    "toParallelAgents(legal-approver-agent, finance-approver-agent, cfo-approver-agent, coo-approver-agent)": readonly [CfoDecisionDto, CooDecisionDto, FinanceDecisionDto, LegalDecisionDto];
     "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent)": readonly [DealCritiqueDto, FastScreenDto, LegalReviewDto];
     "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(critic-panel-agent)": DealCritiqueDto;
     "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(fast-panel-agent)": FastScreenDto;
@@ -882,6 +902,7 @@ declare module "../src/flow/generated-types.js" {
     "extendable-manager-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
     "extendable-open-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
     "extendable-owner-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
+    "join-approver-question-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ApprovalRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ApprovalRequestDto } };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
     "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
@@ -899,6 +920,7 @@ declare module "../src/flow/generated-types.js" {
     "board-search-agent": never;
     "broken-agent": never;
     "buyer-agent": "approver-question" | "order-tool";
+    "cfo-approver-agent": "approve-in-30-tool";
     "chart-merger-agent": never;
     "company-audit-agent": never;
     "company-check-agent": never;
@@ -908,6 +930,7 @@ declare module "../src/flow/generated-types.js" {
     "company-reviewer-agent": never;
     "company-shortlist-agent": never;
     "company-vet-agent": never;
+    "coo-approver-agent": "approve-tool";
     "critic-agent": never;
     "critic-panel-agent": "wait-tool";
     "culture-score-agent": never;
@@ -928,6 +951,7 @@ declare module "../src/flow/generated-types.js" {
     "fast-panel-agent": "wait-tool";
     "fast-screen-agent": never;
     "final-reviewer-agent": never;
+    "finance-approver-agent": "approve-tool";
     "first-draft-agent": never;
     "fit-summary-agent": never;
     "full-review-agent": never;
@@ -936,6 +960,7 @@ declare module "../src/flow/generated-types.js" {
     "item-blind-agent": never;
     "job-offer-agent": never;
     "legal-agent": never;
+    "legal-approver-agent": "approve-tool";
     "legal-panel-agent": "wait-tool";
     "lookup-agent": "lookup-tool";
     "loyalty-agent": never;
@@ -986,6 +1011,7 @@ declare module "../src/flow/generated-types.js" {
     "AgentRefundDoneDto": AgentRefundDoneDto;
     "AgentRefundDto": AgentRefundDto;
     "ApprovalDto": ApprovalDto;
+    "ApprovalRequestDto": ApprovalRequestDto;
     "ApprovedVerdictDto": ApprovedVerdictDto;
     "ApproverAnswerDto": ApproverAnswerDto;
     "ArticleDraftDto": ArticleDraftDto;
@@ -995,6 +1021,7 @@ declare module "../src/flow/generated-types.js" {
     "AuditDto": AuditDto;
     "BedsDto": BedsDto;
     "CandidateDto": CandidateDto;
+    "CfoDecisionDto": CfoDecisionDto;
     "ChangesRequestedDto": ChangesRequestedDto;
     "ChargeResultDto": ChargeResultDto;
     "CompanyCheckDto": CompanyCheckDto;
@@ -1005,6 +1032,7 @@ declare module "../src/flow/generated-types.js" {
     "CompanyReviewFailedDto": CompanyReviewFailedDto;
     "CompanyScoreDto": CompanyScoreDto;
     "CompanyShortlistDto": CompanyShortlistDto;
+    "CooDecisionDto": CooDecisionDto;
     "CreditApprovalDto": CreditApprovalDto;
     "CreditOrderDto": CreditOrderDto;
     "CritiqueDto": CritiqueDto;
@@ -1019,6 +1047,7 @@ declare module "../src/flow/generated-types.js" {
     "DraftChangesDto": DraftChangesDto;
     "DraftDto": DraftDto;
     "DueDiligenceReportDto": DueDiligenceReportDto;
+    "EscalationDto": EscalationDto;
     "ExpenseRequestDto": ExpenseRequestDto;
     "ExpertDraftDto": ExpertDraftDto;
     "ExpiryDecisionDto": ExpiryDecisionDto;
@@ -1026,11 +1055,13 @@ declare module "../src/flow/generated-types.js" {
     "ExpiryOrderDto": ExpiryOrderDto;
     "FastDraftDto": FastDraftDto;
     "FastScreenDto": FastScreenDto;
+    "FinanceDecisionDto": FinanceDecisionDto;
     "FitSummaryDto": FitSummaryDto;
     "GateDto": GateDto;
     "GradedShortlistDto": GradedShortlistDto;
     "HandOverDto": HandOverDto;
     "JobOfferDto": JobOfferDto;
+    "LegalDecisionDto": LegalDecisionDto;
     "LegalReviewDto": LegalReviewDto;
     "LoyaltyOfferDto": LoyaltyOfferDto;
     "OfferDraftDto": OfferDraftDto;
@@ -1693,6 +1724,63 @@ declare module "../tests/flow/fixtures/history.fixture.js" {
   }
   interface ReviewDraftAction {
     readonly [agbossComponent]?: "review-draft-action";
+  }
+}
+
+declare module "../tests/flow/fixtures/join-expiry.fixture.js" {
+  interface ApprovalRequestDto {
+    readonly [agbossDto]?: "ApprovalRequestDto";
+  }
+  interface ApproveInThirtyTool {
+    readonly [agbossComponent]?: "approve-in-30-tool";
+  }
+  interface ApproveTool {
+    readonly [agbossComponent]?: "approve-tool";
+  }
+  interface CfoApproverAgent {
+    readonly [agbossComponent]?: "cfo-approver-agent";
+  }
+  interface CfoDecisionDto {
+    readonly [agbossDto]?: "CfoDecisionDto";
+  }
+  interface CooApproverAgent {
+    readonly [agbossComponent]?: "coo-approver-agent";
+  }
+  interface CooDecisionDto {
+    readonly [agbossDto]?: "CooDecisionDto";
+  }
+  interface EscalateToCeoAction {
+    readonly [agbossComponent]?: "escalate-to-ceo-action";
+  }
+  interface EscalationDto {
+    readonly [agbossDto]?: "EscalationDto";
+  }
+  interface FinanceApproverAgent {
+    readonly [agbossComponent]?: "finance-approver-agent";
+  }
+  interface FinanceDecisionDto {
+    readonly [agbossDto]?: "FinanceDecisionDto";
+  }
+  interface JoinApproverQuestion {
+    readonly [agbossComponent]?: "join-approver-question-channel";
+  }
+  interface JoinExpiryApprovedWorkflowFinish {
+    readonly [agbossComponent]?: "join-expiry-approved-workflow-finish";
+  }
+  interface JoinExpiryEscalatedWorkflowFinish {
+    readonly [agbossComponent]?: "join-expiry-escalated-workflow-finish";
+  }
+  interface JoinExpiryWorkflow {
+    readonly [agbossComponent]?: "join-expiry-workflow";
+  }
+  interface JoinExpiryWorkflowStart {
+    readonly [agbossComponent]?: "join-expiry-workflow-start";
+  }
+  interface LegalApproverAgent {
+    readonly [agbossComponent]?: "legal-approver-agent";
+  }
+  interface LegalDecisionDto {
+    readonly [agbossDto]?: "LegalDecisionDto";
   }
 }
 
