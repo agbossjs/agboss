@@ -121,27 +121,30 @@ describe("#500: SqliteFencedEffectRepository", () => {
         ).deleteByEndedAtBefore(before),
     ],
   ])(
-    "%s removes the cancel mark of a tree that retired before the cutoff, and keeps a later one and a tree not over (#909)",
+    "%s lifts no cancel mark (#1117): of a tree retired long before the cutoff, of one not over, of one cancelled before its first acquire",
     async (_, sweep) => {
       const stores = storesOn();
       const retired = await held(stores.leases, "execution-1");
       await held(stores.leases, "execution-3");
       await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
       await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-3" });
+      await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-4" });
       await stores.leases.retire(retired);
       await stores.clock.advance(seconds(60));
-      const later = await held(stores.leases, "execution-2");
-      await stores.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-2" });
-      await stores.leases.retire(later);
 
-      await sweep(stores, new Date(stores.clock.now().getTime() - seconds(30)));
+      await sweep(stores, new Date(stores.clock.now().getTime() + seconds(30)));
 
       const marks = stores.connection.database
         .prepare(
-          "SELECT root_execution_id FROM execution_cancel_requests ORDER BY root_execution_id",
+          `SELECT root_execution_id, lease_epoch, released FROM execution_leases
+           WHERE cancel_requested_at IS NOT NULL ORDER BY root_execution_id`,
         )
         .all();
-      expect(marks.map((row) => row.root_execution_id)).toEqual(["execution-2", "execution-3"]);
+      expect(marks).toEqual([
+        { root_execution_id: "execution-1", lease_epoch: 1, released: 3 },
+        { root_execution_id: "execution-3", lease_epoch: 1, released: 0 },
+        { root_execution_id: "execution-4", lease_epoch: 0, released: 1 },
+      ]);
     },
   );
 

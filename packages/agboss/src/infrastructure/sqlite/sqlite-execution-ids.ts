@@ -13,9 +13,12 @@ import type { SqliteConnection } from "./sqlite-connection.js";
 const EXECUTION_IDS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_ids (
   execution_id TEXT NOT NULL PRIMARY KEY, tenant_id TEXT NOT NULL);`;
 
-/** The ids of the trees a file of an older version holds, from their leases (`WHERE true`: SQLite's upsert after a `SELECT`). */
+/**
+ * The ids of the trees a file of an older version holds, from their leases — not a cancel's seed row
+ * (#1117: token 0, never held, no execution) — (`WHERE`: SQLite's upsert after a `SELECT`).
+ */
 const EXECUTION_IDS_FROM_LEASES = `INSERT INTO execution_ids (execution_id, tenant_id)
-  SELECT root_execution_id, tenant_id FROM execution_leases WHERE true
+  SELECT root_execution_id, tenant_id FROM execution_leases WHERE lease_epoch > 0
   ON CONFLICT (execution_id) DO NOTHING;`;
 
 /** #638: the executions of a file of before that made an outbound call, whatever their lease. */

@@ -17,22 +17,7 @@ import {
   SqliteConnection,
   sqliteImplementation,
 } from "./sqlite-connection.js";
-
-/**
- * The leases' table — the fenced-effect store reads it in its own transaction (#500) — and the
- * trees' cancel requests (#909), which the lease store writes and both fencing stores read in
- * their own `BEGIN IMMEDIATE` transactions: all three create both tables.
- */
-export const EXECUTION_LEASES_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_leases (
-  tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-  lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-  yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));
-CREATE TABLE IF NOT EXISTS execution_cancel_requests (
-  tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, requested_at INTEGER NOT NULL,
-  PRIMARY KEY (tenant_id, root_execution_id));`;
-
-/** The column of a yielded lease (#516), added to a file an older version wrote. */
-const YIELDED_COLUMN = ["execution_leases", "yielded", "INTEGER NOT NULL DEFAULT 0"] as const;
+import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
 
 /**
  * `released`: 0 held (or expired), 1 released by its holder, 2 closed as expired by an outbound
@@ -91,8 +76,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
-    connection.addColumn(...YIELDED_COLUMN);
+    ensureLeaseSchema(connection);
   }
 
   ping(): Promise<void> {
@@ -135,9 +119,13 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
       };
       database
         .prepare(
-          `INSERT OR REPLACE INTO execution_leases (tenant_id, root_execution_id,
+          // an upsert, never a replace: the row's cancel mark stays (#1117)
+          `INSERT INTO execution_leases (tenant_id, root_execution_id,
            holder_instance_id, lease_epoch, expires_at, released, yielded)
-           VALUES (?, ?, ?, ?, ?, 0, 0)`,
+           VALUES (?, ?, ?, ?, ?, 0, 0)
+           ON CONFLICT (tenant_id, root_execution_id) DO UPDATE SET
+             holder_instance_id = excluded.holder_instance_id, lease_epoch = excluded.lease_epoch,
+             expires_at = excluded.expires_at, released = 0, yielded = 0`,
         )
         .run(
           tenantId,

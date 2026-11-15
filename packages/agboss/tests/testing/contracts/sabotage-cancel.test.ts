@@ -4,7 +4,9 @@
  * cancel-sabotage.contract-fixture.ts in a vitest of its own) fail the cases of the guarantee: a
  * store with no cancel check fails the refusal cases and the explorer's `no-effect-after-cancel`
  * and its forced races; a store that reads the request before its transaction fails the case of a
- * cancel asked while the write is open. The core's own stores pass the same cases
+ * cancel asked while the write is open; #1117: a retention that lifts the mark (once the root's lease
+ * is retired, or by age) and a lease store whose acquire drops it fail the permanent-mark cases. The
+ * core's own stores pass the same cases
  * (tests/infrastructure/store-conformance.{in-memory,sqlite}.test.ts).
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -70,14 +72,47 @@ describe("#909 AC2: a store whose cancel fence is broken fails the cases", () =>
     );
   });
 
-  it("a retention that lifts the mark by age alone: the tree not over has its write and its intent land after the cancel", () => {
-    const target = "a retention that lifts the cancel's mark by age alone";
+  it("#1117: a retention that lifts the mark once the root's lease is retired: a live child of the tree, and one taken later, write and send after the cancel", () => {
+    const target = "a retention that lifts the cancel's mark once the root's lease is retired";
 
     expect(failedOf("fenced effect contract", target)).toContainEqual(
-      expect.stringMatching(/^#909: a cancel's mark is not lifted by the retention/),
+      expect.stringMatching(/^#1117: a cancel's mark is never lifted/),
     );
     expect(failedOf("outbound call contract", target)).toContainEqual(
-      expect.stringMatching(/^#909: a cancel's mark is not lifted by the retention/),
+      expect.stringMatching(/^#1117: a cancel's mark is never lifted/),
+    );
+  });
+
+  it("#1117: a retention that lifts the mark by age alone: the tree not over, and one cancelled before its first acquire, write and send after the cancel", () => {
+    const target = "a retention that lifts the cancel's mark by age alone";
+
+    expect(failedOf("fenced effect contract", target)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^#1117: a cancel's mark is never lifted/),
+        expect.stringMatching(/^#1117: the mark survives every release/),
+        expect.stringMatching(/^#1117: a cancel before the tree's first acquire survives/),
+      ]),
+    );
+    expect(failedOf("outbound call contract", target)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^#1117: a cancel's mark is never lifted/),
+        expect.stringMatching(/^#1117: a cancel before the tree's first acquire survives/),
+      ]),
+    );
+  });
+
+  it("#1117: a lease store whose acquire drops the mark: the next holder, and the first after an early cancel, write after the cancel", () => {
+    const target = "a lease store whose acquire drops the cancel's mark";
+
+    expect(failedOf("fenced effect contract", target)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^#1117: the mark survives every release/),
+        expect.stringMatching(/^#1117: a cancel before the tree's first acquire survives/),
+        expect.stringMatching(/^#909 AC1: a cancel before the tree's first acquire/),
+      ]),
+    );
+    expect(failedOf("outbound call contract", target)).toContainEqual(
+      expect.stringMatching(/^#1117: a cancel before the tree's first acquire survives/),
     );
   });
 });

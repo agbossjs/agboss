@@ -23,12 +23,13 @@ import type { OutboundCallRecord } from "./outbound-call.repository.js";
  * the framework's own implementations are tested across instances. Never written to disk.
  */
 export class InMemoryDatabase {
-  /** The latest lease of each tree, by `tenantId` + `rootExecutionId` (released ones kept: the epoch). */
+  /**
+   * The latest lease of each tree, by `tenantId` + `rootExecutionId` (released ones kept: the epoch),
+   * with the tree's cancel mark (#909, #1117: `cancelRequestedAt`, kept for good).
+   */
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
   /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
   readonly executionIds = new Set<string>();
-  /** The trees whose cancel was requested (#909), by `tenantId` + `rootExecutionId`: the fence's mark. */
-  readonly cancelRequests = new Map<string, CancelRequestRow>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */
@@ -70,43 +71,30 @@ export class InMemoryDatabase {
   readonly outboundCallPlaces = { highest: 0 };
 }
 
-/** A tree's durable cancel request (#909): when the lease store took it (the `Clock`'s ms). */
-export interface CancelRequestRow {
-  readonly requestedAt: number;
-}
-
 /**
- * The cancel check of the in-memory stores (#909): the key's tree has a durable cancel request and
- * the key is not an undo's — `ExecutionCancelFencedError`, nothing written or sent. After the
- * lease and mark checks and, for an effect, after the key's lookup (a stored result replays).
+ * The cancel check of the in-memory stores (#909): the key's tree — its root's lease row — carries
+ * the cancel mark (#1117: `cancelRequestedAt`, never lifted) and the key is not an undo's —
+ * `ExecutionCancelFencedError`, nothing written or sent. After the lease and mark checks and, for
+ * an effect, after the key's lookup (a stored result replays).
  */
 export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
   if (key.isCompensation === true) return;
   const tree = cancelTreeOf(key);
-  if (database.cancelRequests.has(treeKeyOf(tree.tenantId, tree.rootExecutionId)))
-    throw ExecutionCancelFencedError.of(key);
+  const row = database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId));
+  if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
 /**
- * Removes the cancel requests older than `before` (ms) whose tree is over — its lease retired
- * (#520): the fencing stores' retention (#909). Never by age alone: a tree not over (paused longer
- * than the retention, resumed on another instance) keeps its mark, so its writes stay refused.
+ * The fenced effects' retention: their results and marks stored before `before` (ms). A tree's
+ * cancel mark is never pruned (#1117): it is on the lease row, kept as the lease rows are.
  */
-function prunedCancelRequests(database: InMemoryDatabase, before: number): void {
-  for (const [tree, request] of database.cancelRequests)
-    if (request.requestedAt < before && database.executionLeases.get(tree)?.isRetired === true)
-      database.cancelRequests.delete(tree);
-}
-
-/** The fenced effects' retention: their results and marks stored, and the cancel requests, before `before` (ms). */
 export function prunedFencedBefore(database: InMemoryDatabase, before: number): void {
   const { fencedEffectMarks: marks, fencedEffectResults: results } = database;
   for (const [row, stored] of results) if (stored.storedAt < before) results.delete(row);
   for (const [scope, mark] of marks) if (mark.storedAt < before) marks.delete(scope);
-  prunedCancelRequests(database, before);
 }
 
-/** The outbound calls' retention: the intents ended, and the cancel requests, before `before` (ms). */
+/** The outbound calls' retention: the intents ended before `before` (ms); no cancel mark (#1117). */
 export function prunedCallsBefore(database: InMemoryDatabase, before: number): void {
   for (const [row, found] of database.outboundCalls)
     // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
@@ -114,7 +102,6 @@ export function prunedCallsBefore(database: InMemoryDatabase, before: number): v
       database.outboundCalls.delete(row);
       database.outboundCallOrder.delete(row);
     }
-  prunedCancelRequests(database, before);
 }
 
 /** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */
@@ -150,6 +137,12 @@ export interface ExecutionLeaseRow {
   readonly isClosedByCheck?: boolean;
   /** Retired by its holder (#520): the work under it is over, no `acquire` gets it again. */
   readonly isRetired?: boolean;
+  /**
+   * When the tree's cancel was requested (#909, the `Clock`'s ms): the fence's mark, set once and
+   * kept by every later write of the row (#1117) — no lease operation and no retention lifts it. A
+   * cancel before the tree's first acquire writes a seed row: token 0, released, never held.
+   */
+  readonly cancelRequestedAt?: number;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

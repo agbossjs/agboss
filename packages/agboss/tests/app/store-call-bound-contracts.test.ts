@@ -103,6 +103,12 @@ describe("#928 AC2: a pause resolve from the answer API", () => {
 
 const fence = testWith(CancelFenceApplication, { instances: 2 });
 
+/** The cancel marks on the lease rows of `app`'s database (#1117), when each was stamped. */
+const cancelMarksOf = (app: Parameters<typeof databaseOf>[0]): readonly number[] =>
+  [...databaseOf(app).executionLeases.values()].flatMap((row) =>
+    row.cancelRequestedAt === undefined ? [] : [row.cancelRequestedAt],
+  );
+
 describe("#928 AC2: requestCancel", () => {
   fence(
     "AC2: unanswered: app.cancel rejects; the retry writes the mark once; the next fenced write is refused ExecutionCancelFencedError",
@@ -126,10 +132,11 @@ describe("#928 AC2: requestCancel", () => {
 
       expect(error).toBeInstanceOf(StoreCallTimeoutError);
       expect(error).toMatchObject({ operation: "requestCancel", code: "store.call-timeout" });
-      const [written] = [...databaseOf(first).cancelRequests.values()];
+      const [written] = cancelMarksOf(first);
       // the retry (another instance): the mark is there, written again as it is
       expect(await second.cancel("t-2")).toEqual({ cancelled: true });
-      expect([...databaseOf(first).cancelRequests.values()]).toEqual([written]);
+      expect(cancelMarksOf(first)).toEqual([written]);
+      expect(written).toBeDefined();
 
       letAllGo();
       const ended = await moving;

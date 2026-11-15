@@ -22,6 +22,8 @@ const SHARDS = {
     configFile: "vitest.mutation.config.ts",
     mutate: [
       "src/infrastructure/execution-lease.repository.ts",
+      // #1117: the cancel mark on the in-memory lease row, kept by every write of it
+      "src/infrastructure/in-memory-cancel-mark.ts",
       "src/infrastructure/live-lease.ts",
       "src/infrastructure/fenced-effect.repository.ts",
       "src/infrastructure/in-memory-fenced-effect.repository.ts",

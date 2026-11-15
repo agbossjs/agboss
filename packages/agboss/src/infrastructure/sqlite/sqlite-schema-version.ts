@@ -6,12 +6,14 @@ import { AGBossError, type AGBossErrorOptions } from "../../core/errors.js";
  * The schema version of a SQLite file (#1104), kept in the table `agboss_schema` — not in
  * `PRAGMA user_version`, which the turn store already counts its own migrations in on this very file
  * (`src/turns/schema.ts`). 0.1.0 never stamped: a file with no stamp (0) is a 0.1.0 file (or a new
- * one): this build migrates it and stamps it `1`. A later build that
- * changes the schema raises the number; a build opening a file stamped above its own refuses it
+ * one): this build migrates it and stamps it. A build that changes the schema raises the number —
+ * `2` (#1117): each tree's cancel mark moved onto its lease row, `execution_cancel_requests` gone,
+ * so a build of `1` (which reads that table) must not open the file —; a build opening a file
+ * stamped above its own refuses it
  * (`SqliteSchemaTooNewError`) before it writes a row — what `PostgresSchemaTooNewError` does for
  * PostgreSQL. A 0.1.0 binary never reads the stamp and cannot be refused: stop it before the upgrade.
  */
-export const SQLITE_SCHEMA_VERSION = 1;
+export const SQLITE_SCHEMA_VERSION = 2;
 
 /** What a refusal knows: the version the file is stamped with and the one this build writes. */
 export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
