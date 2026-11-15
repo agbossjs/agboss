@@ -1182,10 +1182,91 @@ instance, an expiry look on any instance, all read the new deadline from the rec
 > overdue — and the pause metrics (opened, closed by reason, open now, age at the answer) are written
 > here and in [Metrics](Metrics) when #943 merges.
 
-## Deadlines in working time
+## Deadlines in working time (#944)
 
-> **TODO (#944, not on main yet):** `workingHours(n)` and a `WorkingWeek` calendar as `expiresIn`: a
-> deadline of "8 working hours" that skips nights and weekends, fixed when the pause is made.
+"Approve within 2 hours" often means 2 **working** hours: a request at 17:30 on a Thursday in Tel Aviv
+is due at 10:30 on Sunday, not 19:30 the same evening; lunch and holidays do not count. `expiresIn`,
+`remindBefore` and `extendPause`'s `expiresIn` take working durations — `workingHours(n)`,
+`workingMinutes(n)` from `@agboss/core/units`, a positive finite number (`RangeError` otherwise), at least
+`seconds(1)` as a deadline — beside plain `hours(n)`. A **calendar** turns "now + N working time" into a
+date; nothing else changes: the deadline is still one stored absolute instant, the expiry look, the
+reminder look and the answer's compare-and-set read it from the record on every instance.
+
+```ts no-check: a fragment of an @Application and a @ChannelRole — the whole application is in Configuration → workingCalendar
+@Application({
+  // …
+  workingCalendar: WorkingWeek.of({
+    timeZone: "Asia/Jerusalem",
+    days: [Weekday.Sunday, Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday, Weekday.Thursday],
+    hours: [{ from: "09:00", to: "18:00" }],
+    breaks: [{ from: "13:00", to: "14:00" }],
+    holidays: ["2026-04-22"],
+  }),
+})
+export class SupportApplication {}
+
+@ChannelRole({
+  name: "refund-approval-question",
+  // …
+  expiresIn: workingHours(2),
+  remindBefore: workingHours(1),
+})
+export abstract class RefundApprovalQuestion extends ChannelOf<RefundApprovalQuestion> {}
+```
+
+**Where a calendar comes from.** `@Application({ workingCalendar })` is the default; a role
+`@ChannelRole({ workingCalendar })` overrides it for its pauses (a concrete `@Channel` a tool names uses
+the application's). It is a built-in grid, `WorkingWeek.of(…)`, or a `@WorkingCalendar` class listed in
+`@Application({ providers })` — created by the application's container at start, one instance — that sees
+the tenant and the role and may read the application's own data (a holiday table); see [Configuration →
+`workingCalendar`](Configuration#workingcalendar--the-calendar-of-working-time-deadlines-944). A working
+duration anywhere with no calendar for its role is `[channel.working-time-without-calendar]`.
+
+**The grid's rule is pointwise.** An instant is working time when its local wall-clock time in `timeZone`,
+on its local date, lies in some `hours` interval `[from, to)` and in no `breaks` interval, and its local
+date is a working day and not a holiday. Working time between two instants is the real elapsed time of the
+working instants between them. So "2 working hours" is always 2 real hours — an hour lost to a
+spring-forward gap inside `hours` is simply not there (that day has one working hour less), in a fall-back
+overlap each local minute occurs twice and **both** occurrences are working (a break 01:15–01:45 on New
+York's 1 November is two 30-minute breaks), and nothing is counted twice or grows. `"24:00"` is the end of
+the local date; a night shift is two intervals, `22:00`–`24:00` and `00:00`–`06:00`, none lost. No overnight
+interval (`22:00`–`06:00`) in one entry. Time zones go through `Intl` (no new dependency).
+
+**Computed once.** The deadline is calculated when the pause opens, **before the channel is asked**, and
+stored in `expiresAt` (and `remindAt`); a re-entry of the step finds the record and never asks the calendar
+again. A calendar changed later — a new holiday, another grid — does **not** move open pauses; extend them
+instead. An extension computes its new deadline the same way: `calendar.add(now, expiresIn)`, in the pause's
+frame. No working-time run deadline: `app.execute(…, { deadline })` stays wall-clock and, as always, the
+smaller deadline wins and a tie goes to the run — a working deadline later than the run's is fine, the run's
+applies (`expiryBound` `RunDeadline`).
+
+**The reminder.** Both working: `remindAt = calendar.add(askedAt, expiresIn − remindBefore)`; a working
+`expiresIn` with a plain `remindBefore`: `remindAt = expiresAt − remindBefore`; a **plain** `expiresIn` with a
+working `remindBefore` is `[channel.remind-before-working-without-working-expiry]` (a calendar can only add) —
+on the role and on every override site: a `.toQuestion(Role, { expiresIn: hours(4) })` or `@Tool({ expiresIn:
+hours(4) })` over a role whose `remindBefore` is working fails the same rule. `[channel.remind-before-invalid]`
+compares the working amounts when both are working. A reminder is kept only when `askedAt < remindAt <
+expiresAt`, checked after the run's or a quorum's deadline clamped `expiresAt` — otherwise none; when
+`expiresIn − remindBefore ≤ 0` (a step no longer than the role's reminder) the calendar is not called, there
+is no reminder and the assembly warns (`[channel.remind-before-exceeds-expiry]`).
+
+**`extendPause` with working time.** `expiresAt = calendar.add(now, expiresIn)`, the reminder from `now` as
+above. A **plain** `expiresIn` for a pause whose role reminds in working time is refused with
+`DtoValidationError` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this role reminds in working time: extend
+it with workingHours / workingMinutes"); a pause whose channel has no calendar any more is refused working
+time the same way. The pause is unchanged on every refusal.
+
+**A calendar that cannot answer fails closed.** A throw, a timeout (the tool timeout, on the application's
+clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
+asked, no pause record is made** — `QuestionFailedError` (a question step) or `AgentFailedError` (an agent's
+approval or question tool) with a `WorkingCalendarError` as its `cause` (`pause.working-calendar`;
+`calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start`;
+its message never holds the calendar's own error text, which is the cause only in-process); logged as
+`pause.working-calendar-failed`. The step's re-entry asks the calendar again (no record was made). An
+extension that meets the same rejects with that `WorkingCalendarError`. There is no fallback to wall-clock
+time: that would be a deadline nobody asked for, silently. A grid with no working time at all — an unknown
+time zone, no days, a bad interval, a break outside the hours, a malformed holiday, no working minute in a
+week — is `[working-calendar.invalid]` when the application starts.
 
 ## Expiry in a quorum
 
