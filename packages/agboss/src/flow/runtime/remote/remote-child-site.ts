@@ -55,6 +55,8 @@ export function remoteSiteOf(
       input: run.input,
       initial,
       parent: parentRecordOf({ execution: frame.execution, step: frame.step }),
+      // the chain's policies the child is masked by on any instance (#1150)
+      piiPolicies: (deps.pii?.observed.policies ?? []).map((policy) => policy.name),
     },
     signal: run.signal,
   };

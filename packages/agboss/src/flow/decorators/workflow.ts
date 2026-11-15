@@ -87,8 +87,20 @@ export interface WorkflowOptions<
   readonly providers?: readonly Provider[];
   /** `@McpServer` classes its `@McpTool`s call. */
   readonly mcp?: readonly Class[];
-  /** `@PiiPolicy` classes of every agent and router, over the application's (#120: lists add up). */
+  /**
+   * `@PiiPolicy` classes of every agent and router, over the application's (#120: lists add up). A
+   * child workflow's are added to those of the workflows above it (#1150): a child is masked by its
+   * application's, every ancestor's and its own lists — in its logs, traces, events and records, and
+   * at its models.
+   */
   readonly piiPolicies?: readonly Class[];
+  /**
+   * Inherited PII policies removed at this workflow's models (#1150): an application's policy, or one
+   * a workflow that launches it lists. Its agents, routers, reply interpreters and compactions read
+   * without them; its logs, traces, events and records stay masked by every inherited policy.
+   * Excluding what is not inherited is `[pii.exclude-not-inherited]`.
+   */
+  readonly excludePiiPolicies?: readonly Class[];
   /**
    * `@InputGuardrail` / `@OutputGuardrail` classes of every agent and model router, over the
    * application's (#120: lists add up; `excludeGuardrails` on an agent or a router removes one).

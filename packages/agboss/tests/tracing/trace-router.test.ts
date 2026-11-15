@@ -16,6 +16,7 @@ import {
   MASK_FAILED,
   TraceRouter,
   WORKFLOW_ATTRIBUTE,
+  WORKFLOW_CHAIN_ATTRIBUTE,
   type TraceRoute,
 } from "../../src/tracing/trace-router.js";
 import type { TraceMask } from "../../src/tracing/types.js";
@@ -283,5 +284,71 @@ describe("#1130: TraceRouter", () => {
     expect(getLangfuseTracerProvider()).toBe(provider);
     await second?.shutdown();
     expect(getLangfuseTracerProvider()).not.toBe(provider);
+  });
+});
+
+/** One application: a root that lists a policy, its child that lists another. */
+const chainApplication = () => {
+  const processor = new KeptSpans();
+  const router = new TraceRouter();
+  const owner = {};
+  const add = (workflow: string, mask?: TraceMask) =>
+    router.addRoute({ owner, workflow, mask, settingsKey: "lf", processor: () => processor });
+  const root = add("root-workflow", hiding("ROOT-1"));
+  add("child-workflow", hiding("CHILD-2"));
+  add("other-workflow", hiding("OTHER-3"));
+  return { router, processor, root };
+};
+
+describe("#1150: a child's spans are masked by its chain", () => {
+  it("AC3: a span of a child is masked by every workflow of its chain — never by another's", async () => {
+    const { router, processor, root } = chainApplication();
+
+    const span = started(
+      router,
+      {
+        [WORKFLOW_ATTRIBUTE]: "child-workflow",
+        [WORKFLOW_CHAIN_ATTRIBUTE]: '["root-workflow","child-workflow"]',
+        "langfuse.observation.input": "ROOT-1 CHILD-2 OTHER-3",
+      },
+      root,
+    );
+    const ended = await endedOn(router, span, processor);
+
+    expect(ended?.attributes["langfuse.observation.input"]).toBe("<ROOT-1> <CHILD-2> OTHER-3");
+  });
+
+  it("AC3: a chain naming a workflow of no route masks by the application's every route (fail closed)", async () => {
+    const { router, processor, root } = chainApplication();
+
+    const span = started(
+      router,
+      {
+        [WORKFLOW_ATTRIBUTE]: "child-workflow",
+        [WORKFLOW_CHAIN_ATTRIBUTE]: '["gone-workflow","child-workflow"]',
+        "langfuse.observation.input": "ROOT-1 CHILD-2 OTHER-3",
+      },
+      root,
+    );
+    const ended = await endedOn(router, span, processor);
+
+    expect(ended?.attributes["langfuse.observation.input"]).toBe("<ROOT-1> <CHILD-2> <OTHER-3>");
+  });
+
+  it("AC3: an unreadable chain masks by the application's every route (fail closed)", async () => {
+    const { router, processor, root } = chainApplication();
+
+    const span = started(
+      router,
+      {
+        [WORKFLOW_ATTRIBUTE]: "child-workflow",
+        [WORKFLOW_CHAIN_ATTRIBUTE]: "not json",
+        "langfuse.observation.input": "ROOT-1 CHILD-2",
+      },
+      root,
+    );
+    const ended = await endedOn(router, span, processor);
+
+    expect(ended?.attributes["langfuse.observation.input"]).toBe("<ROOT-1> <CHILD-2>");
   });
 });

@@ -49,6 +49,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly providers?: readonly Provider[];
   /** `@Application({ piiPolicies })`: every agent's and router's, before the workflow's own (#120). */
   readonly piiPolicies?: readonly Class[];
+  /** `@Application({ workflows })`: the ways into a child, for the PII policies it inherits (#1150). */
+  readonly workflows?: readonly Class[];
   /** `@Application({ guardrails })`: every agent's and model router's (#120). */
   readonly guardrails?: readonly Class[];
   /** `@Application({ toolInterceptors })`: every agent's tool calls (#384). */

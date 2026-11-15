@@ -1,4 +1,5 @@
 import type { MeterProvider } from "@opentelemetry/api";
+import { withChainedChildren } from "./pii-chain.js";
 import { type AssembledWorkflow } from "../workflow.js";
 import { redactorValuesViolations } from "../files/redactor-rules.js";
 import { throwIfViolated } from "../graph/rule-error.js";
@@ -272,7 +273,7 @@ export async function createWorkflowDeps(
     clock,
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
-    ...treeDepsOf(parts.infrastructure, parts),
+    ...treeDepsOf(parts.infrastructure, withChainedChildren(parts, pii)), // #1150
     ...historyKeeperOf(parts, { clock, contexts, pii, answers: turns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };

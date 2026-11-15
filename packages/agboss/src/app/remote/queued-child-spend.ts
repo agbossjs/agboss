@@ -30,3 +30,11 @@ export async function resumedSpendOf(
     .flatMap((item) => item.answer?.usage ?? []);
   return [...pausedUsageOf(flowUsage, loops), ...replies];
 }
+
+/** Interrupt ids waiting on `before`. */
+export const interruptIdsOf = (
+  before: Awaited<ReturnType<ExecutionGraph["getState"]>>,
+): readonly string[] =>
+  before.tasks.flatMap((task) =>
+    task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
+  );

@@ -55,6 +55,12 @@ export interface RemoteChildRun {
   readonly initial: ChildInitialState;
   /** Its parent and the step that launched it. */
   readonly parent: ParentRecord;
+  /**
+   * The PII policies of the workflows above it, by `@PiiPolicy` name (#1150): its parent's
+   * observability set — what the worker masks the child with besides its own. A name the worker's
+   * application does not know fails the run (fail closed).
+   */
+  readonly piiPolicies: readonly string[];
   /** The child's own resume map when a paused child is continued (`app.resume`, #333 PR 4). */
   readonly resume?: Readonly<Record<string, string>> | undefined;
 }
@@ -141,7 +147,10 @@ function isRun(value: unknown): value is RemoteChildRun {
     typeof value.threadId === "string" &&
     isRecord(value.input) &&
     isRecord(value.initial) &&
-    isRecord(value.parent)
+    isRecord(value.parent) &&
+    // without its chain's policy names the child would be masked by its own alone (#1150)
+    Array.isArray(value.piiPolicies) &&
+    value.piiPolicies.every((name) => typeof name === "string")
   );
 }
 

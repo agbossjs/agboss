@@ -116,7 +116,8 @@ describe("#120 AC4: lists add up application → workflow → agent / router", (
     expect(result.violations[0]?.message).toContain("GovernmentPiiPolicy");
   });
 
-  it("#120 AC11: a child workflow gets its own workflow's lists over the application's", () => {
+  // #1150 supersedes #120 AC11: on a way in, a child adds its ancestors' lists (chain-assembly.test.ts)
+  it("#120 AC11: a workflow on no way in gets its own workflow's lists over the application's", () => {
     const child = effectivePiiPolicies({
       application: [ContactPiiPolicy],
       workflow: [GovernmentPiiPolicy],

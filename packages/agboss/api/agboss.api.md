@@ -9684,6 +9684,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly compaction?: Class;
     // (undocumented)
     readonly defaults?: WorkflowDefaults;
+    readonly excludePiiPolicies?: readonly Class[];
     readonly flow: TFlow;
     readonly guardrails?: readonly Class[];
     readonly maxConcurrentExecutions?: number;

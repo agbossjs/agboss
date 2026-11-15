@@ -173,7 +173,8 @@ export async function failedChild(
   assertAnnouncing(frame);
   const asError = raised instanceof Error ? raised : new Error(String(error));
   const { compensations } = undone;
-  await parent.deps.observer?.onExecutionError({
+  // the child's event, masked by its own chain like its steps' (#1150), never by its parent's alone
+  await parent.undo.child.deps.observer?.onExecutionError({
     ...eventOf(frame, ended),
     error: asError,
     compensations,

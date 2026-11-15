@@ -69,7 +69,9 @@ export interface FingerprintDeps {
 /** The PII policies at one element's model, as declared. */
 function piiMetasOf(pii: FingerprintDeps["pii"], element: string): readonly PiiPolicyMeta[] {
   if (pii === undefined) return [];
-  if ("policiesOf" in pii) return pii.policiesOf(element).policies.map((policy) => policy.meta);
+  // as declared (#1150): a child's inherited policies never change its configHash
+  if ("policiesOf" in pii)
+    return pii.declared.policiesOf(element).policies.map((policy) => policy.meta);
   // as `policiesOf` reads it (#708): a copy's node, else the workflow's policies — never none
   const classes =
     pii.byElement.get(element) ??

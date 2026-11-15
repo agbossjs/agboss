@@ -5,6 +5,7 @@ import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
 import { guardrailPartsOf, type AssembledGuardrails } from "../guardrails/assembly.js";
 import { piiAssemblyOf, type AssembledPii } from "../pii/assembly.js";
+import { inheritedPiiOf } from "../pii/inheritance.js";
 import {
   toolInterceptorPartsOf,
   type AssembledToolInterceptors,
@@ -28,6 +29,8 @@ import { lazyLoad } from "../infrastructure/clock.js";
 /** What the application gives its workflows' policies: its lists and its defaults. */
 export interface PolicyOwner {
   readonly piiPolicies?: readonly Class[];
+  /** The application's workflows: the ways into a child, for what it inherits (#1150). */
+  readonly workflows?: readonly Class[];
   readonly guardrails?: readonly Class[];
   readonly toolInterceptors?: readonly Class[];
   readonly defaults?: WorkflowDefaults;
@@ -54,8 +57,15 @@ export function piiPartsOf(
   const routers = [...graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router ? [node.declaration.options] : [],
   );
-  const levels = [owner?.piiPolicies ?? [], bundle.piiPolicies ?? []] as const;
-  const { pii, violations } = piiAssemblyOf(bundle.name, ...levels, [...agents, ...routers]);
+  const { pii, violations } = piiAssemblyOf({
+    workflowName: bundle.name,
+    application: owner?.piiPolicies ?? [],
+    workflow: bundle.piiPolicies ?? [],
+    workflowExcludes: bundle.excludePiiPolicies,
+    elements: [...agents, ...routers],
+    // what a child inherits on each static way into it (#1150)
+    inherited: inheritedPiiOf(owner?.workflows, graph.type),
+  });
   throwIfViolated(violations);
   return pii;
 }

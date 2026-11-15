@@ -2,6 +2,7 @@ import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import { runConfig } from "./paused.js";
+import { rootChainOf } from "../tracing/workflow-chain.js";
 import { RunStream } from "./stream/run-stream.js";
 import type { AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
 
@@ -108,6 +109,8 @@ export function streamConfig<TName extends string>(
       threadId,
       workflowName: deps.config.name,
       workflowVersion: deps.config.version,
+      // the workflows its spans are masked by (#1150): a root's own
+      workflowChain: rootChainOf(deps.config.name),
     },
     tags: [`tenant:${tenantId}`, deps.config.name],
     callbacks,

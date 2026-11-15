@@ -101,6 +101,8 @@ export interface WorkflowMeta {
   readonly source?: string;
   readonly defaults: AgentsConfig["defaults"];
   readonly piiPolicies?: readonly Class[];
+  /** Inherited PII policies removed at the workflow's models (#1150); never for observability. */
+  readonly excludePiiPolicies?: readonly Class[];
   /** `@InputGuardrail` / `@OutputGuardrail` classes of every agent and router, over the application's. */
   readonly guardrails?: readonly Class[];
   /** `@ToolInterceptor` classes of every agent's tool calls, over the application's (#384). */
