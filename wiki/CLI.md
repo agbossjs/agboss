@@ -237,8 +237,9 @@ skills: .agents/skills/agboss updated 0.1.0 → 0.2.0 (14 files) · linked .clau
   and then the check only reads: `current` prints nothing, anything else prints one
   `[skills.sync-failed] … another agboss check holds …` — run `npx agboss check` again. A lock of
   another host, or with an unreadable owner, is taken over after 10 minutes; one dated more than a
-  minute in the future (a clock set back, a folder from a host that runs ahead) counts as older than that at
-  once, and a dead owner's lock is cleared whole, stray files in it included. Ctrl-C releases it.
+  minute in the future (a clock set back, a folder from a host that runs ahead) is taken over 10 minutes
+  after a check first saw it, not when its date comes; a live owner on this host is never taken because
+  of a date, and a dead owner's lock is cleared whole, stray files in it included. Ctrl-C releases it.
 - **The project's links.** A symlink of the project's inside `.agents/skills/agboss/` is never
   followed: one that stays inside the project is kept as it is, one that leaves it is dropped, and
   `[skills.unmanaged-file]` names each. An interrupted move that finds the same own file with other
