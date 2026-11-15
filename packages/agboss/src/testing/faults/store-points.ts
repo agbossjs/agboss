@@ -83,6 +83,12 @@ export interface StoreMethod {
   readonly outputOf: (result: unknown) => unknown;
   /** The key once answered (a claim's child); default: the key before. */
   readonly resultKeyOf?: (result: unknown) => string | undefined;
+  /**
+   * Whether the answer is one a hold after the store answered waits for (a claim, not a claim of
+   * nothing, #1126): a poll that finds nothing — the start-up look of a store with a watch, a
+   * pass before the work is queued — is no arrival at the point. Default: every answer is.
+   */
+  readonly isHoldable?: (result: unknown) => boolean;
 }
 
 /** What the history keeps of a lease. */
@@ -239,6 +245,7 @@ export const CHILD_QUEUE_METHODS: Readonly<Record<string, StoreMethod>> = {
     inputOf: () => ({}),
     outputOf: childFacts,
     resultKeyOf: (child) => (child as QueuedChildExecution | undefined)?.executionId,
+    isHoldable: (child) => child !== undefined && child !== null,
   },
   completeByTenantIdAndExecutionId: {
     point: StoreHoldPoint.ChildComplete,

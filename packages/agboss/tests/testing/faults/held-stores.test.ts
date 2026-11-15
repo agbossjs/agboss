@@ -20,9 +20,11 @@ import {
 } from "../../../src/testing/faults/held-stores.js";
 import { HoldPhase, HoldPoints } from "../../../src/testing/faults/hold-points.js";
 import { OperationHistory, OperationPhase } from "../../../src/testing/faults/operation-history.js";
+import { PAUSE_METHODS } from "../../../src/testing/faults/a2a-points.js";
 import { StoreHoldPoint } from "../../../src/testing/faults/store-points.js";
 import { StoreOutageError, StoreOutageMode } from "../../../src/testing/faults/store-outage.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
+import { ExecutionRecordStatus } from "../../../src/infrastructure/execution-record.repository.js";
 import { seconds } from "../../../src/units/index.js";
 
 /** An in-memory lease store with hold points, of instance `instanceId`, on `database`. */
@@ -264,5 +266,61 @@ describe("#831: reportHeldOperations — a store's own process test hears its he
     expect(heldStoreState.instanceId).toBe("instance-1");
     undo();
     expect(heldStoreState.instanceId).toBe("instance-1");
+  });
+});
+
+describe("#1126: a hold after the store answered waits for a claim that found something", () => {
+  /** A child-queue store with hold points, the child queued after the store's first, empty claim. */
+  async function claimsOf(): Promise<InMemoryChildExecutionQueueRepository> {
+    const Held = withHoldPoints(InMemoryChildExecutionQueueRepository);
+    const clock = new VirtualClock();
+    const application = applicationContextOf({
+      name: "held-test",
+      version: "1.0.0",
+      instanceId: "instance-1",
+      startedAt: clock.now(),
+      environmentName: "test",
+      environment: NO_ENVIRONMENT_VALUES,
+    });
+    const Concrete: unknown = Held;
+    return new (Concrete as new (...args: unknown[]) => InMemoryChildExecutionQueueRepository)(
+      clock,
+      application,
+      new InMemoryDatabase(),
+    );
+  }
+
+  it("a claim of nothing — the start-up look of a store with a watch — passes the hold; the claim that finds the child is held", async () => {
+    const queue = await claimsOf();
+    points.arm({ point: StoreHoldPoint.ChildClaim, phase: HoldPhase.After });
+
+    expect(await queue.claimFirstByStatusQueuedOrderByDepthDesc()).toBeUndefined();
+    await queue.saveIfAbsent({
+      tenantId: "default",
+      executionId: "child-1",
+      rootExecutionId: "root-1",
+      parentExecutionId: "root-1",
+      rootWorkflow: "w",
+      workflow: "w",
+      depth: 2,
+      status: ExecutionRecordStatus.Queued,
+      run: "{}",
+      queuedAt: new Date(0),
+    });
+    const claiming = queue.claimFirstByStatusQueuedOrderByDepthDesc();
+
+    expect(await settled(claiming)).toBe(false);
+    expect(points.held).toMatchObject([{ point: "childQueue.claim", key: "child-1" }]);
+    points.releaseAll();
+    expect(await claiming).toMatchObject({ executionId: "child-1" });
+  });
+});
+
+describe("#1126: the pause notice claim's hold waits for a claim of notices, not an empty one", () => {
+  it("only a claim that took a mailbox is holdable", () => {
+    const method = PAUSE_METHODS.claimNoticesDue;
+
+    expect(method?.isHoldable?.([])).toBe(false);
+    expect(method?.isHoldable?.([{}])).toBe(true);
   });
 });

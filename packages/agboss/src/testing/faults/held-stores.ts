@@ -205,6 +205,8 @@ async function heldCall(
     throw error;
   }
   recorded(state, { ...base, phase: OperationPhase.Complete, output: method.outputOf(result) });
+  // a poll that found nothing is no arrival at an After hold (#1126)
+  if (method.isHoldable?.(result) === false) return result;
   await state.points.reach(method.point, HoldPhase.After, method.resultKeyOf?.(result) ?? key);
   return result;
 }
