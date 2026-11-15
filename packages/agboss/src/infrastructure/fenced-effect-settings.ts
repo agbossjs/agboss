@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import { AGBossError } from "../core/errors.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hours, kilobytes, minutes, type Bytes, type Milliseconds } from "../units/index.js";
@@ -83,7 +84,8 @@ export interface OutboundCallOptions {
    * `attemptTimeout` plus up to the lease's TTL, then closes the lease and reconciles; a hung attempt
    * no longer holds a yield back either (a reclaim moves its token on). **A send still hung past this
    * bound can coincide with a reconcile and a resend; the provider must deduplicate on
-   * `call.idempotencyKey` (G1).** Its late answer is fenced, never stored.
+   * `call.idempotencyKey` (G1).** Its late answer is fenced, never stored. At most 24 hours
+   * (`[application.outbound-calls-invalid]`, #1141): a longer timer would fire at once.
    */
   readonly attemptTimeout?: Milliseconds;
 }
@@ -154,9 +156,15 @@ export function outboundCallsViolations(
   const { maxPayloadSize, attemptTimeout } = options ?? {};
   const isTimeoutValid =
     attemptTimeout === undefined || (Number.isFinite(attemptTimeout) && attemptTimeout > 0);
-  const timeout = isTimeoutValid
-    ? []
-    : [`attemptTimeout is ${String(attemptTimeout)} ms, not a positive duration`];
+  const tooLong =
+    attemptTimeout === undefined
+      ? undefined
+      : timerProblemOf("attemptTimeout", attemptTimeout, MAX_TIMEOUT);
+  const timeout = !isTimeoutValid
+    ? [`attemptTimeout is ${String(attemptTimeout)} ms, not a positive duration`]
+    : tooLong === undefined
+      ? []
+      : [tooLong];
   const problems = [...sizeProblems("maxPayloadSize", maxPayloadSize), ...timeout];
   return problems.map((problem) =>
     violation(

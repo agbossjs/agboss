@@ -17,7 +17,7 @@ export default defineConfig({
     // the contract fixtures run only inside tests/testing/contracts (#481: a nested vitest)
     exclude: EXCLUDED,
     // the workflow matchers (agboss/testing/setup in a project)
-    setupFiles: ["./src/testing/setup.ts"],
+    setupFiles: ["./src/testing/setup.ts", "./tests/setup/no-timer-overflow.ts"],
     projects: [
       {
         extends: true,

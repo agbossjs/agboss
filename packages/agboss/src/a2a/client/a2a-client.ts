@@ -9,7 +9,7 @@ import { CardCache, type Wire } from "./a2a-card-cache.js";
 import {
   agentNameOf,
   allowedOriginsOfClass,
-  checkedCallKey,
+  checkedCall,
   contractOfClass,
   deadlineOf,
   urlOf,
@@ -196,7 +196,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     taskId: string | undefined,
     call: A2AClientCall,
   ): Promise<Settled> {
-    const key = checkedCallKey(this.#agent, call.key);
+    const key = checkedCall(this.#agent, call);
     const wire = await this.#wire(call.signal);
     const { activation, skill } = activatedMeshOf(wire, {
       agent: this.#agent,

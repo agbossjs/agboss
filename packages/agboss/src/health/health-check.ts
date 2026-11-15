@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
@@ -122,7 +123,7 @@ export interface HealthCheckHandler {
 export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly Token[]> {
   /** Ends with `-health-check` (`crm-health-check`), unique in the application. */
   readonly name: string;
-  /** How long `check()` may take (`seconds(2)`): past it the check is `Unhealthy`, timed out. */
+  /** How long `check()` may take (`seconds(2)`): past it the check is `Unhealthy`, timed out; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
   readonly timeout: Milliseconds;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
   readonly deps?: TDeps;
@@ -184,7 +185,13 @@ function listedViolations(application: string, cls: Class): RuleViolation[] {
     ];
   }
   const problem = kindSuffixProblem(meta.name, NameKind.HealthCheck);
-  return problem === undefined ? [] : [violation(problem.code, problem.message, [application])];
+  const tooLong = timerProblemOf("timeout", meta.timeout, MAX_TIMEOUT);
+  return [
+    ...(problem === undefined ? [] : [violation(problem.code, problem.message, [application])]),
+    ...(tooLong === undefined
+      ? []
+      : [violation("limits.timeout-invalid", `${meta.name}: ${tooLong}`, [application])]),
+  ];
 }
 
 /** Two listed checks with one name: their reports could not be told apart. */

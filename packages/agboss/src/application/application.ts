@@ -70,7 +70,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   /**
    * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
    * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
-   * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease.
+   * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease. At most 24 hours (`[limits.timeout-invalid]`, #1141): a longer timer would fire at once.
    */
   readonly shutdownTimeout?: Milliseconds;
   /**
@@ -116,7 +116,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * because no path could — its finished branches when a join fails — runs with a clean-up
    * `executionContext.signal` that aborts after this (and on a lost lease or the app's stop), not
    * the execution's; the wait for the launch's steps still running before the undo has the same
-   * bound. Default `seconds(15)`.
+   * bound. Default `seconds(15)`; at most 24 hours (`[limits.timeout-invalid]`, #1141).
    */
   readonly compensationTimeout?: Milliseconds;
   /**

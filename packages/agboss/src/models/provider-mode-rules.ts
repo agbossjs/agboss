@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
@@ -99,5 +100,23 @@ export function providerFieldsViolations(
       `${modelProviderOf(cls).name} (${cls.name}) sets no requestFields — an OpenAI-compatible ` +
       "provider says which request fields it sends: override readonly requestFields = {} (none)";
     return violation("model-provider.request-fields-missing", message, [application]);
+  });
+}
+
+/**
+ * `[limits.timeout-invalid]` (#1141) for every listed model provider and breaker fallback whose
+ * `timeout` is above its maximum: a call's timer would fire at once.
+ */
+export function providerTimeoutViolations(
+  application: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  return classes.flatMap((cls) => {
+    const { name, timeout } = modelProviderOf(cls);
+    const problem = timerProblemOf("timeout", timeout, MAX_TIMEOUT);
+    return problem === undefined
+      ? []
+      : [violation("limits.timeout-invalid", `${name} (${cls.name}): ${problem}`, [application])];
   });
 }

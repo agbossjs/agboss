@@ -1,3 +1,4 @@
+import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { handedOverOf, recordedHandOver } from "../app/handed-over.js";
 import { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { AGBossError } from "../core/errors.js";
@@ -147,7 +148,11 @@ export function defineTool<TName extends string, TInput, TOutput>(
       `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
     );
   }
-  const timeout = definition.timeout ?? DEFAULT_TOOL_TIMEOUT;
+  const timeout = checkedTimer(
+    `tool ${definition.name}: timeout`,
+    definition.timeout ?? DEFAULT_TOOL_TIMEOUT,
+    MAX_TIMEOUT,
+  );
   const invoke = async (
     raw: unknown,
     ctx: ToolInvocationContext = standaloneCall(),

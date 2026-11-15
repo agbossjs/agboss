@@ -1,3 +1,4 @@
+import { MAX_DEADLINE, timerProblemOf } from "../units/timer-limits.js";
 import type { Class } from "../components/injection.js";
 import type { Milliseconds } from "../units/index.js";
 import {
@@ -82,6 +83,9 @@ function deadlineOf(options: object, call: string): Milliseconds | undefined {
     throw new FlowSyntaxError({
       message: `${call}({ deadline }) takes a positive duration: seconds(30), minutes(2), hours(1)`,
     });
+  const tooLong = timerProblemOf("deadline", deadline, MAX_DEADLINE);
+  if (tooLong !== undefined)
+    throw new FlowSyntaxError({ message: `${call}({ deadline }): ${tooLong}` });
   return deadline as Milliseconds;
 }
 
