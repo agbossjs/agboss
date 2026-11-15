@@ -12,7 +12,7 @@
 // one whose constructor returns a native proxying agent), "net-redirect" (`net.connect` replaced by
 // a function that connects to the target, wherever it is asked to). The optional fourth argument is
 // the fetch timeout in ms (5000 by default); a fetch that has not settled 1500 ms after its
-// timeout is reported as outcome `hung`. Prints one JSON line: the fetch's
+// timeout is reported as outcome `hung`. Reports (IPC, never stdout) one message: the fetch's
 // outcome, and whether something replaced the HTTP client (so a test never passes vacuously). No
 // top-level await: a2a-file-global-agent.test.ts bundles this file to CommonJS.
 import type * as HttpModule from "node:http";
@@ -21,6 +21,7 @@ import { createRequire, syncBuiltinESMExports } from "node:module";
 import type * as DnsModule from "node:dns";
 import type * as NetModule from "node:net";
 import type * as TlsModule from "node:tls";
+import { report } from "../../../helpers/child-channel.js";
 
 // `require`, not `import`: an ESM import of `node:https` would fix the named exports the core is
 // later loaded with before `bootstrap()` patched them
@@ -208,7 +209,7 @@ async function main(): Promise<void> {
   });
   const settled = await Promise.race([outcome, hung]);
 
-  process.stdout.write(`${JSON.stringify({ outcome: settled, isProxying })}\n`);
+  await report({ outcome: settled, isProxying });
   process.exit(0);
 }
 

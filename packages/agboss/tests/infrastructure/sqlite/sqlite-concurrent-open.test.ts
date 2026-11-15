@@ -3,13 +3,13 @@
  * start. The WAL switch of a fresh file can answer "database is locked" at once, whatever the busy
  * timeout — `openSqliteDatabase` retries it, bounded by the busy timeout, never a fixed sleep.
  */
-import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { startNode } from "../../helpers/process.js";
 import { openSqliteDatabase } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
 
 const SCRIPT = fileURLToPath(new URL("./concurrent-open-process.ts", import.meta.url));
@@ -24,30 +24,19 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** Starts `PROCESSES` children, releases them together once all are ready; each one's last line. */
+/** Starts `PROCESSES` children, releases them together once all are ready; each one's last report. */
 async function openTogether(path: string): Promise<string[]> {
   const children = Array.from({ length: PROCESSES }, () =>
-    spawn(process.execPath, ["--import", "tsx", SCRIPT, path], {
-      stdio: ["pipe", "pipe", "inherit"],
+    startNode(["--import", "tsx", SCRIPT, path]),
+  );
+  await Promise.all(children.map((child) => child.waitFor((message) => message === "ready")));
+  for (const child of children) child.send("go");
+  return Promise.all(
+    children.map(async (child) => {
+      await child.exited;
+      return (child.messages().at(-1) as string | undefined) ?? "";
     }),
   );
-  const ready = new Set<unknown>();
-  const outputs = children.map((child) => {
-    let output = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-      if (output.startsWith("ready\n") && !ready.has(child)) {
-        ready.add(child);
-        if (ready.size === PROCESSES) for (const each of children) each.stdin.write("go\n");
-      }
-    });
-    return new Promise<string>((resolve) => {
-      child.on("close", () => {
-        resolve(output.trim().split("\n").at(-1) ?? "");
-      });
-    });
-  });
-  return Promise.all(outputs);
 }
 
 /** A connection holding the write lock of a file still in rollback-journal mode (not WAL). */

@@ -1,14 +1,14 @@
 /**
  * #1099: one process of the racing-extensions test, on a SQLite file shared with another:
- * `node --import tsx pause-extension-process.ts <file> setup <count>` asks <count> pauses and prints their ids;
- * `... <file> extend <hours> <ids as JSON>` prints `ready`, waits for a line on stdin, then extends each
- * pause at its own wall-clock slot (the other process does the same at the same slots) and prints one
- * JSON line per pause: `{ pauseId, ok, expiresAt, previousExpiresAt, error }`;
- * `... <file> dump <ids as JSON>` prints `{ [pauseId]: expiresAt }`.
+ * `node --import tsx pause-extension-process.ts <file> setup <count>` asks <count> pauses and reports their ids;
+ * `... <file> extend <hours> <ids as JSON>` reports `ready`, waits for `go` from the parent, then extends each
+ * pause at its own wall-clock slot (the other process does the same at the same slots) and reports one
+ * message per pause: `{ pauseId, ok, expiresAt, previousExpiresAt, error }`;
+ * `... <file> dump <ids as JSON>` reports `{ [pauseId]: expiresAt }`. Results go over IPC (#1128), never stdout.
  */
-import { createInterface } from "node:readline";
 import { createAppWith } from "../../src/application/create-app.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { nextFromParent, report } from "../helpers/child-channel.js";
 import { hours } from "../../src/units/index.js";
 import { SqliteExtensionProcessApplication } from "../infrastructure/sqlite/fixtures/pause-extension-process.application.js";
 import { execute } from "../helpers/flow.js";
@@ -29,11 +29,11 @@ try {
         { orderId: `o-${String(index)}` },
         { threadId: `t-${String(index)}` },
       );
-    process.stdout.write(`${JSON.stringify(told.sent.map((ask) => ask.pauseId))}\n`);
+    await report(told.sent.map((ask) => ask.pauseId));
   } else if (mode === "extend") {
     const pauseIds = JSON.parse(second) as string[];
-    process.stdout.write("ready\n");
-    for await (const _line of createInterface({ input: process.stdin })) break;
+    await report("ready");
+    await nextFromParent();
     const begin = Math.ceil(Date.now() / 1000) * 1000 + 1000;
     for (const [index, pauseId] of pauseIds.entries()) {
       const wait = begin + index * SLOT_MS - Date.now();
@@ -51,17 +51,16 @@ try {
             error: error instanceof Error ? error.name : String(error),
           }),
         );
-      process.stdout.write(`${JSON.stringify({ pauseId, ...outcome })}\n`);
+      await report({ pauseId, ...outcome });
     }
   } else {
     const store = app.resolve(PausedExecutionRepository);
     const dump: Record<string, string | undefined> = {};
     for (const pauseId of JSON.parse(first) as string[])
       dump[pauseId] = (await store.findByTenantIdAndPauseId("default", pauseId))?.expiresAt;
-    process.stdout.write(`${JSON.stringify(dump)}\n`);
+    await report(dump);
   }
 } finally {
   await app.close();
 }
-// the barrier's stdin keeps the process alive
 process.exit(0);
