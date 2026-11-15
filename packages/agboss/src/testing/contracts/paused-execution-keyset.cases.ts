@@ -122,9 +122,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
       for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
       const at = new Date(minute(5));
       const scan = (limit: number, after?: PauseScanAfter) =>
-        expiresAt === "expiresAt"
-          ? second.findPendingByExpiresAtBefore(at, limit, after)
-          : second.findPendingByRemindAtBefore(at, limit, after);
+        second.findPendingByExpiresAtBefore(at, limit, after);
       const whole = await scan(10);
 
       const paged: PauseRecord[] = [];
@@ -150,9 +148,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
       for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
       const at = new Date(minute(5));
       const scan = (limit: number, after?: PauseScanAfter) =>
-        remindAt === "expiresAt"
-          ? second.findPendingByExpiresAtBefore(at, limit, after)
-          : second.findPendingByRemindAtBefore(at, limit, after);
+        second.findPendingByRemindAtBefore(at, limit, after);
       const whole = await scan(10);
 
       const paged: PauseRecord[] = [];
