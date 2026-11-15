@@ -12,6 +12,8 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
+      // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
+      "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
       "tests/a2a/client/a2a-client-{units,accept.units,mesh.units,hardening,wire,in-execution,files,direct,finishes-app}.test.ts",
       "tests/mesh/mesh-audience.test.ts",
       "tests/mcp/mcp-mesh-trust.test.ts",
