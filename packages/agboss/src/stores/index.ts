@@ -80,7 +80,9 @@ export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.j
 export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
 export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";
 export { pausedRunOfValue } from "../infrastructure/stored-run.js";
+// a stored text that is no JSON is refused the same way (#1121): the coded error, no text in it
 export {
+  parsedStoredJson,
   StoredNamesUnreadableError,
   type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";

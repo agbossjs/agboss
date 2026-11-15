@@ -1504,6 +1504,9 @@ export interface OutdatedValueRecord extends ScopeValueRecord {
 }
 
 // @public
+export function parsedStoredJson(what: string, text: string, ids: Readonly<Record<string, string | undefined>>, reviver?: (key: string, value: unknown) => unknown): unknown;
+
+// @public
 export interface PauseAnswer {
     readonly answeredBy: string | undefined;
     // (undocumented)
@@ -2054,6 +2057,7 @@ export interface StoredNamesUnreadableErrorOptions {
     readonly fields: string;
     // (undocumented)
     readonly ids: string;
+    readonly isNotJson?: boolean;
     // (undocumented)
     readonly record: string;
 }

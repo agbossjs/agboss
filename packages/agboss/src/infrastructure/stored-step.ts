@@ -59,6 +59,8 @@ export interface StoredNamesUnreadableErrorOptions {
   readonly ids: string;
   readonly fields: string;
   readonly cause?: unknown;
+  /** The text is no JSON at all (#1121): the message says so, not "the field(s) … missing". */
+  readonly isNotJson?: boolean;
 }
 
 /**
@@ -81,11 +83,12 @@ export class StoredNamesUnreadableError extends AGBossError {
   declare readonly fields: string;
 
   constructor(options: StoredNamesUnreadableErrorOptions) {
-    const { record, ids, fields, cause } = options;
-    super(
-      `a stored ${record} is not readable${ids === "" ? "" : ` (${ids})`}: the field(s) ${fields} missing or not what the framework wrote`,
-      { cause },
-    );
+    const { record, ids, fields, cause, isNotJson } = options;
+    const why =
+      isNotJson === true
+        ? "the text is not valid JSON"
+        : `the field(s) ${fields} missing or not what the framework wrote`;
+    super(`a stored ${record} is not readable${ids === "" ? "" : ` (${ids})`}: ${why}`, { cause });
     Object.assign(this, { record, ids, fields });
   }
 }
@@ -99,6 +102,47 @@ const idsOf = (value: unknown, keys: readonly string[]): string =>
       return typeof id === "string" ? [`${key} ${id}`] : [];
     })
     .join(", ");
+
+/**
+ * The cause of a text that is no JSON: a parser's own message quotes the text it failed on
+ * (`startInput`, the caller's PII, #906 D4), so the cause keeps only what is no content — that it
+ * is no JSON, and where the parser stopped.
+ */
+function noJsonCause(parseError: unknown): SyntaxError {
+  const position = /at position (\d+)/.exec(
+    parseError instanceof Error ? parseError.message : "",
+  )?.[1];
+  return new SyntaxError(
+    `the text is not valid JSON${position === undefined ? "" : ` (at position ${position})`}`,
+  );
+}
+
+/**
+ * The text a store kept as JSON (#1121), or unreadable: a text that is no JSON is refused as a value
+ * that fails its schema is — `StoredNamesUnreadableError`, `what` and `ids` (the store's own keys of
+ * the row, `undefined` ones left out) named, never the text. The `cause` is a `SyntaxError` of the
+ * parse without the text the parser quotes.
+ */
+export function parsedStoredJson(
+  what: string,
+  text: string,
+  ids: Readonly<Record<string, string | undefined>>,
+  reviver?: (key: string, value: unknown) => unknown,
+): unknown {
+  try {
+    return JSON.parse(text, reviver) as unknown;
+  } catch (error) {
+    throw new StoredNamesUnreadableError({
+      record: what,
+      ids: Object.entries(ids)
+        .flatMap(([key, id]) => (id === undefined ? [] : [`${key} ${id}`]))
+        .join(", "),
+      fields: "(the text)",
+      cause: noJsonCause(error),
+      isNotJson: true,
+    });
+  }
+}
 
 /**
  * `value` read with `schema`, or unreadable: the error names what it was, the ids of the record
@@ -174,4 +218,4 @@ export const pauseAnswerRecordOfValue = (value: unknown): PauseAnswerRecord =>
 
 /** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
 export const pauseAnswerRecordOfJson = (text: string): PauseAnswerRecord =>
-  pauseAnswerRecordOfValue(JSON.parse(text));
+  pauseAnswerRecordOfValue(parsedStoredJson("pause answer", text, {}));
