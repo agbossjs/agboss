@@ -6,7 +6,7 @@ import {
   type JoinEdge,
   type ValueWrite,
 } from "./flow-graph.js";
-import { producersOfSlot } from "./join-groups.js";
+import { producersOfSlot, type JoinGroup } from "./join-groups.js";
 import {
   isAboutWritten,
   outdate,
@@ -20,6 +20,7 @@ import {
   slotOfDto,
   slotOfValue,
   slotOfWrite,
+  SlotStatus,
   type AbstractScope,
   type SlotKey,
 } from "./scope.js";
@@ -131,6 +132,24 @@ function joinWrites(
   });
 }
 
+/**
+ * The settled answers of a failed launch on its `.onJoinError(…)` side path (#945): each branch
+ * output is one optional slot (it may have answered or not) — never one scope per subset —, a
+ * list the finished items' list. A slot the scope holds already stays as it is.
+ */
+function settledAnswers(step: OutdatingStep, groups: readonly JoinGroup[]): OutdatingStep {
+  const next = new Map(step.scope);
+  for (const group of groups) {
+    if (group.shape === undefined) continue;
+    const { slot, producers } = group;
+    const base = { producers: [...producers], builtFrom: [], about: [] };
+    if (group.isSeveral) next.set(slot, { ...base, status: SlotStatus.Current, count: SEVERAL });
+    else if (next.get(slot)?.status !== SlotStatus.Current)
+      next.set(slot, { ...base, status: SlotStatus.Maybe, count: 1 });
+  }
+  return { ...step, scope: next };
+}
+
 /** Every scope an edge leads to: a join edge's values on top of its launching step's. */
 export function stepOf(
   edge: FlowEdge,
@@ -138,6 +157,10 @@ export function stepOf(
   provenance: Provenance,
 ): readonly OutdatingStep[] {
   const launched = stepAlong(edge, scope, provenance);
+  if (edge.kind === EdgeKind.JoinError && edge.settled !== undefined) {
+    const groups = edge.settled;
+    return launched.map((step) => settledAnswers(step, groups));
+  }
   const { join } = edge;
   if (edge.kind !== EdgeKind.Join || join === undefined) return launched;
   return launched.flatMap((step) => joinWrites(step, join, provenance));

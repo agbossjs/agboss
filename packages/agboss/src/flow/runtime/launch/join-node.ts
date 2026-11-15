@@ -1,16 +1,10 @@
-import type { RunnableConfig } from "@langchain/core/runnables";
-import type { ErrorRecord } from "../../../core/error-record.js";
-import type { FlowEdge } from "../../analyse/flow-graph.js";
-import { errorHandlerOf, type RuntimeGraph } from "../graph-model.js";
+import type { RuntimeGraph } from "../graph-model.js";
 import type { GraphNode } from "../node-runner.js";
-import { reportOutdating } from "../outdating-report.js";
-import { writeAndOutdate } from "../outdating.js";
-import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
-import { stepFrameAt } from "../step-frame.js";
-import { handledErrorOf, type ComponentRecords } from "../workflow-keys.js";
-import { sidePathEntered } from "../limits.js";
+import type { ExecutionStateUpdate } from "../state.js";
 import type { VisitDeps } from "../visit.js";
-import { finishedOf, joinValuesOf } from "./join-values.js";
+import { finishedOf } from "./join-values.js";
+import { failedJoined, failingRecordOf } from "./join-failure.js";
+import { joinedValues, type JoinContext } from "./join-write.js";
 import type { LaunchRegistry, LiveLaunch } from "./launch-registry.js";
 import type { BranchErrors } from "./branch-end.js";
 import {
@@ -19,11 +13,10 @@ import {
   type LaunchRecord,
   type LaunchTicket,
 } from "./records.js";
+import type { PauseStores } from "./withdrawn-pauses.js";
 import { decideQuorum, quorumNotReached, reportQuorum } from "./quorum-join.js";
-import { compensationsOfFailedJoin } from "../../compensation.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
-import { FailurePolicy } from "../../decorators/router.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
@@ -44,17 +37,8 @@ export interface JoinDeps extends VisitDeps {
   /** Where a failed join's undo actions come from (#340), and the instance's running steps. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
   readonly stepEntries?: StepEntries | undefined;
-}
-
-/** A branch's error read back from its record (another process ran it, before a crash). */
-class RecordedBranchError extends Error {
-  readonly record: ErrorRecord;
-
-  constructor(record: ErrorRecord) {
-    super(record.message);
-    this.name = record.name;
-    this.record = record;
-  }
+  /** The pause stores: a failed join tells the branches that answered (#945). */
+  readonly pauses?: PauseStores;
 }
 
 const byIndex = (first: BranchOutcomeRecord, second: BranchOutcomeRecord): number =>
@@ -93,68 +77,6 @@ function launchRecordOf(
 const visitsOf = (ticket: LaunchTicket): Record<string, number> =>
   Object.fromEntries(ticket.branches.map((branch) => [branch.node, 1]));
 
-/** A failed branch's error record (a generic one when it has none). */
-const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
-  record.error ?? { name: "Error", code: "Error", lineage: [], message: "failed" };
-
-/** A failed launch: its `.onJoinError(…)` side path, else the branch's error. */
-function failedJoin(
-  records: ComponentRecords,
-  launch: RuntimeLaunch,
-  failed: {
-    readonly record: BranchOutcomeRecord;
-    readonly node: string;
-    readonly state: ExecutionStateType;
-  },
-  cause: Error,
-): ExecutionStateUpdate {
-  const record = failureRecordOf(failed.record);
-  const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
-  if (handler !== undefined) {
-    const handled = handledErrorOf(records, record, failed.node, handler.to);
-    const entered = sidePathEntered(failed.state, record, handler.to);
-    return { lastError: record, next: handler.to, handledErrors: [handled], ...entered };
-  }
-  throw cause;
-}
-
-/** Where a join reads from: the execution's state, its config and the join's deps. */
-interface JoinContext {
-  readonly state: ExecutionStateType;
-  readonly config?: RunnableConfig;
-  readonly deps: JoinDeps;
-  /** A quorum's time in the tree's queue so far (#264): its deadline moved by it, in ms. */
-  readonly queuedFor?: number;
-}
-
-/** The branches' values into the scope on `edge`, their cascade reported under the launching step. */
-async function joinedValues(
-  launch: RuntimeLaunch,
-  edge: FlowEdge,
-  ticket: LaunchTicket,
-  finished: readonly BranchOutcomeRecord[],
-  context: JoinContext,
-): Promise<ExecutionStateUpdate> {
-  const { state, deps } = context;
-  const site = { launch, edge, ticket, finished, scope: state.scope, provenance: deps.provenance };
-  const written = joinValuesOf(site);
-  if (Object.keys(written).length === 0) return { next: edge.to };
-  const result = writeAndOutdate(state.scope, written);
-  const node = deps.graph.nodes.get(ticket.launcher);
-  if (node !== undefined && result.cascades.length > 0) {
-    const at = { node, visitNumber: ticket.visitNumber };
-    const frame = stepFrameAt(at, state, context.config, deps);
-    const outdatedSoFar = [...state.outdatedValues, ...result.outdated];
-    const report = { observer: deps.observer, config: context.config, ...frame, outdatedSoFar };
-    await reportOutdating(result.cascades, report);
-  }
-  return {
-    scope: result.scope,
-    outdatedValues: [...result.outdated],
-    next: edge.to,
-  };
-}
-
 /** The join's context with its quorum's time in the tree's queue (#264), read in this process. */
 const queuedOf = (context: JoinContext, live: LiveLaunch | undefined): JoinContext => ({
   ...context,
@@ -176,56 +98,6 @@ async function quorumJoined(
   if (decision.reached === undefined) return { launches, ...quorumNotReached(site, decision) };
   const { edge, counted } = decision.reached;
   return { launches, ...(await joinedValues(launch, edge, ticket, counted, context)) };
-}
-
-/**
- * A launch with a failed branch: its finished undoable branches undone first (#340), newest first,
- * then its `.onJoinError(…)` side path, else the branch's error.
- */
-async function failedJoined(
-  launch: RuntimeLaunch,
-  failed: { readonly record: BranchOutcomeRecord; readonly thrown: unknown },
-  site: {
-    readonly state: ExecutionStateType;
-    readonly config: RunnableConfig | undefined;
-    readonly ticket: LaunchTicket;
-    readonly deps: JoinDeps;
-  },
-): Promise<ExecutionStateUpdate> {
-  const { record, thrown } = failed;
-  const node = site.ticket.branches[record.index]?.node ?? site.ticket.launcher;
-  // the branch's error as it was thrown; read back from its record when another process ran it
-  const cause = thrown instanceof Error ? thrown : new RecordedBranchError(failureRecordOf(record));
-  const undone = await compensationsOfFailedJoin({ ...site, cause });
-  try {
-    return {
-      ...undone,
-      ...failedJoin(site.deps, launch, { record, node, state: site.state }, cause),
-    };
-  } catch (error) {
-    // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
-    await site.deps.limits.budgets.record(undone.usage ?? []);
-    throw error;
-  }
-}
-
-/**
- * The record the launch fails with: the first `Failed` branch — or, in a plain `.join()` whose
- * branch follows `FailFast`, an `Expired` one (#945); under a quorum or `Skip` an expired branch is
- * no failure.
- */
-function failingRecordOf(
-  launch: RuntimeLaunch,
-  ticket: LaunchTicket,
-  records: readonly BranchOutcomeRecord[],
-): BranchOutcomeRecord | undefined {
-  const failed = records.find((record) => record.status === BranchStatus.Failed);
-  if (failed !== undefined || launch.quorum !== undefined) return failed;
-  return records.find(
-    (record) =>
-      record.status === BranchStatus.Expired &&
-      ticket.branches[record.index]?.failure !== FailurePolicy.Skip,
-  );
 }
 
 /** The LangGraph node joining `launch`. */
@@ -251,7 +123,7 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
     const thrown = failed === undefined ? undefined : thrownOf(failed.index);
     deps.branchErrors?.forgetLaunch(ticket.launchId);
     if (failed !== undefined) {
-      const site = { state, config, ticket, deps };
+      const site = { state, config, ticket, deps, records };
       return { ...done, ...(await failedJoined(launch, { record: failed, thrown }, site)) };
     }
     const context = config === undefined ? { state, deps } : { state, config, deps };

@@ -38,6 +38,7 @@ const innerShape = (shape: InputFieldShape): InputFieldShape => {
 /** A field has no value to read in a slot: absent, or — for `historyOf` — not current. */
 const isMissing = (field: ResolvedField, slot: SlotState): boolean =>
   slot.status === SlotStatus.Absent ||
+  (field.isRequired && slot.status === SlotStatus.Maybe) ||
   (field.history !== undefined && slot.status === SlotStatus.Outdated);
 
 /** A single field whose class came from a join as a list of several values (#273): its list's state. */
@@ -86,7 +87,9 @@ function missingViolation(
   const message =
     missing.slot.status === SlotStatus.Outdated
       ? `${field.label} has no current ${inner} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
-      : `${field.label} is not produced on the path ${path}${quorumHint(context, node, field, missing.state)}`;
+      : missing.slot.status === SlotStatus.Maybe
+        ? `${field.label} reads ${inner}, which its branch may not have answered on the path ${path} — a side path of .onJoinError(…) reads the settled answers as optional(${inner})`
+        : `${field.label} is not produced on the path ${path}${quorumHint(context, node, field, missing.state)}`;
   return violation("input.missing-on-path", message, [node]);
 }
 

@@ -321,6 +321,7 @@ export interface BranchRecord {
 // @public
 export enum BranchStatus {
     Cancelled = "cancelled",
+    Expired = "expired",
     Failed = "failed",
     Finished = "finished",
     Skipped = "skipped"

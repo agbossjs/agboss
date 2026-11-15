@@ -587,7 +587,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   under (exactly that deadline is allowed) — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
   another tenant's pause is `UnknownPauseError`. An extension and the expiry look at one tick: the
   store lets one win. A channel that overrides any of `onPauseClosed`, `onPauseAnswerNotTaken`,
-  `onPauseExtended`, `onPauseExpiring` has a mailbox.
+  `onPauseExtended`, `onPauseExpiring`, `onPauseJoinFailed` has a mailbox.
 - **Deadlines in working time** (#944): `expiresIn`, `remindBefore` and `extendPause`'s `expiresIn` take
   `workingHours(n)` / `workingMinutes(n)` (`@agboss/core/units`) beside `hours(n)` — counted by a calendar:
   `@Application({ workingCalendar })`, a `@ChannelRole({ workingCalendar })` over it. `WorkingWeek.of({ timeZone,
@@ -603,6 +603,18 @@ role })` and may read the application's own data. The deadline is computed **onc
   answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
   a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
   it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
+- **Expiry in parallel launches (#945):** a branch whose pause expired ends `BranchStatus.Expired`
+  (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
+  bound by the quorum's deadline (`PauseExpiryBound.Quorum`): at it the tree wakes by itself and the
+  quorum decides — an expired branch did not vote, never fails the launch, whatever its
+  `FailurePolicy`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
+  `.join()` an expired branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the
+  launch with its `PauseExpiredError` for `.onJoinError(…)`, and the branches still waiting are
+  withdrawn. The side path of `.onJoinError(…)` reads the answers already settled as `optional(XDto)`
+  inputs of its first step (a per-item list stays a list); each branch that had answered hears
+  `onPauseJoinFailed(event)` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`) on its channel
+  and on listeners (`PauseListenerJoinFailedEvent`), once per pause, "the parallel step this answer
+  belongs to did not collect all its answers; its error path is running".
 - `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `onPauseClosed` is
   told, `PauseClosedReason.Cancelled`).
 

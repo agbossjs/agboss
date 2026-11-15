@@ -13,7 +13,12 @@ import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { answerFor, askFor, manager, until } from "./fixtures/pause-scripts.js";
 import { pauseStore, RefundTool, resetPauses, seen } from "./fixtures/pauses.workflow.js";
-import { FraudAgent, PolicyAgent, RiskAgent, RefundScoreDto } from "./fixtures/refund-panel.workflow.js";
+import {
+  FraudAgent,
+  PolicyAgent,
+  RiskAgent,
+  RefundScoreDto,
+} from "./fixtures/refund-panel.workflow.js";
 import {
   QuickScoreAgent,
   qe,
@@ -21,6 +26,7 @@ import {
   QuorumExpiryGroupsWorkflowStart,
   QuorumExpiryOneWorkflowStart,
   QuorumExpiryShortOneWorkflowStart,
+  SkipExpiryWorkflowStart,
   QuorumExpiryShortWorkflowStart,
   PlainExpiryHandledWorkflowStart,
   PlainExpiryWorkflowStart,
@@ -233,5 +239,24 @@ describe("Q11: a plain .join() follows its FailurePolicy", () => {
     expect(qe.finished).toEqual([]);
     expect(qe.errors).toEqual([]);
     expect(qe.ended[0]?.finish.name).toBe("plain-expiry-escalated-workflow-finish");
+  });
+});
+
+describe("Q11: a plain .join() with FailurePolicy.Skip", () => {
+  test("AC3: plain + Skip: the expired branch is dropped, the launch goes on", async ({
+    app,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(ShortPolicyAgent).thenReturn(callTool(ShortRefundTool, { orderId: "S" }));
+    mockLlm(ShortRiskAgent).thenReturn(score(9));
+    const paused = await execute(app, SkipExpiryWorkflowStart, ORDER);
+    expect(paused.status).toBe(ExecutionStatus.Paused);
+
+    await clock.advance(minutes(30));
+    await until(() => qe.ended.length === 1);
+
+    expect(qe.errors).toEqual([]);
+    expect(qe.finished).toEqual([["9"]]);
   });
 });

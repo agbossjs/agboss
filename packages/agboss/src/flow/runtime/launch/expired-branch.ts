@@ -54,7 +54,10 @@ export async function expiredErrorOf(
 ): Promise<ErrorRecord | undefined> {
   const key = branchKeyOf({ ...branch, executionId: site.launchExecutionId });
   const { stores, tenantId, rootExecutionId } = site;
-  const records = await stores.pauses.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId);
+  const records = await stores.pauses.findAllByTenantIdAndRootExecutionId(
+    tenantId,
+    rootExecutionId,
+  );
   const expired = records.find(
     (pause) =>
       pause.status === PauseStatus.Cancelled &&

@@ -208,6 +208,15 @@ the quorum — write .returns(optional(SkillsScoreDto)), not .returns(SkillsScor
 count every agent)
 ```
 
+## Expiry of a branch's pause (#945)
+
+A branch whose pause expired ends `BranchStatus.Expired` (`step.pause-expired` in `result.launches`), not
+`Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever the `FailurePolicy`; the quorum's
+deadline binds its pauses, so the tree wakes by itself at it, and `QuorumNotReachedError.expired` names the
+branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Skip` drops it, `FailFast` fails the
+launch with its `PauseExpiredError`; the `.onJoinError(…)` side path reads the answers already settled as
+`optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
+
 ## Arbiters
 
 `@Arbiter` (`arbiters/<name>.arbiter.ts`, a `name` ending with `-arbiter`) decides **whether an

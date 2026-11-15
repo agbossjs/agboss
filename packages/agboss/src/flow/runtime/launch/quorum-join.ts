@@ -152,7 +152,9 @@ export function quorumNotReached(
       const branch = ticket.branches[record.index];
       if (record.status !== BranchStatus.Expired || branch === undefined) return [];
       return [
-        branch.itemIndex === undefined ? branch.nodeId : `${branch.nodeId}[${String(branch.itemIndex)}]`,
+        branch.itemIndex === undefined
+          ? branch.nodeId
+          : `${branch.nodeId}[${String(branch.itemIndex)}]`,
       ];
     }),
   };

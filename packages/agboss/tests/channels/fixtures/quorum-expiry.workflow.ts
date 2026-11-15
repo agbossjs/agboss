@@ -2,6 +2,12 @@ import { Text } from "../../../src/dto/index.js";
 import {
   Agent,
   Channel,
+  DecidedBy,
+  FailurePolicy,
+  Router,
+  SpawnPolicy,
+  type RouterAnswerOf,
+  type RouterHandler,
   ChannelOf,
   ChannelOutcome,
   ChannelRole,
@@ -95,7 +101,8 @@ interface ScoresInput {
 
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.value.score)));
-  return { orderId: input.scores.map((score) => String(score.value.score)).join(",") };
+  return { orderId: input.scores.map((score) => String(score.value.score))
+    .join(",") };
 };
 
 @WorkflowStart({
@@ -369,6 +376,45 @@ export class PlainExpiryHandledWorkflowStart {}
 })
 export class PlainExpiryHandledWorkflow {}
 
+@Router({
+  name: "skip-panel-router",
+  description: "Launches both desks; the short policy desk's failure drops it",
+  decidedBy: DecidedBy.Code,
+  input: { request: RefundRequestDto },
+  routes: [
+    { target: ShortPolicyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
+    { target: ShortRiskAgent, spawn: SpawnPolicy.OnDemand },
+  ],
+})
+export class SkipPanelRouter implements RouterHandler<SkipPanelRouter> {
+  route(): RouterAnswerOf<SkipPanelRouter> {
+    return [ShortRiskAgent];
+  }
+}
+
+@WorkflowStart({
+  name: "skip-expiry-workflow-start",
+  description: "The order to refund",
+  input: RefundRequestDto,
+})
+export class SkipExpiryWorkflowStart {}
+
+/** A plain join where the short policy desk's branch is `Skip`: its expiry drops it. */
+@Workflow({
+  name: "skip-expiry-workflow",
+  version: "1.0.0",
+  flow: [
+    start(SkipExpiryWorkflowStart)
+      .returns(RefundRequestDto)
+      .toRouter(SkipPanelRouter)
+      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent)
+      .join()
+      .returns(listOf(RefundScoreDto))
+      .toFinish(QuorumExpiryWorkflowFinish),
+  ],
+})
+export class SkipExpiryWorkflow {}
+
 @Application({
   name: "quorum-expiry-application",
   version: "1.0.0",
@@ -381,6 +427,7 @@ export class PlainExpiryHandledWorkflow {}
     QuorumExpiryGroupsWorkflow,
     PlainExpiryWorkflow,
     PlainExpiryHandledWorkflow,
+    SkipExpiryWorkflow,
   ],
   providers: [
     FinanceDeskRefundApprovalChannel,

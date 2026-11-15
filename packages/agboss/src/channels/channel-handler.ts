@@ -4,6 +4,7 @@ import type {
   ChannelPauseClosedEvent,
   ChannelPauseExpiringEvent,
   ChannelPauseExtendedEvent,
+  ChannelPauseJoinFailedEvent,
 } from "../pause/notice-events.js";
 import type { ChannelOutcome } from "./channel-outcome.js";
 
@@ -52,6 +53,12 @@ export interface ChannelHandler<TRole> {
    * delivery as `onPauseClosed`.
    */
   readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
+  /**
+   * Called at least once, once per pause, when the parallel step an answered pause belongs to did
+   * not collect all its answers (#945): "the step failed on <errorCode>; its error path is running".
+   * Neutral — the workflow's handler may still carry the work on. Same delivery as `onPauseClosed`.
+   */
+  readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
 }
 
 /**
@@ -80,6 +87,11 @@ export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
 
   /** A pause this channel sent is about to expire (#942): nothing by default. */
   onPauseExpiring(event: ChannelPauseExpiringEvent<TRole>): Promise<void> {
+    return Promise.resolve(event).then(() => undefined);
+  }
+
+  /** The parallel step this answer belongs to did not collect all its answers (#945): nothing by default. */
+  onPauseJoinFailed(event: ChannelPauseJoinFailedEvent<TRole>): Promise<void> {
     return Promise.resolve(event).then(() => undefined);
   }
 }

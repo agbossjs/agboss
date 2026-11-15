@@ -57,7 +57,8 @@ const fieldLabel = (found: ChildChoice, start: ChildStart, field: ChildStartFiel
 
 /** What is wrong with a field's value in one arriving scope, if anything. */
 function problemOf(field: ChildStartField, slot: SlotState): RuleViolation["code"] | undefined {
-  if (slot.status === SlotStatus.Absent) return "input.missing-on-path";
+  if (slot.status === SlotStatus.Absent || slot.status === SlotStatus.Maybe)
+    return "input.missing-on-path";
   if (slot.status === SlotStatus.Outdated) return "input.outdated-on-path";
   return !field.isList && slot.count > 1 ? "input.several-on-path" : undefined;
 }

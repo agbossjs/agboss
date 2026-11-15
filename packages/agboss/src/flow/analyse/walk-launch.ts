@@ -164,6 +164,7 @@ export function walkJoin(
       ...cursor,
       entry: EdgeKind.JoinError,
       error: handler.error,
+      settled: joinGroupsOf(launch, (name) => walker.table.node(name)),
       depth: cursor.depth + 1,
     };
     if (walkSide(handler.path.steps, inner)) continue;

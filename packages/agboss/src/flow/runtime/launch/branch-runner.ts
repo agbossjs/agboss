@@ -34,8 +34,7 @@ import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
-import { launchPausesOf, withdrawLaunchPauses } from "./withdrawn-pauses.js";
-import { expiredErrorOf } from "./expired-branch.js";
+import { abortLaunch, settledEnd } from "./branch-settle.js";
 import { FailurePolicy } from "../../decorators/router.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
@@ -164,23 +163,6 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   return answeredEnd(run, outcome, marked, opened, run.visited());
 }
 
-/**
- * Withdraws the pending pauses under `branches` of the run's launch (#267 AC10, #337): its own when
- * it ended `Cancelled` (asked after the abort), its siblings' when it failed.
- */
-const withdrawUnder = (run: BranchRun, branches: readonly BranchTicket[]): Promise<void> =>
-  withdrawLaunchPauses(launchPausesOf(run.deps.pauses, run.state, run.config), branches);
-
-/** A failed branch aborts its launch: its siblings stop, their pending pauses are withdrawn. */
-async function abortLaunch(run: BranchRun): Promise<void> {
-  const { live, owner, ticket } = run;
-  live.controller.abort();
-  await withdrawUnder(
-    run,
-    owner.ticket.branches.filter((branch) => branch.index !== ticket.index),
-  );
-}
-
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
@@ -228,20 +210,6 @@ async function runBranch(run: BranchRun, runner: NodeRunner): Promise<BranchEnd>
   } finally {
     live.slots.release();
   }
-}
-
-/**
- * A branch that ended `Cancelled` takes back its pause; one that never ran again because its
- * launch was aborted by a quorum deadline may have had its pause expire (#945): it is `Expired`,
- * with the expiry's error, once the pause is closed — a close at or after the deadline is recorded
- * `Expired` by the store.
- */
-async function settledEnd(run: BranchRun, end: BranchEnd): Promise<BranchEnd> {
-  if (end.status !== BranchStatus.Cancelled) return end;
-  await withdrawUnder(run, [run.ticket]);
-  const site = launchPausesOf(run.deps.pauses, run.state, run.config);
-  const error = site === undefined ? undefined : await expiredErrorOf(site, run.ticket, run.state.contexts.deadline?.at);
-  return error === undefined ? end : { ...end, status: BranchStatus.Expired, error };
 }
 
 /** The LangGraph node of a branch node: it runs only as a launch's `Send`. */

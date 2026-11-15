@@ -8,6 +8,7 @@ import type {
   PauseListenerClosedEvent,
   PauseListenerExpiringEvent,
   PauseListenerExtendedEvent,
+  PauseListenerJoinFailedEvent,
   PauseListenerOpenedEvent,
 } from "./notice-events.js";
 
@@ -30,6 +31,8 @@ export interface PauseListenerHandler {
   onPauseExtended?(event: PauseListenerExtendedEvent): Promise<void>;
   /** A pause is about to expire: `remindBefore` before its deadline, once per deadline (#942). */
   onPauseExpiring?(event: PauseListenerExpiringEvent): Promise<void>;
+  /** The parallel step an answered pause belongs to did not collect all its answers (#945). */
+  onPauseJoinFailed?(event: PauseListenerJoinFailedEvent): Promise<void>;
 }
 
 /** `@PauseListener` options. */

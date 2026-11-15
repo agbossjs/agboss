@@ -54,10 +54,7 @@ function givenDeadline(pause: PauseRecord, expiresAt: string): Milliseconds {
  * as run-bound from its record alone (#945): it is the run's only when the run's own deadline is not
  * later than the pause's.
  */
-export function isRunBound(
-  pause: PauseRecord,
-  runDeadlineAt: string | undefined,
-): boolean {
+export function isRunBound(pause: PauseRecord, runDeadlineAt: string | undefined): boolean {
   if (effectiveBoundOf(pause) !== PauseExpiryBound.RunDeadline) return false;
   // a deadline recorded as the run's is the run's; only a tie of an extended pause is told apart
   if (pause.expiryBound === PauseExpiryBound.RunDeadline) return true;
