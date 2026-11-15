@@ -433,8 +433,9 @@ const order = stepOf({ step: 4 }); // 4; a missing or non-number step is -2 (NO_
 
 - **The contract.** `latestByStep(config)` returns the checkpoint of `config`'s `thread_id` and
   `checkpoint_ns` (`""` when unset) with the **greatest `metadata.step`**; equal steps go to the
-  **greatest `checkpoint_id`, compared by code unit** (not by locale: PostgreSQL `COLLATE "C"`, not the
-  database's default). A `checkpoint_id` in `config` is ignored. A checkpoint whose step is missing,
+  **greatest `checkpoint_id`, compared by code point** (#1115: UTF-8 byte order, not by locale and not
+  by UTF-16 code unit; PostgreSQL `COLLATE "C"`, not the database's default; MongoDB's own string
+  order; so `"\u{10000}"` beats `"\uFFFF"`, which a JavaScript `<` would answer the other way). A `checkpoint_id` in `config` is ignored. A checkpoint whose step is missing,
   or not a finite number, counts as **-2** (`NO_STEP`; `stepOf(metadata)` is the core's one rule —
   use it where you compute the step). The tuple is read as `getTuple` reads it (pending writes,
   parent config); a thread or namespace without a checkpoint answers `undefined`.
