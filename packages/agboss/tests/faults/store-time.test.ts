@@ -105,6 +105,38 @@ describe("#959 AC1: a declaration the store's clock contradicts fails the suite,
       }).toThrow(/store-time-mismatch/u);
   });
 
+  it("#1149: a loaded host stretches the bracket of real time, never the verdict on a clear rate", () => {
+    // the real time between the store's two reads is in [realMs, bracketMs]: 300 ms of wait, and a
+    // host that held the calls up for 3.7 s more
+    const loaded = (storeMs: number) => ({ storeMs, realMs: 300, bracketMs: 4000 });
+
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Database, loaded(1900), 10);
+      checkStoreTime(FaultStoreTime.Host, loaded(31_000), 10);
+    }).not.toThrow();
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Host, loaded(1900), 10);
+    }).toThrow(/store-time-mismatch/u);
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Database, loaded(31_000), 10);
+    }).toThrow(/store-time-mismatch/u);
+  });
+
+  it("#1149: where the stretched spans of the two times meet, the reading contradicts nothing", () => {
+    const meeting = { storeMs: 3500, realMs: 300, bracketMs: 4000 };
+
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Database, meeting, 10);
+      checkStoreTime(FaultStoreTime.Host, meeting, 10);
+    }).not.toThrow();
+  });
+
+  it("#1149: a reading with no bracket is judged on its one real span, as before", () => {
+    expect(() => {
+      checkStoreTime(FaultStoreTime.Host, { storeMs: 310, realMs: 300 }, 10);
+    }).toThrow(/store-time-mismatch/u);
+  });
+
   it("at the real clock the two times are one rate: nothing to contradict", () => {
     expect(() => {
       checkStoreTime(FaultStoreTime.Host, { storeMs: 300, realMs: 300 }, 1);

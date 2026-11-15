@@ -52,12 +52,32 @@ function release(holder: DatabaseSync): void {
 }
 
 /**
- * The open ends within the busy timeout, not at a multiple of it. A try that waits the whole timeout
- * inside SQLite (the #921 regression) takes ~9x here, so 4x is a margin a loaded machine does not
- * reach while a second SQLite-side wait still cannot pass it.
+ * How far the machine overshoots a short wait right now (ms): the worst of a few 20 ms waits. It is
+ * the scheduling delay a synchronous call on this thread can lose to a loaded host, measured, not
+ * guessed (#1149).
  */
-function expectWithinBusyTimeout(elapsed: number, busyTimeout: number): void {
-  expect(elapsed).toBeLessThan(busyTimeout * 4);
+function schedulingDelay(): number {
+  const cell = new Int32Array(new SharedArrayBuffer(4));
+  let worst = 0;
+  for (let sample = 0; sample < 5; sample += 1) {
+    const start = performance.now();
+    Atomics.wait(cell, 0, 0, 20);
+    worst = Math.max(worst, performance.now() - start - 20);
+  }
+  return worst;
+}
+
+/**
+ * The open ends within the busy timeout, not at a multiple of it. A try that waits the whole timeout
+ * inside SQLite (the #921 regression) takes ~9x here, so 4x is the margin a quiet machine does not
+ * reach while a second SQLite-side wait still cannot pass it. A loaded host adds its scheduling
+ * delay to a call it descheduled (#1149): the delay measured before and after the open — the worse
+ * of the two, doubled for the open's own several waits — is added to the margin, so the bound moves
+ * with the load and no fixed number stands for it. `delayBefore` is read before the open starts.
+ */
+function expectWithinBusyTimeout(elapsed: number, busyTimeout: number, delayBefore: number): void {
+  const delay = Math.max(delayBefore, schedulingDelay());
+  expect(elapsed).toBeLessThan(busyTimeout * 4 + delay * 2);
 }
 
 describe("#911: a new SQLite file opened by several processes at once", () => {
@@ -73,13 +93,14 @@ describe("#911: a new SQLite file opened by several processes at once", () => {
     const busyTimeout = 100;
     const holder = holdLocked(join(dir, "held.sqlite"));
 
+    const delayBefore = schedulingDelay();
     const start = performance.now();
     expect(() => openSqliteDatabase(join(dir, "held.sqlite"), busyTimeout)).toThrow(
       /database is locked/,
     );
     const elapsed = performance.now() - start;
 
-    expectWithinBusyTimeout(elapsed, busyTimeout);
+    expectWithinBusyTimeout(elapsed, busyTimeout, delayBefore);
     release(holder);
   });
 
@@ -87,13 +108,14 @@ describe("#911: a new SQLite file opened by several processes at once", () => {
     const busyTimeout = 300;
     const holder = holdLocked(join(dir, "held-long.sqlite"));
 
+    const delayBefore = schedulingDelay();
     const start = performance.now();
     expect(() => openSqliteDatabase(join(dir, "held-long.sqlite"), busyTimeout)).toThrow(
       /database is locked/,
     );
     const elapsed = performance.now() - start;
 
-    expectWithinBusyTimeout(elapsed, busyTimeout);
+    expectWithinBusyTimeout(elapsed, busyTimeout, delayBefore);
     release(holder);
   });
 
