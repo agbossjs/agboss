@@ -64,7 +64,12 @@ function signedRefusalOf(
   return isBody ? undefined : MeshRefusalCode.BodyMismatch;
 }
 
-/** Why an envelope is refused: meant for another application (#398 PR 3), or badly signed. */
+/**
+ * Why an envelope is refused: meant for another application (#398 PR 3), or badly signed. An app
+ * with no mesh settings (a host's own, made by no `@Application`) has no name to be the audience
+ * of, so nothing is checked and nothing is trusted — A2A, whose binding always has settings,
+ * checks the audience always (#961; `tests/mcp/mcp-mesh-nameless.test.ts`).
+ */
 const envelopeRefusalOf = (
   settings: MeshSettings | undefined,
   read: ReadEnvelope | undefined,
