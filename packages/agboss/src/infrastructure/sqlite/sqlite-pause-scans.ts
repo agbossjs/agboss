@@ -77,8 +77,11 @@ export class SqlitePauseScans {
     const clauses = [`p.tenant_id = ?`, `p.status IN (${marks})`];
     const values: SQLInputValue[] = [tenantId, ...filter.statuses];
     if (filter.channel !== undefined) {
-      clauses.push("p.channel = ?");
-      values.push(filter.channel);
+      // #1104: a pause an older process wrote has no `channel` column filled, its record has the channel
+      clauses.push(
+        "(p.channel = ? OR (p.channel IS NULL AND json_valid(p.pause) AND json_extract(p.pause, '$.channel') = ?))",
+      );
+      values.push(filter.channel, filter.channel);
     }
     if (filter.expiresBefore !== undefined) {
       clauses.push("p.expires_at IS NOT NULL AND p.expires_at < ?");

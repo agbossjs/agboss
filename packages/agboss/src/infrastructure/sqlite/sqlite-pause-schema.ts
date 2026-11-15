@@ -19,7 +19,8 @@ export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON paus
 CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_remind ON pauses (status, remind_at);
-CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, channel);`;
+CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, channel);
+CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;`;
 
 export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
 
@@ -64,7 +65,12 @@ const PAUSE_KIND_MIGRATION = `UPDATE pauses SET pause = json_set(json_remove(pau
 const PAUSE_EXPIRY_MIGRATION = `ALTER TABLE pauses ADD COLUMN expires_at TEXT;
 ALTER TABLE pauses ADD COLUMN remind_at TEXT;
 ALTER TABLE pauses ADD COLUMN channel TEXT;`;
-const PAUSE_CHANNEL_BACKFILL = `UPDATE pauses SET channel = json_extract(pause, '$.channel') WHERE channel IS NULL;`;
+/**
+ * #1104: it runs at every open, not once with the column: a process of an older version still on the
+ * file inserts pauses with no `channel` (its INSERT names none). `pauses_without_channel` makes it a
+ * look at those rows only; a page filtered by channel finds them before this runs (`sqlite-pause-scans.ts`).
+ */
+export const PAUSE_CHANNEL_BACKFILL = `UPDATE pauses SET channel = json_extract(pause, '$.channel') WHERE channel IS NULL AND json_valid(pause);`;
 
 /**
  * #935: `seq`, the insertion sequence a page's cursor reads, is a declared `INTEGER PRIMARY KEY
@@ -85,14 +91,18 @@ ${PAUSES_INDEXES}`;
 export function migratePauses(connection: SqliteConnection): void {
   const columns = connection.columnsOf("pauses");
   migrateBeforeDeadlines(connection, columns);
-  // the table is rebuilt or altered above: a file that had no `channel` column gets it filled
+  // the table is rebuilt or altered above: a file that had no `channel` column gets it
   if (columns.length > 0 && !columns.includes("channel")) {
     if (!connection.columnsOf("pauses").includes("expires_at"))
       connection.database.exec(PAUSE_EXPIRY_MIGRATION);
-    connection.database.exec(PAUSE_CHANNEL_BACKFILL);
   }
   const now = connection.columnsOf("pauses");
   if (now.length > 0 && !now.includes("seq")) connection.database.exec(PAUSES_SEQ_MIGRATION);
+  // #1104: and filled at every open, as the kind is — after the rebuild, which keeps the column
+  if (connection.columnsOf("pauses").includes("channel"))
+    connection.database.exec(
+      `CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;\n${PAUSE_CHANNEL_BACKFILL}`,
+    );
 }
 
 /** The migrations of files written before deadlines (S107, #663, 0.1.1). */
