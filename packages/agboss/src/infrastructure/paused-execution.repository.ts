@@ -316,6 +316,18 @@ export abstract class PausedExecutionRepository {
   abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
 
   /**
+   * Renews the claim while its receiver runs (#1131) — only when the token is the mailbox's and
+   * `until > at` (a lapsed claim is never revived: another look may hold the mailbox by now): its
+   * `until` becomes `at + claimFor`, never earlier than it was. Returns the renewed claim, or
+   * `undefined` when the token was lost.
+   */
+  abstract renewNotice(
+    claim: PauseNoticeClaim,
+    at: Date,
+    claimFor: Milliseconds,
+  ): Promise<PauseNoticeClaim | undefined>;
+
+  /**
    * A failed attempt — only for the mailbox's token: `attempts + 1`, due at `nextAttemptAt`, the
    * last failure's fixed `problem` code (never a message), the claim released. `false` when the
    * token was lost.

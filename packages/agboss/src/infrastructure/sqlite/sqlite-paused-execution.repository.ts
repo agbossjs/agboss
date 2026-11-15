@@ -175,6 +175,13 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.ackNotice(claim, at);
   }
 
+  /** Renews a notice claim while its receiver runs (#1131). */
+  renewNotice(
+    ...args: Parameters<PausedExecutionRepository["renewNotice"]>
+  ): Promise<PauseNoticeClaim | undefined> {
+    return this.#store.renewNotice(...args);
+  }
+
   retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean> {
     return this.#store.retryNotice(claim, nextAttemptAt, problem);
   }

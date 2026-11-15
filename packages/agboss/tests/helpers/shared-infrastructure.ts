@@ -218,6 +218,10 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return database.pauses.ackNotice(...args);
   }
 
+  renewNotice(...args: Args<"renewNotice">): ReturnType<PausedExecutionRepository["renewNotice"]> {
+    return database.pauses.renewNotice(...args);
+  }
+
   retryNotice(...args: Args<"retryNotice">): ReturnType<PausedExecutionRepository["retryNotice"]> {
     return database.pauses.retryNotice(...args);
   }

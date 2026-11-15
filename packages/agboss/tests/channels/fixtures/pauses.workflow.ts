@@ -117,6 +117,8 @@ export const hooks: {
   closeFailure?: Error;
   /** What every channel's `onPauseClosed` waits for after it recorded the close (#940). */
   closeWait?: () => Promise<void>;
+  /** What every channel's `onPauseAnswerNotTaken` waits for after it recorded the notice (#1131). */
+  notTakenWait?: () => Promise<void>;
 } = {};
 
 export function resetPauses(): void {
@@ -126,6 +128,7 @@ export function resetPauses(): void {
   delete hooks.listenerFailures;
   delete hooks.closeFailure;
   delete hooks.closeWait;
+  delete hooks.notTakenWait;
 }
 
 /** What the fixture reads of a close, whatever the role types it. */
@@ -172,7 +175,7 @@ async function recordClose(
 }
 
 /** Records an answer never applied, as the channel sees it. */
-function recordNotTaken(channel: string, event: NotTakenLike): Promise<void> {
+async function recordNotTaken(channel: string, event: NotTakenLike): Promise<void> {
   seen.notTaken.push({
     channel,
     pauseId: event.pauseId,
@@ -181,7 +184,7 @@ function recordNotTaken(channel: string, event: NotTakenLike): Promise<void> {
     deliveryId: event.deliveryId,
     answer: event.answer,
   });
-  return Promise.resolve();
+  await hooks.notTakenWait?.();
 }
 
 export class RefundRequestDto {
@@ -280,6 +283,22 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
   output: RefundDoneDto,
 })
 export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
+  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+    seen.refunds.push(orderId);
+    return Promise.resolve({ orderId });
+  }
+}
+
+/** The refund whose approval channel may take minutes: its hooks run under this `timeout` (#1131). */
+@Tool({
+  name: "slow-refund-tool",
+  description: "Refunds an order, its approval channel is slow",
+  channel: RefundApprovalChannel,
+  input: RefundRequestDto,
+  output: RefundDoneDto,
+  timeout: minutes(5),
+})
+export class SlowRefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
   run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     seen.refunds.push(orderId);
     return Promise.resolve({ orderId });
@@ -419,7 +438,7 @@ export class DeskWorkflowFinish {}
   description: "Refunds, confirms orders",
   prompt: "Handle the request.",
   model: "moonshotai/kimi-k2.6",
-  tools: [RefundTool, ConfirmOrderTool, AutoRefundTool],
+  tools: [RefundTool, ConfirmOrderTool, AutoRefundTool, SlowRefundTool],
   input: { message: WorkflowStartTextDto },
 })
 export class DeskClerkAgent {}

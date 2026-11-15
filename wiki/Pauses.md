@@ -528,7 +528,11 @@ over it — closed *not taken*: its answer and who gave it are kept and the answ
 marks its answer `Taken` the moment it consumes it, before it acts, so an answer whose tool ran stays
 `Taken` whatever fails after, and a pass that is stopped takes nothing. The sweep removes closed
 records after the retention like any other, writing a missing log entry first (#939, #910); before,
-a cancelled pass left its `Resolved` pause and paused run forever.
+a cancelled pass left its `Resolved` pause and paused run forever. `app.cancel` of a resting tree
+marks the tree unwinding and moves its root's record off `paused` first, then removes the paused run
+and closes the pauses (#1132): an instance that dies between two of these leaves a `running` root the
+recovery sweep ends, or a tree a second `app.cancel` ends (it answers `true`), never a pause open
+under a run that is gone.
 
 ## Who answered: `result.record.pauses`
 

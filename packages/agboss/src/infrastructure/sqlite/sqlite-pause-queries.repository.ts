@@ -84,6 +84,16 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     return Promise.resolve(this.connection.transaction(() => this.notices.ack(claim, at)));
   }
 
+  async renewNotice(
+    claim: PauseNoticeClaim,
+    at: Date,
+    claimFor: Milliseconds,
+  ): Promise<PauseNoticeClaim | undefined> {
+    return Promise.resolve(
+      this.connection.transaction(() => this.notices.renew(claim, at, claimFor)),
+    );
+  }
+
   async retryNotice(
     claim: PauseNoticeClaim,
     nextAttemptAt: Date,

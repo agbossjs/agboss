@@ -101,12 +101,10 @@ function startOf(workflow: FaultWorkflow): Class {
   }
 }
 
-/** The expiring order has a thread of its own, so a test can cancel it (#941); the others take one. */
-const threadOf = (
-  workflow: FaultWorkflow,
-  orderId: string,
-): { readonly threadId: string } | undefined =>
-  workflow === FaultWorkflow.Expiring ? { threadId: `thread-${orderId}` } : undefined;
+/** The expiring and pause orders have a thread of their own, so a test can cancel it (#941, #1132). */
+const OWN_THREAD: readonly FaultWorkflow[] = [FaultWorkflow.Expiring, FaultWorkflow.Pause];
+const threadOf = (w: FaultWorkflow, orderId: string): { readonly threadId: string } | undefined =>
+  OWN_THREAD.includes(w) ? { threadId: `thread-${orderId}` } : undefined;
 
 /** Starts the tree in the background; its end or its failure is an event. */
 function started(

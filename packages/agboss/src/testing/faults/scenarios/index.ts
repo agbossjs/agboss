@@ -58,6 +58,7 @@ import { s22fChildClaimNeverAnswered, s22gDatabaseFrozen } from "./s22-child-dat
 import { s23CommitAnswerReset } from "./s23-commit-answer-reset.js";
 import { s24BeforeRecord, s24bAfterRecord, s24cZombie, s24eOnce } from "./s24-pause-expiry.js";
 import { s24dCancel } from "./s24d-pause-expiry-cancel.js";
+import { s25bRequested, s25Dropped } from "./s25-cancel-resting.js";
 
 /** Every fault scenario, in the suite's order (#484). */
 export const SCENARIOS: readonly RunnableFaultScenario[] = [
@@ -124,6 +125,8 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s24cZombie,
   s24dCancel,
   s24eOnce,
+  s25Dropped,
+  s25bRequested,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */
