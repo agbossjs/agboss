@@ -280,8 +280,8 @@ describe("#1105: a live pid whose start time does not fit is unknown, never dead
     const first = syncWith(root, lock);
     expect(first.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
 
-    // the holder shows it is alive; the lock is as old on disk as before
-    const later = new Date(Date.now() - 1_000);
+    // the holder shows it is alive a minute ago (older than the reuse check waits for)
+    const later = new Date(Date.now() - 60_000);
     utimesSync(file, later, later);
     setTime(lockOf(root), -TEN_MIN);
     const second = syncWith(root, { waitMs: 500, staleMs: 800 });
