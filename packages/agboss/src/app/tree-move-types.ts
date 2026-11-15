@@ -83,5 +83,5 @@ export interface TreeMoves {
    * passed — under its lease (not free: skipped), the root marked `running`, the due pauses expired,
    * the pass that takes them. Nothing to do when no pause is due or the tree is not resting.
    */
-  expired(interrupted: InterruptedRun, call: TreeCall): Promise<void>;
+  expired(interrupted: InterruptedRun, call: TreeCall, onTaken?: () => void): Promise<void>;
 }

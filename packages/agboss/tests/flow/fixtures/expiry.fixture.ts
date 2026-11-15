@@ -461,3 +461,22 @@ export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecuti
   observers: [ExpiryLog],
 })
 export class ExpiryApplication {}
+
+/** The same desk on an instance that moves at most 4 steps at once (#1092). */
+@Application({
+  name: "capped-expiry-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [ExpiryWorkflow, ShortExpiryWorkflow, SlowExpiryWorkflow, ReviewerWorkflow],
+  budgets: TEST_BUDGETS,
+  maxConcurrentSteps: 4,
+  providers: [
+    ManagerChannel,
+    DirectorChannel,
+    ReviewerChannel,
+    ExpiryPausedExecutionRepository,
+    RecordingLogger,
+  ],
+  observers: [ExpiryLog],
+})
+export class CappedExpiryApplication {}

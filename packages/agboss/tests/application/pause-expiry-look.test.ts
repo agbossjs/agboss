@@ -19,10 +19,12 @@ function look(
 ) {
   const find = vi.fn((..._args: unknown[]) => Promise.resolve(pauses));
   const expired: string[] = [];
-  const expire = vi.fn((record: { runId: string }) => {
-    expired.push(record.runId);
-    return Promise.resolve();
-  });
+  const expire = vi.fn(
+    (record: { runId: string }, _signal?: unknown, _onTaken?: () => void): Promise<void> => {
+      expired.push(record.runId);
+      return Promise.resolve();
+    },
+  );
   const warn = vi.fn();
   const records = {
     findByTenantIdAndRunId: vi.fn((tenantId: string, runId: string) =>
@@ -129,7 +131,10 @@ describe("#941: the expiry look", () => {
     const slow = new Promise<void>((resolve) => {
       finish = resolve;
     });
-    expire.mockImplementation(() => slow);
+    expire.mockImplementation((_record: unknown, _signal: unknown, onTaken?: () => void) => {
+      onTaken?.();
+      return slow;
+    });
 
     await looked.run();
 
@@ -148,7 +153,10 @@ describe("#941: the expiry look", () => {
 
   it("#1071: a root whose expiry is still running is not started again by the next look", async () => {
     const { looked, expire } = look([due("acme", "root-1", "p-1")]);
-    expire.mockImplementation(() => new Promise<void>(() => undefined));
+    expire.mockImplementation((_record: unknown, _signal: unknown, onTaken?: () => void) => {
+      onTaken?.();
+      return new Promise<void>(() => undefined);
+    });
 
     await looked.run();
     await looked.run();
@@ -165,8 +173,9 @@ describe("#941: the expiry look", () => {
     const { looked, find, expired, expire } = look(pauses, { capacity: { maxConcurrentSteps: 2 } });
     const finishers: (() => void)[] = [];
     expire.mockImplementation(
-      (record: { runId: string }) =>
+      (record: { runId: string }, _signal: unknown, onTaken?: () => void) =>
         new Promise<void>((resolve) => {
+          onTaken?.();
           expired.push(record.runId);
           finishers.push(resolve);
         }),
@@ -194,6 +203,93 @@ describe("#941: the expiry look", () => {
 
     // the third root, which the cap cut, is started by the next look
     expect(expire).toHaveBeenCalledTimes(3);
+  });
+
+  it("#1092: roots nobody here can move take no place of the cap: a movable root behind 200 of them is started by the same look", async () => {
+    const stuck = Array.from({ length: 200 }, (_, index) => ({
+      tenantId: "acme",
+      rootExecutionId: `foreign-${String(index)}`,
+      pauseId: `s-${String(index).padStart(3, "0")}`,
+      expiresAt: "2026-01-01T00:00:00.000Z",
+    }));
+    const movable = {
+      tenantId: "acme",
+      rootExecutionId: "root-1",
+      pauseId: "z-1",
+      expiresAt: "2026-01-01T00:00:01.000Z",
+    };
+    const pauses = [...stuck, movable];
+    const { looked, find, expire, records } = look(pauses, { capacity: { maxConcurrentSteps: 4 } });
+    find.mockImplementation((...args: unknown[]) => {
+      const after = args[2] as { pauseId: string } | undefined;
+      const from =
+        after === undefined ? 0 : pauses.findIndex((p) => p.pauseId === after.pauseId) + 1;
+      return Promise.resolve(pauses.slice(from, from + EXPIRY_PAGE));
+    });
+    expire.mockImplementation((_record: unknown, _signal: unknown, onTaken?: () => void) => {
+      onTaken?.();
+      return new Promise<void>(() => undefined);
+    });
+
+    await looked.run();
+
+    expect(records.findByTenantIdAndRunId).toHaveBeenCalledTimes(201);
+    expect(expire).toHaveBeenCalledOnce();
+  });
+
+  it("#1092: a root whose workflow is gone, or whose expiry took nothing, takes no place of the cap either", async () => {
+    const pauses = [
+      due("acme", "root-1", "p-1"),
+      due("acme", "root-2", "p-2"),
+      due("acme", "root-3", "p-3"),
+      due("acme", "root-4", "p-4"),
+    ];
+    const { looked, find, expire } = look(pauses, { capacity: { maxConcurrentSteps: 1 } });
+    find.mockImplementation((...args: unknown[]) => {
+      const after = args[2] as { pauseId: string } | undefined;
+      const from =
+        after === undefined
+          ? 0
+          : pauses.findIndex((p) => (p as { pauseId: string }).pauseId === after.pauseId) + 1;
+      return Promise.resolve(pauses.slice(from));
+    });
+    // the first three end with nothing moved (a version nobody here runs, a tree held elsewhere)
+    expire.mockImplementation(
+      (record: { runId: string }, _signal: unknown, onTaken?: () => void) => {
+        if (record.runId !== "root-4") return Promise.resolve();
+        onTaken?.();
+        return new Promise<void>(() => undefined);
+      },
+    );
+
+    await looked.run();
+
+    expect(expire).toHaveBeenCalledTimes(4);
+  });
+
+  it("#1092: the cap still counts the roots that took a tree: with it full, the look stops before the next root", async () => {
+    const pauses = [
+      due("acme", "root-1", "p-1"),
+      due("acme", "root-2", "p-2"),
+      due("acme", "root-3", "p-3"),
+    ];
+    const { looked, find, expire } = look(pauses, { capacity: { maxConcurrentSteps: 2 } });
+    find.mockImplementation((...args: unknown[]) => {
+      const after = args[2] as { pauseId: string } | undefined;
+      const from =
+        after === undefined
+          ? 0
+          : pauses.findIndex((p) => (p as { pauseId: string }).pauseId === after.pauseId) + 1;
+      return Promise.resolve(pauses.slice(from));
+    });
+    expire.mockImplementation((_record: unknown, _signal: unknown, onTaken?: () => void) => {
+      onTaken?.();
+      return new Promise<void>(() => undefined);
+    });
+
+    await looked.run();
+
+    expect(expire).toHaveBeenCalledTimes(2);
   });
 
   it("#1070 #1072: a full page of pauses nobody moves does not hide the next page: the look goes on past it with a keyset", async () => {

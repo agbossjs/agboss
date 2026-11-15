@@ -82,7 +82,9 @@ export class ReminderLook {
             this.#resumeAfter = after;
             return;
           }
-          this.#start(key, pause, now);
+          // until it writes or ends: a pause nobody here can remind ends in one read and takes
+          // no place of the cap, so it cannot hold the reminders behind it back (#1092)
+          await this.#start(key, pause, now);
         }
         after = afterOf(pause);
       }
@@ -91,9 +93,18 @@ export class ReminderLook {
     }
   }
 
-  /** Starts the reminder of `pause`; its failure is told, never thrown. */
-  #start(key: string, pause: PauseRecord, now: Date): void {
-    const reminder = this.#remind(pause, now)
+  /**
+   * Starts the reminder of `pause`; its failure is told, never thrown. Resolves once it decided
+   * what it is: it writes or it ended without writing: only then does the look go on to the next.
+   */
+  #start(key: string, pause: PauseRecord, now: Date): Promise<void> {
+    let decide: () => void = () => undefined;
+    const decided = new Promise<void>((resolve) => {
+      decide = resolve;
+    });
+    const reminder = this.#remind(pause, now, () => {
+      decide();
+    })
       .catch((error: unknown) => {
         // a stop cut it: the reminder stays due for the next instance's look
         if (this.sources.signal.aborted) return;
@@ -105,14 +116,17 @@ export class ReminderLook {
       })
       .finally(() => {
         this.#inFlight.delete(key);
+        decide();
       });
     this.#inFlight.set(key, reminder);
+    return decided;
   }
 
-  async #remind(pause: PauseRecord, now: Date): Promise<void> {
+  async #remind(pause: PauseRecord, now: Date, onWriting: () => void): Promise<void> {
     const { pauses, records, bundles, recipientsOf, delivered } = this.sources;
     const record = await records.findByTenantIdAndRunId(pause.tenantId, pause.rootExecutionId);
     if (record === undefined || !bundles.has(record.bundle)) return;
+    onWriting();
     const done = await pauses.remindByTenantIdAndPauseId(
       pause.tenantId,
       pause.pauseId,

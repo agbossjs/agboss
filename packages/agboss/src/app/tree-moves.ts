@@ -147,7 +147,7 @@ class TreeMover implements TreeMoves {
     return (await takeover()).endUnwindingIfFree(this.parts, interrupted);
   }
 
-  async expired(interrupted: InterruptedRun, call: TreeCall): Promise<void> {
+  async expired(interrupted: InterruptedRun, call: TreeCall, onTaken?: () => void): Promise<void> {
     if (this.#isBusy(interrupted)) return;
     const hooks = {
       endedAtTake: (state: TreeState, lease: HeldExecutionLease) => this.endedAtTake(state, lease),
@@ -156,7 +156,7 @@ class TreeMover implements TreeMoves {
       drained: (state: TreeState, held: HeldExecutionLease, planned: PlannedPass) =>
         this.drained(state, call, held, planned),
     };
-    await expiredMove(this.parts, hooks, interrupted, call);
+    await expiredMove(this.parts, hooks, interrupted, call, onTaken);
   }
 
   /**

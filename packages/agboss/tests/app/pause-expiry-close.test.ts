@@ -70,3 +70,43 @@ describe("#941: an instance that stops while its look waits for the channel", ()
     expect(done?.resolution).toBe(PauseResolution.DecidedOnExpiry);
   });
 });
+
+describe("#941: app.close waits for the expiries in flight", () => {
+  const single = testWith(ExpiryApplication);
+
+  single(
+    "close resolves only once the handler of an expiry under way has returned",
+    async ({ app, clock }) => {
+      await app.ready();
+      await execute(app, ShortExpiryWorkflowStart, { orderId: "o-1" }, { threadId: "close-2" });
+      let release: () => void = () => undefined;
+      expiry.behavior = async () => {
+        // a handler that does not look at the stop: only its own end ends the expiry
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return PauseExpiration.decide({ approved: true, comment: "late" });
+      };
+      await clock.advance(hours(4));
+      await until(() => expiry.asked.length === 1);
+
+      let closed = false;
+      const closing = app.close().then(() => {
+        closed = true;
+      });
+      for (let turn = 0; turn < 20; turn += 1)
+        await new Promise((resolve) => setImmediate(resolve));
+
+      expect(closed).toBe(false);
+      release();
+      await closing;
+      expect(closed).toBe(true);
+      // nothing starts after the close: what ran, ran before it resolved
+      const ranByClose = [...expiry.recorded];
+      await clock.advance(minutes(1));
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(expiry.recorded).toEqual(ranByClose);
+      expect(expiry.asked).toHaveLength(1);
+    },
+  );
+});

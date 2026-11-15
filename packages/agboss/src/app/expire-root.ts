@@ -9,11 +9,16 @@ import { withTreeOrigin } from "./tree-origin.js";
  * another config is left to an instance of a compatible version (as a resume or a recovery is);
  * anything else — a lease not free, a tree not resting, no pause due — is the move's to decide.
  */
-export type ExpireRoot = (record: Turn, signal: AbortSignal) => Promise<void>;
+export type ExpireRoot = (
+  record: Turn,
+  signal: AbortSignal,
+  /** Called once, when the tree is this instance's to move (a lease held, a pause due); never for a no-op. */
+  onTaken?: () => void,
+) => Promise<void>;
 
 export const expireRootOf =
   ({ deps, moves, current, policy }: RecoverRootParts): ExpireRoot =>
-  async (record, signal) => {
+  async (record, signal, onTaken) => {
     const { runId, threadId, tenantId } = record;
     if (runId === null) return;
     const startedVersion = record.configVersion ?? deps.config.version;
@@ -30,5 +35,5 @@ export const expireRootOf =
     const facts = { runId, threadId, tenantId, turnId: record.id, startedVersion };
     const interrupted = await withTreeOrigin(deps, facts);
     const owner = await deps.turns.threadOwner(deps.config.name, tenantId, threadId);
-    await moves.expired(interrupted, { signal, ownerId: owner?.owner });
+    await moves.expired(interrupted, { signal, ownerId: owner?.owner }, onTaken);
   };

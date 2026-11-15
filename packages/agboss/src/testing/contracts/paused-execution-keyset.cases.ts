@@ -22,6 +22,13 @@ const remindingAt = (n: number, tenant: string): PauseRecord => ({
   expiresAt: minute(30),
   remindAt: minute(n),
 });
+/** One pause of a tie: its own id and step key, the deadline, reminder and tenant the others have. */
+const tied = (n: number): PauseRecord => ({
+  ...remindingAt(1, "default"),
+  expiresAt: minute(1),
+  pauseId: `t${String(n)}`,
+  stepKey: `run-1:s:1:t${String(n)}`,
+});
 const keys = (pauses: readonly PauseRecord[]): string[] =>
   pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt ?? ""}`);
 const remindKeys = (pauses: readonly PauseRecord[]): string[] =>
@@ -106,6 +113,58 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
       expect(remindKeys(await second.findPendingByRemindAtBefore(at, 10, before))).toEqual(
         remindKeys(whole),
       );
+    },
+  },
+  {
+    name: "#1070: due pauses of one tenant with the same time are paged by their id: a page boundary between them loses none and repeats none",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      // five pauses of one tenant, one time: only the pause id orders them
+      for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
+      const at = new Date(minute(5));
+      const scan = (limit: number, after?: PauseScanAfter) =>
+        second.findPendingByExpiresAtBefore(at, limit, after);
+      const whole = await scan(10);
+
+      const paged: PauseRecord[] = [];
+      let after: PauseScanAfter | undefined;
+      let pages = 0;
+      while (pages < whole.length) {
+        pages += 1;
+        const page = await scan(2, after);
+        paged.push(...page);
+        if (page.length < 2) break;
+        after = keysetOf(page.at(-1), "expiresAt");
+      }
+
+      expect(whole).toHaveLength(5);
+      expect(whole.map((pause) => pause.pauseId)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
+      expect(paged.map((pause) => pause.pauseId)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
+    },
+  },
+  {
+    name: "#942: due pauses of one tenant with the same time are paged by their id: a page boundary between them loses none and repeats none",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      // five pauses of one tenant, one time: only the pause id orders them
+      for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
+      const at = new Date(minute(5));
+      const scan = (limit: number, after?: PauseScanAfter) =>
+        second.findPendingByRemindAtBefore(at, limit, after);
+      const whole = await scan(10);
+
+      const paged: PauseRecord[] = [];
+      let after: PauseScanAfter | undefined;
+      let pages = 0;
+      while (pages < whole.length) {
+        pages += 1;
+        const page = await scan(2, after);
+        paged.push(...page);
+        if (page.length < 2) break;
+        after = keysetOf(page.at(-1), "remindAt");
+      }
+
+      expect(whole).toHaveLength(5);
+      expect(whole.map((pause) => pause.pauseId)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
+      expect(paged.map((pause) => pause.pauseId)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
     },
   },
 ];

@@ -1,3 +1,4 @@
+import { keepingAlive } from "../infrastructure/clock.js";
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { stopOf, type InstanceParts } from "./graceful-stop.js";
@@ -91,6 +92,20 @@ const instanceReadsOf = ({ health, auditLog, outboundCalls }: InstanceSurface): 
   pendingOutboundCallsOf: (query) => pendingCallsOf(outboundCalls, query),
 });
 
+/**
+ * A call the caller awaits keeps the process alive until it settles (#1093): its waits on the
+ * Clock (a lease held elsewhere, a retry, the shutdown timeout) are timers that do not.
+ */
+const keptAlive = (app: App): App => ({
+  ...app,
+  execute: (start, input, ...options) => keepingAlive(() => app.execute(start, input, ...options)),
+  resume: (request, options) => keepingAlive(() => app.resume(request, options)),
+  cancel: (threadId, options) => keepingAlive(() => app.cancel(threadId, options)),
+  extendPause: (request, options) => keepingAlive(() => app.extendPause(request, options)),
+  close: (options) => keepingAlive(() => app.close(options)),
+  checkReadiness: () => keepingAlive(() => app.checkReadiness()),
+});
+
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
@@ -118,7 +133,7 @@ export function composeApp(
     const named = workflows.find((workflow) => workflow.deps.config.name === pause?.workflow);
     return named ?? first;
   };
-  const app: App = {
+  const app: App = keptAlive({
     name: assembled.name,
     version: assembled.version,
     warnings,
@@ -137,7 +152,7 @@ export function composeApp(
     ...instanceReadsOf(surface),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
-  };
+  });
   const remembered = appWorkflowOf(first.app);
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));

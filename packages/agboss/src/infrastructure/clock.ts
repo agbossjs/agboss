@@ -85,6 +85,26 @@ export class SystemClock extends Clock {
   }
 }
 
+/** The longest a timer waits (a signed 32-bit number of milliseconds). */
+const LONGEST_TIMER = 2 ** 31 - 1;
+
+/**
+ * Keeps the process alive while `work` is pending (#1093): a public call an application's caller
+ * awaits (`app.cancel` waiting for a tree another instance holds, `app.resume`, `app.execute`) may
+ * wait only on `Clock.sleep`, whose timers do not keep a process alive — in a script that only
+ * makes the call, Node would exit in the middle of it (code 13, an unsettled top-level await). A
+ * ref'd timer lives for exactly the call and is cleared in `finally`, so an idle application is
+ * as killable as before. A test's virtual clock is no concern: the handle is real, and as short.
+ */
+export async function keepingAlive<TResult>(work: () => Promise<TResult>): Promise<TResult> {
+  const handle = setInterval(() => undefined, LONGEST_TIMER);
+  try {
+    return await work();
+  } finally {
+    clearInterval(handle);
+  }
+}
+
 /**
  * Where a store's time comes from (#533, G7): what `StoreClock.source` says, read by every store
  * that decides a lease's expiry.
