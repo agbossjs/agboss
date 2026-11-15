@@ -35,7 +35,9 @@ export type Legacy =
   /** A real folder without a manifest: the user's, never touched. */
   | { readonly kind: "unmanaged" }
   /** A real folder with a manifest: the previous install. */
-  | { readonly kind: "managed"; readonly folder: string; readonly manifest: SkillsManifest };
+  | { readonly kind: "managed"; readonly folder: string; readonly manifest: SkillsManifest }
+  /** A managed folder behind a link (`.claude` or `.claude/skills`): not moved through it (#1108). */
+  | { readonly kind: "linked"; readonly parent: string };
 
 /** Classifies the legacy path with `lstat`, so a link is not followed. */
 export function legacyOf(root: string, ops: LinkOps): Legacy {
@@ -43,11 +45,11 @@ export function legacyOf(root: string, ops: LinkOps): Legacy {
   if (found.kind !== "managed") return found;
   // a link in a parent folder: the move would act on the link's target, not on this project's folder
   for (const parent of [".claude", join(".claude", "skills")])
-    if (ops.lstat(join(root, parent))?.isSymbolicLink() === true) throw new LinkedPathError(parent);
+    if (ops.lstat(join(root, parent))?.isSymbolicLink() === true) return { kind: "linked", parent };
   return found;
 }
 
-function legacyAt(root: string, ops: LinkOps): Legacy {
+function legacyAt(root: string, ops: LinkOps): Exclude<Legacy, { kind: "linked" }> {
   const folder = join(root, CLAUDE_SKILLS_LINK);
   const found = ops.lstat(folder);
   if (found === undefined || found.isSymbolicLink() || !found.isDirectory())
@@ -55,6 +57,16 @@ function legacyAt(root: string, ops: LinkOps): Legacy {
   const manifest = readManifest(folder);
   return manifest === undefined ? { kind: "unmanaged" } : { kind: "managed", folder, manifest };
 }
+
+/**
+ * The warning for a 0.1.x folder behind a link: only the move is refused (#1108). The skills in
+ * `.agents/skills/agboss/` are still synced; the old folder is left as it is, and so is the link
+ * step. The user makes the parent a real folder, or moves the folder by hand.
+ */
+export const linkedLegacyWarning = (parent: string): SkillsWarning => ({
+  code: SkillsWarningCode.LinkBlocked,
+  message: `${parent} is a link — the 0.1.x folder ${CLAUDE_SKILLS_LINK}/ is not moved through it, and Claude Code keeps reading that old copy; make ${parent} a real folder (or move ${CLAUDE_SKILLS_LINK}/ to ${SKILLS_FOLDER}/ by hand) and run npx agboss check`,
+});
 
 /** The text of the move's warning: what moved, what to commit, what to fix in `.gitignore`. */
 const MOVED = `${CLAUDE_SKILLS_LINK}/ moved to ${SKILLS_FOLDER}/ (one copy for every coding agent): commit ${SKILLS_FOLDER}/; ${CLAUDE_SKILLS_LINK} is now a local link to it — in .gitignore replace the old "${CLAUDE_SKILLS_LINK}/" line with "${CLAUDE_SKILLS_LINK}" (no trailing slash)`;

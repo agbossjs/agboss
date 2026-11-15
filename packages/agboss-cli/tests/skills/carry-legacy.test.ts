@@ -167,7 +167,10 @@ describe("#1013 security: a carried link is judged where it is written; no move 
 
       const done = sync(root);
 
-      expect(done.warnings.map((w) => w.code)).toContain(SkillsWarningCode.OutsideProject);
+      // outside: the whole sync is refused; inside (#1108): only the move is
+      expect(done.warnings.map((w) => w.code)).toContain(
+        where === "inside" ? SkillsWarningCode.LinkBlocked : SkillsWarningCode.OutsideProject,
+      );
       expect(existsSync(join(moved, "skills/agboss/team/notes.md"))).toBe(true);
       expect(readdirSync(join(root, ".agents/skills/agboss/team")).sort()).toEqual(before);
     }

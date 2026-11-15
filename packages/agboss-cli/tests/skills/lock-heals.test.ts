@@ -11,6 +11,7 @@ import { DEFAULT_LOCK, LOCK_NAME, withSyncLock } from "../../src/skills/lock.js"
 import {
   OWNER_PREFIX,
   clearEmpty,
+  isReused,
   isStale,
   newOwner,
   readHolder,
@@ -135,8 +136,10 @@ describe("#1013 AC2: the pid-reuse tolerance is 5 s", () => {
   it("AC2: a start time 3 s off the live process' is the same process; 8 s off is a reused pid", () => {
     const near = withStart(3_000);
     const far = withStart(8_000);
-    expect(isStale({ token: near.token, owner: near, ageMs: old }, 600_000)).toBe(false);
-    expect(isStale({ token: far.token, owner: far, ageMs: old }, 600_000)).toBe(true);
+    expect(isReused(near)).toBe(false);
+    expect(isReused(far)).toBe(true);
+    // and a reused-looking pid is never an instant take-over: it is unknown, taken only by the watch
+    expect(isStale({ token: far.token, owner: far, ageMs: old }, 600_000)).toBe(false);
   });
 });
 

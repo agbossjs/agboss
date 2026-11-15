@@ -1,17 +1,24 @@
-import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { TEMP_PREFIX } from "./status.js";
 import {
   clearEmpty,
   dropOwner,
+  isAlive,
+  isReused,
   isStale,
+  REUSE_CHECK_MS,
   newOwner,
   OWNER_PREFIX,
   readHolder,
   sweepStray,
+  type Holder,
   type LockOwner,
 } from "./lock-owner.js";
+import { unlinkEntry } from "./lock-files.js";
+import { observedMs, renewOwner } from "./lock-watch.js";
 
 /**
  * The lock that serialises the skills syncs of one project (#983 D3, #1013): a `dev` pass beside
@@ -24,7 +31,8 @@ import {
  *
  * A live holder keeps its lock however long it takes; only a dead one (its pid is gone on this
  * host) is taken over, at once. A lock from another host, or with an unreadable owner, ages out
- * after `staleMs`. A holder releases only a lock that is still its own, and Ctrl-C releases it.
+ * after `staleMs`, counted from when this waiter first saw it if its time lies a minute or more in
+ * the future (#1105). A holder releases only a lock that is still its own, and Ctrl-C releases it.
  */
 
 /** The lock folder's name, in `.agents/`. */
@@ -62,14 +70,44 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
   }
 }
 
-/** Takes a dead holder's lock away (at most one waiter's `unlink` wins); a live one is left. */
+/**
+ * Takes a dead holder's lock away (at most one waiter's `unlink` wins); a live one is left. The
+ * winner also sweeps what else the folder holds (a `.DS_Store`, a 0.1.0 `owner`): the holder just
+ * proved abandoned, and dropping its file refreshed the folder's mtime, so judging the rest by age
+ * would wait `staleMs` again (#1106). While any entry stands no new lock can be renamed in, and a
+ * sweep never removes an `owner-` file, so a lock made meanwhile is safe.
+ */
 function clearIfStale(lock: string, staleMs: number): void {
-  const holder = readHolder(lock);
-  if (holder === undefined) return;
+  const seen = readHolder(lock);
+  if (seen === undefined) return;
+  if (seen.isLinked === true && seen.token !== undefined) {
+    // the owner entry is a link, not a file: not followed, removed itself; the lock is unknown
+    // from here and ages out by the folder's age (the removal made it new), as an empty one does
+    unlinkEntry(join(lock, `${OWNER_PREFIX}${seen.token}`));
+    return;
+  }
+  const holder = withObserved(lock, seen);
   if (holder.token === undefined) {
     clearEmpty(lock);
     if (holder.ageMs > staleMs) sweepStray(lock);
-  } else if (isStale(holder, staleMs)) dropOwner(lock, holder.token);
+  } else if (isStale(holder, staleMs) && dropOwner(lock, holder.token)) sweepStray(lock);
+}
+
+/**
+ * A lock whose age on disk cannot be trusted is not judged by it (#1105): its age is how long this
+ * waiter has watched it unchanged. A live pid on this host whose start time fits is never judged
+ * by time. One whose start does not fit (a reused pid, or a clock stepped under a holder) is
+ * unknown, not dead: only the watch can take it, and a holder that refreshes its owner file
+ * restarts it. A lock dated in the future is watched the same way; a dead pid is taken at once.
+ */
+function withObserved(lock: string, holder: Holder): Holder {
+  const { owner } = holder;
+  if (owner?.host === hostname() && isAlive(owner.pid)) {
+    if (holder.ageMs <= REUSE_CHECK_MS || !isReused(owner)) return holder;
+    return { ...holder, isUnknown: true, ageMs: observedMs(lock, holder.token) };
+  }
+  if (!holder.isFuture) return holder;
+  return { ...holder, ageMs: Math.max(holder.ageMs, observedMs(lock, holder.token)) };
 }
 
 /** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */
@@ -78,12 +116,20 @@ function sweepCrashed(agents: string, staleMs: number): void {
     if (!name.startsWith(`${LOCK_NAME}-new-`)) continue;
     const path = join(agents, name);
     try {
-      if (Date.now() - statSync(path).mtimeMs > staleMs)
+      if (Date.now() - lstatSync(path).mtimeMs > staleMs)
         rmSync(path, { recursive: true, force: true });
     } catch {
       // gone meanwhile: nothing to sweep
     }
   }
+}
+
+/** The lock folder is never a link (a cloned project can ship one): nothing is written through it. */
+function refuseLinkedLock(lock: string): void {
+  if (lstatSync(lock, { throwIfNoEntry: false })?.isSymbolicLink() === true)
+    throw new Error(
+      `${lock} is a link — the skills sync lock is not taken through it; remove it and run npx agboss check`,
+    );
 }
 
 const SIGNALS = ["SIGINT", "SIGTERM"] as const;
@@ -112,12 +158,12 @@ function guardSignals(): () => void {
 }
 
 /**
- * Runs `work` holding the project's sync lock; undefined when the lock stayed with a live holder
+ * Runs `work` holding the project's sync lock (it calls `renew` between its steps: a long sync shows it is alive); undefined when the lock stayed with a live holder
  * for `waitMs`. `.agents/` is made when it is not there.
  */
 export function withSyncLock<T>(
   root: string,
-  work: () => T,
+  work: (renew: () => void) => T,
   options: LockOptions = DEFAULT_LOCK,
 ): { readonly value: T } | undefined {
   const agents = join(root, ".agents");
@@ -125,7 +171,9 @@ export function withSyncLock<T>(
   const lock = join(agents, LOCK_NAME);
   const owner = newOwner();
   const until = Date.now() + options.waitMs;
+  refuseLinkedLock(lock);
   while (!tryMake(agents, lock, owner)) {
+    refuseLinkedLock(lock);
     clearIfStale(lock, options.staleMs);
     if (Date.now() >= until) return undefined;
     sleep(POLL_MS);
@@ -133,7 +181,11 @@ export function withSyncLock<T>(
   const unguard = guardSignals();
   try {
     sweepCrashed(agents, options.staleMs);
-    return { value: work() };
+    return {
+      value: work(() => {
+        renewOwner(lock, owner.token);
+      }),
+    };
   } finally {
     dropOwner(lock, owner.token);
     unguard();
