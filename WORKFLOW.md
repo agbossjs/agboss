@@ -121,7 +121,7 @@ application, shared by all its workflows.
 
 ### 1. Declare the role and implement it
 
-A **role** is the project's abstract class: what it approves and who may answer (`answeredBy` is
+A **role** is the project's abstract class: what it approves and who may answer (`answerer` is
 required — a forgotten value must not let a customer approve their own refund). Its implementation
 `extends` it and has one method, `send`: post the question somewhere (the pause's `pauseId` is the
 reply key and the idempotency key of the call) and say what happens — `ChannelOutcome.awaitReply()`
@@ -157,7 +157,7 @@ import {
   name: "user-deletion-approval-channel",
   description: "Approves deleting a user",
   approves: DeleteUserInputDto, // the input of the tools it approves ([channel.wrong-tool] else)
-  answeredBy: PauseAnswerer.Channel, // Slack authenticates who answers
+  answerer: PauseAnswerer.Channel, // Slack authenticates who answers
 })
 export abstract class UserDeletionApprovalChannel extends ChannelOf<UserDeletionApprovalChannel> {}
 

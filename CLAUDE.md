@@ -1586,11 +1586,11 @@ output })` on a successful result, inner first, each output validated against th
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
   is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
-  `@ChannelRole({ name, description, approves: XDto, answeredBy: PauseAnswerer.… })`
-  that `extends ChannelOf<Self>` — `answeredBy` is required, `approves` must be the tool's input
+  `@ChannelRole({ name, description, approves: XDto, answerer: PauseAnswerer.… })`
+  that `extends ChannelOf<Self>` — `answerer` is required (0.1.0's `answeredBy` is a deprecated alias), `approves` must be the tool's input
   (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
   (`[channel.shared-interpreter]`). **Question roles (#659):** `@ChannelRole({ name: "…-question",
-description, ask: AskDto, answer: AnswerDto, answeredBy, replyInterpreter?, maxVisits? })` is a
+description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVisits? })` is a
   workflow question asked by a flow step — `.returns(AskDto).toQuestion(Role).returns(AnswerDto)`
   (`question(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
   `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
@@ -2268,7 +2268,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   by its id, never by thread, found by `(tenantId, pauseId)` anywhere in the tree (unknown or another
   tenant's → `UnknownPauseError`); `result.pending: PendingPause[]` lists every waiting pause
   (parallel branches each pause on their own; the execution rests when nothing else can move) and
-  an execution with others left pauses again with the rest. Who answers is the role's `answeredBy`:
+  an execution with others left pauses again with the rest. Who may answer is the role's `answerer`:
   `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `answeredBy` (non-empty,
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
   other credential → `PauseAnswererError`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
@@ -2282,7 +2282,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
-answeredBy, responder, resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled,
+answerer, answeredBy (the person; `responder` deprecated), resolution: PauseResolution,
 askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when withdrawn or cancelled, `asked` (#688) the call as
   asked — its own arguments before a reply's correction — or a question's ask, masked; each
   child's own in its `ChildExecutionRecord.pauses` (#267 S124) — written when the pause is

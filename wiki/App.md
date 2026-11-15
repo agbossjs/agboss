@@ -313,15 +313,15 @@ the other credential → `PauseAnswererError`. The decision is a `ToolCallApprov
 recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
-other pauses remain, `status: Paused` with the rest in `pending`. A pause no longer waiting (taken,
-withdrawn) → `NotPausedError`. A run paused under another workflow version or config is checked by
+other pauses remain, `status: Paused` with the rest in `pending`. A pause that is closed (taken,
+withdrawn, expired, …) → `PauseClosedError` with its `reason`. A run paused under another workflow version or config is checked by
 the workflow's `onIncompatibleResume` policy (`IncompatibleResumeError`, `resume.incompatible`, an
 `AGBossError`); the config hash covers the root's child workflows, recursively (#336), so a paused
 run whose child changed is incompatible too, its pause inside the child or not. The whole model:
 [Pauses](Pauses).
 
 A resume has two phases (#265, Q58): it records the decision — the pause goes `Pending → Resolved`
-atomically, so a second resume of the same pause gets `NotPausedError` — then takes the tree's lease
+atomically, so a second resume of the same pause gets `PauseClosedError` (`reason: answered`) — then takes the tree's lease
 and continues with every answer recorded for the tree. While another call or instance moves the
 tree it waits, and returns the tree's current output once the holder took its decision
 ([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
@@ -351,7 +351,7 @@ the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extend
 
 Aborts a running run — it stops before its next model or tool call and `execute` rejects with
 `ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn (their `resume` then
-throws `NotPausedError`);
+throws `PauseClosedError`, `reason: cancelled`);
 `{ cancelled }` is `false` when the thread had neither ([Cancellation and idempotency](Saga-And-Cancellation)).
 A thread the tenant does not have is `UnknownThreadError` (#261: a thread's key is `tenantId` +
 `threadId`).
