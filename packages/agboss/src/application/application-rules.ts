@@ -15,7 +15,6 @@ import {
   providerBreakerViolations,
   providerFieldsViolations,
   providerModeViolations,
-  providerTimeoutViolations,
 } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
@@ -41,7 +40,7 @@ import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-ta
 import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
 import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
-import { timerSettingViolations } from "./timer-rules.js";
+import { limitViolations } from "./limit-rules.js";
 import { keyFieldViolations } from "./key-field-rules.js";
 
 /**
@@ -162,26 +161,6 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   });
 }
 
-/** `maxConcurrentSteps` is a whole number of steps from 1 (#332): 0 would stop the instance. */
-function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxConcurrentSteps;
-  if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
-  const message =
-    `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
-    "@Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once";
-  return [violation("limits.max-concurrent-steps-invalid", message, [options.name])];
-}
-
-/** `maxMeshHops` is a whole number of applications from 1 (#398): 0 would refuse every call. */
-function meshHopsViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxMeshHops;
-  if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
-  const message =
-    `its maxMeshHops is ${String(value)}, not a whole number of applications from 1 — ` +
-    "@Application({ maxMeshHops: 6 }) refuses a call chain that already passed through 6 applications";
-  return [violation("limits.max-mesh-hops-invalid", message, [options.name])];
-}
-
 export function applicationRuleViolations(
   application: Class,
   options: ApplicationOptions,
@@ -195,7 +174,6 @@ export function applicationRuleViolations(
     ...providerModeViolations(options.name, options.providers),
     ...providerBreakerViolations(options.name, options.providers),
     ...providerFieldsViolations(options.name, options.providers),
-    ...providerTimeoutViolations(options.name, options.providers),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,
@@ -208,9 +186,7 @@ export function applicationRuleViolations(
     ...pauseListenerRuleViolations(options.name, options.providers),
     ...workingCalendarViolations(options.name, options.workingCalendar, listedClassesOf(options)),
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
-    ...stepCapViolations(options),
-    ...meshHopsViolations(options),
-    ...timerSettingViolations(options),
+    ...limitViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
