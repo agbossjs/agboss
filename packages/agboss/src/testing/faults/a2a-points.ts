@@ -98,6 +98,7 @@ export const PAUSE_METHODS: Readonly<Record<string, StoreMethod>> = {
     outputOf: (claims) => ({ claimed: Array.isArray(claims) ? claims.length : 0 }),
     // an `After` hold names the first mailbox claimed: an empty claim is never held by a keyed hold
     resultKeyOf: (claims) => (Array.isArray(claims) ? mailboxKeyOf(claims[0]) : undefined),
+    isHoldable: (claims) => Array.isArray(claims) && claims.length > 0,
   },
   ackNotice: {
     point: StoreHoldPoint.PauseNoticeAck,
