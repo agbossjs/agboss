@@ -23,6 +23,7 @@ export const leaseScope = <T>(lease: FrameLease, work: () => Promise<T>): Promis
 
 /** Runs `work` outside any lease: its store calls are bounded, never a hand-over. */
 export const outsideLease = <T>(work: () => Promise<T>): Promise<T> =>
+  // Stryker disable next-line BooleanLiteral: equivalent: `callScopeOf` answers a null lease with `isRenewal: false` before it reads the flag
   storage.run({ lease: null, isRenewal: false }, work);
 
 /** Runs a renewal of `lease` that hands over when it is unanswered (`renewNow`'s). */

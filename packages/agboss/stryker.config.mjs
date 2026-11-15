@@ -227,6 +227,18 @@ const SHARDS = {
       "src/a2a/server/a2a-artifact-view.ts",
     ],
   },
+  // #1069: the store-call bound (#928) — no call waits for ever on a store —, its outcome
+  // classification, the per-step iterator bound and the command-timeout count, SQLite's own
+  // classification of an unknown outcome (#1017), the lease's abandon and scope
+  "store-bound": {
+    configFile: "vitest.mutation-store-bound.config.ts",
+    mutate: [
+      "src/app/store-call-{bound,kind,outcome}.ts",
+      "src/infrastructure/sqlite/sqlite-outcome.ts",
+      "src/app/lease-abandon.ts",
+      "src/app/lease-scope.ts",
+    ],
+  },
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

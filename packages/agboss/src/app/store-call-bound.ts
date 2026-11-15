@@ -1,6 +1,7 @@
 import type { Class } from "../components/injection.js";
 import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 import {
+  errorOf,
   failure,
   lostOf,
   timedOut,
@@ -77,7 +78,7 @@ async function settleWith(
   try {
     reject(await failure(parts, facts, error));
   } catch {
-    reject(error instanceof Error ? error : new Error(String(error), { cause: error }));
+    reject(errorOf(error));
   }
 }
 
@@ -93,6 +94,7 @@ async function* boundedEach<T>(
   source: AsyncIterable<T>,
 ): AsyncGenerator<T> {
   const iterator = source[Symbol.asyncIterator]();
+  // Stryker disable next-line ObjectLiteral: equivalent: `isTrue` is only read as a truth value, and `{}` reads undefined, as false
   const gaveUp = { isTrue: false };
   try {
     for (;;) {
@@ -115,8 +117,9 @@ async function* boundedEach<T>(
 /** `iterator.return()` started and not awaited; the rejection it may end with later is only logged. */
 function closeDetached(parts: StoreCallParts, facts: CallFacts, iterator: AsyncIterator<unknown>) {
   try {
+    // Stryker disable next-line OptionalChaining: equivalent: without a `return` method `iterator.return()` throws a TypeError, which the catch below swallows as the missing method does
     void Promise.resolve(iterator.return?.()).catch((error: unknown) => {
-      const text = error instanceof Error ? error.message : String(error);
+      const text = errorOf(error).message;
       parts.log?.warn(
         "store.call-close-failed",
         `closing the ${facts.store}.${facts.operation} iterator after its bound failed: ${text}`,

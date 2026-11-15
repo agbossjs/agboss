@@ -47,6 +47,8 @@ export default tseslint.config(
       ".artifacts",
       "packages/*/bin",
       "**/.scaffold-tmp",
+      // a Stryker sandbox (a copy of the package) left behind by an interrupted mutation run
+      "**/.stryker-tmp*",
       // copies of an example the generator tests write into (#197)
       "examples/.scaffold-tmp-*",
       "scratch/**",

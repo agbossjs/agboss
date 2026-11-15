@@ -195,6 +195,7 @@ jobs:
             a2a-client,
             a2a-direct,
             stream,
+            store-bound,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}

@@ -14,6 +14,12 @@ import { VirtualClock } from "../../../src/testing/clock.js";
 /** A call that never answers, as a peer gone quiet. */
 export const silent = <T>(): Promise<T> => new Promise<T>(() => undefined);
 
+/** A call that rejects with `reason`, whatever it is: a store may reject with any value. */
+export const rejectWith = (reason: unknown): Promise<never> =>
+  Promise.resolve().then(() => {
+    throw reason;
+  });
+
 /** What a bounded store reported: warnings by code, the counter's attributes. */
 export interface Reported {
   readonly warned: string[];
