@@ -20,8 +20,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCK } from "../../src/skills/lock.js";
-import { OWNER_PREFIX, SEEN_MARKER, readHolder, sweepStray } from "../../src/skills/lock-owner.js";
+import { DEFAULT_LOCK, withSyncLock } from "../../src/skills/lock.js";
+import {
+  OWNER_PREFIX,
+  SEEN_MARKER,
+  dropOwner,
+  fingerprintOf,
+  newOwner,
+  readHolder,
+  sweepStray,
+} from "../../src/skills/lock-owner.js";
 import { MANIFEST_FILE, readManifest } from "../../src/skills/manifest.js";
 import { carryOver } from "../../src/skills/migrate.js";
 import { SkillsSyncStatus, SkillsWarningCode } from "../../src/skills/status.js";
@@ -36,6 +44,13 @@ const syncQuick = (root: string) =>
 const setTime = (path: string, offsetMs: number): void => {
   const when = new Date(Date.now() + offsetMs);
   utimesSync(path, when, when);
+};
+
+/** A waiter saw the lock as it stands now `ageMs` ago: the marker holds its fingerprint, dated so. */
+const markSeen = (root: string, ageMs: number): void => {
+  const marker = join(lockOf(root), SEEN_MARKER);
+  writeFileSync(marker, fingerprintOf(lockOf(root), readHolder(lockOf(root))?.token));
+  setTime(marker, -ageMs);
 };
 
 /** A project whose 0.1.0 skills stand at `.claude/skills/agboss/`, not yet moved. */
@@ -80,8 +95,9 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
   it("the monotonic first sight alone ages it out when the marker cannot help (dated ahead itself)", () => {
     const root = oldProject();
     writeLock(root, foreign);
-    writeFileSync(join(lockOf(root), SEEN_MARKER), "");
     dateAll(root, YEAR);
+    markSeen(root, 0);
+    setTime(join(lockOf(root), SEEN_MARKER), YEAR);
 
     const done = syncWith(root, watching);
 
@@ -91,12 +107,11 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
   it("what an earlier run saw counts: a marker left staleMs ago ages the lock out in the first poll", () => {
     const root = oldProject();
     writeLock(root, foreign);
-    writeFileSync(join(lockOf(root), SEEN_MARKER), "");
     dateAll(root, YEAR);
-    setTime(join(lockOf(root), SEEN_MARKER), -STALE / 2);
+    markSeen(root, STALE / 2);
     const early = syncWith(root, { waitMs: 300, staleMs: STALE * 20 });
     expect(early.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
-    setTime(join(lockOf(root), SEEN_MARKER), -2 * STALE);
+    markSeen(root, 2 * STALE);
 
     const done = syncWith(root, { waitMs: 300, staleMs: STALE });
 
@@ -175,6 +190,101 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
 
     expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
     expect(existsSync(join(lockOf(root), `${OWNER_PREFIX}${owner.token}`))).toBe(true);
+  });
+});
+
+describe("#1105: a live pid whose start time does not fit is unknown, never dead", () => {
+  const STALE = 800;
+  const syncWith = (root: string, lock: { waitMs: number; staleMs: number }) =>
+    syncSkills({ root, isEnabled: true }, "check", { ...noHome, lock });
+  const TEN_MIN = 600_000;
+  /** This very process as the holder, its recorded start `offsetMs` off the real one: a stepped clock or a reused pid. */
+  const holderStartedOff = (root: string, offsetMs: number, ageMs: number) => {
+    const base = newOwner();
+    const owner = writeLock(root, { procStart: base.procStart - offsetMs }, ageMs);
+    for (const name of readdirSync(lockOf(root))) setTime(join(lockOf(root), name), -ageMs);
+    setTime(lockOf(root), -ageMs);
+    return owner;
+  };
+  const kept = (root: string, token: string): boolean =>
+    existsSync(join(lockOf(root), `${OWNER_PREFIX}${token}`));
+
+  it("a live holder and a clock stepped forward by 10 minutes: not taken before staleMs has been watched", () => {
+    const root = oldProject();
+    const owner = holderStartedOff(root, TEN_MIN, TEN_MIN);
+
+    const done = syncWith(root, { waitMs: 400, staleMs: 60_000 });
+
+    expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(kept(root, owner.token)).toBe(true);
+  });
+
+  it("a genuinely reused pid (start does not fit, the holder is gone): not at once, taken once watched for staleMs", () => {
+    const root = oldProject();
+    holderStartedOff(root, 3_600_000, TEN_MIN);
+
+    const early = syncWith(root, { waitMs: 300, staleMs: 60_000 });
+    expect(early.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+
+    markSeen(root, 2 * STALE);
+    const late = syncWith(root, { waitMs: 300, staleMs: STALE });
+    expect(late.warnings).toEqual([]);
+    expect(late.result.status).toBe(SkillsSyncStatus.Updated);
+  });
+
+  it("the monotonic watch of this process alone takes it (the marker dated ahead cannot help)", () => {
+    const root = oldProject();
+    holderStartedOff(root, 3_600_000, TEN_MIN);
+    markSeen(root, 0);
+    setTime(join(lockOf(root), SEEN_MARKER), 365 * 86_400_000);
+
+    const done = syncWith(root, { waitMs: 6_000, staleMs: STALE });
+
+    expect(done.warnings).toEqual([]);
+    expect(done.result.status).toBe(SkillsSyncStatus.Updated);
+  });
+
+  it("a holder that refreshes its owner file is never taken: the watch starts over", () => {
+    const root = oldProject();
+    const owner = holderStartedOff(root, 3_600_000, TEN_MIN);
+    syncWith(root, { waitMs: 100, staleMs: 60_000 });
+    markSeen(root, 2 * STALE);
+    // the holder shows it is alive now
+    const file = join(lockOf(root), `${OWNER_PREFIX}${owner.token}`);
+    const later = new Date(Date.now() - 1_000);
+    utimesSync(file, later, later);
+    setTime(lockOf(root), -TEN_MIN);
+
+    const done = syncWith(root, { waitMs: 300, staleMs: STALE });
+
+    expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(kept(root, owner.token)).toBe(true);
+  });
+
+  it("a long sync renews its owner file between its steps", () => {
+    const root = oldProject();
+    mkdirSync(join(root, ".agents"), { recursive: true });
+    let seen: number[] = [];
+    withSyncLock(root, (renew) => {
+      const file = join(lockOf(root), readdirSync(lockOf(root))[0] ?? "");
+      const old = new Date(Date.now() - TEN_MIN);
+      utimesSync(file, old, old);
+      renew();
+      seen = [Date.now() - lstatSync(file).mtimeMs];
+    });
+
+    expect(seen[0]).toBeLessThan(5_000);
+  });
+
+  it("a holder that releases leaves no marker behind, so the next sync is not held up", () => {
+    const root = oldProject();
+    const owner = holderStartedOff(root, 3_600_000, TEN_MIN);
+    syncWith(root, { waitMs: 100, staleMs: 60_000 });
+    expect(existsSync(join(lockOf(root), SEEN_MARKER))).toBe(true);
+
+    dropOwner(lockOf(root), owner.token);
+
+    expect(existsSync(lockOf(root))).toBe(false);
   });
 });
 

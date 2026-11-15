@@ -27,8 +27,11 @@ describe("#1013 AC2: when a lock is stale", () => {
 
   it("AC2: pid reuse — the pid lives but started long after the lock was made", () => {
     const reused = { ...newOwner(), procStart: Date.now() - 3_600_000 };
-    expect(isStale({ token: reused.token, owner: reused, ageMs: 120_000 }, 600_000)).toBe(true);
-    expect(isStale({ token: reused.token, owner: reused, ageMs: 1_000 }, 600_000)).toBe(false);
+    const unknown = { token: reused.token, owner: reused, isUnknown: true };
+    // not known to be gone: not taken at once, only after the watch lasted staleMs
+    expect(isStale({ ...unknown, ageMs: 120_000 }, 600_000)).toBe(false);
+    expect(isStale({ ...unknown, ageMs: 601_000 }, 600_000)).toBe(true);
+    expect(isStale({ token: reused.token, owner: reused, ageMs: 601_000 }, 600_000)).toBe(false);
   });
 
   it("AC2: another host or an unreadable owner ages out by the long bound only", () => {

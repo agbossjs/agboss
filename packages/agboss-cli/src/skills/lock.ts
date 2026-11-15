@@ -7,8 +7,11 @@ import {
   clearEmpty,
   dropOwner,
   isAlive,
+  isReused,
   isStale,
-  observedFutureMs,
+  observedMs,
+  renewOwner,
+  REUSE_CHECK_MS,
   newOwner,
   OWNER_PREFIX,
   readHolder,
@@ -85,15 +88,20 @@ function clearIfStale(lock: string, staleMs: number): void {
 }
 
 /**
- * A lock whose time is in the future is not stale at once and does not wait for that time (#1105):
- * its age is how long this waiter has watched it. A live holder of this host is never judged by
- * time (its pid is), and a dead one is taken over at once by `isStale`; only a lock of another
- * host, an owner nobody can read or a folder with no owner ages out this way.
+ * A lock whose age on disk cannot be trusted is not judged by it (#1105): its age is how long this
+ * waiter has watched it unchanged. A live pid on this host whose start time fits is never judged
+ * by time. One whose start does not fit (a reused pid, or a clock stepped under a holder) is
+ * unknown, not dead: only the watch can take it, and a holder that refreshes its owner file
+ * restarts it. A lock dated in the future is watched the same way; a dead pid is taken at once.
  */
 function withObserved(lock: string, holder: Holder): Holder {
+  const { owner } = holder;
+  if (owner?.host === hostname() && isAlive(owner.pid)) {
+    if (holder.ageMs <= REUSE_CHECK_MS || !isReused(owner)) return holder;
+    return { ...holder, isUnknown: true, ageMs: observedMs(lock, holder.token) };
+  }
   if (!holder.isFuture) return holder;
-  if (holder.owner?.host === hostname() && isAlive(holder.owner.pid)) return holder;
-  return { ...holder, ageMs: Math.max(holder.ageMs, observedFutureMs(lock, holder.token)) };
+  return { ...holder, ageMs: Math.max(holder.ageMs, observedMs(lock, holder.token)) };
 }
 
 /** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */
@@ -136,12 +144,12 @@ function guardSignals(): () => void {
 }
 
 /**
- * Runs `work` holding the project's sync lock; undefined when the lock stayed with a live holder
+ * Runs `work` holding the project's sync lock (it calls `renew` between its steps: a long sync shows it is alive); undefined when the lock stayed with a live holder
  * for `waitMs`. `.agents/` is made when it is not there.
  */
 export function withSyncLock<T>(
   root: string,
-  work: () => T,
+  work: (renew: () => void) => T,
   options: LockOptions = DEFAULT_LOCK,
 ): { readonly value: T } | undefined {
   const agents = join(root, ".agents");
@@ -157,7 +165,11 @@ export function withSyncLock<T>(
   const unguard = guardSignals();
   try {
     sweepCrashed(agents, options.staleMs);
-    return { value: work() };
+    return {
+      value: work(() => {
+        renewOwner(lock, owner.token);
+      }),
+    };
   } finally {
     dropOwner(lock, owner.token);
     unguard();

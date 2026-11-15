@@ -73,10 +73,14 @@ function writeProject(
   source: SkillsSource,
   files: readonly SkillFile[],
   ops: { readonly link: LinkOps; readonly replace: ReplaceOps },
+  renew: () => void,
 ): SkillsSync {
   restoreLeftover(root, join(root, SKILLS_FOLDER), ops.replace);
+  renew();
   const kept = removeLeftovers(root, files, ops.replace);
+  renew();
   const copy = syncCopy(root, files, source.version, ops);
+  renew();
   const link = copy.isMoveOpen ? undefined : linkClaudeSkills(root, ops.link);
   const result =
     link === undefined
@@ -124,7 +128,11 @@ function syncProject(
   if (outside !== undefined)
     return failed(SkillsWarningCode.OutsideProject, outsideWarning(outside).message, shadowed);
   const files = skillFilesOf(source);
-  const held = withSyncLock(root, () => writeProject(root, source, files, ops), ops.lock);
+  const held = withSyncLock(
+    root,
+    (renew) => writeProject(root, source, files, ops, renew),
+    ops.lock,
+  );
   const done = held?.value ?? skippedProject(root, source, files);
   return { result: done.result, warnings: [...done.warnings, ...shadowed] };
 }

@@ -9,6 +9,7 @@ import {
   rmSync,
   statSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { z } from "zod";
@@ -56,6 +57,8 @@ export interface Holder {
    * negative and never infinite: the age is not trusted either way, see `observedFutureMs`.
    */
   readonly isFuture?: boolean;
+  /** A live pid on this host whose recorded start does not fit: not known to be gone (see `isStale`). */
+  readonly isUnknown?: boolean;
 }
 
 /** The pid is a live process on this host (`EPERM`: alive, not ours to signal). */
@@ -78,7 +81,7 @@ function elapsedSeconds(pid: number): number | undefined {
 }
 
 /** A live pid that started long after the lock was made belongs to another process (pid reuse). */
-function isReused(owner: LockOwner): boolean {
+export function isReused(owner: LockOwner): boolean {
   const elapsed = elapsedSeconds(owner.pid);
   return elapsed !== undefined && Math.abs(Date.now() - elapsed * 1000 - owner.procStart) > 5000;
 }
@@ -127,47 +130,80 @@ export function readHolder(lock: string): Holder | undefined {
   }
 }
 
-/** The marker a waiter leaves in a future-dated lock folder: its mtime is when a waiter first saw it. */
+/** The marker a waiter leaves in a lock folder it cannot judge by time: its mtime is when a waiter first saw the lock as it is. */
 export const SEEN_MARKER = "seen-future";
 
+/** What a holder's refresh changes: the owner file's mtime (none: the folder holds no owner file). */
+export function fingerprintOf(lock: string, token: string | undefined): string {
+  try {
+    return token === undefined
+      ? "none"
+      : String(statSync(join(lock, `${OWNER_PREFIX}${token}`)).mtimeMs);
+  } catch {
+    return "none";
+  }
+}
+
 /** This waiter's own first sight of a lock, on the monotonic clock (immune to a stepped wall clock). */
-const firstSeen = new Map<string, number>();
+const firstSeen = new Map<string, { readonly first: number; readonly print: string }>();
 
 /**
- * How long a lock with a time in the future has been watched (#1105). The time on disk says
- * nothing, so the age counts from the first sight, never from the file: this process's monotonic
- * clock, and a marker file in the folder (its mtime is this host's own clock at the first sight),
- * so a run per `agboss check` still sees the lock age across processes. The longer of the two
- * counts; a marker dated ahead (the clock stepped back again) counts as nothing. A lock a live
- * holder of this host owns is never asked about: it is judged by its pid.
+ * How long a lock whose age on disk cannot be trusted has been watched, unchanged (#1105): a time
+ * in the future, or a live pid whose recorded start does not fit (a clock stepped, or a reused pid).
+ * The age counts from the first sight, never from the file: this process's monotonic clock, and a
+ * marker file in the folder (its mtime is this host's own clock at the first sight, its text the
+ * owner file's mtime then), so a run per `agboss check` still sees the lock age across processes.
+ * The longer of the two counts. A holder that refreshes its owner file (`renewOwner`) changes the
+ * fingerprint and starts the count over, in this process and in the marker; a marker dated ahead
+ * (the clock stepped back again) counts as nothing.
  */
-export function observedFutureMs(lock: string, token: string | undefined): number {
+export function observedMs(lock: string, token: string | undefined): number {
+  const print = fingerprintOf(lock, token);
   const key = `${lock}|${token ?? ""}`;
   const now = performance.now();
-  const first = firstSeen.get(key) ?? now;
-  firstSeen.set(key, first);
+  const before = firstSeen.get(key);
+  const first = before?.print === print ? before.first : now;
+  firstSeen.set(key, { first, print });
   const marker = join(lock, SEEN_MARKER);
   let onDisk = 0;
   try {
-    writeFileSync(marker, "", { flag: "wx" });
+    if (readFileSync(marker, "utf8") === print) onDisk = Math.max(0, ageOf(marker) ?? 0);
+    else writeFileSync(marker, print);
   } catch {
-    onDisk = Math.max(0, ageOf(marker) ?? 0);
+    try {
+      writeFileSync(marker, print, { flag: "wx" });
+    } catch {
+      // gone or made by another waiter meanwhile: the next poll reads it
+    }
   }
   return Math.max(now - first, onDisk);
 }
 
+/** The holder shows it is alive: its owner file's time is now (a long sync calls this between steps). */
+export function renewOwner(lock: string, token: string): void {
+  try {
+    const now = new Date();
+    utimesSync(join(lock, `${OWNER_PREFIX}${token}`), now, now);
+  } catch {
+    // the lock was taken from under us: the release finds that out
+  }
+}
+
 /** Waiting this long on a pid that "lives" before asking `ps` whether it is the same process. */
-const REUSE_CHECK_MS = 30_000;
+export const REUSE_CHECK_MS = 30_000;
 
 /**
- * The holder is gone: its pid is dead on this host (or was reused), or — another host, an owner
- * file nobody can read — the lock is older than `staleMs`, the last resort. A live owner never is.
+ * The holder is gone: its pid is dead on this host (the only instant verdict), or — another host,
+ * an owner file nobody can read — the lock is older than `staleMs`, the last resort. A live pid
+ * whose start time does not fit (`isUnknown`: reused, or a stepped clock) is not known to be gone:
+ * it is taken only once it was watched unchanged for `staleMs` (`ageMs` is then that watch).
+ * A live owner whose start fits never is.
  */
 export function isStale(holder: Holder, staleMs: number): boolean {
   const { owner } = holder;
   if (owner?.host !== hostname()) return holder.ageMs > staleMs;
   if (!isAlive(owner.pid)) return true;
-  return holder.ageMs > REUSE_CHECK_MS && isReused(owner);
+  return holder.isUnknown === true && holder.ageMs > staleMs;
 }
 
 /**
@@ -182,6 +218,7 @@ export function dropOwner(lock: string, token: string): boolean {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
     throw error;
   }
+  rmSync(join(lock, SEEN_MARKER), { force: true });
   clearEmpty(lock);
   return true;
 }
