@@ -4,7 +4,11 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import { storeConformance } from "../../../src/testing/contracts/index.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
 import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
-import { prunedByAge } from "./cancel-age-pruning-stores.js";
+import {
+  markDroppedByAcquire,
+  prunedByAge,
+  prunedOnceRootRetired,
+} from "./cancel-age-pruning-stores.js";
 import { cancelReadBefore, withoutCancelFence } from "./cancel-broken-stores.js";
 
 const BUDGET = { depth: 7, walks: 30, walkDepth: 20 } as const;
@@ -39,11 +43,33 @@ storeConformance({
 
 storeConformance({
   interleavings: BUDGET,
+  name: "a retention that lifts the cancel's mark once the root's lease is retired",
+  stores: {
+    executionLease: leases,
+    executionAuditLog: audit,
+    fencedEffect: inMemoryTarget(prunedOnceRootRetired.effects),
+    outboundCall: inMemoryTarget(prunedOnceRootRetired.calls),
+  },
+});
+
+storeConformance({
+  interleavings: BUDGET,
   name: "a retention that lifts the cancel's mark by age alone",
   stores: {
     executionLease: leases,
     executionAuditLog: audit,
     fencedEffect: inMemoryTarget(prunedByAge.effects),
     outboundCall: inMemoryTarget(prunedByAge.calls),
+  },
+});
+
+storeConformance({
+  interleavings: BUDGET,
+  name: "a lease store whose acquire drops the cancel's mark",
+  stores: {
+    executionLease: inMemoryTarget(markDroppedByAcquire.leases),
+    executionAuditLog: audit,
+    fencedEffect: inMemoryTarget(markDroppedByAcquire.effects),
+    outboundCall: inMemoryTarget(markDroppedByAcquire.calls),
   },
 });

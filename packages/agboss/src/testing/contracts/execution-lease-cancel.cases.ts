@@ -88,6 +88,27 @@ export const LEASE_CANCEL_CASES: readonly ContractCase<ExecutionLeaseRepository>
     },
   },
   {
+    name: "#1117: the mark kept on the tree's lease row changes no lease — a cancel before any acquire gives a first take with no takeover, a cancel of a released lease a plain take at token + 1, a cancel of a retired one leaves it retired",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.requestCancel({ tenantId: "default", rootExecutionId: "root-2" });
+      const early = await second.acquire("default", "root-2", LEASE);
+      const held = await takenBy(first);
+      await first.release(held);
+      await second.requestCancel(TREE);
+      const next = await second.acquire("default", "root-1", LEASE);
+      if (next === undefined) throw new Error("a released lease must be taken again");
+      await second.retire(next);
+      await first.requestCancel(TREE);
+
+      expect(early).toMatchObject({ token: 1 });
+      expect(early?.takenOverFrom).toBeUndefined();
+      expect(next).toMatchObject({ token: 2, holderInstanceId: "instance-2" });
+      expect(next.takenOverFrom).toBeUndefined();
+      expect(await first.acquire("default", "root-1", LEASE)).toBeUndefined();
+      expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
+    },
+  },
+  {
     name: "#909: a cancel of another tree or another tenant's tree takes nothing from this one",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.requestCancel({ tenantId: "default", rootExecutionId: "root-2" });

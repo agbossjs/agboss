@@ -243,57 +243,67 @@ describe("#533: the base class's entry checks", () => {
   });
 });
 
-describe("#909: a tree's cancel mark in memory", () => {
+describe("#909, #1117: a tree's cancel mark in memory", () => {
   const tree = { tenantId: "default", rootExecutionId: "execution-1" };
-  const sweptAt = (clock: VirtualClock, ago: number) => new Date(clock.now().getTime() - ago);
+  const ROW = "default\u0000execution-1";
 
-  it("is stamped at the first request and kept when asked again: the sweep removes it by that time once its tree retired", async () => {
-    const { clock, database, leases, effects } = storesOn();
-    const lease = await held(leases);
+  it("is stamped on the tree's lease row at the first request and kept when asked again", async () => {
+    const { clock, database, leases } = storesOn();
+    await held(leases);
     await leases.requestCancel(tree);
+    const stamped = clock.now().getTime();
     await clock.advance(seconds(60));
     await leases.requestCancel(tree);
-    await leases.retire(lease);
 
-    await effects.deleteByStoredAtBefore(sweptAt(clock, seconds(30)));
-
-    expect(database.cancelRequests.size).toBe(0);
+    expect(database.executionLeases.get(ROW)?.cancelRequestedAt).toBe(stamped);
   });
 
-  it("a mark newer than the cutoff stays, retired tree or not", async () => {
+  it("no sweep lifts it, the tree retired or not, at any cutoff: its write is still refused", async () => {
     const { clock, database, leases, effects } = storesOn();
     const lease = await held(leases);
-    await clock.advance(seconds(60));
-    await leases.requestCancel(tree);
-    await leases.retire(lease);
-
-    await effects.deleteByStoredAtBefore(sweptAt(clock, seconds(30)));
-
-    expect(database.cancelRequests.size).toBe(1);
-  });
-
-  it("a tree that has not retired keeps its mark at any cutoff: its write is still refused", async () => {
-    const { clock, database, leases, effects } = storesOn();
-    const key = keyOf(await held(leases));
+    const key = keyOf(lease);
     await leases.requestCancel(tree);
     await clock.advance(seconds(60));
-
     await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
-
-    expect(database.cancelRequests.size).toBe(1);
     await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
       ExecutionCancelFencedError,
     );
-  });
-
-  it("a mark of a tree with no lease row yet stays too (a cancel before the first acquire)", async () => {
-    const { clock, database, leases, effects } = storesOn();
-    await leases.requestCancel(tree);
-    await clock.advance(seconds(60));
+    await leases.retire(lease);
 
     await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
 
-    expect(database.cancelRequests.size).toBe(1);
+    expect(database.executionLeases.get(ROW)).toMatchObject({ isRetired: true });
+    expect(database.executionLeases.get(ROW)?.cancelRequestedAt).toBeDefined();
+  });
+
+  it("a cancel before the first acquire is a seed row — token 0, released, never held — that the acquire keeps the mark of", async () => {
+    const { database, leases } = storesOn();
+    await leases.requestCancel(tree);
+
+    expect(database.executionLeases.get(ROW)).toMatchObject({
+      released: true,
+      lease: { token: 0, holderInstanceId: "" },
+    });
+    const lease = await held(leases);
+    expect(lease).toMatchObject({ token: 1 });
+    expect(database.executionLeases.get(ROW)?.cancelRequestedAt).toBeDefined();
+  });
+
+  it("every write of the row keeps the mark: renew, yield, reclaim, release, a takeover", async () => {
+    const { clock, database, leases } = storesOn();
+    const lease = await held(leases);
+    await leases.requestCancel(tree);
+    const mark = database.executionLeases.get(ROW)?.cancelRequestedAt;
+    await leases.renew(lease, seconds(30));
+    await leases.yield(lease);
+    const reclaimed = await leases.reclaim(lease, seconds(30));
+    if (reclaimed === undefined) throw new Error("the holder reclaims its yielded lease");
+    await leases.release(reclaimed);
+    await held(leases);
+    await clock.advance(hours(2));
+    await held(leases);
+
+    expect(database.executionLeases.get(ROW)?.cancelRequestedAt).toBe(mark);
   });
 });
 

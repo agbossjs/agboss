@@ -20,13 +20,8 @@ import {
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
 import { SyncWorkRequiredError } from "../fenced-effect-errors.js";
-import {
-  checkSqliteCancel,
-  prunedCancelRequests,
-  SqliteConnection,
-  sqliteImplementation,
-} from "./sqlite-connection.js";
-import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
+import { checkSqliteCancel, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
 import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
 
 /** The scopes' marks and the results (#500); the marks are every fenced store's of the file. */
@@ -120,7 +115,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     settings: FencedEffectSettings,
   ) {
     super(settings);
-    connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
+    ensureLeaseSchema(connection);
     connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
   }
 
@@ -146,7 +141,6 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
         .prepare("DELETE FROM fenced_effect_business_results WHERE stored_at < ?")
         .run(before);
       database.prepare("DELETE FROM fenced_effect_marks WHERE stored_at < ?").run(before);
-      prunedCancelRequests(database, before); // #909
     });
     return Promise.resolve();
   }

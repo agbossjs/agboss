@@ -27,11 +27,10 @@ import {
 import {
   checkSqliteCancel,
   oneRowChanged,
-  prunedCancelRequests,
   SqliteConnection,
   sqliteImplementation,
 } from "./sqlite-connection.js";
-import { EXECUTION_LEASES_SCHEMA } from "./sqlite-execution-lease.repository.js";
+import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
 import {
   checkSqliteFence,
   FENCED_EFFECTS_SCHEMA,
@@ -74,7 +73,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     private readonly clock: Pick<StoreClock, "now">,
   ) {
     super();
-    connection.ensureSchema("execution_leases", EXECUTION_LEASES_SCHEMA);
+    ensureLeaseSchema(connection);
     connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
     upgradeOutboundCallsSeq(connection);
     connection.ensureSchema("outbound_calls", OUTBOUND_CALLS_SCHEMA);
@@ -185,7 +184,6 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     this.connection.database
       .prepare("DELETE FROM outbound_calls WHERE ended_at IS NOT NULL AND ended_at < ?")
       .run(cutoff.getTime());
-    prunedCancelRequests(this.connection.database, cutoff.getTime()); // #909
     return Promise.resolve();
   }
 

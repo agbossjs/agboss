@@ -2,6 +2,7 @@ import { registerContract } from "./define.js";
 import { optOutOf, type FencingContractOptions, type OptOut } from "./fencing-gate.js";
 import { cancelCases } from "./fenced-effect-cancel.cases.js";
 import { cancelEdgeCases } from "./fenced-effect-cancel-edges.cases.js";
+import { cancelPermanentCases } from "./fenced-effect-cancel-permanent.cases.js";
 import { cancelRaceCases } from "./fenced-effect-cancel-race.cases.js";
 import { businessKeyCases } from "./fenced-effect-business.cases.js";
 import type { FencedEffectTarget } from "./fenced-effect-data.js";
@@ -61,6 +62,7 @@ export function registerFencedEffectContract<TTransaction>(
       zombieCases<TTransaction>(),
       cancelCases<TTransaction>(),
       cancelEdgeCases<TTransaction>(),
+      cancelPermanentCases<TTransaction>(),
       cancelRaceCases<TTransaction>(),
     ],
     (stores) => stores.effects.ping(),

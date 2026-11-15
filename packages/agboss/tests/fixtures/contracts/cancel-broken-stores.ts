@@ -3,8 +3,9 @@
  * wrong — and the targets that build them. `cancel-sabotage.contract-fixture.ts` runs the contracts
  * and the explorer on each; `sabotage-cancel.test.ts` reads which cases and invariants bit.
  *
- * - no cancel check (`withoutCancelFence`): the stores of the core over a database that holds no
- *   cancel requests for them — the fence reverted: a write after the cancel lands;
+ * - no cancel check (`withoutCancelFence`): the stores of the core over a database whose lease rows
+ *   read without their cancel mark (#1117) — a check that ignores the lease row's field, the fence
+ *   reverted: a write after the cancel lands;
  * - a cancel read before the transaction (`CancelReadBeforeEffects`): the request is looked up
  *   first, then the work runs and the commit checks the lease again but not the request — a cancel
  *   that arrives while the write's transaction is open lands after it answered.
@@ -39,13 +40,31 @@ import {
   CheckThenWriteEffects,
 } from "./broken-fencing-stores.js";
 
-/** `database` as the fencing stores see it with no cancel request in it: the fence reverted. */
+/**
+ * `database` as the fencing stores see it with no cancel mark on any lease row (#1117): a fence
+ * check that ignores the lease row's mark — the fence reverted. The rows' lease state is read as
+ * stored.
+ */
 const withoutCancels = (database: InMemoryDatabase): InMemoryDatabase =>
   new Proxy(database, {
-    get: (target, property) =>
-      property === "cancelRequests"
-        ? new Map()
-        : (Reflect.get(target, property, target) as unknown),
+    get: (target, property) => {
+      if (property !== "executionLeases") return Reflect.get(target, property, target) as unknown;
+      return new Proxy(target.executionLeases, {
+        get: (leases, method) => {
+          if (method === "get")
+            return (key: string) => {
+              const stored = leases.get(key);
+              if (stored === undefined) return undefined;
+              const { cancelRequestedAt: _ignored, ...read } = stored;
+              return read;
+            };
+          const value = Reflect.get(leases, method, leases) as unknown;
+          return typeof value === "function"
+            ? (value as (...args: unknown[]) => unknown).bind(leases)
+            : value;
+        },
+      });
+    },
   });
 
 /** The in-memory fencing stores of the core with no cancel check: the leases write the real mark. */

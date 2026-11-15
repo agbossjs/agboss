@@ -222,15 +222,37 @@ export abstract class ExecutionLeaseRepository {
   ): Promise<ExecutionLease | undefined>;
 
   /**
-   * Marks the tree's cancel as requested (#909): durable once this resolves, idempotent, kept until
-   * the fencing stores' retention prunes it. From then on every fencing store of this backend
-   * refuses a new effect of the tree (not a replay, not an undo's) in the transaction that checks
-   * the lease. Changes no lease: the holder keeps it, renews it, runs the tree's undo under it.
-   * The mark is keyed by the tree's root, never by a child's lease, and may be written before the
-   * tree's first `acquire`.
+   * Marks the tree's cancel as requested (#909): durable once this resolves, idempotent, and
+   * permanent (#1117) — no retention pass, release, retire, take or takeover lifts it, as no lease
+   * row and no execution id is ever removed. From then on every fencing store of this backend
+   * refuses a new effect of the tree (not a replay, not an undo's) — the root's and every child's,
+   * live or taken later — in the transaction that checks the lease. The mark lives on the tree's
+   * own lease row, keyed by the tree's root (never by a child's lease): a cancel before the tree's
+   * first `acquire` writes a seed row (token 0, released, never held), so that acquire is token 1
+   * and no takeover. Changes no lease: the holder keeps it, renews it, runs the tree's undo under it.
    */
   abstract requestCancel(tree: ExecutionTree): Promise<void>;
 }
+
+/** The tree's cancel mark of a stored row (#1117), for the row written in its place: kept for good. */
+const markOf = (stored: ExecutionLeaseRow | undefined): { readonly cancelRequestedAt?: number } =>
+  stored?.cancelRequestedAt === undefined ? {} : { cancelRequestedAt: stored.cancelRequestedAt };
+
+/**
+ * The row of a tree cancelled before its first acquire (#1117): token 0, released, never held — its
+ * first acquire is token 1 and no takeover, as of a key with no row.
+ */
+const seedRowOf = (tree: ExecutionTree): ExecutionLeaseRow => ({
+  lease: {
+    tenantId: tree.tenantId,
+    rootExecutionId: tree.rootExecutionId,
+    holderInstanceId: "",
+    token: 0,
+    expiresAt: new Date(0),
+    remaining: waitOf(0),
+  },
+  released: true,
+});
 
 /** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
 const isRefused = (stored: ExecutionLeaseRow, now: Date): boolean =>
@@ -299,7 +321,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
         stored?.released === false || stored?.isClosedByCheck === true,
       ),
     };
-    this.database.executionLeases.set(key, { lease: taken, released: false });
+    this.database.executionLeases.set(key, { lease: taken, released: false, ...markOf(stored) });
     return Promise.resolve(taken);
   }
 
@@ -333,6 +355,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       lease: stored.lease,
       released: true,
       ...(retired ? { isRetired: true } : {}),
+      ...markOf(stored),
     });
   }
 
@@ -358,15 +381,20 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
       ...{ tenantId, rootExecutionId, holderInstanceId, token, expiresAt },
       remaining: duration,
     };
-    this.database.executionLeases.set(key, { lease: reclaimed, released: false });
+    this.database.executionLeases.set(key, {
+      lease: reclaimed,
+      released: false,
+      ...markOf(stored),
+    });
     return Promise.resolve(reclaimed);
   }
 
   requestCancel(tree: ExecutionTree): Promise<void> {
-    const { cancelRequests } = this.database;
+    const { executionLeases } = this.database;
     const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
-    if (!cancelRequests.has(key))
-      cancelRequests.set(key, { requestedAt: this.clock.now().getTime() });
+    const stored = executionLeases.get(key) ?? seedRowOf(tree);
+    if (stored.cancelRequestedAt === undefined)
+      executionLeases.set(key, { ...stored, cancelRequestedAt: this.clock.now().getTime() });
     return Promise.resolve();
   }
 
