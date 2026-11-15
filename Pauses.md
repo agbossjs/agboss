@@ -842,7 +842,9 @@ is made — `expiresAt − remindBefore`, so a pause the run's deadline bound is
 deadline, one with no deadline never — and again by an extension. A question step's or a tool's
 `expiresIn` that is no longer than the role's `remindBefore` gives that pause no reminder, as the
 pause is asked inside the reminder's lead (`[channel.remind-before-exceeds-expiry]`, a warning; an error
-under `--strict`; the role alone sets `remindBefore`). The look pages through the due reminders with a
+under `--strict`; the role alone sets `remindBefore`). A `remindBefore` shorter than the pause timers' 5 s
+tick can be skipped, since a tick may fall on none of its window (`[channel.remind-before-below-tick]`, a
+warning; an error under `--strict`). The look pages through the due reminders with a
 keyset cursor and hands each to the store without waiting, like the expiry look: another application's
 due pauses on a shared store never hide yours.
 
@@ -861,8 +863,13 @@ optional `onPauseExtended(event)` and a listener's `onPauseExtended` hear "exten
   `DtoValidationError`, naming that deadline;
 - another tenant's pause or an unknown id — `UnknownPauseError`.
 
-The store applies the extension atomically against the expiry look: its compare-and-set on `expiresAt > now`
-lets exactly one of an extension and an expiry at one tick win. An extended pause answered on any
+The store applies the extension atomically: its compare-and-set applies it only while the pause is open, over
+the deadline the caller read (`PauseDeadlineChange.previousExpiresAt`) and to a deadline later than the stored
+one. So exactly one of an extension and an expiry at one tick wins, and of two extensions at once one wins and the
+other re-reads: it is refused ("not later", `DtoValidationError`) when the winner's deadline is at least as late,
+and otherwise applied over the new deadline — the deadline never shortens, "extended" is told once by the writer
+that won, and `previousExpiresAt` is the deadline that write replaced. A store of your own does the same in its
+`extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
 instance, an expiry look on any instance, all read the new deadline from the record.
 
 ## Concurrent answers
