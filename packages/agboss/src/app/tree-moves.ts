@@ -14,7 +14,6 @@ import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf, refusedIfFailed } from "./current-output.js";
 import { isHandedOver } from "./handed-over.js";
-import { hasStartedWriting } from "./leased-checkpointer.js";
 import { forgetTree, markedIfWithoutRecovery, passEnded, treeOf } from "./tree-ends.js";
 import type { RecordedAnswer } from "./resume.js";
 import { announceResume, callWithLostPasses } from "./tree-resume.js";
@@ -24,7 +23,7 @@ import { executionEventAt } from "./run-events.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { rootTakeOf, type HeldExecutionLease } from "./execution-leases.js";
-import { ExecutionLeaseLostError, leaseLostBeforeStartError } from "./lease-lost.js";
+import { startedOrSaid } from "./unstarted-run.js";
 import { leaseScope } from "./lease-scope.js";
 import { passesOf } from "./drain-passes.js";
 import { withTreeOrigin } from "./tree-origin.js";
@@ -50,17 +49,6 @@ const takeover = () => lazyLoad(import("./unwinding-takeover.js"));
 
 export type * from "./tree-move-types.js";
 
-/**
- * A new run handed over before its holder began writing a checkpoint (#1090): nothing is stored,
- * so the next take has nothing to continue — it ends the record failed (`NothingToRecoverError`).
- * The caller is told so: the run did not start. After the first write a hand-over stays the plain
- * one (that write may have been applied; recovery finds out).
- */
-function unstartedOf(lease: HeldExecutionLease, error: unknown): unknown {
-  if (!(error instanceof ExecutionLeaseLostError) || hasStartedWriting(lease)) return error;
-  return leaseLostBeforeStartError(error);
-}
-
 class TreeMover implements TreeMoves {
   /** The roots a resume of this instance is moving or about to move: its own sweep leaves them. */
   readonly #resuming = new RootCalls();
@@ -71,9 +59,7 @@ class TreeMover implements TreeMoves {
     // #860: a run no recovery continues says so before its first pass, in its tree's keys
     await markedIfWithoutRecovery(call, this.parts.trees, treeOf(state));
     const lease = await this.parts.leases.hold(treeOf(state));
-    return this.drained(state, call, lease, { pass }).catch((error: unknown) => {
-      throw unstartedOf(lease, error);
-    });
+    return startedOrSaid(lease, this.drained(state, call, lease, { pass }));
   }
 
   async resumed(answer: RecordedAnswer, given: TreeCall): Promise<ExecutionOutput> {

@@ -58,10 +58,8 @@ async function initialOf<TName extends string>(
   if (typeof saver !== "object") return undefined;
   const tuple = await saver.getTuple(runConfig(runId));
   const initial: unknown = tuple?.checkpoint.channel_values[START_CHANNEL];
-  // LangGraph boundary: the channel holds the update the run was started with
-  return typeof initial === "object" && initial !== null
-    ? (initial as Partial<ExecutionStateType>)
-    : undefined;
+  // LangGraph boundary: the channel holds the update the run was started with (every field optional)
+  return typeof initial === "object" && initial !== null ? initial : undefined;
 }
 
 /**

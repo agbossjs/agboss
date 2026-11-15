@@ -2801,7 +2801,7 @@ export class ExecutionLeaseLostError extends AGBossError {
     constructor(options: ExecutionLeaseLostErrorOptions);
     // (undocumented)
     static readonly code: string;
-    code: "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
+    readonly code: "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
     // (undocumented)
     name: string;
     readonly rootExecutionId: string;

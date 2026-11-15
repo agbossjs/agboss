@@ -8,10 +8,9 @@ import {
   type BudgetHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { route } from "../../../src/flow/builder.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { route, start } from "../../flow/fixtures/paths.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
@@ -66,7 +65,9 @@ export class OrderRouter {}
       .returns(WorkflowStartTextDto)
       .toRouter(OrderRouter)
       .chooseOne(
-        route(ChargeOrderAction).returns(ChargeReceiptDto).toFinish(ChargedWorkflowFinish),
+        route(ChargeOrderAction)
+          .returns(ChargeReceiptDto)
+          .toFinish(ChargedWorkflowFinish),
         route(NotChargedWorkflowFinish),
       ),
   ],

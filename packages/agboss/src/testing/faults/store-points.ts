@@ -268,32 +268,3 @@ export const HISTORY_METHODS: Readonly<Record<string, StoreMethod>> = {
     outputOf: asIs,
   },
 };
-
-/** What the history keeps of a checkpoint's config: its thread and namespace, never a payload. */
-const threadFacts = (args: readonly unknown[]): unknown => {
-  const { thread_id: threadId, checkpoint_ns: namespace } =
-    (first(args) as { readonly configurable?: Record<string, unknown> }).configurable ?? {};
-  return { threadId, namespace };
-};
-
-const threadOf = (args: readonly unknown[]): string | undefined => {
-  const id = (first(args) as { readonly configurable?: Record<string, unknown> }).configurable
-    ?.thread_id;
-  return typeof id === "string" ? id : undefined;
-};
-
-/** The checkpoint saver's writes (#1090): a checkpoint, and a task's writes before the next one. */
-export const CHECKPOINT_METHODS: Readonly<Record<string, StoreMethod>> = {
-  put: {
-    point: StoreHoldPoint.CheckpointPut,
-    keyOf: threadOf,
-    inputOf: threadFacts,
-    outputOf: () => null,
-  },
-  putWrites: {
-    point: StoreHoldPoint.CheckpointPutWrites,
-    keyOf: threadOf,
-    inputOf: threadFacts,
-    outputOf: () => null,
-  },
-};

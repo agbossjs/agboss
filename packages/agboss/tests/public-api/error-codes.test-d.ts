@@ -66,7 +66,7 @@ describe("#906 AC2: the instance code is the class's literal", () => {
 
   it("AC2: a parent's instance code is the literal union of its family", () => {
     expectTypeOf<ExecutionLeaseLostError["code"]>().toEqualTypeOf<
-      "execution.lease-lost" | "execution.lease-lost.fenced"
+      "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started"
     >();
     expectTypeOf<DecisionError["code"]>().toEqualTypeOf<
       "model.decision" | "model.decision.invalid-request" | "model.decision.invalid-response"

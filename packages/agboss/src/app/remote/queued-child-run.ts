@@ -184,11 +184,9 @@ async function streamed(
   const isResuming = resume !== undefined && interrupts.some((id) => id in resume);
   if (interrupts.length > 0 && !isResuming) return { rests: true };
   if (resume === undefined) {
-    const text = `execution ${row.executionId} is recovered: it continues from its last checkpoint`;
-    rootDeps.log.warn("execution.recovered", text, {
-      executionId: row.executionId,
-      tenantId: row.tenantId,
-    });
+    const { executionId, tenantId } = row;
+    const text = `execution ${executionId} is recovered: it continues from its last checkpoint`;
+    rootDeps.log.warn("execution.recovered", text, { executionId, tenantId });
   }
   const spent = isResuming
     ? await resumedSpendOf(reading, rootDeps, row, run.thread, before.values.usage, resume)

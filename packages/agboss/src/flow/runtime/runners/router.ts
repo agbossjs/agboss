@@ -107,6 +107,22 @@ function shownRequest(
 }
 
 /**
+ * Spend counted at the call, like an agent's (#1090): in the ledger and marked before it reaches
+ * the state, so no checkpoint write holds spend the ledger lacks, and an exhausted budget stops here.
+ */
+const counterOf =
+  (budgets: BudgetMeter, spent: readonly UsageRecord[], path: readonly string[]) =>
+  (records: readonly UsageRecord[]): readonly UsageRecord[] => {
+    const kept = budgets.tally(records, path);
+    budgets.check(spent, path, kept);
+    return kept;
+  };
+
+/** A call's spend as a list: none when it reported none. */
+const spendOf = (usage: UsageRecord | undefined): readonly UsageRecord[] =>
+  usage === undefined ? [] : [usage];
+
+/**
  * A model router (`DecidedBy.Model`, #272): its model decides on its `input` only — never the whole
  * path scope — through the decision gateway. A failed model call fails the step with
  * `RouterFailedError` (its cause and spend kept); an answer that is not one of its routes, or not a
@@ -122,13 +138,7 @@ export function routerRunner(
   return async (state, config) => {
     const name = node.id;
     const path = [...state.path, node.id];
-    // counted at the call, like an agent's (#1090): in the ledger and marked before it reaches the
-    // state, so no checkpoint write holds spend the ledger lacks, and an exhausted budget stops here
-    const counted = (records: readonly UsageRecord[]): readonly UsageRecord[] => {
-      const kept = budgets.tally(records, path);
-      budgets.check(state.usage, path, kept);
-      return kept;
-    };
+    const counted = counterOf(budgets, state.usage, path);
     const isGuarded = (deps.guardrails?.inputOf(node.id) ?? []).length > 0;
     const maskedAt = await maskedInputOf(node, state, deps, isGuarded);
     const masked = { ...maskedAt, usage: counted(maskedAt.usage) };
@@ -156,18 +166,14 @@ export function routerRunner(
     if (outcome.kind === "failed") {
       const failed = {
         ...outcome,
-        usage: counted(outcome.usage === undefined ? [] : [outcome.usage])[0],
+        usage: counted(spendOf(outcome.usage))[0],
       };
       throw routerFailureOf(step, failed, [...masked.usage, ...guarded]);
     }
     const { next, reason } = outcome.decision;
     const update = { route: next, reason };
     await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
-    const usage = [
-      ...masked.usage,
-      ...guarded,
-      ...counted(outcome.usage === undefined ? [] : [outcome.usage]),
-    ];
+    const usage = [...masked.usage, ...guarded, ...counted(spendOf(outcome.usage))];
     return { route: next, read, usage, piiTokens, guardrailDecisions };
   };
 }

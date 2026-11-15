@@ -13,7 +13,7 @@ import { seconds } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
 import { passLive } from "../../helpers/live-time.js";
 import { ends, resetRecovery, seen } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { rejectionOf } from "../../app/fixtures/fence-takeover.js";
+import { instance, rejectionOf } from "../../app/fixtures/fence-takeover.js";
 import { resetWindow, window } from "../../app/fixtures/writes-window.application.js";
 import { ItemResultDto, type ItemDto } from "./fixtures/fan-out.workflow.js";
 import {
@@ -40,12 +40,12 @@ describe("#1090: an own-thread child cut off after its input checkpoint", () => 
     mockLlm,
   }) => {
     mockLlm(ItemReviewerAgent).thenReturn(replyWith(ItemResultDto, { name: "b" }));
-    const [a, b] = apps;
-    await a?.ready();
-    await b?.ready();
+    const [a, b] = [instance(apps, 0), instance(apps, 1)];
+    await a.ready();
+    await b.ready();
     window.hangChildStart = true;
 
-    const failure = rejectionOf(execute(a!, ReviewOneWorkflowStart, item, who));
+    const failure = rejectionOf(execute(a, ReviewOneWorkflowStart, item, who));
     await passLive(clock, seconds(40));
     expect(await failure).toBeInstanceOf(ExecutionLeaseLostError);
     // the window: the child's hidden start task's writes were asked for and never saved

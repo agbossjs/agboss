@@ -1,3 +1,5 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CheckpointTuple } from "@langchain/langgraph";
 import { Injectable, InMemoryFencedEffectRepository } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
@@ -58,8 +60,10 @@ export function resetWindow(): void {
 }
 
 /** The thread a checkpoint call is about. */
-export const threadOf = (config: { readonly configurable?: Record<string, unknown> }): string =>
-  String(config.configurable?.thread_id ?? "");
+export const threadOf = (config: { readonly configurable?: Record<string, unknown> }): string => {
+  const thread = config.configurable?.thread_id;
+  return typeof thread === "string" ? thread : "";
+};
 
 export const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
 
@@ -93,20 +97,21 @@ export const wroteOne = (): void => {
 
 @Injectable()
 export class WindowMemoryCheckpoints extends InMemoryCheckpointSaver {
-  override put(...args: Parameters<InMemoryCheckpointSaver["put"]>) {
-    if (isHungPut(threadOf(args[0])))
-      return never<Awaited<ReturnType<InMemoryCheckpointSaver["put"]>>>();
+  override put(...args: Parameters<InMemoryCheckpointSaver["put"]>): Promise<RunnableConfig> {
+    if (isHungPut(threadOf(args[0]))) return never<RunnableConfig>();
     return super.put(...args);
   }
 
-  override getTuple(...args: Parameters<InMemoryCheckpointSaver["getTuple"]>) {
-    return isHungGet()
-      ? never<Awaited<ReturnType<InMemoryCheckpointSaver["getTuple"]>>>()
-      : super.getTuple(...args);
+  override getTuple(
+    ...args: Parameters<InMemoryCheckpointSaver["getTuple"]>
+  ): Promise<CheckpointTuple | undefined> {
+    return isHungGet() ? never<CheckpointTuple | undefined>() : super.getTuple(...args);
   }
 
-  override async putWrites(...args: Parameters<InMemoryCheckpointSaver["putWrites"]>) {
-    if (isHungWrite(threadOf(args[0]))) return never<void>();
+  override async putWrites(
+    ...args: Parameters<InMemoryCheckpointSaver["putWrites"]>
+  ): Promise<void> {
+    if (isHungWrite(threadOf(args[0]))) return never<undefined>();
     await super.putWrites(...args);
     wroteOne();
   }

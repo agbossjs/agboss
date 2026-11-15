@@ -19,7 +19,7 @@ export interface ExecutionLeaseLostErrorOptions {
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";
   /** This class's code, or its subclass `ExecutionFencedError`'s (#906: `switch (error.code)` narrows). */
-  declare code:
+  declare readonly code:
     "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
   override name = "ExecutionLeaseLostError";
   /**
@@ -60,7 +60,7 @@ export function leaseLostBeforeStartError(lost: ExecutionLeaseLostError): Execut
     cause: lost.cause,
   });
   // a code of its own (#906): a caller tells it from a lease lost in the middle of a run
-  error.code = "execution.lease-lost.not-started";
+  Object.defineProperty(error, "code", { value: "execution.lease-lost.not-started" });
   error.message = `the lease of execution ${lost.rootExecutionId} was lost before the run stored its first checkpoint: the run did not start, nothing is left for the next take to continue (its record ends failed) — start it again`;
   return error;
 }

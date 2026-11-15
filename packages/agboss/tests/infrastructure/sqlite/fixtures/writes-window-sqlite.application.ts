@@ -1,3 +1,5 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CheckpointTuple } from "@langchain/langgraph";
 import {
   Injectable,
   SqliteCheckpointSaver,
@@ -29,24 +31,19 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
 
 @Injectable({ deps: [SqliteConnection] })
 export class WindowSqliteCheckpoints extends SqliteCheckpointSaver {
-  constructor(connection: SqliteConnection) {
-    super(connection);
-  }
-
-  override put(...args: Parameters<SqliteCheckpointSaver["put"]>) {
-    if (isHungPut(threadOf(args[0])))
-      return never<Awaited<ReturnType<SqliteCheckpointSaver["put"]>>>();
+  override put(...args: Parameters<SqliteCheckpointSaver["put"]>): Promise<RunnableConfig> {
+    if (isHungPut(threadOf(args[0]))) return never<RunnableConfig>();
     return super.put(...args);
   }
 
-  override getTuple(...args: Parameters<SqliteCheckpointSaver["getTuple"]>) {
-    return isHungGet()
-      ? never<Awaited<ReturnType<SqliteCheckpointSaver["getTuple"]>>>()
-      : super.getTuple(...args);
+  override getTuple(
+    ...args: Parameters<SqliteCheckpointSaver["getTuple"]>
+  ): Promise<CheckpointTuple | undefined> {
+    return isHungGet() ? never<CheckpointTuple | undefined>() : super.getTuple(...args);
   }
 
-  override async putWrites(...args: Parameters<SqliteCheckpointSaver["putWrites"]>) {
-    if (isHungWrite(threadOf(args[0]))) return never<void>();
+  override async putWrites(...args: Parameters<SqliteCheckpointSaver["putWrites"]>): Promise<void> {
+    if (isHungWrite(threadOf(args[0]))) return never<undefined>();
     await super.putWrites(...args);
     wroteOne();
   }
@@ -75,5 +72,3 @@ const HeldSqliteLeases = withHoldPoints(SqliteExecutionLeaseRepository);
   budgets: TEST_BUDGETS,
 })
 export class WritesWindowSqliteApplication {}
-
-export { EmptyEnvironment };

@@ -10,9 +10,21 @@ import { ExecutionLeaseLostError } from "../../src/index.js";
 import { isInitialUnapplied, withInitial } from "../../src/run/continue-agent.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { runningOutcome } from "../../src/run/execute.js";
-import { continueAgent, NothingToRecoverError } from "../../src/run/continue-agent.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
+import {
+  continueAgent,
+  NothingToRecoverError,
+  type InterruptedRun,
+} from "../../src/run/continue-agent.js";
+import { createSqliteTurnStore, type TurnStore } from "../../src/turns/index.js";
 import { fakeDeps, routeTo, runText } from "../helpers.js";
+
+/** The one running record of `turns`, as recovery takes it over. */
+async function interruptedOf(turns: TurnStore): Promise<InterruptedRun> {
+  const [record] = await turns.byStatus("running", 10);
+  if (record?.runId === undefined || record.runId === null) throw new Error("no running record");
+  const { runId, threadId, id: turnId } = record;
+  return { runId, threadId, tenantId: "default", turnId, startedVersion: "1.0.0" };
+}
 
 /** A checkpointer whose task writes are never saved: the holder lost its lease there. */
 class WritesLost extends BaseCheckpointSaver {
@@ -124,29 +136,21 @@ describe("#265 S30: continuing an interrupted execution", () => {
       { turns },
     );
     const real = deps.pause?.checkpointer;
-    if (!(real instanceof BaseCheckpointSaver)) throw new Error("the deps have no checkpointer");
+    if (!(real instanceof BaseCheckpointSaver) || deps.pause === undefined)
+      throw new Error("the deps have no checkpointer");
     // the first task's writes are never saved: the holder lost its lease there
     const cut = new WritesLost(real);
-    const stopped = runText("Hi", { ...deps, pause: { ...deps.pause!, checkpointer: cut } });
+    const stopped = runText("Hi", { ...deps, pause: { ...deps.pause, checkpointer: cut } });
     await expect(stopped).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    const [record] = await turns.byStatus("running", 10);
-    const [tuple] = [await real.getTuple({ configurable: { thread_id: record?.runId ?? "" } })];
+    const interrupted = await interruptedOf(turns);
+    const tuple = await real.getTuple({ configurable: { thread_id: interrupted.runId } });
 
-    const recovered = await continueAgent(
-      {
-        runId: record?.runId ?? "",
-        threadId: record?.threadId ?? "",
-        tenantId: "default",
-        turnId: record?.id ?? "",
-        startedVersion: "1.0.0",
-      },
-      deps,
-    );
+    const recovered = await continueAgent(interrupted, deps);
 
     expect(tuple?.pendingWrites ?? []).toEqual([]);
     expect(recovered.status).toBe(ExecutionStatus.Finished);
     expect(recovered.path.length).toBeGreaterThan(0);
-    expect((await turns.byIds([record?.id ?? ""]))[0]?.status).toBe("answered");
+    expect((await turns.byIds([interrupted.turnId]))[0]?.status).toBe("answered");
   });
 
   it("#1090: the initial state is read only when the checkpoint still holds the defaults", () => {

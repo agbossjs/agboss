@@ -23,8 +23,8 @@ import {
   type OperationEvent,
   type OperationRecorder,
 } from "./operation-history.js";
+import { CHECKPOINT_METHODS } from "./checkpoint-points.js";
 import {
-  CHECKPOINT_METHODS,
   CHILD_QUEUE_METHODS,
   HISTORY_METHODS,
   FENCED_EFFECT_METHODS,

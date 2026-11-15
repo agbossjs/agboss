@@ -5,11 +5,19 @@
 import { BaseCheckpointSaver } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
 import { ExecutionLeaseLostError } from "../../src/index.js";
-import { continueAgent } from "../../src/run/continue-agent.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
+import { continueAgent, type InterruptedRun } from "../../src/run/continue-agent.js";
+import { createSqliteTurnStore, type TurnStore } from "../../src/turns/index.js";
 import { fakeDeps, routeTo, runText } from "../helpers.js";
 
 vi.mock("../../src/run/graph-end.js", () => ({ hasGraphEnded: () => true }));
+
+/** The one running record of `turns`, as recovery takes it over. */
+async function interruptedOf(turns: TurnStore): Promise<InterruptedRun> {
+  const [record] = await turns.byStatus("running", 10);
+  if (record?.runId === undefined || record.runId === null) throw new Error("no running record");
+  const { runId, threadId, id: turnId } = record;
+  return { runId, threadId, tenantId: "default", turnId, startedVersion: "1.0.0" };
+}
 
 /** A checkpointer whose second checkpoint is never saved: the holder lost its lease after the first task's writes. */
 class SecondPutLost extends BaseCheckpointSaver {
@@ -58,20 +66,11 @@ describe("#1090: finishRun fails closed", () => {
       pause: { ...deps.pause, checkpointer: new SecondPutLost(real) },
     });
     await expect(stopped).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    const [record] = await turns.byStatus("running", 10);
+    const interrupted = await interruptedOf(turns);
 
-    const continued = continueAgent(
-      {
-        runId: record?.runId ?? "",
-        threadId: record?.threadId ?? "",
-        tenantId: "default",
-        turnId: record?.id ?? "",
-        startedVersion: "1.0.0",
-      },
-      deps,
-    );
+    const continued = continueAgent(interrupted, deps);
 
     await expect(continued).rejects.toThrow(/stopped at no finish node/u);
-    expect((await turns.byIds([record?.id ?? ""]))[0]?.status).toBe("failed");
+    expect((await turns.byIds([interrupted.turnId]))[0]?.status).toBe("failed");
   });
 });
