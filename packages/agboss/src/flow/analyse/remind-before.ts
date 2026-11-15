@@ -1,4 +1,9 @@
-import { channelRoleOf, channelRoleOptionsOf } from "../../channels/channel-role.decorator.js";
+import { PAUSE_TIMERS_EVERY } from "../../application/pause-timers.js";
+import {
+  channelRoleOf,
+  channelRoleOptionsOf,
+  type ChannelRoleOptions,
+} from "../../channels/channel-role.decorator.js";
 import { isExpiresIn, isRemindBefore } from "../../channels/channel-rules.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
@@ -12,6 +17,11 @@ import type { AnalysisContext } from "./rules/context.js";
  * `expiresIn` that is no longer than its role's `remindBefore` — such a pause is made less than a
  * reminder's lead before its deadline, so it gets no reminder (the role alone sets `remindBefore`).
  * An error under `--strict`.
+ *
+ * And `[channel.remind-before-below-tick]` (#1099): a role's `remindBefore` shorter than the pause
+ * timers' tick (`PAUSE_TIMERS_EVERY`, 5 s) — the reminder's window `[deadline − remindBefore,
+ * deadline)` is then shorter than the look's period, so a tick can fall on none of it and the
+ * reminder is skipped without a trace. A warning, an error under `--strict`.
  */
 
 /** Whether the pause's `expiresIn` leaves no room for the role's reminder. */
@@ -58,4 +68,40 @@ function toolWarnings(context: AnalysisContext): RuleViolation[] {
 export const remindBeforeWarnings = (context: AnalysisContext): readonly RuleViolation[] => [
   ...questionWarnings(context),
   ...toolWarnings(context),
+  ...remindBeforeBelowTickWarnings(context),
 ];
+
+const belowTickMessage = (role: string, remindBefore: number): string =>
+  `${role}: remindBefore (${String(remindBefore)} ms) is shorter than the pause timers' tick (${String(PAUSE_TIMERS_EVERY)} ms) — its reminder can be skipped; use at least ${String(PAUSE_TIMERS_EVERY)} ms`;
+
+/** The roles of the workflow's question steps and of its tools' channels, each once. */
+function rolesOf(context: AnalysisContext): readonly ChannelRoleOptions[] {
+  const fromQuestions = [...questionExpiriesOf(context.workflow.flow).keys()].flatMap(
+    (question) => {
+      const role = channelRoleOptionsOf(question);
+      return role === undefined ? [] : [role];
+    },
+  );
+  const fromTools = toolsOf(context).flatMap((cls) => {
+    const component = componentOf(cls);
+    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    const { channel } = component.meta;
+    const role = channel === undefined ? undefined : channelRoleOf(channel)?.options;
+    return role === undefined ? [] : [role];
+  });
+  return [...new Map([...fromQuestions, ...fromTools].map((role) => [role.name, role])).values()];
+}
+
+/** `[channel.remind-before-below-tick]` over the roles a workflow's pauses use. */
+export const remindBeforeBelowTickWarnings = (context: AnalysisContext): readonly RuleViolation[] =>
+  rolesOf(context).flatMap((role) =>
+    isRemindBefore(role.remindBefore) && role.remindBefore < PAUSE_TIMERS_EVERY
+      ? [
+          violation(
+            "channel.remind-before-below-tick",
+            belowTickMessage(role.name, role.remindBefore),
+            [role.name],
+          ),
+        ]
+      : [],
+  );

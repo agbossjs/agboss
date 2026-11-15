@@ -197,6 +197,7 @@ export type RuleCode =
   | "channel.expires-in-invalid"
   | "channel.remind-before-invalid"
   | "channel.remind-before-exceeds-expiry"
+  | "channel.remind-before-below-tick"
   | "tool.expires-in-without-channel"
   | "question.expires-in-conflict"
   // reply interpreters (#267 PR 3), reported at each workflow's assembly

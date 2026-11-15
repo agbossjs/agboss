@@ -1568,6 +1568,7 @@ export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedR
 // @public
 export interface PauseDeadlineChange {
     readonly expiresAt: string;
+    readonly previousExpiresAt: string;
     readonly remindAt?: string;
 }
 

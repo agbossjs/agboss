@@ -1,0 +1,177 @@
+import { expect } from "vitest";
+import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
+import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
+import {
+  PauseStatus,
+  type PausedExecutionRepository,
+} from "../../infrastructure/paused-execution.repository.js";
+import type { ContractCase } from "./define.js";
+import type { ContractInstances } from "./instance-context.js";
+import {
+  APPROVED_BY_MANAGER,
+  BEFORE_DEADLINE,
+  DEADLINE,
+  expiringPauseOf,
+  MID,
+} from "./paused-execution-data.js";
+
+/**
+ * #1099: an extension is one compare-and-set over the deadline the caller read, to a later one, while
+ * the pause is open — of two extensions at once one wins and the deadline never shortens; an extension
+ * racing the expiry or an answer; the deadline's source reset to `Pause`.
+ */
+type Instances = ContractInstances<PausedExecutionRepository>;
+const R = NO_RECIPIENTS;
+const LATER = "2026-01-05T12:00:00.000Z";
+const EVEN_LATER = "2026-01-05T15:00:00.000Z";
+/** The deadline of `expiringPauseOf`: what a caller that read the pause holds as the current one. */
+const FROM = DEADLINE.toISOString();
+
+export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
+  {
+    name: "extend only over the deadline the caller read: a stale `previousExpiresAt` is refused, nothing written (#1099)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const extend = (expiresAt: string, previousExpiresAt: string) =>
+        second.extendByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { expiresAt, previousExpiresAt },
+          BEFORE_DEADLINE,
+          R,
+        );
+
+      expect(await extend(LATER, EVEN_LATER)).toBeUndefined();
+      expect(await extend(LATER, FROM)).toMatchObject({ expiresAt: LATER });
+      // the one that read the old deadline is late, even with a longer extension
+      expect(await extend(EVEN_LATER, FROM)).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
+      expect(await extend(EVEN_LATER, LATER)).toMatchObject({ expiresAt: EVEN_LATER });
+    },
+  },
+  {
+    name: "an extension not later than the stored deadline is refused, nothing written (#1099)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const extend = (expiresAt: string, previousExpiresAt: string) =>
+        second.extendByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { expiresAt, previousExpiresAt },
+          BEFORE_DEADLINE,
+          R,
+        );
+
+      // the caller read the stored deadline right, but asks for the same or an earlier one
+      expect(await extend(FROM, FROM)).toBeUndefined();
+      expect(await extend("2026-01-05T09:59:00.000Z", FROM)).toBeUndefined();
+      expect(await extend(LATER, FROM)).toMatchObject({ expiresAt: LATER });
+      expect(await extend(LATER, LATER)).toBeUndefined();
+      expect(await extend("2026-01-05T10:30:00.000Z", LATER)).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
+    },
+  },
+  {
+    name: "two concurrent extends from one read, the longer and the shorter, either order: one wins, the deadline never shortens (#1099)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      for (const [index, longerFirst] of [true, false].entries()) {
+        const pauseId = `pause-${String(index)}`;
+        await first.findOrCreateByStepKey(expiringPauseOf(pauseId, `run-1:s:${String(index)}`));
+        const longer = first.extendByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          BEFORE_DEADLINE,
+          R,
+        );
+        const shorter = second.extendByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          { expiresAt: LATER, previousExpiresAt: FROM },
+          BEFORE_DEADLINE,
+          R,
+        );
+        const results = longerFirst
+          ? await Promise.all([longer, shorter])
+          : (await Promise.all([shorter, longer])).reverse();
+
+        expect(results.filter((won) => won !== undefined)).toHaveLength(1);
+        const stored = (await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt;
+        expect(stored).toBe(results[0] === undefined ? LATER : EVEN_LATER);
+        // the loser re-reads: the shorter one is now refused, the longer one goes through
+        expect(
+          await second.extendByTenantIdAndPauseId(
+            "default",
+            pauseId,
+            { expiresAt: EVEN_LATER, previousExpiresAt: stored ?? "" },
+            BEFORE_DEADLINE,
+            R,
+          ),
+        ).toBeUndefined();
+      }
+    },
+  },
+  {
+    name: "extend racing the expiry, and racing an answer: one wins, the loser changes nothing (#1099)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
+      const extend = (pauseId: string, at: Date) =>
+        first.extendByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          { expiresAt: LATER, previousExpiresAt: FROM },
+          at,
+          R,
+        );
+
+      const [expired, extendedOrNot] = await Promise.all([
+        second.expireByTenantIdAndPauseId("default", "pause-a", {}, DEADLINE, R),
+        extend("pause-a", BEFORE_DEADLINE),
+      ]);
+      const [answered, extendedB] = await Promise.all([
+        second.resolveByTenantIdAndPauseId("default", "pause-b", APPROVED_BY_MANAGER, MID, R),
+        extend("pause-b", BEFORE_DEADLINE),
+      ]);
+
+      // exactly one of each pair applied
+      expect([expired, extendedOrNot].filter((won) => won !== undefined)).toHaveLength(1);
+      // the answer applies either way (before the extension: it refuses it; after: the pause is still open)
+      expect(answered).toBeDefined();
+      expect(extendedB === undefined || extendedB.expiresAt === LATER).toBe(true);
+      const a = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(a?.status === PauseStatus.Pending ? a.expiresAt : undefined).toBe(
+        extendedOrNot === undefined ? undefined : LATER,
+      );
+      const b = await first.findByTenantIdAndPauseId("default", "pause-b");
+      expect(b?.status).toBe(PauseStatus.Resolved);
+    },
+  },
+  {
+    name: "an extension resets the deadline's source to `Pause`, whatever bound the record had (#1099)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const bounds = [PauseExpiryBound.RunDeadline, PauseExpiryBound.Quorum];
+      for (const [index, expiryBound] of bounds.entries()) {
+        const pauseId = `pause-${String(index)}`;
+        await first.findOrCreateByStepKey({
+          ...expiringPauseOf(pauseId, `run-1:s:${String(index)}`),
+          expiryBound,
+          boundAt: EVEN_LATER,
+        });
+
+        const moved = await second.extendByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          { expiresAt: LATER, previousExpiresAt: FROM },
+          BEFORE_DEADLINE,
+          R,
+        );
+
+        expect(moved).toMatchObject({ expiresAt: LATER, expiryBound: PauseExpiryBound.Pause });
+        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiryBound).toBe(
+          PauseExpiryBound.Pause,
+        );
+      }
+    },
+  },
+];
