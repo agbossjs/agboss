@@ -14,6 +14,7 @@ import type { A2AMeshSigned } from "./a2a-mesh-seam.js";
 import { hasSafeIds, safeTaskIdOf } from "./a2a-task-errors.js";
 import { A2ANotSentError } from "./a2a-transport.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
+import { parsedStoredJson } from "../../infrastructure/stored-step.js";
 
 /**
  * One `SendMessage` of an accept (#809): the message as it is sent — its deterministic `messageId`,
@@ -234,7 +235,7 @@ export function acceptedOf(
     const message =
       answer !== undefined && "messageId" in answer
         ? answer
-        : Message.fromJSON(JSON.parse(result.message));
+        : Message.fromJSON(parsedStoredJson("a2a call reply message", result.message, {}));
     return {
       taskId: undefined,
       contextId: message.contextId,

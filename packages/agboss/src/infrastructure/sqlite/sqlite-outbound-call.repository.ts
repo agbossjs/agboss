@@ -18,6 +18,7 @@ import {
   type OutboundCallState,
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
+import { parsedStoredJson } from "../stored-step.js";
 import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
 import {
   OUTBOUND_CALL_COLUMNS,
@@ -55,7 +56,7 @@ const AS_READ =
 /** A row's record, as the store wrote it. */
 const recordOf = (row: unknown): OutboundCallRecord =>
   // written by this store from an OutboundCallRecord
-  JSON.parse(RecordRow.parse(row).record) as OutboundCallRecord;
+  parsedStoredJson("outbound call record", RecordRow.parse(row).record, {}) as OutboundCallRecord;
 
 /**
  * `OutboundCallRepository` on the application's SQLite file (#505): one row per intent in

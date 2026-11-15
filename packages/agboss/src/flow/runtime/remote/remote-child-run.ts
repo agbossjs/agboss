@@ -6,6 +6,7 @@ import type { TenantContext } from "../../context/tenant-context.js";
 import type { ContextFields } from "../../context/context-values.js";
 import type { ExecutionStateType } from "../state.js";
 import type { ChildIdentityRecord } from "../child-records.js";
+import { parsedStoredJson } from "../../../infrastructure/stored-step.js";
 
 /** A child's first state (what its parent's node starts it with), as plain values. */
 export type ChildInitialState = Pick<
@@ -150,7 +151,7 @@ class UnreadableChildRunError extends Error {
 
 /** A queue row's `run` text back as the run. */
 export async function decodedRun(serde: SerializerProtocol, text: string): Promise<RemoteChildRun> {
-  const parsed: unknown = JSON.parse(text);
+  const parsed = parsedStoredJson("queued child run", text, {});
   if (!isRecord(parsed) || typeof parsed.type !== "string" || typeof parsed.data !== "string")
     throw new UnreadableChildRunError("a queued child's run is not readable");
   const run: unknown = await serde.loadsTyped(parsed.type, Buffer.from(parsed.data, "base64"));

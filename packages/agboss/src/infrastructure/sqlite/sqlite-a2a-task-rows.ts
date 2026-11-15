@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parsedStoredJson } from "../stored-step.js";
 import { PauseKind } from "../../pause/types.js";
 import {
   A2ATaskState,
@@ -82,7 +83,9 @@ const Status = z.looseObject({
 
 /** The status of a row whose `state` column agrees with it (M6: a compare-and-set reads the column). */
 function statusOf(row: z.infer<typeof TaskRow>): A2ATaskStatus {
-  const status = Status.parse(JSON.parse(row.status));
+  const status = Status.parse(
+    parsedStoredJson("a2a task status", row.status, { taskId: row.task_id }),
+  );
   if (status.state !== row.state)
     throw new Error(`a2a_tasks row ${row.task_id}: its state column and its status disagree`);
   // a loose object keeps every key the status had, those this version does not know too (#960)
@@ -119,7 +122,13 @@ export const messageOf = (row: unknown): A2AMessageRecord => {
     requestHash: parsed.request_hash,
     taskId: parsed.task_id,
     savedAt: new Date(parsed.saved_at),
-    ...(parsed.reply === null ? {} : { reply: JSON.parse(parsed.reply) as unknown }),
+    ...(parsed.reply === null
+      ? {}
+      : {
+          reply: parsedStoredJson("a2a message reply", parsed.reply, {
+            messageId: parsed.message_id,
+          }),
+        }),
   };
 };
 

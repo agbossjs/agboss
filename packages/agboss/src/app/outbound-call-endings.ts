@@ -2,6 +2,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { cancelFencedErrorOf } from "./handed-over.js";
 import { ExecutionFencedError } from "./lease-lost.js";
 import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
+import { parsedStoredJson } from "../infrastructure/stored-step.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import {
   OutboundCallStatus,
@@ -170,7 +171,9 @@ export function replayed<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): OutboundCallOutcome<TResult> {
-  const stored: unknown = JSON.parse(found.result ?? "null");
+  const stored = parsedStoredJson("outbound call result", found.result ?? "null", {
+    name: run.key.name,
+  });
   // answered, its result not stored (#508): no result to give, never the marker as one
   const notStored = notStoredOf(stored);
   if (notStored !== undefined)

@@ -5,6 +5,7 @@ import {
   type ExecutionAuditEventRecord,
 } from "../execution-audit-log.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 const EVENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lease_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
@@ -18,7 +19,11 @@ const EventRow = z.object({ record: z.string() });
 /** A row's record (written by `save`: the record as JSON). */
 const recordOf = (row: unknown): ExecutionAuditEventRecord =>
   // the column holds exactly what `save` wrote
-  JSON.parse(EventRow.parse(row).record) as ExecutionAuditEventRecord;
+  parsedStoredJson(
+    "execution audit event",
+    EventRow.parse(row).record,
+    {},
+  ) as ExecutionAuditEventRecord;
 
 /**
  * `ExecutionAuditLogRepository` on the application's SQLite file (#501): one row per event, its

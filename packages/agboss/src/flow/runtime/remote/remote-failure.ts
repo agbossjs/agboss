@@ -1,4 +1,5 @@
 import { durableErrorOf, recordedErrorOf } from "../../../core/error-record.js";
+import { parsedStoredJson } from "../../../infrastructure/stored-step.js";
 
 /**
  * A remote child's error across instances (#333 PR 2, #598): the worker keeps its durable record —
@@ -47,6 +48,7 @@ function failureOf(value: unknown, depth: number): RemoteChildFailure {
 
 /** The error a row's `failure` text names: rebuilt from its record, or a legacy row's names. */
 export function remoteFailureOf(text: string | undefined): Error {
-  const value: unknown = text === undefined ? undefined : JSON.parse(text);
+  const value: unknown =
+    text === undefined ? undefined : parsedStoredJson("child failure", text, {});
   return recordedErrorOf(value) ?? failureOf(value, 1);
 }

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { A2AFileMetadata, A2AFileOwner } from "../a2a-file.repository.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 /**
  * How `S3A2AFileRepository` lays its files out in a bucket (#859, #904): every key within what S3
@@ -98,7 +99,11 @@ export function objectBodyOf(stored: StoredMetadata, bytes: Uint8Array): Uint8Ar
 export function storedMetadataOf(head: Uint8Array): StoredMetadata | undefined {
   const end = head.indexOf(NEWLINE);
   if (end < 0) return undefined;
-  return JSON.parse(Buffer.from(head.subarray(0, end)).toString("utf8")) as StoredMetadata;
+  return parsedStoredJson(
+    "a2a file metadata",
+    Buffer.from(head.subarray(0, end)).toString("utf8"),
+    {},
+  ) as StoredMetadata;
 }
 
 /** A file's bytes, from its whole object. */
@@ -112,6 +117,10 @@ export const entryBodyOf = (owner: A2AFileOwner): Uint8Array =>
 
 /** The owner an index entry's body names. */
 export const ownerOfEntryBody = (body: Uint8Array): A2AFileOwner => {
-  const parsed = JSON.parse(Buffer.from(body).toString("utf8")) as A2AFileOwner;
+  const parsed = parsedStoredJson(
+    "a2a file index entry",
+    Buffer.from(body).toString("utf8"),
+    {},
+  ) as A2AFileOwner;
   return { tenantId: parsed.tenantId, ownerId: parsed.ownerId };
 };
