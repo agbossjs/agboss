@@ -650,6 +650,25 @@ describe("#946 AC3: the deadline, and the races", () => {
   );
 
   extension(
+    "AC2: a thread owner's pause the channel decides at once for: the answer is the channel's, never the owner's who only reassigned it",
+    async ({ app }) => {
+      await execute(app, ownerFlow.start, { orderId: "o-1" }, { ...THREAD, ownerId: "alice" });
+      const pauseId = (await pausesOf(app))[0]?.pauseId ?? "";
+      told.ownerDecides = approve;
+
+      await app.reassignPause({ pauseId, assignee: "deputy-3" }, { ownerId: "alice" });
+
+      const store = app.resolve(PausedExecutionRepository);
+      const all = await store.findPageByTenantId("default", { statuses: [PauseStatus.Taken] }, 10);
+      expect(all.pauses).toHaveLength(1);
+      const [taken] = all.pauses;
+      expect(taken?.answer?.answeredBy).toBe(taken?.channel);
+      expect(taken?.answer?.answeredBy).not.toBe("alice");
+      expect(told.recorded).toEqual(["o-1: approved"]);
+    },
+  );
+
+  extension(
     "AC3: the replacement keeps the deadline: it expires at the old pause's, the channel decides, the run goes on",
     async ({ app, clock }) => {
       const paused = await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);

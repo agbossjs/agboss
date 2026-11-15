@@ -20,6 +20,8 @@ const isUntaken = (pause: PauseRecord): boolean =>
 
 /** Writes the pause's entry; one already there is left as it is (the store ignores a second write). */
 function repaired(log: PauseAnswerLog, pause: PauseRecord): Promise<void> {
+  // a reassigned pause is the step's first question: the step's entry is its replacement's answer (#946)
+  if (pause.resolution === PauseResolution.Reassigned) return Promise.resolve();
   if (isUntaken(pause)) return logPauseNotTaken(log, pause);
   const fallback =
     pause.status === PauseStatus.Cancelled ? PauseResolution.Cancelled : PauseResolution.Replied;

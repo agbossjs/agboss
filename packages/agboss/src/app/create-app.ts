@@ -42,7 +42,7 @@ import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
 import { extendPauseOf } from "./pause-extension.js";
-import { reassignPauseOf, resendOf, type ResendReassigned } from "./pause-reassignment.js";
+import { reassignPauseOf, replacementSendsOf, resendOf } from "./pause-reassignment.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
@@ -96,7 +96,7 @@ export interface BuiltApp extends TreeControl {
   /** Expires the due pauses of one of its resting trees (the expiry look, #941). */
   readonly expire: ExpireRoot;
   /** Asks the channel again for a reassigned pause of one of its trees, and marks it sent (the re-send look, #946). */
-  readonly resend: ResendReassigned;
+  readonly resend: ReturnType<typeof resendOf>;
 }
 
 /** One workflow of an application over already assembled parts (a profile applied). */
@@ -147,8 +147,8 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
-  const resume = resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf });
-  const resends = { pauses, clock, deps, resume, ownerOf };
+  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf };
+  const resends = replacementSendsOf(resuming, { pauses, clock, deps });
   const app: WorkflowApp = {
     name: deps.config.name,
     version: deps.config.version,
@@ -218,7 +218,7 @@ export async function buildApp(
     // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
     cancel: async (threadId, options = {}) =>
       (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
-    resume,
+    resume: resumeOf(resuming),
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),
     close: async () => {

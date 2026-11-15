@@ -83,7 +83,10 @@ const ENDED: readonly string[] = [
  * recorded and observed (`onExecutionError`) by the pass itself, not a failure of the expiry. A
  * record that is not read, or still moving, leaves the rejection what it is: the machinery's.
  */
-async function endedByRun(parts: TreeMoveParts, turnId: string): Promise<boolean> {
+export async function endedByRun(
+  parts: Pick<TreeMoveParts, "deps">,
+  turnId: string,
+): Promise<boolean> {
   try {
     const [record] = await parts.deps.turns.byIds([turnId]);
     return record !== undefined && ENDED.includes(record.status);

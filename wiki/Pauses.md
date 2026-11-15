@@ -1206,8 +1206,10 @@ What the channel hears, in no fixed order:
 - **`send` again** — with a **new `pauseId`**, `ChannelAsk.assignee` (the `assignee` of the call) and
   `ChannelAsk.replaces: { pauseId }`, the old message's id. A first send carries neither field. A `send`
   that returns `ChannelOutcome.decided(…)` answers the replacement at once, through the normal answer path
-  (the decision validated, recorded by the store's compare-and-set, the tree moved; answered as the channel, or
-  as the thread's owner for a thread owner's pause): applied once, a re-send after a crash finds it answered.
+  (the decision validated, recorded by the store's compare-and-set, the tree moved): the answer is the
+  **channel's own** — `answeredBy` is the channel's name for a channel's pause and a thread owner's alike, never the
+  owner who only reassigned it — applied once, a re-send after a crash finds it answered; a hand-over or a
+  run that ended after the decision is the run's own outcome, not a failed send.
 - **`onPauseClosed`** (if the channel overrides it) for the **old** message with `reason: reassigned`
   (`PauseClosedReason.Reassigned`), at least once like every notice (the same `deliveryId` on a redelivery).
 

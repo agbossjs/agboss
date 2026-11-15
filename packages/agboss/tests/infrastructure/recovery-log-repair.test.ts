@@ -12,7 +12,7 @@ import {
   PauseResolution,
   PauseStatus,
 } from "../../src/infrastructure/pause-record.js";
-import { REPAIR_PAGE } from "../../src/infrastructure/pause-log-repair.js";
+import { removeClosedPauses, REPAIR_PAGE } from "../../src/infrastructure/pause-log-repair.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
 import { APPROVED_BY_MANAGER, pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -208,5 +208,26 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     expect(removedWith).toEqual([total]);
     expect(await logOf()).toHaveLength(total);
     expect(await pauses.findAllByTenantIdAndRootExecutionId("default", "run-1")).toEqual([]);
+  });
+});
+
+describe("#946: a reassigned pause writes no entry of its own", () => {
+  it("the retention skips it whatever the order: the step's entry is its replacement's answer", async () => {
+    const { answers, logOf } = setUp();
+    const reassigned = {
+      ...pauseOf("pause-a"),
+      status: PauseStatus.Cancelled,
+      resolution: PauseResolution.Reassigned,
+      resolvedAt: CLOSED.toISOString(),
+      reassignedTo: "pause-b",
+    };
+    const store = {
+      findClosedByResolvedAtBefore: () => Promise.resolve({ pauses: [reassigned] }),
+      deleteByResolvedAtBefore: () => Promise.resolve(),
+    };
+
+    await removeClosedPauses(store, answers, new Date(CLOSED.getTime() + hours(24)));
+
+    expect(await logOf()).toEqual([]);
   });
 });

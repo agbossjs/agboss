@@ -11,7 +11,6 @@ import type { PausedExecutionRepository } from "../infrastructure/paused-executi
 import {
   isApprovalPause,
   newPauseId,
-  pauseAnswererOf,
   pauseKeyOf,
   PauseStatus,
   type PauseRecord,
@@ -19,15 +18,14 @@ import {
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { reassignedPause } from "../infrastructure/pause-replacement.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { DEFAULT_TOOL_TIMEOUT } from "../tools/index.js";
 import type { AppDeps } from "./app-deps.js";
+import type { ChannelDecision } from "./channel-decision.js";
 import { errorNamesOf } from "./error-names.js";
 import { ownDepsOf } from "./own-deps.js";
 import { callInFrame } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { pauseClosed } from "./pause-closed.js";
-import { PauseClosedError } from "./pause-closed-error.js";
 import type { AnswerParts } from "./resume.js";
 import { answeredByOf, pauseOf } from "./resume.js";
 import type { App, PauseCallerOptions, ReassignPauseRequest } from "./types.js";
@@ -55,8 +53,7 @@ export interface ReassignParts extends Pick<AnswerParts, "owned"> {
   readonly accepting: () => void;
   /** The workflow's deps: its channels and who hears of the pause's changes (#940). */
   readonly deps: AppDeps;
-  readonly resume: App["resume"];
-  readonly ownerOf: ResendParts["ownerOf"];
+  readonly decide: ChannelDecision;
 }
 
 /** What asking a replacement's channel needs: the app's deps, store and clock, and a stop. */
@@ -66,10 +63,8 @@ export interface ResendParts {
   readonly deps: AppDeps;
   /** The instance's interruption: a stop that ends the call (the replacement stays unsent for another instance). */
   readonly interruption?: AbortSignal | undefined;
-  /** The workflow's `app.resume`: a channel that decides at once for the replacement answers it through it. */
-  readonly resume: App["resume"];
-  /** The owner of a thread (a thread owner's pause is answered as its owner). */
-  readonly ownerOf: (tenantId: string, threadId: string) => Promise<string | undefined>;
+  /** A channel that decides at once for the replacement answers it through this (the channel's own decision). */
+  readonly decide: ChannelDecision;
 }
 
 function reject(issues: readonly DtoIssue[]): never {
@@ -152,22 +147,11 @@ async function answeredAtOnce(
   channel: string,
   decision: unknown,
 ): Promise<void> {
-  const request = { pauseId: pause.pauseId, decision };
-  const call = { tenantId: pause.tenantId };
-  try {
-    if (pauseAnswererOf(pause) === PauseAnswerer.ThreadOwner)
-      await parts.resume(request, {
-        ...call,
-        ownerId: await parts.ownerOf(pause.tenantId, pause.threadId),
-      });
-    else await parts.resume(request, { ...call, answeredBy: channel });
-  } catch (error) {
-    // answered, cancelled or expired meanwhile (a first try's, or another instance's): nothing to apply
-    if (!(error instanceof PauseClosedError)) throw error;
-  }
+  await parts.decide(pause, decision, channel);
 }
 
-export type { ResendReassigned } from "../application/pause-resend-look.js";
+export type { ResendReassigned };
+export { replacementSendsOf } from "./channel-decision.js";
 
 /** One workflow's new send of a replacement (the re-send look's, #946). */
 export const resendOf =
