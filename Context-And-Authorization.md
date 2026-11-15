@@ -189,8 +189,9 @@ come from is the project's choice; the framework loads nothing.
 
 The key of a thread is `tenantId` + `threadId`: another tenant's thread does not exist for the
 caller — `execute(…, { threadId })` and `app.cancel(threadId, { tenantId })` throw
-`UnknownThreadError` (with no hint that the id is taken elsewhere), `app.resume` finds no pause
-(`NotPausedError`). Inside the tenant `ownerId` stays the access key (`ThreadOwnerError`).
+`UnknownThreadError` (with no hint that the id is taken elsewhere), `app.resume` of one of its pauses
+finds none (`UnknownPauseError`, as for an id that never existed; a pause that is closed is
+`PauseClosedError` with its `reason`, and `NotPausedError` is only for the thread-level paths). Inside the tenant `ownerId` stays the access key (`ThreadOwnerError`).
 Every record the framework stores carries `tenantId` — the execution records, the paused
 executions, the leases and the tree keys — and so does what it sends: a run's LangGraph `metadata`
 (`tenantId`, `executionId`, `rootExecutionId`, `threadId`, `workflowName`, `workflowVersion`) and
