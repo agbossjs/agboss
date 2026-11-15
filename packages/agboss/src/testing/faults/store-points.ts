@@ -195,9 +195,7 @@ export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
   requestCancel: onTree(StoreHoldPoint.LeaseRequestCancel),
   // the sweep's look at a resting tree's mark (#1152)
-  isCancelRequested: onTree(StoreHoldPoint.LeaseIsCancelRequested, (isRequested) => ({
-    isRequested,
-  })),
+  isCancelRequested: onTree(StoreHoldPoint.LeaseIsCancelRequested),
   claimExecutionId: {
     point: StoreHoldPoint.LeaseClaimExecutionId,
     keyOf: (args) => (args[0] as { readonly executionId: string }).executionId,
