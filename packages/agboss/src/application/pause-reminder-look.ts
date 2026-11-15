@@ -56,8 +56,6 @@ const afterOf = (pause: PauseRecord): PauseScanAfter => ({
 /** One instance's reminder look: the reminders it started, and where a cut-short sweep goes on. */
 export class ReminderLook {
   readonly #inFlight = new Map<string, Promise<void>>();
-  /** The in-flight reminders that write: only these count against the cap (#1092). */
-  readonly #writing = new Set<string>();
   /** Where a sweep cut short by the cap went on from: the next one continues after it. */
   #resumeAfter: PauseScanAfter | undefined;
 
@@ -80,7 +78,7 @@ export class ReminderLook {
         if (signal.aborted) return;
         const key = `${pause.tenantId}\0${pause.pauseId}`;
         if (!this.#inFlight.has(key)) {
-          if (this.#writing.size >= REMINDER_PAGE) {
+          if (this.#inFlight.size >= REMINDER_PAGE) {
             this.#resumeAfter = after;
             return;
           }
@@ -97,7 +95,7 @@ export class ReminderLook {
 
   /**
    * Starts the reminder of `pause`; its failure is told, never thrown. Resolves once it decided
-   * what it is: it writes (it counts against the cap from then on) or it ended without writing.
+   * what it is: it writes or it ended without writing: only then does the look go on to the next.
    */
   #start(key: string, pause: PauseRecord, now: Date): Promise<void> {
     let decide: () => void = () => undefined;
@@ -105,7 +103,6 @@ export class ReminderLook {
       decide = resolve;
     });
     const reminder = this.#remind(pause, now, () => {
-      this.#writing.add(key);
       decide();
     })
       .catch((error: unknown) => {
@@ -119,7 +116,6 @@ export class ReminderLook {
       })
       .finally(() => {
         this.#inFlight.delete(key);
-        this.#writing.delete(key);
         decide();
       });
     this.#inFlight.set(key, reminder);

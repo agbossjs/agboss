@@ -57,8 +57,6 @@ const afterOf = (pause: PauseRecord): PauseScanAfter => ({
 /** One instance's expiry look: the expiries it started, and where a cut-short sweep goes on. */
 export class ExpiryLook {
   readonly #inFlight = new Map<string, Promise<void>>();
-  /** The in-flight roots this instance took (#1092): only these count against the cap. */
-  readonly #moving = new Set<string>();
   /** Where a look cut short by the cap went on from: the next one continues after it. */
   #resumeAfter: PauseScanAfter | undefined;
 
@@ -83,7 +81,7 @@ export class ExpiryLook {
         const key = `${pause.tenantId}\0${pause.rootExecutionId}`;
         // a root already moving here (an earlier look's, or this one's) is not started again
         if (!started.has(key) && !this.#inFlight.has(key)) {
-          if (this.#moving.size >= cap) {
+          if (this.#inFlight.size >= cap) {
             this.#resumeAfter = after;
             return;
           }
@@ -111,7 +109,6 @@ export class ExpiryLook {
       decide = resolve;
     });
     const expiry = this.#expire(tenantId, rootExecutionId, () => {
-      this.#moving.add(key);
       decide();
     })
       .catch((error: unknown) => {
@@ -125,7 +122,6 @@ export class ExpiryLook {
       })
       .finally(() => {
         this.#inFlight.delete(key);
-        this.#moving.delete(key);
         decide();
       });
     this.#inFlight.set(key, expiry);
