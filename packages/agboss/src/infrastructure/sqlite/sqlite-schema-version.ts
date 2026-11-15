@@ -58,12 +58,21 @@ export function stampOf(database: DatabaseSync): number {
 
 /**
  * At open: a file of a newer version is refused, an older or unstamped one is stamped with this
- * build's. A current file is only read (no write lock); the stamp is set inside `BEGIN IMMEDIATE`
+ * build's. A current file is only read (no write lock), and the database is closed when it is refused; the stamp is set inside `BEGIN IMMEDIATE`
  * after reading again, so two builds racing neither lower a stamp nor miss a newer one. The stamp
  * comes before the stores migrate: migrations are keyed by the file's shape, never by the stamp, so
  * a crash between them is finished by the next open.
  */
 export function checkedSchemaVersion(database: DatabaseSync): void {
+  try {
+    stampedOrRefused(database);
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}
+
+function stampedOrRefused(database: DatabaseSync): void {
   const seen = stampOf(database);
   if (seen === SQLITE_SCHEMA_VERSION) return;
   if (seen > SQLITE_SCHEMA_VERSION)

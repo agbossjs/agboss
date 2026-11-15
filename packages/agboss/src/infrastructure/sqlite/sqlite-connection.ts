@@ -153,12 +153,7 @@ export class SqliteConnection implements OnDestroy {
     }
     this.path = parsed.data.sqlitePath;
     const database = openSqliteDatabase(this.path);
-    try {
-      checkedSchemaVersion(database);
-    } catch (error) {
-      database.close();
-      throw error;
-    }
+    checkedSchemaVersion(database);
     this.#database = classifiedDatabase(database);
   }
 
