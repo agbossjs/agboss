@@ -16,15 +16,15 @@ import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
 const at = { configurable: { thread_id: "t", checkpoint_ns: "" } };
 const loop = (step: number): CheckpointMetadata => ({ source: "loop", step, parents: {} });
-const stepless = { source: "update", parents: {} } as unknown as CheckpointMetadata;
+const stepless: unknown = { source: "update", parents: {} };
 
 afterEach(() => vi.restoreAllMocks());
 
 function open() {
   const connection = connectionTo(temporarySqlitePath());
   const saver = new SqliteCheckpointSaver(connection);
-  const put = (id: string, metadata: CheckpointMetadata) =>
-    saver.put(at, { ...emptyCheckpoint(), id }, metadata);
+  const put = (id: string, metadata: unknown) =>
+    saver.put(at, { ...emptyCheckpoint(), id }, metadata as CheckpointMetadata);
   return { saver, connection, put };
 }
 
