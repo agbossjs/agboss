@@ -19,9 +19,12 @@ import { ChargeWorkflow, FencedExecutionBudget } from "./fenced-effect.workflow.
 export const window: {
   /** The `put` that never answers (0: none). */
   hangPut: number;
-  /** The first `put` of a child's thread after a `putWrites` of it never answers. */
-  hangChildPut: boolean;
-  childWrote: boolean;
+  /**
+   * A child's own thread cut after its input checkpoint: its first `putWrites` (the hidden start
+   * task's) and every `put` of it after that never answer — only the child's input is stored.
+   */
+  hangChildStart: boolean;
+  childStartHung: boolean;
   /** The `putWrites` that never answers (0: none). */
   hangWrite: number;
   writeCalls: number;
@@ -32,8 +35,8 @@ export const window: {
   writes: number;
 } = {
   hangPut: 0,
-  hangChildPut: false,
-  childWrote: false,
+  hangChildStart: false,
+  childStartHung: false,
   hangWrite: 0,
   writeCalls: 0,
   hangGet: 0,
@@ -44,8 +47,8 @@ export const window: {
 
 export function resetWindow(): void {
   window.hangPut = 0;
-  window.hangChildPut = false;
-  window.childWrote = false;
+  window.hangChildStart = false;
+  window.childStartHung = false;
   window.hangWrite = 0;
   window.writeCalls = 0;
   window.hangGet = 0;
@@ -63,7 +66,7 @@ export const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
 /** Counts a `put`; whether it is the one that never answers. */
 export const isHungPut = (thread = ""): boolean => {
   window.puts += 1;
-  if (window.hangChildPut && thread.includes("/child/") && window.childWrote) return true;
+  if (window.hangChildStart && window.childStartHung && thread.includes("/child/")) return true;
   return window.puts === window.hangPut;
 };
 
@@ -76,7 +79,10 @@ export const isHungGet = (): boolean => {
 /** Counts a `putWrites`; whether it is the one that never answers. */
 export const isHungWrite = (thread = ""): boolean => {
   window.writeCalls += 1;
-  if (window.hangChildPut && thread.includes("/child/")) window.childWrote = true;
+  if (window.hangChildStart && !window.childStartHung && thread.includes("/child/")) {
+    window.childStartHung = true;
+    return true;
+  }
   return window.writeCalls === window.hangWrite;
 };
 

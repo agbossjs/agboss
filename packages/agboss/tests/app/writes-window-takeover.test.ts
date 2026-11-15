@@ -62,6 +62,13 @@ const cuts = [
     write: 1,
     inside: undefined,
   },
+  {
+    where:
+      "the input checkpoint only (the init task's writes and the checkpoint after them never answer: nothing but the run's input is stored)",
+    write: 1,
+    put: 2,
+    inside: { puts: 2, writes: 0 },
+  },
   { where: "the put after the init task's writes hangs", put: 2, inside: { puts: 2, writes: 1 } },
   { where: "the put after the start node's writes hangs", put: 3, inside: { puts: 3, writes: 2 } },
   { where: "the put after the charge's writes hangs", put: 4, inside: { puts: 4, writes: 3 } },
@@ -78,8 +85,9 @@ type Cut = (typeof cuts)[number];
 /** Runs the order into the cut; resolves once the holder's call ended with the hand-over. */
 async function cutAt(cut: Cut, clock: VirtualClock, run: () => Promise<unknown>): Promise<void> {
   if ("write" in cut) window.hangWrite = cut.write;
-  else if ("put" in cut) window.hangPut = cut.put;
-  else processHoldPoints.arm({ point: StoreHoldPoint.LeaseRenew, times: 1000 });
+  if ("put" in cut) window.hangPut = cut.put;
+  if (!("write" in cut) && !("put" in cut))
+    processHoldPoints.arm({ point: StoreHoldPoint.LeaseRenew, times: 1000 });
   // the saver's counts at the moment the holder's call ended: the next holder has not moved yet
   const failure = rejectionOf(run()).then((error: unknown) => ({ error, ...window }));
   if ("put" in cut) await passLive(clock, seconds(40));
