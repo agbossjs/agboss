@@ -22,7 +22,7 @@ waiting pause, one `PendingPause` each:
 | ------------------ | -------------------------------------------------------------------------------------- |
 | `kind`             | `PauseKind.Approval` (a tool call) or `PauseKind.Question` (a question role's step, #659) |
 | `pauseId`          | what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause (below)         |
-| `answeredBy`       | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's) |
+| `answerer`         | who may answer it: `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel` (its role's); `answeredBy` is the same value, `@deprecated` until 0.2 (#934) |
 | `step`, `channel`  | the step that asks — the agent whose tool call waits, or the question step — and the channel asked (a role's name or a `@Channel`'s) |
 | `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
 | `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
@@ -117,7 +117,7 @@ export class RefundReplyInterpreter {}
   name: "refund-approval-channel",
   description: "Approves card refunds",
   approves: RefundCardInputDto,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: RefundReplyInterpreter, // one interpreter belongs to one role
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
@@ -231,7 +231,7 @@ export class DepositReplyInterpreter {}
   name: "deposit-approval-channel",
   description: "A clerk approves deposit returns",
   approves: DepositReturnDto, // an approval role: a decision model may read its replies
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
   replyInterpreter: DepositReplyInterpreter,
 })
 export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
@@ -257,7 +257,7 @@ export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseR
   name: "expense-approval-channel",
   description: "The thread's owner confirms an expense with two buttons",
   approves: ExpenseDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: ExpenseReplyInterpreter,
 })
 export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalChannel> {}
@@ -376,7 +376,7 @@ an outbound call is still sent once per key and reconciled, one business key is 
 ## A question the workflow asks: `.toQuestion(Role)` (#659)
 
 A **question role** — `@ChannelRole({ name: "…-question", description, ask: AskDto, answer:
-AnswerDto, answeredBy, replyInterpreter?, maxVisits? })` on an abstract class that `extends
+AnswerDto, answerer, replyInterpreter?, maxVisits? })` on an abstract class that `extends
 ChannelOf<Self>`, its one `@Channel` implementation in `@Application({ providers })` — is asked by a
 flow step: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (or `question(Role)…` for its own
 path, a question asked again on a cycle; `maxVisits` its limit there). The role is the step's node
@@ -391,7 +391,7 @@ value for the steps after it. Everything else is a pause like an approval's:
 - `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
   recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the role's
   interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
-  interpreter → `ReplyInterpreterMissingError`). Who answers is `answeredBy`, checked as above.
+  interpreter → `ReplyInterpreterMissingError`). Who may answer is the role's `answerer`, checked as above.
 - Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
   (its channel's `onPauseClosed` told); `retention.pauseRecords` and `result.record.pauses` as for any
@@ -453,10 +453,13 @@ it calls it like any tool, and:
 
 ## Who may answer
 
-`@ChannelRole({ …, answeredBy })` is required (no default): a forgotten value must not let a customer
-approve their own refund.
+`@ChannelRole({ …, answerer })` is required (no default): a forgotten value must not let a customer
+approve their own refund. One meaning per name (#934): **`answerer` is who *may* answer**
+(`PauseAnswerer`), **`answeredBy` is who *did*** — the person, a string, in `app.resume`'s options, on a
+pause's answer and in the audit trail. 0.1.0's `answeredBy: PauseAnswerer` on a role is still accepted,
+`@deprecated`, until 0.2 (both given and different: `[channel.role-form]`).
 
-| `answeredBy`                 | `resume` takes                                    | Its `pauseId`                                       |
+| `answerer`                   | `resume` takes                                    | Its `pauseId`                                       |
 | ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
 | `PauseAnswerer.ThreadOwner`  | the thread's `ownerId` (another → `ThreadOwnerError`) | listed in `result.pending`                      |
 | `PauseAnswerer.Channel`      | `answeredBy: "manager-17"` — non-empty            | only in the channel's `ask.pauseId`                 |
@@ -485,7 +488,7 @@ after a crash — finds the same `pauseId`:
 | `Pending`     | waiting; `isSent` once its channel's `send` returned                                     |
 | `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it    |
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
-| `Cancelled`   | withdrawn: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, or the tree ended |
+| `Cancelled`   | closed with no answer: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
 An answer to anything but `Pending` → `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
@@ -501,7 +504,16 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 | `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused | `Taken`  |
 | `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)          | `Resolved` → `Taken` |
 | `Withdrawn`       | a `FailFast` sibling failed, or its launch's quorum was decided, before an answer | `Cancelled` |
-| `Cancelled`       | `app.cancel`, or its tree ended before an answer                       | `Cancelled` |
+| `Cancelled`       | `app.cancel` before an answer                                          | `Cancelled` |
+| `TreeEnded`       | its tree finished or failed before an answer                           | `Cancelled` |
+| `Expired`         | its deadline passed and the channel did not decide (`PauseExpiration.fail()`, or no handler), or a run's deadline bound it | `Cancelled` |
+| `DecidedOnExpiry` | its deadline passed and the channel decided (`PauseExpiration.decide(…)`) — [A deadline for the answer](#a-deadline-for-the-answer-941) | `Resolved` → `Taken` |
+| `Reassigned`      | **TODO (#946, not on main yet):** the pause was moved to another addressee; the value is reserved | — |
+
+What a caller of `app.resume` is told for a pause that is closed is the same list as `PauseClosedReason`:
+`answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned` — a pause whose deadline
+passed is `expired` from that moment, before the expiry look has moved its tree. A pause is **told to the channel and the listeners** under those names too
+([Telling the channel and the listeners](#telling-the-channel-and-the-listeners-940)).
 
 **Retention** (#267 S107): a resolved record (`Taken`, `Cancelled`) is kept
 `@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
@@ -529,8 +541,8 @@ resolved pause of the tree, in the order they were asked:
 | `pauseId`                | its id — `undefined` for a `PauseAnswerer.Channel` pause (only its channel has it) |
 | `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
 | `step`                   | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268) |
-| `role`, `answeredBy`     | the channel asked and who may answer                                           |
-| `responder`              | the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled |
+| `role`, `answerer`       | the channel asked and who may answer                                           |
+| `answeredBy`             | who answered — the person: the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled. `responder` is the same value, `@deprecated` until 0.2 |
 | `resolution`             | `PauseResolution`                                                              |
 | `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
 | `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |
@@ -651,7 +663,7 @@ import {
   name: "refund-approval-channel",
   description: "Approves a refund",
   approves: RefundRequest,
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
@@ -789,6 +801,221 @@ deadline (`app.execute(…, { deadline })`, a mesh caller's remaining time): a t
 `result.pending[].expiresAt` and the `onExecutionPause` event carry it; `agboss describe` prints each
 `expiresIn`.
 
+**A worked example: ask the manager for a day, then the director.** The approval role has a deadline;
+the flow's `.onError(PauseExpiredError, …)` is the escalation — a question step on a side path.
+
+```ts file=desk-flow.ts
+import {
+  Action,
+  Application,
+  Channel,
+  ChannelOf,
+  ChannelOutcome,
+  ChannelRole,
+  EmptyEnvironment,
+  Injectable,
+  PauseAnswerer,
+  PauseExpiredError,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  start,
+  toQuestion,
+  type ActionHandler,
+  type ChannelAsk,
+  type InputOf,
+  type OutputOf,
+} from "@agboss/core";
+import { Flag, Text } from "@agboss/core/dto";
+import { hours } from "@agboss/core/units";
+
+// the chat the channels talk to: yours is a Slack or Teams client
+@Injectable()
+export class DeskChat {
+  ask(_to: string, _pauseId: string, _text: string): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+export class DeskOrderDto {
+  @Text({ prompt: "the order" })
+  orderId!: string;
+}
+
+export class DeskDecisionDto {
+  @Flag({ prompt: "whether the refund goes on" })
+  approved!: boolean;
+}
+
+export class DeskDoneDto {
+  @Text()
+  status!: string;
+}
+
+// who is asked first, and for how long: the deadline belongs to the role
+@ChannelRole({
+  name: "desk-manager-question",
+  description: "Asks the manager to approve a refund",
+  ask: DeskOrderDto,
+  answer: DeskDecisionDto,
+  answerer: PauseAnswerer.Channel,
+  expiresIn: hours(24),
+  remindBefore: hours(2), // optional: the channel is told two hours before the deadline
+})
+export abstract class DeskManagerQuestion extends ChannelOf<DeskManagerQuestion> {}
+
+@Channel({
+  name: "desk-manager-channel",
+  description: "Asks the manager in the chat",
+  deps: [DeskChat],
+})
+export class DeskManagerChannel extends DeskManagerQuestion {
+  constructor(private readonly chat: DeskChat) {
+    super();
+  }
+
+  async send(ask: ChannelAsk<DeskManagerQuestion>): Promise<ChannelOutcome<DeskManagerQuestion>> {
+    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.value.orderId}?`);
+    return ChannelOutcome.awaitReply();
+  }
+}
+
+@ChannelRole({
+  name: "desk-director-question",
+  description: "Asks the director when the manager did not answer",
+  ask: DeskOrderDto,
+  answer: DeskDecisionDto,
+  answerer: PauseAnswerer.Channel,
+  expiresIn: hours(24),
+})
+export abstract class DeskDirectorQuestion extends ChannelOf<DeskDirectorQuestion> {}
+
+@Channel({
+  name: "desk-director-channel",
+  description: "Asks the director in the chat",
+  deps: [DeskChat],
+})
+export class DeskDirectorChannel extends DeskDirectorQuestion {
+  constructor(private readonly chat: DeskChat) {
+    super();
+  }
+
+  async send(ask: ChannelAsk<DeskDirectorQuestion>): Promise<ChannelOutcome<DeskDirectorQuestion>> {
+    await this.chat.ask("director", ask.pauseId, `The manager did not answer: refund ${ask.value.orderId}?`);
+    return ChannelOutcome.awaitReply();
+  }
+}
+
+@WorkflowStart({ name: "desk-workflow-start", description: "A refund request", input: DeskOrderDto })
+export class DeskWorkflowStart {}
+
+@WorkflowFinish({ name: "desk-workflow-finish", description: "The outcome", output: DeskDoneDto })
+export class DeskWorkflowFinish {}
+
+@Action({
+  name: "record-desk-action",
+  description: "Records the manager's decision",
+  input: { order: DeskOrderDto, decision: DeskDecisionDto },
+  output: DeskDoneDto,
+})
+export class RecordDeskAction implements ActionHandler<RecordDeskAction> {
+  execute({ order, decision }: InputOf<RecordDeskAction>): Promise<OutputOf<RecordDeskAction>> {
+    return Promise.resolve({
+      status: `${order.value.orderId}: ${decision.value.approved ? "refunded" : "refused"}`,
+    });
+  }
+}
+
+@Action({
+  name: "record-escalated-desk-action",
+  description: "Records the director's decision",
+  input: { order: DeskOrderDto, decision: DeskDecisionDto },
+  output: DeskDoneDto,
+})
+export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedDeskAction> {
+  execute({
+    order,
+    decision,
+  }: InputOf<RecordEscalatedDeskAction>): Promise<OutputOf<RecordEscalatedDeskAction>> {
+    return Promise.resolve({
+      status: `${order.value.orderId}: the director ${decision.value.approved ? "refunded" : "refused"}`,
+    });
+  }
+}
+
+@Workflow({
+  name: "desk-workflow",
+  version: "1.0.0",
+  flow: [
+    start(DeskWorkflowStart)
+      .returns(DeskOrderDto)
+      .toQuestion(DeskManagerQuestion)
+      .onError(
+        PauseExpiredError,
+        toQuestion(DeskDirectorQuestion)
+          .returns(DeskDecisionDto)
+          .toAction(RecordEscalatedDeskAction)
+          .returns(DeskDoneDto)
+          .toFinish(DeskWorkflowFinish),
+      )
+      .returns(DeskDecisionDto)
+      .toAction(RecordDeskAction)
+      .returns(DeskDoneDto)
+      .toFinish(DeskWorkflowFinish),
+  ],
+  providers: [DeskChat],
+})
+export class DeskWorkflow {}
+
+@Application({
+  name: "desk-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [DeskWorkflow],
+  providers: [DeskManagerChannel, DeskDirectorChannel],
+})
+export class DeskApplication {}
+```
+
+After 24 hours the manager's pause closes `expired`, the step fails with `PauseExpiredError`, the side
+path asks the director (a pause of its own, with its own 24 hours) and its answer goes on to its own
+action. A question with no `.onError` for it fails the run with `PauseExpiredError`.
+
+**A default answer instead of a failure.** The channel that decides what "nobody answered" means
+implements `PauseExpiryHandler`:
+
+```ts
+import {
+  Channel,
+  ChannelOutcome,
+  PauseExpiration,
+  type ChannelAsk,
+  type PauseExpiryHandler,
+} from "@agboss/core";
+import { DeskManagerQuestion } from "./desk-flow.js";
+
+// the manager's channel again, now deciding what "nobody answered" means (use it instead of the first)
+@Channel({ name: "desk-manager-channel", description: "Asks the manager in the chat" })
+export class DeskManagerChannel
+  extends DeskManagerQuestion
+  implements PauseExpiryHandler<DeskManagerQuestion>
+{
+  send(_ask: ChannelAsk<DeskManagerQuestion>): Promise<ChannelOutcome<DeskManagerQuestion>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+
+  // once per expiry, in the pause's frame; it may only read — a crash may run it again
+  onPauseExpired(_ask: ChannelAsk<DeskManagerQuestion>): PauseExpiration<DeskManagerQuestion> {
+    // a refusal the channel makes, recorded as its own; PauseExpiration.fail() is the default
+    return PauseExpiration.decide({ approved: false });
+  }
+}
+```
+
+The step goes on with `{ approved: false }` as if the manager had answered, `answeredBy` the
+channel's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the role's
+answer.
+
 **The deadline is hard.** An answer at or after it is refused with `PauseClosedError` (`reason:
 expired`, `closedAt` the deadline) — before a reply's interpreter reads anything, and in the store's
 own compare-and-set (`expires_at > at`), so an answer and the expiry racing at the deadline leave
@@ -848,6 +1075,59 @@ warning; an error under `--strict`). The look pages through the due reminders wi
 keyset cursor and hands each to the store without waiting, like the expiry look: another application's
 due pauses on a shared store never hide yours.
 
+```ts
+import {
+  Channel,
+  ChannelOutcome,
+  PauseListener,
+  type ChannelAsk,
+  type ChannelPauseExpiringEvent,
+  type PauseListenerClosedEvent,
+  type PauseListenerExpiringEvent,
+  type PauseListenerHandler,
+  type PauseListenerOpenedEvent,
+} from "@agboss/core";
+import { DeskChat, DeskManagerQuestion } from "./desk-flow.js";
+
+// the manager's channel, told two hours before the deadline of every pause (the role has
+// `remindBefore: hours(2)`, see the first example)
+@Channel({ name: "desk-manager-channel", description: "Asks the manager in the chat", deps: [DeskChat] })
+export class DeskManagerChannel extends DeskManagerQuestion {
+  constructor(private readonly chat: DeskChat) {
+    super();
+  }
+
+  async send(ask: ChannelAsk<DeskManagerQuestion>): Promise<ChannelOutcome<DeskManagerQuestion>> {
+    await this.chat.ask("manager", ask.pauseId, `Refund order ${ask.value.orderId}?`);
+    return ChannelOutcome.awaitReply();
+  }
+
+  // once per deadline, whatever the number of instances; at least once, so a chat message
+  // that is sent twice must be harmless — deduplicate by event.deliveryId
+  override async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerQuestion>): Promise<void> {
+    await this.chat.ask("manager", event.pauseId, `Order ${event.value.orderId}: answer by ${event.expiresAt}`);
+  }
+}
+
+// a listener hears the reminder of every pause that has one — here a pager for the on-call
+@PauseListener({ name: "on-call-pause-listener", deps: [DeskChat] })
+export class OnCallPauseListener implements PauseListenerHandler {
+  constructor(private readonly chat: DeskChat) {}
+
+  onPauseOpened(_event: PauseListenerOpenedEvent): Promise<void> {
+    return Promise.resolve();
+  }
+
+  onPauseClosed(_event: PauseListenerClosedEvent): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async onPauseExpiring(event: PauseListenerExpiringEvent): Promise<void> {
+    await this.chat.ask("on-call", event.pauseKey, `A ${event.channel} pause expires at ${event.expiresAt}`);
+  }
+}
+```
+
 **An extension.** `await app.extendPause({ pauseId, expiresIn: hours(24) }, { answeredBy })` — the
 `ownerId` for a thread owner's pause: whoever may answer may extend; the options are
 `PauseCallerOptions`, the caller fields of `resume`'s and none of a run's — moves an open pause's deadline
@@ -862,6 +1142,23 @@ optional `onPauseExtended(event)` and a listener's `onPauseExtended` hear "exten
   allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
   `DtoValidationError`, naming that deadline;
 - another tenant's pause or an unknown id — `UnknownPauseError`.
+- eight lost races in a row against other extensions of the same pause — `PauseExtensionContendedError`
+  (`pause.extension-contended`; nothing changed, trying again is safe).
+
+```ts
+import { hours } from "@agboss/core/units";
+import type { App, PauseExtension } from "@agboss/core";
+
+declare const app: App;
+declare const pauseId: string; // the id the channel was sent
+
+// the manager asks for one more day; the Channel role's credential is `answeredBy`
+const extension: PauseExtension = await app.extendPause(
+  { pauseId, expiresIn: hours(24) },
+  { answeredBy: "manager-17" },
+);
+console.log(extension.expiresAt, extension.previousExpiresAt);
+```
 
 The store applies the extension atomically: its compare-and-set applies it only while the pause is open, over
 the deadline the caller read (`PauseDeadlineChange.previousExpiresAt`) and to a deadline later than the stored
@@ -871,6 +1168,71 @@ and otherwise applied over the new deadline — the deadline never shortens, "ex
 that won, and `previousExpiresAt` is the deadline that write replaced. A store of your own does the same in its
 `extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
 instance, an expiry look on any instance, all read the new deadline from the record.
+
+### Reassigning a pause to someone else
+
+> **TODO (#946, not on main yet):** `PauseResolution.Reassigned` and `PauseClosedReason.Reassigned` are
+> reserved above; the section — moving an open pause to another addressee by `assignee`, what the old
+> channel and the listeners hear, what the old answerer's `app.resume` gets — is written when #946
+> merges.
+
+## List and watch pauses
+
+> **TODO (#943, not on main yet):** `app.listPauses` — which pauses are open, whose, how long
+> overdue — and the pause metrics (opened, closed by reason, open now, age at the answer) are written
+> here and in [Metrics](Metrics) when #943 merges.
+
+## Deadlines in working time
+
+> **TODO (#944, not on main yet):** `workingHours(n)` and a `WorkingWeek` calendar as `expiresIn`: a
+> deadline of "8 working hours" that skips nights and weekends, fixed when the pause is made.
+
+## Expiry in a quorum
+
+> **TODO (#945, not on main yet):** a pause that expires inside a quorum or a plain join —
+> `BranchStatus.Expired`, the settled answers, `joinFailed` — here and in [Parallel](Parallel).
+
+## Late answers (#939, #941)
+
+A pause is answered once. Whoever comes later — a double click, a webhook that retries, a manager who
+saw the message a minute after the deadline — gets `PauseClosedError` (`pause.closed`), and nothing
+moves: the error says **why** the pause is closed, so the answering side can tell the person.
+
+<!-- snippet-context
+import type { App } from "@agboss/core";
+declare const app: App;
+declare const pauseId: string;
+-->
+
+```ts
+import { PauseClosedError, PauseClosedReason } from "@agboss/core";
+
+// the Slack webhook of "Approve": the pause may be closed by now
+try {
+  await app.resume({ pauseId, decision: { approved: true } }, { answeredBy: "manager-17" });
+} catch (error) {
+  if (!(error instanceof PauseClosedError)) throw error;
+  const sorry =
+    error.reason === PauseClosedReason.Expired
+      ? `Too late: the question closed at ${error.closedAt}`
+      : error.reason === PauseClosedReason.Answered
+        ? "Someone answered already"
+        : `The question is closed (${error.reason})`;
+  console.log(sorry); // post it back to the manager
+}
+```
+
+- **The deadline is the line** — an answer at or after `expiresAt` is `expired`, even if the expiry
+  look has not moved the run yet ([A deadline for the answer](#a-deadline-for-the-answer-941)).
+- **The reply is not read** — the check comes before a reply's interpreter is called, so a late reply
+  costs no model call.
+- **A recorded answer can still lose.** When an answer was recorded and then the run ended first (a
+  cancel, the tree's end), nobody applied it: the pause closes *not taken*, the answer and who gave
+  it stay in the audit trail, and the channel's optional `onPauseAnswerNotTaken(event)` is told
+  ([Telling the channel and the listeners](#telling-the-channel-and-the-listeners-940)). Another answer
+  to such a pause is refused `answered`: one answer was recorded already.
+- **After the retention** (`retention.pauseRecords`, 24 h) the record is gone and the id is unknown:
+  `UnknownPauseError`. Over [A2A](A2A) a late follow-up is `-32004` with `a2a.pause-closed`.
 
 ## Concurrent answers
 

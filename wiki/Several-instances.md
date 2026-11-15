@@ -1136,9 +1136,17 @@ pause.** A pass never rests on a due pause: at every rest the holder expires its
 (a pause of a parallel branch whose sibling still runs waits, and is refused answers from its deadline on).
 Fault scenarios 24–24e (SQLite pods, `kill -9` and `SIGSTOP`) and the invariants `one-expiry-decision`,
 `no-paused-root-with-closed-pause`, `no-answer-after-deadline` prove it; the sabotages — an expiry outside the
-compare-and-set, a forgotten root mark, a cancel mark that never lands — each fail them. A look reads 50 due
-pauses and keeps no cursor; the tree of a pause stuck behind 50 older ones whose trees keep running waits
-until they rest.
+compare-and-set, a forgotten root mark, a cancel mark that never lands — each fail them.
+
+**The reminder look** (#942) is a second look of the same timers' tick: `findPendingByRemindAtBefore(now, 50, after)`
+pages through the pending pauses whose `remindAt` passed, with the same keyset cursor, and hands each — started,
+not awaited — to `remindByTenantIdAndPauseId`, which writes the `expiring` notice to the channel's and the
+listeners' mailboxes **and** clears `remindAt` in one store transaction. No lease is taken and no tree moves: any
+number of instances looking at one tick remind once, a pod that dies before the transaction leaves the pause due
+for the next look, and one that dies after leaves the notice to the mailbox's at-least-once delivery. A pause of
+another application on a shared store is passed. A look that fails is `pause.reminder-failed`
+(`LogLevel.Warn`, with the tenant and the root execution); the others and the next tick go on. An extension
+(`app.extendPause`) writes `remindAt` again, from the new deadline, in the same compare-and-set as the deadline.
 
 ## The audit log (#501)
 

@@ -306,7 +306,7 @@ Answers **one pause, by its id** (#267) — never by thread: the pause is found 
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
 another tenant's, is the same `UnknownPauseError` (`pause.unknown`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
-channel role says (`answeredBy` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
+channel role says (`answerer` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
 pause (another → `ThreadOwnerError`), a non-empty `answeredBy` for a `PauseAnswerer.Channel` one;
 the other credential → `PauseAnswererError`. The decision is a `ToolCallApprovalDecisionDto`
 (`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
