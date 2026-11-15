@@ -300,7 +300,7 @@ pause.
 
 - **Wrong:** the caller stores the approval and acts on each call.
 - **AGBoss:** a resume first moves the pause from `Pending` to `Resolved` atomically. The second
-  answer gets `NotPausedError` and moves nothing.
+  answer gets `PauseClosedError` and moves nothing.
 - **Guarantee:** the pause's own contract ([Pauses](Pauses#concurrent-answers)); the charge that
   follows is P3.
 - **Boundary:** two **different** pauses for one payment (two executions each asking) are two
@@ -334,7 +334,7 @@ once.
     business key made of the gateway's event id (`event:<gateway>:<eventId>`). The second delivery
     replays it.
   - A webhook that answers a pause (the payment's outcome) answers it once; the second gets
-    `NotPausedError`.
+    `PauseClosedError`.
 - **Guarantee:** P2. Assumption: A9 (the write happens inside a step).
 - **Boundary:** verifying the webhook's signature is the application's. A handler that writes
   outside an execution has no fence (A9).
@@ -448,7 +448,7 @@ webhook both report the outcome.
 - **AGBoss:**
   - Creating and confirming the payment are outbound calls under the order's business key.
   - The execution pauses for the outcome. The return page and the webhook both answer that one
-    pause, and the second gets `NotPausedError`.
+    pause, and the second gets `PauseClosedError`.
 - **Guarantee:** P2, P3, and the pause's contract.
 - **Boundary:** read the outcome from the gateway (G6) in the step, never from the redirect's query
   string.

@@ -153,8 +153,8 @@ flowchart LR
 | 5   | A rejection reaches the model as a tool error                                             |
 
 After the decision and the agent's answer the router sends the turn to its workflow finish without a
-model call (#100). Answering a pause no longer waiting (twice, after it was withdrawn) →
-`NotPausedError`. A failure after resume completes
+model call (#100). Answering a pause that is closed (twice, after it was withdrawn) →
+`PauseClosedError` with its `reason` (`answered`, `withdrawn`, …). A failure after resume completes
 the same Turn as `failed`. Decision recorded in [ADR-0004](ADR-0004-Pause-seam).
 
 ## After the decision

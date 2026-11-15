@@ -585,7 +585,7 @@ once a `.joinQuorum(…)` / `.joinQuorumGroups(…)` is decided — `max` counte
 deadline passed, it can no longer be reached, or it is found decided when a resume or a recovery
 rebuilds it — every pending pause of the launch's unfinished branches is withdrawn
 (`PauseResolution.Withdrawn`): the join runs in the same call, `result.pending` is empty and a late
-answer gets `NotPausedError`. A deadline that passes while the tree rests (every branch waiting,
+answer gets `PauseClosedError` (`reason: withdrawn`). A deadline that passes while the tree rests (every branch waiting,
 nothing running) withdraws nothing until the tree moves again: the next pass — a resume, a recovery
 — finds the quorum decided, cancels the unfinished branches and withdraws their pauses then.
 
