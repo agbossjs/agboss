@@ -51,17 +51,27 @@ function allowedUrlOf(text: string, allowed: readonly string[], isRedirect: bool
   throw refused("a2a.file-origin-denied", "the file's url is on an origin not allowed");
 }
 
-/** The body, at most `maxBytes`; the read stopped at the first byte past it. */
+const TOO_LARGE = "a2a.file-too-large";
+
+/**
+ * The body, at most `maxBytes`; the read stopped at the first byte past it. A body that fails
+ * while it is read (the peer resets it, #1139) is `a2a.file-fetch-failed`, as a failed request is.
+ */
 async function boundedBodyOf(response: FileHttpResponse, maxBytes: Bytes): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let size = 0;
-  for await (const chunk of response.body) {
-    size += chunk.byteLength;
-    if (size > maxBytes) {
-      response.cancel();
-      throw refused("a2a.file-too-large", "a file is larger than this agent takes");
+  try {
+    for await (const chunk of response.body) {
+      size += chunk.byteLength;
+      if (size > maxBytes) {
+        response.cancel(TOO_LARGE);
+        throw refused(TOO_LARGE, "a file is larger than this agent takes");
+      }
+      chunks.push(chunk);
     }
-    chunks.push(chunk);
+  } catch (error) {
+    if (size > maxBytes) throw error;
+    throw refused("a2a.file-fetch-failed", "the file could not be fetched");
   }
   return Buffer.concat(chunks);
 }

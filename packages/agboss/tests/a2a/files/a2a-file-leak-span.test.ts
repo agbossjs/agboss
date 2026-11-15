@@ -1,8 +1,10 @@
 /**
  * #1022: a file fetch whose request cannot be built or is refused destroys the TLS socket it made
  * (the child exits by itself, nothing reaches the server). #1021: a fetch is one OpenTelemetry
- * CLIENT span with HTTP attributes and no query string, and costs nothing without an SDK. Each
- * case is a child process on a simulated public network (proxy/file-tls-process.ts).
+ * CLIENT span with HTTP attributes and no query string, and costs nothing without an SDK; it
+ * injects no propagation header. #1139: a fetch that fails after a 2xx status line (the body too
+ * large, cut by the deadline, reset by the peer) ends its span with an error. Each case is a child
+ * process on a simulated public network (proxy/file-tls-process.ts).
  */
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -29,7 +31,7 @@ interface Report {
 }
 
 async function fetchedUnder(path: string, mode: string): Promise<Report> {
-  vhost.requests.length = 0;
+  vhost.reset();
   const result = await runNodeReporting(
     [
       "--import",
@@ -94,10 +96,42 @@ describe("#1021: a file fetch is one OpenTelemetry CLIENT span", () => {
     expect(fetched.spans[0]?.attributes["error.type"]).toBeDefined();
   }, 30_000);
 
+  it("T4 the request carries no propagation header: no traceparent, no baggage of the caller", async () => {
+    const fetched = await fetchedUnder("/a.pdf", "span");
+
+    expect(fetched.outcome).toBe("fetched");
+    expect(vhost.headers).toHaveLength(1);
+    expect(Object.keys(vhost.headers[0] ?? {}).sort()).toEqual(["accept", "connection", "host"]);
+    expect(JSON.stringify(vhost.headers)).not.toContain("secret-tenant");
+  }, 30_000);
+
   it("T3 without an SDK: the fetch works, nothing is recorded, nothing fails", async () => {
     const fetched = await fetchedUnder("/a.pdf", "plain");
 
     expect(fetched.outcome).toBe("fetched");
     expect(fetched.spans).toEqual([]);
   }, 30_000);
+});
+
+describe("#1139: a fetch that fails after a 2xx status line ends its span with an error", () => {
+  it.each([
+    ["a body past maxFileSize", "/big", "span", "a2a.file-too-large", "a2a.file-too-large"],
+    ["a body cut by the deadline", "/slow", "span-deadline", "a2a.file-fetch-failed", "ABORT_ERR"],
+    ["a body the peer resets", "/cut", "span", "a2a.file-fetch-failed", "ECONNRESET"],
+  ])(
+    "AC1 %s: one CLIENT span, status 200, ERROR with its error type",
+    async (_, path, mode, outcome, type) => {
+      const fetched = await fetchedUnder(path, mode);
+
+      expect(fetched.outcome).toBe(outcome);
+      expect(fetched.spans).toHaveLength(1);
+      const [span] = fetched.spans;
+      expect(span?.kind).toBe(CLIENT);
+      expect(span?.attributes["http.response.status_code"]).toBe(200);
+      expect(span?.status).toBe(ERROR);
+      expect(span?.attributes["error.type"]).toBe(type);
+      expect(fetched.lingering).toBe(false);
+    },
+    30_000,
+  );
 });
