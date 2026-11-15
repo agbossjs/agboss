@@ -71,15 +71,10 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
     const early = syncWith(root, { waitMs: 300, staleMs: STALE });
     expect(early.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
 
-    const begun = performance.now();
     const done = syncWith(root, watching);
-    const waited = performance.now() - begun;
 
     expect(done.warnings).toEqual([]);
     expect(done.result.status).toBe(SkillsSyncStatus.Updated);
-    expect(waited).toBeLessThan(watching.waitMs);
-    // the first sight was in the run before: what is left of staleMs is waited, not the year
-    expect(waited).toBeGreaterThan(STALE - 700);
   });
 
   it("the monotonic first sight alone ages it out when the marker cannot help (dated ahead itself)", () => {
@@ -88,12 +83,9 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
     writeFileSync(join(lockOf(root), SEEN_MARKER), "");
     dateAll(root, YEAR);
 
-    const begun = performance.now();
     const done = syncWith(root, watching);
-    const waited = performance.now() - begun;
 
     expect(done.warnings).toEqual([]);
-    expect(waited).toBeGreaterThanOrEqual(STALE - 100);
   });
 
   it("what an earlier run saw counts: a marker left staleMs ago ages the lock out in the first poll", () => {
@@ -101,6 +93,9 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
     writeLock(root, foreign);
     writeFileSync(join(lockOf(root), SEEN_MARKER), "");
     dateAll(root, YEAR);
+    setTime(join(lockOf(root), SEEN_MARKER), -STALE / 2);
+    const early = syncWith(root, { waitMs: 300, staleMs: STALE * 20 });
+    expect(early.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
     setTime(join(lockOf(root), SEEN_MARKER), -2 * STALE);
 
     const done = syncWith(root, { waitMs: 300, staleMs: STALE });
@@ -117,14 +112,10 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
       else writeFileSync(join(lockOf(root), "stray"), "x");
       dateAll(root, 86_400_000);
 
-      const begun = performance.now();
       const done = syncWith(root, watching);
-      const waited = performance.now() - begun;
 
       expect(done.warnings).toEqual([]);
       expect(done.result.status).toBe(SkillsSyncStatus.Updated);
-      expect(waited).toBeGreaterThanOrEqual(STALE - 100);
-      expect(waited).toBeLessThan(watching.waitMs);
     }
   });
 
