@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
 import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
 import { nestedFileFieldsOf } from "../files/a2a-file.dto.js";
 import type { A2AReceivedFile } from "./a2a-client-files.js";
@@ -65,7 +66,8 @@ export interface A2AClientCall {
   readonly onEvent?: (event: A2AStreamEvent) => void;
   /**
    * How long the call waits for the task at most — the execution's deadline is the other bound,
-   * the earlier wins; then a best-effort CancelTask and `A2ACallDeadlineError`.
+   * the earlier wins; then a best-effort CancelTask and `A2ACallDeadlineError`. At most 24 hours
+   * (`[a2a.timeout-invalid]`, #1141).
    */
   readonly timeout?: Milliseconds;
   /**
@@ -134,8 +136,22 @@ export function agentNameOf(target: object, fallback: string): string {
   return meta?.kind === "a2a-agent" ? meta.meta.name : fallback;
 }
 
+/** A call's `timeout` bounds a timer: above `MAX_TIMEOUT`, `[a2a.timeout-invalid]` (#1141). */
+export function checkedCallTimeout(agent: string, timeout: number | undefined): void {
+  const problem =
+    timeout === undefined ? undefined : timerProblemOf("timeout", timeout, MAX_TIMEOUT);
+  if (problem !== undefined)
+    throw new ComponentError({ message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}` });
+}
+
+/** A call's `key` and `timeout`, checked before anything is sent; the key. */
+export function checkedCall(agent: string, call: A2AClientCall): string | undefined {
+  checkedCallTimeout(agent, call.timeout);
+  return checkedCallKey(agent, call.key);
+}
+
 /** A call's `key`: part of an outbound call's name, so of its charset (`[A-Za-z0-9._-]`, 1–40). */
-export function checkedCallKey(agent: string, key: string | undefined): string | undefined {
+function checkedCallKey(agent: string, key: string | undefined): string | undefined {
   if (key === undefined || /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/u.test(key)) return key;
   throw new ComponentError({
     message: `[a2a.call-key-invalid] ${agent}: a call's key is 1–40 letters, digits, ".", "_" or "-", a letter or digit first`,

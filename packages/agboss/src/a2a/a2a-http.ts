@@ -1,3 +1,4 @@
+import { MAX_DEADLINE, MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
@@ -43,9 +44,9 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
    * more when a skill takes files (#859): room for its `maxTotalFileSize` as base64 and 256 KB more.
    */
   readonly maxBodySize?: Bytes;
-  /** How long a file by `url` may take to fetch at a message's admission (#859): `seconds(10)`. */
+  /** How long a file by `url` may take to fetch at a message's admission (#859): `seconds(10)`; at most 24 hours (`[a2a.timeout-invalid]`, #1141). */
   readonly fileFetchTimeout?: Milliseconds;
-  /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request. */
+  /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request; at most 24 days (`[a2a.timeout-invalid]`, #1141). */
   readonly maxTaskDuration?: Milliseconds;
 }
 
@@ -95,6 +96,22 @@ function interfaceUrlOf(publicUrl: string, base: string): string {
       message: `[a2a.base-invalid] a2aHttpListener's base starts with "/" and does not end with one`,
     });
   return `${publicUrl.replace(/\/+$/, "")}${base}`;
+}
+
+/** `fileFetchTimeout` and `maxTaskDuration` bound timers: above their maximum, `[a2a.timeout-invalid]` (#1141). */
+function checkedListenerTimers(options: A2AHttpListenerOptions<Class>): void {
+  const problems = [
+    options.fileFetchTimeout === undefined
+      ? undefined
+      : timerProblemOf("fileFetchTimeout", options.fileFetchTimeout, MAX_TIMEOUT),
+    options.maxTaskDuration === undefined
+      ? undefined
+      : timerProblemOf("maxTaskDuration", options.maxTaskDuration, MAX_DEADLINE),
+  ].filter((problem) => problem !== undefined);
+  if (problems.length > 0)
+    throw new ComponentError({
+      message: `[a2a.timeout-invalid] a2aHttpListener's ${problems.join("; ")}`,
+    });
 }
 
 /** The server's modules, loaded with the first request (the root import stays lean). */
@@ -212,6 +229,7 @@ export function a2aHttpListener<TStart extends Class>(
   app: A2AApp,
   options: A2AHttpListenerOptions<TStart>,
 ): (req: IncomingMessage, res: ServerResponse) => void {
+  checkedListenerTimers(options);
   const resolver = callerResolverOf(app, options.callerResolver);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");

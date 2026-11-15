@@ -1,3 +1,4 @@
+import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import type { BuiltApp } from "../app/create-app.js";
 import { executionLeasesOf, type ExecutionLeases } from "../app/execution-leases.js";
@@ -142,8 +143,9 @@ export function gracefulStopOf(parts: GracefulStopParts): GracefulStop {
   return {
     closed,
     isStopping: () => closing !== undefined,
-    close: (options = {}) => {
-      const timeout = options.timeout ?? parts.shutdownTimeout;
+    close: async (options = {}) => {
+      const asked = options.timeout ?? parts.shutdownTimeout;
+      const timeout = checkedTimer("close({ timeout })", asked, MAX_TIMEOUT);
       deadline.endBy(timeout);
       closing ??= stop();
       arm(timeout);

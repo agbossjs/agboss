@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Milliseconds } from "../units/index.js";
 import { ModelFailure } from "./model-failure.js";
 import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
@@ -9,7 +10,10 @@ export enum Backoff {
   None = "none",
 }
 
-/** `RetryPolicy.exponential({ … })`: the wait doubles from `initialDelay` up to `maxDelay`. */
+/**
+ * `RetryPolicy.exponential({ … })`: the wait doubles from `initialDelay` up to `maxDelay`; each at
+ * most 24 hours (`RetryPolicyError`, #1141).
+ */
 export interface ExponentialRetryOptions {
   /** Attempts including the first. */
   readonly maxAttempts: number;
@@ -47,6 +51,12 @@ export class RetryPolicyError extends RangeError {
   }
 }
 
+/** A retry's wait is a timer: above `MAX_TIMEOUT` it would fire at once (#1141). */
+const checkDelay = (field: string, delay: number): void => {
+  const problem = timerProblemOf(field, delay, MAX_TIMEOUT);
+  if (problem !== undefined) throw new RetryPolicyError({ message: problem });
+};
+
 const checkAttempts = (maxAttempts: number): void => {
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new RetryPolicyError({
@@ -58,6 +68,8 @@ const checkAttempts = (maxAttempts: number): void => {
 export const RetryPolicy = {
   exponential(options: ExponentialRetryOptions): RetryPolicy {
     checkAttempts(options.maxAttempts);
+    checkDelay("initialDelay", options.initialDelay);
+    checkDelay("maxDelay", options.maxDelay);
     if (options.maxDelay < options.initialDelay) {
       throw new RetryPolicyError({ message: "maxDelay must not be shorter than initialDelay" });
     }
@@ -65,6 +77,7 @@ export const RetryPolicy = {
   },
   fixed(options: FixedRetryOptions): RetryPolicy {
     checkAttempts(options.maxAttempts);
+    checkDelay("delay", options.delay);
     return Object.freeze({ backoff: Backoff.Fixed, ...options });
   },
   none(): RetryPolicy {

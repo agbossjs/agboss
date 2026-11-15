@@ -50,7 +50,7 @@ export interface ToolOptions<
    * may call only such tools (`[a2a.message-skill-tool]`). Unset: it may change things.
    */
   readonly readOnly?: boolean;
-  /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s). */
+  /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s), at most 24 hours (`[limits.timeout-invalid]`, #1141). */
   readonly timeout?: Milliseconds;
   /**
    * How long the approval of one call waits for its answer (#941): `expiresIn: hours(4)`, over its

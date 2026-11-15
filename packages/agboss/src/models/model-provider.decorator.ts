@@ -19,7 +19,7 @@ export interface HttpModelProviderOptions {
   readonly description: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
-  /** Per attempt. */
+  /** Per attempt; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
   readonly timeout: Milliseconds;
   readonly cost: ModelCost;
   /** Retries one call: attempts and backoff (the only place backoff is set). */

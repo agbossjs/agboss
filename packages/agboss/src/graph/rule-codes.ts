@@ -82,6 +82,8 @@ export type RuleCode =
   // the instance's cap on steps (#332), reported at the application's assembly
   | "limits.max-concurrent-steps-invalid"
   | "limits.max-mesh-hops-invalid"
+  // a timer-backed duration above its documented maximum (#1141): it would fire at once
+  | "limits.timeout-invalid"
   // the fenced effects' settings (#500), and their store beside its lease store
   | "application.fenced-effects-invalid"
   | "application.store-backend-mismatch"

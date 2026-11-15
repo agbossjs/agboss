@@ -15,6 +15,7 @@ import {
   providerBreakerViolations,
   providerFieldsViolations,
   providerModeViolations,
+  providerTimeoutViolations,
 } from "../models/provider-mode-rules.js";
 import type { ApplicationOptions } from "./application.js";
 import { contextRuleViolations } from "../flow/context/context-rules.js";
@@ -40,6 +41,7 @@ import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-ta
 import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
 import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
+import { timerSettingViolations } from "./timer-rules.js";
 import { keyFieldViolations } from "./key-field-rules.js";
 
 /**
@@ -193,6 +195,7 @@ export function applicationRuleViolations(
     ...providerModeViolations(options.name, options.providers),
     ...providerBreakerViolations(options.name, options.providers),
     ...providerFieldsViolations(options.name, options.providers),
+    ...providerTimeoutViolations(options.name, options.providers),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,
@@ -207,6 +210,7 @@ export function applicationRuleViolations(
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
     ...stepCapViolations(options),
     ...meshHopsViolations(options),
+    ...timerSettingViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),

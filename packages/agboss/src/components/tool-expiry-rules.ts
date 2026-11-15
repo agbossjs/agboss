@@ -1,3 +1,4 @@
+import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import { isExpiresIn } from "../channels/channel-rules.js";
 import { spanText } from "../units/working-time.js";
 import { tokenName } from "./injection.js";
@@ -11,6 +12,24 @@ import type { ToolClasses } from "./assemble-checks.js";
  * when it is no positive finite duration of at least `seconds(1)`.
  */
 export function toolExpiryViolations(tools: ToolClasses): RuleViolation[] {
+  return [...toolTimeoutViolations(tools), ...toolExpiryOnlyViolations(tools)];
+}
+
+/** `[limits.timeout-invalid]` (#1141): a tool's `timeout` above its maximum would fire at once. */
+function toolTimeoutViolations(tools: ToolClasses): RuleViolation[] {
+  return [...tools.local, ...tools.mcp].flatMap((cls) => {
+    const component = componentOf(cls);
+    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    const { name, timeout } = component.meta;
+    const problem =
+      timeout === undefined ? undefined : timerProblemOf("timeout", timeout, MAX_TIMEOUT);
+    return problem === undefined
+      ? []
+      : [violation("limits.timeout-invalid", `${tokenName(cls)} (${name}): ${problem}`, [name])];
+  });
+}
+
+function toolExpiryOnlyViolations(tools: ToolClasses): RuleViolation[] {
   return [...tools.local, ...tools.mcp].flatMap((cls) => {
     const component = componentOf(cls);
     if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];

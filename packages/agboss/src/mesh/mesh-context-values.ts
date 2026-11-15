@@ -1,3 +1,4 @@
+import { checkedTimer, MAX_DEADLINE } from "../units/timer-limits.js";
 import type { ExecutionOptions } from "../app/types.js";
 import { deadlineFrom, earliestOf, withExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
@@ -13,6 +14,7 @@ export function meshContextValuesOf(
   call: ExecutionOptions,
   now: Date,
 ): ExecutionContextValues {
+  if (call.deadline !== undefined) checkedTimer("deadline", call.deadline, MAX_DEADLINE);
   const inbound = inboundMeshOf(call);
   const deadline = deadlineFrom(now, earliestOf(call.deadline, inbound?.trusted?.deadline));
   return withExecutionDeadline(withInboundChain(values, inbound), deadline);
