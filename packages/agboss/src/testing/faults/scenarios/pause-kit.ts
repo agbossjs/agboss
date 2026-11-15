@@ -19,6 +19,10 @@ export interface PausedOrder {
   readonly pauseId: string;
 }
 
+/** The mailbox of the fixture's listener for a pause, as a hold point keys it. */
+export const noticeMailboxOf = (pauseId: string): string =>
+  `listener:fault-pause-listener:${pauseId}`;
+
 /** Starts a paused order on `pod` and resolves once its tree rests at its pause. */
 export async function pausedOrderOn(
   cluster: FaultCluster,

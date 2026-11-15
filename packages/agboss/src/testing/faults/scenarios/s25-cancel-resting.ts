@@ -47,24 +47,34 @@ async function expectEndedCancelled(
   );
 }
 
+/**
+ * Scenario 25's run, with a place for a test to arm something once the order rests on pod a and
+ * before the cancel (#1178: a delivery held, to prove the run waits for the notices it checks).
+ */
+export async function runDropped(
+  cluster: FaultCluster,
+  restedOn: (a: FaultPod, order: PausedOrder) => Promise<void> = () => Promise.resolve(),
+): Promise<FaultPod> {
+  const a = await cluster.pod("a");
+  const b = await cluster.pod("b");
+  const order = await pausedOrderOn(cluster, a, "o-25", undefined, { cancelled: true });
+  await restedOn(a, order);
+  await holdStore(b, StoreHoldPoint.PausedRunDelete, order.rootExecutionId, {
+    phase: HoldPhase.After,
+  });
+  await b.command({ op: "cancel", tag: "cancel-25", threadId: threadOf(order) });
+  await heldAt(cluster, b, StoreHoldPoint.PausedRunDelete, order.rootExecutionId);
+  await b.kill();
+  await cluster.ended(order.rootExecutionId);
+  await expectEndedCancelled(cluster, a, order);
+  return a;
+}
+
 export const s25Dropped: RunnableFaultScenario = {
   id: "s25-cancel-resting-kill-after-drop",
   title:
     "25: a pod killed right after its app.cancel removed a resting tree's paused run — another pod's sweep ends the order cancelled, its pause closed",
-  run: async (cluster) => {
-    const a = await cluster.pod("a");
-    const b = await cluster.pod("b");
-    const order = await pausedOrderOn(cluster, a, "o-25", undefined, { cancelled: true });
-    await holdStore(b, StoreHoldPoint.PausedRunDelete, order.rootExecutionId, {
-      phase: HoldPhase.After,
-    });
-    await b.command({ op: "cancel", tag: "cancel-25", threadId: threadOf(order) });
-    await heldAt(cluster, b, StoreHoldPoint.PausedRunDelete, order.rootExecutionId);
-    await b.kill();
-    await cluster.ended(order.rootExecutionId);
-    await expectEndedCancelled(cluster, a, order);
-    return a;
-  },
+  run: (cluster) => runDropped(cluster),
 };
 
 export const s25bRequested: RunnableFaultScenario = {

@@ -17,7 +17,7 @@ import {
   type PauseRecipients,
   type PauseRecord,
 } from "../../src/infrastructure/pause-record.js";
-import type { PauseNoticeClaim } from "../../src/infrastructure/pause-notices.js";
+import { PauseNoticeKind, type PauseNoticeClaim } from "../../src/infrastructure/pause-notices.js";
 import { resolveChange } from "../../src/infrastructure/pause-transitions.js";
 import { SqlitePauseNoticeRows } from "../../src/infrastructure/sqlite/sqlite-pause-notice-rows.js";
 import type { Milliseconds } from "../../src/units/index.js";
@@ -165,5 +165,25 @@ export class OutsideCasExpireSqlitePausedExecutionRepository extends SqlitePause
       )
       .run(tenantId, pauseId);
     return super.expireByTenantIdAndPauseId(...args);
+  }
+}
+
+/**
+ * #1178 — `NeverClosedSqlitePausedExecutionRepository`: a pause store that never lets a `closed`
+ * notice out: every mailbox whose head is a `closed` is left unclaimed, so the listener is told
+ * `opened` and never `closed`. Every notice invariant of the fault suite must see it.
+ */
+@Injectable({ deps: [SqliteConnection, Clock] })
+export class NeverClosedSqlitePausedExecutionRepository extends SqlitePausedExecutionRepository {
+  override async claimNoticesDue(
+    at: Date,
+    limit: number,
+    claimFor: Milliseconds,
+    recipients: readonly string[],
+  ): Promise<readonly PauseNoticeClaim[]> {
+    const claims = await super.claimNoticesDue(at, limit, claimFor, recipients);
+    return claims.filter(
+      (claim) => claim.mailbox.notices[claim.mailbox.delivered]?.kind !== PauseNoticeKind.Closed,
+    );
   }
 }
