@@ -22,8 +22,9 @@ import type { App, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
  * has no deadline (none is ever added), or when it is past the deadline the pause was made under —
  * its run's, or a quorum's (`boundAt`); exactly that deadline is allowed. A closed pause, or one
  * past its deadline, is `PauseClosedError`. The store applies it atomically (`extend…`, its
- * compare-and-set on `expiresAt > at` against the expiry look: one wins); the channel and the
- * listeners are told `extended` in the same transaction. No lease is taken and no tree moves.
+ * compare-and-set over the deadline this call read, to a later one, while the pause is open — the
+ * expiry look, an answer and another extension: one wins); the channel and the listeners are told
+ * `extended` in the same transaction, once, by the winner. No lease is taken and no tree moves.
  */
 
 /** What an extension needs from the workflow's app. */
@@ -97,7 +98,17 @@ async function assertOpen(parts: ExtendParts, pause: PauseRecord): Promise<void>
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
 }
 
-/** `app.extendPause` of one workflow's app. */
+/** How many times an extension re-reads and tries again after another writer moved the pause first. */
+const MAX_ATTEMPTS = 8;
+
+/**
+ * `app.extendPause` of one workflow's app. The store's compare-and-set decides: the write applies
+ * only over the deadline this call read and only to a later one. A call that lost re-reads the
+ * pause and decides again — refused when it is closed, or when its new deadline is not later than
+ * the one that won (a shorter extension that raced a longer one), tried again over the new
+ * deadline when it is still later. "Extended" is told only for a write that won, and
+ * `previousExpiresAt` is the deadline that write replaced (#1099).
+ */
 export const extendPauseOf =
   (parts: ExtendParts): App["extendPause"] =>
   async (given, call: PauseCallerOptions = {}) => {
@@ -105,22 +116,29 @@ export const extendPauseOf =
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
     checkedCallers("PauseCallerOptions", { ...call, tenantId });
     const request = checked(given);
-    const pause = await pauseOf(parts.pauses, request, tenantId);
+    let pause = await pauseOf(parts.pauses, request, tenantId);
     await answeredByOf(parts, pause, call);
-    await assertOpen(parts, pause);
-    const now = parts.clock.now();
-    const expiresAt = new Date(now.getTime() + request.expiresIn).toISOString();
-    const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
-    const remindAt = remindAtOf(expiresAt, remindBeforeOf(parts.deps, pause), now);
-    const extended = await parts.pauses.extendByTenantIdAndPauseId(
-      tenantId,
-      pause.pauseId,
-      { expiresAt, ...(remindAt === undefined ? {} : { remindAt }) },
-      now,
-      recipientsIn(parts.deps.pause, pause),
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      await assertOpen(parts, pause);
+      const now = parts.clock.now();
+      const expiresAt = new Date(now.getTime() + request.expiresIn).toISOString();
+      const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
+      const remindAt = remindAtOf(expiresAt, remindBeforeOf(parts.deps, pause), now);
+      const extended = await parts.pauses.extendByTenantIdAndPauseId(
+        tenantId,
+        pause.pauseId,
+        { expiresAt, previousExpiresAt, ...(remindAt === undefined ? {} : { remindAt }) },
+        now,
+        recipientsIn(parts.deps.pause, pause),
+      );
+      if (extended !== undefined) {
+        noticesWritten(parts.deps.pause);
+        return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
+      }
+      // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left
+      pause = await pauseOf(parts.pauses, request, tenantId);
+    }
+    throw new Error(
+      `extendPause of pause ${request.pauseId} lost its compare-and-set ${String(MAX_ATTEMPTS)} times to other writers`,
     );
-    // the expiry, an answer or a cancel won the compare-and-set: refused, with why
-    if (extended === undefined) throw await pauseClosed(parts.pauses, pause, parts.clock.now());
-    noticesWritten(parts.deps.pause);
-    return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
   };

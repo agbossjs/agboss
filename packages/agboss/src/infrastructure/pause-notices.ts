@@ -124,8 +124,14 @@ export interface SetAsideMailbox {
 
 /** The deadline change `extend…` applies. */
 export interface PauseDeadlineChange {
-  /** The new deadline (ISO 8601); after `at`. */
+  /** The new deadline (ISO 8601); after `at` and after the stored one. */
   readonly expiresAt: string;
+  /**
+   * The deadline the caller read and extends from (ISO 8601): the change applies only while the
+   * stored deadline is still this one — the compare of the compare-and-set (#1099) — and the
+   * `extended` notice names it as `previousExpiresAt`.
+   */
+  readonly previousExpiresAt: string;
   /** The new reminder time (ISO 8601); absent: none. */
   readonly remindAt?: string;
 }

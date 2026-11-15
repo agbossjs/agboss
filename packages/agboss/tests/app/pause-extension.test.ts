@@ -364,3 +364,117 @@ describe("#942: extended to exactly the run's deadline: the tie goes to the run 
     expect(told.recorded).toEqual([]);
   });
 });
+
+describe("#1099: racing extensions: the store's compare-and-set decides, 'extended' is told by the winner only", () => {
+  const extendedNotices = () =>
+    told.notices.filter((one) => one.kind === "extended" && one.receiver === "channel");
+
+  test("AC1: a longer and a shorter extension at once, from two instances: the deadline never shortens, every told deadline is the stored chain", async ({
+    apps,
+    clock,
+  }) => {
+    await Promise.all(apps.map((one) => one.ready()));
+    await execute(instance(apps, 0), managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const asked = (await pauseOf(instance(apps, 0), pauseIdOf())).expiresAt;
+
+    const [long, short] = await Promise.allSettled([
+      instance(apps, 0).extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager),
+      instance(apps, 1).extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
+    ]);
+
+    const stored = (await pauseOf(instance(apps, 2), pauseIdOf())).expiresAt;
+    expect(long.status).toBe("fulfilled");
+    expect(stored).toBe(new Date(clock.now().getTime() + hours(40)).toISOString());
+    // the shorter one either went first (and the longer one moved from its deadline) or was refused
+    if (short.status === "rejected") {
+      expect(short.reason).toBeInstanceOf(DtoValidationError);
+      expect(long.status === "fulfilled" && long.value.previousExpiresAt).toBe(asked);
+    } else {
+      expect(long.status === "fulfilled" && long.value.previousExpiresAt).toBe(
+        short.value.expiresAt,
+      );
+      expect(short.value.previousExpiresAt).toBe(asked);
+    }
+    await until(() => extendedNotices().length === (short.status === "rejected" ? 1 : 2));
+    const told_ = extendedNotices().map((one) => one.expiresAt);
+    expect(told_).toEqual([...told_].sort());
+    expect(told_.at(-1)).toBe(stored);
+  });
+
+  test("AC2: a longer extension lands between the shorter one's read and its write: the shorter is refused 'not later', nothing of it is told or written", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const store = app.resolve(PausedExecutionRepository);
+    const write = store.extendByTenantIdAndPauseId.bind(store);
+    let racing: Promise<unknown> | undefined;
+    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+      racing = app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager);
+      await racing;
+      return write(...args);
+    });
+
+    const refused = await failureOf(
+      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
+    );
+
+    expect(refused).toBeInstanceOf(DtoValidationError);
+    expect(JSON.stringify(refused)).toContain("not later");
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(
+      new Date(clock.now().getTime() + hours(40)).toISOString(),
+    );
+    await until(() => extendedNotices().length === 1);
+    expect(extendedNotices()).toHaveLength(1);
+  });
+
+  test("AC2: a shorter extension lands between the longer one's read and its write: the longer one tries again and wins over the new deadline", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const store = app.resolve(PausedExecutionRepository);
+    const write = store.extendByTenantIdAndPauseId.bind(store);
+    const shortDeadline = new Date(clock.now().getTime() + hours(26)).toISOString();
+    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+      await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager);
+      return write(...args);
+    });
+
+    const long = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager);
+
+    expect(long.previousExpiresAt).toBe(shortDeadline);
+    expect(long.expiresAt).toBe(new Date(clock.now().getTime() + hours(40)).toISOString());
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(long.expiresAt);
+    await until(() => extendedNotices().length === 2);
+    expect(extendedNotices().map((one) => one.previousExpiresAt)).toEqual([
+      expect.any(String),
+      shortDeadline,
+    ]);
+  });
+
+  test("AC2: the pause closes between the read and the write: refused 'closed', and no 'extended' is told", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const store = app.resolve(PausedExecutionRepository);
+    const write = store.extendByTenantIdAndPauseId.bind(store);
+    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+      await app.resume({ pauseId: pauseIdOf(), decision: { approved: true } }, manager);
+      return write(...args);
+    });
+
+    const refused = await failureOf(
+      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager),
+    );
+
+    expect(refused).toBeInstanceOf(PauseClosedError);
+    expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
+    expect(extendedNotices()).toEqual([]);
+  });
+});

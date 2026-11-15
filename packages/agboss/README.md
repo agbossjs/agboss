@@ -1291,7 +1291,7 @@ expiry look: one wins. `@ChannelRole({ expiresIn: hours(24), remindBefore: hours
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
 once per deadline, whatever the number of instances, and again before the new deadline after an
 extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
-(`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`).
+(`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`); a `remindBefore` shorter than the pause timers' 5 s tick can be skipped (`[channel.remind-before-below-tick]`, a warning). Two extensions at once: one wins in the store, the other re-reads — refused when it is not later than the new deadline, else applied over it — and the deadline never shortens.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an

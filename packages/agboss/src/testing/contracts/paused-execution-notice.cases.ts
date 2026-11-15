@@ -9,6 +9,7 @@ import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
   AFTER_DEADLINE,
+  DEADLINE,
   APPROVED_BY_MANAGER,
   BEFORE_DEADLINE,
   CHANNEL_KEY,
@@ -124,7 +125,7 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
       await second.extendByTenantIdAndPauseId(
         "default",
         "pause-a",
-        { expiresAt: NINE.toISOString() },
+        { expiresAt: NINE.toISOString(), previousExpiresAt: DEADLINE.toISOString() },
         MID,
         RECIPIENTS,
       );

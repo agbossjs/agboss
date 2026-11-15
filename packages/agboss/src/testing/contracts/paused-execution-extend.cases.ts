@@ -21,6 +21,8 @@ import {
 type Instances = ContractInstances<PausedExecutionRepository>;
 const R = NO_RECIPIENTS;
 const LATER = "2026-01-05T12:00:00.000Z";
+/** The deadline of `expiringPauseOf`: what a caller that read the pause holds as the current one. */
+const FROM = DEADLINE.toISOString();
 
 export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
@@ -28,7 +30,13 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       const extend = (at: Date, expiresAt: string) =>
-        second.extendByTenantIdAndPauseId("default", "pause-a", { expiresAt }, at, R);
+        second.extendByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { expiresAt, previousExpiresAt: FROM },
+          at,
+          R,
+        );
 
       expect(await extend(BEFORE_DEADLINE, BEFORE_DEADLINE.toISOString())).toBeUndefined();
       expect(await extend(DEADLINE, LATER)).toBeUndefined();
@@ -56,7 +64,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         await first.extendByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt: LATER },
+          { expiresAt: LATER, previousExpiresAt: FROM },
           new Date(0),
           R,
         ),
@@ -65,7 +73,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         await first.extendByTenantIdAndPauseId(
           "default",
           "pause-b",
-          { expiresAt: LATER },
+          { expiresAt: LATER, previousExpiresAt: FROM },
           new Date(0),
           R,
         ),

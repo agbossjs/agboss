@@ -150,7 +150,10 @@ const untakenNotices = (
     closedAt: at.toISOString(),
   });
 
-/** A pending pause's deadline moved, never to a past time (I3). */
+/**
+ * A pending pause's deadline moved, never to a past time (I3), never earlier or equal (#1099), and
+ * only from the deadline the caller read: whoever read an older one lost to a writer that moved it.
+ */
 export function extendChange(
   pause: PauseRecord,
   extension: PauseDeadlineChange,
@@ -159,6 +162,8 @@ export function extendChange(
 ): PauseChange | undefined {
   const now = at.toISOString();
   if (!isOpenAt(pause, at) || pause.expiresAt === undefined || extension.expiresAt <= now)
+    return undefined;
+  if (pause.expiresAt !== extension.previousExpiresAt || extension.expiresAt <= pause.expiresAt)
     return undefined;
   return {
     pause: {

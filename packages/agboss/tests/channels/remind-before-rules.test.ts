@@ -98,14 +98,18 @@ function questionFlow(name: string, role: Times, step?: Milliseconds) {
 }
 
 /** An approval role asked through agent tools with their own `expiresIn`. */
-function toolFlow(name: string, toolExpiresIn: Milliseconds | undefined) {
+function toolFlow(
+  name: string,
+  toolExpiresIn: Milliseconds | undefined,
+  remindBefore: Milliseconds = hours(2),
+) {
   @ChannelRole({
     name: `${name}-approval`,
     description: "d",
     approves: AgentRefundDto,
     answerer: PauseAnswerer.Channel,
     expiresIn: hours(24),
-    remindBefore: hours(2),
+    remindBefore,
   })
   abstract class SomeApproval extends ChannelOf<SomeApproval> {}
   @Channel({ name: `${name}-channel`, description: "d" })
@@ -258,6 +262,47 @@ describe("#942: [channel.remind-before-exceeds-expiry]", () => {
       warnings: [],
     });
     expect(warningsOf(toolFlow("bare", undefined).workflow, true)).toEqual({
+      errors: [],
+      warnings: [],
+    });
+  });
+});
+
+describe("#1099: [channel.remind-before-below-tick]", () => {
+  it("a role's remindBefore shorter than the pause timers' tick: a warning (an error under strict), the rule's message says why", () => {
+    const { workflow } = questionFlow("quick", { expiresIn: hours(24), remindBefore: seconds(2) });
+
+    expect(warningsOf(workflow)).toEqual({
+      errors: [],
+      warnings: ["channel.remind-before-below-tick"],
+    });
+    expect(warningsOf(workflow, true)).toEqual({
+      errors: ["channel.remind-before-below-tick"],
+      warnings: [],
+    });
+    expect(
+      checkWorkflow(workflow)
+        .warnings.map((one) => one.message)
+        .join(),
+    ).toContain("shorter than the pause timers' tick (5000 ms)");
+  });
+
+  it("exactly the tick, or longer, or none: nothing", () => {
+    for (const [index, remindBefore] of [seconds(5), seconds(6), minutes(1), undefined].entries()) {
+      const { workflow } = questionFlow(`tick${String(index)}`, {
+        expiresIn: hours(24),
+        remindBefore,
+      });
+
+      expect(warningsOf(workflow, true)).toEqual({ errors: [], warnings: [] });
+    }
+  });
+
+  it("a tool's role is checked too; exactly the tick on it is fine", () => {
+    expect(warningsOf(toolFlow("quicktool", hours(3), seconds(1)).workflow).warnings).toEqual([
+      "channel.remind-before-below-tick",
+    ]);
+    expect(warningsOf(toolFlow("slowtool", hours(3), seconds(5)).workflow, true)).toEqual({
       errors: [],
       warnings: [],
     });

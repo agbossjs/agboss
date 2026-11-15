@@ -179,8 +179,10 @@ export abstract class PausedExecutionRepository {
   ): Promise<PauseRecord | undefined>;
 
   /**
-   * Atomic: moves the deadline — only while `Pending`, `expiresAt` set and after `at`, and
-   * `change.expiresAt` after `at` (never to a past time). Sets `expiresAt`, `expiryBound = Pause`
+   * Atomic: moves the deadline — only while `Pending`, `expiresAt` set and after `at`, only while
+   * that stored `expiresAt` is still `change.previousExpiresAt` (the one the caller read), and
+   * only to a `change.expiresAt` after `at` and after the stored one (never to a past time, never
+   * earlier: of two racing extensions the deadline does not shorten). Sets `expiresAt`, `expiryBound = Pause`
    * and `remindAt` as given and writes `extended` (`expiresAt`, `previousExpiresAt`) in the same
    * transaction. Returns the record, `undefined` when it does not apply (I3, I7).
    */

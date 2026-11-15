@@ -49,7 +49,7 @@ const TRANSITIONS: readonly (readonly [
       s.extendByTenantIdAndPauseId(
         "default",
         id,
-        { expiresAt: "2026-01-05T12:00:00.000Z" },
+        { expiresAt: "2026-01-05T12:00:00.000Z", previousExpiresAt: DEADLINE.toISOString() },
         MID,
         RECIPIENTS,
       ),

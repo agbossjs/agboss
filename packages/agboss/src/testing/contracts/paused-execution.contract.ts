@@ -14,6 +14,7 @@ import { CLOSER_RACE_CASES } from "./paused-execution-closers.cases.js";
 import { DEADLINE_CASES } from "./paused-execution-deadline.cases.js";
 import { DELIVERY_CASES } from "./paused-execution-delivery.cases.js";
 import { EXTEND_CASES } from "./paused-execution-extend.cases.js";
+import { EXTEND_RACE_CASES } from "./paused-execution-extend-race.cases.js";
 import { NOTICE_ORDER_CASES } from "./paused-execution-order.cases.js";
 import { RETENTION_CASES } from "./paused-execution-retention.cases.js";
 import { SCAN_CASES } from "./paused-execution-scan.cases.js";
@@ -173,6 +174,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       { title: "the deadline is part of every closer's compare-and-set", cases: DEADLINE_CASES },
       { title: "a pause leaves Pending once, whichever closers race", cases: CLOSER_RACE_CASES },
       { title: "extend, remind, close untaken, find by step key", cases: EXTEND_CASES },
+      { title: "an extension is one compare-and-set (#1099)", cases: EXTEND_RACE_CASES },
       { title: "notices are written with their change (notice)", cases: NOTICE_WRITE_CASES },
       { title: "notices keep their order per recipient (notice)", cases: NOTICE_ORDER_CASES },
       { title: "every transition writes its notices or nothing (notice)", cases: TRANSITION_CASES },
