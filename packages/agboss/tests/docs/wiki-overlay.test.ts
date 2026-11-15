@@ -173,9 +173,10 @@ const read = (dir: string, name: string): string | undefined => {
 };
 
 let h: Harness;
+// the harness runs git ~15 times: the hook default of 10 s is a measure of the scheduler under load (#1160)
 beforeEach(async () => {
   h = await harness();
-});
+}, 120_000);
 
 // each test makes a few repos and runs git ~30 times; the compile checks run tsc
 describe("#1026: a PR's Wiki pages travel with it", { timeout: 120_000 }, () => {

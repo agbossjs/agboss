@@ -61,7 +61,8 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("AC2: changelog-assemble", () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("AC2: changelog-assemble", { timeout: 60_000 }, () => {
   it("AC2: folds fragments into the golden section, above the older release, and deletes them", async () => {
     write("30-late.md", "Added", "30", "**Late** (#30)");
     write("5-early.md", "Added", "5", "**Early** (#5)");

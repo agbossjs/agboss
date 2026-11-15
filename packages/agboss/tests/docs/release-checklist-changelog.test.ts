@@ -56,6 +56,12 @@ const git = async (cwd: string, args: string): Promise<string> => {
   return r.stdout.trim();
 };
 
+// Every case here spawns bash/git/node processes (a case runs from a few to dozens, the walks one
+// per command) and beforeEach clones a scratch repo with ~7 of them. Under machine load the 5 s
+// default (10 s for hooks) is a measure of the scheduler, not of the code (#1160, as #1149): the
+// timeouts are sized to the spawns. The global default stays.
+const SPAWN_TIMEOUT = 120_000;
+
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "checklist-"));
   await git(dir, "init -q --bare origin.git");
@@ -78,123 +84,138 @@ beforeEach(async () => {
   await git(work, "add -A");
   await git(work, "commit -q -m main");
   await git(work, "push -q origin HEAD:main");
-});
+}, SPAWN_TIMEOUT);
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("D3: the checklist's release branch and changelog commands", async () => {
-  it("cut release/$RELEASE_VERSION from main and assemble the unreleased section", async () => {
-    const work = join(dir, "work");
-    const r = await sh(
-      work,
-      `${functions}\nrelease_branch && assemble_changelog "agbossjs/agboss"`,
-    );
-    expect(r.status, r.stderr).toBe(0);
-    expect(await git(work, "branch --show-current")).toBe("release/0.3.0");
-    expect(await git(work, "log -1 --format=%s")).toBe(
-      "chore(agbossjs/agboss#691): changelog 0.3.0",
-    );
-    const changelog = readFileSync(join(work, "CHANGELOG.md"), "utf8");
-    expect(changelog).toMatch(/^## \[0\.3\.0\] — \d{4}-\d{2}-\d{2}$/m);
-    expect(changelog).toContain("- **Old** (#1)\n- **Bug** (#7)\n");
-    expect(await git(work, "status --porcelain")).toBe("");
-    // a rerun is safe: nothing to commit
-    const again = await sh(work, `${functions}\nrelease_branch && assemble_changelog ""`);
-    expect(again.status, again.stderr).toBe(0);
-    expect((await git(work, "log --oneline origin/main..HEAD")).split("\n")).toHaveLength(1);
-  });
+describe(
+  "D3: the checklist's release branch and changelog commands",
+  { timeout: SPAWN_TIMEOUT },
+  async () => {
+    it("cut release/$RELEASE_VERSION from main and assemble the unreleased section", async () => {
+      const work = join(dir, "work");
+      const r = await sh(
+        work,
+        `${functions}\nrelease_branch && assemble_changelog "agbossjs/agboss"`,
+      );
+      expect(r.status, r.stderr).toBe(0);
+      expect(await git(work, "branch --show-current")).toBe("release/0.3.0");
+      expect(await git(work, "log -1 --format=%s")).toBe(
+        "chore(agbossjs/agboss#691): changelog 0.3.0",
+      );
+      const changelog = readFileSync(join(work, "CHANGELOG.md"), "utf8");
+      expect(changelog).toMatch(/^## \[0\.3\.0\] — \d{4}-\d{2}-\d{2}$/m);
+      expect(changelog).toContain("- **Old** (#1)\n- **Bug** (#7)\n");
+      expect(await git(work, "status --porcelain")).toBe("");
+      // a rerun is safe: nothing to commit
+      const again = await sh(work, `${functions}\nrelease_branch && assemble_changelog ""`);
+      expect(again.status, again.stderr).toBe(0);
+      expect((await git(work, "log --oneline origin/main..HEAD")).split("\n")).toHaveLength(1);
+    });
 
-  it("cut it from main even when origin has a prepared chore/691-version branch", async () => {
-    const work = join(dir, "work");
-    await git(work, "switch -q -c prepared");
-    writeFileSync(join(work, "bump.txt"), "0.3.0\n");
-    await git(work, "add -A");
-    await git(work, "commit -q -m bump");
-    await git(work, "push -q origin prepared:chore/691-version-0.3.0");
-    await git(work, "switch -q main");
-    const r = await sh(work, `${functions}\nrelease_branch`);
-    expect(r.status, r.stderr).toBe(0);
-    expect(await git(work, "branch --show-current")).toBe("release/0.3.0");
-    expect(existsSync(join(work, "bump.txt"))).toBe(false);
-    expect(await git(work, "rev-parse HEAD")).toBe(await git(work, "rev-parse origin/main"));
-  });
+    it("cut it from main even when origin has a prepared chore/691-version branch", async () => {
+      const work = join(dir, "work");
+      await git(work, "switch -q -c prepared");
+      writeFileSync(join(work, "bump.txt"), "0.3.0\n");
+      await git(work, "add -A");
+      await git(work, "commit -q -m bump");
+      await git(work, "push -q origin prepared:chore/691-version-0.3.0");
+      await git(work, "switch -q main");
+      const r = await sh(work, `${functions}\nrelease_branch`);
+      expect(r.status, r.stderr).toBe(0);
+      expect(await git(work, "branch --show-current")).toBe("release/0.3.0");
+      expect(existsSync(join(work, "bump.txt"))).toBe(false);
+      expect(await git(work, "rev-parse HEAD")).toBe(await git(work, "rev-parse origin/main"));
+    });
 
-  it("a failed git fetch stops the chain: release_branch returns non-zero, nothing after it runs", async () => {
-    const work = join(dir, "work");
-    const branch = await git(work, "branch --show-current");
-    await git(work, "remote set-url origin /nonexistent/origin.git");
-    const r = await sh(work, `${functions}\nrelease_branch && touch ran`);
-    expect(r.status).not.toBe(0);
-    expect(existsSync(join(work, "ran"))).toBe(false);
-    expect(await git(work, "branch --show-current")).toBe(branch);
-  });
+    it("a failed git fetch stops the chain: release_branch returns non-zero, nothing after it runs", async () => {
+      const work = join(dir, "work");
+      const branch = await git(work, "branch --show-current");
+      await git(work, "remote set-url origin /nonexistent/origin.git");
+      const r = await sh(work, `${functions}\nrelease_branch && touch ran`);
+      expect(r.status).not.toBe(0);
+      expect(existsSync(join(work, "ran"))).toBe(false);
+      expect(await git(work, "branch --show-current")).toBe(branch);
+    });
 
-  it("a failed assemble stops the chain, commits nothing and leaves the fragments", async () => {
-    const work = join(dir, "work");
-    writeFileSync(join(work, "changes", "7-bug.md"), "---\nsection: Nope\nissue: 7\n---\n\nx #7\n");
-    const r = await sh(work, `${functions}\nassemble_changelog "" && touch ran`);
-    expect(r.status).not.toBe(0);
-    expect(existsSync(join(work, "ran"))).toBe(false);
-    expect(await git(work, "log --oneline origin/main..HEAD")).toBe("");
-    expect(existsSync(join(work, "changes", "7-bug.md"))).toBe(true);
-  });
+    it("a failed assemble stops the chain, commits nothing and leaves the fragments", async () => {
+      const work = join(dir, "work");
+      writeFileSync(
+        join(work, "changes", "7-bug.md"),
+        "---\nsection: Nope\nissue: 7\n---\n\nx #7\n",
+      );
+      const r = await sh(work, `${functions}\nassemble_changelog "" && touch ran`);
+      expect(r.status).not.toBe(0);
+      expect(existsSync(join(work, "ran"))).toBe(false);
+      expect(await git(work, "log --oneline origin/main..HEAD")).toBe("");
+      expect(existsSync(join(work, "changes", "7-bug.md"))).toBe(true);
+    });
 
-  it("a released section for the version stops the chain too (nothing is silently skipped)", async () => {
-    const work = join(dir, "work");
-    writeFileSync(join(work, "CHANGELOG.md"), "# Changelog\n\n## [0.3.0] — 2026-01-01\n\n- x\n");
-    const r = await sh(work, `${functions}\nrelease_branch && assemble_changelog "" && touch ran`);
-    expect(r.status).not.toBe(0);
-    expect(r.stderr).toContain("already has a section for 0.3.0");
-    expect(existsSync(join(work, "ran"))).toBe(false);
-  });
+    it("a released section for the version stops the chain too (nothing is silently skipped)", async () => {
+      const work = join(dir, "work");
+      writeFileSync(join(work, "CHANGELOG.md"), "# Changelog\n\n## [0.3.0] — 2026-01-01\n\n- x\n");
+      const r = await sh(
+        work,
+        `${functions}\nrelease_branch && assemble_changelog "" && touch ran`,
+      );
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toContain("already has a section for 0.3.0");
+      expect(existsSync(join(work, "ran"))).toBe(false);
+    });
 
-  it("a failed commit stops the chain", async () => {
-    const work = join(dir, "work");
-    const hook = join(work, ".git", "hooks", "pre-commit");
-    writeFileSync(hook, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-    const r = await sh(work, `${functions}\nrelease_branch && assemble_changelog "" && touch ran`);
-    expect(r.status).not.toBe(0);
-    expect(existsSync(join(work, "ran"))).toBe(false);
-  });
+    it("a failed commit stops the chain", async () => {
+      const work = join(dir, "work");
+      const hook = join(work, ".git", "hooks", "pre-commit");
+      writeFileSync(hook, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+      const r = await sh(
+        work,
+        `${functions}\nrelease_branch && assemble_changelog "" && touch ran`,
+      );
+      expect(r.status).not.toBe(0);
+      expect(existsSync(join(work, "ran"))).toBe(false);
+    });
 
-  it("bump_version sets package.json and the lockfile, commits once, and a rerun is a no-op", async () => {
-    const work = join(dir, "work");
-    writeFileSync(join(work, "package.json"), '{ "name": "@agboss/x", "version": "0.2.0" }\n');
-    await sh(work, "npm install --package-lock-only --ignore-scripts --no-audit --no-fund");
-    await git(work, "add -A");
-    await git(work, "commit -q -m pkg");
-    await git(work, "push -q origin HEAD:main");
-    const r = await sh(work, `${functions}\nrelease_branch && bump_version && bump_version`);
-    expect(r.status, r.stderr).toBe(0);
-    expect(JSON.parse(readFileSync(join(work, "package.json"), "utf8")).version).toBe("0.3.0");
-    expect(JSON.parse(readFileSync(join(work, "package-lock.json"), "utf8")).version).toBe("0.3.0");
-    expect(await git(work, "log -1 --format=%s")).toBe(
-      "chore(agbossjs/agboss#691): @agboss/x 0.3.0",
-    );
-    expect((await git(work, "log --oneline origin/main..HEAD")).split("\n")).toHaveLength(1);
-  });
+    it("bump_version sets package.json and the lockfile, commits once, and a rerun is a no-op", async () => {
+      const work = join(dir, "work");
+      writeFileSync(join(work, "package.json"), '{ "name": "@agboss/x", "version": "0.2.0" }\n');
+      await sh(work, "npm install --package-lock-only --ignore-scripts --no-audit --no-fund");
+      await git(work, "add -A");
+      await git(work, "commit -q -m pkg");
+      await git(work, "push -q origin HEAD:main");
+      const r = await sh(work, `${functions}\nrelease_branch && bump_version && bump_version`);
+      expect(r.status, r.stderr).toBe(0);
+      expect(JSON.parse(readFileSync(join(work, "package.json"), "utf8")).version).toBe("0.3.0");
+      expect(JSON.parse(readFileSync(join(work, "package-lock.json"), "utf8")).version).toBe(
+        "0.3.0",
+      );
+      expect(await git(work, "log -1 --format=%s")).toBe(
+        "chore(agbossjs/agboss#691): @agboss/x 0.3.0",
+      );
+      expect((await git(work, "log --oneline origin/main..HEAD")).split("\n")).toHaveLength(1);
+    });
 
-  it("bump_version without a package.json stops the chain", async () => {
-    const work = join(dir, "work");
-    const r = await sh(work, `${functions}\nbump_version && touch ran`);
-    expect(r.status).not.toBe(0);
-    expect(existsSync(join(work, "ran"))).toBe(false);
-  });
+    it("bump_version without a package.json stops the chain", async () => {
+      const work = join(dir, "work");
+      const r = await sh(work, `${functions}\nbump_version && touch ran`);
+      expect(r.status).not.toBe(0);
+      expect(existsSync(join(work, "ran"))).toBe(false);
+    });
 
-  it("Step 2 and the satellites' Step 6 call both, the pushed branch is release/*", async () => {
-    const core = step("## Step 2", "## Step 3");
-    expect(core).toContain("release_branch");
-    expect(core).toContain('assemble_changelog ""');
-    const postgres = step("## Step 6", "## Step 7");
-    expect(postgres).toContain("release_branch");
-    expect(postgres).toContain('assemble_changelog "agbossjs/agboss"');
-    expect(postgres).toContain("bump_version");
-    expect(postgres).not.toContain('git switch "release/');
-    expect(functions).not.toContain("origin/chore");
-    expect(checklist).toContain("superseded");
-  });
-});
+    it("Step 2 and the satellites' Step 6 call both, the pushed branch is release/*", async () => {
+      const core = step("## Step 2", "## Step 3");
+      expect(core).toContain("release_branch");
+      expect(core).toContain('assemble_changelog ""');
+      const postgres = step("## Step 6", "## Step 7");
+      expect(postgres).toContain("release_branch");
+      expect(postgres).toContain('assemble_changelog "agbossjs/agboss"');
+      expect(postgres).toContain("bump_version");
+      expect(postgres).not.toContain('git switch "release/');
+      expect(functions).not.toContain("origin/chore");
+      expect(checklist).toContain("superseded");
+    });
+  },
+);
 
 // ---------------------------------------------------------------------------------------------
 // #1044: the checklist's blocks, pasted, in scratch clones, with a failure injected at every command
@@ -502,119 +523,125 @@ function unguardedChains(block: string): string[] {
   return flagged;
 }
 
-describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
-  it("has the blocks it walks", () => {
-    expect(step2).toContain("open_release_pr agbossjs/agboss || exit 1");
-    expect(step6Prep).toContain("drop_unpublished_note");
-    expect(step6Tag).toContain(
-      'watch_release_run agbossjs/postgres "postgres-v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1',
-    );
-    expect(prelude).toContain("drop_unpublished_note() {");
-  });
-
-  it("AC2 (#1085, #1118): every `a && b` chain, indented, in a subshell, on a block's first line, with or without spaces, ends in `|| exit 1` (`|| return 1` in a function)", () => {
-    for (const block of bashBlocks(checklist)) expect(unguardedChains(block)).toEqual([]);
-    expect(checklist).not.toMatch(/^gh pr create|^gh run watch/m);
-  });
-
-  it.each([
-    ["a && b", ["a && b"]],
-    ["a&&b", ["a&&b"]],
-    ["a &&\\\nb", ["a &&\\"]],
-    ["a&&\\\nb", ["a&&\\"]],
-    ["  (cd x && b)", ["  (cd x && b)"]],
-    ["first && second\nok || exit 1", ["first && second"]],
-    ["a &&\\\n  b\\\n  c", ["a &&\\"]],
-    ["a && b || exit 1", []],
-    ["a&&b||exit 1", []],
-    ["a &&\\\n  b || exit 1", []],
-    ["a&&\\\n  b || return 1", []],
-    ["# a comment about && chains", []],
-    ["echo plain", []],
-  ])("the chain check on %j flags %j", (block, flagged) => {
-    expect(unguardedChains(block)).toEqual(flagged);
-  });
-
-  it("Step 2 (core) pasted: cuts release/ from main, one changelog commit, opens the PR, ignores the chore branch", async () => {
-    const w = await walk(step2, 0);
-    expect(w.status, w.stderr).toBe(0);
-    expect(await subjects(w.root, "agboss")).toEqual(["chore(#691): changelog 0.3.0"]);
-    expect(readIn(w.root, "agboss", "CHANGELOG.md")).toMatch(
-      /^## \[0\.3\.0\] — \d{4}-\d{2}-\d{2}$/m,
-    );
-    expect(readIn(w.root, "agboss", "CHANGELOG.md")).not.toContain("2026-11-05");
-    expect(existsSync(join(w.root, "agboss", "chore.txt"))).toBe(false);
-    expect(
-      w.log.some((l) => l.includes(" git push --force-with-lease=release/0.3.0: origin HEAD")),
-    ).toBe(true);
-    expect(w.log.some((l) => l.includes(" gh pr create -R agbossjs/agboss"))).toBe(true);
-    expect(w.log.at(-1)).toContain("gh pr create");
-    await everyFailureStops(step2, w.log.length);
-    rmSync(w.root, { recursive: true, force: true });
-  }, 240_000);
-
-  it.each(["postgres", "mongodb", "redis"] as const)(
-    "Step 6 + Step 7 (%s) pasted: changelog, version, README note, pin; PR opened; every failure stops",
-    async (car) => {
-      const block = forCar(step6Prep, car);
-      const w = await walk(block, 0);
-      expect(w.status, w.stderr).toBe(0);
-      const note =
-        car === "postgres"
-          ? []
-          : ["docs(agbossjs/agboss#691): drop the not-published note from the README"];
-      expect(await subjects(w.root, car)).toEqual([
-        "chore(agbossjs/agboss#691): changelog 0.3.0",
-        `chore(agbossjs/agboss#691): ${CARS[car].name} 0.3.0`,
-        ...note,
-        "chore(agbossjs/agboss#691): pin @agboss/core 0.3.0 from npm",
-      ]);
-      const readme = readIn(w.root, car, "README.md");
-      expect(readme).not.toContain("Not published to npm yet");
-      expect(readme).not.toContain("\n\n\n");
-      if (car === "mongodb")
-        expect(readme).toContain("real\n> replica set ([Tests](#tests)).\n\n## Install");
-      if (car === "redis") expect(readme).toContain("(agbossjs/agboss#527).\n\n## The stores");
-      if (car === "postgres") expect(readme).toBe(README.postgres);
-      expect(readIn(w.root, car, "CHANGELOG.md")).not.toContain("2026-11-05");
-      expect(readIn(w.root, car, "CHANGELOG.md")).toContain("- **Old** (#1)\n- **Bug** (#7)\n");
-      expect(JSON.parse(readIn(w.root, car, "package.json")).version).toBe("0.3.0");
-      expect(JSON.parse(readIn(w.root, car, ".agboss-version.json")).source).toBe("registry");
-      expect(existsSync(join(w.root, CARS[car].dir, "chore.txt"))).toBe(false);
-      expect((await plain(join(w.root, CARS[car].dir), "git status --porcelain")).stdout).toBe("");
-      expect(w.log.at(-1)).toContain(`gh pr create -R agbossjs/${car}`);
-      await everyFailureStops(block, w.log.length);
-      rmSync(w.root, { recursive: true, force: true });
-    },
-    600_000,
-  );
-
-  it("a rerun of Step 6 + Step 7 on the existing release branch adds no commit", async () => {
-    const w = await walk(forCar(step6Prep, "redis"), 0);
-    expect(w.status, w.stderr).toBe(0);
-    const again = await runProcess("bash", ["-c", `${prelude}\n${forCar(step6Prep, "redis")}`], {
-      cwd: w.root,
-      env: envOf(w.root, 0),
+describe(
+  "#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones",
+  { timeout: SPAWN_TIMEOUT },
+  () => {
+    it("has the blocks it walks", () => {
+      expect(step2).toContain("open_release_pr agbossjs/agboss || exit 1");
+      expect(step6Prep).toContain("drop_unpublished_note");
+      expect(step6Tag).toContain(
+        'watch_release_run agbossjs/postgres "postgres-v$RELEASE_VERSION" "$RUNS_BEFORE" || exit 1',
+      );
+      expect(prelude).toContain("drop_unpublished_note() {");
     });
-    expect(again.status, again.stderr).toBe(0);
-    expect(await subjects(w.root, "redis")).toHaveLength(4);
-    rmSync(w.root, { recursive: true, force: true });
-  }, 120_000);
 
-  it("Step 6's tag block (postgres) pasted: tags the merged main, watches the run; every failure stops", async () => {
-    const w = await walk(step6Tag, 0);
-    expect(w.status, w.stderr).toBe(0);
-    expect(w.log.some((l) => l.includes(" git tag -a postgres-v0.3.0"))).toBe(true);
-    expect(w.log.at(-1)).toContain("gh run watch -R agbossjs/postgres 555 --exit-status");
-    await everyFailureStops(step6Tag, w.log.length);
-    rmSync(w.root, { recursive: true, force: true });
-  }, 240_000);
-});
+    it("AC2 (#1085, #1118): every `a && b` chain, indented, in a subshell, on a block's first line, with or without spaces, ends in `|| exit 1` (`|| return 1` in a function)", () => {
+      for (const block of bashBlocks(checklist)) expect(unguardedChains(block)).toEqual([]);
+      expect(checklist).not.toMatch(/^gh pr create|^gh run watch/m);
+    });
+
+    it.each([
+      ["a && b", ["a && b"]],
+      ["a&&b", ["a&&b"]],
+      ["a &&\\\nb", ["a &&\\"]],
+      ["a&&\\\nb", ["a&&\\"]],
+      ["  (cd x && b)", ["  (cd x && b)"]],
+      ["first && second\nok || exit 1", ["first && second"]],
+      ["a &&\\\n  b\\\n  c", ["a &&\\"]],
+      ["a && b || exit 1", []],
+      ["a&&b||exit 1", []],
+      ["a &&\\\n  b || exit 1", []],
+      ["a&&\\\n  b || return 1", []],
+      ["# a comment about && chains", []],
+      ["echo plain", []],
+    ])("the chain check on %j flags %j", (block, flagged) => {
+      expect(unguardedChains(block)).toEqual(flagged);
+    });
+
+    it("Step 2 (core) pasted: cuts release/ from main, one changelog commit, opens the PR, ignores the chore branch", async () => {
+      const w = await walk(step2, 0);
+      expect(w.status, w.stderr).toBe(0);
+      expect(await subjects(w.root, "agboss")).toEqual(["chore(#691): changelog 0.3.0"]);
+      expect(readIn(w.root, "agboss", "CHANGELOG.md")).toMatch(
+        /^## \[0\.3\.0\] — \d{4}-\d{2}-\d{2}$/m,
+      );
+      expect(readIn(w.root, "agboss", "CHANGELOG.md")).not.toContain("2026-11-05");
+      expect(existsSync(join(w.root, "agboss", "chore.txt"))).toBe(false);
+      expect(
+        w.log.some((l) => l.includes(" git push --force-with-lease=release/0.3.0: origin HEAD")),
+      ).toBe(true);
+      expect(w.log.some((l) => l.includes(" gh pr create -R agbossjs/agboss"))).toBe(true);
+      expect(w.log.at(-1)).toContain("gh pr create");
+      await everyFailureStops(step2, w.log.length);
+      rmSync(w.root, { recursive: true, force: true });
+    }, 240_000);
+
+    it.each(["postgres", "mongodb", "redis"] as const)(
+      "Step 6 + Step 7 (%s) pasted: changelog, version, README note, pin; PR opened; every failure stops",
+      async (car) => {
+        const block = forCar(step6Prep, car);
+        const w = await walk(block, 0);
+        expect(w.status, w.stderr).toBe(0);
+        const note =
+          car === "postgres"
+            ? []
+            : ["docs(agbossjs/agboss#691): drop the not-published note from the README"];
+        expect(await subjects(w.root, car)).toEqual([
+          "chore(agbossjs/agboss#691): changelog 0.3.0",
+          `chore(agbossjs/agboss#691): ${CARS[car].name} 0.3.0`,
+          ...note,
+          "chore(agbossjs/agboss#691): pin @agboss/core 0.3.0 from npm",
+        ]);
+        const readme = readIn(w.root, car, "README.md");
+        expect(readme).not.toContain("Not published to npm yet");
+        expect(readme).not.toContain("\n\n\n");
+        if (car === "mongodb")
+          expect(readme).toContain("real\n> replica set ([Tests](#tests)).\n\n## Install");
+        if (car === "redis") expect(readme).toContain("(agbossjs/agboss#527).\n\n## The stores");
+        if (car === "postgres") expect(readme).toBe(README.postgres);
+        expect(readIn(w.root, car, "CHANGELOG.md")).not.toContain("2026-11-05");
+        expect(readIn(w.root, car, "CHANGELOG.md")).toContain("- **Old** (#1)\n- **Bug** (#7)\n");
+        expect(JSON.parse(readIn(w.root, car, "package.json")).version).toBe("0.3.0");
+        expect(JSON.parse(readIn(w.root, car, ".agboss-version.json")).source).toBe("registry");
+        expect(existsSync(join(w.root, CARS[car].dir, "chore.txt"))).toBe(false);
+        expect((await plain(join(w.root, CARS[car].dir), "git status --porcelain")).stdout).toBe(
+          "",
+        );
+        expect(w.log.at(-1)).toContain(`gh pr create -R agbossjs/${car}`);
+        await everyFailureStops(block, w.log.length);
+        rmSync(w.root, { recursive: true, force: true });
+      },
+      600_000,
+    );
+
+    it("a rerun of Step 6 + Step 7 on the existing release branch adds no commit", async () => {
+      const w = await walk(forCar(step6Prep, "redis"), 0);
+      expect(w.status, w.stderr).toBe(0);
+      const again = await runProcess("bash", ["-c", `${prelude}\n${forCar(step6Prep, "redis")}`], {
+        cwd: w.root,
+        env: envOf(w.root, 0),
+      });
+      expect(again.status, again.stderr).toBe(0);
+      expect(await subjects(w.root, "redis")).toHaveLength(4);
+      rmSync(w.root, { recursive: true, force: true });
+    }, 120_000);
+
+    it("Step 6's tag block (postgres) pasted: tags the merged main, watches the run; every failure stops", async () => {
+      const w = await walk(step6Tag, 0);
+      expect(w.status, w.stderr).toBe(0);
+      expect(w.log.some((l) => l.includes(" git tag -a postgres-v0.3.0"))).toBe(true);
+      expect(w.log.at(-1)).toContain("gh run watch -R agbossjs/postgres 555 --exit-status");
+      await everyFailureStops(step6Tag, w.log.length);
+      rmSync(w.root, { recursive: true, force: true });
+    }, 240_000);
+  },
+);
 
 // ---------------------------------------------------------------------------------------------
 // #1084: the tag block watches the run its own push started, and a failed run stops it
 
-describe("#1084: watch_release_run", () => {
+describe("#1084: watch_release_run", { timeout: SPAWN_TIMEOUT }, () => {
   const mainSha = async (): Promise<string> =>
     (await plain(join(template, "postgres"), "git rev-parse main")).stdout.trim();
 
@@ -672,7 +699,7 @@ describe("#1084: watch_release_run", () => {
 // ---------------------------------------------------------------------------------------------
 // #1085: the examples block fails closed
 
-describe("#1085: the examples block", () => {
+describe("#1085: the examples block", { timeout: SPAWN_TIMEOUT }, () => {
   const block = bashBlocks(checklist).find((b) => b.includes("for example in")) ?? "";
 
   async function runExamples(failing: string): Promise<{ status: number | null; log: string }> {
@@ -734,93 +761,97 @@ describe("#1085: the examples block", () => {
 // ---------------------------------------------------------------------------------------------
 // #1086: a rerun never force-pushes over a foreign commit on origin's release branch
 
-describe("#1086: a rerun of Step 2 / Step 6 keeps a foreign commit on origin/release/<version>", () => {
-  const cases = [
-    ["Step 2 (core)", "agboss", step2, "origin/agboss.git"],
-    ["Step 6 (postgres)", "postgres", step6Prep, "origin/postgres.git"],
-  ] as const;
-  const real = { F1044_REAL_PUSH: "1" };
-  const originSubjects = async (root: string, bare: string): Promise<string> =>
-    (
-      await plain(
-        join(root, "origin"),
-        `git --git-dir=${bare.replace("origin/", "")} log --format=%s release/0.3.0`,
-      )
-    ).stdout;
-  const foreignCommit = async (root: string, dir: string): Promise<void> => {
-    const clone = join(root, `foreign-${dir}`);
-    await gitIn(root, `clone -q origin/${dir}.git foreign-${dir}`);
-    await gitIn(clone, "switch -q release/0.3.0");
-    writeFileSync(join(clone, "review.txt"), "fix\n");
-    await gitIn(clone, "add -A");
-    await gitIn(clone, "commit -q -m FOREIGN");
-    await gitIn(clone, "push -q origin release/0.3.0");
-  };
-
-  it.each(cases)(
-    "AC1, AC2: %s stops with a message, origin keeps the commit",
-    async (_n, dir, block, bare) => {
-      const first = await walk(block, 0, "", { env: real });
-      expect(first.status, first.stderr).toBe(0);
-      expect(await originSubjects(first.root, bare)).not.toContain("FOREIGN");
-      await foreignCommit(first.root, dir);
-      const again = await walk(block, 0, "", { root: first.root, env: real });
-      expect(again.status).not.toBe(0);
-      expect(again.stderr).toContain("origin/release/0.3.0");
-      expect(again.log.some((l) => l.includes(" git push "))).toBe(false);
-      expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
-      rmSync(first.root, { recursive: true, force: true });
-    },
-    120_000,
-  );
-
-  it.each(cases)(
-    "AC1: %s — a foreign push between the fetch and the push is refused by the lease",
-    async (_n, dir, block, bare) => {
-      const first = await walk(block, 0, "", { env: real });
-      expect(first.status, first.stderr).toBe(0);
-      const clone = join(first.root, `foreign-${dir}`);
-      await gitIn(first.root, `clone -q origin/${dir}.git foreign-${dir}`);
+describe(
+  "#1086: a rerun of Step 2 / Step 6 keeps a foreign commit on origin/release/<version>",
+  { timeout: SPAWN_TIMEOUT },
+  () => {
+    const cases = [
+      ["Step 2 (core)", "agboss", step2, "origin/agboss.git"],
+      ["Step 6 (postgres)", "postgres", step6Prep, "origin/postgres.git"],
+    ] as const;
+    const real = { F1044_REAL_PUSH: "1" };
+    const originSubjects = async (root: string, bare: string): Promise<string> =>
+      (
+        await plain(
+          join(root, "origin"),
+          `git --git-dir=${bare.replace("origin/", "")} log --format=%s release/0.3.0`,
+        )
+      ).stdout;
+    const foreignCommit = async (root: string, dir: string): Promise<void> => {
+      const clone = join(root, `foreign-${dir}`);
+      await gitIn(root, `clone -q origin/${dir}.git foreign-${dir}`);
       await gitIn(clone, "switch -q release/0.3.0");
       writeFileSync(join(clone, "review.txt"), "fix\n");
       await gitIn(clone, "add -A");
       await gitIn(clone, "commit -q -m FOREIGN");
-      const hook = `git -C "${clone}" push -q origin release/0.3.0`;
-      const again = await walk(block, 0, "", {
-        root: first.root,
-        env: { ...real, F1044_ON_CHECK: hook },
-      });
-      expect(again.status).not.toBe(0);
-      expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
-      rmSync(first.root, { recursive: true, force: true });
-    },
-    120_000,
-  );
+      await gitIn(clone, "push -q origin release/0.3.0");
+    };
 
-  it.each(cases)(
-    "%s: with nothing foreign, a rerun pushes (and a rebased local branch is not mistaken for a foreign one)",
-    async (_n, _dir, block) => {
-      const first = await walk(block, 0, "", { env: real });
-      expect(first.status, first.stderr).toBe(0);
-      const again = await walk(block, 0, "", { root: first.root, env: real });
-      expect(again.status, again.stderr).toBe(0);
-      rmSync(first.root, { recursive: true, force: true });
-    },
-    120_000,
-  );
-
-  it("a Step 6 that stopped after pin-framework: the documented recovery, then the rerun passes", async () => {
-    const recovery = 'git -C "$WORKSPACE_ROOT/postgres" restore .';
-    expect(checklist).toContain(recovery);
-    const first = await walk(step6Prep, 0, "", { env: { F1044_FAIL_CHECK: "1" } });
-    expect(first.status).not.toBe(0);
-    expect((await plain(join(first.root, "postgres"), "git status --porcelain")).stdout).toContain(
-      ".agboss-version.json",
+    it.each(cases)(
+      "AC1, AC2: %s stops with a message, origin keeps the commit",
+      async (_n, dir, block, bare) => {
+        const first = await walk(block, 0, "", { env: real });
+        expect(first.status, first.stderr).toBe(0);
+        expect(await originSubjects(first.root, bare)).not.toContain("FOREIGN");
+        await foreignCommit(first.root, dir);
+        const again = await walk(block, 0, "", { root: first.root, env: real });
+        expect(again.status).not.toBe(0);
+        expect(again.stderr).toContain("origin/release/0.3.0");
+        expect(again.log.some((l) => l.includes(" git push "))).toBe(false);
+        expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
+        rmSync(first.root, { recursive: true, force: true });
+      },
+      120_000,
     );
-    const stuck = await walk(step6Prep, 0, "", { root: first.root });
-    expect(stuck.status).not.toBe(0); // the rebase refuses: unstaged changes
-    const fixed = await walk(`${recovery}\n${step6Prep}`, 0, "", { root: first.root });
-    expect(fixed.status, fixed.stderr).toBe(0);
-    rmSync(first.root, { recursive: true, force: true });
-  }, 120_000);
-});
+
+    it.each(cases)(
+      "AC1: %s — a foreign push between the fetch and the push is refused by the lease",
+      async (_n, dir, block, bare) => {
+        const first = await walk(block, 0, "", { env: real });
+        expect(first.status, first.stderr).toBe(0);
+        const clone = join(first.root, `foreign-${dir}`);
+        await gitIn(first.root, `clone -q origin/${dir}.git foreign-${dir}`);
+        await gitIn(clone, "switch -q release/0.3.0");
+        writeFileSync(join(clone, "review.txt"), "fix\n");
+        await gitIn(clone, "add -A");
+        await gitIn(clone, "commit -q -m FOREIGN");
+        const hook = `git -C "${clone}" push -q origin release/0.3.0`;
+        const again = await walk(block, 0, "", {
+          root: first.root,
+          env: { ...real, F1044_ON_CHECK: hook },
+        });
+        expect(again.status).not.toBe(0);
+        expect(await originSubjects(first.root, bare)).toContain("FOREIGN");
+        rmSync(first.root, { recursive: true, force: true });
+      },
+      120_000,
+    );
+
+    it.each(cases)(
+      "%s: with nothing foreign, a rerun pushes (and a rebased local branch is not mistaken for a foreign one)",
+      async (_n, _dir, block) => {
+        const first = await walk(block, 0, "", { env: real });
+        expect(first.status, first.stderr).toBe(0);
+        const again = await walk(block, 0, "", { root: first.root, env: real });
+        expect(again.status, again.stderr).toBe(0);
+        rmSync(first.root, { recursive: true, force: true });
+      },
+      120_000,
+    );
+
+    it("a Step 6 that stopped after pin-framework: the documented recovery, then the rerun passes", async () => {
+      const recovery = 'git -C "$WORKSPACE_ROOT/postgres" restore .';
+      expect(checklist).toContain(recovery);
+      const first = await walk(step6Prep, 0, "", { env: { F1044_FAIL_CHECK: "1" } });
+      expect(first.status).not.toBe(0);
+      expect(
+        (await plain(join(first.root, "postgres"), "git status --porcelain")).stdout,
+      ).toContain(".agboss-version.json");
+      const stuck = await walk(step6Prep, 0, "", { root: first.root });
+      expect(stuck.status).not.toBe(0); // the rebase refuses: unstaged changes
+      const fixed = await walk(`${recovery}\n${step6Prep}`, 0, "", { root: first.root });
+      expect(fixed.status, fixed.stderr).toBe(0);
+      rmSync(first.root, { recursive: true, force: true });
+    }, 120_000);
+  },
+);

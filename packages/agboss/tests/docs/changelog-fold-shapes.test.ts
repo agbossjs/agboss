@@ -91,7 +91,8 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-describe("D1b: the real 0.1.1 section's shape", () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("D1b: the real 0.1.1 section's shape", { timeout: 60_000 }, () => {
   it("Fixed goes under the last 'Fixed —', Changed gets one heading before Deprecated, Added joins its own", async () => {
     const head = "## [0.1.1] — unreleased";
     fs.writeFileSync(changelog, `# Changelog\n\n${section(head)}\n${OLD}`);
@@ -150,7 +151,8 @@ describe("D1b: the real 0.1.1 section's shape", () => {
   });
 });
 
-describe("M4: no fragments", () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("M4: no fragments", { timeout: 60_000 }, () => {
   it.each([
     ["core", "## [0.1.1] — unreleased"],
     ["satellite", "## [Unreleased] — 0.1.1 (draft: the first release)"],
@@ -182,7 +184,8 @@ describe("M4: no fragments", () => {
 });
 
 /** #1087: a CRLF CHANGELOG.md folds like an LF one, keeps its line endings, and never grows a second section. */
-describe("#1087: CRLF CHANGELOG.md", () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("#1087: CRLF CHANGELOG.md", { timeout: 60_000 }, () => {
   const crlf = (lf: string): string => lf.replace(/\n/g, "\r\n");
   const lone = (value: string): boolean => /(^|[^\r])\n/.test(value);
   const unreleased =
@@ -248,55 +251,61 @@ describe("#1087: CRLF CHANGELOG.md", () => {
   });
 });
 
-describe("#1087: the fragments are deleted only after the written file is verified", () => {
-  interface Assemble {
-    verifyFolded: (
-      changelog: string,
-      version: string,
-      fragments: { file: string; section: string; issue: number; entry: string }[],
-    ) => void;
-  }
-  const load = async (): Promise<Assemble> =>
-    (await import(join(repo, "scripts/changelog-fold.mjs"))) as Assemble;
-  const fragment = { file: "12-fix.md", section: "Fixed", issue: 12, entry: at("**B** (#12)") };
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe(
+  "#1087: the fragments are deleted only after the written file is verified",
+  { timeout: 60_000 },
+  () => {
+    interface Assemble {
+      verifyFolded: (
+        changelog: string,
+        version: string,
+        fragments: { file: string; section: string; issue: number; entry: string }[],
+      ) => void;
+    }
+    const load = async (): Promise<Assemble> =>
+      (await import(join(repo, "scripts/changelog-fold.mjs"))) as Assemble;
+    const fragment = { file: "12-fix.md", section: "Fixed", issue: 12, entry: at("**B** (#12)") };
 
-  it("a file with the entry once and one heading verifies, in LF and in CRLF", async () => {
-    const { verifyFolded } = await load();
-    const good = at("# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- **B** (#12)\n");
-    expect(() => {
-      verifyFolded(good, "0.1.1", [fragment]);
-    }).not.toThrow();
-    const crlf = good.replace(/\n/g, "\r\n");
-    expect(() => {
-      verifyFolded(crlf, "0.1.1", [fragment]);
-    }).not.toThrow();
-  });
+    it("a file with the entry once and one heading verifies, in LF and in CRLF", async () => {
+      const { verifyFolded } = await load();
+      const good = at("# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- **B** (#12)\n");
+      expect(() => {
+        verifyFolded(good, "0.1.1", [fragment]);
+      }).not.toThrow();
+      const crlf = good.replace(/\n/g, "\r\n");
+      expect(() => {
+        verifyFolded(crlf, "0.1.1", [fragment]);
+      }).not.toThrow();
+    });
 
-  it("two sections for the version, a missing entry, an undated heading each throw", async () => {
-    const { verifyFolded } = await load();
-    const two = at(
-      "# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- **B** (#12)\n\n## [0.1.1] — unreleased\n\n- x\n",
-    );
-    expect(() => {
-      verifyFolded(two, "0.1.1", [fragment]);
-    }).toThrow(/not folded/);
-    const missing = "# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- other\n";
-    expect(() => {
-      verifyFolded(missing, "0.1.1", [fragment]);
-    }).toThrow(/not folded/);
-    const undated = at("# Changelog\n\n## [0.1.1] — unreleased\n\n### Fixed\n\n- **B** (#12)\n");
-    expect(() => {
-      verifyFolded(undated, "0.1.1", [fragment]);
-    }).toThrow(/not folded/);
-  });
-});
+    it("two sections for the version, a missing entry, an undated heading each throw", async () => {
+      const { verifyFolded } = await load();
+      const two = at(
+        "# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- **B** (#12)\n\n## [0.1.1] — unreleased\n\n- x\n",
+      );
+      expect(() => {
+        verifyFolded(two, "0.1.1", [fragment]);
+      }).toThrow(/not folded/);
+      const missing = "# Changelog\n\n## [0.1.1] — 2026-11-14\n\n### Fixed\n\n- other\n";
+      expect(() => {
+        verifyFolded(missing, "0.1.1", [fragment]);
+      }).toThrow(/not folded/);
+      const undated = at("# Changelog\n\n## [0.1.1] — unreleased\n\n### Fixed\n\n- **B** (#12)\n");
+      expect(() => {
+        verifyFolded(undated, "0.1.1", [fragment]);
+      }).toThrow(/not folded/);
+    });
+  },
+);
 
 /**
  * #1118: a UTF-8 BOM before the heading and CR-only line endings are parsed like LF (and written back
  * in the file's own form); the written file is verified before it replaces CHANGELOG.md, so a failed run
  * leaves the file byte-identical and the fragments in place; a bullet is found whatever trails it.
  */
-describe("#1118: BOM, lone CR, atomic write, trailing spaces", () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("#1118: BOM, lone CR, atomic write, trailing spaces", { timeout: 60_000 }, () => {
   const BOM = "﻿";
   const forms: [string, (lf: string) => string][] = [
     ["LF", (lf) => lf],
