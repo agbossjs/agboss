@@ -54,7 +54,18 @@ turn of the conversation.
 
 Without the three `LANGFUSE_*` variables there is no tracing and nothing changes. Spend, Turns and
 answers never depend on it. Tracing uses an isolated OpenTelemetry provider — the core does not
-register global OpenTelemetry — and is flushed when the app closes.
+register global OpenTelemetry — and is flushed when the app closes. Langfuse's LangChain handler
+exports through one provider per process, so every workflow of every application in the process
+shares it (#1130). Each span is bound, when it starts, to the application whose run started it (a
+step's span to its run's, a child step's to its parent's), and goes only to that application's
+Langfuse project, masked by the PII policies of the workflow its step belongs to (its
+`workflowName` metadata; a span naming none of the application's workflows by all of them) —
+every string attribute, the flattened metadata included. A workflow that closes keeps masking the
+spans it started; a span still open when its application's last tracing closed is dropped. A
+Langfuse span the framework did not start (a project's own) goes to the process's Langfuse,
+masked by every application's policies, when the process traces to one project only — with two,
+it has no known project and is dropped. The provider stays until the last application in the
+process closes.
 
 ## Why not LangSmith
 
