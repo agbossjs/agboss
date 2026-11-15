@@ -9,6 +9,7 @@ import {
   type ResumeRequest,
 } from "@agboss/core";
 import type { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
+import type { ExecutionStreamEvent } from "@agboss/core/internal";
 
 /** Asks the human a question; undefined when input ended (Ctrl+D). */
 export type Ask = (question: string) => Promise<string | undefined>;
@@ -101,6 +102,8 @@ export async function untilDone(
   app: Pick<App, "resume">,
   ask: Ask,
   busy: Busy = idle,
+  /** Hears the stream of every resumed run too (#1123), as the first leg's. */
+  onStream?: (event: ExecutionStreamEvent) => void,
 ): Promise<ExecutionOutput> {
   let result = first;
   let retry = "";
@@ -114,7 +117,9 @@ export async function untilDone(
     }
     const request = resumeRequestOf(waiting.pauseId, answer);
     try {
-      result = await busy((signal) => app.resume(request, { signal }));
+      result = await busy((signal) =>
+        app.resume(request, { signal, ...(onStream === undefined ? {} : { onStream }) }),
+      );
       retry = "";
     } catch (error) {
       if (waiting.kind !== PauseKind.Question) throw error;
@@ -150,12 +155,18 @@ export function summaryLine(result: Pick<ExecutionOutput, "path" | "finish" | "s
   return `${path} · ${result.finish === undefined ? result.status : `finish ${result.finish.name}`}`;
 }
 
-/** The answer to print once the run is over: none when its text streamed, or when it has no output (#1005). */
+/**
+ * The answer to print once the run is over (#1005, #1123): none when it has no output or when the text
+ * that streamed and was not retracted (`kept`) is the output's text already on the screen; otherwise
+ * the result's — also after a pause, whose pre-pause text was retracted or is another step's.
+ */
 export function unstreamedAnswer(
   result: Pick<ExecutionOutput, "output">,
-  streamed: boolean,
+  kept: string,
 ): string | undefined {
-  return streamed || result.output === undefined ? undefined : outputText(result);
+  if (result.output === undefined) return undefined;
+  const answer = outputText(result);
+  return kept.trim() === answer.trim() ? undefined : answer;
 }
 
 /** What an execution's output says, as the terminal shows it: its `text`, else its JSON. */

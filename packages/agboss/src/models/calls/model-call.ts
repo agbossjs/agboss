@@ -53,9 +53,10 @@ export type Attempt<TAnswer> =
 export interface AttemptCarrier<TAnswer> {
   /**
    * One attempt under `signal` (its timeout and the caller's own), ended as an `Attempt`; it
-   * rejects only when the caller's own signal aborted.
+   * rejects only when the caller's own signal aborted. `limits` carries the timeout and the clock
+   * for what runs after the attempt's head: a streamed body is bounded by a stall timeout (#1125).
    */
-  readonly send: (signal: AbortSignal) => Promise<Attempt<TAnswer>>;
+  readonly send: (signal: AbortSignal, limits: AttemptLimits) => Promise<Attempt<TAnswer>>;
   /** A successful answer whose room is released once it is used up, with its real tokens. */
   readonly hold: (answer: TAnswer, release: (tokens: number) => Promise<void>) => TAnswer;
   /** An answer dropped for a retry (an HTTP body is cancelled). */
@@ -94,7 +95,7 @@ async function sendTimed<TAnswer>(
   const timer = timeoutOn(limits.clock, limits.timeout, timeoutError);
   const signals = [timer.signal, ...(caller ? [caller] : [])];
   try {
-    return await carrier.send(AbortSignal.any(signals));
+    return await carrier.send(AbortSignal.any(signals), limits);
   } finally {
     timer.release();
   }

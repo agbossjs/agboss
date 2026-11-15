@@ -316,7 +316,7 @@ describe("AgentStream: a visit", () => {
 });
 
 describe("AnswerTokenHandler", () => {
-  it("prefers a stream unless the attempt is held back", () => {
+  it("#1122: prefers a stream, held back or not (a held answer is held in the buffer, not off the wire)", () => {
     const { sink } = sinkOf();
 
     expect(
@@ -324,7 +324,7 @@ describe("AnswerTokenHandler", () => {
     ).toBe(true);
     expect(
       new AnswerTokenHandler(new AgentStream(sink, SITE, true).begin(1)).lc_prefer_streaming,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("hears tokens, skips an empty one, and restarts only on the discard event", () => {

@@ -190,7 +190,7 @@ import { minutes, seconds } from "@agboss/core/units";
   baseUrl: OPENROUTER_BASE_URL,
   baseUrlField: "openRouterBaseUrl", // the environment may set another (a proxy, a stub)
   apiKey: "openRouterApiKey", // a Secret field of the application's environment
-  timeout: minutes(2), // per attempt, from the moment it has room
+  timeout: minutes(2), // per attempt, from the moment it has room; a stream may be quiet that long, no longer
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
@@ -1535,6 +1535,12 @@ A server that ignores `stream: true` and answers a plain JSON completion is read
 one delta, the plain call's output, usage, cost and finish reason (#1049); a body that is neither a
 stream nor a completion (empty, another content type) fails that call like any other failed call,
 never as a configuration error.
+The provider's `timeout` bounds a plain call's whole attempt — its body too, so a body that stalls after
+the headers times the attempt out and is retried as a timeout — and a streamed answer's silence: after the
+first content the clock restarts at every chunk, so a stream that is quiet for the `timeout` fails as
+`ModelFailure.Timeout` (the text so far is retracted, `stream-broken`; no retry, as for a cut; one
+breaker failure; the rate-limit room is given back) while a long answer that keeps coming is never
+cut by it (#1125).
 A transport provider streams the text as it comes when its class has `stream(request)` (#1011): it
 returns `{ textStream: AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, the shape of the
 Vercel AI SDK's `streamText` — each chunk is a `textDelta`, and the call's usage, cost and budgets are
@@ -1562,6 +1568,9 @@ ordinary tool call in a turn is retracted too (`tool-turn`): the turn's text is 
 deltas of the steps that were not discarded, joined, are the agent's reply. An agent with a
 **blocking output check** — an output guardrail, a PII policy with a block rule — has its text held
 until its checks passed: a refused answer never reaches the stream, and this cannot be switched off.
+The held agent's model call still goes out as a stream on an HTTP provider (its tokens go to the
+holding buffer), and the answer reaches `onStream` — and an A2A artifact — in one go once its
+checks passed, so the deltas of a held agent joined are its reply like any other's (#1122).
 On A2A the output artifact shows one step at a time: a retry or another step starts it anew
 (`append: false`), and a task that ends FAILED, CANCELED or REJECTED after streamed text replaces
 it with an empty last chunk before its final status. `agboss run` prints `[Retracted: <reason>]`

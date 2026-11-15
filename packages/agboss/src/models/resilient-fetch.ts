@@ -1,9 +1,9 @@
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import type { CircuitBreaker } from "./circuit-breaker.js";
 import { readAsStream } from "./calls/json-as-stream.js";
-import { guardedEventStream, type StreamEnd } from "./calls/event-stream-guard.js";
+import { guardedEventStream, type Idle, type StreamEnd } from "./calls/event-stream-guard.js";
 import { runModelCall, type ResilienceOptions } from "./calls/attempt-runner.js";
-import type { Attempt, AttemptCarrier, ProviderFetch } from "./calls/model-call.js";
+import type { Attempt, AttemptCarrier, AttemptLimits, ProviderFetch } from "./calls/model-call.js";
 import { refusalOfResponse } from "./calls/input-refusal.js";
 import { releasedAtBodyEnd } from "./calls/response-usage.js";
 import {
@@ -32,10 +32,12 @@ async function streamedAttempt(
   response: Response,
   caller: AbortSignal | null | undefined,
   breaker: CircuitBreaker | undefined,
+  idle: Idle,
 ): Promise<Attempt<Response>> {
   const guarded = await guardedEventStream(response, {
     settle: toldTo(breaker),
     aborted: () => caller?.aborted === true,
+    idle,
   });
   if (guarded.failure !== undefined) {
     return { kind: "answered", answer: guarded.response, failure: guarded.failure };
@@ -45,6 +47,43 @@ async function streamedAttempt(
     : { kind: "answered", answer: guarded.response };
 }
 
+/** What a signal aborted with, as an error (a `TimeoutError` stays the one it is). */
+const abortErrorOf = (signal: AbortSignal): Error =>
+  signal.reason instanceof Error ? signal.reason : new Error("the request was aborted");
+
+/** `promise`, or what `signal` aborted with, whichever comes first. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortErrorOf(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(abortErrorOf(signal));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  });
+}
+
+/**
+ * The answer with its body read whole, under `signal` (the attempt's timeout and the caller's own):
+ * a body that stalls fails the attempt as a timeout. A body-less answer is as it is.
+ */
+async function bufferedWithin(response: Response, signal: AbortSignal): Promise<Response> {
+  if (response.body === null) return response;
+  try {
+    const bytes = await untilAborted(response.arrayBuffer(), signal);
+    const headers = new Headers(response.headers);
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+    const { status, statusText } = response;
+    return new Response(bytes, { status, statusText, headers });
+  } catch (error) {
+    await response.body.cancel().catch(() => undefined);
+    throw error;
+  }
+}
+
 /** What an answer is to the attempt: its failure (and `Retry-After`), a streamed body watched, or a plain answer. */
 async function outcomeOf(
   response: Response,
@@ -52,11 +91,19 @@ async function outcomeOf(
   caller: AbortSignal | null | undefined,
   clock: Clock,
   breaker: CircuitBreaker | undefined,
+  limits: AttemptLimits,
+  signal: AbortSignal,
 ): Promise<Attempt<Response>> {
   if (failure === undefined && isEventStream(response)) {
-    return await streamedAttempt(response, caller, breaker);
+    return await streamedAttempt(response, caller, breaker, {
+      clock: limits.clock,
+      timeout: limits.timeout,
+    });
   }
-  if (failure === undefined) return { kind: "answered", answer: response };
+  // a plain answer's body is read here, under the attempt's timeout: a stall after the headers
+  // times the attempt out like one before them, and is retried as such (#1125)
+  if (failure === undefined)
+    return { kind: "answered", answer: await bufferedWithin(response, signal) };
   const retryAfter = retryAfterOf(response, clock.now().getTime());
   return retryAfter === undefined
     ? { kind: "answered", answer: response, failure }
@@ -93,7 +140,7 @@ function httpCarrier(
   breaker: CircuitBreaker | undefined,
 ): AttemptCarrier<Response> {
   return {
-    send: async (signal): Promise<Attempt<Response>> => {
+    send: async (signal, limits): Promise<Attempt<Response>> => {
       try {
         const sent = await send(input, { ...init, signal });
         const failure = failureOfStatus(sent.status);
@@ -103,7 +150,7 @@ function httpCarrier(
         }
         // a streamed request answered 200 without events (#1049): JSON is told as a stream
         const response = failure === undefined ? await readAsStream(sent, init) : sent;
-        return await outcomeOf(response, failure, init?.signal, clock, breaker);
+        return await outcomeOf(response, failure, init?.signal, clock, breaker, limits, signal);
       } catch (error) {
         if (init?.signal?.aborted === true) throw error;
         return { kind: "threw", error, failure: failureOfError(error) };

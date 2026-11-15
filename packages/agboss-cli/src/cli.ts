@@ -17,27 +17,20 @@ import {
   unstreamedAnswer,
   untilDone,
 } from "./cli/approve.js";
+import { KeptText } from "./cli/kept-text.js";
 import { loadChosenStart } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
 import { envOption } from "./cli/environment.js";
 import { runInputOf } from "./cli/run-input.js";
 
-/** Whether any text of the reply streamed (a provider that streams nothing leaves the reply to the result). */
-interface Streamed {
-  text: boolean;
-}
-
 /** The reply streams to stdout (stderr under --json); tool use and the summary go to stderr. */
-function streamTo(
-  context: CommandContext,
-  streamed: Streamed,
-): (event: ExecutionStreamEvent) => void {
+function streamTo(context: CommandContext, kept: KeptText): (event: ExecutionStreamEvent) => void {
   const reply = context.json ? context.io.stderr : context.io.stdout;
   return (event) => {
+    kept.hear(event);
     switch (event.kind) {
       case "textDelta":
-        streamed.text = true;
         reply.write(event.delta);
         break;
       case "discarded":
@@ -56,34 +49,31 @@ async function execute(
   app: App,
   start: ApplicationStart,
   input: unknown,
-  streamed: Streamed,
+  kept: KeptText,
 ): Promise<ExecutionOutput> {
   const thread = textOption(context.values, "thread");
   const rl = createInterface({ input: process.stdin, terminal: false });
   try {
+    // listening before the first leg runs: a line piped at once (`echo y | agboss run …`) is kept
+    // for the approval prompt, not lost while the agent works
+    const ask = askWith(rl, (text) => context.io.stderr.write(text));
+    // the resumed runs after a pause stream to the same terminal (#1123)
+    const onStream = streamTo(context, kept);
     const first = await executeWithoutInputCheck(app, start.component, input, {
       ...(thread === undefined ? {} : { threadId: thread }),
-      onStream: streamTo(context, streamed),
+      onStream,
     });
-    return await untilDone(
-      first,
-      app,
-      askWith(rl, (text) => context.io.stderr.write(text)),
-    );
+    return await untilDone(first, app, ask, undefined, onStream);
   } finally {
     rl.close();
   }
 }
 
-function report(
-  context: CommandContext,
-  app: App,
-  result: ExecutionOutput,
-  streamed: Streamed,
-): void {
+function report(context: CommandContext, app: App, result: ExecutionOutput, kept: KeptText): void {
   const reply = context.json ? context.io.stderr : context.io.stdout;
-  // nothing streamed (a provider or an agent that does not stream): the answer is the result's
-  const answer = context.json ? undefined : unstreamedAnswer(result, streamed.text);
+  // what streamed and was not retracted is not the output (nothing streamed, a retracted text, an
+  // earlier step's): the answer is the result's
+  const answer = context.json ? undefined : unstreamedAnswer(result, kept.text());
   if (answer !== undefined) reply.write(answer);
   reply.write("\n");
   context.warn(`${threadLine(result)}  (continue with --thread ${result.threadId})`);
@@ -112,9 +102,9 @@ export const handle: CommandHandler = async (context) => {
   });
   // the startup warnings are in the app's start log (its Logger); --json returns them too
   try {
-    const streamed: Streamed = { text: false };
-    const result = await execute(context, app, start, input, streamed);
-    report(context, app, result, streamed);
+    const kept = new KeptText();
+    const result = await execute(context, app, start, input, kept);
+    report(context, app, result, kept);
     const { threadId: thread, status, finish, output: answer } = result;
     const output = {
       start: start.name,

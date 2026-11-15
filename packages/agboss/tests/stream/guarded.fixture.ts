@@ -85,6 +85,15 @@ export class GuardedAgent {}
 })
 export class CardOnlyAgent {}
 
+@Agent({
+  name: "guardrail-only-agent",
+  prompt: "Write.",
+  description: "Writes",
+  model: "local/llama",
+  guardrails: [ForbiddenWordGuardrail],
+})
+export class GuardrailOnlyAgent {}
+
 @WorkflowStart({
   name: "guarded-workflow-start",
   description: "A task",
@@ -129,11 +138,38 @@ class CardFinish {}
 })
 class CardWorkflow {}
 
+@WorkflowStart({
+  name: "guardrail-workflow-start",
+  description: "A task",
+  input: WorkflowStartTextDto,
+})
+export class GuardrailStart {}
+
+@WorkflowFinish({
+  name: "guardrail-workflow-finish",
+  description: "Reply",
+  output: WorkflowFinishTextDto,
+})
+class GuardrailFinish {}
+
+@Workflow({
+  name: "guardrail-workflow",
+  version: "1.0.0",
+  flow: [
+    start(GuardrailStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(GuardrailOnlyAgent)
+      .toFinish(GuardrailFinish),
+  ],
+  defaults: DEFAULTS,
+})
+class GuardrailWorkflow {}
+
 @Application({
   name: "guarded-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [GuardedWorkflow, CardWorkflow],
+  workflows: [GuardedWorkflow, CardWorkflow, GuardrailWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
 })

@@ -45,3 +45,18 @@ export function audienceRefusalOf(file) {
   if (start < 0 || end < start) throw new Error(`${file}: audienceRefusalOf not found`);
   return `${file}:${String(start + 1)}-${String(end + 1)}`;
 }
+
+/**
+ * The stall bound of a streamed answer in `file` as two Stryker ranges (#1125): `StreamStalledError` and
+ * `readWithin`, found by name — the rest of the wire guard is the guard's own, not this bound's.
+ */
+export function stallBoundOf(file) {
+  const lines = readFileSync(new URL(file, PACKAGE), "utf8").split("\n");
+  const rangeFrom = (first) => {
+    const start = lines.findIndex((line) => line.startsWith(first));
+    const end = start + lines.slice(start).indexOf("}");
+    if (start < 0 || end < start) throw new Error(`${file}: ${first} not found`);
+    return `${file}:${String(start + 1)}-${String(end + 1)}`;
+  };
+  return [rangeFrom("export class StreamStalledError"), rangeFrom("async function readWithin(")];
+}

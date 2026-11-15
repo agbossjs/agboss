@@ -227,16 +227,24 @@ jobs:
       - name: Restore the shard's last mutation run
         uses: actions/cache@v4
         with:
-          path: packages/agboss/reports/stryker-incremental-${{ matrix.shard }}.json
+          path: |
+            packages/agboss/reports/stryker-incremental-${{ matrix.shard }}.json
+            packages/agboss-cli/reports/stryker-incremental-cli-stream.json
           key: stryker-${{ matrix.shard }}-${{ github.sha }}
           restore-keys: stryker-${{ matrix.shard }}-
       - name: Mutation testing of the shard (break below 100 % killed or justified)
         run: npm run test:mutation -w @agboss/core
+      # #1048: `agboss run`'s stream path (the CLI's own stryker config), beside the stream shard
+      - name: Mutation testing of the CLI's stream path
+        if: matrix.shard == 'stream'
+        run: npm run test:mutation -w @agboss/cli
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mutation-report-${{ matrix.shard }}
-          path: packages/agboss/reports/mutation/
+          path: |
+            packages/agboss/reports/mutation/
+            packages/agboss-cli/reports/mutation/
 
   # #811: the official A2A TCK (a2aproject/a2a-tck, pinned in tck-expected.json) against the
   # AGBoss conformance agent (packages/agboss/tests/a2a-tck/) on JSON-RPC — as published, then with

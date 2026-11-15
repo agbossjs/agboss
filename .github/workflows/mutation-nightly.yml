@@ -47,8 +47,13 @@ jobs:
       - run: npm run build -w @agboss/core
       - name: Mutation testing of the shard, cold (break below 100 % killed or justified)
         run: npm run test:mutation -w @agboss/core -- --force
+      - name: Mutation testing of the CLI's stream path, cold
+        if: matrix.shard == 'stream'
+        run: npm run test:mutation -w @agboss/cli -- --force
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mutation-report-${{ matrix.shard }}
-          path: packages/agboss/reports/mutation/
+          path: |
+            packages/agboss/reports/mutation/
+            packages/agboss-cli/reports/mutation/
