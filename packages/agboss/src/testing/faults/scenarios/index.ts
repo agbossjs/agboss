@@ -129,12 +129,12 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s24eOnce,
   s25Dropped,
   s25bRequested,
+  s25cSwept,
+  s25dAnswered,
   s26aWritesSavedBeforeCharge,
   s26bWritesSavedAfterCharge,
   s27aChildAnswerSaved,
   s27bSecondAnswerSaved,
-  s25cSwept,
-  s25dAnswered,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */
