@@ -9,11 +9,13 @@ export type {
   ChannelPauseClosedEvent,
   ChannelPauseExpiringEvent,
   ChannelPauseExtendedEvent,
+  ChannelPauseJoinFailedEvent,
   PauseDeliveredEvent,
   PauseListenerAnswerNotTakenEvent,
   PauseListenerClosedEvent,
   PauseListenerEventBase,
   PauseListenerExpiringEvent,
   PauseListenerExtendedEvent,
+  PauseListenerJoinFailedEvent,
   PauseListenerOpenedEvent,
 } from "../pause/notice-events.js";

@@ -133,16 +133,16 @@ class FlowWalker implements LaunchRecorder {
     }
     const from = cursor.current;
     if (from === undefined || this.table.node(from).kind === NodeKind.Finish) return;
-    const { entry: kind, error, launch, join } = cursor;
-    const writes = writesLeaving(this.table.node(from), kind, cursor.writes);
+    const { entry: kind, error, launch, join, settled } = cursor;
     this.edges.push({
       from,
       to: target,
       kind,
-      writes,
+      writes: writesLeaving(this.table.node(from), kind, cursor.writes),
       ...(error === undefined ? {} : { error }),
       ...(launch === undefined ? {} : { launch }),
       ...(join === undefined ? {} : { join }),
+      ...(settled === undefined ? {} : { settled }),
     });
   }
 

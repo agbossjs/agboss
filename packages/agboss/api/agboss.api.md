@@ -889,6 +889,7 @@ export interface BranchRecord {
 // @public
 export enum BranchStatus {
     Cancelled = "cancelled",
+    Expired = "expired",
     Failed = "failed",
     Finished = "finished",
     Skipped = "skipped"
@@ -1103,6 +1104,7 @@ export interface ChannelHandler<TRole> {
     readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
     readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
     readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
+    readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
@@ -1113,6 +1115,7 @@ export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
     onPauseClosed(event: ChannelPauseClosedEvent<TRole>): Promise<void>;
     onPauseExpiring(event: ChannelPauseExpiringEvent<TRole>): Promise<void>;
     onPauseExtended(event: ChannelPauseExtendedEvent<TRole>): Promise<void>;
+    onPauseJoinFailed(event: ChannelPauseJoinFailedEvent<TRole>): Promise<void>;
     // (undocumented)
     abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
 }
@@ -1178,6 +1181,16 @@ export interface ChannelPauseExtendedEvent<TRole> extends PauseDeliveredEvent {
     // (undocumented)
     readonly pauseId: string;
     readonly previousExpiresAt: string;
+    readonly value: ChannelQuestionOf<TRole>;
+}
+
+// @public
+export interface ChannelPauseJoinFailedEvent<TRole> extends PauseDeliveredEvent {
+    readonly at: string;
+    readonly errorCode: string;
+    readonly launch: string;
+    // (undocumented)
+    readonly pauseId: string;
     readonly value: ChannelQuestionOf<TRole>;
 }
 
@@ -6499,7 +6512,18 @@ export interface PauseListenerHandler {
     onPauseClosed(event: PauseListenerClosedEvent): Promise<void>;
     onPauseExpiring?(event: PauseListenerExpiringEvent): Promise<void>;
     onPauseExtended?(event: PauseListenerExtendedEvent): Promise<void>;
+    onPauseJoinFailed?(event: PauseListenerJoinFailedEvent): Promise<void>;
     onPauseOpened(event: PauseListenerOpenedEvent): Promise<void>;
+}
+
+// @public
+export interface PauseListenerJoinFailedEvent extends PauseListenerEventBase {
+    // (undocumented)
+    readonly at: string;
+    // (undocumented)
+    readonly errorCode: string;
+    // (undocumented)
+    readonly launch: string;
 }
 
 // @public
@@ -7084,6 +7108,7 @@ export class QuorumNotReachedError extends StepFailedError {
     // (undocumented)
     readonly code: typeof QuorumNotReachedError.code;
     readonly counted: number;
+    readonly expired: readonly string[];
     readonly launch: string;
     readonly min: number | undefined;
     // (undocumented)
@@ -7123,6 +7148,7 @@ export interface Quorums<TKey extends string, THead extends PathHead, TCount ext
 // @public
 export interface QuorumShortfall {
     readonly counted: number;
+    readonly expired?: readonly string[];
     readonly min?: number | undefined;
     readonly reason: string;
 }
@@ -10941,6 +10967,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "value".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "threadId".
@@ -10952,6 +10979,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "answeredBy".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "launch".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "errorCode".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
 // src/pause/pause-listener.ts - (ae-undocumented) Missing documentation for "description".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".

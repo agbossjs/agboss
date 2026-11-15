@@ -40,7 +40,10 @@ export enum EdgeKind {
   Launch = "launch",
   /** `.join()….to…(Y)`: from the launching step past its branches, with their values (#273). */
   Join = "join",
-  /** `.join().onJoinError(E, toAction(X)…)`: the launch failed; the launching step's values only. */
+  /**
+   * `.join().onJoinError(E, toAction(X)…)`: the launch failed; the launching step's values, and
+   * each branch output the launch gives as an optional value (a list stays a list, #945).
+   */
   JoinError = "join-error",
 }
 
@@ -127,6 +130,11 @@ export interface FlowEdge {
   readonly launch?: FlowLaunch;
   /** `EdgeKind.Join`: what the branches give. */
   readonly join?: JoinEdge;
+  /**
+   * `EdgeKind.JoinError` (#945): what the launch's branches give, by class — each is on the side
+   * path as an optional value (the answers already settled), never a join value.
+   */
+  readonly settled?: readonly JoinGroup[];
 }
 
 /** A node of the graph: a decorated component and what its decorator recorded. */

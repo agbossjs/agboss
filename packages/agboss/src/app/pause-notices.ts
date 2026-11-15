@@ -38,6 +38,7 @@ const NOTICE_HOOKS = [
   "onPauseAnswerNotTaken",
   "onPauseExtended",
   "onPauseExpiring",
+  "onPauseJoinFailed",
 ] as const;
 
 /** Whether a channel's sender has a hook of its own: a function, not `ChannelOf`'s default. */
@@ -162,7 +163,7 @@ export function channelExpiringOf(sources: EventSources): ChannelSenderExpiring 
 }
 
 /** What a listener reads of every pause: the safe context; the id only when it may answer. */
-async function listenerBaseOf(
+export async function listenerBaseOf(
   sources: EventSources,
   allowAnswering: boolean,
 ): Promise<PauseListenerEventBase> {

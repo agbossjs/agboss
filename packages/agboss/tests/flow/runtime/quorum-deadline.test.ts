@@ -12,6 +12,7 @@ import {
   PanelReviewWorkflowFinish,
   PanelSummaryAgent,
   PanelWorkflowStart,
+  panel,
   resetPanel,
   RisksPanelAgent,
   SkillsPanelAgent,
@@ -135,7 +136,7 @@ describe("AC2: between min and max, the deadline", () => {
 
 describe("AC10: the deadline counts real time, pauses included", () => {
   checked(
-    "the deadline passes during a pause: the paused branch is cancelled without running",
+    "the deadline passes during a pause: the paused branch is Expired (#945), without running again",
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
       // cancelled at its pause: the answer after the confirmation never comes
@@ -145,15 +146,19 @@ describe("AC10: the deadline counts real time, pauses included", () => {
 
       const paused = await execute(app, PanelWorkflowStart, ANNA);
       expect(paused.status).toBe(ExecutionStatus.Paused);
+      // the quorum's deadline binds the pause (#945): at it the tree wakes by itself
       await passLive(clock, seconds(31));
-      const done = await app.resume(answerOf(paused, approve));
+      for (let tick = 0; tick < 100_000 && panel.decided.length === 0; tick += 1)
+        await new Promise((resolve) => setImmediate(resolve));
 
-      expect(done).toFinishWith(PanelReviewWorkflowFinish);
-      expect(done.launches[0]?.branches).toMatchObject([
+      expect(panel.decided[0]?.branches).toMatchObject([
         { verdict: BranchVerdict.Counted, acceptedSequence: 1 },
-        { nodeId: "risks-panel-agent", status: BranchStatus.Cancelled },
+        { nodeId: "risks-panel-agent", status: BranchStatus.Expired },
         { verdict: BranchVerdict.Counted, acceptedSequence: 2 },
       ]);
+      await expect(app.resume(answerOf(paused, approve))).rejects.toMatchObject({
+        reason: "expired",
+      });
       expect(mockLlm(RisksPanelAgent).requests).toHaveLength(1);
     },
   );

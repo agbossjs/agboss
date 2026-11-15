@@ -63,6 +63,7 @@ export interface ChannelHandler<TRole> {
     readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
     readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
     readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
+    readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }

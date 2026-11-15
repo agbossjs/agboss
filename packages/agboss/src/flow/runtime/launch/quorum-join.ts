@@ -15,11 +15,12 @@ import type { JoinDeps } from "./join-node.js";
 import { hasExpired } from "./deadline.js";
 import { quorumOutcomeOf, quorumRuleOf, type QuorumOutcome } from "./quorum.js";
 import { QuorumNotReachedError } from "./quorum-errors.js";
-import type {
-  BranchOutcomeRecord,
-  LaunchRecord,
-  LaunchTicket,
-  QuorumGroupRecord,
+import {
+  BranchStatus,
+  type BranchOutcomeRecord,
+  type LaunchRecord,
+  type LaunchTicket,
+  type QuorumGroupRecord,
 } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
@@ -147,6 +148,15 @@ export function quorumNotReached(
     ...(min === undefined ? {} : { min }),
     counted: decision.outcome.counted.length,
     reason: reasonOf(site),
+    expired: site.records.flatMap((record) => {
+      const branch = ticket.branches[record.index];
+      if (record.status !== BranchStatus.Expired || branch === undefined) return [];
+      return [
+        branch.itemIndex === undefined
+          ? branch.nodeId
+          : `${branch.nodeId}[${String(branch.itemIndex)}]`,
+      ];
+    }),
   };
   const error = new QuorumNotReachedError({ launch: ticket.launchId, ...step, ...shortfall });
   const record = errorRecordOf(error);

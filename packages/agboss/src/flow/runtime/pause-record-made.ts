@@ -42,7 +42,11 @@ function branchKeysAt(frame: FrameSpec): readonly string[] {
   return [...launchers, branchKeyOf({ ...step, executionId: execution.executionId })];
 }
 
-/** The deadline fields of a pause asked `now` (#941, D9): the smaller of its own and its run's. */
+/**
+ * The deadline fields of a pause asked `now` (#941, D9; #945): the smallest of its own, its run's and
+ * its quorum's. A tie goes to the run (its deadline has the final word, D8), else to the quorum
+ * over the pause's own; `boundAt` is the smaller of the run's and the quorum's: no extension passes it.
+ */
 export function deadlineOf(
   frame: FrameSpec,
   expiresIn: number | undefined,
@@ -55,20 +59,29 @@ export function deadlineOf(
 
 /**
  * The deadline fields of a pause whose own deadline is `own` (an ISO instant: plain time added, or
- * the calendar's answer for working time): the smaller of it and its run's. A tie goes to the run.
+ * the calendar's answer for working time): the smallest of it, its run's and its quorum's (#945).
+ * A tie goes to the run (D8), else to the quorum over the pause's own; `boundAt` is the smaller of
+ * the run's and the quorum's: no extension passes it.
  */
 export function boundedDeadlineOf(
   frame: FrameSpec,
   own: string | undefined,
 ): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
   const run = frame.execution.deadline?.at;
-  if (own === undefined && run === undefined) return {};
-  // a tie goes to the run: its deadline has the final word (D8)
-  const isRun = run !== undefined && (own === undefined || run <= own);
+  const quorum = frame.execution.quorumDeadlineAt;
+  const bounds = [
+    { at: run, bound: PauseExpiryBound.RunDeadline },
+    { at: quorum, bound: PauseExpiryBound.Quorum },
+    { at: own, bound: PauseExpiryBound.Pause },
+  ].flatMap(({ at, bound }) => (at === undefined ? [] : [{ at, bound }]));
+  // earliest first; on a tie the order above (run, quorum, own) decides
+  const [first] = [...bounds].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  if (first === undefined) return {};
+  const [boundAt] = [run, quorum].flatMap((at) => (at === undefined ? [] : [at])).sort();
   return {
-    expiresAt: isRun ? run : own,
-    expiryBound: isRun ? PauseExpiryBound.RunDeadline : PauseExpiryBound.Pause,
-    ...(run === undefined ? {} : { boundAt: run }),
+    expiresAt: first.at,
+    expiryBound: first.bound,
+    ...(boundAt === undefined ? {} : { boundAt }),
   };
 }
 

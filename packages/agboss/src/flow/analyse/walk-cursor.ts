@@ -1,6 +1,7 @@
 import type { ErrorClass, PathSource } from "../ast.js";
 import type { OneOfWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
+import type { JoinGroup } from "./join-groups.js";
 import { EdgeKind, type FlowLaunch, type JoinEdge, type ValueWrite } from "./flow-graph.js";
 
 /** Where a walk stands: the node the next step follows, and what the edge to the next node carries. */
@@ -16,6 +17,8 @@ export interface Cursor {
   /** A launch waiting for its join, then a join waiting for its `.to…(…)` (#273). */
   readonly launch?: FlowLaunch;
   readonly join?: JoinEdge;
+  /** A `.onJoinError(…)` side path's first edge (#945): what the launch's branches give. */
+  readonly settled?: readonly JoinGroup[];
 }
 
 /** Where a walk stands after a node is entered: nothing returned yet. */

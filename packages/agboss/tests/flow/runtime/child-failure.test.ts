@@ -117,8 +117,8 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
   });
 });
 
-describe("AC9: the side path sees the scope before the launch", () => {
-  test("onJoinError sees the scope before the launch; finished children in the record", async ({
+describe("AC9: the side path sees the scope before the launch, and the settled answers (#945)", () => {
+  test("onJoinError sees the scope before the launch and the finished items; finished children in the record", async ({
     app,
   }) => {
     const items = [item("quick"), item("bad", 30, "fail")];
@@ -127,7 +127,8 @@ describe("AC9: the side path sees the scope before the launch", () => {
 
     expect(result).toFinishWith(ChecksFailedWorkflowFinish, { text: "failed on one of 2" });
     const slots = result.record?.scope.map((value) => value.slot) ?? [];
-    expect(slots).toEqual(["list:ItemDto"]);
+    // the finished child's output joins the scope as a list of the finished items (#945)
+    expect(slots).toEqual(["list:ItemDto", "list:ItemResultDto"]);
     expect(result.record?.children.map((child) => [child.itemIndex, child.status])).toEqual(
       expect.arrayContaining([
         [0, ChildExecutionStatus.Finished],

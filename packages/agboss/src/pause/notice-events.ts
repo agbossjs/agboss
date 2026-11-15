@@ -66,6 +66,23 @@ export interface ChannelPauseExpiringEvent<TRole> extends PauseDeliveredEvent {
   readonly expiresAt: string;
 }
 
+/**
+ * An answer of a pause this channel sent belongs to a parallel step that did not collect all its
+ * answers (#945): the launch's error path is running. Neutral — the handler may still carry the work
+ * on with the answers given. Delivered like `onPauseClosed`, at most once written per pause.
+ */
+export interface ChannelPauseJoinFailedEvent<TRole> extends PauseDeliveredEvent {
+  readonly pauseId: string;
+  /** The question as `send` got it. */
+  readonly value: ChannelQuestionOf<TRole>;
+  /** The launching step: `${executionId}:${nodeId}:${visit}` of the launch. */
+  readonly launch: string;
+  /** The failing branch's error code (`step.pause-expired`). */
+  readonly errorCode: string;
+  /** When the join failed (ISO 8601). */
+  readonly at: string;
+}
+
 /** What a listener reads of every pause: the full safe context. */
 export interface PauseListenerEventBase extends PauseDeliveredEvent {
   /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
@@ -129,4 +146,11 @@ export interface PauseListenerExtendedEvent extends PauseListenerEventBase {
 export interface PauseListenerExpiringEvent extends PauseListenerEventBase {
   /** The deadline (ISO 8601). */
   readonly expiresAt: string;
+}
+
+/** An answered branch's launch did not collect all its answers (#945): its error path is running. */
+export interface PauseListenerJoinFailedEvent extends PauseListenerEventBase {
+  readonly launch: string;
+  readonly errorCode: string;
+  readonly at: string;
 }

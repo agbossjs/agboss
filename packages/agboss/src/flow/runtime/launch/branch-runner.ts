@@ -26,6 +26,7 @@ import {
   branchStateOf,
   branchTicketOf,
   scheduledOf,
+  withQuorumDeadline,
   type BranchLaunch,
 } from "./branch-view.js";
 import type { LiveLaunch } from "./launch-registry.js";
@@ -33,7 +34,8 @@ import { reportBranch } from "./launch-report.js";
 import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-quorum.js";
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
-import { launchPausesOf, withdrawLaunchPauses } from "./withdrawn-pauses.js";
+import { abortLaunch, settledEnd } from "./branch-settle.js";
+import { FailurePolicy } from "../../decorators/router.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
@@ -125,7 +127,12 @@ function answeredEnd(
 async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   const { node, ticket, deps, live } = run;
   const { nodeId } = ticket;
-  const view = branchStateOf(run.state, run.owner.launch, ticket, live.spent);
+  const bounded = withQuorumDeadline(
+    branchStateOf(run.state, run.owner.launch, ticket, live.spent),
+    live.quorum === undefined ? undefined : run.owner.ticket.deadlineAt,
+    live.quorum?.queued.excluded() ?? 0,
+  );
+  const view = bounded;
   const { config, frame, signal, budgetStop } = branchFrameOf(run, view);
   run.visited = visitTimerOf(config, run.state.runId, { frame, node, state: view });
   run.budgetStop = budgetStop;
@@ -156,23 +163,6 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
   return answeredEnd(run, outcome, marked, opened, run.visited());
 }
 
-/**
- * Withdraws the pending pauses under `branches` of the run's launch (#267 AC10, #337): its own when
- * it ended `Cancelled` (asked after the abort), its siblings' when it failed.
- */
-const withdrawUnder = (run: BranchRun, branches: readonly BranchTicket[]): Promise<void> =>
-  withdrawLaunchPauses(launchPausesOf(run.deps.pauses, run.state, run.config), branches);
-
-/** A failed branch aborts its launch: its siblings stop, their pending pauses are withdrawn. */
-async function abortLaunch(run: BranchRun): Promise<void> {
-  const { live, owner, ticket } = run;
-  live.controller.abort();
-  await withdrawUnder(
-    run,
-    owner.ticket.branches.filter((branch) => branch.index !== ticket.index),
-  );
-}
-
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
 async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   if (isGraphInterrupt(error)) throw error;
@@ -183,7 +173,9 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   live.spent.push(...usage);
   const failure = failureOfBranch(run.budgetStop, error);
   const status = failedStatusOf({ live, ticket, isQuorum: live.quorum !== undefined }, failure);
-  if (status === BranchStatus.Failed) {
+  // an expired branch follows its launch: a quorum or `Skip` drops it, a plain `FailFast` launch fails
+  const isDropped = live.quorum !== undefined || ticket.failure === FailurePolicy.Skip;
+  if (status === BranchStatus.Failed || (status === BranchStatus.Expired && !isDropped)) {
     live.errors.set(ticket.index, failure);
     run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, failure);
     await abortLaunch(run);
@@ -239,11 +231,11 @@ export function branchNode(node: RuntimeNode, runner: NodeRunner, deps: BranchDe
       inSchedule(deps.scheduler, scheduled, () => runBranch(run, runner));
     // a decided quorum's withdrawal (#337): closed before the branch ends, so the drain takes it
     const end = await (live.quorum?.withdrawal.during(branch) ?? branch());
-    if (end.status === BranchStatus.Cancelled) await withdrawUnder(run, [ticket]);
-    await reportBranch(config, owner.ticket.launchId, ticket, end);
+    const settled = await settledEnd(run, end);
+    await reportBranch(config, owner.ticket.launchId, ticket, settled);
     return {
-      ...end.update,
-      branchRecords: { add: [branchRecordOf(owner.ticket.launchId, ticket.index, end)] },
+      ...settled.update,
+      branchRecords: { add: [branchRecordOf(owner.ticket.launchId, ticket.index, settled)] },
       next: owner.launch.joinNodeId,
       startedVersion: startedVersionOf(state, deps.workflow),
     };

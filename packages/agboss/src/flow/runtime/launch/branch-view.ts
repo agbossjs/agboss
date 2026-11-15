@@ -81,6 +81,24 @@ export function branchStateOf(
   };
 }
 
+/**
+ * The branch's state with its quorum's deadline in its contexts (#945): `quorumDeadlineAt`, the
+ * ticket's deadline moved by the time its branches waited in the tree's queue so far, and the
+ * smaller one when an enclosing quorum set one (a child's state brings its parent's). A pause the
+ * branch asks is bound by it.
+ */
+export function withQuorumDeadline(
+  state: ExecutionStateType,
+  deadlineAt: number | undefined,
+  queuedFor: number,
+): ExecutionStateType {
+  if (deadlineAt === undefined) return state;
+  const own = new Date(deadlineAt + queuedFor).toISOString();
+  const outer = state.contexts.quorumDeadlineAt;
+  const quorumDeadlineAt = outer !== undefined && outer < own ? outer : own;
+  return { ...state, contexts: { ...state.contexts, quorumDeadlineAt } };
+}
+
 /** The run's config with `signal` in place of the execution's: the call, its tools and the context. */
 export function branchConfigOf(
   config: RunnableConfig | undefined,

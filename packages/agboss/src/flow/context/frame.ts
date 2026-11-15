@@ -53,6 +53,8 @@ export interface ExecutionFacts {
   readonly origin?: ExecutionOrigin | undefined;
   /** Its deadline (#398 PR 2), kept in its contexts: what its mesh calls claim of it. */
   readonly deadline?: ExecutionDeadline | undefined;
+  /** The deadline of the quorum launch this step is a branch of (#945), kept in its contexts. */
+  readonly quorumDeadlineAt?: string | undefined;
   /**
    * The lease the execution's steps run under here (#471): the root's for the root and its
    * `ParentInstance` children, a `ChildPlacement.AnyInstance` child's own; `undefined` where none is
