@@ -25,5 +25,5 @@ export * from "./errors.js";
 export * from "./infrastructure/store-call-timeout.js";
 export {
   SqliteSchemaTooNewError,
-  type SqliteSchemaVersions,
+  type SqliteSchemaTooNewErrorOptions,
 } from "./infrastructure/sqlite/sqlite-schema-version.js";

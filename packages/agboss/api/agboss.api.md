@@ -8009,7 +8009,7 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
 
 // @public
 export class SqliteSchemaTooNewError extends AGBossError {
-    constructor(versions: SqliteSchemaVersions);
+    constructor(options: SqliteSchemaTooNewErrorOptions);
     // (undocumented)
     readonly applied: number;
     // (undocumented)
@@ -8023,7 +8023,7 @@ export class SqliteSchemaTooNewError extends AGBossError {
 }
 
 // @public
-export interface SqliteSchemaVersions {
+export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
     // (undocumented)
     readonly applied: number;
     // (undocumented)

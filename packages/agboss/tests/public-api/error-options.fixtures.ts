@@ -44,6 +44,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(root.SyncWorkRequiredError, { effect: "charge" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
+  fx(root.SqliteSchemaTooNewError, { applied: 2, expected: 1 }),
   fx(root.StoreOutcomeUnknownError, {
     store: "PgFencedEffectRepository",
     operation: "runOnce",

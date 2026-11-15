@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { AGBossError } from "../../core/errors.js";
+import { AGBossError, type AGBossErrorOptions } from "../../core/errors.js";
 
 /**
  * The schema version of a SQLite file (#1104), kept in the table `agboss_schema` — not in
@@ -14,7 +14,7 @@ import { AGBossError } from "../../core/errors.js";
 export const SQLITE_SCHEMA_VERSION = 1;
 
 /** What a refusal knows: the version the file is stamped with and the one this build writes. */
-export interface SqliteSchemaVersions {
+export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
   readonly applied: number;
   readonly expected: number;
 }
@@ -30,12 +30,14 @@ export class SqliteSchemaTooNewError extends AGBossError {
   readonly applied: number;
   readonly expected: number;
 
-  constructor(versions: SqliteSchemaVersions) {
+  constructor(options: SqliteSchemaTooNewErrorOptions) {
+    const { applied, expected, ...rest } = options;
     super(
-      `the SQLite file is at schema version ${String(versions.applied)}, newer than this build's ${String(versions.expected)}: a newer @agboss/core migrated it — deploy that version, a migration is not rolled back`,
+      `the SQLite file is at schema version ${String(applied)}, newer than this build's ${String(expected)}: a newer @agboss/core migrated it — deploy that version, a migration is not rolled back`,
+      rest,
     );
-    this.applied = versions.applied;
-    this.expected = versions.expected;
+    this.applied = applied;
+    this.expected = expected;
   }
 }
 
