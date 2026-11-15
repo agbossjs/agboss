@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
+import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
 import { PauseKind, PauseStatus } from "../../../src/index.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
@@ -164,7 +165,7 @@ describe("0.1.1: a SQLite file whose pauses kept no kind", () => {
     expect(await pauses.findByTenantIdAndPauseId("default", "old")).toMatchObject({
       kind: PauseKind.Approval,
     });
-    await expect(readOf(pauses, "broken")).rejects.toThrow(SyntaxError);
+    await expect(readOf(pauses, "broken")).rejects.toThrow(StoredNamesUnreadableError);
   });
 
   it("a row the migration could not read (no agent, no kind) fails its read naming the pause", async () => {

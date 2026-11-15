@@ -18,6 +18,7 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import { runningOutcome } from "../run/execute.js";
 import type { TurnStore } from "../turns/index.js";
 import { pausedRunOfValue } from "../infrastructure/stored-run.js";
+import { parsedStoredJson } from "../infrastructure/stored-step.js";
 
 /**
  * A paused run and the workflow version / config hash it paused under (checked on resume). Its
@@ -137,41 +138,19 @@ export const encodePausedRun = (value: unknown): string =>
     typeof item === "number" && !Number.isFinite(item) ? { $number: String(item) } : item,
   );
 
-const decode = (text: string): unknown =>
-  JSON.parse(text, (_key, item: unknown) => {
-    const tagged = NonFinite.safeParse(item);
-    return tagged.success ? Number(tagged.data.$number) : item;
-  });
-
-/** ` (tenantId acme, …)`, or nothing when no id is readable. */
-const named = (ids: string): string => (ids === "" ? "" : ` (${ids})`);
-
-/** The ids that name a stored run in an error: its thread and run, never its input. */
-const idsOf = (value: unknown): string =>
-  ["threadId", "runId"]
-    .flatMap((key) => {
-      const id: unknown =
-        typeof value === "object" && value !== null ? Reflect.get(value, key) : "";
-      return typeof id === "string" ? [`${key} ${id}`] : [];
-    })
-    .join(", ");
-
 /**
  * The run `encodePausedRun` wrote (one stored by 0.1.0 under `ternId` too), or why it is refused.
- * `ids` are the store's own keys of the row: text that is not JSON names no id of its own.
+ * `ids` are the store's own keys of the row: text that is not JSON names no id of its own. A text that
+ * is no JSON is `StoredNamesUnreadableError` (#1121), as a value that fails the schema is.
  */
 export function decodePausedRun(
   text: string,
   ids: { readonly threadId?: string; readonly runId?: string } = {},
 ): AgentExecutionOutput {
-  let value: unknown;
-  try {
-    value = decode(text);
-  } catch {
-    // the parser's message quotes the text (`startInput`, PII, #906 D4): neither it nor the text is kept
-    throw new Error(
-      `a stored paused run is not readable${named(idsOf(ids))}: the text is not valid JSON`,
-    );
-  }
-  return pausedRunOfValue(value);
+  return pausedRunOfValue(
+    parsedStoredJson("paused run", text, ids, (_key, item: unknown) => {
+      const tagged = NonFinite.safeParse(item);
+      return tagged.success ? Number(tagged.data.$number) : item;
+    }),
+  );
 }

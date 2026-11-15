@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { PauseResolution, PauseStatus, type PauseRecord } from "../pause-record.js";
 import { pauseRecordOfJson } from "../stored-pause.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 /**
  * A pause row of `SqlitePausedExecutionRepository` read and written (#267 S35, S107): its columns
@@ -33,7 +34,6 @@ function resolutionOf(r: z.infer<typeof PauseRow>): { resolution?: PauseResoluti
 
 /** The JSON a column keeps. */
 const JsonObject = z.record(z.string(), z.unknown());
-const parsed = (text: string): unknown => JSON.parse(text);
 
 /**
  * A row as the record it keeps: its JSON with its columns laid over it, read as a store reads a
@@ -43,14 +43,16 @@ const parsed = (text: string): unknown => JSON.parse(text);
 export function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   return pauseRecordOfJson({
-    ...JsonObject.parse(parsed(r.pause)),
+    ...JsonObject.parse(parsedStoredJson("pause", r.pause, { pauseId: r.pause_id })),
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     stepKey: r.step_key,
     rootExecutionId: r.root_execution_id,
     status: r.status,
     isSent: r.is_sent === 1,
-    ...(r.answer === null ? {} : { answer: parsed(r.answer) }),
+    ...(r.answer === null
+      ? {}
+      : { answer: parsedStoredJson("pause answer", r.answer, { pauseId: r.pause_id }) }),
     ...resolutionOf(r),
     ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
     ...(r.expires_at === null ? {} : { expiresAt: r.expires_at }),
