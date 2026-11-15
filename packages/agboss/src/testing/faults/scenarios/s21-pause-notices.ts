@@ -2,7 +2,7 @@ import { HoldPhase } from "../hold-points.js";
 import type { FaultCluster } from "../cluster.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";
-import { endedOn, expectThat, heldAt, holdStore, release } from "./kit.js";
+import { endedOn, expectThat, heldAt, holdStore } from "./kit.js";
 import { answerOn, pausedOrderOn, type PausedOrder } from "./pause-kit.js";
 
 /**
@@ -50,17 +50,19 @@ export const s21Claimed: RunnableFaultScenario = {
     const b = await cluster.pod("b");
     const order = await pausedOrderOn(cluster, a, "o-21");
     await restedAndOpened(cluster, order);
-    // pod a's look waits at its claim until b is dead, and b is held only after a claim of this
-    // pause's mailbox (never after an empty one): the kill lands between the claim and the
-    // delivery whatever the load (#1131)
-    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined);
+    // every claim of pod a waits until b is dead (not the first alone: a look of a's before the
+    // answer would use it up, and a later one would claim the notice ahead of b, so a sabotaged
+    // store that acknowledges at the claim would still deliver it, #1171), and b is held only after
+    // a claim of this pause's mailbox (never after an empty one): the kill lands between the claim
+    // and the delivery whatever the load (#1131)
+    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined, { times: 1000 });
     await holdStore(b, StoreHoldPoint.PauseNoticeClaim, mailboxOf(order), {
       phase: HoldPhase.After,
     });
     await answerOn(b, order.pauseId);
     await heldAt(cluster, b, StoreHoldPoint.PauseNoticeClaim, mailboxOf(order));
     await b.kill();
-    await release(a, await heldAt(cluster, a, StoreHoldPoint.PauseNoticeClaim));
+    await a.command({ op: "release-all" });
     await endedOn(cluster, order.rootExecutionId, a);
     await told(cluster, order, "closed");
     const closed = deliveries(cluster, "closed").map(([pod]) => pod);
@@ -83,13 +85,14 @@ export const s21bDelivered: RunnableFaultScenario = {
     const order = await pausedOrderOn(cluster, a, "o-21b");
     await restedAndOpened(cluster, order);
     await holdStore(b, StoreHoldPoint.PauseNoticeAck, mailboxOf(order));
-    // pod a's look waits at its claim until b is dead: under load its timer could otherwise claim
-    // the closed notice before b's own look, and b would never reach its acknowledgement (#1131)
-    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined);
+    // every claim of pod a waits until b is dead: under load its timer could otherwise claim the
+    // closed notice before b's own look, and b would never reach its acknowledgement (#1131); one
+    // held claim is not enough, an earlier empty look of a's would use it up (#1171)
+    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined, { times: 1000 });
     await answerOn(b, order.pauseId);
     await heldAt(cluster, b, StoreHoldPoint.PauseNoticeAck, mailboxOf(order));
     await b.kill();
-    await release(a, await heldAt(cluster, a, StoreHoldPoint.PauseNoticeClaim));
+    await a.command({ op: "release-all" });
     await endedOn(cluster, order.rootExecutionId, a);
     await told(cluster, order, "closed", 2);
     const closed = deliveries(cluster, "closed");
