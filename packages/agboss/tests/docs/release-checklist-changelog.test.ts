@@ -485,6 +485,23 @@ const subjects = async (root: string, car: Car): Promise<string[]> => {
 const readIn = (root: string, car: Car, file: string): string =>
   readFileSync(join(root, CARS[car].dir, file), "utf8");
 
+/**
+ * The lines of a bash block that start a `&&` chain not ended by `|| exit 1` / `|| return 1` (#1085, #1118):
+ * `&&` with or without spaces, a trailing `&&\`, the block's first line included; comment lines are skipped. A line continuing the chain
+ * above (`\`) was judged with its first line.
+ */
+function unguardedChains(block: string): string[] {
+  const lines = block.split("\n");
+  const flagged: string[] = [];
+  lines.forEach((line, i) => {
+    if (!line.includes("&&") || /^\s*#/.test(line) || /\\$/.test(lines[i - 1] ?? "")) return;
+    let end = i;
+    while (/\\$/.test(lines[end] ?? "")) end += 1;
+    if (!/\|\|\s*(exit|return) 1\s*$/.test(lines[end] ?? "")) flagged.push(line);
+  });
+  return flagged;
+}
+
 describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
   it("has the blocks it walks", () => {
     expect(step2).toContain("open_release_pr agbossjs/agboss || exit 1");
@@ -495,18 +512,27 @@ describe("#1044: Step 2 and Step 6 + Step 7, pasted in scratch clones", () => {
     expect(prelude).toContain("drop_unpublished_note() {");
   });
 
-  it("AC2 (#1085): every `a && b` chain, indented or in a subshell too, ends in `|| exit 1` (`|| return 1` in a function)", () => {
-    for (const block of bashBlocks(checklist)) {
-      const lines = block.split("\n");
-      lines.forEach((line, i) => {
-        // a line that continues the chain above (`\`) was judged with its first line
-        if (i === 0 || !line.includes(" && ") || /\\$/.test(lines[i - 1] ?? "")) return;
-        let end = i;
-        while (/\\$/.test(lines[end] ?? "")) end += 1;
-        expect(lines[end], line).toMatch(/\|\| (exit|return) 1\s*$/);
-      });
-    }
+  it("AC2 (#1085, #1118): every `a && b` chain, indented, in a subshell, on a block's first line, with or without spaces, ends in `|| exit 1` (`|| return 1` in a function)", () => {
+    for (const block of bashBlocks(checklist)) expect(unguardedChains(block)).toEqual([]);
     expect(checklist).not.toMatch(/^gh pr create|^gh run watch/m);
+  });
+
+  it.each([
+    ["a && b", ["a && b"]],
+    ["a&&b", ["a&&b"]],
+    ["a &&\\\nb", ["a &&\\"]],
+    ["a&&\\\nb", ["a&&\\"]],
+    ["  (cd x && b)", ["  (cd x && b)"]],
+    ["first && second\nok || exit 1", ["first && second"]],
+    ["a &&\\\n  b\\\n  c", ["a &&\\"]],
+    ["a && b || exit 1", []],
+    ["a&&b||exit 1", []],
+    ["a &&\\\n  b || exit 1", []],
+    ["a&&\\\n  b || return 1", []],
+    ["# a comment about && chains", []],
+    ["echo plain", []],
+  ])("the chain check on %j flags %j", (block, flagged) => {
+    expect(unguardedChains(block)).toEqual(flagged);
   });
 
   it("Step 2 (core) pasted: cuts release/ from main, one changelog commit, opens the PR, ignores the chore branch", async () => {
