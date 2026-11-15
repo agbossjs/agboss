@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LOCK } from "../../src/skills/lock.js";
-import { OWNER_PREFIX, readHolder, sweepStray } from "../../src/skills/lock-owner.js";
+import { OWNER_PREFIX, SEEN_MARKER, readHolder, sweepStray } from "../../src/skills/lock-owner.js";
 import { MANIFEST_FILE, readManifest } from "../../src/skills/manifest.js";
 import { carryOver } from "../../src/skills/migrate.js";
 import { SkillsSyncStatus, SkillsWarningCode } from "../../src/skills/status.js";
@@ -80,6 +80,20 @@ describe("#1105: a lock whose time is in the future ages out from when it was fi
     expect(waited).toBeLessThan(watching.waitMs);
     // the first sight was in the run before: what is left of staleMs is waited, not the year
     expect(waited).toBeGreaterThan(STALE - 700);
+  });
+
+  it("the monotonic first sight alone ages it out when the marker cannot help (dated ahead itself)", () => {
+    const root = oldProject();
+    writeLock(root, foreign);
+    writeFileSync(join(lockOf(root), SEEN_MARKER), "");
+    dateAll(root, YEAR);
+
+    const begun = performance.now();
+    const done = syncWith(root, watching);
+    const waited = performance.now() - begun;
+
+    expect(done.warnings).toEqual([]);
+    expect(waited).toBeGreaterThanOrEqual(STALE - 100);
   });
 
   it("an unreadable owner and a stray-file-only folder, a day ahead, age out the same way", () => {
