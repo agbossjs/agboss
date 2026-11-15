@@ -15,6 +15,7 @@ import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ObserverClass } from "../core/observer-hooks.js";
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 import type { RetentionOptions } from "./retention.js";
 
@@ -57,6 +58,15 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * breakers, the recovery loop).
    */
   readonly healthChecks?: readonly Class[];
+  /**
+   * The application's calendar for working time (#944): `WorkingWeek.of({ timeZone, days, hours,
+   * breaks, holidays })` or a `@WorkingCalendar` class listed in `providers`. A `workingHours(n)` /
+   * `workingMinutes(n)` `expiresIn` or `remindBefore` counts by it — a role's own `workingCalendar`
+   * over it. The deadline is computed once, when the pause opens: a calendar changed later does not
+   * move open pauses (extend them instead). A grid with no working time at all, or a class that is no
+   * listed `@WorkingCalendar`, is `[working-calendar.invalid]`.
+   */
+  readonly workingCalendar?: WorkingCalendarSource;
   /**
    * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
    * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step

@@ -7,6 +7,7 @@ import { PauseKind, questionAskOf } from "../../../infrastructure/pause-record.j
 import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
+import { WorkingCalendarError } from "../../../calendar/working-calendar.js";
 import { QuestionFailedError } from "../errors.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
@@ -30,7 +31,7 @@ async function failedAsking(
   const question = node.id;
   if (error instanceof ChannelSendError)
     throw new QuestionFailedError({ question, cause: error.cause });
-  if (error instanceof DtoValidationError)
+  if (error instanceof DtoValidationError || error instanceof WorkingCalendarError)
     throw new QuestionFailedError({ question, cause: error });
   if (!(error instanceof PauseExpirySignal)) throw error;
   // the run's deadline may have bound it: the budgets' counters read first, as at any visit
@@ -87,6 +88,7 @@ export function questionRunner(
       validate: answered,
       onSend,
       notices: pause.notices,
+      log: deps.log,
     };
     frame.execution.lease?.assertHeld();
     const asked = {

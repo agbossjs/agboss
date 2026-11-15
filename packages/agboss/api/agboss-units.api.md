@@ -11,6 +11,9 @@ export type Bytes = Brand<number, "Bytes">;
 export const hours: (amount: number) => Milliseconds;
 
 // @public
+export const isWorkingDuration: (value: unknown) => value is WorkingDuration;
+
+// @public
 export const kilobytes: (amount: number) => Bytes;
 
 // @public
@@ -46,6 +49,17 @@ export type Usd = Brand<number, "Usd">;
 
 // @public
 export const usd: (amount: number) => Usd;
+
+// @public
+export interface WorkingDuration {
+    readonly [workingDuration]: Milliseconds;
+}
+
+// @public
+export const workingHours: (amount: number) => WorkingDuration;
+
+// @public
+export const workingMinutes: (amount: number) => WorkingDuration;
 
 // Warnings were encountered during analysis:
 //

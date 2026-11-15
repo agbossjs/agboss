@@ -4,7 +4,9 @@ import {
   channelRoleOptionsOf,
   type ChannelRoleOptions,
 } from "../../channels/channel-role.decorator.js";
-import { isExpiresIn, isRemindBefore } from "../../channels/channel-rules.js";
+import { isExpiresIn, isNotShorter, isRemindBefore } from "../../channels/channel-rules.js";
+import { isWorkingDuration } from "../../units/index.js";
+import { spanText } from "../../units/working-time.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
@@ -26,10 +28,19 @@ import type { AnalysisContext } from "./rules/context.js";
 
 /** Whether the pause's `expiresIn` leaves no room for the role's reminder. */
 const leavesNoRoom = (expiresIn: unknown, remindBefore: unknown): boolean =>
-  isExpiresIn(expiresIn) && isRemindBefore(remindBefore) && expiresIn <= remindBefore;
+  isExpiresIn(expiresIn) && isRemindBefore(remindBefore) && isNotShorter(remindBefore, expiresIn);
 
-const message = (owner: string, expiresIn: number, role: string, remindBefore: number): string =>
-  `${owner}: expiresIn (${String(expiresIn)} ms) is not longer than ${role}'s remindBefore (${String(remindBefore)} ms) — its pauses get no reminder`;
+/** `14400000 ms`, or `7200000 ms of working time`. */
+const msOf = (span: unknown): string =>
+  isWorkingDuration(span) ? spanText(span) : `${String(span)} ms`;
+
+const message = (owner: string, expiresIn: unknown, role: string, remindBefore: unknown): string =>
+  `${owner}: expiresIn (${msOf(expiresIn)}) is not longer than ${role}'s remindBefore (${msOf(remindBefore)}) — its pauses get no reminder`;
+
+/**
+ * The same for working time (#944): both in working time, the working amounts compare — the
+ * calendar is not called and the pause gets no reminder; known at assembly.
+ */
 
 /** The question steps whose `expiresIn` leaves no room for their role's reminder. */
 function questionWarnings(context: AnalysisContext): RuleViolation[] {
@@ -38,7 +49,7 @@ function questionWarnings(context: AnalysisContext): RuleViolation[] {
     const role = channelRoleOptionsOf(question);
     const expiresIn = expiresInOfQuestion(expiries, question);
     if (role === undefined || !leavesNoRoom(expiresIn, role.remindBefore)) return [];
-    const text = message(role.name, Number(expiresIn), "its role", Number(role.remindBefore));
+    const text = message(role.name, expiresIn, "its role", role.remindBefore);
     return [violation("channel.remind-before-exceeds-expiry", text, [role.name])];
   });
 }
@@ -59,7 +70,7 @@ function toolWarnings(context: AnalysisContext): RuleViolation[] {
     const { name, channel, expiresIn } = component.meta;
     const role = channel === undefined ? undefined : channelRoleOf(channel)?.options;
     if (role === undefined || !leavesNoRoom(expiresIn, role.remindBefore)) return [];
-    const text = message(name, Number(expiresIn), role.name, Number(role.remindBefore));
+    const text = message(name, expiresIn, role.name, role.remindBefore);
     return [violation("channel.remind-before-exceeds-expiry", text, [name])];
   });
 }
@@ -95,7 +106,9 @@ function rolesOf(context: AnalysisContext): readonly ChannelRoleOptions[] {
 /** `[channel.remind-before-below-tick]` over the roles a workflow's pauses use. */
 export const remindBeforeBelowTickWarnings = (context: AnalysisContext): readonly RuleViolation[] =>
   rolesOf(context).flatMap((role) =>
-    isRemindBefore(role.remindBefore) && role.remindBefore < PAUSE_TIMERS_EVERY
+    typeof role.remindBefore === "number" &&
+    isRemindBefore(role.remindBefore) &&
+    role.remindBefore < PAUSE_TIMERS_EVERY
       ? [
           violation(
             "channel.remind-before-below-tick",

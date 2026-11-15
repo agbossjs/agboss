@@ -1,6 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ReturnedShape } from "./dto-wrappers.js";
 import type { ChildPlacement } from "./child-placement.js";
 
@@ -87,7 +87,7 @@ export interface ToStep {
   /** `.toWorkflow(W, { placement })` (#333 PR 2): where the child runs; absent = its parent's instance. */
   readonly placement?: ChildPlacement;
   /** `.toQuestion(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 /** One `caseOf(XDto, { about })…` of a `.switch(…)`. */

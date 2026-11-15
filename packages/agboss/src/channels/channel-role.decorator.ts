@@ -6,7 +6,9 @@ import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
+import { formProblem, type RoleFields } from "./channel-role-form.js";
 
 /**
  * `@ChannelRole` (#267): a project's abstract channel class — what a pause asks and who may answer
@@ -34,21 +36,30 @@ export interface ChannelRoleBaseOptions {
   /** Who turns a free-text reply into the role's typed answer; one interpreter belongs to one role. */
   readonly replyInterpreter?: Class;
   /**
-   * How long a pause of this role waits for its answer (#941): `hours(24)`; at least `seconds(1)`.
-   * The deadline is fixed when the pause is made (a deploy that changes this never moves an open
+   * How long a pause of this role waits for its answer (#941): `hours(24)`; at least `seconds(1)`;
+   * `workingHours(2)` counts the calendar's working time (#944). The deadline is fixed when the pause is made (a deploy that changes this never moves an open
    * one); a question step (`.toQuestion(Role, { expiresIn })`) and a tool (`@Tool({ expiresIn })`)
    * override it. None: the pause waits forever — or until its run's deadline.
    */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
   /**
    * How long before its deadline the channel and the listeners are reminded (#942): `hours(2)` —
    * they hear `onPauseExpiring` once, "expiring at …", again after an extension. A positive finite
-   * duration shorter than this role's `expiresIn` (`[channel.remind-before-invalid]`); a pause whose
+   * duration shorter than this role's `expiresIn` (`[channel.remind-before-invalid]`) — in working
+   * time (`workingHours(1)`) only with a working `expiresIn`
+   * (`[channel.remind-before-working-without-working-expiry]`); a pause whose
    * step or tool gives it no more time than this gets no reminder
    * (`[channel.remind-before-exceeds-expiry]`, a warning). The reminder is fixed when the pause is
    * made and again by an extension. None: no reminder.
    */
-  readonly remindBefore?: Milliseconds;
+  readonly remindBefore?: Milliseconds | WorkingDuration;
+  /**
+   * The calendar that counts this role's working time (#944): `WorkingWeek.of({ … })` or a
+   * `@WorkingCalendar` class listed in `@Application({ providers })`, over the application's
+   * `workingCalendar`. A working `expiresIn` or `remindBefore` here, on a step or on a tool needs
+   * one (`[channel.working-time-without-calendar]`). A calendar changed later never moves an open pause.
+   */
+  readonly workingCalendar?: WorkingCalendarSource;
 }
 
 /** A tool approval: the question is the tool call, its `arguments` typed by `approves`. */
@@ -100,20 +111,6 @@ const CONFLICT =
   "gives answerer and answeredBy (its 0.1.0 spelling) different values — keep answerer";
 const MISSING =
   "has no answerer — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
-
-type RoleFields = Partial<
-  Record<"approves" | "ask" | "answer" | "answerer" | "answeredBy", unknown>
->;
-
-/** The form problem of a role's options (both forms, neither); none → `undefined`. */
-function formProblem(fields: RoleFields): string | undefined {
-  const isApproval = fields.approves !== undefined;
-  const isQuestion = fields.ask !== undefined || fields.answer !== undefined;
-  if (isApproval && isQuestion) return "declares both approves and ask / answer — keep one form";
-  if (!isApproval && (fields.ask === undefined || fields.answer === undefined))
-    return "declares neither approves nor both ask and answer";
-  return undefined;
-}
 
 /** What a role's options declare: a problem with them, or who may answer (`answerer` or its alias). */
 type Declared = { readonly problem: string } | { readonly answerer: PauseAnswerer };

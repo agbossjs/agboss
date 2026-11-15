@@ -1,4 +1,5 @@
 import { isExpiresIn } from "../channels/channel-rules.js";
+import { spanText } from "../units/working-time.js";
 import { tokenName } from "./injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { componentOf } from "./metadata.js";
@@ -21,7 +22,7 @@ export function toolExpiryViolations(tools: ToolClasses): RuleViolation[] {
       return [violation("tool.expires-in-without-channel", message, [name])];
     }
     if (isExpiresIn(expiresIn)) return [];
-    const message = `${owner} (${name}): expiresIn is ${String(expiresIn)} — a deadline is a positive finite duration of at least seconds(1), like hours(4)`;
+    const message = `${owner} (${name}): expiresIn is ${spanText(expiresIn)} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(4)`;
     return [violation("channel.expires-in-invalid", message, [name])];
   });
 }

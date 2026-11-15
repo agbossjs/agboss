@@ -2,10 +2,10 @@ import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langcha
 import { loopPoliciesOf } from "./loop-policies.js";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
 import { workflowIdentityOf } from "./workflow-keys.js";
+import { seamApprovalOf } from "./seam-approval.js";
 import {
   agentLoopGraph,
   noJudges,
-  pauseSeamApproval,
   type AgentDefinition,
   type AgentLoopGraph,
 } from "../../graph/agent-loop/index.js";
@@ -66,17 +66,7 @@ class UnknownAgentError extends Error {
  * variants recurse gets a second loop for the last level, its recursive variants left out (#264).
  */
 function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string, AgentLoops> {
-  const approval =
-    deps.pause === undefined
-      ? undefined
-      : pauseSeamApproval({
-          channelOf: deps.channelOf,
-          pauses: deps.pause.pauses,
-          answers: deps.pause.answers,
-          notices: deps.pause.notices,
-          observer: deps.observer,
-          ...(deps.clock === undefined ? {} : { clock: deps.clock }),
-        });
+  const approval = seamApprovalOf(deps);
   const loopOf = (name: string, agent: AgentDefinition): AgentLoopGraph =>
     agentLoopGraph(
       {

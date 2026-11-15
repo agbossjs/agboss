@@ -1441,6 +1441,22 @@ once per deadline, whatever the number of instances, and again before the new de
 extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
 (`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`).
 
+**Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `expiresIn`,
+`remindBefore` and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
+(`@agboss/core/units`) beside `hours(n)`. A calendar turns "now + N working time" into a date:
+`@Application({ workingCalendar: WorkingWeek.of({ timeZone, days, hours, breaks, holidays }) })` — a
+weekly grid, DST-safe (an instant is working time when its local time lies in `hours` and in no `break` on a
+working, non-holiday local date; working time is the real elapsed time of those instants) — or a
+`@WorkingCalendar` class (in `providers`) that sees the tenant and the role and may read the application's
+own data; a `@ChannelRole({ workingCalendar })` overrides the default. A request at 17:30 on a Thursday in
+Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
+once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
+later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date
+fails the step (`QuestionFailedError` / `AgentFailedError`, cause `WorkingCalendarError`) and nobody is
+asked; the run's deadline stays wall-clock. A working `remindBefore` needs a working `expiresIn`
+(`[channel.remind-before-working-without-working-expiry]`); a working duration needs a calendar
+(`[channel.working-time-without-calendar]`); `[working-calendar.invalid]`.
+
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `BudgetExceededError` (`limit.budget`, an
 `onExecutionRejected`), before anything is written: no thread (a new one is created once the budgets pass), no record, no model call.

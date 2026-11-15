@@ -16,12 +16,14 @@ import {
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
-import type { FrameSpec } from "../context/frame.js";
+import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { newRecordOf } from "./pause-record-made.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
 import type { ComponentRecord } from "./records.js";
-import type { Milliseconds } from "../../units/index.js";
+import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../../units/index.js";
+import { workingTimeAfter, type PauseCalendar } from "../../calendar/calendar-call.js";
+import type { FrameworkLog } from "../../infrastructure/logger.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -40,9 +42,11 @@ export interface PauseChannel {
   readonly sender: ChannelSender;
   readonly answerer: PauseAnswerer;
   /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
-  readonly expiresIn?: Milliseconds | undefined;
+  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
   /** How long before its deadline its pauses are reminded (#942): its role's `remindBefore`; none → no reminder. */
-  readonly remindBefore?: Milliseconds | undefined;
+  readonly remindBefore?: Milliseconds | WorkingDuration | undefined;
+  /** The calendar that counts its working time (#944): its role's, else the application's; none → no working time. */
+  readonly calendar?: PauseCalendar | undefined;
 }
 
 /**
@@ -61,7 +65,7 @@ export interface PauseQuestion {
    */
   readonly component?: ComponentRecord;
   /** The step's or the tool's own `expiresIn` (#941): over the channel role's. */
-  readonly expiresIn?: Milliseconds | undefined;
+  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
 }
 
 /** The answer a pause gives its step: the decision (validated by the caller) and who gave it. */
@@ -193,14 +197,51 @@ export interface PauseStepSite {
   readonly onSend: () => Promise<void>;
   /** Who hears of the pause's change (#940): `markSent` writes its notices. */
   readonly notices?: PauseNotices | undefined;
+  /** Where a calendar that fails is logged (#944). */
+  readonly log?: FrameworkLog | undefined;
+}
+
+/**
+ * The pause of the step's key: the record it made, or the one it already has. A deadline in working
+ * time asks the calendar, so a re-entry looks for the record first and never asks it again; a race
+ * between two instances is decided by `findOrCreateByStepKey`.
+ */
+async function openedPause(site: PauseStepSite, question: PauseQuestion): Promise<PauseRecord> {
+  const { pauses, channel, frame } = site;
+  const { execution, step } = frame;
+  const { tenantId } = execution.tenant;
+  const rootExecutionId = rootFactsOf(execution).executionId;
+  const isWorking = isWorkingDuration(question.expiresIn ?? channel.expiresIn);
+  if (isWorking) {
+    const found = await pauses.findByTenantIdAndRootExecutionIdAndStepKey(
+      tenantId,
+      rootExecutionId,
+      step.idempotencyKey,
+    );
+    if (found !== undefined) return found;
+  }
+  const add = (from: Date, amount: number): Promise<Date> =>
+    workingTimeAfter(
+      {
+        calendar: channel.calendar,
+        tenantId,
+        role: channel.name,
+        frame,
+        clock: site.clock,
+        interruption: site.signal,
+        log: site.log,
+      },
+      from,
+      amount,
+    );
+  return pauses.findOrCreateByStepKey(await newRecordOf(frame, channel, question, site.clock, add));
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */
 export async function pauseStep(site: PauseStepSite, question: PauseQuestion): Promise<StepAnswer> {
   const { pauses, channel, frame } = site;
   const { tenantId } = frame.execution.tenant;
-  const made = newRecordOf(frame, channel, question, site.clock);
-  let pause = await pauses.findOrCreateByStepKey(made);
+  let pause = await openedPause(site, question);
   if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause, channel.name);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {

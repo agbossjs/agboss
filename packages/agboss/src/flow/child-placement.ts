@@ -1,4 +1,4 @@
-import type { Milliseconds } from "../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
@@ -31,7 +31,7 @@ export interface QuestionStepOptions {
    * `seconds(1)`. A question node has one value: two edges to it with different values are
    * `[question.expires-in-conflict]`.
    */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 const PLACEMENTS: ReadonlySet<unknown> = new Set(Object.values(ChildPlacement));

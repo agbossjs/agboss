@@ -14,6 +14,7 @@ export * from "./public/components.js";
 export * from "./public/flow.js";
 export * from "./public/observers.js";
 export * from "./public/pause-notices.js";
+export * from "./public/calendar.js";
 export * from "./public/app.js";
 export * from "./public/infrastructure.js";
 export * from "./public/mesh.js";

@@ -2338,7 +2338,21 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `PauseNoticeHub.recipientsOf` started and not awaited — at most 50 in flight, `settled()` at stop) writes `expiring` once across instances. A pause extended to exactly its `boundAt` expires
   as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
   `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
-  four hooks has a mailbox) and a listener's optional methods of the same names. `app.cancel(threadId, { tenantId, ownerId })` aborts a
+  four hooks has a mailbox) and a listener's optional methods of the same names.
+  **Working time (#944):** `workingHours` / `workingMinutes` (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: ms }`;
+  `units/working-time.ts`: `amountOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
+  `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` (`calendar/working-week.ts`,
+  `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it,
+  merged; `addWorkingTime` walks the days with a pool ordered by start; an invalid grid keeps its problems in a WeakMap, read at assembly as
+  `[working-calendar.invalid]`) or a class resolved by the container. `channelPartsOf` gives each `PauseChannel` its `calendar` (the role's, else
+  `@Application({ workingCalendar })`'s; `components/channel-parts.ts`, `calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
+  step key up first when its `expiresIn` is working (`findByTenantIdAndRootExecutionIdAndStepKey`; a re-entry never calls the calendar), then
+  `newRecordOf` (`flow/runtime/pause-record-made.ts`: `ownDeadlineOf`, `boundedDeadlineOf` — the run's deadline wall-clock, a tie to the run —,
+  `reminderOf`: both working → `calendar.add(askedAt, expiresIn − remindBefore)`, kept only strictly between the ask and the clamped
+  `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, `DEFAULT_TOOL_TIMEOUT` on the clock, a throw / timeout /
+  non-`Date` / not-after-`from` → `WorkingCalendarError`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
+  approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
+  Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (`ExecutionCancelledError`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the
   tree's durable mark with `ExecutionLeaseRepository.requestCancel(tree)` — in the lease store's database, keyed by the root, kept

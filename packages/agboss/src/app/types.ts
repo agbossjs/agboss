@@ -15,7 +15,7 @@ import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { PendingPause } from "../pause/index.js";
 import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
-import type { Milliseconds } from "../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
@@ -161,8 +161,11 @@ export interface ChannelResumeOptions extends ChannelPauseOptions, CallOptions {
 export interface ExtendPauseRequest {
   /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
   readonly pauseId: string;
-  /** How long from now the pause waits: its new deadline is `now + expiresIn` (at least `seconds(1)`). */
-  readonly expiresIn: Milliseconds;
+  /**
+   * How long from now the pause waits: its new deadline is `now + expiresIn` (at least `seconds(1)`);
+   * `workingHours(8)` counts the pause's calendar (#944): `calendar.add(now, expiresIn)`.
+   */
+  readonly expiresIn: Milliseconds | WorkingDuration;
 }
 
 /** What an extension did: the pause by its key (never its id) and the deadline before and after. */

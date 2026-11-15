@@ -15,7 +15,7 @@ import {
   type ToolOptions,
 } from "../../src/index.js";
 import type { DtoClass } from "../../src/dto/types.js";
-import { hours, type Milliseconds } from "../../src/units/index.js";
+import { hours, type Milliseconds, type WorkingDuration } from "../../src/units/index.js";
 import { ManagerQuestion } from "../flow/fixtures/expiry.fixture.js";
 
 describe("#941: PauseExpiration and PauseExpiryHandler", () => {
@@ -55,11 +55,15 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
   });
 
   it("a role, a tool and a question step take an expiresIn: a duration", () => {
-    expectTypeOf<ChannelRoleBaseOptions["expiresIn"]>().toEqualTypeOf<Milliseconds | undefined>();
-    expectTypeOf<ToolOptions<DtoClass, DtoClass, []>["expiresIn"]>().toEqualTypeOf<
-      Milliseconds | undefined
+    expectTypeOf<ChannelRoleBaseOptions["expiresIn"]>().toEqualTypeOf<
+      Milliseconds | WorkingDuration | undefined
     >();
-    expectTypeOf<QuestionStepOptions["expiresIn"]>().toEqualTypeOf<Milliseconds | undefined>();
+    expectTypeOf<ToolOptions<DtoClass, DtoClass, []>["expiresIn"]>().toEqualTypeOf<
+      Milliseconds | WorkingDuration | undefined
+    >();
+    expectTypeOf<QuestionStepOptions["expiresIn"]>().toEqualTypeOf<
+      Milliseconds | WorkingDuration | undefined
+    >();
     const options: QuestionStepOptions = { expiresIn: hours(4) };
     // @ts-expect-error a duration (hours(4)), not a number
     const bad: QuestionStepOptions = { expiresIn: 4 };

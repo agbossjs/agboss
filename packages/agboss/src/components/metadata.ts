@@ -1,6 +1,6 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Bytes, Milliseconds } from "../units/index.js";
+import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelOptions } from "./decorators.js";
@@ -19,7 +19,7 @@ export interface ToolMeta {
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
   /** The deadline of its approval pause (#941), over its channel role's; only with `channel`. */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   /** `@ToolInterceptor` classes of this tool, over its agent's, workflow's and application's (#384). */
@@ -119,6 +119,11 @@ export type ComponentMeta =
       readonly kind: "pause-listener";
       readonly meta: import("../pause/pause-listener.js").PauseListenerMeta;
     }
+  /** `@WorkingCalendar` (#944): a working-time calendar, listed in `providers`. */
+  | {
+      readonly kind: "working-calendar";
+      readonly meta: import("../calendar/working-calendar.js").WorkingCalendarMeta;
+    }
   | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta };
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
@@ -177,4 +182,5 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   budget: "Budget",
   "health-check": "HealthCheck",
   "pause-listener": "PauseListener",
+  "working-calendar": "WorkingCalendar",
 };

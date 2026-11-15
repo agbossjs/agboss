@@ -1,5 +1,7 @@
 import { channelNameOf, isChannelRole } from "../channels/discovery.js";
 import { implementationsOf } from "../channels/channel-rules.js";
+import { pauseCalendarOf } from "../calendar/calendar-source.js";
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import { channelRoleOf, PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ProviderModule } from "./container/registrations.js";
@@ -50,9 +52,15 @@ export const channelComponentClassesOf = (
   tools: ToolClasses,
   modules: readonly ProviderModule[],
 ): Class[] =>
-  channelClassesOf(tools).flatMap((cls) =>
-    isChannelRole(cls) ? implementationsOf(cls, modules).slice(0, 1) : [cls],
-  );
+  channelClassesOf(tools).flatMap((cls) => [
+    ...(isChannelRole(cls) ? implementationsOf(cls, modules).slice(0, 1) : [cls]),
+    // a role's own calendar class (#944): created by the container, its deps checked with the rest
+    ...calendarClassOf(channelRoleOf(cls)?.options.workingCalendar),
+  ]);
+
+/** The class a calendar source is, if it is a class. */
+const calendarClassOf = (source: WorkingCalendarSource | undefined): readonly Class[] =>
+  typeof source === "function" ? [source] : [];
 
 /**
  * Who may answer a channel's pauses: its role's `answerer`; a concrete `@Channel` named as is
@@ -65,6 +73,7 @@ const answererOf = (cls: Class): PauseAnswerer =>
 export function channelPartsOf(
   bundle: WorkflowMeta,
   tools: ToolClasses,
+  defaultCalendar?: WorkingCalendarSource,
 ): Required<Pick<AssembledWorkflow, "channels">> {
   const channels = channelClassesOf(tools);
   return {
@@ -73,9 +82,15 @@ export function channelPartsOf(
         channels.map((cls) => {
           const name = channelNameOf(cls);
           // the container gives a role's implementation (by inheritance): a channel, checked at assembly
-          const sender = containerFor(bundle, services).get(cls) as ChannelSender;
-          const { expiresIn, remindBefore } = channelRoleOf(cls)?.options ?? {};
-          return [name, { name, sender, answerer: answererOf(cls), expiresIn, remindBefore }];
+          const container = containerFor(bundle, services);
+          const sender = container.get(cls) as ChannelSender;
+          const { expiresIn, remindBefore, workingCalendar } = channelRoleOf(cls)?.options ?? {};
+          // a role's own calendar, else the application's: created by the application's container (#944)
+          const calendar = pauseCalendarOf(workingCalendar ?? defaultCalendar, (one) =>
+            container.get(one),
+          );
+          const channel = { name, sender, answerer: answererOf(cls), expiresIn, remindBefore };
+          return [name, { ...channel, calendar }];
         }),
       ),
   };
@@ -88,10 +103,11 @@ export function channelPartsOf(
 export async function checkedChannelsOf(
   workflow: Class,
   modules: readonly ProviderModule[],
-  isStandalone: boolean,
+  owner: { readonly workingCalendar?: WorkingCalendarSource } | undefined,
   loader: PromptLoader,
 ): Promise<readonly AssembledReplyInterpreter[]> {
-  checkChannels(workflow, modules, isStandalone);
+  // a workflow on its own is standalone; an application's calendar satisfies a working duration (#944)
+  checkChannels(workflow, modules, owner === undefined, owner?.workingCalendar);
   return replyInterpretersOf(workflow, loader);
 }
 

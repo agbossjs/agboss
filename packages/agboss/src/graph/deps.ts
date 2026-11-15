@@ -1,3 +1,4 @@
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 import type { FrameLease } from "../flow/context/frame.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -45,6 +46,8 @@ export interface GraphDeps<TName extends string> {
   readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
   /** Optional pause seam (approval of tool calls). Off by default. */
   readonly pause?: PauseSeam | undefined;
+  /** Where a working calendar that fails is logged (#944): the application's log; absent on its own. */
+  readonly log?: FrameworkLog | undefined;
   /** The errors of failed launch branches across this process's passes (#267 AC10). */
   readonly branchErrors?: BranchErrors;
   /** A test's schedule of launch branches (#262 S33, `TestConcurrency`); absent in production. */

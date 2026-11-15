@@ -1,3 +1,4 @@
+import { calendarNameOf } from "../calendar/calendar-source.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
@@ -14,6 +15,8 @@ import { implementationsOf } from "../channels/channel-rules.js";
 import { channelUsesOf, type ChannelUse } from "../channels/discovery.js";
 import { dtoLabel } from "../flow/analyse/labels.js";
 import { durationLabel } from "../units/duration-label.js";
+import { isWorkingDuration } from "../units/index.js";
+import { amountOf } from "../units/working-time.js";
 
 /**
  * The channels of an application as `agboss describe` shows them (#267, #268 AC4): for each role a
@@ -48,8 +51,14 @@ export interface DescribedChannel {
   readonly answeredBy: PauseAnswerer;
   /** How long a pause of the role waits (#941), in ms; absent: no deadline of its own. */
   readonly expiresIn?: number;
+  /** `true` when `expiresIn` is working time (#944): counted by the role's calendar, not the wall clock. */
+  readonly isExpiresInWorking?: true;
   /** How long before its deadline the role's pauses are reminded (#942), in ms; absent: no reminder. */
   readonly remindBefore?: number;
+  /** `true` when `remindBefore` is working time (#944). */
+  readonly isRemindBeforeWorking?: true;
+  /** The name of the calendar the role itself names (#944): `working-week` or its `@WorkingCalendar`'s; absent = the application's. */
+  readonly workingCalendar?: string;
   /** The role's `@ReplyInterpreter`, by name. */
   readonly replyInterpreter?: string;
   /** The class that sends; absent for a role with none listed (assembly rejects it). */
@@ -72,6 +81,22 @@ const toolLabel = (use: ChannelUse): string =>
 const inputsLabel = (uses: readonly ChannelUse[]): string =>
   [...new Set(uses.map((use) => dtoLabel(use.toolInput)))].join(" | ");
 
+/** The role's `expiresIn` / `remindBefore` in ms, each flagged when it is working time (#944). */
+function timesOf(
+  options: StoredChannelRole,
+): Pick<
+  DescribedChannel,
+  "expiresIn" | "isExpiresInWorking" | "remindBefore" | "isRemindBeforeWorking"
+> {
+  const { expiresIn, remindBefore } = options;
+  return {
+    ...(expiresIn === undefined ? {} : { expiresIn: amountOf(expiresIn) }),
+    ...(isWorkingDuration(expiresIn) ? { isExpiresInWorking: true as const } : {}),
+    ...(remindBefore === undefined ? {} : { remindBefore: amountOf(remindBefore) }),
+    ...(isWorkingDuration(remindBefore) ? { isRemindBeforeWorking: true as const } : {}),
+  };
+}
+
 function roleChannel(
   role: Class,
   options: StoredChannelRole,
@@ -91,8 +116,10 @@ function roleChannel(
     answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
     answerer: options.answerer,
     answeredBy: options.answerer,
-    ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn }),
-    ...(options.remindBefore === undefined ? {} : { remindBefore: options.remindBefore }),
+    ...timesOf(options),
+    ...(options.workingCalendar === undefined
+      ? {}
+      : { workingCalendar: calendarNameOf(options.workingCalendar) }),
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
     ...(implementation === undefined
       ? {}
@@ -144,12 +171,18 @@ const REASONS: Readonly<Record<ChannelImplementationReason, string>> = {
   [ChannelImplementationReason.NamedByTool]: "a @Channel named by the tool, used as is",
 };
 
+/** The label of a length that is working time or not (#944). */
+const labelOf = (amount: number, isWorking: true | undefined): string =>
+  isWorking === true ? `${durationLabel(amount)} of working time` : durationLabel(amount);
+
 /** ` · expires in 24 h` (#941): the role's deadline for an answer; nothing without one. */
 const expiryOf = (channel: DescribedChannel): string =>
-  (channel.expiresIn === undefined ? "" : ` · expires in ${durationLabel(channel.expiresIn)}`) +
+  (channel.expiresIn === undefined
+    ? ""
+    : ` · expires in ${labelOf(channel.expiresIn, channel.isExpiresInWorking)}`) +
   (channel.remindBefore === undefined
     ? ""
-    : ` · reminds ${durationLabel(channel.remindBefore)} before`);
+    : ` · reminds ${labelOf(channel.remindBefore, channel.isRemindBeforeWorking)} before`);
 
 /** `payout-approval-channel (PayoutApprovalChannel): PayoutRequestDto → … · implementation …`. */
 function channelLine(channel: DescribedChannel): string {

@@ -37,6 +37,7 @@ import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "
 import { agentSettings } from "./agent-settings.js";
 import { compactionsFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
 import { modelPartsOf } from "./model-parts.js";
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { AssembledCompactions } from "../compaction/assembly.js";
 
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
@@ -53,6 +54,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   /** `@Application({ compaction, uncompactedTurns })`: every reader's, under its own (#120 PR 3). */
   readonly compaction?: Class;
   readonly uncompactedTurns?: UncompactedTurns;
+  /** `@Application({ workingCalendar })`: the default calendar of working-time deadlines (#944). */
+  readonly workingCalendar?: WorkingCalendarSource;
 };
 
 function configOf(
@@ -203,7 +206,7 @@ export async function workflowOf(
   const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
   const compactions = await compactionsFor({ bundle, owner, agents, graph, loader });
   const modules = [...providerModulesOf(bundle), ...application];
-  const replyInterpreters = await checkedChannelsOf(workflow, modules, owner === undefined, loader);
+  const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters, compactions);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   checkComponents(bundle, { components, modules, mcp, contexts });
@@ -220,7 +223,7 @@ export async function workflowOf(
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle),
     ...policies.assembled,
-    ...channelPartsOf(bundle, tools),
+    ...channelPartsOf(bundle, tools, owner?.workingCalendar),
     ...models,
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
