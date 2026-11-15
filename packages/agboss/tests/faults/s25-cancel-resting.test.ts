@@ -14,5 +14,6 @@ faultSuite({
     "s25-cancel-resting-kill-after-drop",
     "s25b-cancel-resting-kill-after-request",
     "s25c-cancel-resting-kill-after-request-swept",
+    "s25d-cancel-resting-kill-after-request-answered",
   ],
 });

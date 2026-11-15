@@ -4,7 +4,7 @@ import type { FaultPod } from "../pod.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";
 import { eventsOf, expectThat, heldAt, holdStore } from "./kit.js";
-import { pausedOrderOn, pauseStateOn, type PausedOrder } from "./pause-kit.js";
+import { answerOn, pausedOrderOn, pauseStateOn, type PausedOrder } from "./pause-kit.js";
 
 /**
  * Scenario 25 (#1132, #939 AC3): a pod killed in the middle of `app.cancel` of a resting tree. The
@@ -17,7 +17,10 @@ import { pausedOrderOn, pauseStateOn, type PausedOrder } from "./pause-kit.js";
  * - 25b, requested: b is killed right after its cancel made its request durable, before anything of
  *   the end — the tree rests, and a second cancel on pod a answers `true` and ends it;
  * - 25c, swept (#1152): the same kill, and nobody cancels again — the recovery sweep of pod a reads
- *   the tree's cancel mark on its lease row and ends the order cancelled on its own.
+ *   the tree's cancel mark on its lease row and ends the order cancelled on its own;
+ * - 25d, answered (#1152, #1132's gap): the same kill, and a late answer reaches the tree before any
+ *   sweep — the answer's take of the lease reads the mark, the tree ends cancelled and the pause is
+ *   `cancelled`, never `taken`.
  */
 
 /** The thread an order of `pausedOrderOn` rests on. */
@@ -123,6 +126,27 @@ export const s25cSwept: RunnableFaultScenario = {
     await b.command({ op: "cancel", tag: "cancel-25c", threadId: threadOf(order) });
     await heldAt(cluster, b, StoreHoldPoint.LeaseRequestCancel, order.rootExecutionId);
     await b.kill();
+    await cluster.ended(order.rootExecutionId);
+    await expectEndedCancelled(cluster, a, order);
+    return a;
+  },
+};
+
+export const s25dAnswered: RunnableFaultScenario = {
+  id: "s25d-cancel-resting-kill-after-request-answered",
+  title:
+    "25d: a pod killed right after its app.cancel of a resting tree made the cancel durable, before its request key — a late answer on another pod ends the order cancelled, its pause cancelled, never taken",
+  run: async (cluster) => {
+    const a = await cluster.pod("a");
+    const b = await cluster.pod("b");
+    const order = await pausedOrderOn(cluster, a, "o-25d", undefined, { cancelled: true });
+    await holdStore(b, StoreHoldPoint.LeaseRequestCancel, order.rootExecutionId, {
+      phase: HoldPhase.After,
+    });
+    await b.command({ op: "cancel", tag: "cancel-25d", threadId: threadOf(order) });
+    await heldAt(cluster, b, StoreHoldPoint.LeaseRequestCancel, order.rootExecutionId);
+    await b.kill();
+    await answerOn(a, order.pauseId);
     await cluster.ended(order.rootExecutionId);
     await expectEndedCancelled(cluster, a, order);
     return a;
