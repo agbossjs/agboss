@@ -1,4 +1,4 @@
-import type { Milliseconds } from "../../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -58,7 +58,7 @@ export interface RuntimeNode {
    */
   readonly placement?: ChildPlacement;
   /** A question step's own `expiresIn` (#941, `.toQuestion(Q, { expiresIn })`); absent — its role's. */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 export interface RuntimeGraph {

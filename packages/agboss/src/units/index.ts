@@ -55,3 +55,38 @@ export const minutes = (amount: number): Milliseconds =>
 /** A duration given in hours (a quorum's `deadline`, #279). */
 export const hours = (amount: number): Milliseconds =>
   (nonNegative(amount, "hours") * 3_600_000) as Milliseconds;
+
+/** The key a working duration keeps its amount under (a shared symbol: every copy of the package agrees). */
+const workingDuration: unique symbol = Symbol.for("agboss.units.working-duration");
+
+/**
+ * Working time (#944): a duration the pause's calendar counts — its working days, hours, breaks and
+ * holidays — not the wall clock. Counted by the pause's calendar, not the wall clock.
+ */
+export interface WorkingDuration {
+  /** The amount of working time, in milliseconds. */
+  readonly [workingDuration]: Milliseconds;
+}
+
+function working(amount: number, unit: string, size: number): WorkingDuration {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new UnitError({
+      message: `${unit} must be a positive finite number, got ${String(amount)}`,
+    });
+  }
+  return Object.freeze({ [workingDuration]: (amount * size) as Milliseconds });
+}
+
+/** Working time given in hours: `expiresIn: workingHours(2)`. */
+export const workingHours = (amount: number): WorkingDuration =>
+  working(amount, "workingHours", 3_600_000);
+
+/** Working time given in minutes: `remindBefore: workingMinutes(30)`. */
+export const workingMinutes = (amount: number): WorkingDuration =>
+  working(amount, "workingMinutes", 60_000);
+
+/** Whether a value is working time (`workingHours(…)` / `workingMinutes(…)`). */
+export const isWorkingDuration = (value: unknown): value is WorkingDuration =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof Reflect.get(value, workingDuration) === "number";

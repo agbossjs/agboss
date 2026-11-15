@@ -1,3 +1,5 @@
+import type { TimeSpan } from "../units/working-time.js";
+import { questionUsesOf, agentQuestionUsesOf } from "./question-uses.js";
 import { withChildWorkflows, flowClassesOf } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -41,12 +43,15 @@ export interface ChannelUse {
   readonly isQuestion?: true;
   /** The agent that asks it through its tool loop (#712); absent for a question step. */
   readonly askedBy?: string;
+  /** The tool's `expiresIn`, or the question step's (#941): over the role's; absent — the role's. */
+  readonly expiresIn?: TimeSpan;
 }
 
 interface ToolChannel {
   readonly name: string;
   readonly input: DtoClass;
   readonly channel?: Class;
+  readonly expiresIn?: TimeSpan | undefined;
 }
 
 /** A tool class's name, input and channel; `undefined` for a class that is not a tool. */
@@ -66,38 +71,6 @@ function toolsOfWorkflow(workflow: Class): readonly Class[] {
   });
 }
 
-/** The question steps of a workflow's flow (#659), each role once: its node's declaration. */
-function questionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
-  const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return [];
-  return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
-    const question = declarationOf(node);
-    if (question?.kind !== NodeKind.Question) return [];
-    const { options } = question;
-    const { ask } = options.input;
-    return [
-      { tool: options.name, toolInput: ask, channel: node, workflow: name, isQuestion: true },
-    ];
-  });
-}
-
-/** The question roles the agents of a workflow's flow ask through their tools (#712), per agent. */
-function agentQuestionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
-  const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return [];
-  return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
-    const agent = declarationOf(node);
-    if (agent?.kind !== NodeKind.Agent) return [];
-    return [...new Set(agent.options.tools ?? [])].flatMap((cls): readonly ChannelUse[] => {
-      const options = channelRoleOptionsOf(cls);
-      if (options === undefined || !isQuestionRole(options)) return [];
-      const { name: tool, ask } = options;
-      const askedBy = agent.options.name;
-      return [{ tool, toolInput: ask, channel: cls, workflow: name, isQuestion: true, askedBy }];
-    });
-  });
-}
-
 /**
  * Every tool with a channel in the workflows and their children, each tool once per workflow, and
  * every question step (#659).
@@ -108,7 +81,16 @@ export function channelUsesOf(workflows: readonly Class[]): readonly ChannelUse[
     const tools = [...new Set(toolsOfWorkflow(workflow))].flatMap((cls): readonly ChannelUse[] => {
       const tool = toolChannelOf(cls);
       if (tool?.channel === undefined) return [];
-      return [{ tool: tool.name, toolInput: tool.input, channel: tool.channel, workflow: name }];
+      const { expiresIn } = tool;
+      return [
+        {
+          tool: tool.name,
+          toolInput: tool.input,
+          channel: tool.channel,
+          workflow: name,
+          ...(expiresIn === undefined ? {} : { expiresIn }),
+        },
+      ];
     });
     return [...tools, ...questionUsesOf(workflow, name), ...agentQuestionUsesOf(workflow, name)];
   });

@@ -112,6 +112,10 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     channel: "refund-approval-channel",
     problem: root.ExpiryProblem.HandlerFailed,
   }),
+  fx(root.WorkingCalendarError, {
+    calendar: "tenant-holidays-working-calendar",
+    problem: root.WorkingCalendarProblem.CalendarFailed,
+  }),
   fx(root.UnknownThreadError, { message }),
   fx(root.ThreadOwnerError, { message }),
   fx(root.InvalidThreadIdError, { rule: root.KeyTextRule.Length }),

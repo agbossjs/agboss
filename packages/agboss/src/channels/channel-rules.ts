@@ -1,9 +1,12 @@
-import type { Milliseconds } from "../units/index.js";
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
+import { isWorkingDuration } from "../units/index.js";
+import { amountOf, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOf, isQuestionRole } from "./channel-role.decorator.js";
 import { replyInterpreterViolations } from "./discovery.js";
+import { workingTimeViolations } from "./working-time-rules.js";
 import {
   channelNameOf,
   channelUsesOf,
@@ -108,9 +111,20 @@ export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleVi
 /** The shortest deadline a pause may have (#941). */
 const MIN_EXPIRES_IN_MS = 1000;
 
-/** Whether `value` is a positive finite duration of at least `seconds(1)`. */
-export const isExpiresIn = (value: unknown): value is Milliseconds =>
-  typeof value === "number" && Number.isFinite(value) && value >= MIN_EXPIRES_IN_MS;
+/** `14400000 ms`, or `7200000 ms of working time`. */
+const msOf = (span: unknown): string =>
+  isWorkingDuration(span) ? spanText(span) : `${String(span)} ms`;
+
+/** Whether `value` is a finite amount of milliseconds in `[min, MAX_SPAN_MS]`, plain or working (#944). */
+const isSpanBetween = (value: unknown, min: number): value is TimeSpan => {
+  const amount =
+    typeof value === "number" ? value : isWorkingDuration(value) ? amountOf(value) : Number.NaN;
+  return Number.isFinite(amount) && amount >= min && amount <= MAX_SPAN_MS;
+};
+
+/** Whether `value` is a duration of at least `seconds(1)` and at most 5 years: plain, or working time (#944). */
+export const isExpiresIn = (value: unknown): value is TimeSpan =>
+  isSpanBetween(value, MIN_EXPIRES_IN_MS);
 
 /** `[channel.expires-in-invalid]`: a role's `expiresIn` is a positive finite duration ≥ `seconds(1)`. */
 function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
@@ -120,16 +134,26 @@ function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
     return [
       violation(
         "channel.expires-in-invalid",
-        `channel role ${options.name}: expiresIn is ${String(expiresIn)} — a deadline is a positive finite duration of at least seconds(1), like hours(24)`,
+        `channel role ${options.name}: expiresIn is ${spanText(expiresIn)} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(24)`,
         [options.name],
       ),
     ];
   });
 }
 
-/** Whether `value` is a positive finite duration (a reminder may be shorter than a deadline may be). */
-export const isRemindBefore = (value: unknown): value is Milliseconds =>
-  typeof value === "number" && Number.isFinite(value) && value > 0;
+/** Whether `value` is a positive finite duration, plain or working (a reminder may be shorter than a deadline may be). */
+export const isRemindBefore = (value: unknown): value is TimeSpan =>
+  isSpanBetween(value, Number.MIN_VALUE);
+
+/**
+ * Whether a reminder is not shorter than the deadline it precedes: plain with plain, working with
+ * working (#944) — a plain amount against working time is not comparable here (the wall-clock
+ * time working time takes is the calendar's to say), so it is no problem of the role.
+ */
+export const isNotShorter = (remindBefore: TimeSpan, expiresIn: unknown): boolean =>
+  (typeof expiresIn === "number" || isWorkingDuration(expiresIn)) &&
+  isWorkingDuration(remindBefore) === isWorkingDuration(expiresIn) &&
+  amountOf(remindBefore) >= amountOf(expiresIn as TimeSpan);
 
 /**
  * `[channel.remind-before-invalid]` (#942): a role's `remindBefore` is a positive finite duration,
@@ -140,9 +164,9 @@ function remindBeforeViolations(uses: readonly ChannelUse[]): RuleViolation[] {
     const { remindBefore, expiresIn } = options;
     if (remindBefore === undefined) return [];
     const problem = !isRemindBefore(remindBefore)
-      ? `remindBefore is ${String(remindBefore)} — a reminder is a positive finite duration, like hours(2)`
-      : typeof expiresIn === "number" && remindBefore >= expiresIn
-        ? `remindBefore (${String(remindBefore)} ms) is not shorter than its expiresIn (${String(expiresIn)} ms) — the reminder would go out at or before the pause is asked`
+      ? `remindBefore is ${spanText(remindBefore)} — a reminder is a positive finite duration of at most 5 years, like hours(2)`
+      : isNotShorter(remindBefore, expiresIn)
+        ? `remindBefore (${msOf(remindBefore)}) is not shorter than its expiresIn (${msOf(expiresIn)}) — the reminder would go out at or before the pause is asked`
         : undefined;
     if (problem === undefined) return [];
     return [
@@ -157,6 +181,7 @@ function remindBeforeViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 export function channelRuleViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
+  defaultCalendar?: WorkingCalendarSource,
 ): RuleViolation[] {
   return [
     ...wrongToolViolations(uses),
@@ -164,6 +189,7 @@ export function channelRuleViolations(
     ...replyInterpreterViolations(uses),
     ...expiresInViolations(uses),
     ...remindBeforeViolations(uses),
+    ...workingTimeViolations(uses, modules, defaultCalendar),
   ];
 }
 
@@ -176,10 +202,11 @@ export function checkChannels(
   workflow: Class,
   modules: readonly ProviderModule[],
   isStandalone: boolean,
+  defaultCalendar?: WorkingCalendarSource,
 ): void {
   const uses = channelUsesOf([workflow]);
   const violations = [
-    ...channelRuleViolations(uses, modules),
+    ...channelRuleViolations(uses, modules, defaultCalendar),
     ...(isStandalone ? sharedInterpreterViolations(uses) : []),
   ];
   if (violations.length > 0) throw new GraphRuleError({ violations });

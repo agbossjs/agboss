@@ -1,5 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { aboutLabel, shapeLabel } from "./analyse/labels.js";
+import { spanText } from "../units/working-time.js";
 import {
   NodeKind,
   StepKind,
@@ -76,7 +77,7 @@ const childOptions = (placement: ChildPlacement | undefined): string => {
 const toOptions = (step: Pick<ToStep, "placement" | "expiresIn">): string => {
   const options = [
     ...placementOption(step.placement),
-    ...(step.expiresIn === undefined ? [] : [`expiresIn: ${String(step.expiresIn)}`]),
+    ...(step.expiresIn === undefined ? [] : [`expiresIn: ${spanText(step.expiresIn)}`]),
   ];
   return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
 };

@@ -198,6 +198,11 @@ export type RuleCode =
   | "channel.remind-before-invalid"
   | "channel.remind-before-exceeds-expiry"
   | "channel.remind-before-below-tick"
+  // working time (#944): a calendar for every working duration, a grid that has working time
+  | "channel.remind-before-working-without-working-expiry"
+  | "channel.working-time-without-calendar"
+  | "working-calendar.invalid"
+  | "working-calendar.duplicate-name"
   | "tool.expires-in-without-channel"
   | "question.expires-in-conflict"
   // reply interpreters (#267 PR 3), reported at each workflow's assembly

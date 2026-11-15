@@ -1,3 +1,4 @@
+import type { FrameworkLog } from "../../infrastructure/logger.js";
 import { interrupt, isGraphInterrupt } from "@langchain/langgraph";
 import { redactedArguments, redactedDto } from "../../dto/redact.js";
 import { validate } from "../../dto/schema.js";
@@ -27,7 +28,7 @@ import {
   type ApprovalDecision,
 } from "../../channels/decision.js";
 import { systemClock, type Clock } from "../../infrastructure/clock.js";
-import type { Milliseconds } from "../../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 
 /**
  * How the loop gets a decision on a tool call before it runs — one call per ask. It is backed by the
@@ -72,6 +73,8 @@ export interface ApprovalChannels {
   readonly observer?: ExecutionObserverManager;
   /** The application's clock: when each pause was asked and decided (default: the system's). */
   readonly clock?: Clock;
+  /** Where a working calendar that fails is logged (#944). */
+  readonly log?: FrameworkLog | undefined;
 }
 
 /** The ask as the channel, the caller and the pause records see it: `sensitive` fields masked. */
@@ -95,7 +98,7 @@ interface SeamAsk {
   /** The record's component when it is not the asking step's own (a question role, #712). */
   readonly component?: ComponentRecord;
   /** The tool's own `expiresIn` (#941), over its channel role's. */
-  readonly expiresIn?: Milliseconds | undefined;
+  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
 }
 
 /**
@@ -155,6 +158,7 @@ async function seamAnswer(
             validate: ask.validate,
             onSend,
             notices: channels.notices,
+            log: channels.log,
           },
           question,
         );

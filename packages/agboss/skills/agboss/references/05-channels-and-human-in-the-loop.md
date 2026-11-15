@@ -588,6 +588,21 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   another tenant's pause is `UnknownPauseError`. An extension and the expiry look at one tick: the
   store lets one win. A channel that overrides any of `onPauseClosed`, `onPauseAnswerNotTaken`,
   `onPauseExtended`, `onPauseExpiring` has a mailbox.
+- **Deadlines in working time** (#944): `expiresIn`, `remindBefore` and `extendPause`'s `expiresIn` take
+  `workingHours(n)` / `workingMinutes(n)` (`@agboss/core/units`) beside `hours(n)` — counted by a calendar:
+  `@Application({ workingCalendar })`, a `@ChannelRole({ workingCalendar })` over it. `WorkingWeek.of({ timeZone,
+days: [Weekday.Sunday, …], hours: [{ from: "09:00", to: "18:00" }], breaks?, holidays? })` is the built-in
+  grid (DST-safe: working time is the real elapsed time of the instants whose local time is in `hours` and in no
+  `break`; `"24:00"` ends the date; no overnight interval — write two); a `@WorkingCalendar({ name:
+"…-working-calendar", deps })` class listed in `providers` implements `addWorkingTime({ from, amount, tenantId,
+role })` and may read the application's own data. The deadline is computed **once**, when the pause opens
+  (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
+  pause — extend it. Reminder: both working → `calendar.add(askedAt, expiresIn − remindBefore)`; a working
+  `remindBefore` needs a working `expiresIn` (also on `.toQuestion` / `@Tool` overrides and in `extendPause`,
+  which refuses a plain `expiresIn` there with `DtoValidationError`). A calendar that throws, times out,
+  answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
+  a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
+  it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
 - `app.cancel(threadId, { tenantId })` withdraws a paused thread's pauses (the channel's `onPauseClosed` is
   told, `PauseClosedReason.Cancelled`).
 
@@ -636,28 +651,33 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 
 ## Rule codes and errors
 
-| Code / error                              | Cause → fix                                                                                                                         |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `[channel.wrong-tool]`                    | the role's `approves` is not the tool's `input` → make them the same DTO                                                            |
-| `[channel.wrong-tool]` (question)         | a tool names a question role → ask it with `.toQuestion(Role)`                                                                      |
-| `[channel.role-form]`                     | both `approves` and `ask` / `answer`, or half a question → one form                                                                 |
-| `[reply-interpreter.decision-model]`      | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                                               |
-| `QuestionFailedError`                     | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError`                         |
-| `PauseExpiredError`                       | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `PauseExpiration.decide(…)`  |
-| `[channel.expires-in-invalid]`            | a role's, tool's or question step's `expiresIn` is under `seconds(1)` or no finite duration → `hours(4)`                            |
-| `[channel.remind-before-invalid]`         | a role's `remindBefore` is not a positive duration shorter than its `expiresIn` → `hours(2)` under `hours(24)`                      |
-| `[channel.remind-before-exceeds-expiry]`  | a step's or tool's `expiresIn` ≤ its role's `remindBefore` (a warning): no reminder → a longer one                                  |
-| `[channel.remind-before-below-tick]`      | a role's `remindBefore` is shorter than the pause timers' 5 s tick (a warning): the reminder can be skipped → at least `seconds(5)` |
-| `[tool.expires-in-without-channel]`       | `@Tool({ expiresIn })` with no `channel` → add `channel`, or drop `expiresIn`                                                       |
-| `[question.expires-in-conflict]`          | two `.toQuestion(Q, …)` edges to one question with different `expiresIn` → one value                                                |
-| `[di.missing-implementation]`             | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                                        |
-| `[di.ambiguous-implementation]`           | two implementations of one role → keep one (one per application)                                                                    |
-| `[di.infrastructure-in-workflow]`         | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                                                    |
-| `[channel.shared-interpreter]`            | one `@ReplyInterpreter` on two roles → one each                                                                                     |
-| `[reply-interpreter.no-interpret-method]` | a code interpreter without `interpret` → add it                                                                                     |
-| `[application.in-memory-pauses]`          | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                  |
-| `PauseAnswererError`                      | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                          |
-| `IncompatibleResumeError`                 | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                   |
+| Code / error                                             | Cause → fix                                                                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[channel.wrong-tool]`                                   | the role's `approves` is not the tool's `input` → make them the same DTO                                                                                                  |
+| `[channel.wrong-tool]` (question)                        | a tool names a question role → ask it with `.toQuestion(Role)`                                                                                                            |
+| `[channel.role-form]`                                    | both `approves` and `ask` / `answer`, or half a question → one form                                                                                                       |
+| `[reply-interpreter.decision-model]`                     | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                                                                                     |
+| `QuestionFailedError`                                    | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError`                                                               |
+| `PauseExpiredError`                                      | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(PauseExpiredError, …)`, or `PauseExpiration.decide(…)`                                        |
+| `[channel.expires-in-invalid]`                           | a role's, tool's or question step's `expiresIn` is under `seconds(1)` or no finite duration → `hours(4)`                                                                  |
+| `[channel.remind-before-invalid]`                        | a role's `remindBefore` is not a positive duration shorter than its `expiresIn` → `hours(2)` under `hours(24)`                                                            |
+| `[channel.remind-before-exceeds-expiry]`                 | a step's or tool's `expiresIn` ≤ its role's `remindBefore` (a warning): no reminder → a longer one                                                                        |
+| `[channel.remind-before-below-tick]`                     | a role's `remindBefore` is shorter than the pause timers' 5 s tick (a warning): the reminder can be skipped → at least 5 s                                                |
+| `[channel.working-time-without-calendar]`                | a `workingHours` / `workingMinutes` duration, no `workingCalendar` on the role or the application → set one                                                               |
+| `[channel.remind-before-working-without-working-expiry]` | a working `remindBefore` over a plain `expiresIn` (role, step or tool) → give `expiresIn` in `workingHours`                                                               |
+| `[working-calendar.invalid]`                             | a grid with an unknown zone, no days, a bad interval, a break outside the hours, no working minute; a class that is no listed `@WorkingCalendar` → fix it                 |
+| `[working-calendar.duplicate-name]`                      | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
+| `WorkingCalendarError`                                   | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
+| `[tool.expires-in-without-channel]`                      | `@Tool({ expiresIn })` with no `channel` → add `channel`, or drop `expiresIn`                                                                                             |
+| `[question.expires-in-conflict]`                         | two `.toQuestion(Q, …)` edges to one question with different `expiresIn` → one value                                                                                      |
+| `[di.missing-implementation]`                            | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                                                                              |
+| `[di.ambiguous-implementation]`                          | two implementations of one role → keep one (one per application)                                                                                                          |
+| `[di.infrastructure-in-workflow]`                        | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                                                                                          |
+| `[channel.shared-interpreter]`                           | one `@ReplyInterpreter` on two roles → one each                                                                                                                           |
+| `[reply-interpreter.no-interpret-method]`                | a code interpreter without `interpret` → add it                                                                                                                           |
+| `[application.in-memory-pauses]`                         | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                                                        |
+| `PauseAnswererError`                                     | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
+| `IncompatibleResumeError`                                | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls
 

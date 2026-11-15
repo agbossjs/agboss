@@ -27,6 +27,7 @@ import type {
   DecisionError,
   ExecutionLeaseLostError,
   ExpiryHandlerError,
+  WorkingCalendarError,
   PauseExpiredError,
 } from "../../src/index.js";
 
@@ -99,6 +100,7 @@ describe("#941: the pause deadline's errors", () => {
     expectTypeOf<PauseExpiredError["code"]>().toExtend<StepFailedError["code"]>();
     expectTypeOf<PauseExpiredError["code"]>().toExtend<PaidStepError["code"]>();
     expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler">();
+    expectTypeOf<WorkingCalendarError["code"]>().toEqualTypeOf<"pause.working-calendar">();
   });
 });
 

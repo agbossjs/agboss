@@ -111,6 +111,10 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@PauseListener({ name: "back-office-pause-listener" })',
     "async onPauseClosed(): Promise<void>",
   ),
+  WorkingCalendar: statefulClass(
+    '@WorkingCalendar({ name: "office-working-calendar" })',
+    "async addWorkingTime(): Promise<void>",
+  ),
   ModelProvider: statefulClass(
     '@ModelProvider({ name: "local-model-provider", description: "d", serves: [/^local\\//], baseUrl: "http://localhost" })',
     "async invoke(): Promise<void>",

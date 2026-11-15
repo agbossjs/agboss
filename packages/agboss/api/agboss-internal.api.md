@@ -491,6 +491,7 @@ export interface DescribedApplication {
     // (undocumented)
     readonly warnings: readonly string[];
     readonly workflows: readonly string[];
+    readonly workingCalendar?: string;
 }
 
 // @public
@@ -517,6 +518,8 @@ export interface DescribedChannel {
     readonly className: string;
     readonly expiresIn?: number;
     readonly implementation?: string;
+    readonly isExpiresInWorking?: true;
+    readonly isRemindBeforeWorking?: true;
     // (undocumented)
     readonly isRole: boolean;
     readonly name: string;
@@ -526,6 +529,7 @@ export interface DescribedChannel {
     readonly remindBefore?: number;
     readonly replyInterpreter?: string;
     readonly tools: readonly string[];
+    readonly workingCalendar?: string;
 }
 
 // @public
@@ -1114,6 +1118,7 @@ export interface GraphDeps<TName extends string> {
     readonly knowledge?: (agent: string) => readonly KnowledgeSource[];
     readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
     readonly lease?: FrameLease | undefined;
+    readonly log?: FrameworkLog | undefined;
     readonly maxSteps: number;
     readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
     // (undocumented)

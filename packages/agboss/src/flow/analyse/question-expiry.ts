@@ -1,7 +1,8 @@
 import type { Class } from "../../components/injection.js";
 import { isExpiresIn } from "../../channels/channel-rules.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import type { Milliseconds } from "../../units/index.js";
+import type { TimeSpan } from "../../units/working-time.js";
+import { isSameSpan, spanText } from "../../units/working-time.js";
 import { NodeKind, StepKind, type FlowPath, type Step } from "../ast.js";
 import { subPathsOf } from "./child-placements.js";
 import type { FlowNode } from "./flow-graph.js";
@@ -15,9 +16,9 @@ import type { AnalysisContext } from "./rules/context.js";
  */
 
 /** Each question class with the `expiresIn` its mentions name (`undefined` for a mention without one). */
-export type QuestionExpiries = ReadonlyMap<Class, readonly (Milliseconds | undefined)[]>;
+export type QuestionExpiries = ReadonlyMap<Class, readonly (TimeSpan | undefined)[]>;
 
-function collect(steps: readonly Step[], found: Map<Class, (Milliseconds | undefined)[]>): void {
+function collect(steps: readonly Step[], found: Map<Class, (TimeSpan | undefined)[]>): void {
   for (const step of steps) {
     if (step.kind === StepKind.Launch) continue;
     if (step.kind === StepKind.To) {
@@ -31,7 +32,7 @@ function collect(steps: readonly Step[], found: Map<Class, (Milliseconds | undef
 
 /** The question mentions of a flow, in path order. */
 export function questionExpiriesOf(flow: readonly FlowPath[]): QuestionExpiries {
-  const found = new Map<Class, (Milliseconds | undefined)[]>();
+  const found = new Map<Class, (TimeSpan | undefined)[]>();
   for (const path of flow) collect(path.steps, found);
   return found;
 }
@@ -40,27 +41,24 @@ export function questionExpiriesOf(flow: readonly FlowPath[]): QuestionExpiries 
 export const expiresInOfQuestion = (
   expiries: QuestionExpiries,
   question: Class,
-): Milliseconds | undefined => expiries.get(question)?.find((value) => value !== undefined);
+): TimeSpan | undefined => expiries.get(question)?.find((value) => value !== undefined);
 
 const nodeOf = (context: AnalysisContext, question: Class): FlowNode | undefined =>
   [...context.graph.nodes.values()].find((node) => node.component === question);
 
-function problemsOf(
-  node: FlowNode,
-  listed: readonly (Milliseconds | undefined)[],
-): RuleViolation[] {
+function problemsOf(node: FlowNode, listed: readonly (TimeSpan | undefined)[]): RuleViolation[] {
   const invalid = listed.flatMap((value) =>
     value === undefined || isExpiresIn(value)
       ? []
       : [
           violation(
             "channel.expires-in-invalid",
-            `${node.name}: expiresIn is ${String(value)} — a deadline is a positive finite duration of at least seconds(1), like hours(4)`,
+            `${node.name}: expiresIn is ${spanText(value)} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(4)`,
             [node.name],
           ),
         ],
   );
-  if (new Set(listed).size < 2) return invalid;
+  if (listed.every((value) => isSameSpan(value, listed[0]))) return invalid;
   const message =
     `${node.name} is asked with different expiresIn — one question is one node, so give every ` +
     "mention the same { expiresIn } (or none, and set it on the role)";

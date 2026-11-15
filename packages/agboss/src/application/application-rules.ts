@@ -24,6 +24,10 @@ import { sharedInterpreterViolations } from "../channels/channel-rules.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { healthCheckRuleViolations } from "../health/health-check.js";
 import { pauseListenerRuleViolations } from "../pause/pause-listener.js";
+import {
+  workingCalendarNameViolations,
+  workingCalendarViolations,
+} from "../calendar/calendar-source.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
 import {
@@ -199,6 +203,8 @@ export function applicationRuleViolations(
     ...keyFieldViolations(options, listedClassesOf(options)),
     ...healthCheckRuleViolations(options),
     ...pauseListenerRuleViolations(options.name, options.providers),
+    ...workingCalendarViolations(options.name, options.workingCalendar, listedClassesOf(options)),
+    ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
     ...stepCapViolations(options),
     ...meshHopsViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),

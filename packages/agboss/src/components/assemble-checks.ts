@@ -1,3 +1,4 @@
+import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class, type Provider } from "./injection.js";
@@ -143,7 +144,10 @@ export const componentClassesOf = (
   rags: readonly Class[],
   created: readonly Class[],
   modules: readonly ProviderModule[],
-  owner?: { readonly providers?: readonly Provider[] },
+  owner?: {
+    readonly providers?: readonly Provider[];
+    readonly workingCalendar?: WorkingCalendarSource;
+  },
 ): Class[] => [
   ...tools.local,
   ...tools.mcp,
@@ -156,6 +160,8 @@ export const componentClassesOf = (
   ...agents.flatMap((a) => a.memoryStrategy ?? []),
   // the application's transport providers (#385): its container creates them on their first call
   ...transportProviderClassesOf(owner?.providers),
+  // the application's default calendar class (#944), created by its container
+  ...(typeof owner?.workingCalendar === "function" ? [owner.workingCalendar] : []),
 ];
 
 /**

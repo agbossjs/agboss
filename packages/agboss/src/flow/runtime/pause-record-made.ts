@@ -9,6 +9,8 @@ import {
 } from "../../infrastructure/pause-record.js";
 import type { PauseChannel, PauseQuestion } from "./pause.js";
 import { plainRecordOf } from "./records.js";
+import { isWorkingDuration } from "../../units/index.js";
+import { amountOf, type TimeSpan } from "../../units/working-time.js";
 
 /** The record a pause step makes, and the branch keys it carries (#337): split from `pause.ts`. */
 
@@ -46,9 +48,20 @@ export function deadlineOf(
   expiresIn: number | undefined,
   now: Date,
 ): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
-  const run = frame.execution.deadline?.at;
   const own =
     expiresIn === undefined ? undefined : new Date(now.getTime() + expiresIn).toISOString();
+  return boundedDeadlineOf(frame, own);
+}
+
+/**
+ * The deadline fields of a pause whose own deadline is `own` (an ISO instant: plain time added, or
+ * the calendar's answer for working time): the smaller of it and its run's. A tie goes to the run.
+ */
+export function boundedDeadlineOf(
+  frame: FrameSpec,
+  own: string | undefined,
+): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
+  const run = frame.execution.deadline?.at;
   if (own === undefined && run === undefined) return {};
   // a tie goes to the run: its deadline has the final word (D8)
   const isRun = run !== undefined && (own === undefined || run <= own);
@@ -74,17 +87,75 @@ export function remindAtOf(
   return remindAt > at.getTime() ? new Date(remindAt).toISOString() : undefined;
 }
 
-/** The record a step would make: a new id, `Pending`, not sent. */
-export function newRecordOf(
+/*
+ * Working time (#944): the calendar is asked for the instant of the deadline, and — when the reminder
+ * is working time too — for the reminder's, from the same start; a plain reminder is subtracted from
+ * the deadline as in #942.
+ */
+
+/** Adds working time to a start: the pause's calendar, asked. */
+export type AddWorkingTime = (from: Date, amount: number) => Promise<Date>;
+
+/** The instant `span` runs out after `from`; the calendar is asked only for working time. */
+export async function instantAfter(span: TimeSpan, from: Date, add: AddWorkingTime): Promise<Date> {
+  return isWorkingDuration(span) ? add(from, amountOf(span)) : new Date(from.getTime() + span);
+}
+
+/** The ISO instant an `expiresIn` runs out after `from`; `undefined` without one. */
+export async function ownDeadlineOf(
+  expiresIn: TimeSpan | undefined,
+  from: Date,
+  add: AddWorkingTime,
+): Promise<string | undefined> {
+  return expiresIn === undefined
+    ? undefined
+    : (await instantAfter(expiresIn, from, add)).toISOString();
+}
+
+/**
+ * The reminder of a pause asked (or extended) at `at` whose deadline is `expiresAt` (after the
+ * run's or the quorum's bound clamped it): kept only strictly between `at` and `expiresAt`.
+ * Working `remindBefore` counts working time before a working `expiresIn` (`calendar.add(at,
+ * expiresIn − remindBefore)`, none — and no calendar call — when that is not positive); it
+ * needs a working `expiresIn` (a calendar cannot subtract): none without one. A plain
+ * `remindBefore` is `expiresAt − remindBefore` as in #942.
+ */
+export async function reminderOf(
+  at: Date,
+  deadline: { readonly expiresAt: string | undefined; readonly expiresIn: TimeSpan | undefined },
+  remindBefore: TimeSpan | undefined,
+  add: AddWorkingTime,
+): Promise<string | undefined> {
+  const { expiresAt, expiresIn } = deadline;
+  if (expiresAt === undefined || remindBefore === undefined) return undefined;
+  if (!isWorkingDuration(remindBefore)) return remindAtOf(expiresAt, remindBefore, at);
+  if (expiresIn === undefined || !isWorkingDuration(expiresIn)) return undefined;
+  const lead = amountOf(expiresIn) - amountOf(remindBefore);
+  if (lead <= 0) return undefined;
+  const remindAt = await add(at, lead);
+  return remindAt.getTime() > at.getTime() && remindAt.toISOString() < expiresAt
+    ? remindAt.toISOString()
+    : undefined;
+}
+
+/** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
+export async function newRecordOf(
   frame: FrameSpec,
   channel: PauseChannel,
   question: PauseQuestion,
   clock: Clock,
-): PauseRecord {
+  add: AddWorkingTime,
+): Promise<PauseRecord> {
   const { execution, step } = frame;
   const now = clock.now();
-  const deadline = deadlineOf(frame, question.expiresIn ?? channel.expiresIn, now);
-  const remindAt = remindAtOf(deadline.expiresAt, channel.remindBefore, now);
+  const expiresIn = question.expiresIn ?? channel.expiresIn;
+  const deadline = boundedDeadlineOf(frame, await ownDeadlineOf(expiresIn, now, add));
+  const remindAt = await reminderOf(
+    now,
+    { expiresAt: deadline.expiresAt, expiresIn },
+    channel.remindBefore,
+    add,
+  );
   return {
     pauseId: newPauseId(),
     tenantId: execution.tenant.tenantId,

@@ -1,3 +1,4 @@
+import { WorkingCalendarError } from "../../calendar/working-calendar.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
@@ -137,7 +138,9 @@ async function askedOrFailed<TAnswer>(
   try {
     return await ask();
   } catch (error) {
-    if (isQuestion && error instanceof DtoValidationError)
+    // a calendar that could not answer (#944): nobody was asked, the agent's step fails
+    const isCalendar = error instanceof WorkingCalendarError;
+    if ((isQuestion && error instanceof DtoValidationError) || isCalendar)
       throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
     // its pause's deadline passed (#941): the whole agent step fails, its spend kept
     if (error instanceof PauseExpirySignal) throw expiryOf(error, state, deps);

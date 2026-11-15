@@ -1,7 +1,7 @@
 import type { McpServerConfig } from "../config/types.js";
 import type { RagConnector, RagRerank, RagTenancy } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Bytes, Milliseconds } from "../units/index.js";
+import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { recordComponent } from "./metadata.js";
@@ -54,10 +54,10 @@ export interface ToolOptions<
   readonly timeout?: Milliseconds;
   /**
    * How long the approval of one call waits for its answer (#941): `expiresIn: hours(4)`, over its
-   * channel role's; at least `seconds(1)`. Only with `channel`. At the deadline the channel's
+   * channel role's; at least `seconds(1)`; `workingHours(4)` counts the calendar's working time (#944). Only with `channel`. At the deadline the channel's
    * `onPauseExpired` decides, or the agent step fails with `PauseExpiredError`.
    */
-  readonly expiresIn?: Milliseconds;
+  readonly expiresIn?: Milliseconds | WorkingDuration;
   /**
    * What a model reads of one result at most, in bytes of UTF-8: `maxResultSize: kilobytes(256)`
    * (#336) — longer is cut with a marker; default `defaults.tools.maxResultSize`, else 128 KB.

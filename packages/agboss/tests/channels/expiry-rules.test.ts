@@ -20,7 +20,16 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
+import {
+  hours,
+  seconds,
+  workingHours,
+  workingMinutes,
+  type Milliseconds,
+  type WorkingDuration,
+} from "../../src/units/index.js";
+import { WorkingWeek, type WorkingCalendarSource } from "../../src/index.js";
+import { TEL_AVIV } from "../calendar/helpers.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
 import { question, start, toQuestion } from "../flow/fixtures/paths.js";
@@ -53,7 +62,11 @@ const violationsOf = async (
 };
 
 /** A question role with `expiresIn` and its channel. */
-function roleWith(name: string, expiresIn: Milliseconds | undefined) {
+function roleWith(
+  name: string,
+  expiresIn: Milliseconds | WorkingDuration | undefined,
+  extra: { readonly workingCalendar?: WorkingCalendarSource } = {},
+) {
   @ChannelRole({
     name,
     description: "d",
@@ -62,6 +75,7 @@ function roleWith(name: string, expiresIn: Milliseconds | undefined) {
     answerer: PauseAnswerer.ThreadOwner,
     maxVisits: 2,
     ...(expiresIn === undefined ? {} : { expiresIn }),
+    ...extra,
   })
   abstract class SomeQuestion extends ChannelOf<SomeQuestion> {}
   @Channel({ name: `${name}-inbox-channel`, description: "d" })
@@ -191,6 +205,53 @@ describe("#941 AC1: a question step's expiresIn", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("#944: two edges with the same working time assemble — equal by kind and amount", async () => {
+    const { role, channel } = roleWith("wsame-question", workingHours(8), {
+      workingCalendar: WorkingWeek.of(TEL_AVIV),
+    });
+
+    await expect(
+      assembles(
+        askingApplication("wsame", role, channel, [
+          { expiresIn: workingHours(2) },
+          { expiresIn: workingMinutes(120) },
+        ]),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("#944: [question.expires-in-conflict]: working time and plain time of the same amount differ", async () => {
+    const { role, channel } = roleWith("wmixed-question", workingHours(8), {
+      workingCalendar: WorkingWeek.of(TEL_AVIV),
+    });
+
+    expect(
+      await violationsOf(
+        askingApplication("wmixed", role, channel, [
+          { expiresIn: workingHours(2) },
+          { expiresIn: hours(2) },
+        ]),
+      ),
+    ).toEqual([expect.objectContaining({ code: "question.expires-in-conflict" })]);
+  });
+
+  it("#944: a working expiresIn under seconds(1) names the step like a plain one", async () => {
+    const { role, channel } = roleWith("wbad-question", hours(1), {
+      workingCalendar: WorkingWeek.of(TEL_AVIV),
+    });
+
+    expect(
+      await violationsOf(
+        askingApplication("wbad", role, channel, [{ expiresIn: workingMinutes(0.01) }]),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        code: "channel.expires-in-invalid",
+        message: expect.stringContaining("of working time"),
+      }),
+    ]);
+  });
+
   it("an expiresIn that is no duration is a flow syntax error at the call", () => {
     const { role } = roleWith("syntax-question", undefined);
     const path = start(PurchaseWorkflowStart).returns(WorkflowStartTextDto);
@@ -259,5 +320,15 @@ describe("#941 AC1: a tool's expiresIn", () => {
         expect.objectContaining({ code: "tool.expires-in-without-channel" }),
       ]),
     );
+  });
+});
+
+describe("#944: the messages name the upper bound", () => {
+  it("a deadline past five years says so", async () => {
+    const { role, channel } = roleWith("far-question", hours(1));
+    const found = await violationsOf(
+      askingApplication("far", role, channel, [{ expiresIn: hours(5 * 366 * 24 + 1) }]),
+    );
+    expect(found[0]?.message).toContain("at most 5 years");
   });
 });

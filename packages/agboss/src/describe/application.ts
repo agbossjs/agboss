@@ -1,3 +1,5 @@
+import { calendarNameOf } from "../calendar/calendar-source.js";
+import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import {
   implementationLine,
@@ -74,6 +76,8 @@ export interface DescribedApplication {
   /** Its `@PauseListener`s (#940): each pause of the application is told to every one. */
   readonly pauseListeners: readonly DescribedPauseListener[];
   readonly warnings: readonly string[];
+  /** The name of its default calendar for working time (#944): `working-week` or its `@WorkingCalendar`'s; absent = none. */
+  readonly workingCalendar?: string;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
 }
@@ -153,6 +157,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
       return meta === undefined ? [] : [{ name: meta.name, allowAnswering: meta.allowAnswering }];
     }),
     warnings: applicationWarningsOf(assembled).map(warningText),
+    ...calendarFieldOf(assembled.application),
     ...(assembled.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: assembled.maxConcurrentSteps }),
@@ -227,4 +232,10 @@ export function applicationLines(described: DescribedApplication): string[] {
     stepCapLine(described),
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];
+}
+
+/** `{ workingCalendar: name }` of the application's default calendar; nothing without one (#944). */
+function calendarFieldOf(application: Class): { readonly workingCalendar?: string } {
+  const source = requireApplication(application, "describe").options.workingCalendar;
+  return source === undefined ? {} : { workingCalendar: calendarNameOf(source) };
 }

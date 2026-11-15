@@ -1,13 +1,22 @@
 import { isExpiresIn } from "../channels/channel-rules.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import { remindAtOf } from "../flow/runtime/pause-record-made.js";
+import {
+  instantAfter,
+  reminderOf,
+  type AddWorkingTime,
+} from "../flow/runtime/pause-record-made.js";
+import type { PauseChannel } from "../flow/runtime/pause.js";
+import type { FrameSpec } from "../flow/context/frame.js";
+import { workingTimeAfter } from "../calendar/calendar-call.js";
+import { isWorkingDuration } from "../units/index.js";
+import { spanText } from "../units/working-time.js";
+import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
-import type { Milliseconds } from "../units/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
 import type { AnswerParts } from "./resume.js";
@@ -40,10 +49,10 @@ export interface ExtendParts extends Pick<AnswerParts, "owned"> {
   readonly deps: AppDeps;
 }
 
-/** How long before its deadline the pause's channel reminds (#942); `undefined`: never (or its channel is gone). */
-function remindBeforeOf(deps: AppDeps, pause: PauseRecord): Milliseconds | undefined {
+/** The pause's channel as its workflow has it now: its reminder (#942) and calendar (#944); `undefined`: it is gone. */
+function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined {
   try {
-    return ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel).remindBefore;
+    return ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
   } catch {
     // a channel this workflow no longer has: nobody to remind
     return undefined;
@@ -66,7 +75,7 @@ function checked(request: unknown): ExtendPauseRequest {
     reject([
       {
         path: ".expiresIn",
-        reason: `${String(expiresIn)} is no duration — a positive finite one of at least seconds(1), like hours(24)`,
+        reason: `${spanText(expiresIn)} is no duration — a positive finite one of at least seconds(1) and at most 5 years, like hours(24) or workingHours(8)`,
       },
     ]);
   return { pauseId, expiresIn };
@@ -102,6 +111,52 @@ async function assertOpen(parts: ExtendParts, pause: PauseRecord): Promise<void>
 }
 
 /**
+ * A plain `expiresIn` for a pause whose role reminds in working time is refused (#944): a calendar
+ * cannot subtract — the run-time twin of `[channel.remind-before-working-without-working-expiry]`.
+ */
+function assertSameKind(request: ExtendPauseRequest, channel: PauseChannel | undefined): void {
+  if (isWorkingDuration(channel?.remindBefore) && !isWorkingDuration(request.expiresIn))
+    reject([
+      {
+        path: ".expiresIn",
+        reason: "this role reminds in working time: extend it with workingHours / workingMinutes",
+      },
+    ]);
+}
+
+/**
+ * The pause's calendar as the extension asks it (#944), in the pause's frame — its execution's
+ * tenant and fields — read from the stores only when working time is asked. A pause whose channel
+ * has no calendar now (a deploy took it away) is refused working time.
+ */
+function calendarAdder(
+  parts: ExtendParts,
+  pause: PauseRecord,
+  channel: PauseChannel | undefined,
+): AddWorkingTime {
+  const { deps, clock } = parts;
+  let framed: Promise<FrameSpec> | undefined;
+  const frameOf = async (): Promise<FrameSpec> =>
+    pauseFrameOf(
+      deps,
+      pause,
+      await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId)),
+    );
+  return async (from, amount) => {
+    if (channel?.calendar === undefined)
+      return reject([
+        {
+          path: ".expiresIn",
+          reason: "this pause's channel has no working calendar: extend it with hours / minutes",
+        },
+      ]);
+    framed ??= frameOf();
+    const site = { calendar: channel.calendar, tenantId: pause.tenantId, role: pause.channel };
+    return workingTimeAfter({ ...site, frame: await framed, clock, log: deps.log }, from, amount);
+  };
+}
+
+/**
  * How many times an extension reads and tries before it gives up with `PauseExtensionContendedError`.
  * A lost compare-and-set means another writer moved the deadline in the same instant; each retry
  * re-reads, so losing again needs yet another writer to win in between. Eight lost rounds in a row
@@ -129,10 +184,18 @@ export const extendPauseOf =
     await answeredByOf(parts, pause, call);
     for (let attempt = 1; attempt <= MAX_EXTEND_ATTEMPTS; attempt += 1) {
       await assertOpen(parts, pause);
+      const channel = channelOf(parts.deps, pause);
+      assertSameKind(request, channel);
       const now = parts.clock.now();
-      const expiresAt = new Date(now.getTime() + request.expiresIn).toISOString();
+      const add = calendarAdder(parts, pause, channel);
+      const expiresAt = (await instantAfter(request.expiresIn, now, add)).toISOString();
       const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
-      const remindAt = remindAtOf(expiresAt, remindBeforeOf(parts.deps, pause), now);
+      const remindAt = await reminderOf(
+        now,
+        { expiresAt, expiresIn: request.expiresIn },
+        channel?.remindBefore,
+        add,
+      );
       const extended = await parts.pauses.extendByTenantIdAndPauseId(
         tenantId,
         pause.pauseId,
