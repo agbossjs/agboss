@@ -30,6 +30,22 @@ export interface CallFacts extends StoreCallLimit {
   readonly operation: string;
 }
 
+/**
+ * `value` as an `Error`: itself, or an `Error` with its text and itself as the cause. A value that
+ * cannot be turned into text (a `toString` that throws) is still an error, never a throw: the call
+ * that rejected with it must settle.
+ */
+export function errorOf(value: unknown): Error {
+  if (value instanceof Error) return value;
+  let text: string;
+  try {
+    text = String(value);
+  } catch {
+    text = "a value that cannot be read as text";
+  }
+  return new Error(text, { cause: value });
+}
+
 /** Runs a report (a log line, a counter): one that throws never changes how the call ends. */
 function quietly(report: () => void): void {
   try {
@@ -56,8 +72,10 @@ function reportTimeout(
   const { source } = error;
   const { contract, operation, kind } = facts;
   quietly(() =>
+    // Stryker disable next-line OptionalChaining: equivalent: with no log `parts.log.warn` throws a TypeError, which `quietly` swallows as the missing log does
     parts.log?.warn("store.call-timeout", `${error.message} (${how})`, { executionId, tenantId }),
   );
+  // Stryker disable next-line OptionalChaining: equivalent: with no counter `parts.timedOut.add` throws a TypeError, which `quietly` swallows as the missing counter does
   quietly(() => parts.timedOut?.add(1, { contract, operation, source, kind }));
 }
 
@@ -87,10 +105,10 @@ export async function failure(
   if (error instanceof StoreCallTimeoutError && error.source === StoreOutcomeSource.Command)
     reportTimeout(parts, facts, error);
   const { lease } = facts;
-  if (lease === undefined || !(error instanceof StoreOutcomeUnknownError))
-    return error instanceof Error ? error : new Error(String(error), { cause: error });
+  if (lease === undefined || !(error instanceof StoreOutcomeUnknownError)) return errorOf(error);
   if (error.source !== StoreOutcomeSource.Framework)
     quietly(() =>
+      // Stryker disable next-line OptionalChaining: equivalent: with no log `parts.log.warn` throws a TypeError, which `quietly` swallows as the missing log does
       parts.log?.warn(
         "store.outcome-unknown",
         `${error.message} (${facts.kind} call: the tree is handed over, the next holder reconciles it)`,
@@ -102,6 +120,7 @@ export async function failure(
     await lease.abandon?.(error);
   } catch (abandonError) {
     quietly(() =>
+      // Stryker disable next-line OptionalChaining: equivalent: with no log `parts.log.warn` throws a TypeError, which `quietly` swallows as the missing log does
       parts.log?.warn(
         "execution.lease-abandon-failed",
         `abandoning the lease failed (${abandonError instanceof Error ? abandonError.message : String(abandonError)}); it expires in its store`,

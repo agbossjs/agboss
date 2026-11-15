@@ -16,6 +16,7 @@
     "vitest.mutation-a2a-client.config.ts",
     "vitest.mutation-a2a-direct.config.ts",
     "vitest.mutation-stream.config.ts",
+    "vitest.mutation-store-bound.config.ts",
     ".agboss/types.d.ts"
   ]
 }
