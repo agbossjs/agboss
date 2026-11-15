@@ -61,6 +61,8 @@ export const told = {
   expiryAsked: [] as ChannelAsk<ExtendManagerQuestion>[],
   /** The errors executions failed with. */
   errors: [] as Error[],
+  /** Every close the manager's channel was told, with the pause it names (#946). */
+  closed: [] as { readonly pauseId: string; readonly reason: string }[],
 };
 
 export function resetTold(): void {
@@ -70,6 +72,7 @@ export function resetTold(): void {
   told.recorded.length = 0;
   told.expiryAsked.length = 0;
   told.errors.length = 0;
+  told.closed.length = 0;
 }
 
 @ChannelRole({
@@ -106,6 +109,7 @@ export class ExtendManagerChannel extends ExtendManagerQuestion {
 
   override onPauseClosed(event: ChannelPauseClosedEvent<ExtendManagerQuestion>): Promise<void> {
     told.other.push(`channel closed ${event.reason}`);
+    told.closed.push({ pauseId: event.pauseId, reason: event.reason });
     return Promise.resolve();
   }
 

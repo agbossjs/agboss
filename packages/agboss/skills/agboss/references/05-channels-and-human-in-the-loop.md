@@ -588,6 +588,19 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   another tenant's pause is `UnknownPauseError`. An extension and the expiry look at one tick: the
   store lets one win. A channel that overrides any of `onPauseClosed`, `onPauseAnswerNotTaken`,
   `onPauseExtended`, `onPauseExpiring`, `onPauseJoinFailed` has a mailbox.
+- **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })`
+  (`ownerId` for a thread owner's pause; `PauseCallerOptions`, as `extendPause`) moves an open pause to another
+  addressee of the same channel — no other role, no new deadline, the agent and the step do not run again —
+  and returns `PauseReassignment` (`pauseKey` only: the new `pauseId` is a capability, given to the channel's
+  `send` and to a `@PauseListener({ allowAnswering })`, never to the caller or a log). The channel's `send`
+  gets a new `ChannelAsk.pauseId`, `ChannelAsk.assignee` and `ChannelAsk.replaces` (`{ pauseId }`: the old
+  message; both absent on a first send) and its `onPauseClosed` hears `reason: reassigned` for the old one
+  (`PauseClosedReason.Reassigned`) — in no fixed order: edit the old message from `send`, or from the notice.
+  The old id gives `PauseClosedError` (`reassigned`); a closed pause or one past its deadline gives
+  `PauseClosedError`, an `assignee` that is no key's text `DtoValidationError` (`dto: "ReassignPauseRequest"`);
+  two reassignments, or a reassignment and an answer, at once: exactly one wins. A new `send` that
+  fails or never happens (the instance died) is made up by another instance's pause timers within a minute
+  (at-least-once: deduplicate by the new `pauseId`). A new `send` that returns `ChannelOutcome.decided(…)` answers the replacement at once, once.
 - **Deadlines in working time** (#944): `expiresIn`, `remindBefore` and `extendPause`'s `expiresIn` take
   `workingHours(n)` / `workingMinutes(n)` (`@agboss/core/units`) beside `hours(n)` — counted by a calendar:
   `@Application({ workingCalendar })`, a `@ChannelRole({ workingCalendar })` over it. `WorkingWeek.of({ timeZone,

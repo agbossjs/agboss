@@ -179,6 +179,26 @@ export interface PauseExtension {
   readonly previousExpiresAt: string;
 }
 
+/** What a reassignment asks (#946). */
+export interface ReassignPauseRequest {
+  /** The open pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
+  readonly pauseId: string;
+  /**
+   * Who the same channel asks now, as the channel reads it (a Slack user, an address, a queue): a key's
+   * text (#589), non-empty. The channel's one implementation routes on it.
+   */
+  readonly assignee: string;
+}
+
+/**
+ * What a reassignment did: the new pause by its key, never its id — the new id is a capability, it goes
+ * to the channel only (`ChannelAsk.pauseId` of the new send) and answers the new pause.
+ */
+export interface PauseReassignment {
+  /** Correlation, answers nothing: `pauseKeyOf(tenantId, newPauseId)`. */
+  readonly pauseKey: string;
+}
+
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
 export interface CancelOptions {
   readonly tenantId?: string | undefined;
@@ -305,6 +325,22 @@ export interface App {
    * `PauseExtensionContendedError` (`pause.extension-contended`; nothing changed, retry is safe).
    */
   extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
+  /**
+   * Moves an open pause to another addressee (#946): the same channel is asked again (`send`) with a
+   * new pause id, `ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), and told
+   * `onPauseClosed(Reassigned)` for the old message — in no fixed order. The old id answers nothing any
+   * more (`PauseClosedError`, reason `reassigned`); the deadline is kept; the agent and the step do not
+   * run again. By whoever may answer the pause (as `extendPause`). Refused: a pause that is closed or past
+   * its deadline (`PauseClosedError`, of two reassignments, or a reassignment and an answer, at the same
+   * moment exactly one wins), an `assignee` that is no key's text (`DtoValidationError`, `dto:
+   * "ReassignPauseRequest"`); another tenant's or an unknown pause is `UnknownPauseError`. The new id
+   * is returned to no caller: only its key. The new send is made by this call; when the instance dies
+   * first, another instance's timers send it.
+   */
+  reassignPause(
+    request: ReassignPauseRequest,
+    options?: PauseCallerOptions,
+  ): Promise<PauseReassignment>;
   /**
    * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
    * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).

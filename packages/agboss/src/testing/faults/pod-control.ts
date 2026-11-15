@@ -9,9 +9,9 @@ import { waitOf } from "../../infrastructure/clock.js";
 import type { FaultBusinessRows } from "./fault-stores.js";
 import { FaultExpiringWorkflowStart, FaultPauseWorkflowStart } from "./fixture/pause.workflow.js";
 import { FaultBatchWorkflowStart, FaultOrderWorkflowStart } from "./fixture/order.workflow.js";
-import { sendToTest } from "./fixture/pod-link.js";
 import type { HeldStoreState } from "./held-stores.js";
 import type { HoldPoints } from "./hold-points.js";
+import { calledDone, told } from "./pod-calls.js";
 import { pauseStateOf } from "./pod-pause-state.js";
 import { readStoreClock } from "./store-clock-probe.js";
 import type { StoreOutageMode } from "./store-outage.js";
@@ -66,31 +66,6 @@ export async function factsOf(
     }),
   );
   return { records, trees, businessRows: await parts.businessRows.committed(app) };
-}
-
-/** What a test reads of a finished `execute` or `resume`; a rest lists the ids of its pauses (#959). */
-const outcomeOf = (done: ExecutionOutput) => ({
-  status: done.status,
-  executionId: done.executionId,
-  output: done.output,
-  finish: done.finish?.name,
-  pauseIds: done.pending.flatMap((pause) => (pause.pauseId === undefined ? [] : [pause.pauseId])),
-});
-
-/** What a test is told of a call that ended: its outcome or its failure, under the call's tag. */
-function told(tag: string, call: Promise<ExecutionOutput>, failed: string): void {
-  call.then(
-    (done) => {
-      sendToTest({ kind: "event", event: { type: "finished", tag, ...outcomeOf(done) } });
-    },
-    (error: unknown) => {
-      const name = error instanceof Error ? error.name : typeof error;
-      sendToTest({
-        kind: "event",
-        event: { type: failed, tag, error: name, message: String(error) },
-      });
-    },
-  );
 }
 
 /** The fixture's starts of the single-order workflows; another is the order's. */
@@ -173,41 +148,11 @@ function readDone(app: App, command: PodCommand): Promise<unknown> | undefined {
   }
 }
 
-/** `app.cancel` of a thread in the background: its end is an event under the call's tag. */
-function cancelled(app: App, tag: string, threadId: string): void {
-  app.cancel(threadId).then(
-    (done) => {
-      sendToTest({ kind: "event", event: { type: "cancelled", tag, ...done } });
-    },
-    (error: unknown) => {
-      sendToTest({
-        kind: "event",
-        event: { type: "cancel-failed", tag, error: error instanceof Error ? error.name : "" },
-      });
-    },
-  );
-}
-
 /** Begins the store outage of `mode`, or ends it (`null`). */
 function outageSet(parts: PodParts, mode: StoreOutageMode | null): null {
   if (mode === null) parts.heldStores.outage.end();
   else parts.heldStores.outage.begin(mode);
   return null;
-}
-
-/** A resume (#959) or a cancel (#941) of a pause or a thread, started in the background; its tag. */
-function calledInBackground(
-  app: App,
-  command: Extract<PodCommand, { readonly op: "resume" | "cancel" }>,
-): string {
-  if (command.op === "cancel") cancelled(app, command.tag, command.threadId);
-  else
-    told(
-      command.tag,
-      app.resume({ pauseId: command.pauseId, decision: { approved: true } }),
-      "resume-failed",
-    );
-  return command.tag;
 }
 
 /** Does `command` and gives what its reply carries. */
@@ -216,6 +161,8 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
   if (held !== undefined) return held.result;
   const read = readDone(parts.app, command);
   if (read !== undefined) return read;
+  const called = calledDone(parts.app, command);
+  if (called !== undefined) return called;
   switch (command.op) {
     case "start":
       return started(parts.app, command.tag, command.workflow, command.orders);
@@ -223,9 +170,6 @@ export async function commandDone(parts: PodParts, command: PodCommand): Promise
       return factsOf(parts, command.rootExecutionIds);
     case "outage":
       return outageSet(parts, command.mode);
-    case "resume":
-    case "cancel":
-      return calledInBackground(parts.app, command);
     case "close":
       await parts.app.close(
         command.timeout === undefined ? {} : { timeout: waitOf(command.timeout) },

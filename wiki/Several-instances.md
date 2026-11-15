@@ -1151,6 +1151,16 @@ another application on a shared store is passed. A look that fails is `pause.rem
 (`LogLevel.Warn`, with the tenant and the root execution); the others and the next tick go on. An extension
 (`app.extendPause`) writes `remindAt` again, from the new deadline, in the same compare-and-set as the deadline.
 
+**The re-send look** (#946) is a third look of the same tick: `findPendingUnsentReassignedBefore(now − 30 s, 50, after)`
+(a keyset cursor, as the reminder look) reads the replacements of a reassignment (`app.reassignPause`) that are still `Pending` and unsent 30 seconds
+after they were made — the instance that reassigned died, or its channel failed, between the store's transaction
+and the new message — and each is sent again by the workflow of its tree, in the pause's frame, with
+`ChannelAsk.replaces` and `assignee` as the first time, then marked sent (`markSent`'s compare-and-set keeps one
+`opened`). No lease is taken and no tree moves. `send` is at-least-once — two instances' looks, or a look and
+the call itself, may ask twice: the channel deduplicates by the new `pauseId`. A pause of another application
+on a shared store is passed; a send that fails is `pause.resend-failed` (`LogLevel.Warn`), the others and the
+next tick go on, and a replacement already in flight on this instance is not started again.
+
 ## The audit log (#501)
 
 A takeover of a tree's lease is silent for the tree — a recovery goes on from its last checkpoint

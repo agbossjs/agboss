@@ -20,6 +20,28 @@ import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
  * one interrupt per waiting step — and the pause record each one carries.
  */
 
+/**
+ * The pause that is live now for the pause an interrupt names (#946): a reassigned pause is moved
+ * to its replacement (`reassignedTo`), which may be moved again — the checkpoint keeps the first id
+ * while the live pause is the last of the chain. The record itself when it was never reassigned; when
+ * a link is missing (a record removed), the last record found; `undefined` only for an id no record has.
+ * A chain that loops (never written) ends at the first record seen again.
+ */
+export function livePauseOf(
+  byId: ReadonlyMap<string, PauseRecord>,
+  pauseId: string,
+): PauseRecord | undefined {
+  const seen = new Set<string>();
+  let current = byId.get(pauseId);
+  while (current?.reassignedTo !== undefined && !seen.has(current.pauseId)) {
+    seen.add(current.pauseId);
+    const next = byId.get(current.reassignedTo);
+    if (next === undefined) break;
+    current = next;
+  }
+  return current;
+}
+
 /** One interrupt of the pending superstep: LangGraph's id and the pause it is. */
 export interface WaitingInterrupt {
   readonly interruptId: string;
@@ -99,7 +121,7 @@ export async function waitingPausesOf(
   const records = await pauses.findAllByTenantIdAndRootExecutionId(tree.tenantId, tree.runId);
   const byId = new Map(records.map((record) => [record.pauseId, record]));
   return interrupts.flatMap(({ pauseId }) => {
-    const pause = byId.get(pauseId);
+    const pause = livePauseOf(byId, pauseId);
     return pause?.status === PauseStatus.Pending ? [waitingPauseOf(pause)] : [];
   });
 }
@@ -131,11 +153,14 @@ export async function openPausesOf(
   pass: PassPauses = {},
 ): Promise<(interruptValue: unknown) => boolean> {
   const records = await pauses.findAllByTenantIdAndRootExecutionId(tree.tenantId, tree.runId);
+  const byId = new Map(records.map((record) => [record.pauseId, record]));
   const open = new Set(
     records.filter((record) => isOpenPause(record, pass)).map((record) => record.pauseId),
   );
   return (interruptValue) => {
     const carried = PauseInterrupt.safeParse(interruptValue);
-    return carried.success && open.has(carried.data.pauseId);
+    // a reassigned approval's loop still sleeps: it waits at the live pause of its chain (#946)
+    const live = carried.success ? livePauseOf(byId, carried.data.pauseId) : undefined;
+    return live !== undefined && open.has(live.pauseId);
   };
 }

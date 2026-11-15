@@ -1,6 +1,6 @@
 /**
  * #1093: a script that only calls a public method — `node --import tsx cancel-process.ts cancel
- * <threadId>`, or `resume <pauseId>` or `extend <pauseId>` — and prints its result. Nothing else keeps this process alive: if the call's own
+ * <threadId>`, or `resume <pauseId>`, `extend <pauseId>` or `reassign <pauseId>` — and prints its result. Nothing else keeps this process alive: if the call's own
  * waits are unref'd timers, Node exits with code 13 in the middle of it.
  */
 import { hours } from "../../../../src/units/index.js";
@@ -16,6 +16,12 @@ if (operation === "extend") {
     { answeredBy: "the operator" },
   );
   process.stdout.write(`result extended=${String(extension.pauseKey.length > 0)}\n`);
+} else if (operation === "reassign") {
+  const moved = await app.reassignPause(
+    { pauseId: id, assignee: "deputy-3" },
+    { answeredBy: "the operator" },
+  );
+  process.stdout.write(`result reassigned=${String(moved.pauseKey.length > 0)}\n`);
 } else if (operation === "cancel") {
   process.stdout.write(`result ${JSON.stringify(await app.cancel(id))}\n`);
 } else {

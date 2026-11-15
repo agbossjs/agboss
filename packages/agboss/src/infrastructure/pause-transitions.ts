@@ -34,6 +34,8 @@ import {
 export interface PauseChange {
   readonly pause: PauseRecord;
   readonly notices: readonly PlannedNotice[];
+  /** A pause the same transaction makes (#946: a reassignment's replacement), `Pending` and unsent. */
+  readonly inserted?: PauseRecord;
 }
 
 /** The notice of `kind` to each receiver of it, due at `at`. */
@@ -59,7 +61,7 @@ const closedNotices = (
   });
 
 /** What closing a pending pause does: its notice is written only when the pause is `isSent`. */
-const closing = (
+export const closing = (
   before: PauseRecord,
   after: PauseRecord,
   at: Date,
@@ -70,7 +72,7 @@ const closing = (
 });
 
 /** Whether a pending pause takes an answer at `at`: no deadline, or one after it (I2). */
-const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
+export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending &&
   (pause.expiresAt === undefined || pause.expiresAt > at.toISOString());
 

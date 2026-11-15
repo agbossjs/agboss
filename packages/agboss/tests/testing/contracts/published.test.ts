@@ -46,7 +46,7 @@ const CASES_BEFORE: Readonly<Record<string, number>> = {
   "execution record contract": 4,
   "execution tree contract": 6,
   "mesh request contract": 4,
-  "paused execution contract": 12,
+  "paused execution contract": 13,
   "rate limit contract": 8,
 };
 

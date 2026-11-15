@@ -675,6 +675,7 @@ export interface App {
     readonly name: string;
     outboundCallsOf(tree: ExecutionTreeQuery): Promise<readonly OutboundCallRecord[]>;
     pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
+    reassignPause(request: ReassignPauseRequest, options?: PauseCallerOptions): Promise<PauseReassignment>;
     resolve<T>(token: Class<T>): T;
     resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
     readonly textStart: Class | undefined;
@@ -1092,7 +1093,11 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
 
 // @public
 export interface ChannelAsk<TRole> {
+    readonly assignee?: string;
     readonly pauseId: string;
+    readonly replaces?: {
+        readonly pauseId: string;
+    };
     readonly value: ChannelQuestionOf<TRole>;
 }
 
@@ -6362,10 +6367,12 @@ export abstract class PausedExecutionRepository {
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
+    abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
+    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReplacement, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -6562,6 +6569,11 @@ export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly 
 }
 
 // @public
+export interface PauseReassignment {
+    readonly pauseKey: string;
+}
+
+// @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
     // @deprecated (undocumented)
@@ -6569,6 +6581,7 @@ export interface PauseRecord extends PauseSite {
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
+    readonly assignee?: string;
     readonly boundAt?: string;
     readonly channel: string;
     readonly closedFirst?: PauseFirstClose;
@@ -6578,6 +6591,8 @@ export interface PauseRecord extends PauseSite {
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
+    readonly reassignedFrom?: string;
+    readonly reassignedTo?: string;
     readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
@@ -7243,6 +7258,12 @@ export abstract class RateLimitRepository {
     abstract ping(): Promise<void>;
     abstract release(rateLimitLease: RateLimitLease): Promise<void>;
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
+export interface ReassignPauseRequest {
+    readonly assignee: string;
+    readonly pauseId: string;
 }
 
 // @public
@@ -8067,6 +8088,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     // (undocumented)
+    findPendingUnsentReassignedBefore(...args: Parameters<PausedExecutionRepository["findPendingUnsentReassignedBefore"]>): Promise<readonly PauseRecord[]>;
+    // (undocumented)
     markSentByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["markSentByTenantIdAndPauseId"]>): Promise<boolean>;
     // (undocumented)
     markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
@@ -8074,6 +8097,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     noticeOnceByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["noticeOnceByTenantIdAndPauseId"]>): Promise<boolean>;
     // (undocumented)
     ping(): Promise<void>;
+    // (undocumented)
+    reassignByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["reassignByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
     // (undocumented)
     remindByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["remindByTenantIdAndPauseId"]>): Promise<boolean>;
     renewNotice(...args: Parameters<PausedExecutionRepository["renewNotice"]>): Promise<PauseNoticeClaim | undefined>;
@@ -10902,6 +10927,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "expireByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "closeUntakenByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "extendByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "reassignByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findPendingUnsentReassignedBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "remindByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "noticeOnceByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "markTakenByTenantIdAndPauseId".

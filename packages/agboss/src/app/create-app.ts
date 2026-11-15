@@ -42,6 +42,7 @@ import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { lazyReplyAnswering, resumeOf } from "./resume.js";
 import { extendPauseOf } from "./pause-extension.js";
+import { reassignPauseOf, resendOf, type ResendReassigned } from "./pause-reassignment.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
@@ -94,6 +95,8 @@ export interface BuiltApp extends TreeControl {
   readonly closeOrphan: CloseOrphanTree;
   /** Expires the due pauses of one of its resting trees (the expiry look, #941). */
   readonly expire: ExpireRoot;
+  /** Asks the channel again for a reassigned pause of one of its trees, and marks it sent (the re-send look, #946). */
+  readonly resend: ResendReassigned;
 }
 
 /** One workflow of an application over already assembled parts (a profile applied). */
@@ -144,6 +147,8 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
+  const resume = resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf });
+  const resends = { pauses, clock, deps, resume, ownerOf };
   const app: WorkflowApp = {
     name: deps.config.name,
     version: deps.config.version,
@@ -213,8 +218,9 @@ export async function buildApp(
     // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
     cancel: async (threadId, options = {}) =>
       (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
-    resume: resumeOf({ ...answers, ...replies, admit, accepting, moves, ownerOf }),
+    resume,
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
+    reassignPause: reassignPauseOf({ ...resends, owned, accepting }),
     close: async () => {
       closed = true;
       if (released) return;
@@ -241,6 +247,7 @@ export async function buildApp(
     recover: recoverRootOf({ deps, moves, current, policy }),
     closeOrphan: closeOrphanTreeOf({ deps, trees, clock, leases }),
     expire: expireRootOf({ deps, moves, current, policy }),
+    resend: resendOf(resends),
     ...byId,
   };
 }

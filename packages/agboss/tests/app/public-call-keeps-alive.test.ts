@@ -107,4 +107,24 @@ describe("#1093: a pending public call keeps the process alive", () => {
     expect(child.stdout).toContain("result extended=true");
     expect(child.status).toBe(0);
   }, 60_000);
+
+  // #946: the reassignment's transaction is as slow, and its new send follows it
+  it("a script that only calls app.reassignPause prints the result and exits 0", async () => {
+    const file = join(folder, "held-reassign.sqlite");
+    const app = await createAppWith(HeldCancelApplication, {
+      env: "dev",
+      processEnv: { HELD_CANCEL_SQLITE_PATH: file },
+    });
+    opened.push(app);
+    const paused = await execute(app, ShortExpiryWorkflowStart, { orderId: "o-3" });
+    const [pause] = await app
+      .resolve(PausedExecutionRepository)
+      .findAllByTenantIdAndRootExecutionId("default", paused.executionId);
+
+    const child = await runScript(file, "reassign", pause?.pauseId ?? "");
+
+    expect(child.stderr).not.toContain("Error");
+    expect(child.stdout).toContain("result reassigned=true");
+    expect(child.status).toBe(0);
+  }, 60_000);
 });

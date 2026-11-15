@@ -20,7 +20,8 @@ CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at)
 CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_remind ON pauses (status, remind_at);
 CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, channel);
-CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;`;
+CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;
+CREATE INDEX IF NOT EXISTS pauses_pending_unsent ON pauses (seq) WHERE status = 'pending' AND is_sent = 0;`;
 
 export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
 

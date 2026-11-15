@@ -7,7 +7,7 @@ import type { PauseDeliveredEvent } from "../pause/notice-events.js";
  * optional notices (#940).
  */
 export interface ChannelSender {
-  send(ask: ChannelSenderAsk): Promise<unknown>;
+  send(ask: ChannelSenderSend): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
   onPauseExtended?(event: ChannelSenderExtended): Promise<void>;
@@ -21,6 +21,12 @@ export interface ChannelSender {
 export interface ChannelSenderAsk {
   readonly pauseId: string;
   readonly value: unknown;
+}
+
+/** The ask a channel is sent: the pause's id and question — and, on a reassigned send, who it is for and what it replaces (#946). */
+export interface ChannelSenderSend extends ChannelSenderAsk {
+  readonly assignee?: string;
+  readonly replaces?: { readonly pauseId: string };
 }
 
 /** A close as the framework builds it, typed per role by the channel's own signature. */

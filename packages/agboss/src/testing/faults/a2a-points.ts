@@ -89,6 +89,7 @@ export const PAUSE_METHODS: Readonly<Record<string, StoreMethod>> = {
   expireByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseExpire),
   closeUntakenByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseCloseUntaken),
   extendByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseExtend),
+  reassignByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseReassign),
   remindByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseRemind),
   noticeOnceByTenantIdAndPauseId: onPause(StoreHoldPoint.PauseNoticeOnce),
   claimNoticesDue: {

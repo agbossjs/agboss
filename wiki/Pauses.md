@@ -508,7 +508,7 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 | `TreeEnded`       | its tree finished or failed before an answer                           | `Cancelled` |
 | `Expired`         | its deadline passed and the channel did not decide (`PauseExpiration.fail()`, or no handler), or a run's deadline bound it | `Cancelled` |
 | `DecidedOnExpiry` | its deadline passed and the channel decided (`PauseExpiration.decide(…)`) — [A deadline for the answer](#a-deadline-for-the-answer-941) | `Resolved` → `Taken` |
-| `Reassigned`      | **TODO (#946, not on main yet):** the pause was moved to another addressee; the value is reserved | — |
+| `Reassigned`      | the pause was moved to another addressee (`app.reassignPause`, [Reassigning a pause](#reassigning-a-pause-to-someone-else-946)); its replacement waits on | `Cancelled` |
 
 What a caller of `app.resume` is told for a pause that is closed is the same list as `PauseClosedReason`:
 `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned` — a pause whose deadline
@@ -1190,12 +1190,78 @@ that won, and `previousExpiresAt` is the deadline that write replaced. A store o
 `extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
 instance, an expiry look on any instance, all read the new deadline from the record.
 
-### Reassigning a pause to someone else
+### Reassigning a pause to someone else (#946)
 
-> **TODO (#946, not on main yet):** `PauseResolution.Reassigned` and `PauseClosedReason.Reassigned` are
-> reserved above; the section — moving an open pause to another addressee by `assignee`, what the old
-> channel and the listeners hear, what the old answerer's `app.resume` gets — is written when #946
-> merges.
+The approver is on leave: the request must go to a deputy, and the agent or the step must not run again.
+`await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })` — the `ownerId` for a thread
+owner's pause: whoever may answer may reassign; `PauseCallerOptions`, as `extendPause` — moves the open pause
+to another addressee of **the same channel** and returns `PauseReassignment { pauseKey }`, the new pause's key.
+It is the same role's implementation that routes on `assignee` (a Slack user, an address, a queue): no other
+role, no other implementation, no change of the injection (`[di.ambiguous-implementation]` stays: a channel
+and its addressee are one thing), and no new deadline — the replacement keeps the deadline, its source and
+its reminder; extend it separately ("An extension" above).
+
+What the channel hears, in no fixed order:
+
+- **`send` again** — with a **new `pauseId`**, `ChannelAsk.assignee` (the `assignee` of the call) and
+  `ChannelAsk.replaces: { pauseId }`, the old message's id. A first send carries neither field. A `send`
+  that returns `ChannelOutcome.decided(…)` answers the replacement at once, through the normal answer path
+  (the decision validated, recorded by the store's compare-and-set, the tree moved; answered as the channel, or
+  as the thread's owner for a thread owner's pause): applied once, a re-send after a crash finds it answered.
+- **`onPauseClosed`** (if the channel overrides it) for the **old** message with `reason: reassigned`
+  (`PauseClosedReason.Reassigned`), at least once like every notice (the same `deliveryId` on a redelivery).
+
+The channel decides the order: it may take the buttons off the old message from `send` (it has the old id in
+`replaces`) and treat the later `onPauseClosed(reassigned)` as a no-op, or the reverse. A `@PauseListener`
+hears the old pause `closed` (`reason: reassigned`) and the replacement `opened`.
+
+What the old id does: `app.resume` with it is `PauseClosedError` (`reason: reassigned`, `closedAt` the time
+of the reassignment); the record is `Cancelled` / `PauseResolution.Reassigned` with `reassignedTo`. The
+deputy's answer, with the new id, goes on: the agent's model is not called again, its loop's state and spend
+are the ones it slept with, and `result.pending` lists the live pause. A quorum's or a group's branches are
+several pauses: a reassignment acts on one pause, the others are unchanged.
+
+**The new id is a capability.** It goes only to the channel (`send`'s `ChannelAsk.pauseId`) and to a
+`@PauseListener({ allowAnswering })`; never to the caller (the call returns the key), a log, or a listener
+without `allowAnswering`.
+
+It is refused:
+
+- a pause that is closed — `PauseClosedError` with the reason of its close — or whose deadline is at or before
+  the write (`reason: expired`, also when the look has not expired it yet);
+- an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
+  `DtoValidationError` (`dto: "ReassignPauseRequest"`);
+- another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
+  `ThreadOwnerError` / `PauseAnswererError`;
+- a pause its channel decided at once: it never waited, it is closed `answered`.
+
+```ts
+import type { App, PauseReassignment } from "@agboss/core";
+
+declare const app: App;
+declare const pauseId: string; // the id the channel was sent
+
+// the operator hands the approval to the deputy; the Channel role's credential is `answeredBy`
+const moved: PauseReassignment = await app.reassignPause(
+  { pauseId, assignee: "deputy-3" },
+  { answeredBy: "operator-1" },
+);
+console.log(moved.pauseKey); // the new pause's key: a correlation, it answers nothing
+```
+
+**Races.** One transaction of the store makes the old pause `Reassigned` and the replacement `Pending` (unsent,
+the old deadline and question, the step key `<original>~r<n>` — a second reassignment is `~r2`, never
+`~r1~r1`), and writes the old pause's `closed` notices: of two reassignments at once, or a reassignment and an
+answer, exactly one wins, and the loser gets `PauseClosedError` with the reason of the winner's close. A
+store of your own does the same in `reassignByTenantIdAndPauseId` (the contract suite has the cases).
+
+**A crash between the write and the new message.** After the transaction the call asks the channel in the
+pause's frame and marks the replacement sent. An instance that dies there, or a channel that fails, leaves it
+`Pending` and unsent: the pause timers of every instance look for such replacements 30 seconds after they
+were made and send them again — `replaces` and `assignee` as the first time — so another instance sends it
+within a minute and the step never runs again. `send` is at-least-once, as a step's re-entry after a crash
+already is: deduplicate by the new `pauseId`; the compare-and-set of marking it sent keeps one `opened`. The
+retention keeps a reassigned pause while its replacement is stored: the step's interrupt still names it.
 
 ## List and watch pauses
 

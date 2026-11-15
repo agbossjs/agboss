@@ -17,6 +17,30 @@ import type {
 declare const app: App;
 const request = { pauseId: "p", expiresIn: 1000 } as never;
 
+describe("#946: app.reassignPause takes PauseCallerOptions too", () => {
+  const reassignment = { pauseId: "p", assignee: "deputy-3" } as const;
+
+  it("the caller fields compile; the call options of a run and both credentials do not", () => {
+    void app.reassignPause(reassignment, { answeredBy: "manager-17" });
+    void app.reassignPause(reassignment, { ownerId: "alice", tenantId: "acme" });
+    void app.reassignPause(reassignment);
+    // @ts-expect-error — `onStream` belongs to a run: reassignPause runs nothing
+    void app.reassignPause(reassignment, { answeredBy: "m", onStream: () => undefined });
+    // @ts-expect-error — a pause is answered by its owner or through its channel, not both
+    void app.reassignPause(reassignment, { answeredBy: "m", ownerId: "alice" });
+  });
+
+  it("the request is a pause id and an assignee; the answer is the new pause's key only", async () => {
+    // @ts-expect-error — the assignee is required
+    void app.reassignPause({ pauseId: "p" });
+    // @ts-expect-error — no new deadline: a reassignment keeps it
+    void app.reassignPause({ pauseId: "p", assignee: "d", expiresIn: 1000 });
+    expectTypeOf(await app.reassignPause(reassignment)).toEqualTypeOf<{
+      readonly pauseKey: string;
+    }>();
+  });
+});
+
 describe("#942: PauseCallerOptions", () => {
   it("the caller fields compile", () => {
     void app.extendPause(request, { answeredBy: "manager-17" });

@@ -1,3 +1,4 @@
+import { originalStepKeyOf } from "./pause-replacement.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
@@ -55,7 +56,8 @@ function recordOf(
       component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
       nodeId: pause.nodeId,
       visitNumber: pause.visitNumber,
-      idempotencyKey: pause.stepKey,
+      // the step's own key: a reassigned pause (#946) answers for the step its first pause asked for
+      idempotencyKey: originalStepKeyOf(pause),
       callId: callIdOfPause(pause),
       itemIndex: pause.itemIndex,
       copyNumber: pause.copyNumber,

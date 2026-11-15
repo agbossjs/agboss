@@ -1,8 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import { z } from "zod";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
-import { CostSource, type UsageRecord } from "../finops/usage.js";
+import type { UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { lazyLoad } from "./clock.js";
 import type { PauseAnswerLog } from "./pause-answer-log.js";
@@ -253,6 +252,12 @@ export interface PauseRecord extends PauseSite {
   readonly closedFirst?: PauseFirstClose;
   /** The smaller of the run's and a quorum's deadline at creation: an extension never passes it (#942). */
   readonly boundAt?: string;
+  /** Who the question is for (a Slack user, an address, a queue): set on a replacement only (#946). */
+  readonly assignee?: string;
+  /** The pause that replaced this one (#946), once `Cancelled / Reassigned`. */
+  readonly reassignedTo?: string;
+  /** The pause this one replaces (#946): made unsent, its channel asked again. */
+  readonly reassignedFrom?: string;
 }
 
 /**
@@ -344,28 +349,3 @@ export function pauseAnswererOf(pause: {
   if (answerer === undefined) throw new TypeError("a pause record names who may answer it");
   return answerer;
 }
-
-/** What reading a reply cost (#267 S107): the fields the ledger is written from, the rest as written. */
-const StoredUsage = z.looseObject({
-  caller: z.string(),
-  model: z.string(),
-  ...{ inputTokens: z.number(), outputTokens: z.number() },
-  ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
-  costUsd: z.number(),
-  costSource: z.enum(CostSource),
-  servedBy: z.string().optional(),
-});
-
-/** The answer a pause keeps (#267 S107): the decision, who gave it — 0.1.0 called that `answerer` —, its cost. */
-export const StoredAnswer = z
-  .object({
-    decision: z.unknown(),
-    answerer: z.string().optional(),
-    answeredBy: z.string().optional(),
-    usage: z.array(StoredUsage).optional(),
-  })
-  .transform((stored): PauseAnswer => ({
-    decision: stored.decision,
-    answeredBy: stored.answeredBy ?? stored.answerer,
-    ...(stored.usage === undefined ? {} : { usage: stored.usage }),
-  }));

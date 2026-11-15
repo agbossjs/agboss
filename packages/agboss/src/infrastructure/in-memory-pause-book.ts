@@ -70,6 +70,7 @@ export class InMemoryPauseBook {
     if (stored === undefined || change === undefined) return undefined;
     this.#pauses.set(key, { ...stored, pause: change.pause });
     this.#append(change.pause, change.notices);
+    if (change.inserted !== undefined) this.insert(change.inserted);
     return change.pause;
   }
 

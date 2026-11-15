@@ -25,7 +25,7 @@ import {
 
 /** Pauses ordered by the time at `field`, then tenant and id: the deadline scans' order. */
 const byTimeOf =
-  (field: "expiresAt" | "remindAt") =>
+  (field: "expiresAt" | "remindAt" | "askedAt") =>
   (a: PauseRecord, b: PauseRecord): number =>
     compareText(a[field] ?? "", b[field] ?? "") ||
     compareText(a.tenantId, b.tenantId) ||
@@ -98,6 +98,24 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     return Promise.resolve(due.sort(byTimeOf("remindAt")).slice(0, limit));
   }
 
+  async findPendingUnsentReassignedBefore(
+    cutoff: Date,
+    limit: number,
+    after?: PauseScanAfter,
+  ): Promise<readonly PauseRecord[]> {
+    assertScanLimit(limit);
+    const before = cutoff.toISOString();
+    const unsent = this.pauses().filter(
+      (pause) =>
+        pause.status === PauseStatus.Pending &&
+        !pause.isSent &&
+        pause.reassignedFrom !== undefined &&
+        pause.askedAt < before &&
+        (after === undefined || isPast(after, pause.askedAt, pause)),
+    );
+    return Promise.resolve(unsent.sort(byTimeOf("askedAt")).slice(0, limit));
+  }
+
   async findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {
     assertScanLimit(limit);
     return Promise.resolve(this.#pageAfter(after, limit, ({ pause }) => isOpen(pause)));
@@ -127,11 +145,7 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
   ): Promise<PausePage> {
     assertScanLimit(limit);
     return Promise.resolve(
-      this.#pageAfter(
-        after,
-        limit,
-        ({ pause }) => isExpiredPause(pause, cutoff) && !this.book.hasLiveMailbox(pause),
-      ),
+      this.#pageAfter(after, limit, ({ pause }) => this.#isRemovable(pause, cutoff)),
     );
   }
 
@@ -190,8 +204,17 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
 
   /** What the retention removes: closed before `cutoff`, no live mailbox. */
   #removable(cutoff: Date): PauseRecord[] {
-    return this.pauses().filter(
-      (pause) => isExpiredPause(pause, cutoff) && !this.book.hasLiveMailbox(pause),
+    return this.pauses().filter((pause) => this.#isRemovable(pause, cutoff));
+  }
+
+  /** Closed before `cutoff`, no live mailbox, and no replacement of it still stored (#946). */
+  #isRemovable(pause: PauseRecord, cutoff: Date): boolean {
+    const replacement =
+      pause.reassignedTo === undefined
+        ? undefined
+        : this.book.find(pause.tenantId, pause.reassignedTo);
+    return (
+      isExpiredPause(pause, cutoff) && !this.book.hasLiveMailbox(pause) && replacement === undefined
     );
   }
 

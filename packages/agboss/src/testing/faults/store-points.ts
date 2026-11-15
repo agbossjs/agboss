@@ -62,6 +62,8 @@ export enum StoreHoldPoint {
   PauseCloseUntaken = "pause.closeUntaken",
   /** A pause's deadline moved, with its notice (#935), keyed by the pause's id. */
   PauseExtend = "pause.extend",
+  /** A pause moved to a replacement for another addressee (#946), with its notice, keyed by the old pause's id. */
+  PauseReassign = "pause.reassign",
   /** A pause's reminder recorded, with its notice (#935), keyed by the pause's id. */
   PauseRemind = "pause.remind",
   /** A notice written once for a pause (#935, `joinFailed`), keyed by the pause's id. */

@@ -1311,6 +1311,9 @@ export const NO_RECIPIENTS: PauseRecipients;
 export const NO_STEP = -2;
 
 // @public
+export const originalStepKeyOf: (pause: ReplacementKeyed) => string;
+
+// @public
 export interface OutboundCallClaim {
     // (undocumented)
     readonly attempt: number;
@@ -1605,10 +1608,12 @@ export abstract class PausedExecutionRepository {
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
+    abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
+    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReplacement, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -1745,6 +1750,7 @@ export interface PauseRecord extends PauseSite {
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
+    readonly assignee?: string;
     readonly boundAt?: string;
     readonly channel: string;
     readonly closedFirst?: PauseFirstClose;
@@ -1754,6 +1760,8 @@ export interface PauseRecord extends PauseSite {
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
+    readonly reassignedFrom?: string;
+    readonly reassignedTo?: string;
     readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
@@ -1764,6 +1772,12 @@ export interface PauseRecord extends PauseSite {
 
 // @public
 export const pauseRecordOfJson: (value: unknown) => PauseRecord;
+
+// @public
+export interface PauseReplacement {
+    readonly assignee: string;
+    readonly pauseId: string;
+}
 
 // @public
 export enum PauseResolution {
@@ -1920,6 +1934,17 @@ export interface RecordedElsewhereLedgerMark {
 
 // @public
 export const remainingOf: (expiresAt: Date, now: Date) => Milliseconds;
+
+// @public
+export interface ReplacementKeyed {
+    // (undocumented)
+    readonly reassignedFrom?: string | undefined;
+    // (undocumented)
+    readonly stepKey: string;
+}
+
+// @public
+export function replacementStepKeyOf(pause: ReplacementKeyed, taken: ReadonlySet<string>): string;
 
 // @public
 export function replayedFromOf(key: EffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
@@ -2535,6 +2560,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
+// src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".

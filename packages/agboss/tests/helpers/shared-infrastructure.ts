@@ -112,6 +112,18 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return database.pauses.findAllByTenantIdAndRootExecutionId(...args);
   }
 
+  reassignByTenantIdAndPauseId(
+    ...args: Args<"reassignByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["reassignByTenantIdAndPauseId"]> {
+    return database.pauses.reassignByTenantIdAndPauseId(...args);
+  }
+
+  findPendingUnsentReassignedBefore(
+    ...args: Args<"findPendingUnsentReassignedBefore">
+  ): ReturnType<PausedExecutionRepository["findPendingUnsentReassignedBefore"]> {
+    return database.pauses.findPendingUnsentReassignedBefore(...args);
+  }
+
   markSentByTenantIdAndPauseId(
     ...args: Args<"markSentByTenantIdAndPauseId">
   ): ReturnType<PausedExecutionRepository["markSentByTenantIdAndPauseId"]> {

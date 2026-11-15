@@ -10,7 +10,7 @@ import { pauseClosed } from "./pause-closed.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import { forgetTree, type TreeEndParts } from "./tree-ends.js";
 import { runConfig } from "../run/paused.js";
-import { waitingPauseOf } from "../run/waiting-pauses.js";
+import { livePauseOf, waitingPauseOf } from "../run/waiting-pauses.js";
 import { readingGraphOf } from "../run/run-budgets.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { PausedRunBook } from "./paused-runs.js";
@@ -34,7 +34,8 @@ export async function stillPending(
     (await deps.pause?.pauses.findAllByTenantIdAndRootExecutionId(run.tenantId, run.runId)) ?? [];
   const byId = new Map(records.map((record) => [record.pauseId, record]));
   const pending = run.pending.flatMap((listed) => {
-    const record = byId.get(listed.pauseId);
+    // a reassigned approval (#946) is listed under its first pause: it waits at its replacement
+    const record = livePauseOf(byId, listed.pauseId);
     return record?.status === PauseStatus.Pending ? [waitingPauseOf(record)] : [];
   });
   return { ...run, pending };

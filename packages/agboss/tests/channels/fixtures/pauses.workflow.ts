@@ -51,6 +51,10 @@ import { start } from "../../helpers/flow.js";
 export interface SentAsk {
   readonly pauseId: string;
   readonly orderId: string;
+  /** Set on the send of a reassignment (#946). */
+  readonly assignee?: string;
+  /** The pause that send replaces (#946). */
+  readonly replaces?: { readonly pauseId: string };
 }
 
 /** A close a channel was told (#940): the ask, why, who answered, and the frame it ran in. */
@@ -109,6 +113,8 @@ export const seen = {
 /** What the test does inside a `send` before it returns (a fast reply, a crash). */
 export const hooks: {
   beforeSendReturns?: (ask: SentAsk) => Promise<void>;
+  /** The decision the desk gives at once to the send of a reassignment (#946); none: it waits for a reply. */
+  decideReassigned?: unknown;
   /** The orders the desk refuses before it asks anyone (its `send` throws the error). */
   refusals?: ReadonlyMap<string, Error>;
   /** How many calls of every listener's hooks fail before one succeeds (#940). */
@@ -124,6 +130,7 @@ export const hooks: {
 export function resetPauses(): void {
   for (const list of Object.values(seen)) list.length = 0;
   delete hooks.beforeSendReturns;
+  delete hooks.decideReassigned;
   delete hooks.refusals;
   delete hooks.listenerFailures;
   delete hooks.closeFailure;
@@ -233,11 +240,18 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
     ask: ChannelAsk<RefundApprovalChannel>,
   ): Promise<ChannelOutcome<RefundApprovalChannel>> {
     this.executionContext.signal.throwIfAborted();
-    const sent = { pauseId: ask.pauseId, orderId: orderIdIn(ask.value) };
+    const sent = {
+      pauseId: ask.pauseId,
+      orderId: orderIdIn(ask.value),
+      ...(ask.assignee === undefined ? {} : { assignee: ask.assignee }),
+      ...(ask.replaces === undefined ? {} : { replaces: ask.replaces }),
+    };
     const refusal = hooks.refusals?.get(sent.orderId);
     if (refusal !== undefined) throw refusal;
     seen.asks.push(sent);
     await hooks.beforeSendReturns?.(sent);
+    if (ask.replaces !== undefined && hooks.decideReassigned !== undefined)
+      return ChannelOutcome.decided(hooks.decideReassigned as never);
     return ChannelOutcome.awaitReply();
   }
 
