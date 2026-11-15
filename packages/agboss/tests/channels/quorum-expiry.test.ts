@@ -83,6 +83,12 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
       status: PauseStatus.Cancelled,
       resolution: PauseResolution.Expired,
     });
+    // the agent's own pause, quorum-bound: its channel is told of the expiry once
+    await until(() => seen.closed.some((event) => event.orderId === "F"));
+    for (let tick = 0; tick < 200; tick += 1) await new Promise((r) => setImmediate(r));
+    expect(
+      seen.closed.filter((event) => event.orderId === "F" && event.reason === "expired"),
+    ).toHaveLength(1);
   });
 
   test("AC1: the pause of a quorum branch is bound by the quorum's deadline", async ({

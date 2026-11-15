@@ -217,6 +217,8 @@ branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Ski
 launch with its `PauseExpiredError`; the `.onJoinError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 
+A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
+
 ## Arbiters
 
 `@Arbiter` (`arbiters/<name>.arbiter.ts`, a `name` ending with `-arbiter`) decides **whether an

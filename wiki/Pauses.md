@@ -805,6 +805,8 @@ so it continues or escalates without asking anyone again. Each branch that had a
 its error path is running" — neutral, the handler may still carry the work on. A channel that overrides it has a
 mailbox like for the other notices.
 
+A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
+
 ## A deadline for the answer (#941)
 
 A pause can have a deadline — an approval nobody answers should escalate, or go on with a default,
