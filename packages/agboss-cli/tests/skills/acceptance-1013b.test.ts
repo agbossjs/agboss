@@ -23,13 +23,13 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_LOCK, withSyncLock } from "../../src/skills/lock.js";
 import {
   OWNER_PREFIX,
-  SEEN_MARKER,
   dropOwner,
-  fingerprintOf,
   newOwner,
   readHolder,
   sweepStray,
 } from "../../src/skills/lock-owner.js";
+import { SEEN_MARKER } from "../../src/skills/lock-files.js";
+import { fingerprintOf } from "../../src/skills/lock-watch.js";
 import { MANIFEST_FILE, readManifest } from "../../src/skills/manifest.js";
 import { carryOver } from "../../src/skills/migrate.js";
 import { SkillsSyncStatus, SkillsWarningCode } from "../../src/skills/status.js";
@@ -242,6 +242,17 @@ describe("#1105: a live pid whose start time does not fit is unknown, never dead
 
     expect(done.warnings).toEqual([]);
     expect(done.result.status).toBe(SkillsSyncStatus.Updated);
+  });
+
+  it("a live holder whose start fits is never watched, however old its lock: nothing is written into it", () => {
+    const root = oldProject();
+    const owner = writeLock(root, {}, TEN_MIN);
+    setTime(lockOf(root), -TEN_MIN);
+
+    const done = syncWith(root, { waitMs: 400, staleMs: 50 });
+
+    expect(done.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(readdirSync(lockOf(root))).toEqual([`${OWNER_PREFIX}${owner.token}`]);
   });
 
   it("a holder that refreshes its owner file is never taken: the watch starts over", () => {

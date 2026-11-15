@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -9,8 +9,6 @@ import {
   isAlive,
   isReused,
   isStale,
-  observedMs,
-  renewOwner,
   REUSE_CHECK_MS,
   newOwner,
   OWNER_PREFIX,
@@ -19,6 +17,8 @@ import {
   type Holder,
   type LockOwner,
 } from "./lock-owner.js";
+import { unlinkEntry } from "./lock-files.js";
+import { observedMs, renewOwner } from "./lock-watch.js";
 
 /**
  * The lock that serialises the skills syncs of one project (#983 D3, #1013): a `dev` pass beside
@@ -80,6 +80,12 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
 function clearIfStale(lock: string, staleMs: number): void {
   const seen = readHolder(lock);
   if (seen === undefined) return;
+  if (seen.isLinked === true && seen.token !== undefined) {
+    // the owner entry is a link, not a file: not followed, removed itself; the lock is unknown
+    // from here and ages out by the folder's age (the removal made it new), as an empty one does
+    unlinkEntry(join(lock, `${OWNER_PREFIX}${seen.token}`));
+    return;
+  }
   const holder = withObserved(lock, seen);
   if (holder.token === undefined) {
     clearEmpty(lock);
@@ -110,12 +116,20 @@ function sweepCrashed(agents: string, staleMs: number): void {
     if (!name.startsWith(`${LOCK_NAME}-new-`)) continue;
     const path = join(agents, name);
     try {
-      if (Date.now() - statSync(path).mtimeMs > staleMs)
+      if (Date.now() - lstatSync(path).mtimeMs > staleMs)
         rmSync(path, { recursive: true, force: true });
     } catch {
       // gone meanwhile: nothing to sweep
     }
   }
+}
+
+/** The lock folder is never a link (a cloned project can ship one): nothing is written through it. */
+function refuseLinkedLock(lock: string): void {
+  if (lstatSync(lock, { throwIfNoEntry: false })?.isSymbolicLink() === true)
+    throw new Error(
+      `${lock} is a link — the skills sync lock is not taken through it; remove it and run npx agboss check`,
+    );
 }
 
 const SIGNALS = ["SIGINT", "SIGTERM"] as const;
@@ -157,7 +171,9 @@ export function withSyncLock<T>(
   const lock = join(agents, LOCK_NAME);
   const owner = newOwner();
   const until = Date.now() + options.waitMs;
+  refuseLinkedLock(lock);
   while (!tryMake(agents, lock, owner)) {
+    refuseLinkedLock(lock);
     clearIfStale(lock, options.staleMs);
     if (Date.now() >= until) return undefined;
     sleep(POLL_MS);

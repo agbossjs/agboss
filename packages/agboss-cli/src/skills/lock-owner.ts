@@ -1,17 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import {
-  readdirSync,
-  readFileSync,
-  rmdirSync,
-  rmSync,
-  statSync,
-  unlinkSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
+import { randomBytes } from "node:crypto";
+import { readdirSync, readFileSync, rmdirSync, rmSync, unlinkSync } from "node:fs";
+import { ageOf, isRegular, SEEN_MARKER, unlinkEntry } from "./lock-files.js";
 import { z } from "zod";
 
 /**
@@ -59,6 +51,8 @@ export interface Holder {
   readonly isFuture?: boolean;
   /** A live pid on this host whose recorded start does not fit: not known to be gone (see `isStale`). */
   readonly isUnknown?: boolean;
+  /** The owner entry is not a regular file (a link): unknown, and removed itself by the waiter. */
+  readonly isLinked?: boolean;
 }
 
 /** The pid is a live process on this host (`EPERM`: alive, not ours to signal). */
@@ -90,18 +84,6 @@ export function isReused(owner: LockOwner): boolean {
 export const SKEW_MS = 60_000;
 
 /**
- * How long ago `path` was last written, signed (negative: the time lies ahead); undefined when it
- * cannot be stat'ed. What to make of a time far ahead is the caller's (`readHolder`, `observed`).
- */
-function ageOf(path: string): number | undefined {
-  try {
-    return Date.now() - statSync(path).mtimeMs;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * The lock folder's owner; undefined when there is no folder. What cannot be read is judged by its
  * age on disk (the older of the file's and the folder's mtime), never as "just now": an empty or
  * garbage owner file, or a folder with no owner file, must age out (#1075).
@@ -116,76 +98,24 @@ export function readHolder(lock: string): Holder | undefined {
   const name = names.find((entry) => entry.startsWith(OWNER_PREFIX));
   const folderAge = ageOf(lock) ?? 0;
   const file = name === undefined ? undefined : join(lock, name);
-  const ages = [folderAge, ...(file === undefined ? [] : [ageOf(file) ?? 0])];
+  const ages = file === undefined ? [folderAge] : [folderAge, ageOf(file) ?? 0];
   const isFuture = ages.some((age) => age < -SKEW_MS);
   const ageMs = Math.max(0, ...ages);
   if (file === undefined || name === undefined)
     return { token: undefined, owner: undefined, ageMs, isFuture };
   const token = name.slice(OWNER_PREFIX.length);
+  // a link or a folder is not an owner file and is not read through
+  if (!isRegular(file)) return { token, owner: undefined, ageMs, isFuture, isLinked: true };
+  return { token, owner: readOwner(file), ageMs, isFuture };
+}
+
+/** The owner file's content; undefined when it is not what an owner file holds. */
+function readOwner(file: string): LockOwner | undefined {
   try {
     const parsed = OwnerSchema.safeParse(JSON.parse(readFileSync(file, "utf8")));
-    return { token, owner: parsed.success ? parsed.data : undefined, ageMs, isFuture };
+    return parsed.success ? parsed.data : undefined;
   } catch {
-    return { token, owner: undefined, ageMs, isFuture };
-  }
-}
-
-/** The marker a waiter leaves in a lock folder it cannot judge by time: its mtime is when a waiter first saw the lock as it is. */
-export const SEEN_MARKER = "seen-future";
-
-/** What a holder's refresh changes: the owner file's mtime (none: the folder holds no owner file). */
-export function fingerprintOf(lock: string, token: string | undefined): string {
-  try {
-    return token === undefined
-      ? "none"
-      : String(statSync(join(lock, `${OWNER_PREFIX}${token}`)).mtimeMs);
-  } catch {
-    return "none";
-  }
-}
-
-/** This waiter's own first sight of a lock, on the monotonic clock (immune to a stepped wall clock). */
-const firstSeen = new Map<string, { readonly first: number; readonly print: string }>();
-
-/**
- * How long a lock whose age on disk cannot be trusted has been watched, unchanged (#1105): a time
- * in the future, or a live pid whose recorded start does not fit (a clock stepped, or a reused pid).
- * The age counts from the first sight, never from the file: this process's monotonic clock, and a
- * marker file in the folder (its mtime is this host's own clock at the first sight, its text the
- * owner file's mtime then), so a run per `agboss check` still sees the lock age across processes.
- * The longer of the two counts. A holder that refreshes its owner file (`renewOwner`) changes the
- * fingerprint and starts the count over, in this process and in the marker; a marker dated ahead
- * (the clock stepped back again) counts as nothing.
- */
-export function observedMs(lock: string, token: string | undefined): number {
-  const print = fingerprintOf(lock, token);
-  const key = `${lock}|${token ?? ""}`;
-  const now = performance.now();
-  const before = firstSeen.get(key);
-  const first = before?.print === print ? before.first : now;
-  firstSeen.set(key, { first, print });
-  const marker = join(lock, SEEN_MARKER);
-  let onDisk = 0;
-  try {
-    if (readFileSync(marker, "utf8") === print) onDisk = Math.max(0, ageOf(marker) ?? 0);
-    else writeFileSync(marker, print);
-  } catch {
-    try {
-      writeFileSync(marker, print, { flag: "wx" });
-    } catch {
-      // gone or made by another waiter meanwhile: the next poll reads it
-    }
-  }
-  return Math.max(now - first, onDisk);
-}
-
-/** The holder shows it is alive: its owner file's time is now (a long sync calls this between steps). */
-export function renewOwner(lock: string, token: string): void {
-  try {
-    const now = new Date();
-    utimesSync(join(lock, `${OWNER_PREFIX}${token}`), now, now);
-  } catch {
-    // the lock was taken from under us: the release finds that out
+    return undefined;
   }
 }
 
@@ -218,7 +148,7 @@ export function dropOwner(lock: string, token: string): boolean {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
     throw error;
   }
-  rmSync(join(lock, SEEN_MARKER), { force: true });
+  unlinkEntry(join(lock, SEEN_MARKER));
   clearEmpty(lock);
   return true;
 }
