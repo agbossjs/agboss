@@ -96,7 +96,8 @@ ${loose ? "\n" : ""}- **Bug** (#7)
 - **Doc** (#6)
 `);
 
-describe("D1: folding into an unreleased section", async () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("D1: folding into an unreleased section", { timeout: 60_000 }, async () => {
   it.each([
     ["core shape", CORE_HEAD, false],
     ["satellite shape", SAT_HEAD, true],
@@ -153,7 +154,8 @@ describe("D1: folding into an unreleased section", async () => {
   });
 });
 
-describe("M2: a crash between the write and the deletes", async () => {
+// each case spawns node (changelog scripts), so under machine load the 5 s default measures the scheduler (#1160, as #1149)
+describe("M2: a crash between the write and the deletes", { timeout: 60_000 }, async () => {
   it("a rerun deletes the fragments already in the section and inserts nothing twice", async () => {
     fs.writeFileSync(changelog, `# Changelog\n\n${CORE_HEAD}\n\n${body(false)}${TAIL}`);
     addFragments();
