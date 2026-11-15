@@ -1258,7 +1258,11 @@ is no reminder and the assembly warns (`[channel.remind-before-exceeds-expiry]`)
 above. A **plain** `expiresIn` for a pause whose role reminds in working time is refused with
 `DtoValidationError` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this role reminds in working time: extend
 it with workingHours / workingMinutes"); a pause whose channel has no calendar any more is refused working
-time the same way. The pause is unchanged on every refusal.
+time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
+decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open
+is decided with the clock read after the calendar answered (and the store's compare-and-set takes that
+instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseClosedError`,
+as for a plain extension, even when the expiry is still being handled (#1148).
 
 **A calendar that cannot answer fails closed.** A throw, a timeout (the tool timeout, on the application's
 clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
@@ -1270,7 +1274,11 @@ its message never holds the calendar's own error text, which is the cause only i
 extension that meets the same rejects with that `WorkingCalendarError`. There is no fallback to wall-clock
 time: that would be a deadline nobody asked for, silently. A grid with no working time at all — an unknown
 time zone, no days, a bad interval, a break outside the hours, a malformed holiday, no working minute in a
-week — is `[working-calendar.invalid]` when the application starts.
+week — is `[working-calendar.invalid]` when the application starts. So is a working span the grid cannot
+reach within 25 years, counting its holidays: each can cost up to a day of working time, a `1 / days`
+share of a week (a holiday on a day the grid does not work counts too, so the refusal can come earlier
+than the walk would fail). The walk itself stays bounded (25 years plus the holidays, then a `RangeError`,
+`calendar-failed` to the step): never a loop (#1148).
 
 ## Expiry in a quorum
 
