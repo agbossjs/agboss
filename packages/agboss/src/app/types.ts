@@ -296,7 +296,9 @@ export interface App {
    * "expiring". Refused: a pause that is closed or past its deadline (`PauseClosedError`), one with
    * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
    * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
-   * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look.
+   * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
+   * that loses the store's compare-and-set to other writers 8 times in a row is
+   * `PauseExtensionContendedError` (`pause.extension-contended`; nothing changed, retry is safe).
    */
   extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
   /**

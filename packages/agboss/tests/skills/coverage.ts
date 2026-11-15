@@ -284,6 +284,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ExecutionLeaseLostError", "ApplicationStoppingError", "ThreadOwnerError"],
     ...["UnknownThreadError", "NotPausedError", "InvalidThreadIdError", "UnknownPauseError"],
     ...["PauseAnswererError", "UninterpretableReplyError", "ReplyInterpreterMissingError"],
+    ...["PauseExtensionContendedError"],
     ...["IncompatibleResumeError", "DtoValidationError", "ExecutionContextUnavailableError"],
     ...["ToolTimeoutError", "ModelCallError", "ModelKindError", "DecisionError"],
     ...["ModelProviderFailureError", "ModelProvider"],

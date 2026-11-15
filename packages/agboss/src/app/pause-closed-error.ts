@@ -42,3 +42,35 @@ export class PauseClosedError extends AGBossError {
     this.closedAt = closedAt;
   }
 }
+
+/**
+ * `app.extendPause` lost its compare-and-set to other writers on every attempt (#1099): the pause's
+ * deadline moved under each try (other extensions) while it stayed open. Nothing was changed by the
+ * call; retrying `extendPause` is safe. `attempts` is how many it made.
+ */
+export class PauseExtensionContendedError extends AGBossError {
+  static override readonly code = "pause.extension-contended" as const;
+  declare readonly code: typeof PauseExtensionContendedError.code;
+  override name = "PauseExtensionContendedError";
+  readonly pauseKey: string;
+  readonly attempts: number;
+
+  constructor(options: PauseExtensionContendedErrorOptions) {
+    const { pauseKey, attempts, cause } = options;
+    super(
+      `extendPause of pause ${pauseKey} lost its compare-and-set ${String(attempts)} times to other writers`,
+      { cause, details: { attempts } },
+    );
+    this.pauseKey = pauseKey;
+    this.attempts = attempts;
+  }
+}
+
+/** What a `PauseExtensionContendedError` is made from (#1099). */
+export interface PauseExtensionContendedErrorOptions {
+  /** The pause's `pauseKey` (a message is logged and observed: never its bare id, I14). */
+  readonly pauseKey: string;
+  /** How many times the call read and tried. */
+  readonly attempts: number;
+  readonly cause?: unknown;
+}

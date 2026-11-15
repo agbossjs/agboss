@@ -9,9 +9,11 @@ import {
   DtoValidationError,
   PauseAnswererError,
   PauseClosedError,
+  PauseExtensionContendedError,
   ThreadOwnerError,
   UnknownPauseError,
 } from "../../src/errors.js";
+import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 import { PauseClosedReason, PauseStatus, pauseKeyOf } from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -400,6 +402,34 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     const told_ = extendedNotices().map((one) => one.expiresAt);
     expect(told_).toEqual([...told_].sort());
     expect(told_.at(-1)).toBe(stored);
+  });
+
+  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.extension-contended) after 8 attempts, nothing told or written", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const store = app.resolve(PausedExecutionRepository);
+    const before = (await pauseOf(app, pauseIdOf())).expiresAt;
+    const losing = vi.spyOn(store, "extendByTenantIdAndPauseId").mockResolvedValue(undefined);
+
+    const refused = await failureOf(
+      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
+    );
+
+    expect(MAX_EXTEND_ATTEMPTS).toBe(8);
+    expect(refused).toBeInstanceOf(PauseExtensionContendedError);
+    expect(refused).toMatchObject({
+      code: "pause.extension-contended",
+      attempts: 8,
+      details: { attempts: 8 },
+    });
+    expect((refused as Error).message).toContain(pauseKeyOf("default", pauseIdOf()));
+    expect((refused as Error).message).not.toContain(` ${pauseIdOf()} `);
+    expect(losing).toHaveBeenCalledTimes(8);
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(before);
+    expect(extendedNotices()).toHaveLength(0);
   });
 
   test("AC2: a longer extension lands between the shorter one's read and its write: the shorter is refused 'not later', nothing of it is told or written", async ({
