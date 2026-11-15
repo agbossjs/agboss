@@ -38,3 +38,4 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0031 — At-least-once pause notices written with the pause's change](ADR-0031-At-least-once-pause-notices) | Accepted |
 | [0032 — Every store call is bounded](ADR-0032-Every-store-call-is-bounded) | Accepted |
 | [0033 — A pause has a deadline decided in the store](ADR-0033-A-pause-has-a-deadline) | Accepted |
+| [0034 — Schema upgrades stop the old version first](ADR-0034-Schema-upgrades-stop-the-old-version-first) | Accepted |
