@@ -24,6 +24,7 @@ import type { DraftEditorAgent, DraftHistoryWorkflowFinish, FirstDraftAgent, His
 import type { ApprovalRequestDto, ApproveInThirtyTool, ApproveTool, CfoApproverAgent, CfoDecisionDto, CooApproverAgent, CooDecisionDto, EscalateToCeoAction, EscalationDto, FinanceApproverAgent, FinanceDecisionDto, JoinApproverQuestion, JoinExpiryApprovedWorkflowFinish, JoinExpiryEscalatedWorkflowFinish, JoinExpiryWorkflow, JoinExpiryWorkflowStart, LegalApproverAgent, LegalDecisionDto } from "../tests/flow/fixtures/join-expiry.fixture.js";
 import type { ArticleDraftDto, CompanyCheckDto, PaymentDto, RankingDto, RefundPolicyDto, ScreeningFailedDto } from "../tests/flow/fixtures/launch-dtos.js";
 import type { AnswerAgent, ArticleDraftWorkflowFinish, ArticleWriterAgent, ChargePaymentAction, CheckoutWorkflow, CheckoutWorkflowStart, CompanyAuditAgent, CriticAgent, HelpDeskRouter, HelpDeskWorkflow, HelpDeskWorkflowFinish, HelpDeskWorkflowStart, LoyaltyOfferAgent, NotifyOperatorAction, OffersAnswerAgent, OffersRouter, OffersWorkflow, OffersWorkflowFinish, OffersWorkflowStart, OrderLookupAgent, PaymentWorkflowFinish, PlanResearcherAgent, PlannerAgent, RankerAgent, RankingWorkflowFinish, RefundPolicyAgent, ResearchWorkflow, ResearchWorkflowStart, ReserveGoodsAction, ScreeningAgent, ScreeningFailedWorkflowFinish, ScreeningWorkflow, ScreeningWorkflowStart, SendReceiptAction, UpdateCrmAction } from "../tests/flow/fixtures/launch.fixture.js";
+import type { ListDecisionDto, ListDoneDto, ListFinanceQuestion, ListFinanceWorkflow, ListFinanceWorkflowStart, ListManagerQuestion, ListManagerWorkflow, ListManagerWorkflowStart, ListOpenQuestion, ListOpenWorkflow, ListOpenWorkflowStart, ListOrderDto, ListOwnerQuestion, ListOwnerWorkflow, ListOwnerWorkflowStart, ListWorkflowFinish, RecordListedAction } from "../tests/flow/fixtures/list-pauses.fixture.js";
 import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, RejectedWorkflowFinish, VerdictAgent, VerdictWorkflow, VerdictWorkflowStart } from "../tests/flow/fixtures/markers.fixture.js";
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
 import type { NotifyFinanceTeamAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
@@ -162,6 +163,14 @@ declare module "../src/flow/generated-types.js" {
     "legal-approver-agent": LegalDecisionDto;
     "legal-panel-agent": LegalReviewDto;
     "link-offer-workflow-start": readonly [WorkflowStartTextDto, CompanyLinkDto];
+    "list-finance-question": ListDecisionDto;
+    "list-finance-workflow-start": ListOrderDto;
+    "list-manager-question": ListDecisionDto;
+    "list-manager-workflow-start": ListOrderDto;
+    "list-open-question": ListDecisionDto;
+    "list-open-workflow-start": ListOrderDto;
+    "list-owner-question": ListDecisionDto;
+    "list-owner-workflow-start": ListOrderDto;
     "lookup-agent": NoOutput;
     "loyalty-agent": LoyaltyOfferDto;
     "loyalty-offer-agent": LoyaltyOfferDto;
@@ -212,6 +221,7 @@ declare module "../src/flow/generated-types.js" {
     "record-escalated-action": ExpiryDoneDto;
     "record-expiry-action": ExpiryDoneDto;
     "record-extension-action": ExpiryDoneDto;
+    "record-listed-action": ListDoneDto;
     "refund-card-action": NoOutput;
     "refund-clerk-agent": RefundCardOutputDto;
     "refund-policy-agent": RefundPolicyDto;
@@ -446,6 +456,15 @@ declare module "../src/flow/generated-types.js" {
     "legal-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
     "legal-panel-agent": { deal: Produced<DealDto, typeof DealPanelWorkflowStart> };
     "link-offer-workflow-start": { message: WorkflowStartTextDto; link: CompanyLinkDto };
+    "list-finance-question": { ask: Produced<ListOrderDto, typeof ListFinanceWorkflowStart> };
+    "list-finance-workflow-start": ListOrderDto;
+    "list-manager-question": { ask: Produced<ListOrderDto, typeof ListManagerWorkflowStart> };
+    "list-manager-workflow-start": ListOrderDto;
+    "list-open-question": { ask: Produced<ListOrderDto, typeof ListOpenWorkflowStart> };
+    "list-open-workflow-start": ListOrderDto;
+    "list-owner-question": { ask: Produced<ListOrderDto, typeof ListOwnerWorkflowStart> };
+    "list-owner-workflow-start": ListOrderDto;
+    "list-workflow-finish": NoInput;
     "lookup-agent": { message: Produced<AskDto, typeof AskWorkflowStart> };
     "loyalty-agent": { order: Produced<OrderStatusDto, typeof OrderAgent> };
     "loyalty-offer-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
@@ -533,6 +552,7 @@ declare module "../src/flow/generated-types.js" {
     "record-escalated-action": { order: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof PublicExpiryWorkflowStart>; decision: Produced<ExpiryDecisionDto, typeof DirectorQuestion> };
     "record-expiry-action": { order: Produced<ExpiryOrderDto, typeof ExpiryWorkflowStart | typeof OwnerWorkflowStart | typeof PlainWorkflowStart | typeof PublicExpiryWorkflowStart | typeof ReviewerWorkflowStart | typeof ShortExpiryWorkflowStart | typeof SlowExpiryWorkflowStart>; decision: Produced<ExpiryDecisionDto, typeof DirectorQuestion | typeof ManagerQuestion | typeof OwnerQuestion | typeof ReviewerQuestion> };
     "record-extension-action": { order: Produced<ExpiryOrderDto, typeof ExtendManagerWorkflowStart | typeof ExtendOpenWorkflowStart | typeof ExtendOwnerWorkflowStart | typeof ExtendTightWorkflowStart>; decision: Produced<ExpiryDecisionDto, typeof ExtendManagerQuestion | typeof ExtendOpenQuestion | typeof ExtendOwnerQuestion> };
+    "record-listed-action": { order: Produced<ListOrderDto, typeof ListFinanceWorkflowStart | typeof ListManagerWorkflowStart | typeof ListOpenWorkflowStart | typeof ListOwnerWorkflowStart>; decision: Produced<ListDecisionDto, typeof ListFinanceQuestion | typeof ListManagerQuestion | typeof ListOpenQuestion | typeof ListOwnerQuestion> };
     "refund-card-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
     "refund-clerk-agent": { message: Produced<WorkflowStartTextDto, typeof RefundWorkflowStart> };
     "refund-policy-agent": { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart | typeof OffersWorkflowStart> };
@@ -675,6 +695,11 @@ declare module "../src/flow/generated-types.js" {
     "job-offer-workflow-finish": JobOfferDto;
     "join-expiry-approved-workflow-finish": CooDecisionDto;
     "join-expiry-escalated-workflow-finish": EscalationDto;
+    "list-finance-question": ListDecisionDto;
+    "list-manager-question": ListDecisionDto;
+    "list-open-question": ListDecisionDto;
+    "list-owner-question": ListDecisionDto;
+    "list-workflow-finish": ListDoneDto;
     "manual-quote-workflow-finish": QuoteRequestDto;
     "mark-review-failed-action": CompanyReviewFailedDto;
     "mark-unit-failed-action": OrgChartFailedDto;
@@ -716,6 +741,7 @@ declare module "../src/flow/generated-types.js" {
     "record-escalated-action": ExpiryDoneDto;
     "record-expiry-action": ExpiryDoneDto;
     "record-extension-action": ExpiryDoneDto;
+    "record-listed-action": ListDoneDto;
     "refund-card-action": NoOutput;
     "refund-workflow-finish": RefundCardOutputDto;
     "rejected-workflow-finish": RejectedVerdictDto;
@@ -788,6 +814,10 @@ declare module "../src/flow/generated-types.js" {
     "job-offer-workflow-start": { input: WorkflowStartTextDto; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
     "join-expiry-workflow-start": { input: ApprovalRequestDto; output: CooDecisionDto | EscalationDto };
     "link-offer-workflow-start": { input: { message: WorkflowStartTextDto; link: CompanyLinkDto }; output: CompanyRejectedDto | CompanyReviewFailedDto | JobOfferDto | WorkflowStartTextDto };
+    "list-finance-workflow-start": { input: ListOrderDto; output: ListDoneDto };
+    "list-manager-workflow-start": { input: ListOrderDto; output: ListDoneDto };
+    "list-open-workflow-start": { input: ListOrderDto; output: ListDoneDto };
+    "list-owner-workflow-start": { input: ListOrderDto; output: ListDoneDto };
     "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto };
     "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto };
     "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto };
@@ -903,6 +933,10 @@ declare module "../src/flow/generated-types.js" {
     "extendable-open-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
     "extendable-owner-question": { readonly ask: ExpiryOrderDto; readonly answer: ExpiryDecisionDto };
     "join-approver-question-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: ApprovalRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: ApprovalRequestDto } };
+    "list-finance-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
+    "list-manager-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
+    "list-open-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
+    "list-owner-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
     "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
     "refund-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: RefundCardInputDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: RefundCardInputDto } };
     "spending-limit-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
@@ -1063,6 +1097,9 @@ declare module "../src/flow/generated-types.js" {
     "JobOfferDto": JobOfferDto;
     "LegalDecisionDto": LegalDecisionDto;
     "LegalReviewDto": LegalReviewDto;
+    "ListDecisionDto": ListDecisionDto;
+    "ListDoneDto": ListDoneDto;
+    "ListOrderDto": ListOrderDto;
     "LoyaltyOfferDto": LoyaltyOfferDto;
     "OfferDraftDto": OfferDraftDto;
     "OfferSentDto": OfferSentDto;
@@ -1910,6 +1947,60 @@ declare module "../tests/flow/fixtures/launch.fixture.js" {
   }
   interface UpdateCrmAction {
     readonly [agbossComponent]?: "update-crm-action";
+  }
+}
+
+declare module "../tests/flow/fixtures/list-pauses.fixture.js" {
+  interface ListDecisionDto {
+    readonly [agbossDto]?: "ListDecisionDto";
+  }
+  interface ListDoneDto {
+    readonly [agbossDto]?: "ListDoneDto";
+  }
+  interface ListFinanceQuestion {
+    readonly [agbossComponent]?: "list-finance-question";
+  }
+  interface ListFinanceWorkflow {
+    readonly [agbossComponent]?: "list-finance-workflow";
+  }
+  interface ListFinanceWorkflowStart {
+    readonly [agbossComponent]?: "list-finance-workflow-start";
+  }
+  interface ListManagerQuestion {
+    readonly [agbossComponent]?: "list-manager-question";
+  }
+  interface ListManagerWorkflow {
+    readonly [agbossComponent]?: "list-manager-workflow";
+  }
+  interface ListManagerWorkflowStart {
+    readonly [agbossComponent]?: "list-manager-workflow-start";
+  }
+  interface ListOpenQuestion {
+    readonly [agbossComponent]?: "list-open-question";
+  }
+  interface ListOpenWorkflow {
+    readonly [agbossComponent]?: "list-open-workflow";
+  }
+  interface ListOpenWorkflowStart {
+    readonly [agbossComponent]?: "list-open-workflow-start";
+  }
+  interface ListOrderDto {
+    readonly [agbossDto]?: "ListOrderDto";
+  }
+  interface ListOwnerQuestion {
+    readonly [agbossComponent]?: "list-owner-question";
+  }
+  interface ListOwnerWorkflow {
+    readonly [agbossComponent]?: "list-owner-workflow";
+  }
+  interface ListOwnerWorkflowStart {
+    readonly [agbossComponent]?: "list-owner-workflow-start";
+  }
+  interface ListWorkflowFinish {
+    readonly [agbossComponent]?: "list-workflow-finish";
+  }
+  interface RecordListedAction {
+    readonly [agbossComponent]?: "record-listed-action";
   }
 }
 

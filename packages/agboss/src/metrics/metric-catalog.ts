@@ -12,6 +12,8 @@ export enum MetricKind {
   ObservableGauge = "observable-gauge",
   /** A count that only grows, since the instance started. */
   Counter = "counter",
+  /** A distribution of measured values, in explicit buckets (`MetricSpec.buckets`). */
+  Histogram = "histogram",
 }
 
 /** One metric: what a reader finds under `name`. */
@@ -23,6 +25,8 @@ export interface MetricSpec {
   readonly description: string;
   /** Its label keys: each bounded by the code (enums, the application's workflow names). */
   readonly labels: readonly string[];
+  /** A histogram's explicit bucket boundaries, in its unit; absent on the other kinds. */
+  readonly buckets?: readonly number[];
 }
 
 const gauge = (name: string, unit: string, description: string): MetricSpec => ({
@@ -39,6 +43,17 @@ const counter = (
   description: string,
   labels: readonly string[],
 ): MetricSpec => ({ name, kind: MetricKind.Counter, unit, description, labels });
+
+const histogram = (
+  name: string,
+  unit: string,
+  description: string,
+  labels: readonly string[],
+  buckets: readonly number[],
+): MetricSpec => ({ name, kind: MetricKind.Histogram, unit, description, labels, buckets });
+
+/** The bounds, in seconds, of how long a pause waits for its answer: 1 min to 3 days (#943). */
+export const TIME_TO_ANSWER_BUCKETS: readonly number[] = [60, 300, 900, 3600, 14400, 86400, 259200];
 
 /** Every metric, by its role. */
 export const METRICS = {
@@ -115,6 +130,47 @@ export const METRICS = {
     "{action}",
     "Automatic undo actions that ended on the instance, by workflow and outcome (its CompensationStatus)",
     ["workflow", "outcome"],
+  ),
+  pausesOpened: counter(
+    "agboss.instance.pauses.opened",
+    "{pause}",
+    "Pauses whose channel the instance asked (a re-entry of a sent pause is not counted; at least once under a takeover race), by workflow and role (the channel's name)",
+    ["workflow", "role"],
+  ),
+  pausesClosed: counter(
+    "agboss.instance.pauses.closed",
+    "{pause}",
+    "Pauses the instance closed (answered, expired, cancelled, withdrawn, tree-ended, reassigned), by workflow, role and reason",
+    ["workflow", "role", "reason"],
+  ),
+  pausesTimeToAnswer: histogram(
+    "agboss.instance.pauses.time_to_answer",
+    "s",
+    "How long a pause waited for a human answer, from asked to answered (an expiry's decision is not an answer), by workflow and role",
+    ["workflow", "role"],
+    TIME_TO_ANSWER_BUCKETS,
+  ),
+  pausesExtended: counter(
+    "agboss.instance.pauses.extended",
+    "{pause}",
+    "Pause deadlines the instance extended, by workflow and role",
+    ["workflow", "role"],
+  ),
+  pausesAnswersNotTaken: counter(
+    "agboss.instance.pauses.answers_not_taken",
+    "{pause}",
+    "Answers the instance closed because no step took them, by workflow, role and reason (cancelled, tree-ended)",
+    ["workflow", "role", "reason"],
+  ),
+  noticesWaiting: gauge(
+    "agboss.cluster.pauses.notices.waiting",
+    "{mailbox}",
+    "Pause mailboxes with notices waiting for delivery, over the whole application (aggregate with max)",
+  ),
+  noticesDead: gauge(
+    "agboss.cluster.pauses.notices.dead",
+    "{mailbox}",
+    "Pause mailboxes set aside after their delivery kept failing, over the whole application (aggregate with max)",
   ),
 } as const satisfies Readonly<Record<string, MetricSpec>>;
 

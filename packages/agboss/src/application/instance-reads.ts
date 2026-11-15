@@ -76,3 +76,5 @@ function afterOf(after: string | undefined): { readonly after?: string } {
   const reason = "a cursor is the next of a page before: a non-empty text";
   throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }
+
+export { listPausesOf } from "./pause-masks.js";

@@ -1199,9 +1199,18 @@ instance, an expiry look on any instance, all read the new deadline from the rec
 
 ## List and watch pauses
 
-> **TODO (#943, not on main yet):** `app.listPauses` — which pauses are open, whose, how long
-> overdue — and the pause metrics (opened, closed by reason, open now, age at the answer) are written
-> here and in [Metrics](Metrics) when #943 merges.
+`app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` is an operator's queue of one
+tenant's pauses ([App](App#applistpauses-tenantid-status-role-expiringbefore-limit-after-943)): by default
+the `Pending` ones, by channel name (`role`) and by deadline, 100 a page, each pause exactly once across
+pages even while others open and close. A pause shows its `pauseKey` always and its `pauseId` only when the
+thread's owner answers it; its `ask` is masked by its workflow's policies; a closed one carries `reason`,
+`closedAt` and who answered. "What expires in the next hour":
+`app.listPauses({ tenantId, expiringBefore: new Date(Date.now() + 3600e3) })`.
+
+The instance's meter counts them ([Metrics](Metrics)): `agboss.instance.pauses.opened`, `.closed` by
+`reason`, `.extended`, `.answers_not_taken`, the histogram `.time_to_answer` (human answers only, in
+seconds) and the cluster gauges `agboss.cluster.pauses.notices.waiting` / `.dead`. Each change is counted
+once, by the instance that applied it; labels are the workflow, the channel's name and the reason.
 
 ## Deadlines in working time (#944)
 

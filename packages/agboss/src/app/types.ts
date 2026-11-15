@@ -12,7 +12,8 @@ import type { TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
-import type { PendingPause } from "../pause/index.js";
+import type { PendingPause, PendingPauseBase } from "../pause/index.js";
+import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructure/pause-record.js";
 import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
@@ -348,6 +349,16 @@ export interface App {
    * `next`), in the order recorded. A call pending for the whole read is listed exactly once.
    */
   pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
+  /**
+   * A page of one tenant's pauses (#943): by `status` (default `Pending`), `role` (the channel's
+   * name) and `expiringBefore`, at most `limit` (1 to 1000, default 100), from the cursor `after`
+   * (a page's `next`). Pauses come in the order they were made; the cursor is a position in that
+   * order, so a pause that opens or closes between two pages never makes another skipped or
+   * repeated. A pause's id is shown as `result.pending` shows it (only a `ThreadOwner` pause's),
+   * its `pauseKey` always; its `ask` is masked by its workflow's observability policies. Another
+   * tenant's pauses are never listed; an invalid query is a `DtoValidationError` (`PausesQuery`).
+   */
+  listPauses(query: PausesQuery): Promise<PausesPage>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
@@ -363,6 +374,46 @@ export interface PendingOutboundCallsQuery {
   readonly after?: string;
 }
 
+/** Which pauses `app.listPauses` reads (#943): a tenant's, a page of them. */
+export interface PausesQuery {
+  readonly tenantId: string;
+  /** Default `Pending`; several: any of them. */
+  readonly status?: PauseStatus | readonly PauseStatus[];
+  /** The channel's name (a role's, or a concrete channel's). */
+  readonly role?: string;
+  /** Only pauses whose deadline is before it; one with no deadline is never listed. */
+  readonly expiringBefore?: Date;
+  /** How many at most: a whole number from 1 to 1000; default 100. */
+  readonly limit?: number;
+  /** The `next` of the page before; none → from the first. */
+  readonly after?: string;
+}
+
+/** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
+export interface ListedPause extends Omit<PendingPauseBase, "answeredBy"> {
+  readonly kind: PauseKind;
+  /** The question, masked by the pause's workflow's observability policies. */
+  readonly ask: unknown;
+  /** Who answered a closed pause (`undefined` while open, or when its channel decided). */
+  readonly answeredBy?: string;
+  /** The pause's one-way key: what a metric, a log or an error calls it in place of its id. */
+  readonly pauseKey: string;
+  readonly status: PauseStatus;
+  readonly rootExecutionId: string;
+  readonly threadId: string;
+  readonly askedAt: string;
+  readonly expiresAt?: string;
+  /** Why a closed pause closed. */
+  readonly reason?: PauseClosedReason;
+  readonly closedAt?: string;
+}
+
+/** A page of `app.listPauses`; `next` is the cursor of the page after it, absent on the last. */
+export interface PausesPage {
+  readonly pauses: readonly ListedPause[];
+  readonly next?: string;
+}
+
 /** Which tree `app.auditLogOf` and `app.outboundCallsOf` read: the tenant's root execution. */
 export interface ExecutionTreeQuery {
   readonly tenantId: string;
@@ -375,5 +426,10 @@ export interface ExecutionTreeQuery {
  */
 export type WorkflowApp = Omit<
   App,
-  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
+  | "checkLiveness"
+  | "checkReadiness"
+  | "auditLogOf"
+  | "outboundCallsOf"
+  | "pendingOutboundCallsOf"
+  | "listPauses"
 >;

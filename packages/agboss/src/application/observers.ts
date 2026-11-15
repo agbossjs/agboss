@@ -8,6 +8,7 @@ import {
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import { resolveListed } from "./application-container.js";
 import type { AssembledApplication } from "./assemble.js";
+import type { PauseTally } from "../pause/pause-tally.js";
 import type { MeterProvider } from "@opentelemetry/api";
 import type { StepCapacity } from "../app/step-slots.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
@@ -41,7 +42,11 @@ export interface ObserverSeams {
 export interface MeteredParts {
   readonly infrastructure: Infrastructure;
   readonly log: FrameworkLog;
-  readonly instance: { readonly stepSlots?: StepCapacity | undefined };
+  readonly instance: {
+    readonly stepSlots?: StepCapacity | undefined;
+    /** Where the metrics' pause tally is attached (#943). */
+    readonly notices?: { readonly tallyTo: (tally: PauseTally) => void };
+  };
   readonly created: unknown[];
 }
 
@@ -91,8 +96,13 @@ export async function instanceMetricsOf(
   if (meterProvider === undefined) return undefined;
   const { InstanceMetrics: Metrics } = await lazyLoad(import("../metrics/instance-metrics.js"));
   const { childQueue: queue, clock } = infrastructure;
-  const metrics = new Metrics({ meterProvider, queue, clock, log, stepSlots: instance.stepSlots });
+  const pauses = infrastructure.pausedExecutions;
+  const metrics = new Metrics({
+    ...{ meterProvider, queue, pauses, clock, log },
+    stepSlots: instance.stepSlots,
+  });
   created.push(metrics);
+  instance.notices?.tallyTo(metrics.pauses);
   return metrics;
 }
 

@@ -3,6 +3,17 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: list pauses and pause metrics — `app.listPauses` (#943, part of #910)
+
+- **Added**: `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` → `PausesPage`
+  (`ListedPause[]`, `next?`): a tenant's pauses a page at a time in the order they were made, by a cursor that
+  skips and repeats nothing when pauses open or close between pages; `pauseId` only for a `ThreadOwner` pause,
+  `pauseKey` always, `ask` masked by its workflow's observability policies, closed ones with `reason`,
+  `closedAt`, `answeredBy`. Invalid query: `DtoValidationError` (`PausesQuery`).
+- **Added**: metrics `agboss.instance.pauses.opened` / `.closed` / `.extended` / `.answers_not_taken`, the
+  histogram `agboss.instance.pauses.time_to_answer` (seconds, `MetricKind.Histogram`) and the cluster gauges
+  `agboss.cluster.pauses.notices.waiting` / `.dead` — [Metrics](Metrics).
+
 ## Unreleased — 0.1.1: expiry in quorums and plain joins — `BranchStatus.Expired`, settled answers, `joinFailed` (#945, part of #910)
 
 - **Added**: `BranchStatus.Expired` — a branch whose pause expired (its own, the run's or the quorum's), the error

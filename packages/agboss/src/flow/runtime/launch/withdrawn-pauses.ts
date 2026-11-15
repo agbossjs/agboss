@@ -8,6 +8,7 @@ import {
   type PauseRecord,
 } from "../../../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn, type PauseSeam } from "../../../pause/index.js";
+import { pauseTallyOf } from "../../../pause/pause-tally.js";
 import { rootFactsOf } from "../../context/frame.js";
 import { branchKeyOf, PauseWithdrawnError } from "../pause.js";
 import type { ExecutionStateType } from "../state.js";
@@ -53,6 +54,7 @@ export async function withdrawPause(
   if (cancelled === undefined) return false;
   // looked for at once, before anything that may throw
   noticesWritten(stores);
+  pauseTallyOf(stores)?.closed(cancelled);
   // the store may record `Expired` for a close at or after the deadline (I3): logged as it did
   await logPauseAnswer(stores.answers, cancelled, cancelled.resolution ?? resolution);
   return true;

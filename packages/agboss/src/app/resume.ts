@@ -29,6 +29,7 @@ import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
 import { markAnswered, refusedAfterMark } from "./paused-runs.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
+import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
@@ -228,6 +229,7 @@ export async function recordAnswer(
   }
   // its notices are written: looked for at once, before anything that may throw
   noticesWritten(parts);
+  pauseTallyOf(parts)?.closed(resolved);
   await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
   return { pause: resolved, run };
 }

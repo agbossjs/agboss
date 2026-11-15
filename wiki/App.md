@@ -123,17 +123,17 @@ A framework contract with a built-in default, one per application. Registered **
 two → `[di.ambiguous-implementation]`. A service that needs one injects the contract
 (`deps: [CostLedgerRepository]`) and gets the listed implementation.
 
-| Contract                    | What it keeps                                                      | Built-in default |
-| --------------------------- | ------------------------------------------------------------------ | ---------------- |
-| `ExecutionRecordRepository` | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots, who answered each pause (`savePauseAnswer`, #267 S107) | in memory |
-| `CostLedgerRepository`      | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`) | in memory        |
-| `PausedExecutionRepository` | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey` — by tenant, tree and step key, #663 —, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteByResolvedAtBefore` — [Pauses](Pauses#a-pauses-life)) | in memory |
-| `BaseCheckpointSaver`       | LangGraph's checkpoints, taken as is (ecosystem savers plug in)    | `MemorySaver`    |
-| `ExecutionLeaseRepository`  | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265) | in memory |
-| `ExecutionTreeRepository`   | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends) | in memory |
-| `RateLimitRepository`       | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266) | in memory |
-| `ExecutionHistoryRepository` | each root execution's history, masked, only with `@Application({ retention: { executionRecords } })` (#401, [Execution history](Execution-history)) | in memory |
-| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyInstance`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333)) | in memory |
+| Contract                        | What it keeps                                                                                                                                                                                                                                                                                                                                                                                                                                 | Built-in default |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `ExecutionRecordRepository`     | threads and their owners, one record per execution (`completeIfStatus`: a compare-and-set status write), scores, config snapshots, who answered each pause (`savePauseAnswer`, #267 S107)                                                                                                                                                                                                                                                     | in memory        |
+| `CostLedgerRepository`          | the budgets' counters per budget, scope key and period, and each budget's last `maxSpend()` (`findSpentByCounter`, `saveAll`, `findMaxSpendByAccount`, `saveMaxSpend`)                                                                                                                                                                                                                                                                        | in memory        |
+| `PausedExecutionRepository`     | the paused execution of each thread (`findByTenantIdAndThreadId`, `save`, `deleteByTenantIdAndThreadId`) and every pause by its id (`findOrCreateByStepKey` — by tenant, tree and step key, #663 —, `resolveByTenantIdAndPauseId` — `Pending → Resolved` with its answer, atomic —, `decideByTenantIdAndPauseId`, `cancelByTenantIdAndPauseId`, `markTakenByTenantIdAndPauseId`, `deleteByResolvedAtBefore` — [Pauses](Pauses#a-pauses-life)) | in memory        |
+| `BaseCheckpointSaver`           | LangGraph's checkpoints, taken as is (ecosystem savers plug in)                                                                                                                                                                                                                                                                                                                                                                               | `MemorySaver`    |
+| `ExecutionLeaseRepository`      | one lease per execution tree: who moves it (`acquire`, `renew`, `release`, #265)                                                                                                                                                                                                                                                                                                                                                              | in memory        |
+| `ExecutionTreeRepository`       | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends)                                                                                                                                                                                                                                                                                                                                  | in memory        |
+| `RateLimitRepository`           | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266)                                                                                                                                                                                                                                                                                                                        | in memory        |
+| `ExecutionHistoryRepository`    | each root execution's history, masked, only with `@Application({ retention: { executionRecords } })` (#401, [Execution history](Execution-history))                                                                                                                                                                                                                                                                                           | in memory        |
+| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyInstance`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333))                                                                                                                                                                                                                                                                                  | in memory        |
 
 **Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —
 `newThreadId()` and `newExecutionId()` — gives every thread id the framework mints (`app.execute`
@@ -279,18 +279,18 @@ worst case of each start with how each number is made up — the [check report](
 
 ## The result — `ExecutionOutput`
 
-| Field                                                                 | What it holds                                                                      |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `thread`                                                              | the conversation id — pass it to the next `execute` or to `resume`                 |
-| `status`                                                              | `ExecutionStatus.Finished` or `ExecutionStatus.Paused`                             |
-| `finish`                                                              | the `@WorkflowFinish` the run reached, as `{ name }` (absent when paused)          |
-| `output`                                                              | the finish's DTO — the business result only (`WorkflowFinishTextDto`: `{ text }`), typed by the finishes of the start's paths |
-| `record`                                                              | with `execute(…, { record: true })`: the execution record (path scope, last error) |
-| `pending`                                                             | every pause the run waits for — `PendingPause[]` ([Pauses](Pauses)), empty unless paused|
-| `path`                                                                | the flow nodes it visited, in order, by name                                       |
-| `spend`                                                               | the `CostReport` of this run ([FinOps](FinOps))                                    |
-| `executionId`, `compacted`, `traceUrl`                                | the execution's id, what memory compacted, the trace                               |
-| `compensations`                                                       | the undo actions that ran, in the order they ended — on a side path or automatically (a failed join's finished branches, #340) — `CompensationRecord[]` ([Rollback](Rollback)); also `record.compensations` |
+| Field                                  | What it holds                                                                                                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thread`                               | the conversation id — pass it to the next `execute` or to `resume`                                                                                                                                          |
+| `status`                               | `ExecutionStatus.Finished` or `ExecutionStatus.Paused`                                                                                                                                                      |
+| `finish`                               | the `@WorkflowFinish` the run reached, as `{ name }` (absent when paused)                                                                                                                                   |
+| `output`                               | the finish's DTO — the business result only (`WorkflowFinishTextDto`: `{ text }`), typed by the finishes of the start's paths                                                                               |
+| `record`                               | with `execute(…, { record: true })`: the execution record (path scope, last error)                                                                                                                          |
+| `pending`                              | every pause the run waits for — `PendingPause[]` ([Pauses](Pauses)), empty unless paused                                                                                                                    |
+| `path`                                 | the flow nodes it visited, in order, by name                                                                                                                                                                |
+| `spend`                                | the `CostReport` of this run ([FinOps](FinOps))                                                                                                                                                             |
+| `executionId`, `compacted`, `traceUrl` | the execution's id, what memory compacted, the trace                                                                                                                                                        |
+| `compensations`                        | the undo actions that ran, in the order they ended — on a side path or automatically (a failed join's finished branches, #340) — `CompensationRecord[]` ([Rollback](Rollback)); also `record.compensations` |
 
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Turn and the spend are recorded first.
@@ -346,6 +346,22 @@ a channel's). The options are `PauseCallerOptions` — the caller fields only, n
 a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
 `dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
+
+## `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` (#943)
+
+An operator's queue of one tenant's pauses, a page at a time: `PausesPage { pauses: ListedPause[]; next? }`.
+`status` is one `PauseStatus` or a list (default `Pending`); `role` the channel's name; `expiringBefore` a
+`Date` (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `after` the
+`next` of the page before. Pauses come in the order they were made and the cursor is a position in that
+order — never an offset — so a pause that opens or closes between two pages makes no other pause skipped
+or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only a `ThreadOwner` pause's; a
+channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step`, `channel`,
+`answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
+(`PauseClosedReason`), `closedAt` and `answeredBy` (who answered; absent when its channel decided). Its
+`ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
+invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the application the method finds each
+pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
+union of every workflow's policies (fail closed).
 
 ## `app.cancel(threadId, { tenantId, ownerId })`
 
@@ -430,12 +446,12 @@ Four hooks, per application instance, for every component the container creates 
 repositories, providers, tools, handlers, guardrails, observers) — `implements OnInit, OnStart,
 OnStop, OnDestroy`, each optional (#261):
 
-| Hook        | When                                                                                    | For                                               |
-| ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `onInit`    | the component is created, its dependencies injected and past their own `onInit`         | opening its own: a connection, a pool, a warm-up  |
-| `onStart`   | every component is past `onInit`; the app is ready; no `execute` yet                    | what needs the whole app: a check, a log line     |
-| `onStop`    | `app.close()` or SIGTERM: no new executions are accepted, running ones go on            | stop taking work, finish its own operations       |
-| `onDestroy` | the running executions on this instance have finished, paused or been interrupted       | closing connections, releasing resources          |
+| Hook        | When                                                                              | For                                              |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `onInit`    | the component is created, its dependencies injected and past their own `onInit`   | opening its own: a connection, a pool, a warm-up |
+| `onStart`   | every component is past `onInit`; the app is ready; no `execute` yet              | what needs the whole app: a check, a log line    |
+| `onStop`    | `app.close()` or SIGTERM: no new executions are accepted, running ones go on      | stop taking work, finish its own operations      |
+| `onDestroy` | the running executions on this instance have finished, paused or been interrupted | closing connections, releasing resources         |
 
 <!-- snippet-context
 import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "@agboss/core";
@@ -479,7 +495,7 @@ export class JobIndexService implements OnInit, OnStart, OnStop, OnDestroy {
 ```
 
 - A failing `onInit` / `onStart` → the app does not start: `[di.hook-failed] JobIndexService.onInit
-  failed: …` (the original as `cause`); the components already past `onInit` get `onDestroy`.
+failed: …` (the original as `cause`); the components already past `onInit` get `onDestroy`.
 - A failing `onStop` / `onDestroy` → the other hooks still run; the failures are collected into one
   `AggregateError`.
 - Values (`provide(TOKEN, value)`) and test mocks have no hooks. Per-execution work is an observer,
@@ -491,17 +507,17 @@ export class JobIndexService implements OnInit, OnStart, OnStop, OnDestroy {
 default. Infrastructure is not an option: it is listed in `@Application({ providers })`
 (`createApp({ stores, pausedRuns })` is gone, #261).
 
-| Option                    | Default                                                                                                  |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `env`                     | `dev` — the environment file next to the application file ([Environments](Environments))                  |
-| `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                         |
-| `gateway`                 | the application's model providers (`@Application({ providers })`, #266) — the one model-call seam         |
-| `transport`               | MCP stdio / streamable HTTP from the server's config                                                     |
-| `connectMcp`              | connect every server, check its contract (fail fast)                                                     |
-| `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                                     |
-| `newThreadId`, `newRunId` | random UUIDs                                                                                             |
-| `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                         |
-| `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                              |
+| Option                    | Default                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `env`                     | `dev` — the environment file next to the application file ([Environments](Environments))          |
+| `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                 |
+| `gateway`                 | the application's model providers (`@Application({ providers })`, #266) — the one model-call seam |
+| `transport`               | MCP stdio / streamable HTTP from the server's config                                              |
+| `connectMcp`              | connect every server, check its contract (fail fast)                                              |
+| `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                              |
+| `newThreadId`, `newRunId` | random UUIDs                                                                                      |
+| `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                  |
+| `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                       |
 
 `@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

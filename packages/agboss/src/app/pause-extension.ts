@@ -17,6 +17,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
+import { pauseTallyOf } from "../pause/pause-tally.js";
 import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
 import type { AnswerParts } from "./resume.js";
@@ -210,6 +211,7 @@ export const extendPauseOf =
       );
       if (extended !== undefined) {
         noticesWritten(parts.deps.pause);
+        pauseTallyOf(parts.deps.pause)?.extended(extended);
         return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
       }
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left

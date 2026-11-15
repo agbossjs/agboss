@@ -10,6 +10,7 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { PauseRecipients, PauseRecord } from "../infrastructure/pause-record.js";
 import type { PauseNotices } from "../pause/types.js";
+import type { PauseTally } from "../pause/pause-tally.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import {
   listenersOf,
@@ -42,6 +43,8 @@ export interface PauseNoticeHub {
   readonly recipientsOf: (pause: PauseRecord) => PauseRecipients;
   /** Notices were written by the caller: a look for them at once, not awaited, never throws. */
   readonly delivered: () => void;
+  /** From now on the pauses the instance changes are counted in `tally` (#943). */
+  readonly tallyTo: (tally: PauseTally) => void;
   /** One look for notices due (the timers' look). */
   readonly look: () => Promise<void>;
   /** Resolves when the looks started by the fast path ended (`app.close()` waits for them). */
@@ -94,6 +97,7 @@ class Hub implements PauseNoticeHub {
   #workflows: readonly BuiltApp[] = [];
   #loading: Promise<PauseNoticeDelivery> | undefined;
   #interruption: AbortSignal | undefined;
+  #tally: PauseTally | undefined;
 
   constructor(
     private readonly assembled: AssembledApplication,
@@ -106,6 +110,10 @@ class Hub implements PauseNoticeHub {
 
   interruptedBy(signal: AbortSignal): void {
     this.#interruption = signal;
+  }
+
+  tallyTo(tally: PauseTally): void {
+    this.#tally = tally;
   }
 
   bind(workflows: readonly BuiltApp[]): void {
@@ -140,7 +148,12 @@ class Hub implements PauseNoticeHub {
         return undefined;
       }
     };
+    const tallied = (): PauseTally | undefined => this.#tally;
     return {
+      // read when a change is applied: the metrics may be attached after the seam is made
+      get tally() {
+        return tallied();
+      },
       recipientsOf: recipientsOf({ senderOf, listeners: this.#names }),
       delivered: () => {
         this.#kick();

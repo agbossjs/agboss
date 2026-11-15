@@ -10,6 +10,7 @@ import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdraw
 import type { Turn } from "../turns/index.js";
 import { CANCELLED_STOP_REASON, cancelledErrorOf } from "./live-runs.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
+import { pauseTallyOf } from "../pause/pause-tally.js";
 
 /**
  * A tree's end closes its pauses (#939, #910 I13). The tree's own paused run goes first (only that
@@ -79,6 +80,7 @@ async function closedOne(
   );
   if (closed === undefined) return false;
   noticesWritten(stores);
+  pauseTallyOf(stores)?.answerNotTaken(closed);
   await logPauseNotTaken(stores.answers, closed);
   return true;
 }

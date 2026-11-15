@@ -20,6 +20,7 @@ import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { newRecordOf } from "./pause-record-made.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
+import { pauseTallyOf } from "../../pause/pause-tally.js";
 import type { ComponentRecord } from "./records.js";
 import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../../units/index.js";
 import { workingTimeAfter, type PauseCalendar } from "../../calendar/calendar-call.js";
@@ -267,6 +268,8 @@ export async function pauseStep(site: PauseStepSite, question: PauseQuestion): P
     );
     // its notices are written: looked for at once — before `settledAnswer` and `interrupt()` throw
     noticesWritten(site);
+    // asked: this pass saw `isSent` false and the store marked it (a re-entry never gets here)
+    pauseTallyOf(site)?.opened(pause);
     if (!isPending) {
       // a reply resolved it while `send` was still returning: the step goes on with it
       pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
