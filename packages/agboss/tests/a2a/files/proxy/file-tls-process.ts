@@ -26,6 +26,7 @@ const PUBLIC = "93.184.216.34";
 const calls = { net: 0, tls: 0, request: 0 };
 
 type Method = (this: unknown, ...args: unknown[]) => unknown;
+type ContextOf<F> = F extends () => infer C ? C : never;
 
 function replace(target: object, name: string, wrap: (original: Method) => Method): void {
   Reflect.set(target, name, wrap(Reflect.get(target, name) as Method));
@@ -97,22 +98,49 @@ function giveRequestAnHttpsAgent(): void {
   );
 }
 
-/** An OpenTelemetry SDK with an in-memory exporter, registered globally as a host would (#1021). */
+/**
+ * An OpenTelemetry SDK with an in-memory exporter, registered globally as a host would (#1021),
+ * with W3C trace-context and baggage propagators and an `AsyncLocalStorage` context manager — so
+ * a header injected from the active context would carry the caller's trace and baggage.
+ */
 async function registerSdk(): Promise<() => unknown[]> {
-  const { trace } = await import("@opentelemetry/api");
+  const { context, propagation, ROOT_CONTEXT, trace } = await import("@opentelemetry/api");
+  const { CompositePropagator, W3CBaggagePropagator, W3CTraceContextPropagator } =
+    await import("@opentelemetry/core");
   const { BasicTracerProvider, InMemorySpanExporter, SimpleSpanProcessor } =
     await import("@opentelemetry/sdk-trace-base");
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const storage = new AsyncLocalStorage<ContextOf<typeof context.active>>();
+  context.setGlobalContextManager({
+    active: () => storage.getStore() ?? ROOT_CONTEXT,
+    with: (active, fn, thisArg, ...args) => storage.run(active, () => fn.apply(thisArg, args)),
+    bind: (_active, target) => target,
+    enable() {
+      return this;
+    },
+    disable() {
+      return this;
+    },
+  });
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    }),
+  );
   const exporter = new InMemorySpanExporter();
   trace.setGlobalTracerProvider(
     new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] }),
   );
   return () =>
-    exporter.getFinishedSpans().map((span) => ({
-      name: span.name,
-      kind: span.kind,
-      attributes: span.attributes,
-      status: span.status.code,
-    }));
+    exporter
+      .getFinishedSpans()
+      .filter((span) => span.instrumentationScope.name === "@agboss/core") // not the caller's
+      .map((span) => ({
+        name: span.name,
+        kind: span.kind,
+        attributes: span.attributes,
+        status: span.status.code,
+      }));
 }
 
 function giveRequestAnAgent(): void {
@@ -131,6 +159,21 @@ function giveRequestAnAgent(): void {
   );
 }
 
+/** `fetch` inside the caller's own active span, with baggage — what a host's request handler has. */
+async function inCallerSpan(fetch: () => Promise<string>): Promise<string> {
+  const { context, propagation, trace } = await import("@opentelemetry/api");
+  const caller = trace.getTracer("caller").startSpan("caller");
+  const active = propagation.setBaggage(
+    trace.setSpan(context.active(), caller),
+    propagation.createBaggage({ tenant: { value: "secret-tenant" } }),
+  );
+  try {
+    return await context.with(active, fetch);
+  } finally {
+    caller.end();
+  }
+}
+
 async function main(): Promise<void> {
   simulateNetwork();
   if (mode === "otel") instrument();
@@ -145,18 +188,23 @@ async function main(): Promise<void> {
       import("../../../../src/infrastructure/clock.js"),
       import("../../../../src/units/index.js"),
     ]);
-  const outcome = await fetchedFile({
-    url,
-    allowedOrigins: [new URL(url).origin],
-    maxBytes: kilobytes(64),
-    transport: httpsFileTransport,
-    clock: systemClock,
-    timeout: seconds(4),
-    signal: new AbortController().signal,
-  }).then(
-    () => "fetched",
-    (error: unknown) => String(Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code")),
-  );
+  const fetched = (): Promise<string> =>
+    fetchedFile({
+      url,
+      allowedOrigins: [new URL(url).origin],
+      maxBytes: kilobytes(64),
+      transport: httpsFileTransport,
+      clock: systemClock,
+      timeout: seconds(mode === "span-deadline" ? 1 : 4),
+      signal: new AbortController().signal,
+    }).then(
+      () => "fetched",
+      (error: unknown) =>
+        String(Reflect.get(Object(Reflect.get(Object(error), "metadata")), "code")),
+    );
+  const outcome = mode.startsWith("span") ? await inCallerSpan(fetched) : await fetched();
+  // the span of a response ends when its message closes, a turn after the fetch settles
+  await new Promise((resolve) => setTimeout(resolve, 100));
   await report({ outcome, calls, spans: spans() });
   // a socket left open keeps the loop alive: the unref'd timer then fires and says so
   setTimeout(() => {

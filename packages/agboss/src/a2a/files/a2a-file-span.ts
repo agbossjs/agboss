@@ -17,13 +17,17 @@ import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 export interface FileFetchSpan {
   /** The response's status line is in. */
   readonly responded: (status: number) => void;
-  /** The response is over (or its read cancelled): the span ends. */
-  readonly finished: () => void;
+  /**
+   * The response is over (or its read cancelled): the span ends — with `failure` as its error type
+   * when the body was not delivered (#1139), else an error status for a status of 400 and above.
+   */
+  readonly finished: (failure?: string) => void;
   /** The request failed or was refused before a response. */
   readonly failed: (error: unknown) => void;
 }
 
-const errorTypeOf = (error: unknown): string => {
+/** An error's type on the span: its code, else its name. */
+export const errorTypeOf = (error: unknown): string => {
   const code: unknown = Reflect.get(Object(error), "code");
   return typeof code === "string" ? code : error instanceof Error ? error.name : "Error";
 };
@@ -54,8 +58,8 @@ export function startFileFetchSpan(url: URL): FileFetchSpan {
       status = code;
       span.setAttribute("http.response.status_code", code);
     },
-    finished: () => {
-      end(status >= 400 ? String(status) : undefined);
+    finished: (failure) => {
+      end(failure ?? (status >= 400 ? String(status) : undefined));
     },
     failed: (error) => {
       end(errorTypeOf(error));
