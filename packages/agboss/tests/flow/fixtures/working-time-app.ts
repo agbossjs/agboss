@@ -1,5 +1,6 @@
 import { Application } from "../../../src/application/application.js";
 import { ChannelOf } from "../../../src/channels/channel-handler.js";
+import { PauseExpiration, type FailExpiration } from "../../../src/channels/pause-expiration.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import { Channel, Tool, type ToolHandler } from "../../../src/components/decorators.js";
@@ -38,6 +39,8 @@ export interface WorkingAppConfig {
   readonly calendar?: WorkingCalendarSource;
   /** Other providers: calendar classes and what they read. */
   readonly providers?: readonly Class[];
+  /** The channel's `onPauseExpired` (#1148): what it does when the pause's deadline is looked at. */
+  readonly onExpired?: () => Promise<FailExpiration>;
 }
 
 /** What the channel heard, in order. */
@@ -55,7 +58,16 @@ export interface WorkingApp {
   readonly told: WorkingTold;
 }
 
-export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
+/** What `workingParts` made: everything but the application (its file decides where `environments/` is). */
+export interface WorkingParts extends Omit<WorkingApp, "application"> {
+  readonly channel: Class;
+}
+
+/**
+ * The question role, its channel and the workflow of `workingApp`, for an application declared elsewhere
+ * (#1148: one with its own environment folder, on a real store, in a child process).
+ */
+export function workingParts(name: string, config: WorkingAppConfig): WorkingParts {
   const told: WorkingTold = { sent: [], expiring: [] };
   @ChannelRole({
     name: `${name}-question`,
@@ -76,6 +88,10 @@ export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
     override onPauseExpiring(event: { expiresAt: string; deliveryId: string }): Promise<void> {
       told.expiring.push(event);
       return Promise.resolve();
+    }
+
+    onPauseExpired(): Promise<FailExpiration> {
+      return config.onExpired?.() ?? Promise.resolve(PauseExpiration.fail());
     }
   }
   @WorkflowStart({ name: `${name}-workflow-start`, description: "d", input: ExpiryOrderDto })
@@ -99,23 +115,28 @@ export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
     ],
   })
   class SomeWorkflow {}
+  return {
+    start: SomeStart,
+    workflow: SomeWorkflow,
+    role: SomeQuestion,
+    channel: SomeChannel,
+    told,
+  };
+}
+
+export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
+  const parts = workingParts(name, config);
   @Application({
     name: `${name}-application`,
     version: "1.0.0",
     environment: EmptyEnvironment,
-    workflows: [SomeWorkflow],
+    workflows: [parts.workflow],
     budgets: TEST_BUDGETS,
-    providers: [SomeChannel, ...(config.providers ?? [])],
+    providers: [parts.channel, ...(config.providers ?? [])],
     ...(config.calendar === undefined ? {} : { workingCalendar: config.calendar }),
   })
   class SomeApplication {}
-  return {
-    application: SomeApplication,
-    start: SomeStart,
-    workflow: SomeWorkflow,
-    role: SomeQuestion,
-    told,
-  };
+  return { ...parts, application: SomeApplication };
 }
 
 /** What `workingToolApp` made. */

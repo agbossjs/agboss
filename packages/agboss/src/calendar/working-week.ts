@@ -73,18 +73,27 @@ export const ABSOLUTE_DAY_LIMIT = 25 * 366;
 /** The working minutes a week of each grid has (a validated grid has at least one). */
 const weekly = new WeakMap<object, number>();
 
+/** How many holidays and working days a week each grid has (#1148): a holiday costs the walk up to 1 / days of a week. */
+const holidayShare = new WeakMap<object, { readonly holidays: number; readonly days: number }>();
+
 /**
  * Whether a grid can give `amount` ms of working time within `ABSOLUTE_DAY_LIMIT` calendar days —
- * estimated in O(1) from its weekly working minutes; true for any calendar that is no grid
- * (a custom calendar is checked at each call).
+ * estimated in O(1) from its weekly working minutes and its holidays: each holiday removes at most
+ * one working day, a `1 / days` share of a week, and the walk needs that much more (#1148: a count
+ * that never lets through what the walk would refuse; a holiday on a day the grid does not work
+ * still counts, so it can refuse earlier than the walk would fail). True for any calendar that is
+ * no grid (a custom calendar is checked at each call).
+ *
+ * The start of the walk is the day before `from` and the first week is partial, but the walk's
+ * limit leaves that room: the estimate and the limit agree to the day, so a span that passes here
+ * is reached, and the limit itself stays as the walk's last line (never a loop).
  */
 export function weekReaches(calendar: object, amount: number): boolean {
   const minutes = weekly.get(calendar);
-  return (
-    minutes === undefined ||
-    minutes === 0 ||
-    Math.ceil(amount / (minutes * MINUTE)) * 7 <= ABSOLUTE_DAY_LIMIT
-  );
+  const share = holidayShare.get(calendar);
+  if (minutes === undefined || minutes === 0 || share === undefined) return true;
+  const weeks = Math.ceil(amount / (minutes * MINUTE)) + Math.ceil(share.holidays / share.days);
+  return weeks * 7 <= ABSOLUTE_DAY_LIMIT;
 }
 
 /** The amount of working time asked is a positive finite number. */
@@ -101,7 +110,10 @@ class WorkingWeekCalendar implements WorkingCalendarHandler {
   readonly #idleLimit: number;
   readonly #dayLimit: number;
 
-  constructor(options: WorkingWeekOptions) {
+  constructor(
+    options: WorkingWeekOptions,
+    private readonly estimates = true,
+  ) {
     const { problems, working } = checkedWeek(options);
     problemsOf.set(this, problems);
     grids.add(this);
@@ -110,9 +122,11 @@ class WorkingWeekCalendar implements WorkingCalendarHandler {
     this.#holidays = new Set(problems.length === 0 ? (options.holidays ?? []) : []);
     this.#working = problems.length === 0 ? working : [];
     // a validated grid has working time in every week: the weeks a holiday list can empty are finitely many
+    // (a grid that failed validation has none: its walk ends here, never in the day limit)
     this.#idleLimit = (this.#holidays.size + 1) * 7 + 8;
     // the walk's last line: an absolute number of calendar days, whatever the grid's density
     this.#dayLimit = ABSOLUTE_DAY_LIMIT + this.#holidays.size;
+    holidayShare.set(this, { holidays: this.#holidays.size, days: Math.max(1, this.#days.size) });
     weekly.set(
       this,
       this.#days.size * this.#working.reduce((sum, one) => sum + one.to - one.from, 0),
@@ -152,7 +166,7 @@ class WorkingWeekCalendar implements WorkingCalendarHandler {
     const start = request.from.getTime();
     let remaining: number = request.amount;
     assertPositiveFinite(remaining);
-    if (!weekReaches(this, remaining))
+    if (this.estimates && !weekReaches(this, remaining))
       throw new RangeError(
         "the amount of working time is more than this calendar reaches in 25 years",
       );
@@ -194,6 +208,15 @@ function merged(
   }
   return joined;
 }
+
+/**
+ * A grid whose walk is not pre-checked by the O(1) estimate — only for the tests of the walk's own
+ * guards (the day limit, the stall guard), which the estimate otherwise pre-empts (#1148).
+ *
+ * @internal
+ */
+export const unestimatedWorkingWeek = (options: WorkingWeekOptions): WorkingCalendarHandler =>
+  new WorkingWeekCalendar(options, false);
 
 /** The built-in working calendar: a weekly grid in a time zone. */
 export const WorkingWeek: { of(options: WorkingWeekOptions): WorkingCalendarHandler } = {
