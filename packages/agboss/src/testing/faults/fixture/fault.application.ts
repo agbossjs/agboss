@@ -22,6 +22,11 @@ import {
   FaultPauseWorkflow,
 } from "./pause.workflow.js";
 import { FaultPauseListener } from "./pause.listener.js";
+import {
+  FaultChildPauseWorkflow,
+  FaultSecondPauseChannel,
+  FaultTwicePauseWorkflow,
+} from "./window.workflow.js";
 import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
@@ -121,6 +126,8 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultOrderWorkflow,
       FaultBatchWorkflow,
       FaultPauseWorkflow,
+      FaultChildPauseWorkflow,
+      FaultTwicePauseWorkflow,
       ...(expiring ? [FaultExpiringWorkflow] : []),
       ...a2a.workflows,
     ],
@@ -136,6 +143,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
+      FaultSecondPauseChannel,
       ...(expiring ? [FaultExpiringChannel] : []),
       FaultPauseListener,
       provide(FAULT_BUSINESS_ROWS, stores.businessRows),

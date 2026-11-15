@@ -9,16 +9,9 @@ import { treeOf, forgetTree } from "./tree-ends.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import type { ExecutionOutput } from "./types.js";
 import { runningOutcome } from "../run/execute.js";
-import { treeResumeNow } from "./tree-resume.js";
-import { recoveryPassOf, resumePassOf } from "./recovery-pass.js";
+import { answeredPassOf, recoveryPassOf } from "./recovery-pass.js";
 import { duePausesOf, expirePauses } from "./pause-expiry.js";
-import type {
-  AnsweredPass,
-  PlannedPass,
-  TreeCall,
-  TreeMoveParts,
-  TreeState,
-} from "./tree-move-types.js";
+import type { PlannedPass, TreeCall, TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
  * The part of moving a tree that an expiry adds (#941, I4, I6): the pass that takes the answers
@@ -26,21 +19,6 @@ import type {
  * then the due pauses expired, then the pass that takes them. Nothing here takes the lease: the
  * caller holds it.
  */
-
-/** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
-export async function answeredPassOf(
-  parts: TreeMoveParts,
-  state: TreeState,
-  call: TreeCall,
-  passed?: ReadonlySet<string>,
-): Promise<AnsweredPass | undefined> {
-  const { deps, paused } = parts;
-  const resume = await treeResumeNow(deps, state, passed);
-  if (resume === undefined) return undefined;
-  const stored = await paused.find(state);
-  if (stored?.run.runId !== state.runId) return undefined;
-  return { resume, pass: resumePassOf(stored, resume, call) };
-}
 
 /**
  * The pass an expiry starts for a tree its holder rests or is about to rest: `undefined` when no

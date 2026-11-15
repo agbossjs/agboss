@@ -18,6 +18,8 @@ export default defineConfig({
       "tests/app/{without-recovery,lost-attempt}.test.ts",
       // #1090: a new run handed over before its first checkpoint, and after it
       "tests/app/{first-checkpoint-hand-over,writes-window-takeover}.test.ts",
+      // #1098: a tree lost in the writes window at an answer — a waiting resume, an own-thread child
+      "tests/app/writes-window-{resume,pauses}.test.ts",
     ],
   },
 });

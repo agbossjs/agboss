@@ -25,11 +25,13 @@ describe("framework and examples apart (#91)", () => {
     // the application every fault pod runs, published with `@agboss/core/testing/faults` only
     const fixture = join(framework, "testing", "faults", "fixture");
 
-    // its order, the approval an A2A task rests at (#811), and the paused order (#959)
+    // its order, the approval an A2A task rests at (#811), the paused order (#959), and the paused
+    // order as an own-thread child and the order approved twice (#1098)
     expect(sources(framework).filter(decorated)).toEqual([
       join(fixture, "approval.workflow.ts"),
       join(fixture, "order.workflow.ts"),
       join(fixture, "pause.workflow.ts"),
+      join(fixture, "window.workflow.ts"),
     ]);
   });
 

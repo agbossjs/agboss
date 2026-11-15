@@ -4,7 +4,18 @@ import { continueAgent, type InterruptedRun } from "../run/continue-agent.js";
 import { resumeAgent } from "../run/resume-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { runOptionsOf } from "./live-runs.js";
-import type { TreeCall, TreeMoveParts, TreePass } from "./tree-moves.js";
+import { ResumeReason } from "../core/observability.js";
+import type {
+  AnsweredPass,
+  PlannedPass,
+  TreeCall,
+  TreeMoveParts,
+  TreePass,
+  TreeState,
+} from "./tree-move-types.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import { readingGraphOf } from "../run/run-budgets.js";
+import { waitingInterruptsOf } from "../run/waiting-pauses.js";
 import { callWithLostPasses, treeResumeNow } from "./tree-resume.js";
 
 /** How recovery continues an interrupted tree: the pass, and the answers it takes (if any). */
@@ -32,6 +43,28 @@ export async function recoveryPassOf(
   if (resume !== undefined && stored?.run.runId === interrupted.runId) {
     return { resume, pass: resumePassOf(stored, resume, call) };
   }
+  return {
+    pass: (moving, signal) => continueAgent(interrupted, moving, runOptionsOf(call, signal)),
+  };
+}
+
+/**
+ * The pass of a tree a resume took the lease of and found no answer to take (#1098): when nothing
+ * of it waits — no open interrupt, at any depth — and its record still runs, it was left mid-pass:
+ * its holder lost the tree after a task's writes and before the checkpoint after them, the answer
+ * this resume recorded among those writes. The resume holds the lease, so it continues the tree as
+ * recovery would (`continueAgent`: the saved writes applied, the rest run once) and reports where
+ * it got. `undefined` when the tree waits at a pause or its record ended: where it is now is read.
+ */
+export async function stalledPassOf(
+  deps: TreeMoveParts["deps"],
+  state: TreeState,
+  call: TreeCall,
+): Promise<RecoveryPass | undefined> {
+  const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
+  if (record?.status !== ExecutionRecordStatus.Running) return undefined;
+  if ((await waitingInterruptsOf(readingGraphOf(deps), state.runId)).length > 0) return undefined;
+  const interrupted = { ...state, turnId: record.id };
   return {
     pass: (moving, signal) => continueAgent(interrupted, moving, runOptionsOf(call, signal)),
   };
@@ -68,4 +101,35 @@ export class RootCalls {
       else this.#calls.set(rootExecutionId, left);
     };
   }
+}
+
+/** The pass that takes the tree's recorded answers now; `undefined` when it has none (or rests no more). */
+export async function answeredPassOf(
+  parts: TreeMoveParts,
+  state: TreeState,
+  call: TreeCall,
+  passed?: ReadonlySet<string>,
+): Promise<AnsweredPass | undefined> {
+  const { deps, paused } = parts;
+  const resume = await treeResumeNow(deps, state, passed);
+  if (resume === undefined) return undefined;
+  const stored = await paused.find(state);
+  if (stored?.run.runId !== state.runId) return undefined;
+  return { resume, pass: resumePassOf(stored, resume, call) };
+}
+
+/**
+ * The pass a resume holding the lease runs: the answers recorded and not yet taken; else, when its
+ * holder lost the tree mid-pass after the writes that took this answer (#1098), the pass that moves
+ * it on from its checkpoint; `undefined` when the tree rests or ended (where it is is read).
+ */
+export async function takenPassOf(
+  parts: TreeMoveParts,
+  state: TreeState,
+  call: TreeCall,
+): Promise<{ readonly reason: ResumeReason; readonly planned: PlannedPass } | undefined> {
+  const answered = await answeredPassOf(parts, state, call);
+  if (answered !== undefined) return { reason: ResumeReason.Answered, planned: answered };
+  const stalled = await stalledPassOf(parts.deps, state, call);
+  return stalled === undefined ? undefined : { reason: ResumeReason.Recovered, planned: stalled };
 }

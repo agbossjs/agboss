@@ -8,6 +8,7 @@ import {
   ORDER_FINISH,
   EXPIRING_FINISH,
   PAUSE_FINISH,
+  TWICE_FINISH,
   orderExecutionsOf,
   type OrderExecution,
 } from "./order-executions.js";
@@ -150,7 +151,9 @@ function endViolations(
     isDeclined
       ? execution.status === "failed"
       : execution.status === "finished" &&
-        [ORDER_FINISH, PAUSE_FINISH, EXPIRING_FINISH].includes(execution.finish ?? ""),
+        [ORDER_FINISH, PAUSE_FINISH, EXPIRING_FINISH, TWICE_FINISH].includes(
+          execution.finish ?? "",
+        ),
   );
   if (ended.length > 0) return [];
   const seen = executions

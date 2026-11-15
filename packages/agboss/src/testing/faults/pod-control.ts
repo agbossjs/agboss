@@ -1,3 +1,7 @@
+import {
+  FaultChildPauseWorkflowStart,
+  FaultTwicePauseWorkflowStart,
+} from "./fixture/window.workflow.js";
 import type { App, ExecutionOutput } from "../../app/types.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
@@ -89,17 +93,15 @@ function told(tag: string, call: Promise<ExecutionOutput>, failed: string): void
   );
 }
 
-/** The fixture's start of a single-order workflow. */
-function startOf(workflow: FaultWorkflow): Class {
-  switch (workflow) {
-    case FaultWorkflow.Pause:
-      return FaultPauseWorkflowStart;
-    case FaultWorkflow.Expiring:
-      return FaultExpiringWorkflowStart;
-    default:
-      return FaultOrderWorkflowStart;
-  }
-}
+/** The fixture's starts of the single-order workflows; another is the order's. */
+const STARTS: Partial<Readonly<Record<FaultWorkflow, Class>>> = {
+  [FaultWorkflow.Pause]: FaultPauseWorkflowStart,
+  [FaultWorkflow.Expiring]: FaultExpiringWorkflowStart,
+  [FaultWorkflow.ChildPause]: FaultChildPauseWorkflowStart,
+  [FaultWorkflow.TwicePause]: FaultTwicePauseWorkflowStart,
+};
+
+const startOf = (workflow: FaultWorkflow): Class => STARTS[workflow] ?? FaultOrderWorkflowStart;
 
 /** The expiring and pause orders have a thread of their own, so a test can cancel it (#941, #1132). */
 const OWN_THREAD: readonly FaultWorkflow[] = [FaultWorkflow.Expiring, FaultWorkflow.Pause];

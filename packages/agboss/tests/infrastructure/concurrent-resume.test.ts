@@ -208,3 +208,40 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
     expect(seen.resumes).toEqual([approve, approve]);
   });
 });
+
+describe("#1098: a waiting resume whose answer the holder took, the tree resting at its next pause", () => {
+  test("B's take finds the tree at rest, not mid-pass: it reports it paused at the next pause and moves nothing (no recovery pass, no resume event)", async ({
+    app,
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Charge, { text: "first" }),
+      callTool(Charge, { text: "second" }),
+      callTool(Charge, { text: "third" }),
+    );
+    const paused = await execute(app, OrderWorkflowStart, { text: "charge three times" });
+    const answered = answerNextPauseFrom(second(apps));
+    const holder = { isDone: false };
+    hooks.beforeGuardedWrite = async () => {
+      // the other resume's last `running` mark, before its take, lands on the holder's rest at the
+      // third pause: its record says `running` while nothing of the tree moves
+      if (seen.guarded.length !== 3) return;
+      for (let tick = 0; tick < 1000 && !holder.isDone; tick += 1)
+        await new Promise((resolve) => setImmediate(resolve));
+    };
+
+    const moved = await app.resume(answerOf(paused, approve));
+    holder.isDone = true;
+    const waited = await answered.call;
+
+    expect(moved.status).toBe(ExecutionStatus.Paused);
+    expect(waited?.status).toBe(ExecutionStatus.Paused);
+    expect(waited?.pending.map((pause) => pause.pauseId)).toEqual(
+      moved.pending.map((pause) => pause.pauseId),
+    );
+    // two answers taken, by the holder; the waiting resume announced no pass of its own
+    expect(seen.resumes).toEqual([approve, approve]);
+    expect(seen.charges).toEqual(["first", "second"]);
+  });
+});

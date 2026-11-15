@@ -20,6 +20,10 @@ export enum FaultWorkflow {
   Pause = "pause",
   /** The paused order whose question expires (#941): nobody answers in 30 s, the channel approves it. */
   Expiring = "expiring",
+  /** The paused order as an own-thread child of a parent that waits for it (#1098). */
+  ChildPause = "child-pause",
+  /** An order that rests at two questions in a row (#1098): the second one answered while the first moves. */
+  TwicePause = "twice-pause",
 }
 
 /**
