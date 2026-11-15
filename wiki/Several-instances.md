@@ -1428,6 +1428,9 @@ export class LeaseTableService {
   insertCancelIfAbsent(_tree: ExecutionTree): Promise<void> {
     return Promise.resolve();
   }
+  selectCancelMark(_tree: ExecutionTree): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   selectOne(): Promise<void> {
     return Promise.resolve();
   }
@@ -1497,6 +1500,11 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
   // #909: the tree's cancel mark, durable on the fencing backend, idempotent, changing no lease
   override requestCancel(tree: ExecutionTree): Promise<void> {
     return this.leaseTableService.insertCancelIfAbsent(tree);
+  }
+
+  // #1152: the same mark, read back from the tree's own row: the sweep ends a resting tree with it
+  override isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    return this.leaseTableService.selectCancelMark(tree);
   }
 
   override ping(): Promise<void> {

@@ -9,6 +9,11 @@ import type { TestAPI } from "vitest";
 import { expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import {
+  markUnwinding,
+  unwindingMarkOf,
+  UNWINDING_KEY,
+} from "../../src/flow/runtime/compensation/unwinding-marks.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import {
   ExecutionLeaseRepository,
@@ -381,4 +386,49 @@ export function cancelRestingCases(
       "the same root started under another config: the sweep ends it as cancelled, on any version",
       "a-config-of-another-deploy",
     );
+
+  test("a running root whose automatic undo was under way (no cancel, no mark) is finished by the recovery sweep, as the undo's own cause", async ({
+    apps,
+    clock,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(
+      callTool(Step, { text: "one" }),
+      callTool(Hold, { text: "a long job" }),
+    );
+    for (const one of apps) await one.ready();
+    const first = instance(apps, 0);
+    const held = new Promise<void>((resolve) => {
+      levers.holdStarted = resolve;
+    });
+    const call = execute(
+      first,
+      OrderWorkflowStart,
+      { text: "step, then hold" },
+      { threadId: "t-1152u" },
+    );
+    call.catch(() => undefined);
+    await held;
+    kill("instance-1");
+    const [record] = await first
+      .resolve(ExecutionRecordRepository)
+      .lastTurns(DEFAULT_TENANT_ID, "t-1152u", 1);
+    const tree = { tenantId: DEFAULT_TENANT_ID, rootExecutionId: record?.runId ?? "" };
+    // the holder died after it marked its tree's undo under way (#340 PR 4), for a failure
+    await markUnwinding(
+      { trees: first.resolve(ExecutionTreeRepository), tree, key: UNWINDING_KEY },
+      unwindingMarkOf(new Error("the pass failed")),
+    );
+
+    await sweeps(clock, 3);
+
+    expect(seen.errors).toHaveLength(1);
+    expect(seen.errors[0]).not.toBeInstanceOf(ExecutionCancelledError);
+    expect(seen.resumes).toEqual([]);
+    const [ended] = await first
+      .resolve(ExecutionRecordRepository)
+      .lastTurns(DEFAULT_TENANT_ID, "t-1152u", 1);
+    expect(ended).toMatchObject({ status: "failed" });
+    expect(ended?.stopReason).not.toBe(CANCELLED_STOP_REASON);
+  });
 }
