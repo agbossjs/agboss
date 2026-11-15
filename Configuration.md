@@ -235,6 +235,7 @@ the recovery loop) — the only place they are listed; each has its own `timeout
 ([Health checks](Health-checks)). `[health.not-a-health-check]`, `[health.duplicate-name]` and
 `[name.kind-suffix]` (`-health-check`) at assembly.
 
+<<<<<<< HEAD
 ## `workingCalendar` — the calendar of working-time deadlines (#944)
 
 `@Application({ workingCalendar })` is the default calendar of `workingHours(n)` / `workingMinutes(n)`
@@ -275,6 +276,8 @@ listed `@WorkingCalendar` with `addWorkingTime`, and a grid that can never give 
 `[working-calendar.invalid]` at start. What a calendar that fails does is in [Pauses → Deadlines in working
 time](Pauses#deadlines-in-working-time-944).
 
+=======
+>>>>>>> 89ca4c5a (fix-1141: every timer-backed duration setting is refused above its documented maximum)
 ## `retention` — how long each kind of row is kept (#834)
 
 One group, the only place a retention is set; the recovery sweep removes each kind past its own on
@@ -318,6 +321,36 @@ default, and a retention set where it was before 0.1.1 (`executionRecordRetentio
 stay with their feature: `fencedEffects: { maxResultSize }`, `outboundCalls: { maxPayloadSize,
 attemptTimeout }`.
 
+<<<<<<< HEAD
+=======
+## Timeouts and deadlines — the largest value of each (#1141)
+
+A duration that becomes a timer is limited: Node clamps a delay above 2^31 − 1 ms (about 24.8 days)
+to 1 ms and warns `TimeoutOverflowWarning`, so a longer one would fire at once — a shutdown that
+gives up immediately, an undo that times out immediately. Every such setting is refused above its
+maximum, naming the field, and accepted at it:
+
+| Setting                                                             | Largest    | Refused as                                                                    |
+| ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
+| `@Application({ shutdownTimeout })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
+| `@Application({ outboundCalls: { attemptTimeout } })`               | 24 hours   | `[application.outbound-calls-invalid]` at assembly                            |
+| `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `UnitError` (`config.unit`), nothing stopped |
+| `@Tool` / `@McpTool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `UnitError` from `defineTool`         |
+| `@HealthCheck({ timeout })`                                         | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
+| `@ModelProvider({ timeout })`                                       | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
+| `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                   | 24 hours   | `RetryPolicyError` (`config.retry-policy`)                                    |
+| `a2aHttpListener({ fileFetchTimeout })`                             | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
+| an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
+| `a2aHttpListener({ maxTaskDuration })`                              | 24 days    | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
+| `.joinQuorum({ deadline })`, `.joinQuorumGroups(…, { deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
+| `app.execute(…, { deadline })`                                      | 24 days    | `UnitError` (`config.unit`), the execution not started                        |
+
+A pause's `expiresIn` is not one timer: pause deadlines are read by the pause timers' loop every
+5 seconds, never by one `setTimeout`, so a long deadline is safe. The system `Clock` also waits out
+any delay above the timer's limit in parts (a `Retry-After` or a peer's deadline that no setting
+bounds), so no timer of the framework overflows.
+
+>>>>>>> 89ca4c5a (fix-1141: every timer-backed duration setting is refused above its documented maximum)
 ## `createApp` options (#834)
 
 `createApp(App, { env, profile, profileRoot, meterProvider })` — nothing else: infrastructure is
