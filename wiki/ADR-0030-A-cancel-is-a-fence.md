@@ -82,7 +82,8 @@ boundary and dead in the application.
   fencing transaction already locks or reads that very row; a child's key reads its root's row
   (`cancelTreeOf`). PostgreSQL: a share lock on the root's lease row, which the cancel's write waits
   for — advisory lock 909 is no longer needed. MongoDB: a write to the root's lease document, so a
-  racing cancel conflicts. SQLite: one `BEGIN IMMEDIATE`. In memory: the synchronous check.
+  racing cancel conflicts. A child's check that may find no root row yet inserts a seed row (no mark)
+  first, so there is always a row to lock or to conflict on. SQLite: one `BEGIN IMMEDIATE`. In memory: the synchronous check.
 - Root leases still do not retire (no change to hold, resume or cancel paths).
 
 **Consequences.** P7 holds unconditionally, for every child and every pre-`acquire` cancel. No
