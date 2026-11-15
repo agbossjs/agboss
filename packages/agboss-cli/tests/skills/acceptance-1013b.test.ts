@@ -272,6 +272,24 @@ describe("#1105: a live pid whose start time does not fit is unknown, never dead
     expect(kept(root, owner.token)).toBe(true);
   });
 
+  it("a refresh between two waits restarts the watch: the time before it does not count", () => {
+    const root = oldProject();
+    const owner = holderStartedOff(root, 3_600_000, TEN_MIN);
+    const file = join(lockOf(root), `${OWNER_PREFIX}${owner.token}`);
+    const lock = { waitMs: 500, staleMs: 800 };
+    const first = syncWith(root, lock);
+    expect(first.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+
+    // the holder shows it is alive; the lock is as old on disk as before
+    const later = new Date(Date.now() - 1_000);
+    utimesSync(file, later, later);
+    setTime(lockOf(root), -TEN_MIN);
+    const second = syncWith(root, { waitMs: 500, staleMs: 800 });
+
+    expect(second.warnings.map((w) => w.code)).toEqual([SkillsWarningCode.SyncFailed]);
+    expect(kept(root, owner.token)).toBe(true);
+  });
+
   it("a long sync renews its owner file between its steps", () => {
     const root = oldProject();
     mkdirSync(join(root, ".agents"), { recursive: true });
