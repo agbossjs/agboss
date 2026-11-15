@@ -34,9 +34,15 @@ export function markedInMemoryCancel(
   database: InMemoryDatabase,
   tree: ExecutionTree,
   now: number,
-): void {
+): Promise<void> {
   const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
   const stored = database.executionLeases.get(key) ?? seedRowOf(tree);
   if (stored.cancelRequestedAt === undefined)
     database.executionLeases.set(key, { ...stored, cancelRequestedAt: now });
+  return Promise.resolve();
 }
+
+/** Whether the tree's lease row, a seed row too, carries its cancel mark (#1152). */
+export const isInMemoryCancelMarked = (database: InMemoryDatabase, tree: ExecutionTree): boolean =>
+  database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId))
+    ?.cancelRequestedAt !== undefined;

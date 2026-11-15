@@ -140,6 +140,11 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     await this.gate.passed();
     return this.repository.requestCancel(tree);
   }
+
+  async isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    await this.gate.passed();
+    return this.repository.isCancelRequested(tree);
+  }
 }
 
 /** The clock the instance's lease timers sleep on: a sleep that ends while frozen waits for thaw. */

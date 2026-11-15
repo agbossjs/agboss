@@ -58,7 +58,7 @@ import { s22fChildClaimNeverAnswered, s22gDatabaseFrozen } from "./s22-child-dat
 import { s23CommitAnswerReset } from "./s23-commit-answer-reset.js";
 import { s24BeforeRecord, s24bAfterRecord, s24cZombie, s24eOnce } from "./s24-pause-expiry.js";
 import { s24dCancel } from "./s24d-pause-expiry-cancel.js";
-import { s25bRequested, s25Dropped } from "./s25-cancel-resting.js";
+import { s25bRequested, s25cSwept, s25dAnswered, s25Dropped } from "./s25-cancel-resting.js";
 import { s26aWritesSavedBeforeCharge, s26bWritesSavedAfterCharge } from "./s26-writes-window.js";
 import { s27aChildAnswerSaved, s27bSecondAnswerSaved } from "./s27-writes-window-pauses.js";
 
@@ -133,6 +133,8 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s26bWritesSavedAfterCharge,
   s27aChildAnswerSaved,
   s27bSecondAnswerSaved,
+  s25cSwept,
+  s25dAnswered,
 ];
 
 /** A scenario's name only (#831): what the suite runs stays its own. */

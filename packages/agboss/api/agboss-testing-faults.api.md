@@ -246,6 +246,7 @@ export enum StoreHoldPoint {
     // (undocumented)
     LeaseAcquire = "lease.acquire",
     LeaseClaimExecutionId = "lease.claimExecutionId",
+    LeaseIsCancelRequested = "lease.isCancelRequested",
     // (undocumented)
     LeaseReclaim = "lease.reclaim",
     // (undocumented)

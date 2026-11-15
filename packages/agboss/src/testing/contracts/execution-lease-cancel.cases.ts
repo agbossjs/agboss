@@ -120,4 +120,52 @@ export const LEASE_CANCEL_CASES: readonly ContractCase<ExecutionLeaseRepository>
       expect(await second.acquire("acme", "root-1", LEASE)).toMatchObject({ token: 1 });
     },
   },
+  {
+    name: "#1152: isCancelRequested is false for a tree never cancelled, another tree or another tenant's, and true from either instance once requestCancel resolved — with a lease row or a seed row",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const held = await takenBy(first);
+      expect(await first.isCancelRequested(TREE)).toBe(false);
+      expect(await second.isCancelRequested(TREE)).toBe(false);
+
+      await second.requestCancel(TREE);
+      await first.requestCancel({ tenantId: "default", rootExecutionId: "root-2" });
+
+      expect(await first.isCancelRequested(TREE)).toBe(true);
+      expect(await second.isCancelRequested(TREE)).toBe(true);
+      // a tree with no lease yet: the seed row carries it
+      expect(
+        await second.isCancelRequested({ tenantId: "default", rootExecutionId: "root-2" }),
+      ).toBe(true);
+      expect(
+        await first.isCancelRequested({ tenantId: "default", rootExecutionId: "root-3" }),
+      ).toBe(false);
+      expect(await first.isCancelRequested({ tenantId: "acme", rootExecutionId: "root-1" })).toBe(
+        false,
+      );
+      // a read changes no lease
+      expect(await first.renew(held, LEASE)).toBe(LEASE);
+      expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
+    },
+  },
+  {
+    name: "#1152: the mark read stays true through every release, retire, take and takeover of the tree's lease — it is permanent",
+    run: async ({ clock, first, second }: Instances): Promise<void> => {
+      const held = await takenBy(first);
+      await first.requestCancel(TREE);
+      const marked = async (): Promise<boolean> =>
+        (await first.isCancelRequested(TREE)) && (await second.isCancelRequested(TREE));
+
+      expect(await marked()).toBe(true);
+      await first.release(held);
+      expect(await marked()).toBe(true);
+      const next = await second.acquire("default", "root-1", LEASE);
+      expect(await marked()).toBe(true);
+      await clock.advance(seconds(31));
+      const taken = await first.acquire("default", "root-1", LEASE);
+      expect(await marked()).toBe(true);
+      if (next === undefined || taken === undefined) throw new Error("both takes must succeed");
+      await first.retire(taken);
+      expect(await marked()).toBe(true);
+    },
+  },
 ];

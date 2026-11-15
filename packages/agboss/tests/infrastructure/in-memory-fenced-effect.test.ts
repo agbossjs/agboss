@@ -85,6 +85,9 @@ class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
   requestCancel(): Promise<void> {
     return Promise.resolve();
   }
+  isCancelRequested(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
 }
 
 describe("#500: the in-memory fenced-effect store", () => {

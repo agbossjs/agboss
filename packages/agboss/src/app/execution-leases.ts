@@ -92,6 +92,11 @@ export interface ExecutionLeases {
    * written; idempotent; rejects with the store's error, nothing written.
    */
   requestCancel(tree: ExecutionTree): Promise<void>;
+  /**
+   * Whether the tree's cancel is durable on the lease store's backend (#1152): the sweep's look at
+   * a resting tree. A store that fails rejects.
+   */
+  isCancelRequested(tree: ExecutionTree): Promise<boolean>;
 }
 
 /** What a holder records its takeovers with: the instance's audit log, absent = none. */
@@ -116,6 +121,7 @@ export function executionLeasesOf(
   return {
     tryHold: take,
     requestCancel: (tree) => repository.requestCancel(tree),
+    isCancelRequested: (tree) => repository.isCancelRequested(tree),
     hold: async (tree, signal, why) => {
       const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
       for (;;) {

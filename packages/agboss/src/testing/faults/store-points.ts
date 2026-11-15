@@ -23,6 +23,7 @@ export enum StoreHoldPoint {
    * durable cancel" — an effect whose operation was invoked after this one answered must not run.
    */
   LeaseRequestCancel = "lease.requestCancel",
+  LeaseIsCancelRequested = "lease.isCancelRequested",
   /** The fenced effect's transaction: the lease check, the mark, the key, the business write. */
   FencedEffectWrite = "fencedEffect.write",
   OutboundFindByKey = "outboundCall.findByKey",
@@ -170,6 +171,14 @@ const withArguments = (
   inputOf: (args) => ({ ...(keyFacts(first(args)) as object), ...more(args) }),
 });
 
+/** A method of the lease store asked about a tree, keyed by the tree's root. */
+const onTree = (point: StoreHoldPoint, outputOf = asIs): StoreMethod => ({
+  point,
+  keyOf: (args) => (args[0] as { readonly rootExecutionId: string }).rootExecutionId,
+  inputOf: first,
+  outputOf,
+});
+
 /** The lease store's methods. */
 export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   acquire: {
@@ -184,12 +193,11 @@ export const LEASE_METHODS: Readonly<Record<string, StoreMethod>> = {
   retire: onLease(StoreHoldPoint.LeaseRetire),
   yield: onLease(StoreHoldPoint.LeaseYield),
   reclaim: withLength(onLease(StoreHoldPoint.LeaseReclaim, leaseFacts)),
-  requestCancel: {
-    point: StoreHoldPoint.LeaseRequestCancel,
-    keyOf: (args) => (args[0] as { readonly rootExecutionId: string }).rootExecutionId,
-    inputOf: first,
-    outputOf: asIs,
-  },
+  requestCancel: onTree(StoreHoldPoint.LeaseRequestCancel),
+  // the sweep's look at a resting tree's mark (#1152)
+  isCancelRequested: onTree(StoreHoldPoint.LeaseIsCancelRequested, (isRequested) => ({
+    isRequested,
+  })),
   claimExecutionId: {
     point: StoreHoldPoint.LeaseClaimExecutionId,
     keyOf: (args) => (args[0] as { readonly executionId: string }).executionId,

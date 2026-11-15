@@ -3,7 +3,8 @@ import type { Turn } from "../turns/index.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import { forgetTree, treeOf, type TreeEndParts } from "./tree-ends.js";
-import type { TreeMoveParts } from "./tree-move-types.js";
+import { endRestingCancelled, RESTING } from "./cancel-resting.js";
+import type { CancelParts } from "./cancel-requests.js";
 
 /**
  * Finishing the end of a tree whose instance died in the middle of it (#939, #910 I13): under the
@@ -14,7 +15,7 @@ import type { TreeMoveParts } from "./tree-move-types.js";
 export type CloseOrphanTree = (record: Turn) => Promise<boolean>;
 
 /** What a workflow's app needs to finish a tree's end. */
-export type OrphanTreeParts = TreeEndParts & Pick<TreeMoveParts, "leases">;
+export type OrphanTreeParts = TreeEndParts & CancelParts;
 
 export const closeOrphanTreeOf =
   (parts: OrphanTreeParts): CloseOrphanTree =>
@@ -23,6 +24,9 @@ export const closeOrphanTreeOf =
     if (runId === null) return false;
     const startedVersion = record.configVersion ?? parts.deps.config.version;
     const state = { runId, threadId, tenantId, startedVersion };
+    // a tree resting with a cancel nobody finished (#1152): ended as `app.cancel` ends it
+    if (record.status === RESTING)
+      return await endRestingCancelled(parts, { ...state, turnId: record.id });
     const take = rootTakeOf(parts.deps.pause, runId, LeaseTakeoverReason.Recovered);
     const lease = await parts.leases.tryHold(treeOf(state), take);
     if (lease === undefined) return false;

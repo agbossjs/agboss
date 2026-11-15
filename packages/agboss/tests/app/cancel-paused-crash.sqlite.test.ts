@@ -103,12 +103,12 @@ const POINTS: readonly (readonly [
   [
     "the cancel mark",
     { store: "leases", method: "requestCancel", nth: 1 },
-    { sweeps: false, second: true },
+    { sweeps: true, second: true },
   ],
   [
     "the cancel request key",
     { store: "trees", method: "saveIfAbsentInTree", nth: 1 },
-    { sweeps: false, second: true },
+    { sweeps: true, second: true },
   ],
   [
     "the record moved off paused",

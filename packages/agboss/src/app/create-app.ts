@@ -239,7 +239,7 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
-    closeOrphan: closeOrphanTreeOf({ deps, trees, clock, leases }),
+    closeOrphan: closeOrphanTreeOf({ deps, paused, trees, clock, leases }),
     expire: expireRootOf({ deps, moves, current, policy }),
     ...byId,
   };
