@@ -49,10 +49,25 @@ function givenDeadline(pause: PauseRecord, expiresAt: string): Milliseconds {
   return given ?? seconds(Math.max(0, Date.parse(expiresAt) - Date.parse(pause.askedAt)) / 1000);
 }
 
+/**
+ * Whether the run's deadline bound the pause (D8). A pause extended up to a quorum's deadline reads
+ * as run-bound from its record alone (#945): it is the run's only when the run's own deadline is not
+ * later than the pause's.
+ */
+export function isRunBound(
+  pause: PauseRecord,
+  runDeadlineAt: string | undefined,
+): boolean {
+  if (effectiveBoundOf(pause) !== PauseExpiryBound.RunDeadline) return false;
+  // a deadline recorded as the run's is the run's; only a tie of an extended pause is told apart
+  if (pause.expiryBound === PauseExpiryBound.RunDeadline) return true;
+  return runDeadlineAt !== undefined && runDeadlineAt <= (pause.expiresAt ?? pause.askedAt);
+}
+
 /** The failure of a step whose pause expired. */
 export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
   const expiresAt = pause.expiresAt ?? pause.askedAt;
-  if (effectiveBoundOf(pause) === PauseExpiryBound.RunDeadline) {
+  if (isRunBound(pause, currentFrame()?.execution.deadline?.at)) {
     // the run's own check first (its clock may be ahead of the pass's), else the pause's deadline
     try {
       site.budgets.check(site.state, site.path, site.usage);

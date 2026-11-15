@@ -19,6 +19,11 @@ export enum BranchStatus {
   Skipped = "skipped",
   /** A sibling failed first: the launch's `AbortController` stopped it, or it never started. */
   Cancelled = "cancelled",
+  /**
+   * Its pause passed its deadline (its own, the run's or the quorum's) without an answer (#945): in
+   * a quorum it did not vote; in a plain launch it follows the launch's `FailurePolicy`.
+   */
+  Expired = "expired",
 }
 
 /**

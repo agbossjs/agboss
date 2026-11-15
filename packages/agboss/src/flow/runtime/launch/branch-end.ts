@@ -13,6 +13,7 @@ import type { ErrorRecord } from "../../../core/error-record.js";
 import type { NodeValue } from "../scope.js";
 import type { QuorumMark } from "./quorum-branch.js";
 import { isWithdrawn } from "./withdrawn-pauses.js";
+import { isExpiredPause } from "./expired-branch.js";
 
 /**
  * How a branch that threw ended (#273 S21, #279): `Cancelled` when its launch was aborted first (a
@@ -31,6 +32,9 @@ export interface BranchFailureSite {
 
 /** The status of a branch that threw `error`. */
 export function failedStatusOf(site: BranchFailureSite, error: unknown): BranchStatus {
+  // first (#945): a pause that expired is the branch's own outcome, though its launch was aborted by
+  // the quorum's deadline by then
+  if (isExpiredPause(error)) return BranchStatus.Expired;
   if (site.live.controller.signal.aborted || isWithdrawn(error)) return BranchStatus.Cancelled;
   if (error instanceof ArbiterError || !(error instanceof StepFailedError))
     return BranchStatus.Failed;

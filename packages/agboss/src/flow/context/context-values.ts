@@ -65,6 +65,13 @@ export interface ExecutionContextValues {
   readonly mesh?: InboundMesh;
   /** The execution's deadline (#398 PR 2), fixed at its start; none without one. */
   readonly deadline?: ExecutionDeadline;
+  /**
+   * The deadline of the enclosing quorum launch (#945; ISO 8601 — the smallest of every enclosing
+   * one, moved by the time its branches waited in the tree's queue): a pause asked in a quorum
+   * branch is bound by it, as by `deadline`. Set on a quorum branch's contexts; travels into a
+   * child's state.
+   */
+  readonly quorumDeadlineAt?: string;
 }
 
 /** The tenant of an execution that passes none. */

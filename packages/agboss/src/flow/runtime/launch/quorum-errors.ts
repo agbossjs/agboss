@@ -50,6 +50,11 @@ export interface QuorumShortfall {
   readonly counted: number;
   /** Why it stopped: `the deadline passed`, `min can no longer be reached`, … */
   readonly reason: string;
+  /**
+   * The node ids (`critic-agent#2`, with `[itemIndex]` for a per-item launch) of its branches that
+   * ended `Expired` (#945): their pause passed its deadline; they did not vote. Default: none.
+   */
+  readonly expired?: readonly string[];
 }
 
 /** What a quorum that was not reached takes (#906): the launch, its step and the shortfall. */
@@ -76,21 +81,30 @@ export class QuorumNotReachedError extends StepFailedError {
   readonly counted: number;
   /** Why it stopped: `the deadline passed`, `min can no longer be reached`, … */
   readonly reason: string;
+  /** The node ids of its branches that ended `Expired` (#945). */
+  readonly expired: readonly string[];
 
   constructor(options: QuorumNotReachedErrorOptions) {
-    const { launch, min, counted, reason, cause, ...step } = options;
+    const { launch, min, counted, reason, cause, expired = [], ...step } = options;
     const needed = min === undefined ? "no group complete" : `need ${String(min)}`;
-    const message = `The quorum of ${step.nodeId}'s launch was not reached: ${String(counted)} counted, ${needed} — ${reason}`;
+    const lapsed = expired.length === 0 ? "" : `, ${String(expired.length)} expired`;
+    const message = `The quorum of ${step.nodeId}'s launch was not reached: ${String(counted)} counted, ${needed}${lapsed} — ${reason}`;
     super({
       message,
       usage: [],
       cause,
       ...step,
-      details: { launch, counted, ...(min === undefined ? {} : { min }) },
+      details: {
+        launch,
+        counted,
+        ...(min === undefined ? {} : { min }),
+        ...(expired.length === 0 ? {} : { expired }),
+      },
     });
     this.launch = launch;
     this.min = min;
     this.counted = counted;
     this.reason = reason;
+    this.expired = expired;
   }
 }

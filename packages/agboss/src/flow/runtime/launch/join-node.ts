@@ -23,6 +23,7 @@ import { decideQuorum, quorumNotReached, reportQuorum } from "./quorum-join.js";
 import { compensationsOfFailedJoin } from "../../compensation.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
+import { FailurePolicy } from "../../decorators/router.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
@@ -208,6 +209,25 @@ async function failedJoined(
   }
 }
 
+/**
+ * The record the launch fails with: the first `Failed` branch — or, in a plain `.join()` whose
+ * branch follows `FailFast`, an `Expired` one (#945); under a quorum or `Skip` an expired branch is
+ * no failure.
+ */
+function failingRecordOf(
+  launch: RuntimeLaunch,
+  ticket: LaunchTicket,
+  records: readonly BranchOutcomeRecord[],
+): BranchOutcomeRecord | undefined {
+  const failed = records.find((record) => record.status === BranchStatus.Failed);
+  if (failed !== undefined || launch.quorum !== undefined) return failed;
+  return records.find(
+    (record) =>
+      record.status === BranchStatus.Expired &&
+      ticket.branches[record.index]?.failure !== FailurePolicy.Skip,
+  );
+}
+
 /** The LangGraph node joining `launch`. */
 export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
   return async (state, config) => {
@@ -227,7 +247,7 @@ export function joinNode(launch: RuntimeLaunch, deps: JoinDeps): GraphNode {
       branchRecords: { drop: ticket.launchId },
       launches: [launchRecordOf(ticket, records)],
     };
-    const failed = records.find((record) => record.status === BranchStatus.Failed);
+    const failed = failingRecordOf(launch, ticket, records);
     const thrown = failed === undefined ? undefined : thrownOf(failed.index);
     deps.branchErrors?.forgetLaunch(ticket.launchId);
     if (failed !== undefined) {
