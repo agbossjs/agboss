@@ -2277,7 +2277,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
   tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
-  any but `Pending` → `NotPausedError`. `app.resume({ pauseId, reply }, …)` answers with free text
+  any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
@@ -2292,7 +2292,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   operational state, never read for it. A resolved pause record (`Taken`,
   `Cancelled`) is kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`), then removed by
   the recovery sweep (`PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`, on the `Clock`): a
-  late answer is `NotPausedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
+  late answer is `PauseClosedError` within it, `UnknownPauseError` after; `Pending` is never removed. A
   `Resolved` pause no step took when its tree ends (finished, failed, cancelled — an answer a cancel
   won over, #811 s18c) is marked `Taken` then, its answer kept, so it is removed the same way (#890).
   **Pause notices (#940):** every change of a sent pause writes its notices — `opened` (to listeners), `closed`, `answerNotTaken` —
@@ -2416,7 +2416,7 @@ export class PlanService {
   fenced writes are refused, taken or not, and the holder takes the tree again only by `acquire`, a
   takeover from itself, #534). A `resume` records its decision first — the root's record of a
   resting tree goes `paused → running` (#850), then the pause `Pending → Resolved` atomically, a
-  second resume of one pause gets `NotPausedError` — then waits for the lease (a resume that dies
+  second resume of one pause gets `PauseClosedError` — then waits for the lease (a resume that dies
   between the two leaves a `running` root: recovery continues it with the recorded answer, once,
   under the lease; one that dies before the answer, or is refused, leaves it to recovery, which
   rests it at its pause again); the holder continues with one `Command({ resume })`
