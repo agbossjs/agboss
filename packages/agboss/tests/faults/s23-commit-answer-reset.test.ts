@@ -7,4 +7,8 @@ import { sqliteFaultTarget } from "./sqlite-target.js";
  * with `DatabaseProxy.dropAfter`): the holder hands over — no undo, no failed record — and the
  * next holder replays the row, one charge.
  */
-faultSuite({ ...sqliteFaultTarget(), scenarios: ["s23-commit-answer-reset"] });
+faultSuite({
+  ...sqliteFaultTarget(),
+  // 23b is for a set that declares `resolvesCommitByRetry`: it is skipped here (`resolving-commit.test.ts`)
+  scenarios: ["s23-commit-answer-reset", "s23b-commit-answer-reset-persists"],
+});

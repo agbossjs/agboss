@@ -712,6 +712,12 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
 - the environment they read: the pod's database is the process variable `AGBOSS_FAULT_DATABASE_URL`;
 - how the fixture's charge writes its business row in your fenced effect's transaction, and reads
   the committed rows back;
+- `resolvesCommitByRetry` (#1017, optional, `false` when absent): `true` when your client retries a
+  commit whose answer was lost and learns its real outcome (MongoDB's `commitTransaction` is
+  idempotent per transaction). Scenario 23 then asks that one reset leaves the charge applied once
+  with no hand-over, and scenario 23b — the retry's answer lost too — is the truly unknown commit:
+  your store must read it as `StoreOutcomeUnknownError`. Leave it out when a single reset is
+  already unknown to your store (PostgreSQL, SQLite's held store): 23 asks the hand-over.
 - `storeTime` (#799, required): what your fencing stores decide a lease's time by.
   `FaultStoreTime.Database` for a store that reads its database's own clock in each statement
   (PostgreSQL's `clock_timestamp()`, MongoDB's `$$NOW`, Redis's `TIME`), `FaultStoreTime.Host` for

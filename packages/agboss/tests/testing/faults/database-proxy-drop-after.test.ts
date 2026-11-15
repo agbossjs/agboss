@@ -113,4 +113,45 @@ describe("#1017: the database proxy cuts a link after the bytes that apply a wri
 
     expect(link.read()).toBe("ok");
   });
+
+  it("dropAfterRepeated cuts the COMMIT's answer again on the retry's new link, which needs only the COMMIT, and counts the cuts", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    proxy.dropAfterRepeated(2, "charge:", "COMMIT");
+    const first = await client(port);
+    first.socket.write("charge:o-4 COMMIT");
+    await first.closed;
+    const retry = await client(port);
+
+    retry.socket.write("COMMIT");
+    await retry.closed;
+    const third = await client(port);
+    third.socket.write("COMMIT");
+    await until(() => third.read() === "ok");
+
+    expect([first.read(), retry.read(), third.read()]).toEqual(["", "", "ok"]);
+    expect(proxy.cutsAfterWrite).toBe(2);
+  });
+
+  it("disarming dropAfterRepeated stops the cuts still to come; a count below 1 is refused", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    const disarm = proxy.dropAfterRepeated(3, "charge:", "COMMIT");
+    const first = await client(port);
+    first.socket.write("charge:o-5 COMMIT");
+    await first.closed;
+    disarm();
+    const retry = await client(port);
+
+    retry.socket.write("COMMIT");
+    await until(() => retry.read() === "ok");
+
+    expect(retry.read()).toBe("ok");
+    expect(proxy.cutsAfterWrite).toBe(1);
+    expect(() => proxy.dropAfterRepeated(0, "COMMIT")).toThrow(RangeError);
+  });
 });

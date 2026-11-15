@@ -46,6 +46,10 @@ export type ByteMatch = string | RegExp;
 /** An armed cut: the patterns a link's bytes must match in order; it cuts one link. */
 interface Cut {
   readonly patterns: readonly ByteMatch[];
+  /** How many more cuts follow this one, each matching only the last pattern (a retry's COMMIT). */
+  readonly repeats: number;
+  /** Shared by a cut and its repeats: the disarm of `dropAfterRepeated` clears it. */
+  readonly armed: { value: boolean };
 }
 
 const matchesBytes = (pattern: ByteMatch, text: string): boolean =>
@@ -68,8 +72,14 @@ export class DatabaseProxy {
   readonly #draining = new Set<Socket>();
   #server: Server | undefined;
   #state = ProxyState.Open;
+  #cutsAfterWrite = 0;
 
   constructor(private readonly target: ProxyTarget) {}
+
+  /** How many links `dropAfter` cut so far: a scenario checks its fault was really delivered. */
+  get cutsAfterWrite(): number {
+    return this.#cutsAfterWrite;
+  }
 
   /** What it does with traffic now. */
   get state(): ProxyState {
@@ -114,10 +124,26 @@ export class DatabaseProxy {
    * the returned function disarms it.
    */
   dropAfter(...patterns: readonly ByteMatch[]): () => void {
-    const cut: Cut = { patterns };
+    return this.dropAfterRepeated(1, ...patterns);
+  }
+
+  /**
+   * `dropAfter`, `times` times over: the first cut is as `dropAfter`'s; each of the `times - 1`
+   * after it cuts the next link — a retry's, on a new connection — whose client bytes match only
+   * the last pattern (the COMMIT again). A commit whose answer is lost again and again: its
+   * outcome stays unknown to a client that retries it (#1017). The returned function disarms
+   * the cut that is armed and every one still to come.
+   */
+  dropAfterRepeated(times: number, ...patterns: readonly ByteMatch[]): () => void {
+    if (!Number.isInteger(times) || times < 1)
+      throw new RangeError(
+        `a cut is repeated a whole number of times from 1, got ${String(times)}`,
+      );
+    const cut: Cut = { patterns, repeats: times - 1, armed: { value: true } };
     this.#cuts.add(cut);
     return () => {
-      this.#cuts.delete(cut);
+      cut.armed.value = false;
+      for (const armed of [...this.#cuts]) if (armed.armed === cut.armed) this.#cuts.delete(armed);
     };
   }
 
@@ -175,6 +201,9 @@ export class DatabaseProxy {
       link.progress.set(cut, matched);
       if (matched < cut.patterns.length) continue;
       this.#cuts.delete(cut);
+      const last = cut.patterns.at(-1);
+      if (cut.repeats > 0 && cut.armed.value && last !== undefined)
+        this.#cuts.add({ patterns: [last], repeats: cut.repeats - 1, armed: cut.armed });
       this.#cutAfterWrite(link);
       return;
     }
@@ -183,6 +212,7 @@ export class DatabaseProxy {
   /** The client is cut at once; the database's side is ended after what was written to it. */
   #cutAfterWrite(link: Link): void {
     if (!this.#links.delete(link)) return;
+    this.#cutsAfterWrite += 1;
     link.server.unpipe(link.client);
     link.client.unpipe(link.server);
     link.client.destroy();

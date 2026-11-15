@@ -65,6 +65,16 @@ export interface FaultStoreSet<TTransaction = unknown> {
    * history of a run is checked on it. A property of the stores, not of a run: required.
    */
   readonly storeTime: FaultStoreTime;
+  /**
+   * Whether the stores' client retries a commit whose answer was lost and learns its real outcome
+   * (#1017): MongoDB's `commitTransaction` is idempotent per transaction, so one reset after the
+   * COMMIT is no unknown outcome — the retry is answered. Optional, `false` when absent: a store
+   * that reads a single reset as an unknown outcome (PostgreSQL, SQLite's held store)
+   * hands the tree over on it, and scenario 23 asks exactly that; a set that declares `true`
+   * is asked instead that the charge lands once with no hand-over, and scenario 23b cuts the
+   * retry's answer too, so the outcome is truly unknown.
+   */
+  readonly resolvesCommitByRetry?: boolean;
 }
 
 /** The business rows of the pod's store set, as the fixture's charge injects them. */
@@ -90,6 +100,10 @@ export function storeTimeOf(stores: FaultStoreSet): FaultStoreTime {
   if (given === FaultStoreTime.Database || given === FaultStoreTime.Host) return given;
   throw new FaultStoreTimeError(given);
 }
+
+/** Whether the set declares that its client's commit retry resolves a single lost answer (#1017). */
+export const resolvesCommitByRetryOf = (stores: FaultStoreSet): boolean =>
+  Reflect.get(stores, "resolvesCommitByRetry") === true;
 
 /**
  * How much faster than real time the history's store time ran (#799): 1 on a database's own
