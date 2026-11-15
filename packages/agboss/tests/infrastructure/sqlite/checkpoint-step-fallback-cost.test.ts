@@ -131,7 +131,7 @@ describe("#1144 AC2: the fallback holds no checkpoint blob but the winner's", ()
         return [type, type === "json" ? gzipSync(bytes) : bytes];
       },
       loadsTyped: (type, bytes) =>
-        inner.loadsTyped(type, type === "json" ? gunzipSync(bytes as Uint8Array) : bytes),
+        inner.loadsTyped(type, type === "json" ? gunzipSync(bytes) : bytes),
     };
     for (const [index, id] of ids(25).entries()) await put(id, loop(index));
     const expected = await scanned(saver);

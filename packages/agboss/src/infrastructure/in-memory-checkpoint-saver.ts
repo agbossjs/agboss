@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { MemorySaver, type CheckpointTuple } from "@langchain/langgraph";
+import type { CheckpointListOptions } from "./in-memory-checkpoint-order.js";
 import { Injectable } from "../components/decorators.js";
 import {
   compareCodePoints,
@@ -8,8 +9,7 @@ import {
   stepOf,
   type LatestByStepCheckpointSaver,
 } from "./latest-by-step.js";
-
-type CheckpointListOptions = NonNullable<Parameters<MemorySaver["list"]>[1]>;
+import { newestFirstByCodePoint } from "./in-memory-checkpoint-order.js";
 
 /** The steps of a thread's namespace by checkpoint id, and the newest by `(step, id)` of them. */
 class StepIndex {
@@ -91,40 +91,13 @@ export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStep
         };
   }
 
-  /** `MemorySaver.list` with each thread and namespace newest first by code point (#1143), `before` and `limit` applied after. */
-  override async *list(
+  /** `MemorySaver.list`, each thread and namespace newest first by code point (#1143). */
+  override list(
     config: RunnableConfig,
     options?: CheckpointListOptions,
   ): AsyncGenerator<CheckpointTuple> {
-    const groups = new Map<string, CheckpointTuple[]>();
-    for await (const tuple of super.list(config, {
-      ...options,
-      before: undefined,
-      limit: undefined,
-    })) {
-      const [thread, namespace] = place(tuple.config);
-      const key = `${thread}\u0000${namespace}`;
-      groups.set(key, [...(groups.get(key) ?? []), tuple]);
-    }
-    const before = options?.before?.configurable?.checkpoint_id as string | undefined;
-    let left = options?.limit;
-    for (const group of groups.values()) {
-      group.sort((a, b) =>
-        compareCodePoints(
-          String(b.config.configurable?.checkpoint_id),
-          String(a.config.configurable?.checkpoint_id),
-        ),
-      );
-      for (const tuple of group) {
-        const id = String(tuple.config.configurable?.checkpoint_id);
-        if (before && compareCodePoints(id, before) >= 0) continue;
-        if (left !== undefined) {
-          if (left <= 0) return;
-          left -= 1;
-        }
-        yield tuple;
-      }
-    }
+    const all = super.list(config, { ...options, before: undefined, limit: undefined });
+    return newestFirstByCodePoint(all, options);
   }
 
   /** The newest checkpoint by step of the thread and namespace: one map read, one `getTuple`. */

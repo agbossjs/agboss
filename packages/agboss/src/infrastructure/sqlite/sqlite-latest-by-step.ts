@@ -1,10 +1,13 @@
+import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { z } from "zod";
+import { newestFirstOrder, stepOf } from "../latest-by-step.js";
 import {
   HAS_UNREADABLE_STEP_SQL,
   LATEST_BY_STEP_SQL,
   NEWEST_READABLE_STEP_SQL,
   UNREADABLE_STEP_ROWS_SQL,
   CHECKPOINT_ROW_SQL,
+  metadataOf,
   STEP_COLUMN,
   STEP_INDEX,
   UNREADABLE_STEP_INDEX,
@@ -106,4 +109,21 @@ export function rowOf(
   checkpointId: string,
 ): Record<string, unknown> | undefined {
   return connection.database.prepare(CHECKPOINT_ROW_SQL).get(threadId, namespace, checkpointId);
+}
+
+/**
+ * The id of the newest by `(step, id)` of the index's newest readable row and the rows whose step SQL
+ * cannot read, each metadata read by `serde` (#1101); no other row is decoded (#1144).
+ */
+export async function newestIdOf(
+  serde: BaseCheckpointSaver["serde"],
+  { readable, unreadable }: StepsToRank,
+): Promise<string | undefined> {
+  const decoded = await Promise.all(
+    unreadable.map(async (row) => ({
+      id: row.checkpoint_id,
+      step: stepOf(metadataOf(await serde.loadsTyped(row.metadata_type, row.metadata))),
+    })),
+  );
+  return (readable === undefined ? decoded : [readable, ...decoded]).sort(newestFirstOrder)[0]?.id;
 }

@@ -16,13 +16,13 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
-import { newestFirstOrder, stepOf, type LatestByStepCheckpointSaver } from "../latest-by-step.js";
+import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
 import {
   latestRowOf,
   migrateSteps,
+  newestIdOf,
   rowOf,
   stepsToRank,
-  type StepsToRank,
 } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -68,29 +68,14 @@ export class SqliteCheckpointSaver
   async latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const key = keyOf(config, "latestByStep");
     const toRank = stepsToRank(this.connection, key);
-    if (toRank !== undefined) return this.#latestBySerde(key, toRank);
-    const row = latestRowOf(this.connection, key);
-    return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
-  }
-
-  /**
-   * The newest by `(step, id)` of the index's newest readable row and the rows whose step SQL cannot
-   * read, each metadata read by `this.serde` (#1101); only the winner's whole row is read (#1144).
-   */
-  async #latestBySerde(
-    key: Parameters<typeof rowOf>[1],
-    { readable, unreadable }: StepsToRank,
-  ): Promise<CheckpointTuple | undefined> {
-    const decoded = await Promise.all(
-      unreadable.map(async (row) => ({
-        id: row.checkpoint_id,
-        step: stepOf(metadataOf(await this.serde.loadsTyped(row.metadata_type, row.metadata))),
-      })),
-    );
-    const newest = (readable === undefined ? decoded : [readable, ...decoded]).sort(
-      newestFirstOrder,
-    )[0];
-    const row = newest === undefined ? undefined : rowOf(this.connection, key, newest.id);
+    // rows whose step SQL cannot read: the winner by the serde, then only its whole row (#1144)
+    const id = toRank === undefined ? undefined : await newestIdOf(this.serde, toRank);
+    const row =
+      toRank === undefined
+        ? latestRowOf(this.connection, key)
+        : id === undefined
+          ? undefined
+          : rowOf(this.connection, key, id);
     return row === undefined ? undefined : this.#tupleOf(CheckpointRow.parse(row));
   }
 
