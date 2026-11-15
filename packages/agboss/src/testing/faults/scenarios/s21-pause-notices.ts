@@ -2,7 +2,7 @@ import { HoldPhase } from "../hold-points.js";
 import type { FaultCluster } from "../cluster.js";
 import type { RunnableFaultScenario } from "../scenario.js";
 import { StoreHoldPoint } from "../store-points.js";
-import { endedOn, expectThat, heldAt, holdStore } from "./kit.js";
+import { endedOn, expectThat, heldAt, holdStore, release } from "./kit.js";
 import { answerOn, pausedOrderOn, type PausedOrder } from "./pause-kit.js";
 
 /**
@@ -76,9 +76,13 @@ export const s21bDelivered: RunnableFaultScenario = {
     const order = await pausedOrderOn(cluster, a, "o-21b");
     await restedAndOpened(cluster, order);
     await holdStore(b, StoreHoldPoint.PauseNoticeAck, mailboxOf(order));
+    // pod a's look waits at its claim until b is dead: under load its timer could otherwise claim
+    // the closed notice before b's own look, and b would never reach its acknowledgement (#1131)
+    await holdStore(a, StoreHoldPoint.PauseNoticeClaim, undefined);
     await answerOn(b, order.pauseId);
     await heldAt(cluster, b, StoreHoldPoint.PauseNoticeAck, mailboxOf(order));
     await b.kill();
+    await release(a, await heldAt(cluster, a, StoreHoldPoint.PauseNoticeClaim));
     await endedOn(cluster, order.rootExecutionId, a);
     await told(cluster, order, "closed", 2);
     const closed = deliveries(cluster, "closed");
