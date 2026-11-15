@@ -37,7 +37,10 @@ export enum ExecutionStatus {
 export interface CallOptions {
   /** Stops the run, like `app.cancel(threadId)`. */
   readonly signal?: AbortSignal | undefined;
-  /** Token and tool-call events while the run works. */
+  /**
+   * Token and tool-call events while the run works. The listener may be `async`; it is not awaited,
+   * and one that throws or rejects never fails the run (logged once, `stream.listener-failed`, #1124).
+   */
   readonly onStream?: (event: ExecutionStreamEvent) => void;
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>>;

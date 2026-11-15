@@ -82,7 +82,7 @@ export interface AgentExecutionOptions {
   readonly replayOf?: string;
   /** Aborts the run (graph and in-flight model calls), e.g. when the user presses Esc. */
   readonly signal?: AbortSignal | undefined;
-  /** Callback to receive token streaming and tool calls in real time. */
+  /** Callback to receive token streaming and tool calls in real time; may be `async`, is not awaited (#1124). */
   readonly onStream?: (event: ExecutionStreamEvent) => void;
   /** The thread's owner, read as `executionContext.ownerId` (checked by the app). */
   readonly ownerId?: string | undefined;

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { LocalRuns } from "../../../src/a2a/server/a2a-local-runs.js";
 import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { rejectingListener } from "../../stream/async-listener.js";
 import type { FrameworkLog } from "../../../src/infrastructure/logger.js";
 
 const KEY = { tenantId: "acme", taskId: "task-1" };
@@ -43,5 +44,41 @@ describe("#1008 AC4: LocalRuns' fan-out", () => {
       subject: { executionId: "task-1", tenantId: "acme" },
     });
     expect(JSON.stringify(warnings)).not.toContain("SECRET-TEXT");
+  });
+
+  it("#1124 AC2: an async listener that rejects is logged once, the others hear on, no unhandled rejection", async () => {
+    const warnings: { code: string }[] = [];
+    const log: FrameworkLog = {
+      info: () => undefined,
+      error: () => undefined,
+      warn: (code) => warnings.push({ code }),
+    };
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown): void => void rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+    try {
+      const runs = new LocalRuns(log);
+      const heard: ExecutionStreamEvent[] = [];
+      let emit: (event: ExecutionStreamEvent) => void = () => undefined;
+      let finish = (): void => undefined;
+      const settled = runs.start(KEY, (onStream) => {
+        emit = onStream;
+        return new Promise<void>((resolve) => (finish = resolve));
+      });
+      runs.listen(KEY, rejectingListener());
+      runs.listen(KEY, (event) => heard.push(event));
+
+      emit({ kind: "textDelta", delta: "a", step: STEP });
+      emit({ kind: "textDelta", delta: "b", step: STEP });
+      finish();
+      await settled;
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(heard).toHaveLength(2);
+      expect(warnings).toEqual([{ code: "stream.listener-failed" }]);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
   });
 });
