@@ -64,6 +64,12 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve();
   }
 
+  isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    return Promise.resolve(
+      this.table.cancelRequested.has(keyOf(tree.tenantId, tree.rootExecutionId)),
+    );
+  }
+
   /** The time the lease of `key` has left (G7: a yield's answer), never below 0. */
   #remainingOf(key: string): Milliseconds {
     const expiresAt = this.table.rows.get(key)?.expiresAt.getTime() ?? 0;

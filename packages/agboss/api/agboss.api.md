@@ -2837,6 +2837,7 @@ export interface ExecutionLeaseLostErrorOptions {
 export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
+    abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
@@ -7891,6 +7892,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     // (undocumented)
+    isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
     reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
@@ -10860,6 +10863,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "retire".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "yield".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "requestCancel".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "reclaim".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "createThread".

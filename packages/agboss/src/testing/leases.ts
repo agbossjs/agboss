@@ -140,6 +140,11 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     await this.gate.passed();
     return this.repository.requestCancel(tree);
   }
+
+  isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    // a read, not an ask for a lease: a frozen instance's frozen ask is the take's (#520), not this
+    return this.repository.isCancelRequested(tree);
+  }
 }
 
 /** The clock the instance's lease timers sleep on: a sleep that ends while frozen waits for thaw. */

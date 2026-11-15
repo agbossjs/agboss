@@ -101,7 +101,7 @@ describe("#939: the orphan look", () => {
     expect(visited).toEqual(["run-1"]);
   });
 
-  it.each<Turn["status"]>(["running", "paused", "queued"])(
+  it.each<Turn["status"]>(["running", "queued"])(
     "a root whose record is %s is skipped",
     async (status) => {
       const { look, visited, report } = lookOf(await openPauses(3), status);
@@ -112,6 +112,15 @@ describe("#939: the orphan look", () => {
       expect(report).not.toHaveBeenCalled();
     },
   );
+
+  it("a root whose record is paused is handed to the workflow's ending, which reads the cancel mark (#1152)", async () => {
+    const { look, visited, report } = lookOf(await openPauses(3), "paused");
+
+    await look.look(() => false);
+
+    expect(visited).toHaveLength(3);
+    expect(report).not.toHaveBeenCalled();
+  });
 
   it("a root with no record, or of a workflow this instance does not build, is skipped", async () => {
     const pauses = await openPauses(2);

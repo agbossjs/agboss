@@ -184,6 +184,16 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     });
   }
 
+  isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    const found = this.connection.database
+      .prepare(
+        `SELECT 1 AS found FROM execution_leases
+         WHERE tenant_id = ? AND root_execution_id = ? AND cancel_requested_at IS NOT NULL`,
+      )
+      .get(tree.tenantId, tree.rootExecutionId);
+    return Promise.resolve(found !== undefined);
+  }
+
   reclaim(
     executionLease: ExecutionLease,
     duration: Milliseconds,

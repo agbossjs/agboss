@@ -247,6 +247,8 @@ export enum StoreHoldPoint {
     LeaseAcquire = "lease.acquire",
     LeaseClaimExecutionId = "lease.claimExecutionId",
     // (undocumented)
+    LeaseIsCancelRequested = "lease.isCancelRequested",
+    // (undocumented)
     LeaseReclaim = "lease.reclaim",
     // (undocumented)
     LeaseRelease = "lease.release",
@@ -325,6 +327,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "LeaseRetire".
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "LeaseYield".
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "LeaseReclaim".
+// src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "LeaseIsCancelRequested".
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "OutboundFindByKey".
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "OutboundSaveIfAbsent".
 // src/testing/faults/store-points.ts - (ae-undocumented) Missing documentation for "OutboundMarkPending".

@@ -32,6 +32,8 @@ const ENDED: readonly string[] = [
   ExecutionRecordStatus.Guarded,
 ];
 const isEnded = (status: string): boolean => ENDED.includes(status);
+const RESTING: string = ExecutionRecordStatus.Paused;
+const isResting = (status: string): boolean => status === RESTING;
 
 /** One instance's look: its cursor, and one page of open pauses per call. */
 export class OrphanLook {
@@ -61,7 +63,8 @@ export class OrphanLook {
       try {
         // a root with no record (another application's tree on a shared store) is skipped
         const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
-        if (record === undefined || !isEnded(record.status)) continue;
+        // an ended tree whose pause stayed open, or a resting one whose cancel nobody finished (#1152)
+        if (record === undefined || !(isEnded(record.status) || isResting(record.status))) continue;
         await orphans.get(record.bundle)?.(record);
       } catch (error) {
         report(`the end of execution ${rootExecutionId} could not be finished: ${String(error)}`);

@@ -825,6 +825,7 @@ export interface ExecutionLease {
 export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
+    abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;

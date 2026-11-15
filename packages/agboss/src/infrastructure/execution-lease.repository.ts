@@ -4,7 +4,7 @@ import type { Milliseconds } from "../units/index.js";
 import type { ExecutionTree } from "./execution-tree.repository.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock, waitOf } from "./clock.js";
-import { markedInMemoryCancel, markOf } from "./in-memory-cancel-mark.js";
+import { isInMemoryCancelMarked, markedInMemoryCancel, markOf } from "./in-memory-cancel-mark.js";
 import {
   IN_MEMORY_DATABASE,
   treeKeyOf,
@@ -233,6 +233,12 @@ export abstract class ExecutionLeaseRepository {
    * and no takeover. Changes no lease: the holder keeps it, renews it, runs the tree's undo under it.
    */
   abstract requestCancel(tree: ExecutionTree): Promise<void>;
+
+  /**
+   * Whether the tree's cancel mark is set (#1152): read from its own lease row (permanent, #1117),
+   * `false` for a tree never asked. Changes nothing, takes no lease; the sweep reads it.
+   */
+  abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
 }
 
 /** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
@@ -371,8 +377,11 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   requestCancel(tree: ExecutionTree): Promise<void> {
-    markedInMemoryCancel(this.database, tree, this.clock.now().getTime());
-    return Promise.resolve();
+    return markedInMemoryCancel(this.database, tree, this.clock.now().getTime());
+  }
+
+  isCancelRequested(tree: ExecutionTree): Promise<boolean> {
+    return Promise.resolve(isInMemoryCancelMarked(this.database, tree));
   }
 
   /**
