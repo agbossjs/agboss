@@ -401,8 +401,8 @@ export class UnreconciledCallAlert implements OnOutboundCall {
 Who answered each pause, and how, is not an event of its own — it is in the execution record
 (#267 S107): `result.record.pauses` (`{ record: true }` on `execute` / `resume`) lists every
 resolved pause of the tree in the order asked — `PauseAnswerRecord` (`pauseId` — none for a
-`PauseAnswerer.Channel` pause —, `step`, `role`, `answeredBy`, `responder`, `resolution:
-PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`, `resolvedAt`, `decision`),
+`PauseAnswerer.Channel` pause —, `step`, `role`, `answerer`, `answeredBy` (the person; `responder`, deprecated), `resolution:
+PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
 the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
 `onExecutionResume` still names each decision a pass takes and its `answeredBy`. A reply
 interpreter's model call (#267 PR 3) is traced under the pause's execution (its tenant and root
@@ -586,14 +586,19 @@ More at start is the project's own: a component with `OnStart` logs what it want
 component and can be injected).
 
 **While it runs**, only problems of the system: `LogLevel.Warn` at risk (`execution.recovered`,
-`recovery.incompatible`, `observer.failed`, `pause.notice-failed`, `pause.notice-recipient-unknown`) and
+`recovery.incompatible`, `observer.failed`, `pause.notice-failed`, `pause.notice-recipient-unknown`,
+`pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.reminder-failed`) and
 `LogLevel.Error` broken (`recovery.failed`, `app.close-failed`, `pause.notice-dead`,
 `pause-timers.failed`), each with its `executionId` / `tenantId` for search. The pause notices
 (#940, [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940))
 log a failed attempt (`pause.notice-failed`: the receiver, the pause's `pauseKey`, a fixed problem
 code), a mailbox set aside after `retention.pauseRecords` (`pause.notice-dead`) and a receiver no
 instance knows (`pause.notice-recipient-unknown`); a look of the pause timers that failed is
-`pause-timers.failed` (the other looks and the next tick go on). One execution's details
+`pause-timers.failed` (the other looks and the next tick go on). A pause's deadline (#941, #942) adds three
+warnings, each with the tenant and the root execution and never an error's message: an expiry handler that
+threw, timed out or answered wrongly (`pause.expiry-handler-failed`, the expiry then fails the step), the
+expiry machinery itself failing for a pause (`pause.expiry-failed`) and a reminder that failed
+(`pause.reminder-failed`) — the look goes on with the other pauses. One execution's details
 are its trace; a tenant's spend is the cost ledger; a rejected execution is `onExecutionRejected`.
 
 **Assembly warnings** (in `app.warnings` and the start log; errors under `agboss check --strict`;

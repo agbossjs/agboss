@@ -7,6 +7,9 @@ and `/cancel`, its `agboss-mesh` header and its `A2AExecutionResponse`. A 0.1.1 
 server do not interoperate — upgrade both sides of an A2A call together. MCP is unchanged. A v0.3
 agent is an explicit `A2AProtocolError` naming its version.
 
+Pauses change too: `withdraw` on a channel is gone — [`onPauseClosed`](#pauses--withdraw-is-gone-a-channel-hears-every-close)
+replaces it — and `answeredBy` on a channel role is `answerer`.
+
 What you get: an Agent Card at `<base>/.well-known/agent-card.json`, JSON-RPC (`SendMessage`,
 `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`), durable tasks that
 outlive their connection, one execution per `messageId`, direct `Message` replies, file parts, and
@@ -33,6 +36,83 @@ the AGBoss guarantees as two extensions
 A disconnect no longer cancels a run: the task goes on, and `GetTask` / `SubscribeToTask` read it.
 A client resends an ambiguous accept only to an AGBoss peer, within the retention its card declares
 — never to a foreign peer.
+
+## Pauses — `withdraw` is gone, a channel hears every close
+
+0.1.1 adds a deadline to a pause, notices to channels and listeners, and one meaning per name. Two
+things in your code change.
+
+**`withdraw` is gone → `onPauseClosed`.** `ChannelHandler.withdraw`, `ChannelOf.withdraw` and
+`ChannelWithdrawal` (#337) are removed. A channel is told, **at least once**, whenever a pause it sent
+closes — withdrawn, cancelled, expired, answered (also elsewhere), its tree ended — through
+`onPauseClosed(event)`. Nothing else changes in the channel: `send` is the same.
+
+```ts
+import {
+  Channel,
+  ChannelOf,
+  ChannelOutcome,
+  ChannelRole,
+  PauseAnswerer,
+  PauseClosedReason,
+  type ChannelAsk,
+  type ChannelPauseClosedEvent,
+} from "@agboss/core";
+import { Flag, Text } from "@agboss/core/dto";
+
+export class HoldRequest {
+  @Text() bookingId!: string;
+}
+
+export class HoldDecision {
+  @Flag({ prompt: "whether the hold goes on" }) approved!: boolean;
+}
+
+@ChannelRole({
+  name: "hold-question",
+  description: "Approves a hold",
+  ask: HoldRequest,
+  answer: HoldDecision,
+  answerer: PauseAnswerer.Channel,
+})
+export abstract class HoldQuestion extends ChannelOf<HoldQuestion> {}
+
+@Channel({ name: "mail-hold-channel", description: "Asks by mail" })
+export class MailHoldChannel extends HoldQuestion {
+  send(_ask: ChannelAsk<HoldQuestion>): Promise<ChannelOutcome<HoldQuestion>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+
+  // 0.1.0: override withdraw(withdrawal) — called once, only when a pause was taken back
+  // 0.1.1: called for every close; event.reason says which, event.deliveryId is the dedupe key
+  override onPauseClosed(event: ChannelPauseClosedEvent<HoldQuestion>): Promise<void> {
+    if (event.reason === PauseClosedReason.Answered) return Promise.resolve(); // marked by whoever answered
+    console.log(`take back the question ${event.pauseId}: ${event.reason}`);
+    return Promise.resolve();
+  }
+}
+```
+
+| 0.1.0 | 0.1.1 |
+| --- | --- |
+| `override withdraw(w)` | `override onPauseClosed(event)` |
+| `w.resolution` (`PauseResolution`) | `event.reason` (`PauseClosedReason`: `Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`) |
+| called once, never after a crash | at least once: **deduplicate by `event.deliveryId`**, and make the hook safe to run twice |
+| the warning `channel.withdraw-failed` | `pause.notice-failed` (each failed attempt), `pause.notice-dead` (set aside after `retention.pauseRecords`) |
+| — | `@PauseListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
+
+**`answeredBy` on a role → `answerer`.** `@ChannelRole({ answeredBy: PauseAnswerer.Channel })` becomes
+`answerer: PauseAnswerer.Channel` (#934): `answerer` is who *may* answer, `answeredBy` is who *did*. The
+old spelling is accepted, `@deprecated`, until 0.2. One change has no alias and does not fail to compile:
+`PauseAnswerRecord.answeredBy` (`result.record.pauses`) used to hold the kind (`"channel"`,
+`"thread-owner"`) and now holds the person (`"manager-17"`) — an audit filter on the old meaning now
+matches nobody; filter on `answerer`. The list of every renamed field is in the
+[Changelog](Changelog).
+
+Your own `PausedExecutionRepository` or a store of another team: pauses have a deadline, a reminder and
+mailboxes of notices now, in the same transactions as their changes — a schema change in each of the
+three stores ([below](#the-stores--what-to-run)) and new cases in the contract suite
+([Your own store](Your-own-store)).
 
 ## The stores — what to run
 

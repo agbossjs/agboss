@@ -320,11 +320,15 @@ without running and the join decides from the records.
 
 A quorum decided while a branch waits for an answer (#337) — by its siblings' answers, a group that
 won, the deadline, or found decided on restore — withdraws that branch's pending pauses
-(`PauseResolution.Withdrawn`, its channel's `withdraw` called once, [Pauses](Pauses#taking-a-question-back-withdraw-337)):
+(`PauseResolution.Withdrawn`; its channel's `onPauseClosed` is told once, `reason: Withdrawn` — [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940)):
 the pass that decided it closes them before it ends, the waiting branch ends `BranchStatus.Cancelled`
 and the join runs in the same call — nothing is left in `result.pending`. A deadline that passes
 while the tree rests (no branch of it running) is acted on by the next pass: a resume or a recovery
 finds the quorum decided, cancels the unfinished branches and withdraws their pauses.
+
+> **TODO (#945, not on main yet):** a branch whose pause *expires* ends `BranchStatus.Expired`, counted
+> by the quorum and the plain join like any other end; the settled answers and `joinFailed` are
+> written here when #945 merges ([Pauses → Expiry in a quorum](Pauses#expiry-in-a-quorum)).
 
 ### Model arbiters
 

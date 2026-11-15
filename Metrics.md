@@ -41,6 +41,12 @@ Prometheus name is the official exporter's: `.` → `_`, a counter gets `_total`
 dropped. No name carries its unit (OpenTelemetry's naming; #889): a collector that appends unit
 suffixes scrapes `agboss_cluster_children_oldest_queued_age_seconds`, never a doubled suffix.
 
+### Pauses
+
+> **TODO (#943, not on main yet):** the pause metrics — pauses open now, opened and closed by reason,
+> overdue, the age at the answer — their names, kinds, units and labels are written here when #943
+> merges ([Pauses → List and watch pauses](Pauses#list-and-watch-pauses)).
+
 ### Cluster — read from the shared store, the same on every instance
 
 | Name (Prometheus) | Kind | Unit | Value |

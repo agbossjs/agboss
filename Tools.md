@@ -474,7 +474,7 @@ import {
   name: "refund-approval-channel",
   description: "Approves card refunds",
   approves: RefundCardInputDto, // the tools' input DTO — imports go DTO ← role ← tool
-  answeredBy: PauseAnswerer.Channel,
+  answerer: PauseAnswerer.Channel,
 })
 export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
 
@@ -544,7 +544,7 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
   (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
   a reply, its pause record closed at once (`PauseResolution.Decided`). A `send` that returns
   anything else fails the step.
-- **Who answers** (#267 PR 2): the role's `answeredBy`. A `PauseAnswerer.ThreadOwner` pause is
+- **Who answers** (#267 PR 2): the role's `answerer`. A `PauseAnswerer.ThreadOwner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
   `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
   with `app.resume({ pauseId: ask.pauseId, decision }, { answeredBy: "manager-17" })`, its id never
