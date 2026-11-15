@@ -410,6 +410,59 @@ checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
   then waits for it.
 - A value you give a test as an `overrides` entry is not bounded; a store class you list is.
 
+## The checkpoint saver's optional `latestByStep` (#962)
+
+A checkpoint saver is LangGraph's `BaseCheckpointSaver`; its `getTuple` without a `checkpoint_id`
+answers the greatest `checkpoint_id`. LangGraph's ids follow the host's clock, so after the clock
+stepped back the greatest id is not the newest checkpoint. The framework notices a checkpoint id that
+sorts out of order and *marks* the thread (#682); a marked thread's continuation reads its latest
+checkpoint by `(step, id)` instead. Without help the framework
+does it by listing the thread's whole namespace and sorting it in memory, on every read for the
+thread's life. A saver can answer it with one indexed read, by an **optional** method:
+
+```ts
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CheckpointTuple } from "@langchain/langgraph";
+import { stepOf, type LatestByStepCheckpointSaver } from "@agboss/core/stores";
+
+declare const saver: LatestByStepCheckpointSaver;
+declare const config: RunnableConfig;
+const newest: Promise<CheckpointTuple | undefined> = saver.latestByStep(config);
+const order = stepOf({ step: 4 }); // 4; a missing or non-number step is -2 (NO_STEP)
+```
+
+- **The contract.** `latestByStep(config)` returns the checkpoint of `config`'s `thread_id` and
+  `checkpoint_ns` (`""` when unset) with the **greatest `metadata.step`**; equal steps go to the
+  **greatest `checkpoint_id`, compared by code point** (#1115: UTF-8 byte order, not by locale and not
+  by UTF-16 code unit; PostgreSQL `COLLATE "C"`, not the database's default; MongoDB's own string
+  order; so `"\u{10000}"` beats `"\uFFFF"`, which a JavaScript `<` would answer the other way). A `checkpoint_id` in `config` is ignored. A checkpoint whose step is missing,
+  or not a finite number, counts as **-2** (`NO_STEP`; `stepOf(metadata)` is the core's one rule —
+  use it where you compute the step). The tuple is read as `getTuple` reads it (pending writes,
+  parent config); a thread or namespace without a checkpoint answers `undefined`.
+- **Never stale, never half-written.** The step must be written in the same write as the checkpoint
+  (a column or a field set by the same `INSERT` / document), or computed from the stored metadata by
+  the index itself (a generated column, an expression index). The contract's concurrent case reads
+  while another instance writes: every answer is a whole stored checkpoint and never goes back.
+- **It is optional, and the scan stays.** A saver without the method keeps the old scan: the same
+  answer, slower, correct. Add it for the speed (10 000 checkpoints: SQLite 120 ms → 0.03 ms,
+  PostgreSQL 38 ms → 1.7 ms, MongoDB 3.7 s → 1.4 ms), not to be allowed to run.
+- **Declare it.** `checkpointSaver: { instance: …, capabilities: [StoreCapability.LatestByStep] }` in
+  the store's `storeConformance` entry runs the five cases of `checkpointSaverContract`: the newest
+  by step with ties by id, the -2 rule and namespaces, a checkpoint put again and `deleteThread`, random histories
+  (a clock step-back included) equal to the scan from either instance, and concurrent writes. A saver
+  that has the method and does not declare it fails `[store-conformance.capability-not-declared]`;
+  one that declares it without the method, `[store-conformance.capability-missing]`.
+- **The cases are valid LangGraph checkpoints** (#1037). Each puts its marker as a channel with a
+  version (`channel_versions` and `newVersions`), so a saver that keeps a channel's value as a blob
+  of a version listed in `newVersions` (LangGraph's `PostgresSaver`) returns it too. Your `put`
+  needs nothing the cases do not give it.
+- **How the stores do it.** SQLite: a `VIRTUAL` generated `step` column on the metadata's JSON and
+  an index on `(thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`; an older version's
+  positional `INSERT` still works on the file (#1035). PostgreSQL: an expression index on
+  `metadata->'step'` (`::numeric`, so a huge or fractional step cannot fail an `INSERT`), built
+  `CONCURRENTLY`. MongoDB: a `step` field in the checkpoint's document, the index `latest_by_step`,
+  and old documents given their `step` when their thread is first read.
+
 ## Prove it: `storeConformance`
 
 One call runs every contract the store set claims, with the same cases the core's own stores run
@@ -484,8 +537,8 @@ storeConformance({
 - **What the set does not check is shown, never passed** (#799). `store set (<name>)` lists every
   contract the set does not claim as a skipped case, `does not claim stores.<key>`, with the reason
   (left out in `without`, or not given).
-- **A store declares its optional capabilities** (#831). The child queue's `watchQueued` (#777) is
-  one: `childExecutionQueue: { instance: (context) => new PgChildQueue(pool, context.clock),
+- **A store declares its optional capabilities** (#831). The child queue's `watchQueued` (#777) and
+  the checkpoint saver's `latestByStep` (#962, above) are two. For the child queue: `childExecutionQueue: { instance: (context) => new PgChildQueue(pool, context.clock),
   capabilities: [StoreCapability.WatchQueued] }` (`StoreCapability`, `@agboss/core/testing/contracts`).
   A declared capability's cases must pass on both instances' stores (else
   `[store-conformance.capability-missing]`); one not declared is skipped, with the reason, on a store
@@ -844,7 +897,8 @@ that does not load, or one that registers no case, rejects: never an empty run t
 - [ ] `storeConformance` passes with every store the set has, the explorer included (#533), at or
       above the floor for a set with fencing stores (#799); its report's skipped cases are the
       contracts it does not claim and the capabilities it does not declare, nothing else; a store
-      with `watchQueued` declares `StoreCapability.WatchQueued` (#831).
+      with `watchQueued` declares `StoreCapability.WatchQueued` (#831), a checkpoint saver with
+      `latestByStep` declares `StoreCapability.LatestByStep` (#962).
 - [ ] `faultSuite` passes on the set, against a real database, in CI, its sabotages included
       (#831). An opted-out set fails its `fences atomically …` case (#584).
       `faultStores.storeTime` says what the stores decide by (#799).

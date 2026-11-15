@@ -9,7 +9,7 @@ export const OUT_OF_ORDER = "agboss-out-of-order";
 
 /**
  * Newest first: by LangGraph's step (each run continues at its last step + 1; none or not a number
- * counts as -2), then by id by code unit — the order `latestByStep` reads (#962).
+ * counts as -2), then by id by code point — the order `latestByStep` reads (#962).
  */
 export const newestFirst = (first: CheckpointTuple, second: CheckpointTuple): number =>
   newestFirstOrder(
