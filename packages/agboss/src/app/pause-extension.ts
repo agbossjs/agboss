@@ -31,7 +31,8 @@ import type { App, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
  * deadline is `now + expiresIn`; refused when it is not later than the current one, when the pause
  * has no deadline (none is ever added), or when it is past the deadline the pause was made under —
  * its run's, or a quorum's (`boundAt`); exactly that deadline is allowed. A closed pause, or one
- * past its deadline, is `PauseClosedError`. The store applies it atomically (`extend…`, its
+ * past its deadline, is `PauseClosedError` — judged at the instant of the write: a working-time
+ * calendar that took seconds does not keep a deadline that passed meanwhile open (#1148). The store applies it atomically (`extend…`, its
  * compare-and-set over the deadline this call read, to a later one, while the pause is open — the
  * expiry look, an answer and another extension: one wins); the channel and the listeners are told
  * `extended` in the same transaction, once, by the winner. A call that loses the compare-and-set
@@ -196,11 +197,15 @@ export const extendPauseOf =
         channel?.remindBefore,
         add,
       );
+      // the calendar took time: whether the pause is still open is decided at this instant, not at
+      // the call's start (#1148); the deadline itself keeps counting from `now`
+      const at = parts.clock.now();
+      await assertOpen(parts, pause);
       const extended = await parts.pauses.extendByTenantIdAndPauseId(
         tenantId,
         pause.pauseId,
         { expiresAt, previousExpiresAt, ...(remindAt === undefined ? {} : { remindAt }) },
-        now,
+        at,
         recipientsIn(parts.deps.pause, pause),
       );
       if (extended !== undefined) {

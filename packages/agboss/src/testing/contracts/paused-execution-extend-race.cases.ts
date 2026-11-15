@@ -9,6 +9,7 @@ import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
   APPROVED_BY_MANAGER,
+  AFTER_DEADLINE,
   BEFORE_DEADLINE,
   DEADLINE,
   expiringPauseOf,
@@ -28,6 +29,25 @@ const EVEN_LATER = "2026-01-05T15:00:00.000Z";
 const FROM = DEADLINE.toISOString();
 
 export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
+  {
+    name: "an extension whose write happens after the deadline is refused, even to a deadline still ahead of it, nothing written (#1148)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const extend = (at: Date) =>
+        second.extendByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          at,
+          R,
+        );
+
+      expect(await extend(AFTER_DEADLINE)).toBeUndefined();
+      expect(await extend(new Date(Date.parse(LATER)))).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(FROM);
+      expect(await extend(BEFORE_DEADLINE)).toMatchObject({ expiresAt: EVEN_LATER });
+    },
+  },
   {
     name: "extend only over the deadline the caller read: a stale `previousExpiresAt` is refused, nothing written (#1099)",
     run: async ({ first, second }: Instances): Promise<void> => {

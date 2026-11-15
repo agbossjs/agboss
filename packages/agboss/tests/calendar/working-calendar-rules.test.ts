@@ -509,6 +509,30 @@ describe("#944: a span the grid cannot reach in 25 years is refused at start", (
     }
   });
 
+  it("#1148: the holidays count: a span the bare grid reaches is refused once fifty of its Mondays are holidays", async () => {
+    const monday = {
+      timeZone: "UTC",
+      days: [Weekday.Monday],
+      hours: [{ from: "09:00", to: "10:00" }],
+    } as const;
+    const holidays = Array.from({ length: 50 }, (_, index) =>
+      new Date(Date.UTC(2026, 0, 12 + 7 * index)).toISOString().slice(0, 10),
+    );
+    const bare = workingApp("reach-bare", {
+      role: { expiresIn: workingHours(1307) },
+      calendar: WorkingWeek.of(monday),
+    });
+    const closed = workingApp("reach-holidays", {
+      role: { expiresIn: workingHours(1307) },
+      calendar: WorkingWeek.of({ ...monday, holidays }),
+    });
+
+    await (await assemble(bare.application)).close();
+    const found = await violationsOf(closed.application);
+    expect(found.map((one) => one.code)).toEqual(["working-calendar.invalid"]);
+    expect(found[0]?.message).toContain("25 years");
+  });
+
   it("a reachable span on the same grid assembles", async () => {
     const { application } = workingApp("reach-ok", {
       role: { expiresIn: workingHours(1) },
