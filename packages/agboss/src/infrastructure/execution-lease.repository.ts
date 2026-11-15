@@ -4,6 +4,7 @@ import type { Milliseconds } from "../units/index.js";
 import type { ExecutionTree } from "./execution-tree.repository.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock, waitOf } from "./clock.js";
+import { markedInMemoryCancel, markOf } from "./in-memory-cancel-mark.js";
 import {
   IN_MEMORY_DATABASE,
   treeKeyOf,
@@ -234,26 +235,6 @@ export abstract class ExecutionLeaseRepository {
   abstract requestCancel(tree: ExecutionTree): Promise<void>;
 }
 
-/** The tree's cancel mark of a stored row (#1117), for the row written in its place: kept for good. */
-const markOf = (stored: ExecutionLeaseRow | undefined): { readonly cancelRequestedAt?: number } =>
-  stored?.cancelRequestedAt === undefined ? {} : { cancelRequestedAt: stored.cancelRequestedAt };
-
-/**
- * The row of a tree cancelled before its first acquire (#1117): token 0, released, never held — its
- * first acquire is token 1 and no takeover, as of a key with no row.
- */
-const seedRowOf = (tree: ExecutionTree): ExecutionLeaseRow => ({
-  lease: {
-    tenantId: tree.tenantId,
-    rootExecutionId: tree.rootExecutionId,
-    holderInstanceId: "",
-    token: 0,
-    expiresAt: new Date(0),
-    remaining: waitOf(0),
-  },
-  released: true,
-});
-
 /** Whether `acquire` refuses a stored lease: still held, or retired (#520). */
 const isRefused = (stored: ExecutionLeaseRow, now: Date): boolean =>
   stored.isRetired === true || (!stored.released && isLiveAt(stored.lease, now));
@@ -390,11 +371,7 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 
   requestCancel(tree: ExecutionTree): Promise<void> {
-    const { executionLeases } = this.database;
-    const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
-    const stored = executionLeases.get(key) ?? seedRowOf(tree);
-    if (stored.cancelRequestedAt === undefined)
-      executionLeases.set(key, { ...stored, cancelRequestedAt: this.clock.now().getTime() });
+    markedInMemoryCancel(this.database, tree, this.clock.now().getTime());
     return Promise.resolve();
   }
 

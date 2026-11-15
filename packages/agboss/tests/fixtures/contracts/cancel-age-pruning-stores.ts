@@ -113,7 +113,7 @@ export class MarkDroppingLeases extends InMemoryExecutionLeaseRepository {
 
 /** The core's in-memory fencing stores over `MarkDroppingLeases`. */
 export const markDroppedByAcquire = {
-  leases: (seam: InstanceSeam) => new MarkDroppingLeases(seam),
+  leases: (seam: InstanceSeam): MarkDroppingLeases => new MarkDroppingLeases(seam),
   effects: ((seam: InstanceSeam) => {
     const built = inMemoryFencedEffects(false)(seam);
     const leases = new MarkDroppingLeases(seam);
