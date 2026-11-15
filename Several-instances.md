@@ -1090,7 +1090,10 @@ the **pause timers'** tick (every 5 s: one loop for the looks of the pause featu
 `app.checkLiveness()` reports a stale tick as the component `pause-timers`, beside `recovery-loop`).
 A look claims up to 50 mailboxes for the instance's receivers (its channels that listen to a notice
 and its listeners) for 60 s — one mailbox per claim, so a stuck head never holds another — tells the
-head notice in the pause's frame and acknowledges it only after the receiver returned: an instance
+head notice in the pause's frame and acknowledges it only after the receiver returned. The claim is
+renewed while the receiver runs (every 20 s, each renewal bounded to 5 s, `renewNotice`), so a hook that
+runs under a tool's `timeout` of minutes, or a chain of notices longer than a minute, is never called
+again beside itself (#1131); a renewal never revives a lapsed or lost claim. An instance
 that dies before the acknowledgement leaves the notice to the next claim, which delivers it again
 under the same `deliveryId` — at least once, never zero times; a zombie's late acknowledgement
 changes nothing (it needs the claim's token and an unexpired claim). Two instances never deliver one
