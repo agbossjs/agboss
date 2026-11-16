@@ -1,3 +1,4 @@
+import { lazyLoad } from "../../../infrastructure/clock.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { FileSource } from "../../../files/model-files.js";
 import { inputFilesOf } from "../../../files/input-files.js";
@@ -11,12 +12,8 @@ import { stepNodeIdOf, visitNumberOf } from "../step-frame.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { isLastLevel } from "../soft-stop.js";
-import { GuardrailSide } from "../../../components/policy-decorators.js";
-import { runGuardrails, type GuardrailsPassed } from "../../../guardrails/runtime.js";
-import { maskedModelText } from "../../../pii/model-boundary.js";
-import { CarriedOrder, carryRecords } from "../carried-records.js";
-import type { PiiTokenMap } from "../../../pii/tokens.js";
-import type { LoopFiles, LoopPii, LoopResult } from "../../../graph/agent-loop/runner.js";
+import type { AnswerFileReading } from "../../../files/file-runtime.js";
+import type { LoopFiles } from "../../../graph/agent-loop/runner.js";
 import { currentFrame } from "../../context/frame.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { AgentStream, withAgentStream, type StepSite } from "../../../run/stream/agent-stream.js";
@@ -35,30 +32,9 @@ function loopFilesOf(
 /** An agent's loops: its own, and the last level's of a recursive workflow (#264). */
 export interface AgentLoops {
   readonly loop: AgentLoopGraph;
+  readonly files?: AnswerFileReading;
   /** Its recursive variants left out of the response schema (`soft-stop.ts`). */
   readonly lastLevel?: AgentLoopGraph;
-}
-
-/**
- * The agent's output guardrails (#120) on its answer — its text, or its answer's JSON — masked by
- * its PII policies as its model would read it: their spend (a block fails the execution).
- */
-async function guardedAnswer(
-  name: string,
-  result: LoopResult,
-  pii: { readonly loop: LoopPii; readonly tokens: PiiTokenMap },
-  deps: GraphDeps<string>,
-): Promise<GuardrailsPassed> {
-  const guardrails = deps.guardrails?.outputOf(name) ?? [];
-  if (guardrails.length === 0) return { usage: [], decisions: [] };
-  const set = deps.pii?.policiesOf(name).withValues(pii.loop.values).withFieldKey(pii.loop.key);
-  const masked =
-    set === undefined
-      ? { text: result.reply, usage: [] }
-      : await maskedModelText(set, result.reply, pii.tokens);
-  const checked = { text: masked.text, element: name, side: GuardrailSide.Output };
-  const passed = await runGuardrails(guardrails, checked, deps.observer);
-  return { usage: [...masked.usage, ...passed.usage], decisions: passed.decisions };
 }
 
 /**
@@ -122,16 +98,16 @@ export function agentRunner(
         throw error;
       });
     const result = loopResultOf(after);
+    // loaded on first use: the files of an answer are rare, the root import stays light (#205)
+    const { guardedAnswer } = await lazyLoad(import("./answer-guard.js"));
     const guarded = await guardedAnswer(
       node.id,
       result,
       { loop: pii, tokens: result.piiTokens },
       deps,
+      { reading: loops.files, state },
     ).catch((error: unknown) => {
       streamed?.fail();
-      // an output guardrail blocked the answer: the visit's records go with its failure (#395 S6)
-      const { toolCalls, judgeVerdicts, guardrailDecisions } = result;
-      carryRecords(error, { toolCalls, judgeVerdicts, guardrailDecisions }, CarriedOrder.Before);
       throw error;
     });
     // every check of the answer passed: what was held back goes out now (#1006)

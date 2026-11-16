@@ -1229,6 +1229,7 @@ export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProvid
 
 // @public
 export interface ModelUse {
+    readonly forAgents?: readonly string[];
     // (undocumented)
     readonly isNeedStrict?: boolean;
     readonly key: ModelUseKey;

@@ -28,6 +28,7 @@ import {
   type LoadedGuardrail,
   type LoadedModelGuardrail,
 } from "./assembly.js";
+import { piecesOfGuarded, type GuardedText } from "./guarded-text.js";
 import { CODE_GUARDRAIL_THRESHOLD, codeGuardrailDecision } from "./code-guardrail.js";
 import { guardrailDecisionOf, type GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 import { carryRecords } from "../flow/runtime/carried-records.js";
@@ -41,13 +42,6 @@ import { carryRecords } from "../flow/runtime/carried-records.js";
  * answer fails closed (`GuardFailedError`): nothing passes unchecked. A code guardrail (#383)
  * decides by its class's `check(text)` instead — no model call, no spend (`code-guardrail.ts`).
  */
-
-/** What a guardrail checks: the text, whose model it guards, and from which side. */
-export interface GuardedText {
-  readonly text: string;
-  readonly element: string;
-  readonly side: GuardrailSide;
-}
 
 const headingOf = (checked: GuardedText): string =>
   checked.side === GuardrailSide.Input
@@ -122,6 +116,7 @@ function modelDecisionOf(
   return async (checked, spent) => {
     const outcome = await decider.decide({
       input: `${headingOf(checked)}\n${checked.text}`,
+      pieces: piecesOfGuarded(checked),
       instructions: GUARDRAIL_INSTRUCTIONS,
       questions: [{ target: GUARDRAIL_QUESTION, prompt }],
     });
@@ -178,7 +173,18 @@ export async function checkGuardrail(
   observer: ExecutionObserverManager | undefined,
 ): Promise<GuardrailOutcome> {
   const { name } = runtime.guardrail;
-  const input = { side: checked.side, element: checked.element, text: checked.text };
+  const files = (checked.files ?? []).map(({ content }) => ({
+    mediaType: content.mediaType,
+    ...(content.filename === undefined ? {} : { filename: content.filename }),
+    sizeBytes: content.bytes.byteLength,
+    sha256: content.sha256,
+  }));
+  const input = {
+    side: checked.side,
+    element: checked.element,
+    text: checked.text,
+    ...(files.length === 0 ? {} : { files }),
+  };
   await reportNodeEvent((base) => observer?.onGuardrailStart({ ...base, name, input }));
   const update = await runtime.decide(checked, spent);
   await reportNodeEvent((base) => observer?.onGuardrailEnd({ ...base, name, update }));
@@ -191,15 +197,26 @@ export interface GuardrailsPassed {
   readonly decisions: readonly GuardrailDecisionRecord[];
 }
 
+/** What the guardrails on one text decided: all passed, or the first that blocked (and what it, and those before it, cost). */
+export type GuardrailsChecked =
+  | ({ readonly kind: "passed" } & GuardrailsPassed)
+  | {
+      readonly kind: "blocked";
+      readonly error: GuardrailBlockedError;
+      readonly usage: readonly UsageRecord[];
+      readonly decisions: readonly GuardrailDecisionRecord[];
+    };
+
 /**
- * The guardrails on one text, in order: their spend and decisions when every one passes; the first that blocks
- * fails the execution with `GuardrailBlockedError` (its refusal, its spend so far).
+ * The guardrails on one text, in order: all passed, or the first that blocks — as a value, so a caller
+ * that can survive a block (a tool call whose result files were blocked, #899 §8) does. A guardrail
+ * that cannot decide still throws `GuardFailedError`: nothing passes unchecked.
  */
-export async function runGuardrails(
+export async function checkGuardrails(
   guardrails: readonly RuntimeGuardrail[],
   checked: GuardedText,
   observer?: ExecutionObserverManager,
-): Promise<GuardrailsPassed> {
+): Promise<GuardrailsChecked> {
   const spent: UsageRecord[] = [];
   const decisions: GuardrailDecisionRecord[] = [];
   for (const runtime of guardrails) {
@@ -213,7 +230,21 @@ export async function runGuardrails(
     const blocked = { probability: outcome.probability, threshold };
     const error = new GuardrailBlockedError({ guard: name, refusal, usage: spent, ...blocked });
     carryRecords(error, { guardrailDecisions: decisions }); // the blocking one last (#395 S6)
-    throw error;
+    return { kind: "blocked", error, usage: spent, decisions };
   }
-  return { usage: spent, decisions };
+  return { kind: "passed", usage: spent, decisions };
+}
+
+/**
+ * The guardrails on one text, in order: their spend and decisions when every one passes; the first that blocks
+ * fails the execution with `GuardrailBlockedError` (its refusal, its spend so far).
+ */
+export async function runGuardrails(
+  guardrails: readonly RuntimeGuardrail[],
+  checked: GuardedText,
+  observer?: ExecutionObserverManager,
+): Promise<GuardrailsPassed> {
+  const result = await checkGuardrails(guardrails, checked, observer);
+  if (result.kind === "blocked") throw result.error;
+  return result;
 }

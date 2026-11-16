@@ -1,6 +1,22 @@
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ModelProblem } from "./problems.js";
-import type { ModelUse } from "./uses.js";
+import { ModelPurpose } from "./resolve.js";
+import type { InputNeed, ModelUse } from "./uses.js";
+
+const DECISION_IMAGES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+const problemOf = (
+  use: ModelUse,
+  need: InputNeed,
+  where: string,
+  supported: string,
+): ModelProblem => ({
+  code: "model.unsupported-input",
+  key: use.key,
+  value: `${need.mediaType} (${need.view})`,
+  model: where,
+  supported,
+});
 
 /**
  * Input kinds against what a model says it takes (#899 §4): every kind a strict use reads must be in
@@ -14,13 +30,20 @@ export function inputProblems(
 ): readonly ModelProblem[] {
   const { inputs } = capabilities;
   if (inputs === undefined || use.isNeedStrict !== true) return [];
-  return (use.needs ?? [])
-    .filter((need) => !inputs.includes(need.kind))
-    .map((need) => ({
-      code: "model.unsupported-input",
-      key: use.key,
-      value: `${need.mediaType} (${need.view})`,
-      model: where,
-      supported: `takes ${inputs.join(", ") || "nothing"}, not ${need.kind}`,
-    }));
+  return (use.needs ?? []).flatMap((need): ModelProblem[] => {
+    if (!inputs.includes(need.kind))
+      return [
+        problemOf(use, need, where, `takes ${inputs.join(", ") || "nothing"}, not ${need.kind}`),
+      ];
+    // a decision model's image is a png, jpeg or webp (`Decision.image`): a gif is no image to it
+    if (
+      use.purpose === ModelPurpose.Decision &&
+      need.kind === "image" &&
+      !DECISION_IMAGES.has(need.mediaType)
+    )
+      return [
+        problemOf(use, need, where, "takes png, jpeg and webp images, not " + need.mediaType),
+      ];
+    return [];
+  });
 }

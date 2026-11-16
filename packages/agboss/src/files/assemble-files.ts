@@ -6,6 +6,7 @@ import type { AgentMeta } from "../components/meta-types.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ModelInputKind } from "../models/content.js";
+import type { ModelUse } from "../models/uses.js";
 import { narrowedTypesOf } from "./file-needs.js";
 import { workflowDeclarationOf } from "../components/module.js";
 import type { Provider } from "../components/injection.js";
@@ -82,12 +83,22 @@ export function agentFilesOf(
 export function withNarrowedFiles(
   config: AgentsConfigOf<string>,
   inputs: ReadonlyMap<string, readonly ModelInputKind[]>,
+  uses: readonly Pick<ModelUse, "key" | "forAgents">[] = [],
 ): AgentsConfigOf<string> {
   return {
     ...config,
     agents: Object.fromEntries(
       Object.entries(config.agents).map(([name, settings]) => {
-        const kinds = inputs.get(`agents.${name}`);
+        // what every model that reads the agent's files takes: its own and its guardrails' and judges' (#899 §4, §8)
+        const readers = [
+          `agents.${name}`,
+          ...uses.filter((use) => use.forAgents?.includes(name) === true).map((use) => use.key),
+        ];
+        const lists = readers.flatMap((key) => {
+          const taken = inputs.get(key);
+          return taken === undefined ? [] : [taken];
+        });
+        const kinds = lists.length === 0 ? undefined : intersectionOf(lists);
         const { files } = settings;
         if (files === undefined || files.isTypesExplicit || kinds === undefined)
           return [name, settings];
@@ -99,6 +110,12 @@ export function withNarrowedFiles(
     ),
   };
 }
+
+/** The kinds every list has. */
+const intersectionOf = (lists: readonly (readonly ModelInputKind[])[]): ModelInputKind[] => {
+  const [first = [], ...rest] = lists;
+  return first.filter((kind) => rest.every((list) => list.includes(kind)));
+};
 
 /** The config with each opted-in agent's resolved `files`. */
 export function withAgentFiles(

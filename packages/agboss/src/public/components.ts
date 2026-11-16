@@ -20,7 +20,11 @@ export {
   type ToolHandler,
   type ToolOptions,
 } from "../components/decorators.js";
-export { GuardrailVerdict, type GuardrailHandler } from "../components/guardrail-handler.js";
+export {
+  GuardrailVerdict,
+  type GuardrailContent,
+  type GuardrailHandler,
+} from "../components/guardrail-handler.js";
 export { ToolInterceptor } from "../tool-interceptors/decorator.js";
 export {
   ToolCallDecision,
@@ -46,6 +50,7 @@ export {
 export {
   PiiAction,
   PiiActionKind,
+  PiiFileAction,
   PiiGroup,
   PiiKind,
   PiiPolicy,

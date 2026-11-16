@@ -96,6 +96,7 @@ export async function runJudgeCheck(
     task: turn.task,
     attempt: 0,
     toolCalls: turn.toolCalls,
+    files: [],
   };
   const frame = judgeFrameOf(deps, turn, { type: judge, name: meta.name });
   try {

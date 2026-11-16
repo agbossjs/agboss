@@ -75,6 +75,16 @@ export interface GuardrailInput {
   readonly side: GuardrailSide;
   readonly element: string;
   readonly text: string;
+  /** The files it checks with the text (#899 §9): what they are, never their bytes. */
+  readonly files?: readonly GuardedFileShown[];
+}
+
+/** A file a guardrail checks, as observers see it: its media type, name, size and digest. */
+export interface GuardedFileShown {
+  readonly mediaType: string;
+  readonly filename?: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
 }
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
 

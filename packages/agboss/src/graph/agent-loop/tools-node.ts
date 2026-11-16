@@ -5,7 +5,9 @@ import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from 
 import { runTool } from "./run-tool.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
-import { taskFilesOf } from "../../files/tool-files.js";
+import { withFiles } from "../../files/tool-files.js";
+import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
+import type { PiiTokenMap } from "../../pii/tokens.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
@@ -27,6 +29,9 @@ interface GuardedCall {
   /** The files of the result its model reads, and the transcriptions made for them (#899). */
   readonly files?: StoredToolFiles;
   readonly transcripts?: Readonly<Record<string, string>>;
+  /** The tokens its files' masked transcriptions introduced, and the guardrails' decisions on them. */
+  readonly tokens?: PiiTokenMap;
+  readonly decisions?: readonly GuardrailDecisionRecord[];
   readonly closed: ClosedResult;
   readonly step: StepRecord;
   readonly output?: ToolOutput<unknown>;
@@ -130,13 +135,6 @@ export function makeToolNode(
       : inLoopFrame(task.progress, () => run(task, config));
 }
 
-/** The guarded call with the files of its result read (#899) and what they cost counted. */
-async function withFiles(deps: AgentLoopDeps, tool: AnyTool, task: ToolTask, guarded: GuardedCall) {
-  const read = await taskFilesOf(deps, tool, task, guarded.output);
-  const usage = deps.budgets.tally([...guarded.closed.usage, ...read.usage]);
-  return { ...guarded, closed: { ...guarded.closed, usage }, ...read };
-}
-
 /** One tool call's task, in the frame it is given. */
 function runTask(
   deps: AgentLoopDeps,
@@ -218,5 +216,14 @@ function endedTaskOf(
   const callRecords = { [task.callId]: ended.record };
   const usage = [...ended.usage, ...closed.usage];
   const fileTranscripts = guarded.transcripts ?? {};
-  return { results, callRecords, usage, piiTokens, piiMasked, invalidArguments, fileTranscripts };
+  return {
+    results,
+    callRecords,
+    usage,
+    piiTokens: { ...piiTokens, ...guarded.tokens },
+    piiMasked,
+    invalidArguments,
+    fileTranscripts,
+    guardrailDecisions: [...(guarded.decisions ?? [])],
+  };
 }

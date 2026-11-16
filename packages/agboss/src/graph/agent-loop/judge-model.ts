@@ -1,4 +1,6 @@
-import type { BaseMessageLike } from "@langchain/core/messages";
+import { HumanMessage, type BaseMessageLike } from "@langchain/core/messages";
+import { decisionStateWith } from "../../files/decision-parts.js";
+import { contentWithPieces, type FilePiece } from "../../files/file-pieces.js";
 import type { JudgeModel } from "../../components/judge-decorators.js";
 import { ComponentError } from "../../components/metadata.js";
 import { recordUsage, type UsageRecord } from "../../finops/usage.js";
@@ -18,14 +20,28 @@ async function judgeReadingOf(mask: ModelReadingMask) {
 /** The cost caller of a judge's model calls (category `review`). */
 const judgeCaller = (judge: string): string => `judge:${judge}`;
 
+/** What a judge asks its chat model with the files the agent's model read after it (#899 §8). */
+function withPiecesIn(
+  input: string | readonly BaseMessageLike[],
+  pieces: readonly FilePiece[],
+): string | readonly BaseMessageLike[] {
+  if (pieces.length === 0) return input;
+  const files = new HumanMessage({ content: contentWithPieces("", pieces) });
+  return typeof input === "string"
+    ? [new HumanMessage({ content: contentWithPieces(input, pieces) })]
+    : [...input, files];
+}
+
 /** `ctx.model.invoke`: one chat call on a chat judge's model; a decision model cannot chat. */
 function invokeOf(
   judge: string,
   binding: JudgeBinding,
   spent: UsageRecord[],
   mask: ModelReadingMask | undefined,
+  pieces: readonly FilePiece[],
 ): JudgeModel["invoke"] {
-  return async (input: string | readonly BaseMessageLike[]) => {
+  return async (given: string | readonly BaseMessageLike[]) => {
+    const input = withPiecesIn(given, pieces);
     if (binding.kind !== ModelKind.Chat) {
       throw new ModelKindError({ model: binding.model, kind: ModelKind.Decisions, call: "invoke" });
     }
@@ -41,9 +57,11 @@ function invokeOf(
 
 /** `ctx.model.decide`: one decision on a decision judge's model; a chat model cannot decide. */
 function decideOf(
+  judge: string,
   binding: JudgeBinding,
   spent: UsageRecord[],
   mask: ModelReadingMask | undefined,
+  pieces: readonly FilePiece[],
 ): JudgeModel["decide"] {
   return async <const Q extends DecisionQuestions>(
     request: DecisionRequest<Q>,
@@ -52,7 +70,14 @@ function decideOf(
       throw new ModelKindError({ model: binding.model, kind: ModelKind.Chat, call: "decide" });
     }
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
-    const sent = reading === undefined ? request : await reading.request(request);
+    const asked = {
+      ...request,
+      state: decisionStateWith(request.state, pieces, {
+        caller: judgeCaller(judge),
+        model: binding.model,
+      }),
+    };
+    const sent = reading === undefined ? asked : await reading.request(asked);
     spent.push(...(reading?.usage ?? []));
     const outcome = await binding.decide(sent);
     spent.push(outcome.usage);
@@ -85,12 +110,13 @@ export function meteredModel(
   judge: Pick<AgentJudge, "name" | "binding">,
   spent: UsageRecord[],
   mask?: ModelReadingMask,
+  pieces: readonly FilePiece[] = [],
 ): JudgeModel {
   const { binding } = judge;
   if (binding === undefined) return noModelOf(judge.name);
   return {
     model: binding.model,
-    invoke: invokeOf(judge.name, binding, spent, mask),
-    decide: decideOf(binding, spent, mask),
+    invoke: invokeOf(judge.name, binding, spent, mask, pieces),
+    decide: decideOf(judge.name, binding, spent, mask, pieces),
   };
 }

@@ -2043,6 +2043,7 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
     readonly action: MaskingPiiAction;
     // (undocumented)
     readonly deps?: D;
+    readonly files?: PiiFileAction;
     readonly name: string;
     // (undocumented)
     readonly rules?: never;
@@ -2191,6 +2192,7 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
     // (undocumented)
     readonly description: string;
     readonly detectWithModel?: string;
+    readonly files?: PiiFileAction;
     readonly name: string;
     readonly pseudonymKey?: Secret;
     // (undocumented)
@@ -3718,6 +3720,18 @@ TOutput
 };
 
 // @public
+export interface GuardedFileShown {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: number;
+}
+
+// @public
 export class GuardFailedError extends StepFailedError {
     constructor(options: GuardFailedErrorOptions);
     // (undocumented)
@@ -3790,6 +3804,14 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
 }
 
 // @public
+export interface GuardrailContent {
+    // (undocumented)
+    readonly files: readonly FileContent[];
+    // (undocumented)
+    readonly text: string;
+}
+
+// @public
 export interface GuardrailDecisionRecord {
     // (undocumented)
     readonly guardrail: ComponentRecord;
@@ -3815,12 +3837,14 @@ export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 // @public
 export interface GuardrailHandler {
     readonly check: (text: string) => Promise<GuardrailVerdict> | GuardrailVerdict;
+    readonly checkContent?: (content: GuardrailContent) => Promise<GuardrailVerdict> | GuardrailVerdict;
 }
 
 // @public
 export interface GuardrailInput {
     // (undocumented)
     readonly element: string;
+    readonly files?: readonly GuardedFileShown[];
     // (undocumented)
     readonly side: GuardrailSide;
     // (undocumented)
@@ -4512,6 +4536,7 @@ export type JudgeHandlerClass = Class<JudgeHandler<never>>;
 // @public
 export type JudgeInput<TReply> = JudgedReply<TReply> & {
     readonly toolCalls: readonly ToolCallRecord[];
+    readonly files: readonly FileContent[];
 };
 
 // @public
@@ -6924,6 +6949,12 @@ export class PiiDetectionFailedError extends PaidStepError {
 }
 
 // @public
+export enum PiiFileAction {
+    AllowOriginal = "allow-original",
+    Mask = "mask"
+}
+
+// @public
 export enum PiiGroup {
     // (undocumented)
     Contact = "contact",
@@ -7841,7 +7872,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | "files.invalid-setting" | "files.no-redactor" | "pii.original-file";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | "files.invalid-setting" | "files.no-redactor" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
 
 // @public
 export interface RuleViolation {
@@ -10013,6 +10044,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "output".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "text".
+// src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "files".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "Token".
@@ -10135,6 +10168,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "side".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "element".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "text".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "filename".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "sha256".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "isBlocked".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "probability".

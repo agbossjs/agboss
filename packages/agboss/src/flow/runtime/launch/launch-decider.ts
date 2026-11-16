@@ -12,6 +12,8 @@ import {
   LAUNCH_ROUTER_SYSTEM,
 } from "../../../prompts/router-launch.js";
 import { routerCaller, type RouteOutcome } from "../../../routers/index.js";
+import { contentWithPieces, type FilePiece } from "../../../files/file-pieces.js";
+import { decisionStateWith } from "../../../files/decision-parts.js";
 import { withSortedKeys } from "../json.js";
 
 /**
@@ -46,6 +48,8 @@ export interface LaunchQuestion {
 /** What the router decides on: its input message, its own prompt and its questions. */
 export interface LaunchDecisionRequest {
   readonly input: string;
+  /** What follows the input: a file's heading and text, an image or a PDF part (#899 §8). */
+  readonly pieces?: readonly FilePiece[];
   readonly instructions: string;
   readonly questions: readonly LaunchQuestion[];
 }
@@ -109,8 +113,9 @@ async function decideOnDecisionModel(
   const questions: DecisionQuestions = Object.fromEntries(
     request.questions.map((question) => [question.target, Decision.noul(question.prompt)]),
   );
-  const state = `${request.instructions}\n\n${request.input}`;
   try {
+    const text = `${request.instructions}\n\n${request.input}`;
+    const state = decisionStateWith(text, request.pieces ?? [], { caller: voice.caller, model });
     const { caller } = voice;
     const outcome = await gateway.decide({ caller, model, request: { state, questions } });
     const probabilities = Object.fromEntries(
@@ -177,7 +182,7 @@ async function decideOnChatModel(
   try {
     const messages = [
       new SystemMessage(`${voice.system}\n\n${request.instructions}`),
-      new HumanMessage(request.input),
+      new HumanMessage({ content: contentWithPieces(request.input, request.pieces ?? []) }),
     ];
     const reply = await chat.bindTools([answerToolOf(request, voice)]).invoke(messages);
     const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });

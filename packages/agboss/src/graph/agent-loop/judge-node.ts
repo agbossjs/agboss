@@ -20,6 +20,9 @@ import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
+import type { FileContent } from "../../files/file-bytes.js";
+import type { JudgedFiles } from "./judge-files.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
 
 /**
@@ -77,9 +80,15 @@ function judgedInputOf(
   deps: AgentLoopDeps,
   judge: AgentJudge,
   text: string,
+  files: readonly FileContent[],
 ): AnyJudgeInput {
   // the visit's tool calls so far, every attempt's (#395): real values, as the step's code sees them
-  const base = { task: state.inputMessage, attempt: state.retries, toolCalls: state.trajectory };
+  const base = {
+    task: state.inputMessage,
+    attempt: state.retries,
+    toolCalls: state.trajectory,
+    files,
+  };
   if (state.answer === null) return { ...base, variant: PlainTextDto, reply: { text } };
   const value: unknown = structuredClone(state.answer.value);
   const classes = answeredClassesOf(state, deps);
@@ -101,6 +110,17 @@ function judgedInputOf(
 }
 
 /** A verdict as the step's record keeps it (#395 C3). */
+const NO_SEEN: JudgedFiles = { files: [], pieces: [], usage: [] };
+
+/** The files the judges read, read on the first judged answer: the judges of files are rare (#205). */
+async function judgedFilesOfLazily(
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+): Promise<JudgedFiles> {
+  const { judgedFilesOf } = await lazyLoad(import("./judge-files.js"));
+  return judgedFilesOf(state, deps);
+}
+
 const verdictRecordOf = (
   judge: string,
   attempt: number,
@@ -128,13 +148,17 @@ async function rejectionsOf(
 ): Promise<JudgeRejection[]> {
   const agent = deps.agent.name;
   const rejected: JudgeRejection[] = [];
-  for (const judge of deps.agent.judges ?? []) {
-    const input = judgedInputOf(state, deps, judge, text);
+  const judges = deps.agent.judges ?? [];
+  // the files its model read, read again pinned (#899 §3, §8): once for every judge, if one is asked
+  const seen = judges.length === 0 ? NO_SEEN : await judgedFilesOfLazily(state, deps);
+  spent.usage.push(...seen.usage);
+  for (const judge of judges) {
+    const input = judgedInputOf(state, deps, judge, text, seen.files);
     const event = { name: judge.name, agentName: agent };
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
-    const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps));
+    const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps), seen.pieces);
     const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
       (error: unknown) => {
         throw new AgentFailedError({
@@ -191,6 +215,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       reply: null,
       answer: null,
       answeredWith: [],
+      answerFiles: [],
       retries: 1,
       usage,
       judgeVerdicts: verdicts,

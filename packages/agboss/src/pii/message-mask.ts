@@ -17,17 +17,23 @@ import { asRecord, mappedStringsAsync } from "./strings.js";
  */
 export type MessageTextMask = (text: string, isIncoming: boolean) => Promise<string>;
 
+/** The blocks that carry a file's bytes: the framework's part and the four a provider's wire has. */
+const FILE_BLOCK_TYPES = new Set(["image_url", "file", "input_audio", "video_url"]);
+
+const isFileBlock = (block: ContentBlock): boolean =>
+  partOfBlock(block) !== undefined || FILE_BLOCK_TYPES.has(block.type);
+
 async function maskedContent(
   content: MessageContent,
   mask: MessageTextMask,
   isIncoming: boolean,
 ): Promise<MessageContent> {
   if (typeof content === "string") return mask(content, isIncoming);
-  // a file part is passed through untouched — PII never sees bytes (#899); every other block's
-  // strings are masked as before, a text block's or any other's
+  // a file block is passed through untouched — PII never sees bytes (#899 §5); a text block's text
+  // and every other kind of block's strings are masked
   const blocks: typeof content = [];
   for (const block of content) {
-    if (partOfBlock(block) !== undefined) blocks.push(block);
+    if (isFileBlock(block)) blocks.push(block);
     else if (block.type === "text" && typeof block.text === "string")
       blocks.push({ ...block, text: await mask(block.text, isIncoming) });
     else

@@ -86,6 +86,7 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
         task: "",
         attempt: 0,
         toolCalls: [],
+        files: [],
       }),
     ).resolves.toEqual(JudgeVerdict.failed({ reason: "leaks the secret" }));
     expect(app.resolve(RemoteA2AAgent).vault).toBe(app.resolve(Vault));

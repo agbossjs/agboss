@@ -1,16 +1,18 @@
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { hasFileAtAnyDepth } from "../a2a/files/a2a-file.dto.js";
-import { NodeKind } from "../flow/ast.js";
-import { classesOf } from "../flow/runtime/answer-tools.js";
+import { fileActionOf, isCustomPolicy, PiiFileAction } from "../pii/pii-policy.decorator.js";
+import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import { hasModelForm } from "./file-needs.js";
+import { answersWithFiles } from "./file-readers.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
 import { AnswerFiles, FileSource, FileView } from "./model-files.js";
 
 /**
  * The assembly rules of an agent's files (#899): reported with all the others, never thrown when a
  * decorator runs. `[files.invalid-setting]` for a setting that cannot work, `[files.no-redactor]` for a
- * redacted view nothing listed can make, `[pii.original-file]` for the original file under a PII policy.
+ * redacted view nothing listed can make, `[pii.original-file]` for the original file under a PII policy that
+ * does not let it through, `[pii.redacted-needs-kinds]` for a redacted view under a policy of a project's own
+ * detector, `[files.answer-file-unseen]` for an answer file the agent cannot have seen.
  */
 
 const isWhole = (value: number, min: number): boolean => Number.isInteger(value) && value >= min;
@@ -57,43 +59,36 @@ function typeProblems(files: ResolvedModelFiles): string[] {
 }
 
 /**
- * Interim rule (#899 PR 1, removed by PR 2): input guardrails read text only, so file parts must not
- * reach a model past them. An agent whose files can produce a part (the input's, or a tool result's
- * while they are guarded) and that has an input guardrail does not start. PR 1 lets no answer file
- * through (`answerFiles` is read nowhere), so output guardrails need no such rule.
+ * What an agent's applying PII policies rule out (#899 §5): the original file unless every policy
+ * lets it through, and a redacted view when a policy is a project's own detector — it reads text, so
+ * no redactor can know what to black out.
  */
-function unguardedFileProblem(files: ResolvedModelFiles, hasInputGuardrail: boolean): string[] {
-  const producesParts =
-    files.sources.includes(FileSource.Input) ||
-    (files.sources.includes(FileSource.ToolResults) && files.guardToolResultFiles);
-  return hasInputGuardrail && producesParts
-    ? [
-        "input guardrails read text only: guardrails on files come with #899 PR 2 - remove the input guardrails, or the Input and ToolResults sources",
-      ]
-    : [];
-}
-
-/** What an applying PII policy rules out: the original file, and (until PR 2) the transcription. */
 function piiViolations(
   name: string,
   files: ResolvedModelFiles,
   workflow: AssembledWorkflow,
 ): RuleViolation[] {
-  if ((workflow.pii?.byElement.get(name) ?? []).length === 0) return [];
+  const policies = (workflow.pii?.byElement.get(name) ?? []).flatMap((cls) => {
+    const meta = piiPolicyMetaOf(cls);
+    return meta === undefined ? [] : [meta];
+  });
+  if (policies.length === 0) return [];
   const found: RuleViolation[] = [];
-  if (files.views.includes(FileView.Original))
+  const masking = policies.filter((meta) => fileActionOf(meta) !== PiiFileAction.AllowOriginal);
+  if (files.views.includes(FileView.Original) && masking.length > 0)
     found.push(
       violation(
         "pii.original-file",
-        `${name}: FileView.Original sends the file to its model unmasked while PII policies apply to it — use FileView.Transcription, or exclude the policies`,
+        `${name}: FileView.Original sends the file to its model unmasked while ${masking.map((meta) => meta.name).join(", ")} apply to it — use FileView.Transcription, set files: PiiFileAction.AllowOriginal on the policy, or exclude the policy`,
         [name],
       ),
     );
-  if (files.views.includes(FileView.Transcription))
+  const custom = policies.filter(isCustomPolicy);
+  if (files.views.includes(FileView.Redacted) && custom.length > 0)
     found.push(
       violation(
-        "files.invalid-setting",
-        `${name}: FileView.Transcription under PII policies is not supported yet - a transcript is kept unmasked in the execution's state; masked transcripts come with #899 PR 2`,
+        "pii.redacted-needs-kinds",
+        `${name}: FileView.Redacted needs the kinds a policy names, and ${custom.map((meta) => meta.name).join(", ")} reads text with its own detector — use FileView.Transcription (it works with it), or a policy with rules`,
         [name],
       ),
     );
@@ -106,13 +101,9 @@ function agentViolations(
   files: ResolvedModelFiles,
   workflow: AssembledWorkflow,
 ): RuleViolation[] {
-  const hasInputGuardrail = (workflow.guardrails?.byElement.get(name)?.input ?? []).length > 0;
-  const invalid = [
-    ...listProblems(files),
-    ...numberProblems(files),
-    ...typeProblems(files),
-    ...unguardedFileProblem(files, hasInputGuardrail),
-  ].map((problem) => violation("files.invalid-setting", `${name}: files — ${problem}`, [name]));
+  const invalid = [...listProblems(files), ...numberProblems(files), ...typeProblems(files)].map(
+    (problem) => violation("files.invalid-setting", `${name}: files — ${problem}`, [name]),
+  );
   if (files.views.includes(FileView.Redacted))
     invalid.push(
       violation(
@@ -126,25 +117,29 @@ function agentViolations(
 }
 
 /**
- * Interim rule (#899 PR 1, removed by PR 2 with `AnswerFiles`): an agent whose output DTO has file
- * fields would be handed the raw schema, so its model could make up inline bytes or urls that
- * travel to later steps and artifacts unchecked.
+ * An agent whose answer has file fields hands back only files it saw (`AnswerFiles.SeenInVisit`, the
+ * default), as the views its model saw: one it saw only as a transcription cannot be returned — and an
+ * agent that reads no file saw none. `AnswerFiles.Any` (the developer's explicit decision) is checked
+ * at run time instead.
  */
-function answerFileViolations(name: string, workflow: AssembledWorkflow): RuleViolation[] {
-  const declaration = workflow.graph.nodes.get(name)?.declaration;
-  if (declaration?.kind !== NodeKind.Agent) return [];
-  const { output } = declaration.options;
-  const hasFileField =
-    output !== undefined && classesOf(output).some((dto) => hasFileAtAnyDepth(dto));
-  return hasFileField
-    ? [
-        violation(
-          "files.invalid-setting",
-          `${name}: an agent's output with file fields is not supported yet - files an agent hands back come with #899 PR 2 (AnswerFiles)`,
-          [name],
-        ),
-      ]
-    : [];
+function answerFileViolations(
+  name: string,
+  files: ResolvedModelFiles | undefined,
+  workflow: AssembledWorkflow,
+): RuleViolation[] {
+  if (!answersWithFiles(workflow.graph, name)) return [];
+  if (files?.answerFiles === AnswerFiles.Any) return [];
+  const isReturnable = files?.views.some((view) => view !== FileView.Transcription) === true;
+  if (isReturnable) return [];
+  return [
+    violation(
+      "files.answer-file-unseen",
+      files === undefined
+        ? `${name}: its answer has file fields, but it reads no file — give it files: ModelFiles.of({ … }) (or answerFiles: AnswerFiles.Any, the model's own descriptors, checked at run time)`
+        : `${name}: its answer has file fields, but its only view of a file is its transcription — add FileView.Original (or Redacted), or set answerFiles: AnswerFiles.Any`,
+      [name],
+    ),
+  ];
 }
 
 /** Every rule of every agent's files in the application's workflows. */
@@ -152,6 +147,6 @@ export const filesViolations = (workflows: readonly AssembledWorkflow[]): RuleVi
   workflows.flatMap((workflow) =>
     Object.entries(workflow.config.agents).flatMap(([name, settings]) => [
       ...(settings.files === undefined ? [] : agentViolations(name, settings.files, workflow)),
-      ...answerFileViolations(name, workflow),
+      ...answerFileViolations(name, settings.files, workflow),
     ]),
   );

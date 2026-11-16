@@ -1,4 +1,5 @@
-import { NO_FILES, type SourceFile } from "../../files/visit-files.js";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import { NO_FILES, type SeenFile, type SourceFile } from "../../files/visit-files.js";
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
 import { readerMemoryOf } from "../../flow/runtime/history.js";
 import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
@@ -59,6 +60,8 @@ export function loopInputOf(
     inputFiles: [...files.sources],
     fileTranscripts: files.transcripts,
     fileTally: NO_FILES,
+    seen: [],
+    answerFiles: [],
     flowPath: [...state.path, agent],
     from: { usage: state.usage.length, approvals: state.approvals.length },
     messages: [],
@@ -100,6 +103,10 @@ export interface LoopResult {
   readonly guardrailDecisions: readonly GuardrailDecisionRecord[];
   /** The transcriptions it made (#899): the execution keeps them. */
   readonly fileTranscripts: Readonly<Record<string, string>>;
+  /** The files of its answer (#899 §8): its output guardrails check them with it. */
+  readonly answerFiles: readonly A2AFileDto[];
+  /** The source files it saw (#899 §8), numbered in the order it was shown them. */
+  readonly seen: readonly SeenFile[];
 }
 
 export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
@@ -112,4 +119,6 @@ export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
   judgeVerdicts: after.judgeVerdicts,
   guardrailDecisions: after.guardrailDecisions,
   fileTranscripts: after.fileTranscripts,
+  answerFiles: after.answerFiles,
+  seen: after.seen,
 });

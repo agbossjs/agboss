@@ -1,4 +1,5 @@
-import { fileRuntimeOf } from "../../files/file-runtime.js";
+import type { BudgetMeter } from "../../budgets/execution-budgets.js";
+import { fileRuntimeOf, type AnswerFileReading } from "../../files/file-runtime.js";
 import type { AgentDefinition, AgentLoopDeps } from "../../graph/agent-loop/deps.js";
 import type { GraphDeps } from "../../graph/deps.js";
 
@@ -18,3 +19,10 @@ export const loopPoliciesOf = (
     ? {}
     : { interceptors: deps.toolInterceptors.ofAgent(agent) }),
 });
+
+/** What the files of an agent's answer are read with, for its output guardrails (#899 §8). */
+export const answerReadingOf = (
+  deps: GraphDeps<string>,
+  agent: AgentDefinition,
+  run: { readonly budgets: BudgetMeter },
+): AnswerFileReading => ({ runtime: fileRuntimeOf(deps, agent), budgets: run.budgets });
