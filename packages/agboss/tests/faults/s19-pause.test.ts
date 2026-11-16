@@ -22,7 +22,8 @@ faultSuite({
 /**
  * #959 AC3 — the pause scenarios bite: on a record store that forgets a resting root's
  * `paused → running` mark, or a pause store that loses the answer it said it recorded, 19b's tree
- * is never continued — it never finishes (trees-finish), and its pause stays unanswered.
+ * is never continued — it never finishes (trees-finish), and its pause stays unanswered. (A pause
+ * store that keeps no paused run no longer stops a tree since #1187: see the case after these.)
  */
 interface Sabotage {
   readonly scenario: RunnableFaultScenario;
@@ -32,12 +33,6 @@ interface Sabotage {
 }
 
 const SABOTAGES: readonly Sabotage[] = [
-  {
-    scenario: s19Paused,
-    orderId: "o-19",
-    store: "a pause store that keeps no paused run",
-    module: "lost-run",
-  },
   {
     scenario: s19bAnswering,
     orderId: "o-19b",
@@ -83,4 +78,20 @@ describe("#959 AC3: the pause scenarios fail on a sabotage store", () => {
     },
     120_000,
   );
+});
+
+/**
+ * #1187 — a pause store that keeps no paused run (the state a holder leaves when it dies between its
+ * rest and keeping its run) stops no tree: 19's resume finds no paused run to take, its answer stays
+ * recorded beside a `paused` root, and the sweep wakes that root under its lease — recovery continues
+ * it from its checkpoint, its waiting step takes the recorded answer once. Every invariant holds.
+ */
+describe("#1187: a pause store that keeps no paused run stops no tree", () => {
+  it("s19-pause-kill-paused on it: the sweep wakes the root beside its answer, the tree finishes, charged and paid once", async () => {
+    const target = sqliteFaultTarget(
+      fileURLToPath(new URL("./lost-run.fault-stores.ts", import.meta.url)),
+    );
+
+    await expect(runFaultScenario(s19Paused, target)).resolves.toBeDefined();
+  }, 120_000);
 });

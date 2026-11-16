@@ -92,6 +92,8 @@ const SHARDS = {
     mutate: [
       "src/app/recover-root.ts",
       "src/app/recovery-pass.ts",
+      // #1187: a paused root beside an untaken answer, woken under its lease
+      "src/app/answered-wake.ts",
       "src/app/ended-tree.ts",
       "src/app/tree-ends.ts",
       "src/app/{tree-moves,lost-attempt,unstarted-run}.ts",

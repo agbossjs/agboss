@@ -4,6 +4,7 @@
  * Resolved`, atomic) and then waits for the lease; the holder takes decisions resolved meanwhile
  * (the drain); a holder frozen past the lease loses it silently and the waiting call goes on.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseLostError,
@@ -199,6 +200,9 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       { status: "running", landed: true },
       { status: "running", landed: false },
       { status: "running", landed: true },
+      // #1187: the holder's drain marks its record running after its rest, before it takes the
+      // other's answer — already running here: the other's first mark landed on that rest
+      { status: "running", landed: false },
       { status: "running", landed: false },
     ]);
     const [stored] = (await seen.records[0]?.lastTurns(paused.tenantId, paused.threadId, 1)) ?? [];
@@ -221,12 +225,22 @@ describe("#1098: a waiting resume whose answer the holder took, the tree resting
       callTool(Charge, { text: "third" }),
     );
     const paused = await execute(app, OrderWorkflowStart, { text: "charge three times" });
-    const answered = answerNextPauseFrom(second(apps));
+    // the other instance's writes are told apart by the async context of its call
+    const fromOther = new AsyncLocalStorage<true>();
+    const other = second(apps);
+    const answered = answerNextPauseFrom({
+      ...other,
+      resume: (...args: Parameters<TestApp["resume"]>) =>
+        fromOther.run(true, () => other.resume(...args)),
+    });
     const holder = { isDone: false };
+    let otherMarks = 0;
     hooks.beforeGuardedWrite = async () => {
       // the other resume's last `running` mark, before its take, lands on the holder's rest at the
       // third pause: its record says `running` while nothing of the tree moves
-      if (seen.guarded.length !== 3) return;
+      if (fromOther.getStore() !== true) return;
+      otherMarks += 1;
+      if (otherMarks !== 2) return;
       for (let tick = 0; tick < 1000 && !holder.isDone; tick += 1)
         await new Promise((resolve) => setImmediate(resolve));
     };

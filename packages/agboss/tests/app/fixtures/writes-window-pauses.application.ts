@@ -18,7 +18,16 @@ import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.j
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../src/flow/path-builder.js";
 import type { Class } from "../../../src/components/injection.js";
-import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
+import {
+  MortalExecutionLeaseRepository,
+  RecoveryLog,
+} from "../../infrastructure/fixtures/recovery.workflow.js";
+import { Clock, IdGenerator } from "../../../src/infrastructure/clock.js";
+import {
+  ExecutionRecordStatus,
+  InMemoryExecutionRecordRepository,
+} from "../../../src/infrastructure/execution-record.repository.js";
+import type { TurnOutcome } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /**
@@ -70,6 +79,12 @@ export const pausesWindow: {
   asked: string[];
   /** Runs when a channel is sent a pause, before it answers (its pause is saved, still pending). */
   onAsk: ((pauseId: string) => Promise<void>) | undefined;
+  /** Every write of a root's record, in order (#1187): what it wrote, by which instance, landed. */
+  records: RecordWrite[];
+  /** Runs before a record write (#1187): a rest held, a dead instance's write never made. */
+  beforeRecordWrite: ((write: Omit<RecordWrite, "landed">) => Promise<void>) | undefined;
+  /** Runs when the approval step runs (#1187: the instance killed there, in the drain's second pass). */
+  onApproved: ((instanceId: string) => void) | undefined;
 } = {
   writes: [],
   cut: undefined,
@@ -79,7 +94,19 @@ export const pausesWindow: {
   ran: [],
   asked: [],
   onAsk: undefined,
+  records: [],
+  beforeRecordWrite: undefined,
+  onApproved: undefined,
 };
+
+/** One write of a record (#1187). */
+export interface RecordWrite {
+  /** `complete` (a holder's rest or end, unconditional) or `mark` (a compare-and-set to running). */
+  readonly op: "complete" | "mark";
+  readonly status: string;
+  readonly instanceId: string;
+  readonly landed: boolean;
+}
 
 export function resetPausesWindow(): void {
   pausesWindow.writes = [];
@@ -90,6 +117,20 @@ export function resetPausesWindow(): void {
   pausesWindow.ran = [];
   pausesWindow.asked = [];
   pausesWindow.onAsk = undefined;
+  pausesWindow.records = [];
+  pausesWindow.beforeRecordWrite = undefined;
+  pausesWindow.onApproved = undefined;
+}
+
+/** A record write seen: the test's hook first, then the write, then its log line. */
+export async function recordWrite(
+  write: Omit<RecordWrite, "landed">,
+  made: () => Promise<boolean>,
+): Promise<boolean> {
+  await pausesWindow.beforeRecordWrite?.(write);
+  const landed = await made();
+  pausesWindow.records.push({ ...write, landed });
+  return landed;
 }
 
 /** A channel's send: the pause id kept, the test's hook run. */
@@ -145,6 +186,33 @@ export function wroteWrites(config: ConfigArgument, writes: readonly (readonly u
 }
 
 export const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
+
+@Injectable({ deps: [Clock, IdGenerator, ApplicationContext] })
+export class PausesWindowMemoryRecords extends InMemoryExecutionRecordRepository {
+  readonly #instanceId: string;
+
+  constructor(clock: Clock, idGenerator: IdGenerator, applicationContext: ApplicationContext) {
+    super(clock, idGenerator);
+    this.#instanceId = applicationContext.instanceId;
+  }
+
+  override async complete(turnId: string, outcome: TurnOutcome): Promise<void> {
+    const write = { op: "complete" as const, status: outcome.status, instanceId: this.#instanceId };
+    await recordWrite(write, async () => {
+      await super.complete(turnId, outcome);
+      return true;
+    });
+  }
+
+  override completeIfStatus(
+    turnId: string,
+    expected: ExecutionRecordStatus,
+    outcome: TurnOutcome,
+  ): Promise<boolean> {
+    const write = { op: "mark" as const, status: outcome.status, instanceId: this.#instanceId };
+    return recordWrite(write, () => super.completeIfStatus(turnId, expected, outcome));
+  }
+}
 
 @Injectable()
 export class PausesWindowMemoryCheckpoints extends InMemoryCheckpointSaver {
@@ -269,6 +337,7 @@ export class WindowApprovedAction {
     readonly order: Produced<WindowOrderDto, unknown>;
   }): Promise<WindowReceiptDto> {
     ranOn("approved", this.applicationContext);
+    pausesWindow.onApproved?.(this.applicationContext.instanceId);
     const verdict = input.approval.value.approved ? "approved" : "refused";
     return Promise.resolve({ text: `${input.order.value.orderId} ${verdict}` });
   }
@@ -405,7 +474,13 @@ export const pausesWindowWorkflows = [
   environment: EmptyEnvironment,
   workflows: pausesWindowWorkflows,
   observers: [RecoveryLog],
-  providers: [PausesWindowMemoryCheckpoints, WindowChannel, WindowSecondChannel],
+  providers: [
+    PausesWindowMemoryCheckpoints,
+    PausesWindowMemoryRecords,
+    MortalExecutionLeaseRepository,
+    WindowChannel,
+    WindowSecondChannel,
+  ],
   budgets: TEST_BUDGETS,
 })
 export class PausesWindowMemoryApplication {}

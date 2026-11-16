@@ -20,6 +20,9 @@ export default defineConfig({
       "tests/app/{first-checkpoint-hand-over,writes-window-takeover}.test.ts",
       // #1098: a tree lost in the writes window at an answer — a waiting resume, an own-thread child
       "tests/app/writes-window-{resume,pauses}.test.ts",
+      // #1187: the drain's mark before it takes an answer, the wake of a paused root beside one
+      "tests/app/{drain-rest-mark,answered-wake-units}.test.ts",
+      "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
     ],
   },
 });

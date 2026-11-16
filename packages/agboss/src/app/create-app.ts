@@ -36,7 +36,7 @@ import { checkedStart, textStartOf } from "./starts.js";
 import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js";
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import { closeOrphanTreeOf, type CloseOrphanTree } from "./orphan-tree.js";
+import { orphanEndsOf, type OrphanEnds } from "./orphan-tree.js";
 import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
@@ -83,7 +83,7 @@ const STOPPING = "the app is stopping: app.close() was called, no new execution 
  * the running ones, `interrupt(reason)` stops what still runs (the application's graceful stop),
  * `recover` continues one of its interrupted roots (the recovery sweep, #265 S30).
  */
-export interface BuiltApp extends TreeControl {
+export interface BuiltApp extends TreeControl, OrphanEnds {
   readonly app: WorkflowApp;
   readonly deps: AppDeps;
   readonly bundle: AssembledWorkflow;
@@ -91,8 +91,6 @@ export interface BuiltApp extends TreeControl {
   readonly settled: () => Promise<void>;
   readonly interrupt: (reason: ApplicationStoppingError) => void;
   readonly recover: RecoverRoot;
-  /** Finishes the end of one of its trees an instance died in (the orphan look, #939). */
-  readonly closeOrphan: CloseOrphanTree;
   /** Expires the due pauses of one of its resting trees (the expiry look, #941). */
   readonly expire: ExpireRoot;
   /** Asks the channel again for a reassigned pause of one of its trees, and marks it sent (the re-send look, #946). */
@@ -246,7 +244,7 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
-    closeOrphan: closeOrphanTreeOf({ deps, paused, trees, clock, leases }),
+    ...orphanEndsOf({ deps, paused, trees, clock, leases }),
     expire: expireRootOf({ deps, moves, current, policy }),
     resend: resendOf(resends),
     ...byId,

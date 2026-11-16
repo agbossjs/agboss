@@ -4,7 +4,6 @@ import {
   SqliteCheckpointSaver,
   SqliteConnection,
   SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
@@ -15,12 +14,18 @@ import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import {
   isHungPut,
   never,
+  recordWrite,
   pausesWindowWorkflows,
   WindowChannel,
   WindowSecondChannel,
   wroteWrites,
 } from "../../../app/fixtures/writes-window-pauses.application.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { MortalSqliteExecutionLeaseRepository } from "./sqlite.workflow.js";
+import { ApplicationContext } from "../../../../src/flow/context/application-context.js";
+import { Clock, IdGenerator } from "../../../../src/infrastructure/clock.js";
+import type { ExecutionRecordStatus } from "../../../../src/infrastructure/execution-record.repository.js";
+import type { TurnOutcome } from "../../../../src/turns/index.js";
 
 /** #1098 — the trees of `writes-window-pauses.application.ts` on SQLite, its saver's log and cut. */
 
@@ -37,6 +42,39 @@ export class PausesWindowSqliteCheckpoints extends SqliteCheckpointSaver {
   }
 }
 
+/** The records on the file, each write logged and open to the test's hook (#1187). */
+@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
+export class PausesWindowSqliteRecords extends SqliteExecutionRecordRepository {
+  readonly #instanceId: string;
+
+  constructor(
+    connection: SqliteConnection,
+    clock: Clock,
+    applicationContext: ApplicationContext,
+    idGenerator: IdGenerator,
+  ) {
+    super(connection, clock, applicationContext, idGenerator);
+    this.#instanceId = applicationContext.instanceId;
+  }
+
+  override async complete(turnId: string, outcome: TurnOutcome): Promise<void> {
+    const write = { op: "complete" as const, status: outcome.status, instanceId: this.#instanceId };
+    await recordWrite(write, async () => {
+      await super.complete(turnId, outcome);
+      return true;
+    });
+  }
+
+  override completeIfStatus(
+    turnId: string,
+    expected: ExecutionRecordStatus,
+    outcome: TurnOutcome,
+  ): Promise<boolean> {
+    const write = { op: "mark" as const, status: outcome.status, instanceId: this.#instanceId };
+    return recordWrite(write, () => super.completeIfStatus(turnId, expected, outcome));
+  }
+}
+
 @Application({
   name: "pauses-window-sqlite-application",
   version: "1.0.0",
@@ -44,8 +82,8 @@ export class PausesWindowSqliteCheckpoints extends SqliteCheckpointSaver {
   workflows: pausesWindowWorkflows,
   observers: [RecoveryLog],
   providers: [
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
+    MortalSqliteExecutionLeaseRepository,
+    PausesWindowSqliteRecords,
     SqlitePausedExecutionRepository,
     PausesWindowSqliteCheckpoints,
     SqliteCostLedgerRepository,

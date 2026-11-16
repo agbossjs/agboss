@@ -224,6 +224,7 @@ export function stopOf(
     log: parts.log,
     signal: interruption.signal,
     orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
+    wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
     ...retentionSourcesOf(parts.infrastructure, assembled),
     capacity: parts.stepSlots,
   });
