@@ -8,6 +8,7 @@ export {
   FileView,
   ModelFileLimit,
   ModelFiles,
+  RedactionValues,
   type FileDefaults,
   type ModelFilesOptions,
 } from "../files/model-files.js";
@@ -27,5 +28,16 @@ export {
   type TranscribeOptions,
   type TranscriptionResult,
 } from "../files/file-transcriber.js";
+export {
+  FileRedactor,
+  ModelImageRedactor,
+  type RedactionResult,
+  type RedactOptions,
+} from "../files/file-redactor.js";
+export {
+  FileRedactionFailedError,
+  type FileRedactionFailedErrorOptions,
+} from "../files/file-errors.js";
+export type { FileRuleCode } from "../files/file-rule-codes.js";
 export type { FileContent } from "../files/file-bytes.js";
 export type { ResolvedModelFiles } from "../files/file-settings.js";

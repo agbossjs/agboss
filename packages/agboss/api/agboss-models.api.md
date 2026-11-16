@@ -230,6 +230,19 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 }
 
 // @public
+export interface ModelAudioPart {
+    // (undocumented)
+    readonly data: string;
+    // (undocumented)
+    readonly kind: "audio";
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export type ModelBlobPart = ModelImagePart | ModelFilePart | ModelAudioPart | ModelVideoPart;
+
+// @public
 export class ModelCallError extends AGBossError {
     constructor(options: ModelCallErrorOptions);
     // (undocumented)
@@ -351,7 +364,7 @@ export interface ModelImagePart {
 export type ModelInputKind = "text" | "image" | "file" | "audio" | "video";
 
 // @public
-export type ModelInputPart = ModelTextPart | ModelImagePart | ModelFilePart;
+export type ModelInputPart = ModelTextPart | ModelBlobPart;
 
 // @public
 export interface ModelPrice {
@@ -568,6 +581,16 @@ export interface ModelTextPart {
 }
 
 // @public
+export interface ModelVideoPart {
+    // (undocumented)
+    readonly data: string;
+    // (undocumented)
+    readonly kind: "video";
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
 export type NoRequestFields = Readonly<Record<string, never>>;
 
 // @public
@@ -631,7 +654,7 @@ export interface PartMeta {
     // (undocumented)
     readonly filename?: string;
     // (undocumented)
-    readonly kind: "image" | "file";
+    readonly kind: "image" | "file" | "audio" | "video";
     // (undocumented)
     readonly mediaType: string;
     // (undocumented)
@@ -1054,6 +1077,12 @@ export interface WireTool {
 // src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "filename".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "data".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "data".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "data".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "type".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "kind".

@@ -4,6 +4,7 @@
  * a file pinned to what the agent saw, an answer file is picked only from the original views, and a descriptor
  * the model wrote is held to https, an allowed origin and no user.
  */
+import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
 import {
   modelWrittenFileProblem,
@@ -156,6 +157,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),
+    ...NO_REDACTION,
     transcriberKey: () => "t",
     transcribe: () => Promise.reject(new Error("none")),
     context: () => ({
@@ -263,5 +265,32 @@ describe("AC2: a descriptor the model wrote is held to https, an allowed origin 
       await modelWrittenFileProblem([urlFile("https://u:p@files.example.com/a.pdf")], check),
     ).toContain("user or a password");
     expect(await modelWrittenFileProblem([urlFile("not a url")], check)).toContain("not a URL");
+  });
+});
+
+describe("AC2: the problem of a descriptor the model wrote names its place, never what it wrote", () => {
+  it("a planted file name and url origin are in no message", async () => {
+    const check = {
+      allowedOrigins: ["https://files.example.com"],
+      tenantId: "acme",
+      ownerId: "root-1",
+      store: { findMetadata: () => Promise.resolve(undefined) },
+    };
+    const secret = "dana.cohen@example.com";
+    const problems = await Promise.all([
+      modelWrittenFileProblem(
+        [{ mediaType: "application/pdf", filename: secret, url: "https://dana-cohen.evil.org/a" }],
+        check,
+      ),
+      modelWrittenFileProblem(
+        [{ mediaType: "application/pdf", filename: secret, fileId: "f-1" }],
+        check,
+      ),
+    ]);
+
+    for (const problem of problems) {
+      expect(problem).toContain("answer file 1 of 1");
+      expect(problem).not.toContain("dana");
+    }
   });
 });

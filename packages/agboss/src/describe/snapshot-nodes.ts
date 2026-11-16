@@ -29,6 +29,10 @@ import { resolvedModelUsesOf } from "../models/resolution.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { defaultMaxResultSizeOf } from "../tools/index.js";
+import { filesSnapshotOf, type AgentFilesSnapshot } from "./files.js";
+import { guardrailsAt, type ElementGuardrailsSnapshot } from "./guardrails.js";
+
+export type { ElementGuardrailsSnapshot };
 import { actionSnapshotOf, type ActionSnapshot } from "./compensation.js";
 
 /** One agent's settings in the assembled config. */
@@ -42,12 +46,6 @@ type AgentSettings = AssembledWorkflow["config"]["agents"][string];
  * instructions; a router's `decidedBy`, model, instructions and routes with their policies; an
  * action's `compensateWith` / `committedBy` (#339).
  */
-
-/** The guardrails in effect at one agent or model router, by side. */
-export interface ElementGuardrailsSnapshot {
-  readonly input: readonly string[];
-  readonly output: readonly string[];
-}
 
 /** One knowledge base of an agent (#796: whose content it serves). */
 export interface RagSnapshot {
@@ -76,6 +74,8 @@ export interface AgentSnapshot {
   /** Its tool interceptors per tool, outer first (#384); only an agent that has one. */
   readonly toolInterceptors?: Readonly<Record<string, readonly string[]>>;
   readonly piiPolicies: readonly string[];
+  /** Its model's files (#899): only an agent that opted in. */
+  readonly files?: AgentFilesSnapshot;
   readonly judges: readonly string[];
   readonly maxRetries: number;
   /** The instructions its model reads, as rendered (what `promptHash` hashes). */
@@ -121,14 +121,6 @@ export interface NodeSnapshot {
 const providersOf = (bundle: AssembledWorkflow): ReadonlyMap<string, string> =>
   new Map(resolvedModelUsesOf(bundle).map((use) => [use.key, use.provider]));
 
-function guardrailsAt(bundle: AssembledWorkflow, element: string): ElementGuardrailsSnapshot {
-  const sides = bundle.guardrails?.byElement.get(element);
-  return {
-    input: (sides?.input ?? []).map((guardrail) => guardrail.name),
-    output: (sides?.output ?? []).map((guardrail) => guardrail.name),
-  };
-}
-
 const piiPoliciesAt = (bundle: AssembledWorkflow, element: string): readonly string[] =>
   (bundle.pii?.byElement.get(element) ?? []).map((cls) => piiPolicyMetaOf(cls)?.name ?? cls.name);
 
@@ -170,6 +162,7 @@ function agentOf(
     guardrails: guardrailsAt(bundle, name),
     ...toolInterceptorsAt(bundle, name),
     piiPolicies: piiPoliciesAt(bundle, name),
+    ...(agent.files === undefined ? {} : { files: filesSnapshotOf(agent.files) }),
     judges: agent.judges ?? [],
     maxRetries: agent.maxRetries ?? 0,
     instructions: promptTextOf(Reflect.get(bundle.prompts, name)) ?? "",

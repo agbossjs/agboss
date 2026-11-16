@@ -26,6 +26,16 @@ export enum FileView {
   Transcription = "transcription",
 }
 
+/** Whether the exact PII values of the execution go to the redaction model with the kinds (#899 §6). */
+export enum RedactionValues {
+  /** Only when the redaction model is served by the same provider as the agent's model (the default). */
+  SameProvider = "same-provider",
+  /** Never: the kinds only. */
+  Never = "never",
+  /** Always, wherever the redaction model runs — an explicit decision. */
+  Always = "always",
+}
+
 /** What an agent may return of the files it saw. */
 export enum AnswerFiles {
   /** Only files it saw in the visit, picked by number (the default). */
@@ -72,6 +82,8 @@ export interface FileDefaults extends ModelFilesOptions {
   readonly transcriptionModel?: string;
   /** The vision model that redacts (`DEFAULT_FILE_MODEL`). */
   readonly redactionModel?: string;
+  /** Whether the execution's exact PII values go to the redaction model (`RedactionValues.SameProvider`). */
+  readonly redactionValues?: RedactionValues;
   /** The most tokens one transcription writes (4096). */
   readonly transcriptionMaxTokens?: number;
 }

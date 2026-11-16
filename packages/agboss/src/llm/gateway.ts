@@ -40,7 +40,9 @@ export type ChatModelUser =
   /** A model `@Reranker` (#703). */
   | { readonly kind: "reranker"; readonly reranker: string }
   /** The built-in transcriber of files (#899): its cost caller and script key `files:transcriber`. */
-  | { readonly kind: "file-transcriber" };
+  | { readonly kind: "file-transcriber" }
+  /** The built-in image redactor (#899): its cost caller and script key `files:redactor`. */
+  | { readonly kind: "file-redactor" };
 
 /** A chat model request: its user and complete settings (agents, compaction, judges, LLM routers). */
 export interface ChatModelSpec {

@@ -1,7 +1,7 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { recordUsage } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
-import { contentOf, type ModelFilePart, type ModelImagePart } from "../models/content.js";
+import { contentOf, type ModelBlobPart } from "../models/content.js";
 import type { FileContent } from "./file-bytes.js";
 import type { TranscribeOptions, TranscriptionResult } from "./file-transcriber.js";
 
@@ -12,11 +12,15 @@ export const TRANSCRIBER_SYSTEM = [
   "Reply with the transcription only.",
 ].join(" ");
 
-/** The file as the one part its model reads: an image, or a PDF. */
-function partOf(file: FileContent): ModelImagePart | ModelFilePart {
+/** The file as the one part its model reads: an image, a PDF, an audio or a video. */
+function partOf(file: FileContent): ModelBlobPart {
   const data = Buffer.from(file.bytes).toString("base64");
   if (file.mediaType.startsWith("image/"))
     return { kind: "image", mediaType: file.mediaType, data };
+  if (file.mediaType.startsWith("audio/"))
+    return { kind: "audio", mediaType: file.mediaType, data };
+  if (file.mediaType.startsWith("video/"))
+    return { kind: "video", mediaType: file.mediaType, data };
   return {
     kind: "file",
     mediaType: file.mediaType,

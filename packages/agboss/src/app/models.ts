@@ -16,6 +16,7 @@ import { ConfigurationError } from "../models/problems.js";
 import { workflowModelUsesOf } from "../models/resolution.js";
 import { providersAtStart } from "./providers-at-start.js";
 import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
+import { withRedactionValues } from "../files/redaction-values.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /** The kinds of input each model use's model says it takes, by use key (#899): empty when nothing was checked. */
@@ -110,7 +111,11 @@ export async function modelsFor(
   return {
     gateway,
     checkModels,
-    priced: (config) => withProviderPrices(config, directory),
+    priced: (config) =>
+      withRedactionValues(withProviderPrices(config, directory), uses, (use) => {
+        const resolution = directory.resolve(use);
+        return resolution.kind === "resolved" ? resolution.provider.options.name : undefined;
+      }),
     summary: modelSummaryOf(uses, directory),
   };
 }

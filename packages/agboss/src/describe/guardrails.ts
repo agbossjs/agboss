@@ -26,3 +26,20 @@ export function guardrailLines(bundle: AssembledWorkflow): string[] {
     }),
   ];
 }
+
+/** The guardrails in effect at one agent or model router, by side. */
+export interface ElementGuardrailsSnapshot {
+  readonly input: readonly string[];
+  readonly output: readonly string[];
+}
+
+export function guardrailsAt(
+  bundle: AssembledWorkflow,
+  element: string,
+): ElementGuardrailsSnapshot {
+  const sides = bundle.guardrails?.byElement.get(element);
+  return {
+    input: (sides?.input ?? []).map((guardrail) => guardrail.name),
+    output: (sides?.output ?? []).map((guardrail) => guardrail.name),
+  };
+}

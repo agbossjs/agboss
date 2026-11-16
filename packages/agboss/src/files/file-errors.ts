@@ -108,3 +108,38 @@ export class ModelFileLimitError extends StepFailedError {
     this.allowed = allowed;
   }
 }
+
+/** What a failed redaction takes (#906). */
+export interface FileRedactionFailedErrorOptions {
+  readonly agent: string;
+  /** What went wrong, in words: the model, its answer, the image, the store. */
+  readonly reason: string;
+  readonly cause?: unknown;
+}
+
+/**
+ * A redacted copy of a file could not be made (`step.file-redaction-failed`): the redactor failed, its
+ * answer was not what it must be, the image could not be read, or the copy could not be kept. Fail
+ * closed — the unredacted file never goes to the model in its place, and this is no `PiiRefusedError`
+ * (that one is for a block rule whose kind was found).
+ */
+export class FileRedactionFailedError extends StepFailedError {
+  static override readonly code = "step.file-redaction-failed" as const;
+  declare readonly code: typeof FileRedactionFailedError.code;
+  override name = "FileRedactionFailedError";
+  readonly agent: string;
+  readonly reason: string;
+
+  constructor(options: FileRedactionFailedErrorOptions) {
+    const { agent, reason, cause } = options;
+    super({
+      message: `Agent "${agent}": a redacted copy of its file could not be made — ${reason}`,
+      usage: [],
+      cause: cause ?? reason,
+      ...stepCoordinatesOf(agent, ComponentKind.Agent),
+      details: { agent, reason },
+    });
+    this.agent = agent;
+    this.reason = reason;
+  }
+}

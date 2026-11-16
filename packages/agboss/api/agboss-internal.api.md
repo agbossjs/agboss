@@ -179,6 +179,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly config: AgentsConfigOf<TName>;
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
+    readonly hasFileStore?: boolean;
     readonly hasOwnFileTranscriber?: boolean;
     readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
@@ -192,6 +193,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
     readonly modelProviders: readonly ModelProviderType[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
+    readonly ownFileRedactor?: Class | undefined;
     readonly pii?: AssembledPii;
     // (undocumented)
     readonly prompts: AgentPrompts<TName>;

@@ -797,6 +797,13 @@
               "redactionModel": {
                 "type": "string"
               },
+              "redactionValues": {
+                "type": "string",
+                "enum": ["same-provider", "never", "always"]
+              },
+              "redactionSendsValues": {
+                "type": "boolean"
+              },
               "transcriptionMaxTokens": {
                 "type": "number"
               }

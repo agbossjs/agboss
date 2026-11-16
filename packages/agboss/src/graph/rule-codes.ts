@@ -1,3 +1,4 @@
+import type { FileRuleCode } from "../files/file-rule-codes.js";
 /** Codes of the assembly rules — stable, for people and for tests. */
 export type RuleCode =
   | "graph.not-a-node"
@@ -233,8 +234,6 @@ export type RuleCode =
   // child placement (#333 PR 2): one placement per child in a flow
   | "flow.conflicting-placement"
   // an agent's files for its model (#899)
-  | "files.invalid-setting"
-  | "files.no-redactor"
-  | "files.answer-file-unseen"
+  | FileRuleCode
   | "pii.original-file"
   | "pii.redacted-needs-kinds";

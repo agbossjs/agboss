@@ -45,3 +45,4 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type WorkflowStartOptions,
 } from "../index.js";
+export type { FileRuleCode } from "../files/file-rule-codes.js";

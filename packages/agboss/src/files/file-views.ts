@@ -10,6 +10,7 @@ import {
 } from "./file-pieces.js";
 import { isTextFormat } from "./file-needs.js";
 import { FileView } from "./model-files.js";
+import { redactedViewOf } from "./redacted-view.js";
 import type { FileBatch, FileRuntime } from "./visit-files.js";
 
 /**
@@ -33,8 +34,9 @@ export const transcriptKeyOf = (
 interface ViewResult {
   readonly pieces: readonly FilePiece[];
   readonly viewed: FileContent;
-  /** The text newly made for the cache (masked, when policies apply). */
+  /** What was newly made for the cache (a masked text, a redacted copy), and the key it is kept under. */
   readonly made?: string;
+  readonly cacheKey?: string;
   readonly tokens: PiiTokenMap;
   readonly usage: readonly UsageRecord[];
 }
@@ -76,7 +78,7 @@ async function transcriptionOf(
         ? [textPiece(heading, text, runtime.maxResultSize)]
         : maskedTextPieces(heading, text, runtime.maxResultSize),
     viewed: transcriptFile(content, text),
-    ...(made === undefined ? {} : { made }),
+    ...(made === undefined ? {} : { made, cacheKey: key }),
     tokens,
     usage,
   });
@@ -107,6 +109,8 @@ export async function viewOf(
   const isMaskedText = batch.mask !== undefined && isTextFormat(content.mediaType);
   if (view === FileView.Transcription || isMaskedText)
     return transcriptionOf(batch, content, heading, known);
+  if (view === FileView.Redacted)
+    return { ...(await redactedViewOf(batch, content, heading)), tokens: {} };
   const pieces = originalPieces(heading, content, batch.runtime.maxResultSize);
   return { pieces, viewed: content, tokens: {}, usage: [] };
 }

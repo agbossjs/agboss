@@ -108,6 +108,10 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly guardrails?: AssembledGuardrails;
   /** The application lists its own `FileTranscriber` (#899): the built-in's model is no use then. */
   readonly hasOwnFileTranscriber?: boolean;
+  /** The application's own `FileRedactor` (#899): the built-in's model is no use then; its `supports` answers at start. */
+  readonly ownFileRedactor?: Class | undefined;
+  /** The application lists an `A2AFileRepository` that keeps files (#899 §7): not the inline default. */
+  readonly hasFileStore?: boolean;
   /** Its tool interceptors (#384): each agent's chain per tool, outer first. */
   readonly toolInterceptors?: AssembledToolInterceptors;
 }

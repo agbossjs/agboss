@@ -4,6 +4,7 @@ import {
   AnswerFiles,
   FileSource,
   FileView,
+  RedactionValues,
   type FileDefaults,
   type ModelFilesOptions,
 } from "./model-files.js";
@@ -39,6 +40,9 @@ export interface ResolvedModelFiles {
   guardToolResultFiles: boolean;
   transcriptionModel: string;
   redactionModel: string;
+  redactionValues: RedactionValues;
+  /** Whether the exact values go to the redaction model: decided where the providers are known; absent = no. */
+  redactionSendsValues?: boolean;
   transcriptionMaxTokens: number;
 }
 
@@ -103,6 +107,7 @@ function behaviourOf(layered: FileDefaults) {
     guardToolResultFiles: layered.guardToolResultFiles ?? true,
     transcriptionModel: layered.transcriptionModel ?? DEFAULT_FILE_MODEL,
     redactionModel: layered.redactionModel ?? DEFAULT_FILE_MODEL,
+    redactionValues: layered.redactionValues ?? RedactionValues.SameProvider,
     transcriptionMaxTokens: layered.transcriptionMaxTokens ?? DEFAULT_TRANSCRIPTION_MAX_TOKENS,
   };
 }

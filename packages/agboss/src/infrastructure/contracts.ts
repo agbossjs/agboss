@@ -44,6 +44,7 @@ import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 import { FencedEffects } from "../app/fenced-effects.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
+import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
 import { A2AFiles } from "../a2a/files/a2a-files.service.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
@@ -78,6 +79,8 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [OutboundCallRepository, InMemoryOutboundCallRepository],
   // #899: how a file is transcribed for a model — the built-in calls the agent's vision model
   [FileTranscriber, ModelFileTranscriber],
+  // #899: how a file is redacted — the built-in calls the agent's vision model for an image's regions
+  [FileRedactor, ModelImageRedactor],
 ]);
 
 /**

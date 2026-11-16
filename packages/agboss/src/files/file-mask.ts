@@ -25,6 +25,12 @@ export interface FileMask {
   readonly known: PiiTokenMap;
   /** The text masked against `known`; a block rule in it throws the refusal. */
   readonly mask: (text: string, known: PiiTokenMap) => Promise<MaskedFileText>;
+  /** What a redactor is asked to black out: the kinds the rules name and the execution's sensitive values. */
+  readonly redaction: PiiPolicySet["redaction"];
+  /** A keyed digest of a list of texts (HMAC with the execution's PII key): a value set as a cache key names it. */
+  readonly keyedDigestOf: PiiPolicySet["keyedDigestOf"];
+  /** The refusal for a kind a redactor found, when a block rule names it. */
+  readonly refusalForKind: PiiPolicySet["refusalForKind"];
 }
 
 /** The mask of a policy set; none when nothing is masked there. */
@@ -36,6 +42,9 @@ export function fileMaskOf(
   return {
     policyHash: set.fingerprint,
     known,
+    redaction: set.redaction,
+    keyedDigestOf: (texts) => set.keyedDigestOf(texts),
+    refusalForKind: (kind) => set.refusalForKind(kind),
     mask: async (text, tokens) => {
       const { masked, usage } = await set.mask(text, tokens, DetectionMode.WithModel);
       const refused = await set.refusalError(masked.blocked, usage);

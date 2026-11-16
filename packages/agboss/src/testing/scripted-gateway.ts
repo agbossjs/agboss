@@ -18,13 +18,17 @@ import type { DecisionDetails, ScriptedTurn } from "./turns.js";
 /** The script key of the built-in file transcriber (#899): its cost caller. */
 export const FILE_TRANSCRIBER_KEY = "files:transcriber";
 
+/** The script key of the built-in image redactor (#899): its cost caller. */
+export const FILE_REDACTOR_KEY = "files:redactor";
+
 /** The script key of a chat model's user and of a router. */
 export function chatKeyOf(user: ChatModelUser): string {
-  return user.kind === "file-transcriber" ? FILE_TRANSCRIBER_KEY : componentKeyOf(user);
+  if (user.kind === "file-transcriber") return FILE_TRANSCRIBER_KEY;
+  return user.kind === "file-redactor" ? FILE_REDACTOR_KEY : componentKeyOf(user);
 }
 
 function componentKeyOf(
-  user: Exclude<ChatModelUser, { readonly kind: "file-transcriber" }>,
+  user: Exclude<ChatModelUser, { readonly kind: "file-transcriber" | "file-redactor" }>,
 ): string {
   switch (user.kind) {
     case "compaction":

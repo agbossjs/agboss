@@ -194,10 +194,14 @@
     "@opentelemetry/otlp-exporter-base": ">=0.211.0 <0.300.0",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@typescript-eslint/utils": "^8.0.0",
+    "sharp": ">=0.34.0 <0.36.0",
     "vitest": "^3.2.0"
   },
   "peerDependenciesMeta": {
     "@typescript-eslint/utils": {
+      "optional": true
+    },
+    "sharp": {
       "optional": true
     },
     "vitest": {
@@ -214,6 +218,7 @@
     "esbuild": "0.28.2",
     "fast-check": "^3.23.2",
     "global-agent": "3.0.0",
+    "sharp": "^0.35.5",
     "typescript": "^5.9.3"
   }
 }

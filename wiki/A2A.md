@@ -898,3 +898,9 @@ A problem is exit 3, like every `check` problem; `--json` carries each one with 
 any, are a usage error (exit 2). The comparison is `checkFederation` in `@agboss/core/internal`.
 
 **Standalone executable proof:** [`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh) (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`, and `federation/`) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).
+
+## Files to the agent's model (#899)
+
+The files an A2A server stores for a task reach an agent's model through `@Agent({ files })`: the sources,
+views, limits and PII rules are in [Files for models](Files-for-models). How A2A admits, stores and refuses
+files is unchanged.

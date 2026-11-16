@@ -152,6 +152,10 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     actual: 6,
     allowed: 5,
   }),
+  fx(root.FileRedactionFailedError, {
+    agent: "reader-agent",
+    reason: "the model's answer is not usable",
+  }),
   fx(root.ToolTimeoutError, { timeout: seconds(1) }),
   fx(root.SpendOutsideStepError, { message }),
   fx(root.NotAWorkflowStartError, { message }),

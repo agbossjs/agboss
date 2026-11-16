@@ -12,6 +12,11 @@ import { workflowDeclarationOf } from "../components/module.js";
 import type { Provider } from "../components/injection.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { AssembledPii } from "../pii/assembly.js";
+import {
+  A2AFileRepository,
+  InlineA2AFileRepository,
+} from "../infrastructure/a2a-file.repository.js";
+import { FileRedactor, ModelImageRedactor } from "./file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "./file-transcriber.js";
 import { mergedFileDefaults, resolvedFilesOf, type ResolvedModelFiles } from "./file-settings.js";
 
@@ -44,6 +49,25 @@ export const hasOwnFileTranscriber = (providers: readonly Provider[] | undefined
       typeof provider === "function" &&
       provider.prototype instanceof FileTranscriber &&
       provider !== ModelFileTranscriber,
+  );
+
+/** Whether the application lists an `A2AFileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
+export const hasFileStore = (providers: readonly Provider[] | undefined): boolean =>
+  (providers ?? []).some(
+    (provider) =>
+      typeof provider === "function" &&
+      provider.prototype instanceof A2AFileRepository &&
+      provider !== InlineA2AFileRepository &&
+      !(provider.prototype instanceof InlineA2AFileRepository),
+  );
+
+/** The application's own `FileRedactor` (#899), not the built-in: the listed class, when there is one. */
+export const ownFileRedactorOf = (providers: readonly Provider[] | undefined): Class | undefined =>
+  (providers ?? []).find(
+    (provider): provider is Class =>
+      typeof provider === "function" &&
+      provider.prototype instanceof FileRedactor &&
+      provider !== ModelImageRedactor,
   );
 
 /** The `files` options of the skills of the application's exposes whose starts are the workflow's. */

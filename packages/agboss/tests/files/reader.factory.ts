@@ -15,6 +15,7 @@ import {
 import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
 import { Application } from "../../src/application/application.js";
+import type { ExecutionContextClass } from "../../src/flow/context/context-values.js";
 import type { Class } from "../../src/components/injection.js";
 import type { JudgeHandlerClass } from "../../src/components/judge-decorators.js";
 import type { DtoClass } from "../../src/dto/types.js";
@@ -101,6 +102,8 @@ export interface ReaderOptions {
   readonly guardrails?: readonly Class[];
   /** Output guardrails of the agent: attached on the agent's `guardrails` list as the classes say. */
   readonly judges?: readonly JudgeHandlerClass[];
+  /** The execution context class: its `sensitive` fields are values PII policies hide (#899 §6). */
+  readonly executionContext?: ExecutionContextClass;
   /** The agent answers in this DTO (and the workflow finishes with it). */
   readonly output?: DtoClass;
 }
@@ -179,6 +182,9 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
       options.providers === undefined ? [InMemoryA2AFileRepository] : [...options.providers],
     ...(options.piiPolicies === undefined ? {} : { piiPolicies: [...options.piiPolicies] }),
     ...(options.a2aFiles === undefined ? {} : { a2aFiles: options.a2aFiles }),
+    ...(options.executionContext === undefined
+      ? {}
+      : { executionContext: options.executionContext }),
     budgets: TEST_BUDGETS,
   })
   class ReaderApplication {}

@@ -38,7 +38,7 @@ export interface FileReadContext {
   /** The root execution: a stored file is its task's. */
   readonly ownerId: string;
   readonly signal: AbortSignal;
-  readonly clock: Pick<Clock, "sleep">;
+  readonly clock: Pick<Clock, "sleep" | "now">;
   readonly transport: FileTransport;
   /** The `https:` origins a file by url is fetched from; none: no file by url. */
   readonly allowedOrigins: readonly string[];

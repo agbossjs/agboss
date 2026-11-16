@@ -1,13 +1,9 @@
 import { z } from "zod";
 import { compareNames } from "../llm/canonical-order.js";
-import {
-  inputKindOfMediaType,
-  partOfBlock,
-  type ModelFilePart,
-  type ModelImagePart,
-} from "./content.js";
+import { inputKindOfMediaType, partOfBlock, type ModelBlobPart } from "./content.js";
 import { CachedPart } from "./prompt-caching.js";
 import { ModelProviderInputError, unsupportedInputOf } from "./transport/input-error.js";
+import { audioWirePartOf } from "./wire-audio.js";
 
 /** Anthropic-style cache marker; `ttl` only for a retention longer than five minutes. */
 export interface CacheControl {
@@ -83,7 +79,7 @@ export const canonicalTools = (tools: readonly WireTool[]): readonly WireTool[] 
 const dataUrl = (mediaType: string, data: string): string => `data:${mediaType};base64,${data}`;
 
 /** A file part as the OpenAI wire writes it; a type the wire has no form for is refused. */
-function wirePartOf(part: ModelImagePart | ModelFilePart): WireContentPart {
+function wirePartOf(part: ModelBlobPart): WireContentPart {
   if (part.kind === "image")
     return {
       type: "image_url",
@@ -92,6 +88,9 @@ function wirePartOf(part: ModelImagePart | ModelFilePart): WireContentPart {
         ...(part.detail === undefined ? {} : { detail: part.detail }),
       },
     };
+  if (part.kind === "audio") return audioWirePartOf(part);
+  if (part.kind === "video")
+    return { type: "video_url", video_url: { url: dataUrl(part.mediaType, part.data) } };
   if (part.mediaType === "application/pdf")
     return {
       type: "file",
@@ -122,7 +121,13 @@ function withWireParts(message: WireMessage): WireMessage {
 
 const hasFile = (message: WireMessage): boolean =>
   typeof message.content !== "string" &&
-  (message.content ?? []).some((block) => block.type === "image_url" || block.type === "file");
+  (message.content ?? []).some(
+    (block) =>
+      block.type === "image_url" ||
+      block.type === "file" ||
+      block.type === "input_audio" ||
+      block.type === "video_url",
+  );
 
 const marked = (message: WireMessage, control: CacheControl): WireMessage => {
   const content = message.content;

@@ -15,7 +15,6 @@ import {
   compactionSourceOf,
   expiryLabel,
   maxResultSizeLabel,
-  memoryLines,
   routerModelSource,
 } from "./defaults.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
@@ -24,10 +23,8 @@ import { isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
-import { guardrailLines } from "./guardrails.js";
-import { toolInterceptorLines } from "./tool-interceptors.js";
+import { bundleLines } from "./bundle-lines.js";
 import { limitLines } from "./limits.js";
-import { piiPolicyLines } from "./pii-policies.js";
 import {
   contextsOutsideExecution,
   type RuntimeContexts,
@@ -77,16 +74,6 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const waits = tool.channel ? ", uses channel" : "";
   const deps = bundle.toolDependencies?.[tool.name];
   return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
-}
-
-function bundleLines(bundle: AssembledWorkflow): string[] {
-  return [
-    ...guardrailLines(bundle),
-    ...toolInterceptorLines(bundle),
-    ...piiPolicyLines(bundle),
-    ...memoryLines(bundle),
-    `pause     on — tools with channel wait for external signal`,
-  ];
 }
 
 /** Each value written with `{ about }` (#271, #299), when the workflow has one. */

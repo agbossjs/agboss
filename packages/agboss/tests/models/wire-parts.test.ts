@@ -83,8 +83,35 @@ describe("AC1: the exact wire JSON through ChatOpenAI", () => {
     expect(contentOf("hi", [])).toBe("hi");
   });
 
-  it("AC6: a media type the wire has no form for (an mp3) is model.unsupported-input before any request", async () => {
-    const audio = { kind: "file", mediaType: "audio/mpeg", data: "CCCC" } as const;
+  it("AC6: an audio and a video part go out as input_audio (raw base64 and its format) and video_url", async () => {
+    const body = await sentFor([
+      new HumanMessage({
+        content: [
+          blockOfPart({ kind: "audio", mediaType: "audio/mpeg", data: "CCCC" }),
+          blockOfPart({ kind: "audio", mediaType: "audio/x-wav", data: "DDDD" }),
+          blockOfPart({ kind: "audio", mediaType: "audio/wav", data: "WWWW" }),
+          blockOfPart({ kind: "audio", mediaType: "audio/mp4", data: "EEEE" }),
+          blockOfPart({ kind: "video", mediaType: "video/mp4", data: "FFFF" }),
+        ],
+      }),
+    ]);
+
+    expect(body.messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "input_audio", input_audio: { data: "CCCC", format: "mp3" } },
+          { type: "input_audio", input_audio: { data: "DDDD", format: "wav" } },
+          { type: "input_audio", input_audio: { data: "WWWW", format: "wav" } },
+          { type: "input_audio", input_audio: { data: "EEEE", format: "m4a" } },
+          { type: "video_url", video_url: { url: "data:video/mp4;base64,FFFF" } },
+        ],
+      },
+    ]);
+  });
+
+  it("AC6: an audio format the wire does not name (amr) is model.unsupported-input before any request", async () => {
+    const audio = { kind: "audio", mediaType: "audio/amr", data: "CCCC" } as const;
     const failure = await sentFor([new HumanMessage({ content: [blockOfPart(audio)] })]).catch(
       (error: unknown) => error,
     );
@@ -95,7 +122,7 @@ describe("AC1: the exact wire JSON through ChatOpenAI", () => {
     expect(refusals[0]).toMatchObject({
       code: "model.unsupported-input",
       kind: "audio",
-      mediaType: "audio/mpeg",
+      mediaType: "audio/amr",
       model: "moonshotai/kimi-k2.6",
     });
   });

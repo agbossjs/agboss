@@ -1,5 +1,7 @@
 import type { MeterProvider } from "@opentelemetry/api";
 import { type AssembledWorkflow } from "../workflow.js";
+import { redactorValuesViolations } from "../files/redactor-rules.js";
+import { throwIfViolated } from "../graph/rule-error.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
@@ -235,6 +237,7 @@ export async function createWorkflowDeps(
   const { tools, config } = await startedModels(bundle, started, services, lifecycle);
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
+  throwIfViolated(redactorValuesViolations(bundle, config, contexts));
   const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);
   const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));
   const components = componentsAtStart(bundle, services);
