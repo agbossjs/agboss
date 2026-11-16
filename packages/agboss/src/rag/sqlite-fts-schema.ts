@@ -78,7 +78,8 @@ export function inTransaction(db: DatabaseSync, work: () => void): void {
     work();
     db.exec("COMMIT");
   } catch (error) {
-    db.exec("ROLLBACK");
+    // SQLite ends the transaction itself on some errors: a rollback then would mask the cause
+    if (db.isTransaction) db.exec("ROLLBACK");
     throw error;
   }
 }
