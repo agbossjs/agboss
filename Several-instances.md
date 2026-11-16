@@ -275,8 +275,8 @@ contracts; each store's locking is in its doc comment, and a lease's expiry is d
 database's `clock_timestamp()`. The three fencing stores declare one backend, `"postgres"`. The
 schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job once
 the old instances are stopped (**stop → migrate → deploy**, no rolling upgrade across a schema change —
-[ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), or `postgresMigrateOnStart` for one
-instance. Installing, wiring, migrations,
+[ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), or `postgresSchemaSetup: SchemaSetup.MigrateOnStart` for one
+instance (it refuses to start over a live lease: `PostgresLiveLeasesError`). Installing, wiring, migrations,
 connection limits and what the guarantees assume of the database: [Running-on-PostgreSQL](Running-on-PostgreSQL).
 
 ## The execution lease
