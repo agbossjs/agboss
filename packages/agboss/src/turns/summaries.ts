@@ -29,7 +29,7 @@ const toSummary = (row: unknown): Summary => {
     fromTurnId: r.from_tern,
     toTurnId: r.to_tern,
     turns: r.turns,
-    text: textOf(r.text),
+    text: textOf(r.text, "turn summary text", { summaryId: r.id, threadId: r.thread_id }),
     costUsd: r.cost_usd,
     createdAt: r.created_at,
   };

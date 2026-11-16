@@ -83,13 +83,21 @@ describe("#906 D2: the isolation rules refuse a planted bad import", () => {
     ).toEqual([]);
   });
 
-  it("turns depend on nothing else in src", () => {
-    expect(
-      refused(
-        'import { AGBossError } from "../core/errors.js";',
-        "packages/agboss/src/turns/probe.ts",
-      ),
-    ).toEqual([expect.stringContaining("Turns are isolated")]);
+  it("turns depend on nothing else in src but core, the leaf layer of errors (#1194)", () => {
+    const file = "packages/agboss/src/turns/probe.ts";
+    expect(refused('import { AGBossError } from "../core/errors.js";', file)).toEqual([]);
+    expect(refused('import { parsedStoredJson } from "../core/stored-json.js";', file)).toEqual([]);
+    for (const layer of [
+      "infrastructure/stored-step",
+      "stores/index",
+      "app/paused-runs",
+      "run/x",
+    ]) {
+      expect(refused(`import { x } from "../${layer}.js";`, file)).toEqual([
+        expect.stringContaining("Turns are isolated"),
+      ]);
+    }
+    expect(refused('import { x } from "../../examples/x.js";', file)).not.toEqual([]);
   });
 
   it("routers and tools stay isolated, and reach each other through the index only", () => {
