@@ -1344,3 +1344,12 @@ hashes: it still replays, without stale detection, and prints a hint once per ru
 `vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=RECORD npm test`; `RECORD_STALE`
 re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
 (`invalid_tool_calls`) too.
+
+## Files — `mockLlm(FileTranscriber)`, `mockLlm(FileRedactor)` (#899)
+
+An agent that reads files makes its model calls as ever: `mockLlm(Agent)`'s `requests[i].parts` lists each
+file part as `{ kind, mediaType, filename?, sizeBytes, sha256 }` — never its bytes. The built-in transcriber
+and redactor run on a model of their own, scripted as `mockLlm(FileTranscriber)` (a text) and
+`mockLlm(FileRedactor)` (the regions as JSON, `{"regions":[{"target":"card-number","x":0.1,"y":0.2,"w":0.3,"h":0.1}]}`);
+a project's own `FileRedactor` is listed in `providers` and runs as written. A cassette hashes a part as
+`{ kind, mediaType, sha256 }` and keeps no bytes. See [Files for models](Files-for-models).

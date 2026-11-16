@@ -550,3 +550,11 @@ Tests never reach a provider: `testWith` scripts every model ([Testing](Testing)
 on a model without a price reports its cost the way a provider would. Provider code is tested with a
 stub `fetch` (the internal build path's `providerFetch`, `@agboss/core/internal`). Scripted models answer above the
 providers, so `rateLimitPolicy` and the breaker do not slow a `testWith` test down.
+
+## Input kinds and parts (#899)
+
+`ModelCapabilities.inputs` says which kinds a model takes (`text`, `image`, `file`, `audio`, `video`;
+OpenRouter's `input_modalities`, the decision models' own). A transport provider's `ModelProviderMessage`
+carries `parts` (images, PDFs, audio, video as base64) beside its `text`, and throws `ModelProviderInputError`
+for one it cannot take: `model.unsupported-input`, never retried and never counted by the circuit breaker. See
+[Files for models](Files-for-models).

@@ -594,3 +594,11 @@ counted in the application budgets and stop scoring once one is exhausted by its
 ## Tests
 
 Unit tests use fakes and cost $0; real calls only in `make smoke`.
+
+## Spend on files (#899)
+
+The built-in transcriber and redactor are model calls billed under `files:transcriber` and `files:redactor`,
+category `CostCategory.Files` — `CostReport.byCategory` has a `files` key (a record stored before it reads
+it as 0). A project's own transcriber or redactor reports its `cost`, billed as `CostSource.Tool` under the
+same caller. The budget is checked before each call; a transcription or a redacted copy is made once per
+execution. See [Files for models](Files-for-models).
