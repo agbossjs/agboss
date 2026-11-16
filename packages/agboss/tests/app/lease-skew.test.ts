@@ -84,79 +84,44 @@ const SCENARIOS: readonly Scenario[] = [
   },
 ];
 
-describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) => {
-  describe.each(SCENARIOS)("$name", ({ holder, taker, breaks }) => {
-    it("the store's clock decides: one live holder at every step, no send after the take, the take on time", async () => {
-      const run = await runSkew(target, { holder, taker, time: ExpiryTime.Store });
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe.each(kinds)(
+  "#533 AC4: clock skew on the $name lease store",
+  { timeout: 60_000 },
+  (target) => {
+    describe.each(SCENARIOS)("$name", ({ holder, taker, breaks }) => {
+      it("the store's clock decides: one live holder at every step, no send after the take, the take on time", async () => {
+        const run = await runSkew(target, { holder, taker, time: ExpiryTime.Store });
 
-      expect(run.violations).toEqual([]);
-      expect(run.takenAt).toBeDefined();
-      expect(run.sends.every((sentAt) => sentAt < (run.takenAt ?? 0))).toBe(true);
+        expect(run.violations).toEqual([]);
+        expect(run.takenAt).toBeDefined();
+        expect(run.sends.every((sentAt) => sentAt < (run.takenAt ?? 0))).toBe(true);
+      });
+
+      it("bites: on the caller's clock the same run breaks an invariant", async () => {
+        const run = await runSkew(target, { holder, taker, time: ExpiryTime.Caller });
+
+        expect(run.violations.join("\n")).toMatch(breaks);
+      });
     });
 
-    it("bites: on the caller's clock the same run breaks an invariant", async () => {
-      const run = await runSkew(target, { holder, taker, time: ExpiryTime.Caller });
+    it("bites: a holder 1 % slow with no safety margin outlives its lease on the store's clock", async () => {
+      const holder = ClockSkew.drifting(-0.01);
+      const run = await runSkew(target, {
+        holder,
+        taker: ClockSkew.none,
+        time: ExpiryTime.Store,
+        margin: 0 as Milliseconds,
+      });
 
-      expect(run.violations.join("\n")).toMatch(breaks);
-    });
-  });
-
-  it("bites: a holder 1 % slow with no safety margin outlives its lease on the store's clock", async () => {
-    const holder = ClockSkew.drifting(-0.01);
-    const run = await runSkew(target, {
-      holder,
-      taker: ClockSkew.none,
-      time: ExpiryTime.Store,
-      margin: 0 as Milliseconds,
+      expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
     });
 
-    expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
-  });
-
-  it("the holder's host suspended for two leases (its monotonic clock stopped, the store's time on): its wall count ends its fence — one live holder", async () => {
-    const host = {
-      clock: (base: Clock) => new HostClock(base),
-      event: (clock: HostClock) => {
-        clock.suspend(by(2));
-      },
-    };
-    const run = await runSkew(target, {
-      holder: ClockSkew.none,
-      taker: ClockSkew.none,
-      time: ExpiryTime.Store,
-      host,
-    });
-
-    expect(run.violations).toEqual([]);
-  });
-
-  it("bites: a fence on the monotonic count alone (the wall clock stopped with it) outlives the lease through the suspend", async () => {
-    const host = {
-      clock: (base: Clock) => new HostClock(base, true),
-      event: (clock: HostClock) => {
-        clock.suspend(by(2));
-      },
-    };
-    const run = await runSkew(target, {
-      holder: ClockSkew.none,
-      taker: ClockSkew.none,
-      time: ExpiryTime.Store,
-      host,
-    });
-
-    expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
-  });
-
-  it.each([
-    ["back", 0 - by(2)],
-    ["forward", by(2)],
-  ])(
-    "the holder's wall clock stepped %s by two leases mid-lease: one live holder, the take on time",
-    async (_, step) => {
+    it("the holder's host suspended for two leases (its monotonic clock stopped, the store's time on): its wall count ends its fence — one live holder", async () => {
       const host = {
         clock: (base: Clock) => new HostClock(base),
         event: (clock: HostClock) => {
-          clock.stepWall(step);
+          clock.suspend(by(2));
         },
       };
       const run = await runSkew(target, {
@@ -167,17 +132,57 @@ describe.each(kinds)("#533 AC4: clock skew on the $name lease store", (target) =
       });
 
       expect(run.violations).toEqual([]);
-    },
-  );
-
-  it("each answer of the holder's store 5 s on its way back: the fence counts from the request, one live holder", async () => {
-    const run = await runSkew(target, {
-      holder: ClockSkew.drifting(-0.01),
-      taker: ClockSkew.none,
-      time: ExpiryTime.Store,
-      answerDelay: seconds(5),
     });
 
-    expect(run.violations).toEqual([]);
-  });
-});
+    it("bites: a fence on the monotonic count alone (the wall clock stopped with it) outlives the lease through the suspend", async () => {
+      const host = {
+        clock: (base: Clock) => new HostClock(base, true),
+        event: (clock: HostClock) => {
+          clock.suspend(by(2));
+        },
+      };
+      const run = await runSkew(target, {
+        holder: ClockSkew.none,
+        taker: ClockSkew.none,
+        time: ExpiryTime.Store,
+        host,
+      });
+
+      expect(run.violations.join("\n")).toMatch(TWO_HOLDERS);
+    });
+
+    it.each([
+      ["back", 0 - by(2)],
+      ["forward", by(2)],
+    ])(
+      "the holder's wall clock stepped %s by two leases mid-lease: one live holder, the take on time",
+      async (_, step) => {
+        const host = {
+          clock: (base: Clock) => new HostClock(base),
+          event: (clock: HostClock) => {
+            clock.stepWall(step);
+          },
+        };
+        const run = await runSkew(target, {
+          holder: ClockSkew.none,
+          taker: ClockSkew.none,
+          time: ExpiryTime.Store,
+          host,
+        });
+
+        expect(run.violations).toEqual([]);
+      },
+    );
+
+    it("each answer of the holder's store 5 s on its way back: the fence counts from the request, one live holder", async () => {
+      const run = await runSkew(target, {
+        holder: ClockSkew.drifting(-0.01),
+        taker: ClockSkew.none,
+        time: ExpiryTime.Store,
+        answerDelay: seconds(5),
+      });
+
+      expect(run.violations).toEqual([]);
+    });
+  },
+);

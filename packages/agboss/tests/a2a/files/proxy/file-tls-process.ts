@@ -12,7 +12,7 @@ import { createRequire, syncBuiltinESMExports } from "node:module";
 import type * as HttpsModule from "node:https";
 import type * as NetModule from "node:net";
 import type * as TlsModule from "node:tls";
-import { report } from "../../../helpers/child-channel.js";
+import { report, reportIfSocketLingers } from "../../../helpers/child-channel.js";
 
 const load = createRequire(import.meta.url);
 const dns = load("node:dns") as typeof DnsModule;
@@ -206,10 +206,8 @@ async function main(): Promise<void> {
   // the span of a response ends when its message closes, a turn after the fetch settles
   await new Promise((resolve) => setTimeout(resolve, 100));
   await report({ outcome, calls, spans: spans() });
-  // a socket left open keeps the loop alive: the unref'd timer then fires and says so
-  setTimeout(() => {
-    void report({ lingering: true }).then(() => process.exit(0));
-  }, 1500).unref();
+  // a socket left open keeps the loop alive: the unref'd timer then finds it and says so
+  reportIfSocketLingers();
 }
 
 void main();

@@ -103,37 +103,44 @@ async function cutAt(cut: Cut, clock: VirtualClock, run: () => Promise<unknown>)
   processHoldPoints.releaseAll();
 }
 
-describe("#1090: a hand-over between a task's writes and the next checkpoint", () => {
-  for (const cut of cuts) {
-    const name = `${cut.where}: the next holder applies the saved writes, charges once, finishes the tree`;
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe(
+  "#1090: a hand-over between a task's writes and the next checkpoint",
+  { timeout: 60_000 },
+  () => {
+    for (const cut of cuts) {
+      const name = `${cut.where}: the next holder applies the saved writes, charges once, finishes the tree`;
 
-    memory(`${name} (in memory)`, async ({ apps, clock }) => {
-      const [a, b] = [instance(apps, 0), instance(apps, 1)];
-      await a.ready();
-      await b.ready();
+      memory(`${name} (in memory)`, async ({ apps, clock }) => {
+        const [a, b] = [instance(apps, 0), instance(apps, 1)];
+        await a.ready();
+        await b.ready();
 
-      await cutAt(cut, clock, () => execute(a, ChargeWorkflowStart, { text: "order-1090" }));
-      await passLive(clock, seconds(60));
-      const [end] = await ends(1);
+        await cutAt(cut, clock, () => execute(a, ChargeWorkflowStart, { text: "order-1090" }));
+        await passLive(clock, seconds(60));
+        const [end] = await ends(1);
 
-      expect(book.charges.map((row) => row.order)).toEqual(["order-1090"]);
-      expect(end?.output).toEqual({ chargeId: book.charges[0]?.chargeId });
-      expect(seen.errors).toEqual([]);
-    });
+        expect(book.charges.map((row) => row.order)).toEqual(["order-1090"]);
+        expect(end?.output).toEqual({ chargeId: book.charges[0]?.chargeId });
+        expect(seen.errors).toEqual([]);
+      });
 
-    sqlite(`${name} (SQLite)`, async ({ apps, clock }) => {
-      const [a, b] = [instance(apps, 0), instance(apps, 1)];
-      await a.ready();
-      await b.ready();
-      const rows = (): readonly string[] => chargesIn(b.resolve(SqliteConnection).database);
+      sqlite(`${name} (SQLite)`, async ({ apps, clock }) => {
+        const [a, b] = [instance(apps, 0), instance(apps, 1)];
+        await a.ready();
+        await b.ready();
+        const rows = (): readonly string[] => chargesIn(b.resolve(SqliteConnection).database);
 
-      await cutAt(cut, clock, () => execute(a, SqliteChargeWorkflowStart, { text: "order-1090" }));
-      await passLive(clock, seconds(60));
-      const [end] = await ends(1);
+        await cutAt(cut, clock, () =>
+          execute(a, SqliteChargeWorkflowStart, { text: "order-1090" }),
+        );
+        await passLive(clock, seconds(60));
+        const [end] = await ends(1);
 
-      expect(rows()).toHaveLength(1);
-      expect(end?.output).toEqual({ chargeId: rows()[0] });
-      expect(seen.errors).toEqual([]);
-    });
-  }
-});
+        expect(rows()).toHaveLength(1);
+        expect(end?.output).toEqual({ chargeId: rows()[0] });
+        expect(seen.errors).toEqual([]);
+      });
+    }
+  },
+);
