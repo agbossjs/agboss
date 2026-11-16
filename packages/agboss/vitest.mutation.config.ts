@@ -4,7 +4,8 @@ import { defineConfig } from "vitest/config";
  * The tests Stryker runs on the fencing modules (#533 item 3): the fence, the held lease, the
  * leases, the fenced effect and the outbound call's protocol and stores — in memory, one process,
  * no nested vitest and no pods, so a mutant's run stays short. `stryker.config.mjs` names the
- * modules it mutates; `npm run test:mutation` runs it.
+ * modules it mutates, in two shards over these tests (`fencing` and `fencing-effects`, #1242);
+ * `npm run test:mutation` runs it.
  */
 export default defineConfig({
   test: {
