@@ -120,6 +120,8 @@ export type RuleCode =
   | "name.kind-suffix"
   | "dto.name"
   | "dto.duplicate-name"
+  // a DTO that holds itself through @Nested / @ListOf (#1080)
+  | "dto.cyclic"
   | "tool.name-too-long"
   | "tool.name-invalid"
   // a bound on tool results (#336), reported at assembly by `src/components/assemble-tools.ts`

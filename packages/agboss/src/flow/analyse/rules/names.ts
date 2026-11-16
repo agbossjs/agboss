@@ -49,7 +49,7 @@ const dtosOfFields = (
 ): readonly DtoClass[] => Object.values(fields ?? {}).flatMap(dtosOf);
 
 /** The DTO classes a component declares: its input fields and its output. */
-function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
+export function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
   switch (declaration.kind) {
     case NodeKind.Start: {
       const { input } = declaration.options;

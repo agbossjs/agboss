@@ -807,7 +807,8 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, a question
   role's `-question`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
-  end with `Dto` (`[dto.name]`); a path ends in a finish; a router's `chooseOne` lists exactly its
+  end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@ListOf`, directly or
+  via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
   #271); in a cycle of classes built from each other the flow says what one value is about —

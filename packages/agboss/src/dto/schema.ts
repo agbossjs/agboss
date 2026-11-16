@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { DtoValidationError, pathOf } from "./errors.js";
+import { dtoCycleOf, cycleText } from "./cycles.js";
+import { DtoError, DtoValidationError, pathOf } from "./errors.js";
 import { scalarSchemas } from "./formats.js";
 import { isOpen, registerDto } from "./metadata.js";
 import { rememberDtoOf } from "./redact.js";
@@ -65,12 +66,19 @@ function fieldSchema(field: FieldSpec): z.ZodType {
 export const fieldsSchemaOf = (fields: readonly FieldSpec[]): z.ZodObject =>
   z.object(Object.fromEntries(fields.map((field) => [field.name, fieldSchema(field)])));
 
+/** What a DTO that holds itself is told (a cycle has no finite JSON Schema, and no finite value of its own). */
+export const cyclicMessage = (cycle: readonly DtoClass[]): string =>
+  `a DTO cannot reference itself, directly or through other DTOs: ${cycleText(cycle)} — break the cycle (an id field, or a flat list)`;
+
 /** A DTO as an object schema (registered first: undecorated fields and behaviour fail here). */
 export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   const cached = schemas.get(dto);
   if (cached !== undefined) return cached;
   if (isOpen(dto)) return z.record(z.string(), z.unknown());
   const fields = registerDto(dto);
+  const cycle = dtoCycleOf(dto);
+  if (cycle !== undefined)
+    throw new DtoError({ code: "dto.cyclic", message: cyclicMessage(cycle) });
   const own = rules.get(dto) ?? [];
   const schema = fieldsSchemaOf(fields).superRefine((value, ctx) => {
     for (const rule of own) {

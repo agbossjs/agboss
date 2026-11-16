@@ -88,10 +88,15 @@ export function redactedArguments(
   return dto === undefined ? args : maskedRecord(dto, args, displayMask);
 }
 
-/** Whether a DTO (or a nested one) has a `sensitive` field. */
-export const hasSensitiveFields = (dto: DtoClass): boolean =>
-  fieldsOf(dto).some(
+/** Whether a DTO (or a nested one) has a `sensitive` field; a cycle is walked once (#1080). */
+export const hasSensitiveFields = (dto: DtoClass): boolean => sensitiveBelow(dto, new Set());
+
+function sensitiveBelow(dto: DtoClass, seen: Set<DtoClass>): boolean {
+  if (seen.has(dto)) return false;
+  seen.add(dto);
+  return fieldsOf(dto).some(
     (field) =>
       field.settings.sensitive !== undefined ||
-      (field.element?.kind === "dto" && hasSensitiveFields(field.element.dto)),
+      (field.element?.kind === "dto" && sensitiveBelow(field.element.dto, seen)),
   );
+}

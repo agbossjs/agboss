@@ -95,7 +95,7 @@ export class DtoError extends AGBossError {
 }
 
 // @public
-export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata";
+export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata" | "dto.cyclic";
 
 // @public
 export interface DtoErrorOptions {
