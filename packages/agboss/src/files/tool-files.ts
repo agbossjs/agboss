@@ -1,3 +1,4 @@
+import { lazyLoad } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 import { GuardrailSide } from "../components/policy-decorators.js";
@@ -6,7 +7,6 @@ import { PiiRefusedError } from "../pii/errors.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
 import { refusedCall, type ClosedResult } from "../graph/agent-loop/tool-pii.js";
 import { fileMaskOf, type FileMask } from "./file-mask.js";
-import { guardedFilesOf } from "./guarded-files.js";
 import type { StoredToolFiles, ToolTask } from "../graph/agent-loop/state.js";
 import { dtoOf } from "../dto/redact.js";
 import type { AgentLoopDeps } from "../graph/agent-loop/deps.js";
@@ -123,6 +123,7 @@ async function guardedToolFiles(
   if (deps.fileRuntime?.settings.guardToolResultFiles !== true || guardrails.length === 0)
     return { usage: built.usage };
   const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);
+  const { guardedFilesOf } = await lazyLoad(import("./guarded-files.js"));
   const seen = await guardedFilesOf(built.viewed, deps.agent.maxResultSize, fileMaskOf(set, {}));
   const checked = {
     text: "",

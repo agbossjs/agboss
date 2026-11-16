@@ -1,3 +1,4 @@
+import { lazyLoad } from "../../../infrastructure/clock.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { FileSource } from "../../../files/model-files.js";
 import { inputFilesOf } from "../../../files/input-files.js";
@@ -11,7 +12,6 @@ import { stepNodeIdOf, visitNumberOf } from "../step-frame.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { isLastLevel } from "../soft-stop.js";
-import { guardedAnswer } from "./answer-guard.js";
 import type { AnswerFileReading } from "../../../files/file-runtime.js";
 import type { LoopFiles } from "../../../graph/agent-loop/runner.js";
 import { currentFrame } from "../../context/frame.js";
@@ -98,6 +98,8 @@ export function agentRunner(
         throw error;
       });
     const result = loopResultOf(after);
+    // loaded on first use: the files of an answer are rare, the root import stays light (#205)
+    const { guardedAnswer } = await lazyLoad(import("./answer-guard.js"));
     const guarded = await guardedAnswer(
       node.id,
       result,

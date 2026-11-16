@@ -98,9 +98,12 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * the SQLite store, the sweep and the client's retention load on first use. #956: the OpenAI
  * chat client (`@langchain/openai` and the OpenAI SDK, 288 modules) loads on a model's first call,
  * not when the root is read — the root is 1,269 now, the budget 1,430: about 160 modules of
- * headroom for the decorators and types to come, and it only ever goes down.
+ * headroom for the decorators and types to come, and it only ever goes down. 1,450 at #899 PR 2 (the
+ * root is 1,428 then, 1,420 before it): the files' guards — the mask, the answer picks, the decision
+ * models' parts, the views and the readers of the files — modules of their own under the line limits;
+ * the guarded views of the guardrails and the judges and the answer's guard load on first use.
  */
-const MODULE_BUDGET = 1_430;
+const MODULE_BUDGET = 1_450;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

@@ -21,7 +21,8 @@ import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import type { FileContent } from "../../files/file-bytes.js";
-import { EMPTY_SEEN, judgedFilesOf } from "./judge-files.js";
+import type { JudgedFiles } from "./judge-files.js";
+import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
 
 /**
@@ -109,6 +110,17 @@ function judgedInputOf(
 }
 
 /** A verdict as the step's record keeps it (#395 C3). */
+const NO_SEEN: JudgedFiles = { files: [], pieces: [], usage: [] };
+
+/** The files the judges read, read on the first judged answer: the judges of files are rare (#205). */
+async function judgedFilesOfLazily(
+  state: AgentLoopStateType,
+  deps: AgentLoopDeps,
+): Promise<JudgedFiles> {
+  const { judgedFilesOf } = await lazyLoad(import("./judge-files.js"));
+  return judgedFilesOf(state, deps);
+}
+
 const verdictRecordOf = (
   judge: string,
   attempt: number,
@@ -138,7 +150,7 @@ async function rejectionsOf(
   const rejected: JudgeRejection[] = [];
   const judges = deps.agent.judges ?? [];
   // the files its model read, read again pinned (#899 §3, §8): once for every judge, if one is asked
-  const seen = judges.length === 0 ? EMPTY_SEEN : await judgedFilesOf(state, deps);
+  const seen = judges.length === 0 ? NO_SEEN : await judgedFilesOfLazily(state, deps);
   spent.usage.push(...seen.usage);
   for (const judge of judges) {
     const input = judgedInputOf(state, deps, judge, text, seen.files);

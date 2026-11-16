@@ -1,3 +1,4 @@
+import { lazyLoad } from "../../infrastructure/clock.js";
 import { HumanMessage } from "@langchain/core/messages";
 import { formatMemory } from "../../flow/runtime/history.js";
 import { gatherKnowledge } from "../nodes/knowledge.js";
@@ -13,7 +14,6 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { contentWithPieces } from "../../files/file-pieces.js";
 import { fileMaskOf, type FileMask } from "../../files/file-mask.js";
-import { guardedFilesOf } from "../../files/guarded-files.js";
 import { NO_FILES, filePiecesOf, type FilePieces } from "../../files/visit-files.js";
 import { PiiRefusedError } from "../../pii/errors.js";
 import { AgentFailedError, StepFailedError } from "../errors.js";
@@ -86,6 +86,7 @@ async function guardedInput(
       ? { text: input, tokens: {}, usage: [] }
       : await maskedModelText(set, input, state.piiTokens);
   // the files its model reads, in the views it reads them (#899 §8): what the guardrails check with the text
+  const { guardedFilesOf } = await lazyLoad(import("../../files/guarded-files.js"));
   const seen = await guardedFilesOf(
     files.viewed,
     deps.agent.maxResultSize,
