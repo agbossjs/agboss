@@ -1,6 +1,7 @@
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import { SILENT_LOG, type FrameworkLog } from "../../infrastructure/logger.js";
+import { callListener } from "../../run/stream/run-stream.js";
 import type { ExecutionStreamEvent } from "../../run/types.js";
 import { seconds } from "../../units/index.js";
 import { onTaskChange } from "../tasks/task-changes.js";
@@ -42,12 +43,10 @@ export class LocalRuns {
     let reported = false;
     const onStream = (event: ExecutionStreamEvent): void => {
       for (const listener of listeners) {
-        try {
-          listener(event);
-        } catch (error) {
+        callListener(listener, event, (error) => {
           if (!reported) this.#report(key, error);
           reported = true;
-        }
+        });
       }
     };
     const text = keyOf(key);

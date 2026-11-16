@@ -10,6 +10,7 @@ import { LogLevel } from "../../src/infrastructure/logger.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute } from "../helpers/flow.js";
+import { rejectingListener } from "./async-listener.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { deltas, AuditJudge, AuditStart, AuditWorkflow, AuditWriter } from "./writer.fixture.js";
@@ -57,6 +58,33 @@ describe("#1008 AC3: a listener that throws", () => {
       executionId: done.executionId,
       tenantId: "default",
     });
+    expect(JSON.stringify(failed)).not.toContain("Friday");
+  });
+
+  test("#1124 AC1: an async listener that rejects is logged once the same way, without the text", async ({
+    app,
+    mockLlm,
+  }) => {
+    resetLogged();
+    mockLlm(AuditWriter).thenReturn(replyWith("Shipped on Friday."));
+    mockLlm(AuditJudge).thenReturn(replyWith("PASS"));
+    const heard: ExecutionStreamEvent[] = [];
+
+    const done = await execute(
+      app,
+      AuditStart,
+      { text: "Q" },
+      {
+        onStream: rejectingListener((event) => heard.push(event)),
+      },
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(done.output).toEqual({ text: "Shipped on Friday." });
+    expect(deltas(heard).join("")).toBe("Shipped on Friday.");
+    const failed = logged.filter((entry) => entry.code === "stream.listener-failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0]).toMatchObject({ level: LogLevel.Warn, executionId: done.executionId });
     expect(JSON.stringify(failed)).not.toContain("Friday");
   });
 });
