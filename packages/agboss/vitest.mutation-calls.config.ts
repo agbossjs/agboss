@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
+    // #1242: the in-memory explorer one step less deep than the regular suite's 10 (see the test)
+    env: { AGBOSS_MUTATION_EXPLORER_DEPTH: "9" },
     include: [
       // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
       "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",

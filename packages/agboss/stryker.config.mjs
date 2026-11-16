@@ -260,5 +260,9 @@ export default {
   jsonReporter: { fileName: `reports/mutation/${shard}.json` },
   thresholds: { high: 100, low: 95, break: 100 },
   timeoutMS: 20000,
+  // #1242: the initial run of a shard's tests under coverage, bounded by Stryker at 5 min unless set:
+  // the fencing and keys-and-calls dry runs took up to 4 min 46 s on a slow runner and failed there
+  // at exactly 5 min (#1207, #1138), with no test hung. 10 min keeps a hang bounded and a slow runner green.
+  dryRunTimeoutMinutes: 10,
   tempDirName: `.stryker-tmp-${shard}`,
 };
