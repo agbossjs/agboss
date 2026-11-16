@@ -173,6 +173,9 @@ const withArguments = (
   inputOf: (args) => ({ ...(keyFacts(first(args)) as object), ...more(args) }),
 });
 
+/** What a finishing outbound call's input keeps beside its key: the attempt's owner. */
+const attemptOwnerOf = (args: readonly unknown[]): object => ({ attemptOwner: args[1] });
+
 /** A method of the lease store asked about a tree, keyed by the tree's root. */
 const onTree = (point: StoreHoldPoint, outputOf = asIs): StoreMethod => ({
   point,
@@ -228,12 +231,8 @@ export const OUTBOUND_CALL_METHODS: Readonly<Record<string, StoreMethod>> = {
     expected: args[1],
     claim: args[2],
   })),
-  markCompleted: withArguments(onKey(StoreHoldPoint.OutboundMarkCompleted), (args) => ({
-    attemptOwner: args[1],
-  })),
-  markFailed: withArguments(onKey(StoreHoldPoint.OutboundMarkFailed), (args) => ({
-    attemptOwner: args[1],
-  })),
+  markCompleted: withArguments(onKey(StoreHoldPoint.OutboundMarkCompleted), attemptOwnerOf),
+  markFailed: withArguments(onKey(StoreHoldPoint.OutboundMarkFailed), attemptOwnerOf),
   leaseStateOf: {
     point: StoreHoldPoint.OutboundLeaseStateOf,
     keyOf: (args) => (args[0] as { readonly leaseExecutionId: string }).leaseExecutionId,
