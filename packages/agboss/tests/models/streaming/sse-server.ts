@@ -119,7 +119,13 @@ async function play(script: SseScript, response: ServerResponse): Promise<void> 
 }
 
 /** The models every server lists (the startup check wants each used model listed). */
-const MODELS = ["stream/model", "backup-stream/model", "cost-stream/model", "primary/model"];
+const MODELS = [
+  "stream/model",
+  "backup-stream/model",
+  "cost-stream/model",
+  "primary/model",
+  "or-stream/model",
+];
 
 /** The running server: its requests, a `send` that sends any URL to it, and `close`. */
 export interface SseServer {

@@ -3,6 +3,7 @@ import {
   ModelFailure,
   ModelProvider,
   OpenAiCompatibleProvider,
+  OpenRouterProvider,
   PromptCaching,
   Reasoning,
   RetryPolicy,
@@ -91,4 +92,25 @@ export const StreamCostApplication = bedrockApplicationOn({
   name: "stream-cost-1005-application",
   desk: workflowsOn("cost-stream/model", "stream-cost-1005"),
   providers: [StreamCostModelProvider],
+});
+
+/** #1231: OpenRouter's dialect — the call's cost in `usage.cost`, the host in each chunk's `provider`. */
+@ModelProvider({
+  ...http,
+  retryPolicy: RetryPolicy.none(),
+  name: "stream-or-1231-model-provider",
+  description: "An OpenRouter that streams",
+  serves: [/^or-stream\//],
+  baseUrl: "http://or-1231.test/v1",
+  cost: ModelCost.fromResponse(),
+  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+})
+export class StreamOpenRouterProvider extends OpenRouterProvider {
+  override readonly requestFields = {};
+}
+
+export const StreamOpenRouterApplication = bedrockApplicationOn({
+  name: "stream-or-1231-application",
+  desk: workflowsOn("or-stream/model", "stream-or-1231"),
+  providers: [StreamOpenRouterProvider],
 });
