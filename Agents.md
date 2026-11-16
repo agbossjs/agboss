@@ -145,6 +145,16 @@ and `app.resume({ pauseId, decision })` answers it with a `ToolCallApprovalDecis
 ([Pauses](Pauses), [Pause seam](Pause-seam)). Approved → the call runs; rejected → the model reads
 `Tool error: the call was rejected by <who answered>[: reason]`.
 
+## Answer files (#899)
+
+An agent whose output has file fields returns only files it saw: the answer tool takes `{ file: <n> }`,
+the number in the headings (`file 3 of 5`, numbered once per visit across fields and sources), mapped back
+to the descriptor with the digest it was read as (`AnswerFiles.SeenInVisit`, the default). The original is
+returned only if `FileView.Original` was among its views. `AnswerFiles.Any` takes the model's own
+descriptors: a `url` only `https:` on `allowedFileOrigins`, a `fileId` only one the root execution holds.
+`[files.answer-file-unseen]` at start for file fields in an answer whose agent saw no original to return.
+Output guardrails read the answer's files pinned to that digest; a file that changed fails closed.
+
 ## Testing
 
 An agent answers by script in a workflow test: `replyWith(text)`, `replyWith(Dto, value)` (a

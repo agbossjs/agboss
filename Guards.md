@@ -239,6 +239,29 @@ says it calls no model — `mockOf()` the services its `check` uses.
 `beforeAgentAnswer`; `overrideGuardrails`, `disableGuardrails`) are removed — see the
 [Changelog](Changelog). Checks of tool calls return as tool-point judges (#123).
 
+## Files in guardrails and PII (#899)
+
+An agent with `files: ModelFiles.of({ … })` has its files checked like its text:
+
+- An input guardrail checks the content and, with `guardToolResultFiles` (default true), the files of each
+  tool result, in the views the agent's model got. A model guardrail reads them as parts (a decision model:
+  png, jpeg, webp and text); never base64 as text. A code guardrail's optional
+  `checkContent(content: GuardrailContent)` gets the text and the files (`FileContent[]`) and is called
+  instead of `check` when there are files; without it `check(text)` gets the text and the text of the files.
+- A block on a tool result's files rejects that call only (the model reads the refusal as the result); a
+  guardrail that cannot decide fails the step. Each decision lands in the step's `guardrailDecisions`.
+- Output guardrails check the answer's files in the views the model saw.
+- Every text a guardrail's model reads — a heading, a file name — is masked by the agent's PII policies.
+- A guardrail's model that cannot take a file's kind is `[model.unsupported-input]` at start where the
+  provider reports input kinds.
+
+`@PiiPolicy({ files: PiiFileAction.Mask | PiiFileAction.AllowOriginal })` (default `Mask`): a
+transcription, and a text format's text, is masked by the policies where it is made — a block rule refuses
+(an input file fails the execution, a tool-result file rejects that call) — and only the masked text is
+kept, keyed by the policies that masked it. `FileView.Original` starts only where every applying policy says
+`AllowOriginal` (`[pii.original-file]`); `Redacted` under a policy of your own detector is
+`[pii.redacted-needs-kinds]`. PII reads text only, never bytes.
+
 ## PII policies
 
 A `@PiiPolicy` says which personal data the models never see as is, and what happens to it

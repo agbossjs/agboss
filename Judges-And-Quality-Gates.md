@@ -318,6 +318,13 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
 }
 ```
 
+## A judge that reads files (#899)
+
+`JudgeInput.files` holds the files the agent's model read in the visit, in the views it got them (an
+original as the file, a transcription as a `text/plain` file of its masked text); `[]` for an agent without
+`files`. `judgeModel.invoke` and `judgeModel.decide` carry them as parts of their input (a decision model:
+png, jpeg, webp and text). A judge's model that cannot take a file's kind is `[model.unsupported-input]`.
+
 ## A judge that reads the tool calls
 
 `input.toolCalls` (#395) holds the agent's tool calls of the visit it judges — every attempt's, in
