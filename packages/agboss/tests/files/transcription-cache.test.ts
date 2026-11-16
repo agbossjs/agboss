@@ -2,6 +2,7 @@
  * #899 §7: the transcription cache — masked where a policy applies, keyed by the policies that masked it,
  * never reused across policy sets, executions or tenants; PII reads text only, never bytes.
  */
+import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
 import { fileMaskOf } from "../../src/files/file-mask.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
@@ -31,6 +32,7 @@ const runtime: FileRuntime = {
     hasPiiPolicy: true,
   }),
   maxResultSize: kilobytes(8),
+  ...NO_REDACTION,
   transcriberKey: () => "t",
   transcribe: () => {
     transcriptions += 1;

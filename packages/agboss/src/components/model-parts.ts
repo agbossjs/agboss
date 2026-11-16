@@ -1,4 +1,4 @@
-import { hasOwnFileTranscriber } from "../files/assemble-files.js";
+import { hasFileStore, hasOwnFileTranscriber, ownFileRedactorOf } from "../files/assemble-files.js";
 import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
@@ -32,7 +32,13 @@ export function modelPartsOf(
   users: ModelUsers,
 ): Pick<
   AssembledWorkflow,
-  "arbiters" | "modelProviders" | "replyInterpreters" | "rerankers" | "hasOwnFileTranscriber"
+  | "arbiters"
+  | "modelProviders"
+  | "replyInterpreters"
+  | "rerankers"
+  | "hasOwnFileTranscriber"
+  | "ownFileRedactor"
+  | "hasFileStore"
 > {
   const arbiters = modelArbitersOf(graph.launches);
   const { replyInterpreters, rerankers } = users;
@@ -40,6 +46,8 @@ export function modelPartsOf(
     arbiters,
     // the application lists its own `FileTranscriber` (#899): the built-in's model is no use then
     hasOwnFileTranscriber: hasOwnFileTranscriber(owner?.providers),
+    ownFileRedactor: ownFileRedactorOf(owner?.providers),
+    hasFileStore: hasFileStore(owner?.providers),
     replyInterpreters,
     rerankers,
     modelProviders: resolvedModelProvidersOf(owner?.providers, {

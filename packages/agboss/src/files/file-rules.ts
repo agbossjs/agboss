@@ -3,6 +3,7 @@ import type { AssembledWorkflow } from "../workflow.js";
 import { fileActionOf, isCustomPolicy, PiiFileAction } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import { hasModelForm } from "./file-needs.js";
+import { historyViolations, redactorViolations } from "./redactor-rules.js";
 import { answersWithFiles } from "./file-readers.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
 import { AnswerFiles, FileSource, FileView } from "./model-files.js";
@@ -27,8 +28,6 @@ function listProblems(files: ResolvedModelFiles): string[] {
   if (files.views.length === 0) problems.push("views is empty");
   for (const source of files.sources) {
     if (!isMember(FileSource, source)) problems.push(`sources has "${source}"`);
-    else if (source === FileSource.History)
-      problems.push("FileSource.History is not read yet: use FileSource.Input or ToolResults");
   }
   for (const view of files.views)
     if (!isMember(FileView, view)) problems.push(`views has "${view}"`);
@@ -55,7 +54,10 @@ function typeProblems(files: ResolvedModelFiles): string[] {
   if (!files.isTypesExplicit) return [];
   return files.allowedMediaTypes
     .filter((type) => !hasModelForm(type))
-    .map((type) => `allowedMediaTypes has ${type}: a model reads text, images and PDFs as files`);
+    .map(
+      (type) =>
+        `allowedMediaTypes has ${type}: a model reads text, images, PDFs, audio and video as files`,
+    );
 }
 
 /**
@@ -104,15 +106,11 @@ function agentViolations(
   const invalid = [...listProblems(files), ...numberProblems(files), ...typeProblems(files)].map(
     (problem) => violation("files.invalid-setting", `${name}: files — ${problem}`, [name]),
   );
-  if (files.views.includes(FileView.Redacted))
-    invalid.push(
-      violation(
-        "files.no-redactor",
-        `${name}: FileView.Redacted needs a FileRedactor that supports its media types — none can be listed yet`,
-        [name],
-      ),
-    );
-  invalid.push(...piiViolations(name, files, workflow));
+  invalid.push(
+    ...redactorViolations(name, files, workflow),
+    ...historyViolations(name, files, workflow),
+    ...piiViolations(name, files, workflow),
+  );
   return invalid;
 }
 

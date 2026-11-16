@@ -1,7 +1,8 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
 import { PiiActionKind, type MaskingPiiAction } from "./actions.js";
-import { isCustomPolicy } from "./pii-policy.decorator.js";
+import type { PiiKind } from "./kinds.js";
+import { isCustomPolicy, PiiFileAction } from "./pii-policy.decorator.js";
 import { PiiRefusedError } from "./errors.js";
 import { maskedText, withoutOverlaps, type MaskedText, type PiiFinding } from "./masking.js";
 import { DetectionMode, type RuntimePiiPolicy } from "./runtime-policy.js";
@@ -92,6 +93,15 @@ export class PiiPolicySet {
     return createHash("sha256").update(text).digest("hex").slice(0, 16);
   }
 
+  /**
+   * A keyed digest (HMAC-SHA-256 with this set's key, never a plain hash: a key that names a value set must
+   * not be an oracle for the values) of a list of texts, sorted and joined: what a cache key says of them.
+   */
+  keyedDigestOf(texts: readonly string[]): string {
+    const sorted = JSON.stringify([...texts].sort());
+    return createHmac("sha256", this.fieldKey).update(sorted).digest("hex").slice(0, 32);
+  }
+
   /** The same policies with the sensitive values of one execution. */
   withValues(values: readonly SensitiveValue[]): PiiPolicySet {
     return values.length === 0
@@ -132,6 +142,54 @@ export class PiiPolicySet {
       ...valueFindings(text, this.values, this.fieldKey),
     ];
     return findings.length === 0 ? text : maskedText(text, withoutOverlaps(findings), {}).text;
+  }
+
+  /**
+   * What a redactor is asked to black out in a file (#899 §5): every kind the declarative policies' rules
+   * name (groups expanded), whatever their action, and the execution's sensitive values. A project's own
+   * detector reads text only, so it names no kind: `[pii.redacted-needs-kinds]` refuses it at start.
+   */
+  get redaction(): {
+    readonly kinds: readonly PiiKind[];
+    readonly values: readonly string[];
+    /** The kinds a block rule names: a file that holds one is refused. */
+    readonly blocked: readonly PiiKind[];
+    /** Whether every policy with a block rule lets a model decide what an image holds (`RedactWithModel`). */
+    readonly isModelChecked: boolean;
+  } {
+    const kinds = new Set<PiiKind>(this.policies.flatMap((policy) => [...policy.actions.keys()]));
+    const blocking = this.policies.filter((policy) =>
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+    );
+    return {
+      kinds: [...kinds],
+      values: this.values.map(({ value }) => value),
+      blocked: [
+        ...new Set(
+          blocking.flatMap((policy) =>
+            [...policy.actions].flatMap(([kind, action]) =>
+              action.kind === PiiActionKind.BlockWithRefusal ? [kind] : [],
+            ),
+          ),
+        ),
+      ],
+      isModelChecked: blocking.every(
+        (policy) => policy.meta.files === PiiFileAction.RedactWithModel,
+      ),
+    };
+  }
+
+  /**
+   * The refusal for a kind a redactor found in a file, when a block rule names it: the error the boundary
+   * throws (the file never goes to the model). Other kinds are blacked out, not refused.
+   */
+  async refusalForKind(kind: PiiKind): Promise<PiiRefusedError | undefined> {
+    for (const policy of this.policies) {
+      const action = policy.actions.get(kind);
+      if (action?.kind === PiiActionKind.BlockWithRefusal)
+        return new PiiRefusedError({ kind, refusal: await policy.refusalOf(kind, action) });
+    }
+    return undefined;
   }
 
   /** The refusal of the first blocked finding, as the error the boundary throws. */

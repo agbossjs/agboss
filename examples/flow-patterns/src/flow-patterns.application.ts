@@ -27,6 +27,9 @@ import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-che
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { IntakeWorkflow } from "./intake/workflows/intake/intake.workflow.js";
+import { AudioNoteWorkflow } from "./files/workflows/audio-note/audio-note.workflow.js";
+import { InvoiceWorkflow } from "./files/workflows/invoice/invoice.workflow.js";
+import { KycWorkflow } from "./files/workflows/kyc/kyc.workflow.js";
 import { HelplineWorkflow } from "./helpline/workflows/helpline/helpline.workflow.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 import { OfferWorkflow } from "./offer/workflows/offer/offer.workflow.js";
@@ -50,7 +53,9 @@ import { AppEnvironment } from "./environments/app.environment.js";
  * `app.execute(TripWorkflowStart, …)` two bookings a failed join undoes automatically (#340),
  * `app.execute(DeskWorkflowStart, …)` the extension points on an offline model (#382–#385),
  * `app.execute(HelplineWorkflowStart, …)` a call to `desk-application` over A2A (#398),
- * `app.execute(IntakeWorkflowStart, …)` a quorum by groups (#279) — each
+ * `app.execute(IntakeWorkflowStart, …)` a quorum by groups (#279),
+ * `app.execute(InvoiceWorkflowStart, …)` an invoice PDF and its CSV read by a model, `KycWorkflowStart` a redacted
+ * ID photo, `AudioNoteWorkflowStart` a voice note (#899) — each
  * workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
  * of its parent, and `app.execute(VendorCheckWorkflowStart, …)` runs it alone.
  *
@@ -84,6 +89,9 @@ import { AppEnvironment } from "./environments/app.environment.js";
     DeskWorkflow,
     HelplineWorkflow,
     IntakeWorkflow,
+    InvoiceWorkflow,
+    KycWorkflow,
+    AudioNoteWorkflow,
   ],
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],

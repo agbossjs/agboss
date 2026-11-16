@@ -153,7 +153,7 @@ const filesUpdateOf = (state: AgentLoopStateType, files: FilePieces): AgentLoopU
   fileTranscripts: files.transcripts,
   seen: state.inputFiles.flatMap((source, index) => {
     const digest = files.digests[index];
-    return digest === undefined ? [] : [{ source, digest }];
+    return digest === undefined || digest === "" ? [] : [{ source, digest }];
   }),
 });
 

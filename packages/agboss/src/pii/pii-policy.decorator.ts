@@ -22,6 +22,12 @@ export enum PiiFileAction {
   Mask = "mask",
   /** The original file may reach the model as it is: the task hinges on the personal data. */
   AllowOriginal = "allow-original",
+  /**
+   * As `Mask`, and an image under this policy's block rules goes to the redaction model to decide what it
+   * holds. Without it an image is refused whole where a block rule applies: what a model says an image
+   * holds is a guardrail, not a guarantee — a text in the image can talk it into silence.
+   */
+  RedactWithModel = "redact-with-model",
 }
 
 /** One rule: a kind or a group, and what happens to its values. */

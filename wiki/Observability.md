@@ -619,3 +619,10 @@ there):
 | `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
 | `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints — the message names the one left in memory (#644) |
 | `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyInstance` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
+
+## Files in events, traces and records (#899)
+
+A file in a model request, an event, a trace, the record or a cassette is shown as `{ kind, mediaType,
+filename?, sizeBytes, sha256 }` — a content part's bytes and an `A2AFileDto`'s `inline` never leave as text.
+An input guardrail's event lists the files it checked the same way (`GuardedFileShown`). See [Files for
+models](Files-for-models).

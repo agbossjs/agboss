@@ -48,6 +48,8 @@ export interface ModelRegistry {
    * by agent name: the agent's `transcriptionModel`, its `transcriptionMaxTokens`.
    */
   readonly fileTranscribers: ReadonlyMap<string, ModelBinding>;
+  /** The built-in image redactor's model of each agent that reads a redacted view (#899). */
+  readonly fileRedactors: ReadonlyMap<string, ModelBinding>;
 }
 
 /**
@@ -122,7 +124,15 @@ export function createModelRegistry(
       return [[name, bindFor({ kind: "file-transcriber" })(model)] as const];
     }),
   );
-  return { agents, compactions, judges, fileTranscribers };
+  const fileRedactors = new Map(
+    Object.entries(config.agents).flatMap(([name, settings]) => {
+      const files = settings.files;
+      if (files?.views.includes(FileView.Redacted) !== true) return [];
+      const model = { model: files.redactionModel, maxTokens: files.transcriptionMaxTokens };
+      return [[name, bindFor({ kind: "file-redactor" })(model)] as const];
+    }),
+  );
+  return { agents, compactions, judges, fileTranscribers, fileRedactors };
 }
 
 /**

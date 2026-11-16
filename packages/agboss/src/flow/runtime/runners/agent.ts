@@ -2,6 +2,8 @@ import { lazyLoad } from "../../../infrastructure/clock.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { FileSource } from "../../../files/model-files.js";
 import { inputFilesOf } from "../../../files/input-files.js";
+import type { FileRuntime } from "../../../files/visit-files.js";
+import { readerMemoryOf } from "../history.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import type { ExecutionStateType } from "../state.js";
 import { loopInputOf, loopResultOf, type AgentLoopGraph } from "../../../graph/agent-loop/index.js";
@@ -13,20 +15,40 @@ import { readInput, type NodeValue } from "../scope.js";
 import { boundaryInputOf } from "./boundary-input.js";
 import { isLastLevel } from "../soft-stop.js";
 import type { AnswerFileReading } from "../../../files/file-runtime.js";
-import type { LoopFiles } from "../../../graph/agent-loop/runner.js";
+import type { LoopFiles, LoopPii } from "../../../graph/agent-loop/runner.js";
 import { currentFrame } from "../../context/frame.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { AgentStream, withAgentStream, type StepSite } from "../../../run/stream/agent-stream.js";
 
 /** The files of the agent's input its model reads (#899), and the transcriptions the execution has. */
-function loopFilesOf(
+async function loopFilesOf(
   deps: GraphDeps<string>,
   node: RuntimeNode,
   state: ExecutionStateType,
-): LoopFiles {
-  const opted = deps.config.agents[node.id]?.files?.sources.includes(FileSource.Input) === true;
-  const sources = opted ? inputFilesOf(node.fields, state.scope) : [];
-  return { sources, transcripts: state.fileTranscripts };
+  runtime: FileRuntime | undefined,
+): Promise<LoopFiles> {
+  const wanted = deps.config.agents[node.id]?.files?.sources ?? [];
+  const input = wanted.includes(FileSource.Input) ? inputFilesOf(node.fields, state.scope) : [];
+  // the files of the turns the agent remembers (#899 §3): a lazy load, the root import stays light
+  const history =
+    wanted.includes(FileSource.History) && runtime !== undefined
+      ? await lazyLoad(import("../../../files/history-files.js")).then(({ historySourcesOf }) =>
+          historySourcesOf(readerMemoryOf(state, node.id).history, runtime),
+        )
+      : [];
+  return { sources: [...input, ...history], transcripts: state.fileTranscripts };
+}
+
+/** The loop's start state of one visit: the thread's memory, the input, its PII and its files. */
+async function visitStartOf(
+  node: RuntimeNode,
+  state: ExecutionStateType,
+  input: string,
+  pii: LoopPii,
+  deps: GraphDeps<string>,
+  runtime: FileRuntime | undefined,
+) {
+  return loopInputOf(state, node.id, input, pii, await loopFilesOf(deps, node, state, runtime));
 }
 
 /** An agent's loops: its own, and the last level's of a recursive workflow (#264). */
@@ -90,7 +112,7 @@ export function agentRunner(
     const { input, pii } = boundaryInputOf(node, state, deps.pii);
     await reportNodeEvent((base) => deps.observer?.onAgentStart({ ...base, name, input }));
     const streamed = visitStreamOf(node, state, config, deps);
-    const start = loopInputOf(state, node.id, input, pii, loopFilesOf(deps, node, state));
+    const start = await visitStartOf(node, state, input, pii, deps, loops.files?.runtime);
     const after = await loop
       .invoke(start, withAgentStream(config, streamed))
       .catch((error: unknown) => {

@@ -1,5 +1,5 @@
 import type { MessageContent } from "@langchain/core/messages";
-import { blockOfPart, type ModelFilePart, type ModelImagePart } from "../models/content.js";
+import { blockOfPart, type ModelBlobPart } from "../models/content.js";
 import { boundedText } from "../graph/agent-loop/tool-result-size.js";
 import type { Bytes } from "../units/index.js";
 import type { FileContent } from "./file-bytes.js";
@@ -11,7 +11,7 @@ import { isTextFormat } from "./file-needs.js";
  */
 
 /** One piece of a message: a text (a heading and what follows) or a file part. */
-export type FilePiece = FileTextPiece | ModelImagePart | ModelFilePart;
+export type FilePiece = FileTextPiece | ModelBlobPart;
 
 /**
  * A text piece. `isMasked`: its text went through the agent's PII policies where it was made (a
@@ -69,6 +69,21 @@ export function maskedTextPieces(
   ];
 }
 
+/** The part a file's bytes are in a message: a PDF, an audio, a video, else an image. */
+function blobPartOf(content: FileContent, data: string): ModelBlobPart {
+  const { mediaType } = content;
+  if (mediaType === "application/pdf")
+    return {
+      kind: "file",
+      mediaType,
+      ...(content.filename === undefined ? {} : { filename: content.filename }),
+      data,
+    };
+  if (mediaType.startsWith("audio/")) return { kind: "audio", mediaType, data };
+  if (mediaType.startsWith("video/")) return { kind: "video", mediaType, data };
+  return { kind: "image", mediaType, data };
+}
+
 /** The original of a file: its text, or its heading and its part. */
 export function originalPieces(
   heading: string,
@@ -77,15 +92,7 @@ export function originalPieces(
 ): readonly FilePiece[] {
   if (isTextFormat(content.mediaType)) return [textPiece(heading, utf8Of(content), maxResultSize)];
   const data = Buffer.from(content.bytes).toString("base64");
-  const part: FilePiece =
-    content.mediaType === "application/pdf"
-      ? {
-          kind: "file",
-          mediaType: content.mediaType,
-          ...(content.filename === undefined ? {} : { filename: content.filename }),
-          data,
-        }
-      : { kind: "image", mediaType: content.mediaType, data };
+  const part = blobPartOf(content, data);
   return [{ kind: "text", text: heading }, part];
 }
 

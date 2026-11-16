@@ -13,9 +13,13 @@ import { FileView } from "./model-files.js";
 export const isTextFormat = (mediaType: string): boolean =>
   mediaType.startsWith("text/") || mediaType === "application/json";
 
-/** Whether a media type has a form in a model message: a text, an image, a PDF. */
+/** Whether a media type has a form in a model message: a text, an image, a PDF, an audio, a video. */
 export const hasModelForm = (mediaType: string): boolean =>
-  isTextFormat(mediaType) || mediaType.startsWith("image/") || mediaType === "application/pdf";
+  isTextFormat(mediaType) ||
+  mediaType.startsWith("image/") ||
+  mediaType.startsWith("audio/") ||
+  mediaType.startsWith("video/") ||
+  mediaType === "application/pdf";
 
 /** The input kind a file of `mediaType` is for the model that reads it in `view`. */
 export function kindOfView(mediaType: string, view: FileView): ModelInputKind {

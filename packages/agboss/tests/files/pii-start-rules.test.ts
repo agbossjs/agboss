@@ -84,14 +84,12 @@ describe("[files.invalid-setting] is an assembly rule, never thrown at import", 
     expect(await codesOf(limits)).toEqual(["files.invalid-setting", "files.invalid-setting"]);
   });
 
-  it("a type no model reads as a file, and the history source that is not read yet", async () => {
+  it("a type no model reads as a file", async () => {
     const types = readerApplication({
-      files: ModelFiles.of({ allowedMediaTypes: ["audio/mpeg"] }),
+      files: ModelFiles.of({ allowedMediaTypes: ["application/zip"] }),
     });
-    const history = readerApplication({ files: ModelFiles.of({ sources: [FileSource.History] }) });
 
     expect(await codesOf(types)).toEqual(["files.invalid-setting"]);
-    expect(await codesOf(history)).toEqual(["files.invalid-setting"]);
   });
 
   it("a valid setting assembles", async () => {

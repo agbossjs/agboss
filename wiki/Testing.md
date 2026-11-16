@@ -1,0 +1,1355 @@
+# Testing — `@agboss/core/testing`
+
+Test an application without models and without the network, from its first day: the real
+container, components and graph rules of every workflow, with **everything external replaced
+automatically**. `testWith(Application)` is the only form (#261) — `testWith(Workflow)` does not
+compile; one workflow is tested through its start with `app.execute`, and a library workflow
+through a small test `@Application` of its own. Vitest (≥ 3.2) is an
+optional peer dependency.
+
+```ts
+// vitest.config.ts — agbossVitest() loads AGBoss in the test's module graph and registers the matchers
+import { defineConfig } from "vitest/config";
+import { agbossVitest } from "@agboss/core/testing/vitest";
+
+export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts"] }) });
+```
+
+## The vitest preset: one module graph (#497)
+
+`agbossVitest(test?)` (`@agboss/core/testing/vitest`) returns the `test` options of a vitest config:
+
+- `server.deps.inline` gains `/@agboss\//`. Installed from npm, `@agboss/core` is an external
+  dependency of vitest: Node loads it, and every project file the core loads by path — the
+  `*.application.ts` the framework's own `workflowOf(W)` (`@agboss/core/internal`) finds next to `W`,
+  the application's environments, eval suites — bypasses vite. Node cannot run their decorators, and
+  even through tsx they would be a second module graph, whose application lists another class object
+  than the test's `W`. Inlined, the core and
+  every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
+  is inlined anyway, which is why only the published package showed it.) #891: the pattern is
+  `/@agboss\//`, every `@agboss` package — a store package (`@agboss/mongodb`, `@agboss/redis`,
+  `@agboss/postgres`) left external would load a core of its own, its classes undecorated for the
+  test's.
+- `setupFiles` gains `@agboss/core/testing/setup`, once.
+- Inlined, vite reads the core's source maps: `@agboss/core` and `@agboss/cli` ship their `src/`
+  beside `dist/` (#645), so a test run prints no "Sourcemap … points to missing source files" and a
+  stack trace inside the core names a line of `node_modules/@agboss/core/src/…` you can open.
+- Your own `setupFiles` and `server.deps.inline` are merged, never replaced (`inline: true` is kept as
+  it is); every other option passes through, and calling it twice adds nothing twice. The entry
+  imports only vitest's types.
+
+Without it, `workflowOf(W)` (`@agboss/core/internal`, no API for a project: its tests use
+`testWith(App)`; the CLI loads everything through tsx in one graph) throws
+`TestSetupError` when the application file's import fails, or when the file's application lists a
+class named like `W` but not `W` itself:
+`the application of <workflow> was loaded outside vitest's module graph; use agbossVitest() from @agboss/core/testing/vitest in vitest.config.ts`,
+the original error as its `cause`. The older form — a raw `setupFiles: ["@agboss/core/testing/setup"]`
+— still registers the matchers, but leaves the core external.
+
+The guard: `npm run check:packed` (CI's `packed-project` job, on every pull request) packs
+`@agboss/core` and `@agboss/cli`, creates a project outside the workspace with the packed CLI
+(`agboss create`), installs the tarballs (checked: installed, not linked), runs its tests with a
+test of its own that assembles a workflow through `workflowOf` of `@agboss/core/internal` (the
+guard's probe, not what a project writes), `agboss describe` and `agboss check` — then the same probe
+under a plain config, which must fail with that `TestSetupError`. It also fails (#645) when a shipped
+`dist/**/*.js.map` names a source the tarball lacks, when the test run prints vite's missing-sources
+warning, or when a test failing inside the core names a frame the installed package does not have.
+Its installs are reproducible (#523): the tarballs go in by path, and their dependencies' ranges
+resolve to releases at least three days old (`npm install --before=<now − 3 days>`; the maintainer
+may set `AGBOSS_NPM_BEFORE` to an ISO date at release time, locally) — a release minutes old never
+enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
+
+<!--
+```ts file=job-scout.ts
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, start, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
+const model = "moonshotai/kimi-k2.6";
+export class FileRead { @Text() path!: string; }
+export class FileContent { @Text() content!: string; }
+export class FileWrite { @Text() path!: string; @Text() content!: string; }
+const tools = { read_text_file: { input: FileRead, output: FileContent }, write_file: { input: FileWrite, output: FileContent } };
+@McpServer({ name: "shortlist", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "."], tools })
+export class ShortlistServer extends McpServerClient<typeof tools> {}
+export class ChosenJob { @Text() title!: string; @Text() link!: string; }
+export class ChosenJobs { @ListOf(ChosenJob) jobs!: ChosenJob[]; }
+export class SavedJobs { @ListOf(Text) added!: string[]; }
+@McpTool({
+  server: ShortlistServer,
+  name: "save-shortlist-tool",
+  description: "Saves jobs",
+  channel: TerminalUserChannel,
+  input: ChosenJobs,
+  output: SavedJobs,
+  deps: [ShortlistServer],
+})
+export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
+  constructor(private readonly server: ShortlistServer) {}
+  async run({ jobs }: ChosenJobs): Promise<SavedJobs> {
+    await this.server.call("write_file", {
+      path: "shortlist.md",
+      content: jobs
+        .map((job) => job.link)
+        .join("\n"),
+    });
+    return { added: jobs.map((job) => job.title) };
+  }
+}
+@Injectable()
+export class OrderBook { statusOf(orderId: string): Promise<string> { return Promise.resolve(`order ${orderId} shipped`); } }
+export class OrderQuery { @Text() orderId!: string; }
+export class OrderInfo { @Text() status!: string; }
+@Tool({ name: "order-status-tool", description: "An order's status", input: OrderQuery, output: OrderInfo, deps: [OrderBook] })
+export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
+  constructor(private readonly book: OrderBook) {}
+  async run({ orderId }: OrderQuery): Promise<OrderInfo> { return { status: await this.book.statusOf(orderId) }; }
+}
+export class JobQuery { @Text() query!: string; }
+export class JobList { @ListOf(Text) jobs!: string[]; }
+@Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobList })
+export class GreenhouseJobs implements ToolHandler<JobQuery, JobList> { run(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
+@Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs.", model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}
+@Agent({ name: "shortlist-agent", description: "Saves jobs", prompt: "Save jobs.", model, tools: [SaveShortlist] }) export class Shortlist {}
+@Agent({ name: "writer-agent", description: "Writes", prompt: "Write.", model }) export class Writer {}
+@Agent({ name: "reviewer-agent", description: "Reviews", prompt: "Review.", model }) export class Reviewer {}
+@WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
+export class ChatWorkflowStart {}
+@WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+export class ChatWorkflowFinish {}
+@Router({ name: "main-router", description: "Routes", decidedBy: DecidedBy.Model, prompt: "Pick who handles the message.", model: "typesafe/jev-1.13", input: { message: WorkflowStartTextDto }, routes: [{ prompt: "Finding jobs", target: Scout }, { prompt: "Saving jobs", target: Shortlist }, { prompt: "Writing", target: Writer }, { prompt: "Reviewing", target: Reviewer }] })
+export class MainRouter {}
+@Workflow({
+  name: "job-scout-workflow",
+  version: "1.0.0",
+  flow: [
+    start(ChatWorkflowStart)
+      .returns(WorkflowStartTextDto)
+      .toRouter(MainRouter)
+      .chooseOne(
+        route(Scout)
+          .toFinish(ChatWorkflowFinish),
+        route(Shortlist)
+          .toFinish(ChatWorkflowFinish),
+        route(Writer)
+          .toFinish(ChatWorkflowFinish),
+        route(Reviewer)
+          .toFinish(ChatWorkflowFinish),
+      ),
+  ],
+  defaults: {
+    models: { temperature: 0 },
+    router: { model: "typesafe/jev-1.13" },
+  },
+  uncompactedTurns: 5,
+  mcp: [ShortlistServer],
+  providers: [OrderBook],
+})
+export class JobScout {}
+@Application({ name: "job-scout-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [JobScout] })
+export class JobScoutApplication {}
+```
+-->
+
+<!-- snippet-context
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+const job = { title: "Senior Engineer", link: "https://boards.greenhouse.io/acme/jobs/1" };
+-->
+
+```ts
+import { replyWith, callTool, routeTo, testWith } from "@agboss/core/testing";
+import { expect } from "vitest";
+
+const test = testWith(JobScoutApplication);
+
+test("saving waits for approval; after it the agent's answer ends the turn", async ({ app, mockLlm, mcpOf }) => {
+  mockLlm(MainRouter).thenReturn(routeTo(Shortlist)); // one router call: the agent's answer finishes the turn
+  mockLlm(Shortlist).thenReturn(callTool(SaveShortlist, { jobs: [job] }), replyWith("Saved 1 job."));
+  mcpOf(ShortlistServer).thenReturn({
+    read_text_file: () => Promise.reject(new Error("ENOENT")),
+    write_file: () => Promise.resolve({ content: "ok" }),
+  });
+
+  const paused = await app.execute(ChatWorkflowStart, { text: "save the first job" });
+  const pauseId = paused.pending[0]?.pauseId ?? ""; // a ThreadOwner pause lists its id (Pauses)
+  const done = await app.resume({ pauseId, decision: { approved: true } });
+
+  expect(paused).toHavePausedAt(Shortlist);
+  expect(done).toFinishWith(ChatWorkflowFinish, { text: "Saved 1 job." });
+  expect(mockLlm(MainRouter).requests).toHaveLength(1);
+});
+```
+
+Components are referenced **by class** everywhere; strings only for data.
+
+## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides?, profile?, profileRoot? })`
+
+A Vitest `test` whose fixtures are:
+
+| Fixture   | What it is                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------ |
+| `app`     | the application's [App](App) (`execute`, `resume`, `cancel`, `close`) — built on first use (`execute`, or `await app.ready()` for a test that executes nothing; a second `ready()` does nothing), so `mockOf` in the test body takes effect; plus `app.clock` and slices |
+| `mockLlm` | the script of an agent or a router: `mockLlm(Scout).thenReturn(…)`                            |
+| `mockOf`  | a typed mock injected instead of a component (a budget too: `mockOf(TenantDailyBudget).maxSpend`) |
+| `mcpOf`   | the stub of an MCP server                                                                  |
+| `apps`    | with `testWith(App, { instances: 2 })`: every instance of the application (`apps[0]` is `app`), each its own container and instance id, over one set of stores and one clock — listed SQLite stores only through a file, not `:memory:` ([Several instances](Several-instances#testing-several-instances)) |
+| `clock`   | the test's [`VirtualClock`](#the-clock) — the application's `Clock`, shared by its instances: `await clock.advance(seconds(31))` |
+| `leases`  | a frozen process (#471): `leases.freeze(apps[0])` holds that instance's lease store calls and lease timers while its steps run on, `leases.thaw(apps[0])` lets them go ([Several instances](Several-instances#testing-several-instances)) |
+| `recoverApp` | `await recoverApp()` closes the current app (its `onStop` hooks run, as on a real stop) and returns a new one over the same test state (the infrastructure the first app created — checkpoints, records, ledger, paused executions — the clock, the ids); the closed app fails every call with `test.app-closed` |
+
+The whole application is assembled when the test starts: a broken workflow fails every test of
+the file before it runs, the message naming it.
+
+**Isolation.** Each test gets a new container, new instances of every provider and new
+infrastructure: the implementations the application lists (`@Application({ providers })`), else
+the built-in in-memory defaults — nothing is substituted, and nothing one test leaves is seen by
+the next.
+
+### Everything external is replaced
+
+- **Models** → scripted (the model gateway is replaced). An agent or router without a script is a
+  blocked live call. Guardrails nobody scripted **pass** (`mockLlm(G).thenReturn(decideWith({ blocks:
+  0.9 }))` blocks); a `@Compaction` nobody scripted writes a fixed summary
+  (`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it, #120 PR 3).
+- **MCP servers** → stubs: `mcpOf(Server).thenReturn({ <server tool>: handler })`; `.calls` lists what
+  the server got. A server tool without a handler fails the test with the server's and the tool's
+  name. `real: [Server]` connects that server for real (an integration test).
+- **Network** → blocked: any `fetch` or `node:http(s)` request to a host not in `allowNetwork` fails
+  before it leaves the process. `allowNetwork: ["localhost"]` covers every loopback address
+  (`127.0.0.1`, `::1`).
+
+A blocked call fails with **`test.live-call-blocked`** and a message naming the class, the server
+tool or the host — even when the run swallowed it (a tool error the agent read): the call that ran
+it (`app.execute`, `app.resume`, a slice) throws it.
+
+### A profile in a test
+
+`testWith(App, { profile: "scout-low-thinking", profileRoot })` runs every workflow of the
+application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
+as `createApp(App, { profile, profileRoot })` does, with the models still scripted and no keys
+(#895). The read-only `app.settings` (by workflow name) is what the profile applied:
+`expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`; its `version`
+is the profile's. `profileRoot` defaults to `process.cwd()`; from a test in `tests/` of a package
+(a monorepo, or tests run from the repository root) use
+`profileRoot: fileURLToPath(new URL("..", import.meta.url))` — never `.pathname`, which is no path on
+Windows. An unknown profile is a `ProfileError` listing the profiles that exist (`base` means none),
+and a model the profile switches to one no listed provider serves fails the assembly with
+`[model.unserved]`, not the first call. See [Profiles](Profiles-and-comparisons#profiles-spring-boot-like).
+
+## Scripted models
+
+<!-- snippet-context
+import { ModelFailure, callTool, failWith, replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("scripts", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(Scout).thenReturn(callTool(GreenhouseJobs, { query: "TypeScript" }), replyWith("3 jobs found"));
+mockLlm(MainRouter).thenReturn(routeTo(Scout), routeTo(Writer)); // one decision per run
+mockLlm(Writer).thenReturn(replyWith("first")).thenReturnAlways(replyWith("again"));
+mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
+```
+
+| Turn                                              | Meaning                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `replyWith(text, { cost?, truncated? })`             | the agent's model answers; `cost: usd(0.002)` is priced as output tokens       |
+| `replyWith(Dto, value, { cost? })`                  | an agent with `output` answers through its answer tool (`answer-<dto>`): a class of its output — a class outside its `oneOf` does not compile (#262); a list output with an array; `cost` is the execution's spend |
+| `callTool(Tool, args)`                            | the agent's model calls a tool — `args` typed by the tool's input DTO; with generated types (`agboss check`) a tool the agent does not list (its `tools`, a tool-mode knowledge base's `search-<rag>-tool`) does not compile (#679) |
+| `callTools(callTool(A, a), callTool(B, b), …)`    | one move calling several tools at once (#508): each call its own task — at once under `TestConcurrency.Real`; one of the agent's typed turns like `callTool`, no cast (#679), each call of a tool it lists |
+| `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.chooseOne(…)`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
+| `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
+| `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
+| `failWith(ModelFailure.Timeout \| RateLimited \| ServerError \| NetworkError)` (the same enum as `@agboss/core/models`) | the call fails: an agent fails the run at the agent, a router with `RouterFailedError` (`step.router`, the failure as its cause) |
+| `callToolWithInvalidArguments(Tool, args)`        | the model calls a tool with arguments its input check refuses — `args` of any shape, no cast (#395): the tool never runs, the call is `ToolCallStatus.InvalidArguments`, counted in `step.validationAttempts`, and the model reads why |
+| `callToolWithTruncatedArguments(Tool, partialArgs)` | the call is cut at the output limit: `{"orderId":"7` as the provider's `invalid_tool_calls`, `finish_reason: "length"` — recorded `InvalidArguments`, the tool never runs |
+| `replyWithInvalidAnswer(Dto, fields, { cost? })`  | an agent with `output` answers through the answer tool of a class of its output (checked like `replyWith`) with fields that do not fit it: an invalid answer, sent back; the third fails the step with `AgentAnswerInvalidError` (`step.agent.invalid-answer`) |
+
+- **By position, never by call order across components:** a component's n-th model call gets its
+  n-th turn, counted over the whole test (every run and every app of it). LangGraph never repeats a
+  checkpointed call, so a run resumed after `recoverApp()` continues the same script — "a paused run survives a restart".
+- A script shorter than the run fails with `test.script-exhausted`
+  (`script exhausted for Writer: 1 turn scripted, asked for #2`) — or end it with `.thenReturnAlways(turn)`.
+- `routeTo(X)` for a node that is not among the router's routes fails with `test.not-a-route`; an
+  agent scripted with `routeTo` or a router with `replyWith` fails with `test.wrong-script` — for a
+  component the generated types know (`agboss check`), both do not compile. A judge or an arbiter
+  (no generated entry) is scripted unchecked.
+
+### The model's mistakes — a validation retry
+
+A tool call or an answer that does not validate is scripted as is, no cast (#395):
+
+<!-- snippet-context
+import { callTool, callToolWithInvalidArguments, callToolWithTruncatedArguments, replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { expect } from "vitest";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
+testWith(JobScoutApplication)("invalid turns", async ({ app, mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).thenReturn(routeTo(Scout));
+mockLlm(Scout).thenReturn(
+  callToolWithInvalidArguments(OrderStatus, { orderId: 7 }), // refused by its input check
+  callToolWithTruncatedArguments(OrderStatus, { orderId: "7" }), // cut JSON: {"orderId":"7
+  callTool(OrderStatus, { orderId: "7" }),
+  replyWith("Order 7 has shipped."),
+);
+const result = await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
+expect(result.toolCalls.at(-1)?.step.validationAttempts).toBe(2); // the two before it
+```
+
+An agent with `output` gives an answer that does not fit its class with
+`replyWithInvalidAnswer(OfferDraftDto, { body: "no text field" })`: the third in a row fails the step
+with `AgentAnswerInvalidError` — `rejects.toFailWith(AgentAnswerInvalidError, { code:
+"step.agent.invalid-answer" })`.
+
+### Binding turns to the input — `when(…)`
+
+`mockLlm(X).when(partial)` gives its turns to the calls whose input matches, whatever their order or
+depth; the calls no `when(…)` matches take the script's own turns. The partial is over **values**,
+typed by `PartialValues<InputOf<X>>` (#262): a deep partial of each field's `value` — the producer
+is not compared (where a value came from is `toFollowPath`'s and `agboss describe`'s), so moving a
+step does not break a data script; a misspelled field does not compile. Agents and model routers
+only.
+
+<!-- snippet-context
+import { replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { JobScoutApplication, MainRouter, Scout, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("when", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).when({ message: { text: "find jobs" } }).thenReturn(routeTo(Scout));
+mockLlm(MainRouter).when({ message: { text: "write it up" } }).thenReturn(routeTo(Writer));
+mockLlm(Scout).thenReturn(replyWith("3 jobs found"));
+mockLlm(Writer).thenReturn(replyWith("A summary."));
+```
+
+- A key left out is not checked; a key given as `undefined` matches only an absent field —
+  `when({ review: undefined })` for the first visit of a loop, `when({ review: { status: … } })` for
+  the next.
+- A `listOf` field is compared by length and position (`when({ companies: [] })` is an empty list);
+  a `oneOf` element may be `variant(CompanyScoreDto, { score: 9 })` to match its class too. A
+  `historyOf` field takes `{ current?, previous? }`. Vitest's asymmetric matchers
+  (`expect.stringContaining(…)`) work anywhere.
+- A call no script matches fails the test, naming its input: `test.no-matching-script` —
+  `no script of mockLlm(Scout) matches the input {"profile":{"summary":"Go"}}`; a `when(…)` that ran
+  out fails as `test.script-exhausted`.
+
+### A script is an expectation
+
+When the test's body passed, a `thenReturn` turn no call took, a `when(…)` nothing matched and a
+`mockTool(…).thenFail(…)` no call caused fail the test at its end (`test.unused-script`, each one
+named: `mockLlm(MainRouter): 1 scripted turn never used`). A `thenReturnAlways` turn is never one —
+use it for a call that may or may not come (a router with one route decides without its model). A
+test that already failed reports its own failure, not the leftovers. A branch cancelled while it
+waits never answers: script only what it gets to.
+
+### Parallel launches
+
+A router before `.toParallelAgents(…)` (#273) decides its `OnDemand` routes with one yes/no per
+route: script it with `routeTo(...)` — the `OnDemand` targets it launches, `routeTo()` for none
+(only with an `Always` route) — or with `decideWith`, P(yes) per target `name`; on a decision
+model and on a chat model alike (for a chat model, above 0.5 is `true` in its answer tool):
+
+<!-- snippet-context
+import { decideWith, testWith } from "@agboss/core/testing";
+import { JobScoutApplication, MainRouter } from "./job-scout.js";
+testWith(JobScoutApplication)("launch decisions", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts no-check: MainRouter of this page chooses one route; a launching router takes the same lines
+mockLlm(SupportRouter).thenReturn(routeTo(RefundPolicyAgent), routeTo());
+mockLlm(SupportRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9, "loyalty-agent": 0.1 }));
+```
+
+Branches run one at a time in a test, in listed / item order
+([Parallel branches](#parallel-branches--testconcurrency)), so the copies of one agent (and the
+runs of a per-item launch) take their turns by copy and item; under `TestConcurrency.Real` they take
+them in the order they call their model. When a reply must fit the item, answer by the request with
+`.thenAnswer(…)` (below), or bind it to the item with `when(…)`. The join's values keep listed / item order
+whatever order the branches answered in; assert on `result.launches` (`items`, `taken`, each
+branch's `status`) and on `result.path`, where a copy is `critic-agent#2` — `toFollowPath` takes
+the class for each copy (`[…, CriticAgent, CriticAgent, …]`).
+
+### Quorums and arbiters
+
+A model arbiter (#279) is scripted like a decision model, by its class, with one answer per arriving
+answer — the question's key is `counts`: `mockLlm(ValidScoreArbiter).thenReturn(decideWith({ counts:
+0.9 }))` (on a chat model alike: above 0.5 is `true`). Its requests show what it judged: the
+criterion (`questions.counts.instructions`) and the answer under `### answer (from <agent>)`; answer
+by the agent with `.thenAnswer(…)`. A code arbiter calls no model — it runs as written; `mockOf(Arbiter)`
+replaces it. The answers arrive in the order the branches complete: one at a time by default, in
+the order a test gives with `TestConcurrency.inOrder([step(A), step(B)])`
+([Parallel branches](#parallel-branches--testconcurrency)) — or, for one late answer past a
+deadline, an agent with a tool that waits on the application's clock and the `clock` fixture moved
+in steps shorter than the lease (three `await clock.advance(seconds(10))`, then `seconds(1)`:
+[The clock](#the-clock)). Assert on `result.launches[0]`:
+`isQuorumReached`, `group`, and each branch's `status`, `verdict`, `acceptedSequence`, `rejectedBy`.
+
+### Reply interpreters
+
+A model reply interpreter (#267 PR 3) is scripted by its class, its input the pause's `{ ask, reply }`
+— so `when(…)` binds a turn to the reply it reads, and its answer is the role's answer DTO:
+
+<!-- snippet-context
+import { ToolCallApprovalDecisionDto } from "@agboss/core/dto";
+import { replyWith, type ModelScript } from "@agboss/core/testing";
+declare function mockLlm(target: unknown): ModelScript;
+declare class RefundReplyInterpreter {}
+-->
+
+```ts
+mockLlm(RefundReplyInterpreter)
+  .when({ reply: "ok, but only half" })
+  .thenReturn(
+    replyWith(ToolCallApprovalDecisionDto, {
+      approved: true,
+      overrideArguments: { orderId: "7", amountCents: 500 },
+    }),
+  );
+```
+
+A text reply (`replyWith("I cannot tell")`) is the model declining: `app.resume` throws
+`UninterpretableReplyError` and the pause stays pending. `.inputs` lists what it read; its request
+is a chat request (`system`: the framework's text and its `prompt`; `input`: `### ask` and
+`### reply`). An interpreter on a decision model (an approval role's, #267 S124) answers its one
+yes / no question — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+approves (P(yes) > 0.5), `decideWith({ approved: 0.2 })` refuses, `{ cost: usd(…) }` its spend; its
+request is `{ kind: "decide", state, questions: { approved: { type: "noul", … } } }`, the state the
+masked `### ask` / `### reply`. A code interpreter calls no model (`mockLlm` of it is a setup error) —
+the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ReplyInterpretation.understood({ approved: false }))`
+(or `ReplyInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
+
+### What a component sent its model
+
+`mockLlm(X).requests` (every request, in order), `.onlyRequest` (fails unless exactly one),
+`.lastRequest`, `.toolCalls`. An agent's request is `{ kind: "chat", system, input, messages }`
+(`messages`: `{ role, text }` — tool results have role `tool`); a router's is
+`{ kind: "decision", input, options, routes, instructions }`; a decision judge's
+`{ kind: "decide", input, state, questions }`.
+
+## Parallel branches — `TestConcurrency`
+
+How a test runs the branches of a parallel launch (#262 S33) is its `concurrency` option:
+
+| `testWith(App, { concurrency })`             | Branches                                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `TestConcurrency.Sequential` (the default)   | one at a time, in listed / item order: every run the same, without saying so                 |
+| `TestConcurrency.Real`                       | as in production: at once, within `maxConcurrency` (a sliding window)                       |
+| `TestConcurrency.inOrder([step(A), step(B)])` | start as usual within `maxConcurrency`; **complete** in that order, through completion gates |
+
+Under `inOrder` each branch runs to its completion point — its node answered or threw — and waits
+at its gate; the listed steps complete strictly in list order, the unlisted branches after them in
+item order. A gate opens once the branch released before it has ended, so what a completion does — a
+`FailFast` abort, a quorum decided — lands before the next completes. `step(Node, partial?)` names a
+branch with the matcher of `when(…)` (`PartialValues<InputOf<Node>>`; none = any branch of the node,
+a repeated step = the next copy); it never supplies an input.
+
+- **A race, the same every run:** `inOrder([step(FailingAgent), step(SlowAgent)])` — the failure
+  completes first and `SlowAgent`, waiting at its gate, ends `Cancelled`; listed the other way round,
+  `SlowAgent` finishes. A quorum counts the listed steps in their order (`acceptedSequence`), and a
+  branch still waiting when it is decided is cancelled at its gate.
+- **A waiting step listens to its signal:** a `FailFast`, a decided quorum or `app.cancel` ends it
+  at once as `Cancelled`, whatever its place in the list.
+- **No silent hang:** when no branch can move and the next listed step is not waiting at its gate
+  — a step the router never launched, or a slot `maxConcurrency` keeps for a branch that waits —
+  the execution fails at once with `test.unreachable-step`, naming the step and the waiting
+  branches. A listed step never reached fails the test at its end, like an unused `when(…)`.
+- **A limit:** the gates see the branches already dispatched. With executions running at once (two
+  `app.execute` calls, `{ instances: 2 }`), a step of a launch another execution has not reached
+  yet can be reported unreachable — order the steps of one execution at a time.
+
+<!-- snippet-context
+declare class PanelApplication {}
+declare class PanelWorkflowStart {}
+declare class SkillsAgent {}
+declare class RisksAgent {}
+declare class HireAgent {}
+declare class PanelSummaryAgent {}
+declare class ScoreDto {
+  score: number;
+}
+declare class ScoreReviewDto {
+  text: string;
+}
+declare const candidate: never;
+-->
+
+```ts
+import { expect } from "vitest";
+import { BranchStatus, BranchVerdict } from "@agboss/core";
+import { replyWith, step, TestConcurrency, testWith } from "@agboss/core/testing";
+
+// two of three count: the hire agent answers first, then the risks agent
+const test = testWith(PanelApplication, {
+  concurrency: TestConcurrency.inOrder([step(HireAgent), step(RisksAgent)]),
+});
+
+test("the first two answers count, the third is cancelled at its gate", async ({ app, mockLlm }) => {
+  mockLlm(SkillsAgent).thenReturn(replyWith(ScoreDto, { score: 7 }));
+  mockLlm(RisksAgent).thenReturn(replyWith(ScoreDto, { score: 6 }));
+  mockLlm(HireAgent).thenReturn(replyWith(ScoreDto, { score: 9 }));
+  mockLlm(PanelSummaryAgent).thenReturn(replyWith(ScoreReviewDto, { text: "summed up" }));
+
+  const result = await app.execute(PanelWorkflowStart, candidate);
+
+  expect(result.launches[0]?.branches).toMatchObject([
+    { nodeId: "skills-agent", status: BranchStatus.Cancelled },
+    { nodeId: "risks-agent", verdict: BranchVerdict.Counted, acceptedSequence: 2 },
+    { nodeId: "hire-agent", verdict: BranchVerdict.Counted, acceptedSequence: 1 },
+  ]);
+});
+```
+
+A surplus answer — two answers for the last place at once — exists only under
+`TestConcurrency.Real`: under `inOrder` the second waits at its gate and the decided quorum cancels
+it there.
+
+## `mockOf(Class)`
+
+A typed mock (`vi.fn()` per method), injected instead of the class; inside the test `mockOf(X)`
+returns the same instance the app uses:
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { testWith } from "@agboss/core/testing";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("a mock", ({ mockOf }) => {
+// @snippet
+});
+-->
+
+```ts
+mockOf(OrderBook).statusOf.mockResolvedValue("order lost");
+// … run …
+expect(mockOf(OrderBook).statusOf.mock.calls).toEqual([["7"]]);
+```
+
+Call it before the first `app.execute` (after it is a clear error). A class the workflow does not use
+(not a provider, a tool or a knowledge base of it) is an error too. Mocks have no lifecycle hooks.
+
+**Channels** (#267): a tool that names `AutoApproveChannel` / `AutoRejectChannel` decides at once —
+no pause, no pause record. A role's implementation listed in the application is scripted like any
+class: `mockOf(SlackRefundApprovalChannel).send.mockResolvedValue(ChannelOutcome.decided({ approved:
+true }))` goes on at once; left as written, it pauses and the test answers like a webhook —
+`app.resume({ pauseId, decision }, { answeredBy })` with the `pauseId` the channel was sent (a
+`ThreadOwner` pause: `result.pending[0].pauseId`, with the thread's `ownerId`). Two pauses of one
+tree answered at once from `apps[0]` and `apps[1]` (`instances: 2`) test the concurrent answers
+([Pauses](Pauses#concurrent-answers)).
+
+### `overrides` — a class replaced by a class
+
+`testWith(App, { overrides: [override(Class, Replacement)] })` (#267 S104): wherever the application
+asks for `Class`, its container creates `Replacement` instead — over any class the application lists,
+with the replacement's own `deps`. It is the `override(…)` of the [unit runners](#unit-runners--one-component-on-its-own).
+A channel role is answered in a test without its transport this way: the replacement need not
+`extend` the role, but its `send` must take the role's `ChannelAsk` and give its `ChannelOutcome` —
+a channel of another answer does not compile. There is no `channels` option; `mockOf(Implementation).send`
+scripts the role's own implementation instead.
+
+
+```ts no-check: the role's ChannelAsk / ChannelOutcome come from the generated types of a project
+import { AutoApproveChannel } from "@agboss/core";
+import { override, testWith } from "@agboss/core/testing";
+
+// every refund the agent asks for is approved at once: no pause, no Slack
+const test = testWith(RefundApplication, {
+  overrides: [override(RefundApprovalChannel, AutoApproveChannel)],
+});
+```
+
+## `mockAction(A)` and `mockTool(T)`
+
+`mockAction(A)` (#262) watches an action — it still runs as written: `.inputs` is its input of every
+call (`Produced` records, as it read them), and the call matchers below check what it — or an error
+handler on a side path — received and returned. `mockTool(T).thenFail(ToolFailure.Timeout)` makes
+the tool's next call fail as a real timeout would (the agent's model reads `timed out after 30000
+ms`); the calls after the scripted failures run the tool. Both before the first `app.execute`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { callTool, replyWith, routeTo, testWith, ToolFailure } from "@agboss/core/testing";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter, OrderStatus, Scout } from "./job-scout.js";
+testWith(JobScoutApplication)("a tool timeout", async ({ app, mockLlm, mockTool }) => {
+// @snippet
+});
+-->
+
+```ts
+mockTool(OrderStatus).thenFail(ToolFailure.Timeout);
+mockLlm(MainRouter).thenReturn(routeTo(Scout));
+mockLlm(Scout).thenReturn(
+  callTool(OrderStatus, { orderId: "7" }), // times out
+  callTool(OrderStatus, { orderId: "7" }), // runs the tool
+  replyWith("Shipped, after a retry."),
+);
+
+await app.execute(ChatWorkflowStart, { text: "where is order 7?" });
+
+expect(mockLlm(Scout)).toHaveBeenCalledTimes(3);
+```
+
+## Slices
+
+One component of the real app on its own:
+
+- `app.tool(X).invoke(input)` — the tool with its real (or mocked) dependencies → `ToolResult`; it
+  runs in an execution of its own, so an injected `ExecutionContext` reads (`step.callId`
+  `"tool-slice"`);
+- `app.router(X).routeTo(text)` → the node it chooses;
+- `app.agent(X).replyWith(task)` → its answer (its model, prompt and tools; no flow, no approval pause).
+
+## Matchers
+
+| Matcher                                          | On                       | Passes when                                          |
+| -------------------------------------------------- | ---------------------------- | ------------------------------------------------------- |
+| `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names; a launch's copy `critic-agent#2` is its class) |
+| `toFinishWith(Finish, data?)`                    | a run result             | it finished there (with that output)                 |
+| `toHavePausedAt(Agent)`                          | a run result             | it waits for a human in that step (`pending[i].step`) |
+| `toFailWith(ErrorClass, { …fields, cause? })`    | an error (`.rejects`)    | the error or one it was caused by is of that class (a subclass too) with those fields (deep partials); `cause` names a class further down the chain (#262) |
+| `toHaveBeenCalledWith(partial)`                  | `mockLlm(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
+| `toHaveBeenCalledTimes(n)`                       | `mockLlm(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |
+| `toHaveReturned(XDto, fields?)`                  | `mockLlm(X)`, `mockAction(A)` | it returned a value of that class (a text agent: `WorkflowFinishTextDto`) with those fields |
+| `toHaveScriptedToolCalls([Tool, …])`             | `mockLlm(Agent)`         | its model called exactly these tools, in order (was `toHaveCalledTools`, #395) |
+| `toHaveCalledTools([Tool, …])`                   | a run result             | each tool was called at least once by the root's agents, in any order, whatever its status; `.not`: none of them was (#395) |
+| `toHaveToolCallMatching(Tool, partialOrCheck)`   | a run result             | some call of `Tool` has an input matching the deep partial, or the check `(input) => boolean` (run on calls whose input passed the tool's input check); `.not`: none does (#395) |
+| `toHaveBeenAskedWith({ input?, system?, … })`      | `mockLlm(X)`             | some request has these parts (strings as substrings) |
+| `toHaveChildExecutions(W, [{ item, finish \| failedWith \| cancelled }, …])` | a run result | the executions of child workflow `W` in the result's tree, in item order, are exactly these (#263) |
+| `toHaveHandledError(E, { at?, by? })`             | a run result             | an error of `E` (or caused by one) happened at `at` and the side path starting at `by` took it (#263) |
+| `toHaveCompensated(Action, { by, reason?, status? })` | a run result         | a step of `Action` was undone by the undo action `by` — for `reason` (`CompensationReason.SidePath`, `JoinFailed`), ending `status` (default `CompensationStatus.Compensated`) — read from `result.compensations` (#340) |
+
+Failure messages name the classes: `expected the path ChatStart → MainRouter → Support, it was …`.
+The call matchers keep Vitest's names; on anything that is not a script — a `vi.fn()`, a
+`mockOf(…)` method — they are Vitest's own. `mockLlm(X).inputs` lists X's input of every call.
+
+### Asserting the tool calls
+
+`result.toolCalls` lists the root execution's tool calls in call order (`ToolCallRecord`: `step`,
+`input`, `output`, `status: ToolCallStatus`, `error?`, `isResultTruncated`, times — [Observability →
+tool calls and steps](Observability#tool-calls-and-steps)); `toolCallsOf(Tool, result.toolCalls)`
+gives one tool's, typed by its input and output once narrowed by `status`. Assert invariants that
+hold whatever the order: which tools ran, with what, how each ended — `toHaveCalledTools` and
+`toHaveToolCallMatching` (typed by the tool's input, `ToolCallExpectation<TInput>`) for the usual
+ones, `toolCallsOf` for the rest. A child's calls are asserted through `result.children`.
+
+<!-- snippet-context
+import type { ExecutionOutput } from "@agboss/core";
+import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "@agboss/core";
+import { Text } from "@agboss/core/dto";
+import { expect } from "vitest";
+import "@agboss/core/testing/setup";
+export class OrderQuery {
+  @Text() orderId!: string;
+}
+export class OrderInfo {
+  @Text() status!: string;
+}
+@Tool({ name: "get-order-tool", description: "An order", input: OrderQuery, output: OrderInfo })
+export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
+  run({ orderId }: OrderQuery): Promise<OrderInfo> {
+    return Promise.resolve({ status: `order ${orderId} shipped` });
+  }
+}
+@Tool({ name: "delete-order-tool", description: "Deletes", input: OrderQuery, output: OrderInfo })
+export class DeleteOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
+  run(): Promise<OrderInfo> {
+    return Promise.resolve({ status: "deleted" });
+  }
+}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result).toHaveCalledTools([GetOrderTool]); // at least once, any order
+expect(result).not.toHaveCalledTools([DeleteOrderTool]); // never
+expect(result).toHaveToolCallMatching(GetOrderTool, { orderId: "7" });
+expect(result).toHaveToolCallMatching(GetOrderTool, (input) => input.orderId.length > 0);
+const lookups = toolCallsOf(GetOrderTool, result.toolCalls);
+const succeeded = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
+expect(succeeded.map((call) => call.input.orderId)).toContain("7");
+expect(result.toolCalls.every((call) => call.status !== ToolCallStatus.TimedOut)).toBe(true);
+```
+
+`result.record.steps` (`{ record: true }`) has each visit's judge verdicts, guardrail decisions,
+spend and `inputHash`.
+
+### Asserting an undo
+
+`result.compensations` lists every undo action that ran, in the order they ended (`[]` when none
+did); `toHaveCompensated` reads it. An automatic undo's key is the undone step's key +
+`:compensation`, so a mocked service sees it ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches));
+its clean-up signal is bounded by `compensationTimeout` on the test's clock —
+`await clock.advance(seconds(15))` aborts one still running.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { CompensationReason, CompensationStatus, type ExecutionOutput } from "@agboss/core";
+declare class BookFlightAction {}
+declare class CancelFlightAction {}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result).toHaveCompensated(BookFlightAction, {
+  by: CancelFlightAction,
+  reason: CompensationReason.JoinFailed, // the hotel failed: the finished flight was cancelled
+});
+expect(result.compensations.map((record) => record.status)).toEqual([CompensationStatus.Compensated]);
+```
+
+### Errors, caused the real way
+
+The testing API cannot create a framework error by name: a test causes it — `failWith(ModelFailure.…)`,
+a rejecting `mockOf(…)` method, `mockTool(T).thenFail(ToolFailure.Timeout)`, judges via
+`decideWith`, a budget via `mockOf(Budget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost,
+`maxSteps` / `maxVisits` by scripts that reach them, a cancellation by `app.cancel` / `signal` (also
+from inside a mock: `mockOf(MailerService).send.mockImplementation(() => app.cancel(threadId))`).
+An application test checks its own reaction — its `.onError` path and its finish — not the
+framework's counting; there is no `limits` option on `testWith`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { RouterFailedError } from "@agboss/core";
+import { failWith, ModelCallFailedError, ModelFailure, testWith } from "@agboss/core/testing";
+import { ChatWorkflowStart, JobScoutApplication, MainRouter } from "./job-scout.js";
+testWith(JobScoutApplication)("a failed router", async ({ app, mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(MainRouter).thenReturn(failWith(ModelFailure.Timeout));
+
+await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(RouterFailedError, {
+  nodeId: "main-router",
+  cause: ModelCallFailedError,
+});
+```
+
+
+### Asserting outdating
+
+`app.execute(…, { record: true })` returns `result.record` with both channels of the path scope
+([Path scope → At run time](Path-scope#at-run-time)): `scope` (current values) and
+`outdatedValues` (each with `outdated: { byValueId, reason }`). Ids are deterministic
+(`${nodeId}:${visitNumber}/${slot}`), so a test names them:
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { OutdatedReason, type ExecutionOutput } from "@agboss/core";
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result.record?.outdatedValues.map((value) => [value.valueId, value.outdated])).toEqual([
+  ["writer-agent:1/DraftDto", { byValueId: "writer-agent:2/DraftDto", reason: OutdatedReason.Replaced }],
+  [
+    "reviewer-agent:1/ArticleChangesDto",
+    { byValueId: "writer-agent:2/DraftDto", reason: OutdatedReason.AboutReplaced },
+  ],
+]);
+expect(result.record?.scope.find((value) => value.slot === "DraftDto")?.value).toEqual({ text: "v2" });
+```
+
+An observer listed in `@Workflow({ observers })` sees each cascade as one `onValuesOutdated` event
+([Observability](Observability#outdated-values)); `mockLlm(X).lastRequest.input` shows that no
+outdated value reached the model.
+
+### Child workflows
+
+A child workflow (#263, [Workflow as a step](Workflow-as-a-step)) runs fully inside its parent:
+script its agents with `mockLlm(…)` like the parent's. `result.children` holds a nested record per
+child execution (`ChildExecutionRecord`), `result.handledErrors` every failure a side path took;
+the two matchers read them:
+
+<!-- snippet-context
+import { expect } from "vitest";
+import { ChildExecutionFailedError, StepsLimitExceededError, type ExecutionOutput } from "@agboss/core";
+declare class VendorCheckWorkflow {}
+declare class VendorScoredWorkflowFinish {}
+declare class ScreeningStoppedWorkflowFinish {}
+declare const result: ExecutionOutput;
+-->
+
+```ts
+expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
+  { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
+  { item: { name: "Globex" }, failedWith: StepsLimitExceededError }, // in the cause chain
+  { item: { name: "Initech" }, cancelled: true }, // a sibling failed first (FailFast)
+]);
+expect(result).toHaveHandledError(ChildExecutionFailedError, {
+  at: VendorCheckWorkflow,
+  by: ScreeningStoppedWorkflowFinish,
+});
+```
+
+`item` is the child's start input, or one field of a map input; `failedWith` matches the record's
+error or a cause (`ChildExecutionFailedError` → `ActionFailedError` → your domain error). A child
+that never started (the launch was aborted first) has no execution: it is a `Cancelled` branch in
+`result.launches` only.
+
+## Lifecycle and isolation
+
+- Real components get `onInit` → `onStart` when the app is built and `onStop` → `onDestroy` after the
+  test — also when the test failed ([App → Lifecycle hooks](App#lifecycle-hooks)).
+- Per test: its own checkpoints, spend ledger, Turns and paused runs (in memory), deterministic ids
+  (`thread-1`, `execution-1`, …, [Ids](#ids)) and a clock fixed at the start. Two tests — even in parallel, with the same
+  thread id — never see each other.
+- `await app.clock.advance("25h")` moves the time (units `ms`, `s`, `m`, `h`, `d`, or a value with
+  its unit, `seconds(31)`): a daily budget (`BudgetPeriod.Day`) starts a new UTC day, its counter from zero. The work
+  already started first reaches its next wait; then the time jumps and the framework's waits that
+  are due wake in time order ([The clock](#the-clock)).
+
+## The clock
+
+All time in the framework is the application's `Clock` (#262) — `now()` and
+`sleep(delay, signal?)`, infrastructure like the stores: the system's clock, unless
+`@Application({ providers })` lists a class that `extends Clock`. In every test it is the test's
+**`VirtualClock`** (`@agboss/core/testing`) — whatever the application lists, since the test controls the
+time — the `clock` fixture, `app.clock`, and what a component that injects `Clock` gets. `testWith` always runs on the `VirtualClock`, even when the application lists its own `Clock`: tests never run on real time.
+
+- It starts at `2026-01-05T09:00:00.000Z` (so days and ids are reproducible) and moves only by
+  `await clock.advance(…)`: the work already started first reaches its next wait, then the time
+  jumps and every wait that is due wakes in time order (two due at one moment: in the order they
+  began), each one's work running before the next wakes. A jump of a whole lease (30 s) or longer
+  is a running execution's holder frozen for that long: its renewal wakes past the lease's expiry
+  and is refused, so its call rejects with `ExecutionLeaseLostError` (#534, #551). To let time pass
+  for a live holder — a model call scripted with `waitFor(seconds(31))`, a tool's 30 s timeout, a
+  quorum's deadline, a `Retry-After` — advance in steps shorter than the lease
+  (`for (let step = 0; step < 3; step += 1) await clock.advance(seconds(10))`, then the rest); a
+  frozen holder in a test is that one long jump, or `leases.freeze(app)`.
+- **Work with real I/O (#511)**: one turn of the event loop is enough for in-memory work, not for a
+  database round trip. `clock.track(promise)` registers work `advance` waits for — before the jump
+  and after each wait it wakes — and returns the promise as it is (a rejection reaches its caller,
+  not `advance`). The [store contract suites](#store-contract-suites--agbosscoretestingcontracts-481)
+  track every store call of their targets. Work that does not settle within
+  `new VirtualClock(start, { settleTimeout })` of real time (default 2 s) fails `advance` with
+  `UnsettledWorkError` (`test.unsettled-work`, its `inFlight` count): the test never hangs.
+- **Right after `app.execute` (#646)**: `const run = app.execute(…); await clock.advance(…)` is
+  deterministic — no fixture, no wait for the model's requests. The first execution of a test file
+  loads the core's lazy modules (under `agbossVitest()` through vite's module runner: ~300 turns of the
+  event loop), and an execution of an app not built yet builds it first, loading its files by path;
+  every one of those loads is `lazyLoad(import(…))` in the core (lint-enforced), and `advance` waits
+  for every load in flight — before the jump and after each wait it wakes — so the executions the
+  test started reach their next wait on the clock first (a model call scripted with `waitFor`, a step
+  slot, a timeout). A load that does not settle within 30 s of real time fails `advance` with
+  `UnsettledWorkError`. What `advance` cannot see is work that waits on something else than the
+  clock — a promise the test itself holds, a frozen lease store (`leases.freeze`): await that yourself.
+  Since `advance` now lets an execution run as far as the clock allows, one it moves to its end may
+  reject while `advance` runs: hold its rejection before advancing
+  (`const failure = run.catch((error: unknown) => error)`, then `expect(await failure)…`), else
+  vitest reports an unhandled rejection.
+- What it moves, without real waiting: `applicationContext.startedAt`, the ledger's UTC day, the
+  records' times, every lease's `expiresAt` and its renewals, a resume waiting for a tree's lease,
+  the recovery sweep, the shutdown timeout, a tool's `timeout`, a model call's timeout, the waits
+  between retries and a `429`'s `Retry-After` pause (the circuit breakers are shared by the whole
+  process and keep the system's time).
+- A unit test of a component that needs the time passes one itself: `new VirtualClock()` (or
+  `new VirtualClock(new Date("2026-03-01T00:00:00Z"))`).
+
+```ts
+import { Clock, Injectable } from "@agboss/core";
+import { VirtualClock } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
+import { expect, it } from "vitest";
+
+@Injectable({ deps: [Clock] })
+export class ReminderService {
+  constructor(private readonly clock: Clock) {}
+
+  async remindLater(): Promise<Date> {
+    await this.clock.sleep(seconds(30));
+    return this.clock.now();
+  }
+}
+
+it("reminds after 30 seconds of the clock, at once", async () => {
+  const clock = new VirtualClock();
+  const reminded = new ReminderService(clock).remindLater();
+
+  await clock.advance(seconds(30));
+
+  expect((await reminded).toISOString()).toBe("2026-01-05T09:00:30.000Z");
+});
+```
+
+The framework reads no time any other way: `Date.now()`, `new Date()` and `Date()` without
+arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout`, `Atomics.wait` and the
+`node:timers` modules in its sources fail lint (`agboss/no-direct-time`, in `make check`) — the one
+real implementation, `SystemClock`, excepted (its module also holds `pauseThread`, the one blocking
+wait: synchronous SQLite startup, bounded by the busy timeout, #911).
+
+A test does not read real time either, to assert on it (#509, #523): no test compares real elapsed
+time with a fixed number — on a loaded runner a 300 ms floor measures 299 ms. It advances a
+`VirtualClock` and asserts what happened before and after (a request still pending at 49 ms of a
+50 ms timeout, rejected at 50), or on the order of events (one call started after the other ended);
+a "never hangs" bound is the test's own timeout. `npm run check:real-time` (in `make check`) fails
+on a comparison matcher against a number whose argument is a duration or a real time read, and
+`node scripts/flaky-probe.mjs <file> 50` proves a rewritten test.
+
+The gate runs every test it declares (#630): `npm run coverage` holds vitest's JSON report against
+`packages/agboss/test-run.json` (`scripts/check-test-run.mjs`) — every file of the `unit` and
+`faults` projects ran a test, each project at least its `minFiles` — and fails naming the project
+and the files otherwise. Vitest 3's forks pool skips a `singleFork` project (the fault suite) whole
+when another fork of the pool rejects; a test that holds its fork's event loop 60 s — a synchronous
+child process — times out the fork's report to vitest and does exactly that. So the core's tests
+await their child processes (`tests/helpers/process.ts`; ESLint refuses `spawnSync`,
+`execFileSync` and `execSync` there).
+
+## Ids
+
+Every thread id and execution id the framework mints comes from the application's `IdGenerator`
+(#313, [App → Infrastructure](App#infrastructure)). Under `testWith` it is a
+**`SequentialIdGenerator`** (`@agboss/core/testing`) unless the application lists its own: `thread-1`,
+`thread-2`, … for new threads and `execution-1`, `execution-2`, … for executions — a root before its
+children, in the order they are made — counted from 1 in every test and shared by its instances
+(`instances: 2`, `recoverApp()`), so a test names them. A caller's own `threadId` is used as given.
+An application that lists an `IdGenerator` keeps it in its tests too. The ids start again in every
+test, so two tests on one kept database (a SQLite file shared by tests) mint `execution-1` twice:
+the second is `DuplicateExecutionIdError` (#591) — give each test a store of its own. A `pauseId` never comes from
+it: it stays a random 128-bit token (32 hex characters) — read it from `result.pending`.
+
+<!-- snippet-context
+import { expect } from "vitest";
+import type { ExecutionOutput } from "@agboss/core";
+declare const paused: ExecutionOutput;
+// @snippet
+-->
+
+```ts
+expect(paused.threadId).toBe("thread-1");
+expect(paused.executionId).toBe("execution-1");
+expect(paused.pending[0]?.childExecutionId).toBe("execution-2");
+expect(paused.pending[0]?.pauseId).toMatch(/^[0-9a-f]{32}$/);
+```
+
+## Three kinds of tests
+
+What each layer checks — scripts, then evaluation, then smoke: [The test split](Test-split).
+
+`agboss create` sets up three Vitest projects by file name — empty ones pass:
+
+| Project       | Files                     | Models                                   |
+| -------------- | ---------------------------- | -------------------------------------------- |
+| `unit`        | `*.test.ts`               | none — scripts and fakes                 |
+| `integration` | `*.integration.test.ts`   | recorded answers ([VCR](#vcr--recorded-runs)), real MCP servers |
+| `suites`      | `*.suite.test.ts`         | real models, budget-capped, scheduled    |
+
+`npm test` runs unit + integration; the generated `test:suites` script (`vitest run --project suites`)
+runs the suites. A new project's workflow test
+(`tests/workflows/<workflow>/<workflow>.workflow.test.ts`) scripts the main router and the first agent.
+
+**`tests/` mirrors `src/` (#474).** A component's unit test sits at its module's path with `.test.ts`
+(`tests/tools/refund.tool.test.ts` ↔ `src/tools/refund.tool.ts`,
+`tests/billing/routers/refund/refund.router.test.ts` ↔ `src/billing/routers/refund/refund.router.ts`);
+a workflow's tests sit in its folder's mirror (`tests/[<domain>/]workflows/<w>/`, any number of
+`*.test.ts` there); a whole application's in `tests/<app>.application.test.ts`. Helpers and cassettes
+go to a `support/` or `__snapshots__/` folder inside a mirrored folder — the tests that use them sit
+beside them (`examples/flow-patterns`: `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`).
+`agboss generate` writes tests there, and the shipped skills' snippets keep to it
+(`packages/agboss/tests/docs/skills-layout.test.ts`).
+
+## Compile-time tests
+
+Type mistakes are tested too: a `*.test.ts` line marked `// @ts-expect-error — <reason>` must stay a
+compile error — `tsc` (in `make check`) fails when such a line compiles. One file per decorator family:
+
+<!-- snippet-context
+import { callTool } from "@agboss/core/testing";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+-->
+
+```ts
+// @ts-expect-error — orderId is a string in the tool's input DTO
+callTool(OrderStatus, { orderId: 42 });
+```
+
+What decorator mistakes look like in the compiler's output:
+
+| Code   | Message (shortened)                                               | Typical cause                                              |
+| ------ | ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| TS1238 | Unable to resolve signature of class decorator …                  | `@Tool({ deps })` does not fit the constructor (order, type, count) |
+| TS1240 | Unable to resolve signature of property decorator …               | a DTO field decorator on a field of another type (`@Text()` on a number) |
+| TS1270 | Decorator function return type '…' is not assignable to type '…' | the class does not implement what its decorator requires (`ToolHandler`, `WorkflowDefinition`) |
+
+Examples in the framework: `tests/components/compile-time.test.ts`, `tests/dto/types.test.ts`,
+`tests/testing/types.test.ts`.
+
+## Unit runners — one component on its own
+
+A component is tested without a workflow by its unit runner (#262 S55, S62, S89): each builds the
+component's own container — its `deps` resolved, `overrides: [override(Class, Replacement)]`
+replacing classes by classes (no `new`, no instance: `provide(Class, …)` stays
+`[di.instance-provider]`), the `environment` as `applicationContext.environment` — and runs every
+call in the frame of its step, as the flow would: an `ExecutionContext` of the execution
+`test-execution` (the component's step; the tenant and the execution's values the options give —
+`tenantContext` / `tenant`, `executionContext` / `execution`, as [`testExecutionContext`](#testexecutioncontext--)
+takes them and checked by the classes' field decorators, a wrong one a `DtoValidationError` when the
+runner is made — else the default tenant), `executionContext.signal` aborting
+after `timeout` on the runner's `VirtualClock` (`run.clock`), `SpendRecorder` and the component's
+model calls into the call's `spend`. A component that calls a model answers from `model` — one turn
+per call, a list for several (`replyWith`, `decideWith`, `routeTo`, `failWith`, typed like
+`mockLlm(X).thenReturn(…)`). DTO values are plain objects; a step's input fields are
+`{ producer, value }` records, the producer its class. Every call gives `{ output, spend }`; a
+failure rejects as the component threw it.
+
+| Runner                                  | A call                                                     | `output`                                    |
+| --------------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
+| `testTool(Tool, options)`               | `run(input, { timeout })` — default the tool's `timeout`   | the output DTO (input and output validated) |
+| `testAction(Action, options)`           | `run(input, { timeout })`                                  | what `execute` returned, checked against `output` |
+| `testRouter(Router, options)`           | `run(input, { timeout })`                                  | the target(s) it chose (`Route<R>`)         |
+| `testArbiter(Arbiter, options)`         | `run(Agent, answer, { timeout })`                          | whether the answer counts                   |
+| `testRag(Rag, options)`                 | `run(query, { topK, timeout })`                            | its search results (`costUsd` → `spend`)    |
+| `testJudge(Judge, options)`             | `run({ variant, reply, task, attempt, toolCalls? }, { timeout })` — typed by the judge; `toolCalls` `[]` when not given | its `JudgeVerdict`              |
+| `testGuardrail(Guardrail, options)`     | `run(text, { element, timeout })`                          | `{ isBlocked, probability, refusal? }`      |
+| `testReplyInterpreter(Role, options)`   | `run({ ask, reply }, { timeout })` — typed by the role (#644) | `{ isUnderstood: true, answer }` or `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it |
+| `testPii([Policies], options)`          | `.mask(text)`, `.reveal(text)`                             | the masked text; the revealed one           |
+| `testCompaction(Compaction, options)`   | `run({ previousSummaries, turnsToCompact }, { timeout })` (#395) | `{ summaries, requests }` (`CompactionResult`) |
+
+<!-- snippet-context
+import { OrderBook, OrderStatus } from "./job-scout.js";
+-->
+
+```ts
+import { Injectable } from "@agboss/core";
+import { override, testTool } from "@agboss/core/testing";
+import { seconds } from "@agboss/core/units";
+import { expect, it } from "vitest";
+
+@Injectable()
+export class LostOrderBook extends OrderBook {
+  override statusOf(orderId: string): Promise<string> {
+    return Promise.resolve(`order ${orderId} lost`);
+  }
+}
+
+it("looks the order up in the book it is given", async () => {
+  const runStatus = testTool(OrderStatus, { overrides: [override(OrderBook, LostOrderBook)] });
+
+  const { output, spend } = await runStatus({ orderId: "7" }, { timeout: seconds(1) });
+
+  expect(output).toEqual({ status: "order 7 lost" });
+  expect(spend.totalUsd).toBe(0);
+});
+```
+
+- **`testTool`** runs `run` as an agent's tool call runs it: the input validated against its input
+  DTO (`DtoValidationError`), the call's `step.callId`, its timeout (`ToolTimeoutError` — move
+  `runStatus.clock` past it), the output validated; `SpendRecorder` records as `tool:<name>`.
+- **`testAction`** takes what `execute` takes — `{ order: { producer: OrderIntakeAgent, value: { … } } }`
+  — and checks the result against its `output` (`variant(XDto, value)` for a `oneOf`), spend as
+  `action:<name>`.
+- **`testRouter`**: a code router's `route(input)` on its container, at no cost; a model router's
+  texts loaded (`prompt`, `promptUrls`, the route prompts, checked like at assembly) and its input
+  message built from the fields, its model answering from `model` — `routeTo(X)` after
+  `.chooseOne(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
+  launch; a target outside its routes is `RouterDecisionError`, a failed call `RouterFailedError`.
+  A model router without its own `model` decides on a decision model, as `defaults.router` does.
+- **`testArbiter`**: a code arbiter's `@OnAnswer(Agent)` method gets the answer; a model arbiter
+  asks its model with the agent's criterion (`model: decideWith({ counts: 0.9 })`, spend as
+  `arbiter:<name>`). One that throws, answers no boolean or whose model does not answer is
+  `ArbiterError`, never a rejection.
+- **`testRag`** calls `retrieve(query, { topK, signal })` (`topK` default the `@Rag`'s); its reported
+  `costUsd` is the spend, as `rag:<name>`.
+- **`testJudge`**: `reply` is a plain object of the judge's `reply` (`JudgeHandler<TReply>`: a
+  `JobReportDto`, `OfferDto | RefusalDto`, `{ text }` for `PlainTextDto`), and `variant` the class it
+  stands for (#262 S125: `JobReportDto`, `OfferDto` or `RefusalDto`, `PlainTextDto`; for a
+  `listOf(oneOf(A, B))` judge no `variant`, each item `{ variant, value }`), passed to it as given —
+  another shape, or a `variant` with another class's value (`{ variant: OfferDto, reply: { why } }`),
+  does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
+  answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
+  wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
+  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`. A code judge (`decidedBy:
+  DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
+  spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
+- **`testCompaction`** (#395 PR 5) — a `CompactionRunner` — checks the compaction's rules first, then
+  compacts one `CompactionInput`. A model strategy writes on `model` (`replyWith("…")`, `{ truncated:
+  true }` for a summary cut at `summaryMaxTokens`, `{ cost }` for its spend `compaction:<name>`):
+  `requests` is what its model was sent — its `instructions` (its prompt, or the built-in one) and
+  its `input`, the turns as a reader's memory renders them (`start <name>: <json>` / `finish …`), a
+  `SingleSummary` with its current summary (the last of `previousSummaries`, `(none yet)` without
+  one); the earlier turns a `SummaryQueue` reads as context at run time are not part of the input —
+  and `summaries` what readers see next (a queue the latest `summaryQueueLength`, a single summary
+  the new one). A cut summary is asked once more, shorter (two requests), then `CompactionError`, as
+  an empty one. `CompactionStrategy.Custom` (#382) runs `compact(input)` on the runner's container
+  (`deps`, `overrides`), in a step's frame, its answer checked as at run time; no `model` (one is a
+  `TestSetupError`), no requests. `CompactionStrategy.None` writes nothing: a `TestSetupError`. No
+  PII policies apply. It checks the request and the plumbing — whether a fact survives compaction is
+  an eval case ([Testing suites and comparisons](Testing-Suites-And-Comparisons)).
+- **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (`-guardrail`, one refusal, a
+  question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
+  (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`
+  (`{ cost }` for its spend, `guardrail:<name>`), unscripted it passes; a model that does not answer
+  rejects with `GuardFailedError`. A block is the output `{ isBlocked: true, probability, refusal }`
+  — the decorator's text or the class's `refusal()`, computed in the step's frame (`executionContext`
+  / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
+  `model` decides on a decision model, as `defaults.guardrail.model` does.
+- **`testPii`** checks the policies' own rules first (`[name.kind-suffix]` — a name ends with
+  `-pii-policy` —, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
+  `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
+  calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
+  `reveal(text)` what its answer becomes; a `detectWithModel` policy answers from `model`
+  (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
+
+<!-- snippet-context
+import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { PlainTextDto } from "@agboss/core/dto";
+@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", reply: PlainTextDto, deps: [JudgeModel] })
+export class GroundedJudge implements JudgeHandler<PlainTextDto> {
+  constructor(private readonly judgeModel: JudgeModel) {}
+  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const answers = await this.judgeModel.decide({
+      state: { task, reply: reply.text },
+      questions: { grounded: Decision.noul("Is the reply grounded in the task?") },
+    });
+    return answers.grounded.noul > 0.5
+      ? JudgeVerdict.passed()
+      : JudgeVerdict.failed({ reason: "ground every claim in the task" });
+  }
+}
+@PiiPolicy({
+  name: "contact-pii-policy",
+  description: "Hides contact details",
+  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+})
+export class ContactPiiPolicy {}
+-->
+
+```ts
+import { decideWith, testJudge, testPii } from "@agboss/core/testing";
+import { usd } from "@agboss/core/units";
+import { expect, it } from "vitest";
+
+it("a grounded reply passes, at the decision's cost", async () => {
+  const runJudge = testJudge(GroundedJudge, {
+    model: decideWith({ grounded: 0.9 }, { cost: usd(0.003) }),
+  });
+
+  const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
+  const { output, spend } = await runJudge({
+    variant: PlainTextDto, // the class of a text agent's reply
+    reply,
+    task: "Find TS jobs",
+    attempt: 0,
+  });
+
+  expect(output.passed).toBe(true);
+  expect(spend.totalUsd).toBeCloseTo(0.003);
+});
+
+it("the model reads a token; its answer gets the address back", async () => {
+  const contacts = testPii([ContactPiiPolicy]);
+
+  const { output: masked } = await contacts.mask("Write to alice@example.com");
+
+  expect(masked).toMatch(/^Write to <email:[0-9a-f]{6,}>$/u);
+  expect(contacts.reveal(masked)).toBe("Write to alice@example.com");
+});
+```
+
+## A payment gateway's checklist — `paymentGatewayChecklist` (#508)
+
+`FakePaymentGateway` is a payment gateway in memory, with each capability a call that leaves the
+system relies on switched on or off, and faults to inject; `paymentGatewayChecklist` probes G1–G5
+through an adapter — the fake's offline, a sandbox's by hand. The requirements, what each one
+gives and what the widely used gateways document: [Payment gateways](Payment-gateways).
+
+## Store contract suites — `@agboss/core/testing/contracts` (#481)
+
+A store implementation outside the core runs the core's own contract suites against itself: one
+function per contract (`executionLeaseContract(target)`, …, `checkpointSaverContract(target)`), each
+registering `<contract> contract (<target name>)` with a case per rule, every case on two instances
+over one backing store and its own `VirtualClock`, each store call tracked on it (#511). The target is `{ name, instance(context), reset?,
+close? }` — [Several instances → Writing your own store](Several-instances#writing-your-own-store-the-published-contract-suites-481).
+It is an entry of its own: `@agboss/core/testing` does not load it.
+
+
+A knowledge base connector has its own suite in the same entry: `ragConnectorContract({ name,
+connector, documents, reset? })` (#700) — tenant isolation, re-indexing that replaces, `topK`, the
+signal, the cost ([Knowledge bases](Knowledge-bases#prove-it--ragconnectorcontract)).
+
+## Lower level
+
+A class created by hand — a budget's `maxSpend()`, a service — takes `testExecutionContext()`;
+an MCP server's stub is `mcpServerStub(Server, handlers)`; fakes come from
+`@langchain/core/utils/testing`.
+
+### `testExecutionContext({ … })`
+
+A component created without the container gets its `ExecutionContext` from
+`testExecutionContext(options?)` (#280): a frozen root execution, readable at any time — no
+execution running. What is not given takes its default: execution `test-execution`, its own thread,
+no owner, a signal nobody aborts, workflow `test-workflow` (or the `@Workflow` class given as
+`workflow`), step `test-step` on its first visit (or `step: { component, visitNumber, callId,
+itemIndex, copyNumber }` — the step's name from the component's decorator). The idempotency key is
+built as at run time. The levels above (#261): the tenant `"default"` of an application
+`test-application` on the `test` environment — or `tenantContext` / `tenant`, `executionContext` /
+`execution` (the project's subclasses and their values, checked by their decorators like at
+`execute`) and `application: { name, version, environmentName, environment }`; a service of the
+tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
+Its `fence` (#471) is a held lease of the execution: token 1, scope `<tenant>:test-execution`,
+confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { token,
+leaseExecutionId, trustedUntil, isLost, renewNowFails }` sets each part — `isLost` makes
+`assertHeld()` and `renewNow()` refuse with `ExecutionLeaseLostError`, `renewNowFails` (`true`
+or an error) only `renewNow()` (a store error right before a webhook). Every unit runner takes the
+same `fence` option, its `trustedUntil` on `run.clock`. A component's fenced effect (#500) runs on the runner's held
+lease: the in-memory store by default, and every fenced-effect store the runner creates — the SQLite
+one too, on `environment: { sqlitePath: ":memory:" }` — gets the lease written into the lease store
+it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `trustedUntil` →
+expired). A second call of one runner is the step run again: `Replayed`.
+
+<!-- snippet-context
+import { ExecutionContext, Injectable } from "@agboss/core";
+@Injectable({ deps: [ExecutionContext] })
+export class ReceiptService {
+  constructor(private readonly executionContext: ExecutionContext) {}
+  keyOf(): string {
+    return this.executionContext.step.idempotencyKey;
+  }
+}
+-->
+
+```ts
+import { expect, test } from "vitest";
+import { testExecutionContext } from "@agboss/core/testing";
+
+test("the receipt is keyed by the step", () => {
+  const receipts = new ReceiptService(
+    testExecutionContext({ executionId: "exec-1", step: { visitNumber: 2, callId: "call_1" } }),
+  );
+
+  expect(receipts.keyOf()).toBe("exec-1:test-step:2:call_1");
+});
+```
+
+
+## Dynamic answers — `.thenAnswer()`
+
+When the answer depends on the request, script a function instead of a list of turns:
+
+<!-- snippet-context
+import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+testWith(JobScoutApplication)("answers", ({ mockLlm }) => {
+// @snippet
+});
+-->
+
+```ts
+mockLlm(Scout).thenAnswer((request) =>
+  request.kind === "chat" && request.messages.some((line) => line.role === "tool")
+    ? replyWith("Here are the jobs.")
+    : callTool(GreenhouseJobs, { query: String(request.input) }),
+);
+mockLlm(MainRouter).thenAnswer((request) =>
+  String(request.input).includes("save") ? routeTo(Shortlist) : routeTo(Scout),
+);
+```
+
+## Blind spots
+
+1. **Child workflows** (#263) run fully: script the child's agents like the parent's —
+   `toHaveChildExecutions` / `toHaveHandledError` check how each child ended
+   ([below](#child-workflows)).
+2. **Side effects outside the container**: code that calls `fetch` directly is blocked like any live
+   call and cannot be replaced with `mockOf` — put side effects in `@Injectable` services.
+3. **The graph is tested by running it**: assembly rules are checked when the test starts; the paths
+   a run can take are proven by the runs you script (`toFollowPath`).
+
+## VCR — recorded runs
+
+Instead of scripts, a test can answer from a **cassette**: recorded once with the real models, then
+replayed in every later run — in milliseconds, without a key or network.
+
+<!-- snippet-context
+import { ChatWorkflowFinish, ChatWorkflowStart, GreenhouseJobs, JobScout, JobScoutApplication, MainRouter, OrderBook, OrderStatus, Reviewer, SaveShortlist, Scout, Shortlist, ShortlistServer, Writer } from "./job-scout.js";
+-->
+
+```ts
+import { expect } from "vitest";
+import { VcrMode, testWith } from "@agboss/core/testing";
+
+const test = testWith(JobScoutApplication, {
+  vcr: {
+    cassetteName: "onboarding", // __snapshots__/onboarding.cassette.json
+    mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO, // the default already
+  },
+});
+
+test("the scout answers a first message", async ({ app }) => {
+  const result = await app.execute(ChatWorkflowStart, { text: "Hi, I'm looking for a job" });
+  expect(result).toFinishWith(ChatWorkflowFinish);
+});
+```
+
+1. **Recording** (first run, with a model key): every model call — agents, judges, compaction,
+   routers, guardrails, decision judges — goes to the real model and is written to
+   `<dir>/<cassetteName>.cassette.json` (`dir` defaults to `__snapshots__` under the working
+   directory). Commit the cassette. A transport `@ModelProvider` ([Model providers](Model-providers),
+   #385) records like an HTTP one, with no key when it needs none (#439): the recording builds the
+   providers as `createApp` does — the transport created by the test app's container on its first
+   call, its `onInit` → `onStart` first — so an offline project records its cassettes at $0.
+2. **Replay** (CI and later runs): answers come from the cassette. A call is matched by the model,
+   the bound tools and every message; a request the cassette does not hold — a changed prompt, a new
+   tool — fails with `CassetteMissingError` (`test.cassette-missing`): re-record it. A replay never
+   creates a provider, a transport one included.
+
+Modes: `VcrMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
+`VcrMode.RECORD` always calls the models and rewrites the file; `VcrMode.REPLAY` (default under `CI`)
+only replays and fails without a cassette; `VcrMode.RECORD_STALE` replays and records anew only the
+stale components (below). The process variable `AGBOSS_VCR_MODE` — a member's value — overrides
+every test's own `mode` for one run: `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
+
+Under `CI` no test records against real models (#839, fail closed): a mode that would — `RECORD`,
+`RECORD_STALE`, or `AUTO` with no cassette, whether `vcr.mode` or `AGBOSS_VCR_MODE` set it — fails
+the test app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from,
+`CI` and the remedy), before any model is asked. Record without `CI` and commit the cassette; a CI
+job that records on purpose sets `AGBOSS_VCR_RECORD_IN_CI=1` (or `true` — any other value is no
+opt-in).
+
+### Stale cassettes (#395)
+
+A cassette (version 2) keeps, with every recorded call, the component that made it and that
+component's `promptHash` / `schemaHash` — the join keys of `agboss describe --json` (an agent's
+instructions and its input / output DTOs, a model router's prompt and routes). A replay checks them
+against the application before it answers a component:
+
+- the component's prompt or schema changed since it was recorded, or the application no longer has
+  it → `StaleCassetteError` (`vcr.stale-cassette`; `file`, `component`, `changes` —
+  `CassetteChange.Prompt` / `Schema` / `Removed`), its message naming the fix;
+- the fix is never a hand edit: `AGBOSS_VCR_MODE=RECORD_STALE npm test` re-records the stale
+  components' calls (a model key needed for those only), keeps every other recording as it is, and
+  writes the cassette again — review the new answers in its diff, then run the evals: they are new
+  model behaviour;
+- `agboss check --cassettes` finds the same without running a test — every `*.cassette.json` under
+  the working directory (`node_modules`, `dist`, `.agboss` skipped), `[vcr.stale-cassette]` per
+  stale component, exit 3 ([CLI](CLI#run-inspect-evaluate)).
+
+Every component that calls a model has its join keys (#395 PR 5b; `modelComponents` of `agboss
+describe --json`), so each is checked the same way: a model judge by the `reply` it judges (its
+questions are its code's — a change of them is a request that no longer matches,
+`CassetteMissingError`), a model guardrail by its question, a model arbiter by its prompt and
+criteria, a compaction that writes summaries by its prompt and strategy, a model reply interpreter
+by its instructions and answer, a PII policy that detects with a model by the kinds it asks for. A
+component decided by code calls no model and is never in a cassette. A **version 1** cassette (recorded before #395) has no
+hashes: it still replays, without stale detection, and prints a hint once per run (a Node warning,
+`vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=RECORD npm test`; `RECORD_STALE`
+re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
+(`invalid_tool_calls`) too.
+
+## Files — `mockLlm(FileTranscriber)`, `mockLlm(FileRedactor)` (#899)
+
+An agent that reads files makes its model calls as ever: `mockLlm(Agent)`'s `requests[i].parts` lists each
+file part as `{ kind, mediaType, filename?, sizeBytes, sha256 }` — never its bytes. The built-in transcriber
+and redactor run on a model of their own, scripted as `mockLlm(FileTranscriber)` (a text) and
+`mockLlm(FileRedactor)` (the regions as JSON, `{"regions":[{"target":"card-number","x":0.1,"y":0.2,"w":0.3,"h":0.1}]}`);
+a project's own `FileRedactor` is listed in `providers` and runs as written. A cassette hashes a part as
+`{ kind, mediaType, sha256 }` and keeps no bytes. See [Files for models](Files-for-models).

@@ -15,8 +15,10 @@ import {
   isCustomCompactionIn,
   piiScriptKeyOf,
 } from "./pii-parts.js";
+import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
 import {
+  FILE_REDACTOR_KEY,
   FILE_TRANSCRIBER_KEY,
   arbiterKeyOf,
   judgeScriptKeyOf,
@@ -54,6 +56,12 @@ export function scriptKeyOf(node: RuntimeNode): string | undefined {
 }
 
 /** The model-calling components of an application, by class. */
+/** The script key of the built-in transcriber (`mockLlm(FileTranscriber)`) or redactor (`mockLlm(FileRedactor)`) of files (#899). */
+function fileKeyOf(target: ModelTarget): string | undefined {
+  if (target === FileTranscriber || target === ModelFileTranscriber) return FILE_TRANSCRIBER_KEY;
+  return target === FileRedactor || target === ModelImageRedactor ? FILE_REDACTOR_KEY : undefined;
+}
+
 export class ModelTargets {
   readonly #judges: ReadonlySet<string>;
   /** The arbiters of the application's quorums (#279). */
@@ -81,8 +89,8 @@ export class ModelTargets {
 
   /** The script key of a judge, a model arbiter, a PII detection, a model interpreter, a guardrail or a model reranker. */
   componentKeyOf(target: ModelTarget): string | undefined {
-    // the built-in transcriber of files (#899): `mockLlm(FileTranscriber)`
-    if (target === FileTranscriber || target === ModelFileTranscriber) return FILE_TRANSCRIBER_KEY;
+    const file = fileKeyOf(target);
+    if (file !== undefined) return file;
     const judge = judgeScriptKeyOf(target, this.#judges);
     if (judge !== undefined) return judge;
     const interpreter = this.#interpreters.get(target);

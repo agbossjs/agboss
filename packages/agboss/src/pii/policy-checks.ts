@@ -75,7 +75,7 @@ function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
       : [
           violation(
             "files.invalid-setting",
-            `${meta.name}: files is not a PiiFileAction — PiiFileAction.Mask or PiiFileAction.AllowOriginal`,
+            `${meta.name}: files is not a PiiFileAction — PiiFileAction.Mask, AllowOriginal or RedactWithModel`,
             [cls.name],
           ),
         ];

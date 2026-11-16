@@ -48,8 +48,14 @@ export function refusedKindOf(status: number, body: string): ModelInputKind | un
 /** The media type of the first part of that kind in the request that was sent (a data URL's). */
 function mediaTypeSentOf(request: string, kind: ModelInputKind): string {
   const field =
-    kind === "image" ? /"url":"data:([^;"]+);base64/ : /"file_data":"data:([^;"]+);base64/;
-  return field.exec(request)?.[1] ?? "unknown";
+    kind === "image" || kind === "video"
+      ? /"url":"data:([^;"]+);base64/
+      : /"file_data":"data:([^;"]+);base64/;
+  const sent = field.exec(request)?.[1];
+  if (sent !== undefined) return sent;
+  // an audio part has no media type on the wire, only its format
+  const format = kind === "audio" ? /"format":"([a-z0-9]+)"/.exec(request)?.[1] : undefined;
+  return format === undefined ? "unknown" : `audio/${format}`;
 }
 
 /** What is known of the call a refusal answers. */

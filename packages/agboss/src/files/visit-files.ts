@@ -12,8 +12,9 @@ import {
 import { hasModelForm } from "./file-needs.js";
 import type { FileMask } from "./file-mask.js";
 import { headingOf, sizeOfPiece, type FilePiece, type FilePlace } from "./file-pieces.js";
-import { transcriptKeyOf, viewOf } from "./file-views.js";
+import { viewOf } from "./file-views.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
+import type { RedactionPlan, RedactionResult } from "./file-redactor.js";
 import type { TranscriptionResult } from "./file-transcriber.js";
 import { ModelFileLimit } from "./model-files.js";
 
@@ -30,6 +31,8 @@ export interface SourceFile {
   readonly field: string;
   /** Who gave it: the producer of the input value, or `tool <name>`. */
   readonly producer: string;
+  /** A history file that retention removed (#899 §3): shown as its descriptor, `(removed)`. */
+  readonly isRemoved?: boolean;
 }
 
 /** A source file the model has seen in its visit, with the digest of the bytes it saw: later reads are pinned to it. */
@@ -48,6 +51,14 @@ export interface FileRuntime {
   readonly transcribe: (file: FileContent) => Promise<TranscriptionResult>;
   /** Names the transcriber and its model: part of a transcription's cache key. */
   readonly transcriberKey: () => string;
+  /** Whether the application's redactor makes a redacted copy of this media type (#899 §5). */
+  readonly supportsRedaction: (mediaType: string) => boolean;
+  /** The redacted copy of a file; the call's spend is the result's `usage`. */
+  readonly redact: (file: FileContent, plan: RedactionPlan) => Promise<RedactionResult>;
+  /** The root executions of the thread the execution runs in (#899 §3): the owners a history file may have. */
+  readonly threadOwners: () => Promise<readonly string[]>;
+  /** Names the redactor and its model: part of a redacted copy's cache key. */
+  readonly redactorKey: () => string;
 }
 
 /** What the loop has of its files so far: how many source files, how many bytes in all views. */
@@ -182,10 +193,23 @@ async function gatherViews(
     gathered.viewed.push({ content: shown.viewed, heading });
     gathered.usage.push(...shown.usage);
     Object.assign(gathered.tokens, shown.tokens);
-    if (shown.made !== undefined)
-      gathered.transcripts[transcriptKeyOf(runtime, content, batch.mask?.policyHash ?? "")] =
-        shown.made;
+    if (shown.made !== undefined && shown.cacheKey !== undefined)
+      gathered.transcripts[shown.cacheKey] = shown.made;
   }
+}
+
+/** A history file that is no longer kept: its descriptor under its heading, `(removed)`. */
+function removedPiece(batch: FileBatch, source: SourceFile, index: number): FilePiece {
+  const { descriptor } = source;
+  const named = descriptor.filename ?? descriptor.fileId ?? descriptor.url ?? "file";
+  const where =
+    batch.of === undefined
+      ? String(batch.first + index)
+      : `${String(batch.first + index)} of ${String(batch.of)}`;
+  return {
+    kind: "text",
+    text: `### ${source.field} (from ${source.producer}, file ${where}: ${named}, ${descriptor.mediaType}) (removed)`,
+  };
 }
 
 /** The pieces of a batch of files, in order; over a limit → `ModelFileLimitError`, before any model call. */
@@ -201,6 +225,11 @@ export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
     bytes: batch.tally.bytes,
   };
   for (const [index, source] of batch.files.entries()) {
+    if (source.isRemoved === true) {
+      gathered.digests.push("");
+      gathered.pieces.push(removedPiece(batch, source, index));
+      continue;
+    }
     const content = await pinnedContentOf(batch, source, index);
     gathered.digests.push(content.sha256);
     const place = {

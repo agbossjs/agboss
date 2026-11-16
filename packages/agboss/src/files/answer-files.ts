@@ -183,7 +183,7 @@ const originProblemOf = (text: string, allowed: readonly string[]): string | und
   const url = new URL(text);
   if (url.username !== "" || url.password !== "") return "its url carries a user or a password";
   if (url.protocol !== "https:") return "its url is not https:";
-  return allowed.includes(url.origin) ? undefined : `its url's origin ${url.origin} is not allowed`;
+  return allowed.includes(url.origin) ? undefined : "its url's origin is not allowed";
 };
 
 /** The first problem of the answer's files that the model wrote itself; none when every one may travel. */
@@ -191,11 +191,12 @@ export async function modelWrittenFileProblem(
   files: readonly A2AFileDto[],
   check: AnswerFileCheck,
 ): Promise<string | undefined> {
-  for (const file of files) {
-    const name = file.filename ?? file.mediaType;
+  for (const [index, file] of files.entries()) {
+    // which file, never what the model wrote of it: a name can be personal data
+    const name = `${String(index + 1)} of ${String(files.length)}`;
     if (file.url !== undefined) {
       const problem = originProblemOf(file.url, check.allowedOrigins);
-      if (problem !== undefined) return `the file ${name} is not allowed: ${problem}`;
+      if (problem !== undefined) return `answer file ${name} is not allowed: ${problem}`;
     }
     if (file.fileId !== undefined) {
       const kept = await check.store.findMetadata({
@@ -203,7 +204,7 @@ export async function modelWrittenFileProblem(
         fileId: file.fileId,
       });
       if (kept?.ownerId !== check.ownerId)
-        return `the file ${name} is not allowed: it is not one this execution holds`;
+        return `answer file ${name} is not allowed: it is not one this execution holds`;
     }
   }
   return undefined;

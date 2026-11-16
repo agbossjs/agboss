@@ -113,6 +113,8 @@ export interface ModelNamingComponents {
    * application with its own `FileTranscriber` never needs `DEFAULT_FILE_MODEL`. Default: yes.
    */
   readonly builtInFileModels?: boolean | undefined;
+  /** Whether the built-in image redactor is the one in use: its model is a use only then (#899). Default: yes. */
+  readonly builtInFileRedactor?: boolean | undefined;
 }
 
 /** The inputs an agent's files need of its model: strict when the developer named the types. */
@@ -134,6 +136,30 @@ function fileModelUsesOf(
       maxTokens: files.transcriptionMaxTokens,
     });
     return [{ ...use, needs: transcriberNeedsOf(files), isNeedStrict: true }];
+  });
+}
+
+/** The built-in redactor's model of each agent that reads a redacted view: it reads the image itself (#899 §6). */
+function redactorUsesOf(
+  config: AgentsConfigOf<string>,
+  isBuiltIn: boolean,
+  chat: (key: ModelUseKey, settings: Parameters<typeof resolveSettings>[0]) => ModelUse,
+): readonly ModelUse[] {
+  if (!isBuiltIn) return [];
+  return Object.entries(config.agents).flatMap(([name, agent]) => {
+    const files = agent.files;
+    if (files?.views.includes(FileView.Redacted) !== true) return [];
+    const use = chat(`files.redactor.${name}`, {
+      model: files.redactionModel,
+      maxTokens: files.transcriptionMaxTokens,
+    });
+    return [
+      {
+        ...use,
+        needs: [{ kind: "image", mediaType: "image/png", view: FileView.Redacted }],
+        isNeedStrict: true,
+      },
+    ];
   });
 }
 
@@ -180,6 +206,7 @@ export function modelUsesOf(
       ...fileNeedsOf(agent.files),
     })),
     ...fileModelUsesOf(config, components.builtInFileModels !== false, chat),
+    ...redactorUsesOf(config, components.builtInFileRedactor !== false, chat),
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
       compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
     ),

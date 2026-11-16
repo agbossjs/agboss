@@ -36,12 +36,15 @@ export {
   type ModelProviderInputErrorOptions,
 } from "./transport/input-error.js";
 export type {
+  ModelAudioPart,
+  ModelBlobPart,
   ModelFilePart,
   ModelImagePart,
   ModelInputKind,
   ModelInputPart,
   ModelProviderPart,
   ModelTextPart,
+  ModelVideoPart,
   PartMeta,
 } from "./content.js";
 export { FinishReason } from "./finish-reason.js";

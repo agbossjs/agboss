@@ -28,8 +28,25 @@ export interface ModelFilePart {
   readonly data: string;
 }
 
+/** An audio file: the wire carries it as `input_audio` (raw base64 and its format). */
+export interface ModelAudioPart {
+  readonly kind: "audio";
+  readonly mediaType: string;
+  readonly data: string;
+}
+
+/** A video file: the wire carries it as `video_url`, a data URL. */
+export interface ModelVideoPart {
+  readonly kind: "video";
+  readonly mediaType: string;
+  readonly data: string;
+}
+
+/** A part that carries a file's bytes: an image, a PDF, an audio or a video. */
+export type ModelBlobPart = ModelImagePart | ModelFilePart | ModelAudioPart | ModelVideoPart;
+
 /** A part of a message to a model. */
-export type ModelInputPart = ModelTextPart | ModelImagePart | ModelFilePart;
+export type ModelInputPart = ModelTextPart | ModelBlobPart;
 
 /** What a transport provider is handed: the same shapes. */
 export type ModelProviderPart = ModelInputPart;
@@ -46,7 +63,7 @@ export function inputKindOfMediaType(mediaType: string): ModelInputKind {
 export const PART_BLOCK_TYPE = "agboss_part" as const;
 
 /** A non-text part as a LangChain content block. */
-export function blockOfPart(part: ModelImagePart | ModelFilePart): ContentBlock {
+export function blockOfPart(part: ModelBlobPart): ContentBlock {
   return { type: PART_BLOCK_TYPE, ...part };
 }
 
@@ -54,11 +71,12 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** The non-text part a content block is, if it is one. */
-export function partOfBlock(block: unknown): ModelImagePart | ModelFilePart | undefined {
+export function partOfBlock(block: unknown): ModelBlobPart | undefined {
   if (!isRecord(block) || block.type !== PART_BLOCK_TYPE) return undefined;
   const { kind, mediaType, data } = block;
   if (typeof mediaType !== "string" || typeof data !== "string") return undefined;
   if (kind === "image") return { kind, mediaType, data, ...detailOf(block.detail) };
+  if (kind === "audio" || kind === "video") return { kind, mediaType, data };
   if (kind !== "file") return undefined;
   const { filename } = block;
   return { kind, mediaType, data, ...(typeof filename === "string" ? { filename } : {}) };
@@ -72,7 +90,7 @@ function detailOf(detail: unknown): { readonly detail?: "low" | "high" | "auto" 
 /** What an event, a trace or a cassette shows of a part: never its bytes (#899 §9). */
 export interface PartMeta {
   readonly type: "agboss_part";
-  readonly kind: "image" | "file";
+  readonly kind: "image" | "file" | "audio" | "video";
   readonly mediaType: string;
   readonly filename?: string;
   readonly sizeBytes: number;
@@ -80,7 +98,7 @@ export interface PartMeta {
 }
 
 /** The part as it is shown: `{ kind, mediaType, filename?, sizeBytes, sha256 }` of its bytes. */
-export function partMetaOf(part: ModelImagePart | ModelFilePart): PartMeta {
+export function partMetaOf(part: ModelBlobPart): PartMeta {
   const bytes = Buffer.from(part.data, "base64");
   return {
     type: PART_BLOCK_TYPE,
@@ -93,18 +111,13 @@ export function partMetaOf(part: ModelImagePart | ModelFilePart): PartMeta {
 }
 
 /** The non-text parts of a message's content, in order. */
-export function partsOfContent(
-  content: MessageContent,
-): readonly (ModelImagePart | ModelFilePart)[] {
+export function partsOfContent(content: MessageContent): readonly ModelBlobPart[] {
   if (typeof content === "string") return [];
   return content.flatMap((block) => partOfBlock(block) ?? []);
 }
 
 /** A text and its parts as one message content: a string when there are no parts (byte-identical requests). */
-export function contentOf(
-  text: string,
-  parts: readonly (ModelImagePart | ModelFilePart)[],
-): MessageContent {
+export function contentOf(text: string, parts: readonly ModelBlobPart[]): MessageContent {
   if (parts.length === 0) return text;
   return [...(text === "" ? [] : [{ type: "text", text }]), ...parts.map(blockOfPart)];
 }

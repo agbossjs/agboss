@@ -1,13 +1,17 @@
 /** #899 §3: a later read of files already pinned is held to their digests. */
+import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
-import { ModelFileUnavailableReason } from "../../src/files/file-errors.js";
+import {
+  FileRedactionFailedError,
+  ModelFileUnavailableReason,
+} from "../../src/files/file-errors.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { NO_FILES, filePiecesOf, type FileRuntime } from "../../src/files/visit-files.js";
 import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
-import { ModelFiles } from "../../src/files/model-files.js";
+import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { inline, PDF_BYTES, sha256Of } from "./reader.factory.js";
 
 const runtime: FileRuntime = {
@@ -20,6 +24,7 @@ const runtime: FileRuntime = {
     hasPiiPolicy: false,
   }),
   maxResultSize: kilobytes(8),
+  ...NO_REDACTION,
   transcriberKey: () => "t",
   transcribe: () => Promise.reject(new Error("no transcription")),
   context: () => ({
@@ -57,5 +62,33 @@ describe("pinned digests", () => {
     await expect(filePiecesOf(batch(["0".repeat(64)]))).rejects.toMatchObject({
       reason: ModelFileUnavailableReason.DigestMismatch,
     });
+  });
+});
+
+describe("the redacted view of a type no redactor takes fails closed, before any call", () => {
+  const redacting: FileRuntime = {
+    ...runtime,
+    settings: resolvedFilesOf({
+      agent: ModelFiles.of({ views: [FileView.Redacted] }).options,
+      defaults: undefined,
+      skills: [],
+      a2aFiles: undefined,
+      hasPiiPolicy: false,
+    }),
+    redact: () => Promise.reject(new Error("must not be asked")),
+  };
+  const mask = {
+    policyHash: "h",
+    known: {},
+    mask: (text: string) => Promise.resolve({ text, tokens: {}, usage: [] }),
+    redaction: { kinds: [], values: [], blocked: [], isModelChecked: true },
+    keyedDigestOf: () => "d",
+    refusalForKind: () => Promise.resolve(undefined),
+  };
+
+  it("a PDF the redactor does not support is FileRedactionFailedError, never the original", async () => {
+    const run = filePiecesOf({ ...batch(), runtime: redacting, mask });
+
+    await expect(run).rejects.toBeInstanceOf(FileRedactionFailedError);
   });
 });

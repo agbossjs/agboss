@@ -3,6 +3,7 @@
  * whose server changes its content after the first read is refused (digest mismatch), never checked in its
  * new form while the answer hands on the old one.
  */
+import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
 import { seenPicker } from "../../src/files/answer-files.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
@@ -32,6 +33,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),
+    ...NO_REDACTION,
     transcriberKey: () => "t",
     transcribe: () => Promise.reject(new Error("none")),
     context: () => ({

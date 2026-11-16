@@ -3385,9 +3385,45 @@ export interface FileContent {
 // @public
 export interface FileDefaults extends ModelFilesOptions {
     readonly redactionModel?: string;
+    readonly redactionValues?: RedactionValues;
     readonly transcriptionMaxTokens?: number;
     readonly transcriptionModel?: string;
 }
+
+// @public
+export class FileRedactionFailedError extends StepFailedError {
+    constructor(options: FileRedactionFailedErrorOptions);
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    static readonly code: "step.file-redaction-failed";
+    // (undocumented)
+    readonly code: typeof FileRedactionFailedError.code;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface FileRedactionFailedErrorOptions {
+    // (undocumented)
+    readonly agent: string;
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly reason: string;
+}
+
+// @public
+export abstract class FileRedactor {
+    // (undocumented)
+    abstract redact(file: FileContent, options: RedactOptions): Promise<RedactionResult>;
+    // (undocumented)
+    abstract supports(mediaType: string): boolean;
+}
+
+// @public
+export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen";
 
 // @public
 export enum FileSource {
@@ -5246,6 +5282,13 @@ export enum ModelFileUnavailableReason {
 }
 
 // @public
+export class ModelImageRedactor extends FileRedactor {
+    redact(): Promise<RedactionResult>;
+    // (undocumented)
+    supports(mediaType: string): boolean;
+}
+
+// @public
 export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
     readonly decidedBy?: DecidedBy.Model;
     // (undocumented)
@@ -6381,7 +6424,7 @@ export class PaidStepError extends AGBossError {
     // (undocumented)
     static readonly code: string;
     // (undocumented)
-    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.pause-expired" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "step.model-file-limit" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
+    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.pause-expired" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "step.model-file-limit" | "step.file-redaction-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
     // (undocumented)
     name: string;
     // (undocumented)
@@ -6951,7 +6994,8 @@ export class PiiDetectionFailedError extends PaidStepError {
 // @public
 export enum PiiFileAction {
     AllowOriginal = "allow-original",
-    Mask = "mask"
+    Mask = "mask",
+    RedactWithModel = "redact-with-model"
 }
 
 // @public
@@ -7481,6 +7525,31 @@ export interface RecordedElsewhereLedgerMark {
 }
 
 // @public
+export interface RedactionResult {
+    readonly cost?: Usd;
+    readonly file: FileContent;
+    readonly found: readonly PiiTarget[];
+    readonly usage?: UsageRecord;
+}
+
+// @public
+export enum RedactionValues {
+    Always = "always",
+    Never = "never",
+    SameProvider = "same-provider"
+}
+
+// @public
+export interface RedactOptions {
+    // (undocumented)
+    readonly signal: AbortSignal;
+    readonly targets: readonly PiiTarget[];
+    // (undocumented)
+    readonly tenantId: string;
+    readonly values: readonly string[];
+}
+
+// @public
 export interface ReplacePartAction {
     // (undocumented)
     readonly kind: PiiActionKind.ReplacePart;
@@ -7578,6 +7647,9 @@ export interface ResolvedModelFiles {
     maxTotalFileSize: number;
     // (undocumented)
     redactionModel: string;
+    redactionSendsValues?: boolean;
+    // (undocumented)
+    redactionValues: RedactionValues;
     // (undocumented)
     sources: FileSource[];
     // (undocumented)
@@ -7872,7 +7944,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | "files.invalid-setting" | "files.no-redactor" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-limit" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | FileRuleCode | "pii.original-file" | "pii.redacted-needs-kinds";
 
 // @public
 export interface RuleViolation {
@@ -10311,6 +10383,18 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "limit".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "actual".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "allowed".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "agent".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "agent".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "signal".
+// src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "supports".
+// src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "redact".
+// src/files/file-redactor.ts - (ae-undocumented) Missing documentation for "supports".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "sources".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "views".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "maxFileSize".
@@ -10322,6 +10406,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "guardToolResultFiles".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "transcriptionModel".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "redactionModel".
+// src/files/file-settings.ts - (ae-undocumented) Missing documentation for "redactionValues".
 // src/files/file-settings.ts - (ae-undocumented) Missing documentation for "transcriptionMaxTokens".
 // src/files/file-transcriber.ts - (ae-undocumented) Missing documentation for "text".
 // src/files/file-transcriber.ts - (ae-undocumented) Missing documentation for "signal".
