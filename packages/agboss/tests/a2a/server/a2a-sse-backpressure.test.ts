@@ -171,6 +171,37 @@ describe("#1008: drain", () => {
     await server.close();
   });
 
+  it("#1232: non-ASCII frames to a reader that pushes back and then reads are all written and all arrive (Node 24 lost `drain` after a string write)", async () => {
+    const { server } = await streamed();
+    const client = await sseClient(server.port);
+    const arrived: Buffer[] = [];
+    client.on("data", (chunk: Buffer) => {
+      arrived.push(chunk);
+    });
+    client.pause();
+    const res = server.response();
+    if (res === undefined) throw new Error("no response");
+    const frame = `data: ${JSON.stringify({ text: "é".repeat(2000) })}\n\n`;
+    const frames = 200;
+
+    const all = (async () => {
+      for (let index = 0; index < frames; index += 1) {
+        if (!(await writeSse(res, frame, new VirtualClock()))) return false;
+      }
+      return true;
+    })();
+    await nextTurn();
+    await nextTurn();
+    client.resume(); // the reader pushed back; now it reads at full speed
+
+    expect(await all).toBe(true);
+    const ended = new Promise<void>((resolve) => client.once("end", resolve));
+    res.end();
+    await ended;
+    expect(Buffer.concat(arrived).toString("utf8").split("é").length - 1).toBe(frames * 2000);
+    await server.close();
+  }, 15_000);
+
   it("a reader that never drains is cut after the drain timeout on the app's clock", async () => {
     const { server, clock } = await streamed();
     const client = await sseClient(server.port);

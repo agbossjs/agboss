@@ -113,7 +113,7 @@ async function writeEvents(
     }
   } catch (error) {
     const event = errorAnswerOf(answer.id, error, answer.log);
-    if (!res.writableEnded && !res.destroyed) res.write(formatSSEErrorEvent(event));
+    if (!res.writableEnded && !res.destroyed) res.write(Buffer.from(formatSSEErrorEvent(event))); // bytes, as every SSE write (#1232)
   }
 }
 
