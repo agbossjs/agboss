@@ -13,7 +13,11 @@ import type { AnyTool } from "../tools/index.js";
 import type { App, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
-import { logPauseAnswer, PauseResolution } from "../infrastructure/pause-record.js";
+import {
+  logPauseAnswer,
+  PauseResolution,
+  type PauseAnswer,
+} from "../infrastructure/pause-record.js";
 import type { ReplyAnswering, ReadReply } from "./reply-answer.js";
 import type { AppDeps } from "./app-deps.js";
 import { DtoValidationError } from "../dto/errors.js";
@@ -153,6 +157,19 @@ export async function recordAnswer(
   return recordedAnswer(parts, pause, request, await answeredByOf(parts, pause, call));
 }
 
+/** The answer a pause keeps: the decision, who gave it, a channel's own mark (#1197), what it cost. */
+const answerOf = (
+  read: ReadReply,
+  answeredBy: string | undefined,
+  source: AnswerSource,
+): PauseAnswer => ({
+  decision: read.decision,
+  answeredBy,
+  // kept in the stored answer: a crash before the log write is repaired as `decided` too
+  ...(source === PauseResolution.Decided ? { byChannel: true as const } : {}),
+  ...(read.usage.length === 0 ? {} : { usage: read.usage }),
+});
+
 /** Whose answer is recorded: a person's reply, or the decision a channel gave at once (#1193). */
 export type AnswerSource = PauseResolution.Replied | PauseResolution.Decided;
 
@@ -176,11 +193,7 @@ export async function recordedAnswer(
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
-  const answer = {
-    decision: read.decision,
-    answeredBy,
-    ...(read.usage.length === 0 ? {} : { usage: read.usage }),
-  };
+  const answer = answerOf(read, answeredBy, source);
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);
   const at = parts.clock.now();

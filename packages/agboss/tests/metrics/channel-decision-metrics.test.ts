@@ -93,6 +93,13 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
         .resolve(ExecutionRecordRepository)
         .findPauseAnswersByTenantIdAndRootExecutionId("default", first?.rootExecutionId ?? "");
       expect(log.map((entry) => entry.resolution)).toEqual([PauseResolution.Decided]);
+      // #1197: the stored answer says so too, so a crash before the log write is repaired as `decided`
+      const stored = await store.findPageByTenantId(
+        "default",
+        { statuses: [PauseStatus.Taken] },
+        10,
+      );
+      expect(stored.pauses.map((one) => one.answer?.byChannel)).toEqual([true]);
       // the first pause opened and closed `reassigned`; the replacement was never opened, so never closed
       expect(await countedSince(before)).toEqual({
         answered: 0,
