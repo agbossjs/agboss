@@ -4,8 +4,9 @@ name: Mutation (nightly, cold)
 # demand — the PRs' runs are incremental (ci.yml), and an incremental run trusts the results it
 # cached for code and tests it sees unchanged; this run trusts none.
 on:
-  schedule:
-    - cron: "41 2 * * *"
+  # CI OFF until the one pre-0.1.1 run (user, 2026-11-16); restore by uncommenting
+# schedule:
+#   - cron: "41 2 * * *"
   workflow_dispatch:
 
 permissions:

@@ -19,13 +19,14 @@ name: Release
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/workflows/release.yml
-      - scripts/release/**
-      - packages/agboss/package.json
-      - packages/agboss-cli/package.json
+  # CI OFF until the one pre-0.1.1 run (user, 2026-11-16); restore by uncommenting
+# pull_request:
+#   branches: [main]
+#   paths:
+#     - .github/workflows/release.yml
+#     - scripts/release/**
+#     - packages/agboss/package.json
+#     - packages/agboss-cli/package.json
   workflow_dispatch:
 
 permissions:

@@ -11,10 +11,11 @@ name: Sync Wiki
 # instead of being lost.
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  # CI OFF until the one pre-0.1.1 run (user, 2026-11-16); restore by uncommenting
+# workflow_run:
+#   workflows: [CI]
+#   types: [completed]
+#   branches: [main]
   workflow_dispatch:
 
 permissions:

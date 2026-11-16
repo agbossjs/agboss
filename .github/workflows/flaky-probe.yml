@@ -14,11 +14,12 @@ on:
         description: How many cold runs
         required: true
         default: "50"
-  pull_request:
-    branches: [main]
-    paths:
-      - scripts/flaky-probe.mjs
-      - .github/workflows/flaky-probe.yml
+  # CI OFF until the one pre-0.1.1 run (user, 2026-11-16); restore by uncommenting
+# pull_request:
+#   branches: [main]
+#   paths:
+#     - scripts/flaky-probe.mjs
+#     - .github/workflows/flaky-probe.yml
 
 permissions:
   contents: read
