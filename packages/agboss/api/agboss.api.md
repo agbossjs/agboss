@@ -2807,7 +2807,7 @@ export interface ExecutionIds {
 }
 
 // @public
-export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId">;
+export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested">;
 
 // @public
 export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends {

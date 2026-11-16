@@ -92,7 +92,8 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   `AnyInstance` children conflict and retry. It is a **schema version of its own** ([below](#the-schema-and-its-versions)) — run
   `agboss-mongodb migrate` with no instance of an older version running, then start the version that
   writes it (an older instance neither writes nor reads the collection, so the fence of
-  [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then). Documents older than the fencing stores' retention are pruned with them.
+  [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then). A mark is **permanent** (#1117, [Guarantees](Guarantees) A18): no retention pass lifts it, by age or
+  once the tree's lease is retired; one document per cancelled tree is kept, as the lease documents are.
 - **The pause store** (#938, contract v2) — a pause change is one compare-and-set on the pause's
   document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
   instances exactly one records an expiry or an extension, and the per-recipient notices are

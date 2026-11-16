@@ -68,13 +68,12 @@ export type { PauseAsk, PauseSite, QuestionAsk } from "../infrastructure/pause-r
 // why a pause closed, and the one-way key that stands for it where its id may not appear (#935, I14)
 export { ExpiryProblem, PauseClosedReason, pauseKeyOf } from "../infrastructure/pause-record.js";
 export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";
+// a coordination lease store's durable ids and cancel mark (#891, #1198): provide(EXECUTION_ID_STORE, <a durable lease store>)
+export { EXECUTION_ID_STORE, type ExecutionIdStore } from "../infrastructure/execution-id-store.js";
 export {
-  // a coordination lease store's durable ids (#891): provide(EXECUTION_ID_STORE, <a durable lease store>)
-  EXECUTION_ID_STORE,
   ExecutionLeaseRepository,
   LeaseCheck,
   type ExecutionIdentity,
-  type ExecutionIdStore,
   type ExecutionLease,
   type PreviousLeaseHolder,
 } from "../infrastructure/execution-lease.repository.js";
