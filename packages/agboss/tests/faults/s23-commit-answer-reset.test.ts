@@ -10,5 +10,11 @@ import { sqliteFaultTarget } from "./sqlite-target.js";
 faultSuite({
   ...sqliteFaultTarget(),
   // 23b is for a set that declares `resolvesCommitByRetry`: it is skipped here (`resolving-commit.test.ts`)
-  scenarios: ["s23-commit-answer-reset", "s23b-commit-answer-reset-persists"],
+  // 23c needs a TCP link (a PostgreSQL ErrorResponse in place of the COMMIT's answer): skipped here,
+  // its skip is `commit-answer-skips.test.ts`; the postgres store's fault run delivers it
+  scenarios: [
+    "s23-commit-answer-reset",
+    "s23b-commit-answer-reset-persists",
+    "s23c-commit-answer-protocol-error",
+  ],
 });

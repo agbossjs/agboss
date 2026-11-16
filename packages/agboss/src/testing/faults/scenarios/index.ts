@@ -55,7 +55,11 @@ import {
   s22eFailureNeverRecorded,
 } from "./s22-outbound-never-answers.js";
 import { s22fChildClaimNeverAnswered, s22gDatabaseFrozen } from "./s22-child-database.js";
-import { s23CommitAnswerReset, s23bCommitAnswerResetPersists } from "./s23-commit-answer-reset.js";
+import {
+  s23CommitAnswerReset,
+  s23bCommitAnswerResetPersists,
+  s23cCommitAnswerProtocolError,
+} from "./s23-commit-answer-reset.js";
 import { s24BeforeRecord, s24bAfterRecord, s24cZombie, s24eOnce } from "./s24-pause-expiry.js";
 import { s24dCancel } from "./s24d-pause-expiry-cancel.js";
 import { s25bRequested, s25cSwept, s25dAnswered, s25Dropped } from "./s25-cancel-resting.js";
@@ -130,6 +134,7 @@ export const SCENARIOS: readonly RunnableFaultScenario[] = [
   s22gDatabaseFrozen,
   s23CommitAnswerReset,
   s23bCommitAnswerResetPersists,
+  s23cCommitAnswerProtocolError,
   s24BeforeRecord,
   s24bAfterRecord,
   s24cZombie,

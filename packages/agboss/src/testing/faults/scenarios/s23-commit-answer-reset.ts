@@ -1,5 +1,5 @@
 import { HoldPhase } from "../hold-points.js";
-import { commitBytesOf, tcpTargetOf } from "../cluster-options.js";
+import { commitBytesOf, protocolErrorBytesOf, tcpTargetOf } from "../cluster-options.js";
 import type { FaultCluster } from "../cluster.js";
 import type { FaultPod } from "../pod.js";
 import { FaultStoreSabotage } from "../pod-protocol.js";
@@ -19,7 +19,19 @@ import { chargesOf, statusesOf } from "./s22-kit.js";
  * resolvesCommitByRetry`: MongoDB's idempotent `commitTransaction`) has no unknown outcome after
  * one reset: scenario 23 then asks that the charge lands once, on pod a, with no hand-over. Its
  * truly unknown commit — the reset persisting across the retry — is scenario 23b.
+ *
+ * Scenario 23c: the same, but the answer is not a reset — it is replaced by a server error of
+ * another kind (PostgreSQL's 08P01 `protocol_violation`, which a pooler sends when its server
+ * connection breaks; `DatabaseProxy.answerAfter`). A store that reads only a reset as unknown
+ * reads it as a definite failure and undoes a charge that committed. Needs a TCP link and a store
+ * whose commit is not retried; other sets skip it.
  */
+
+/** How the COMMIT's answer is lost: the link reset, or an error of the database's protocol read instead. */
+export enum CommitAnswerFault {
+  Reset = "reset",
+  ProtocolError = "protocol-error",
+}
 
 /**
  * Pod a's charge write, applied and its answer lost: through its proxy when it has one, else in
@@ -29,13 +41,21 @@ export async function resetAfterCharge(
   cluster: FaultCluster,
   a: FaultPod,
   times = 1,
+  fault = CommitAnswerFault.Reset,
 ): Promise<void> {
   const proxy = cluster.proxyOf(a.name);
-  const commit = commitBytesOf(cluster.options.database.url);
-  if (proxy !== undefined && commit !== undefined && tcpTargetOf(cluster.options.database.url)) {
+  const { url } = cluster.options.database;
+  const commit = commitBytesOf(url);
+  if (proxy !== undefined && commit !== undefined && tcpTargetOf(url)) {
     // the charge's row text (`charge:<execution>`) then the bytes that apply it, on one link; a
     // retry of the commit is on another link: only its bytes match
-    proxy.dropAfterRepeated(times, "charge:", commit);
+    const answer = fault === CommitAnswerFault.Reset ? undefined : protocolErrorBytesOf(url);
+    if (fault === CommitAnswerFault.ProtocolError && answer === undefined)
+      throw new FaultScenarioSkippedError(
+        "no server-error frame is built for this database's protocol: its COMMIT's answer cannot be replaced",
+      );
+    if (answer === undefined) proxy.dropAfterRepeated(times, "charge:", commit);
+    else proxy.answerAfter(answer, "charge:", commit);
     return;
   }
   await holdStore(a, StoreHoldPoint.FencedEffectWrite, undefined, {
@@ -60,6 +80,7 @@ export async function lostChargeAnswer(
   sabotage?: FaultStoreSabotage,
   times = 1,
   started?: FaultPod,
+  fault = CommitAnswerFault.Reset,
 ): Promise<LostCharge> {
   const a =
     started ??
@@ -68,7 +89,7 @@ export async function lostChargeAnswer(
       ...(sabotage === undefined ? {} : { sabotage }),
     }));
   const b = await cluster.pod("b", { isBounded: true });
-  await resetAfterCharge(cluster, a, times);
+  await resetAfterCharge(cluster, a, times, fault);
   const order = await startOrder(cluster, a, orderId);
   const key = order.rootExecutionId;
   // a's own sweep must not take the expired tree back before b's: its takes of it are held (as in 22)
@@ -76,14 +97,23 @@ export async function lostChargeAnswer(
   return { a, b, key };
 }
 
-/** The proxy of pod `a` cut as many links as the scenario armed: its fault was delivered, never assumed. */
-export function expectCuts(cluster: FaultCluster, a: FaultPod, cuts: number): void {
+/** The proxy of pod `a` cut (or answered) as many links as the scenario armed: its fault was delivered, never assumed. */
+export function expectCuts(
+  cluster: FaultCluster,
+  a: FaultPod,
+  cuts: number,
+  fault = CommitAnswerFault.Reset,
+): void {
   const proxy = cluster.proxyOf(a.name);
   if (proxy === undefined) return;
+  const [done, verb] =
+    fault === CommitAnswerFault.Reset
+      ? [proxy.cutsAfterWrite, "cut"]
+      : [proxy.answersAfterWrite, "answered with a protocol error"];
   expectThat(
     cluster,
-    proxy.cutsAfterWrite >= cuts,
-    `the COMMIT's answer was to be cut ${String(cuts)} time(s); the proxy cut ${String(proxy.cutsAfterWrite)}`,
+    done >= cuts,
+    `the COMMIT's answer was to be ${verb} ${String(cuts)} time(s); the proxy did it ${String(done)}`,
   );
 }
 
@@ -115,11 +145,12 @@ export async function handedOverAndReplayed(
 }
 
 /** A reset the commit's retry answers needs a link to cut: a set without a network skips (#1017). */
-export function needsLink(cluster: FaultCluster, a: FaultPod): void {
-  if (cluster.proxyOf(a.name) === undefined)
-    throw new FaultScenarioSkippedError(
-      "the store set declares a retried commit but has no TCP link to cut: its lost answer cannot be simulated",
-    );
+export function needsLink(
+  cluster: FaultCluster,
+  a: FaultPod,
+  reason = "the store set declares a retried commit but has no TCP link to cut: its lost answer cannot be simulated",
+): void {
+  if (cluster.proxyOf(a.name) === undefined) throw new FaultScenarioSkippedError(reason);
 }
 
 /** One reset, answered by the commit's retry: the charge lands once, on a, no hand-over. */
@@ -180,6 +211,35 @@ export const s23bCommitAnswerResetPersists: RunnableFaultScenario = {
     const lost = await lostChargeAnswer(cluster, "o-23b", undefined, 2, a);
     await handedOverAndReplayed(cluster, "o-23b", lost);
     expectCuts(cluster, lost.a, 2);
+    return lost.b;
+  },
+};
+
+export const s23cCommitAnswerProtocolError: RunnableFaultScenario = {
+  id: "s23c-commit-answer-protocol-error",
+  title:
+    "23c: the charge's COMMIT applied and its answer replaced by a pooler's protocol error (08P01) — the store reads it as unknown: a hands over (no undo), b replays the row, one charge",
+  run: async (cluster) => {
+    const a = await cluster.pod("a", { isBounded: true });
+    if (a.resolvesCommitByRetry)
+      throw new FaultScenarioSkippedError(
+        "the store set's commit is retried: a server error answers its COMMIT, there is nothing unknown to read",
+      );
+    needsLink(
+      cluster,
+      a,
+      "the store set has no TCP link: a protocol error cannot be put in place of its COMMIT's answer",
+    );
+    const lost = await lostChargeAnswer(
+      cluster,
+      "o-23c",
+      undefined,
+      1,
+      a,
+      CommitAnswerFault.ProtocolError,
+    );
+    await handedOverAndReplayed(cluster, "o-23c", lost);
+    expectCuts(cluster, lost.a, 1, CommitAnswerFault.ProtocolError);
     return lost.b;
   },
 };

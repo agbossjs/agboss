@@ -718,6 +718,9 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
   with no hand-over, and scenario 23b — the retry's answer lost too — is the truly unknown commit:
   your store must read it as `StoreOutcomeUnknownError`. Leave it out when a single reset is
   already unknown to your store (PostgreSQL, SQLite's held store): 23 asks the hand-over.
+  Scenario 23c replaces the COMMIT's answer with a server error that is no reset (PostgreSQL:
+  SQLSTATE 08P01, a pooler's `server conn crashed?`): an error after the COMMIT was sent is unknown
+  unless it is proven that nothing was applied — a store that lists only resets fails it.
 - `storeTime` (#799, required): what your fencing stores decide a lease's time by.
   `FaultStoreTime.Database` for a store that reads its database's own clock in each statement
   (PostgreSQL's `clock_timestamp()`, MongoDB's `$$NOW`, Redis's `TIME`), `FaultStoreTime.Host` for

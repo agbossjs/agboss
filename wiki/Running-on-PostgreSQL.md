@@ -324,6 +324,15 @@ cancelled tree, never scanned, so size it as one row per cancelled tree.
   parameter `null` in production), so the interleaving explorer explores the SQL, not database time;
   database time is what the process tests and the fault suite run on.
 
+## When a COMMIT's outcome is unknown (#1017)
+
+A COMMIT, or a single write outside a transaction, is classified by whitelist. It is a definite failure (the error as it is; the step fails, its undo may run) only when the error proves nothing was applied:
+
+- pg never sent it: "Client has encountered a connection error and is not queryable", "Client was closed and is not queryable";
+- the server answered that it aborted it (an ErrorResponse of class 09, 21, 22, 23, 25, 2F, 38, 40 but 40003, 42, 44, P0 — e.g. 23505 of a deferred constraint at COMMIT, 40001, 40P01, 25P02).
+
+Everything else is `StoreOutcomeUnknownError` (source `transport`): every other SQLSTATE (08007, 08P01, XX000, 53100, 53200, 57P01, 58030, …), a socket, TLS or stream error, pg's framing errors, an error without a code. Under a lease the holder then hands the tree over and the next holder reconciles. A command timeout (57014, "Query read timeout") is `StoreCallTimeoutError`. A statement inside a transaction before its COMMIT, and a read, are never unknown: the transaction rolls back.
+
 ## How the stores are proved
 
 agbossjs/postgres's CI runs, on PostgreSQL 16, on every pull request, every push to `main` and nightly:

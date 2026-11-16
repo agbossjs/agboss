@@ -11,5 +11,9 @@ import { sqliteFaultTarget } from "./sqlite-target.js";
  */
 faultSuite({
   ...sqliteFaultTarget(fileURLToPath(new URL("./resolving.fault-stores.ts", import.meta.url))),
-  scenarios: ["s23b-commit-answer-reset-persists", "s23b-sabotage-reset-as-definite"],
+  scenarios: [
+    "s23b-commit-answer-reset-persists",
+    "s23b-sabotage-reset-as-definite",
+    "s23c-commit-answer-protocol-error",
+  ],
 });

@@ -83,3 +83,44 @@ export function commitBytesOf(url: string): string | undefined {
       return undefined;
   }
 }
+
+/** A PostgreSQL wire message field: its type byte, the text, a NUL. */
+const pgField = (type: string, text: string): Buffer =>
+  Buffer.concat([Buffer.from(type, "latin1"), Buffer.from(text, "utf8"), Buffer.alloc(1)]);
+
+/**
+ * A PostgreSQL ErrorResponse: `E`, an int32 length that counts itself, the fields, a last NUL.
+ * What PgBouncer sends when its server connection breaks: FATAL, SQLSTATE 08P01
+ * (protocol_violation), "server conn crashed?". `node-postgres` delivers it as a `DatabaseError`
+ * with `code` 08P01 on the active query (#1017).
+ */
+const postgresProtocolError = (): Uint8Array => {
+  const body = Buffer.concat([
+    pgField("S", "FATAL"),
+    pgField("V", "FATAL"),
+    pgField("C", "08P01"),
+    pgField("M", "server conn crashed?"),
+    Buffer.alloc(1),
+  ]);
+  const header = Buffer.alloc(5);
+  header.write("E", 0, "latin1");
+  header.writeInt32BE(body.length + 4, 1);
+  return Buffer.concat([header, body]);
+};
+
+/**
+ * The bytes a client reads instead of the database's answer to a COMMIT, by the database's
+ * protocol (#1017: `DatabaseProxy.answerAfter`): a server error that is none of a reset's. For
+ * PostgreSQL a pooler's protocol error (08P01); `undefined` for another address (MongoDB, Redis:
+ * no exact server-error frame built).
+ */
+export function protocolErrorBytesOf(url: string): Uint8Array | undefined {
+  if (!URL.canParse(url)) return undefined;
+  switch (new URL(url).protocol) {
+    case "postgres:":
+    case "postgresql:":
+      return postgresProtocolError();
+    default:
+      return undefined;
+  }
+}

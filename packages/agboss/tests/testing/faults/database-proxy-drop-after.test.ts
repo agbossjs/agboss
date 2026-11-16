@@ -155,3 +155,101 @@ describe("#1017: the database proxy cuts a link after the bytes that apply a wri
     expect(() => proxy.dropAfterRepeated(0, "COMMIT")).toThrow(RangeError);
   });
 });
+
+describe("#1017: the database proxy answers a link with its own bytes after a write", () => {
+  const ANSWER = Buffer.from("ERR-08P01");
+
+  it("forwards the matching bytes, then the client reads exactly the answer and the end; the database never answers it", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    proxy.answerAfter(ANSWER, "charge:", "COMMIT");
+    const link = await client(port);
+
+    link.socket.write("INSERT charge:o-1");
+    await until(() => link.read() === "ok");
+    link.socket.write("COMMIT");
+    await link.closed;
+
+    // the database applied the COMMIT (it received the bytes) and its "ok" never reached the client
+    await until(() => db.received[0] === "INSERT charge:o-1COMMIT");
+    expect(link.read()).toBe("okERR-08P01");
+    expect(proxy.answersAfterWrite).toBe(1);
+    expect(proxy.cutsAfterWrite).toBe(0);
+  });
+
+  it("matches patterns across chunks as dropAfter does: one chunk may match several, a pattern is matched within one chunk", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    proxy.answerAfter(ANSWER, "charge:", "COMMIT");
+    const split = await client(port);
+    const together = await client(port);
+
+    split.socket.write("COM");
+    await until(() => split.read() === "ok");
+    split.socket.write("MIT");
+    await until(() => split.read() === "okok");
+    together.socket.write("charge:o-2 COMMIT");
+    await together.closed;
+
+    expect(split.read()).toBe("okok");
+    expect(together.read()).toBe("ERR-08P01");
+    expect(proxy.answersAfterWrite).toBe(1);
+  });
+
+  it("another link's COMMIT does not count, one link is answered, then new links work", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    proxy.answerAfter(ANSWER, "charge:", "COMMIT");
+    const other = await client(port);
+    const answered = await client(port);
+
+    other.socket.write("COMMIT");
+    await until(() => other.read() === "ok");
+    answered.socket.write("charge:o-3 COMMIT");
+    await answered.closed;
+    const next = await client(port);
+    next.socket.write("charge:o-4 COMMIT");
+    await until(() => next.read() === "ok");
+
+    expect(other.read()).toBe("ok");
+    expect(next.read()).toBe("ok");
+    expect(proxy.answersAfterWrite).toBe(1);
+  });
+
+  it("the function it returns disarms it: the database's own answer reaches the client", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(proxy, db.server);
+    const port = await proxy.start();
+    const disarm = proxy.answerAfter(ANSWER, /EVALSHA/u);
+    disarm();
+    const link = await client(port);
+
+    link.socket.write("EVALSHA x");
+    await until(() => link.read() === "ok");
+
+    expect(link.read()).toBe("ok");
+    expect(proxy.answersAfterWrite).toBe(0);
+  });
+
+  it("a proxy closed after an answered link leaves nothing open", async () => {
+    const db = await database();
+    const proxy = new DatabaseProxy({ host: "127.0.0.1", port: db.port });
+    open.push(db.server);
+    const port = await proxy.start();
+    proxy.answerAfter(ANSWER, "COMMIT");
+    const link = await client(port);
+    link.socket.write("COMMIT");
+    await link.closed;
+
+    await proxy.close();
+
+    expect(link.socket.destroyed).toBe(true);
+  });
+});
