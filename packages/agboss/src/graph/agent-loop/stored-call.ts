@@ -1,6 +1,6 @@
 import { meshLimitBodyOf } from "../../mesh/mesh-wire.js";
 import type { ToolOutput } from "../../tools/index.js";
-import type { StoredToolCall, ToolTask } from "./state.js";
+import type { StoredToolCall, StoredToolFiles, ToolTask } from "./state.js";
 import type { ToolCallStop } from "./tool-stops.js";
 
 /** How a guarded call ended, as far as the stored call needs it. */
@@ -9,6 +9,8 @@ export interface EndedToolCall {
   readonly output?: ToolOutput<unknown>;
   /** How an interceptor stopped it (#384). */
   readonly stop?: ToolCallStop;
+  /** The files of its result its model reads (#899). */
+  readonly files?: StoredToolFiles;
 }
 
 /**
@@ -28,5 +30,6 @@ export function storedCallOf(
     content,
     ...(stop === undefined ? {} : { stop }),
     ...(meshLimit === undefined ? {} : { meshLimit }),
+    ...(ended.files === undefined ? {} : { files: ended.files }),
   };
 }

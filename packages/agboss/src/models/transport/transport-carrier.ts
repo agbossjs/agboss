@@ -1,5 +1,6 @@
 import type { Attempt, AttemptCarrier } from "../calls/model-call.js";
 import { ModelFailure } from "../model-failure.js";
+import { ModelProviderInputError, unsupportedInputOf } from "./input-error.js";
 import { ModelProviderFailureError } from "./failure-error.js";
 import type { ModelProviderRequest, ModelProviderResponse } from "./transport.js";
 
@@ -36,7 +37,14 @@ function tokensOf(answer: ModelProviderResponse): number {
 }
 
 /** What a thrown error of `complete()` means: the failure it says, a timeout of ours, or none. */
-function failedAttempt(error: unknown, signal: AbortSignal): Attempt<ModelProviderResponse> {
+function failedAttempt(
+  error: unknown,
+  signal: AbortSignal,
+  call: { readonly provider: string; readonly model: string },
+): Attempt<ModelProviderResponse> {
+  // a part the transport cannot take (#899): its own error, not a failure of the provider
+  if (error instanceof ModelProviderInputError)
+    return { kind: "threw", error: unsupportedInputOf(error, call), isRejected: true };
   if (error instanceof ModelProviderFailureError) {
     return error.retryAfter === undefined
       ? { kind: "threw", error, failure: error.failure }
@@ -55,6 +63,7 @@ export function transportCarrier(
   complete: TransportCall,
   request: Omit<ModelProviderRequest, "signal">,
   caller: AbortSignal | undefined,
+  provider: string,
 ): AttemptCarrier<ModelProviderResponse> {
   return {
     send: async (signal): Promise<Attempt<ModelProviderResponse>> => {
@@ -63,7 +72,7 @@ export function transportCarrier(
         return { kind: "answered", answer };
       } catch (error) {
         if (caller?.aborted === true) throw error;
-        return failedAttempt(error, signal);
+        return failedAttempt(error, signal, { provider, model: request.model });
       }
     },
     hold: (answer, release) => {

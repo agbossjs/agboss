@@ -1,4 +1,5 @@
 import type { ModelCapabilities, PromptCachingSupport, ReasoningSupport } from "./capabilities.js";
+import type { ModelInputKind } from "./content.js";
 import type { ModelEntry } from "./model-list.js";
 import {
   EPHEMERAL,
@@ -43,6 +44,15 @@ function reasoningSupportOf(entry: ModelEntry): ReasoningSupport | undefined {
     effortWithBudget: false,
     canTurnOff: entry.reasoning?.mandatory !== true,
   };
+}
+
+const INPUT_KINDS: readonly ModelInputKind[] = ["text", "image", "file", "audio", "video"];
+
+/** OpenRouter's `architecture.input_modalities` as they are, the kinds this framework knows. */
+function inputsOf(entry: ModelEntry): readonly ModelInputKind[] | undefined {
+  const modalities = entry.architecture?.input_modalities;
+  if (modalities === undefined) return undefined;
+  return INPUT_KINDS.filter((kind) => modalities.includes(kind));
 }
 
 function cachingSupportOf(entry: ModelEntry): PromptCachingSupport | undefined {
@@ -128,8 +138,10 @@ export abstract class OpenRouterProvider<
   protected override capabilitiesOf(entry: ModelEntry): ModelCapabilities {
     const reasoning = reasoningSupportOf(entry);
     const promptCaching = cachingSupportOf(entry);
+    const inputs = inputsOf(entry);
     return {
       model: entry.id,
+      ...(inputs === undefined ? {} : { inputs }),
       ...(entry.supported_parameters === undefined
         ? {}
         : { parameters: entry.supported_parameters }),

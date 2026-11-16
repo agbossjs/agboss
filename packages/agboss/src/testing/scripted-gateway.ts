@@ -15,8 +15,17 @@ import { scriptedDecide } from "./scripted-decisions.js";
 import { replyInterpreterCaller } from "../channels/reply-reader.js";
 import type { DecisionDetails, ScriptedTurn } from "./turns.js";
 
+/** The script key of the built-in file transcriber (#899): its cost caller. */
+export const FILE_TRANSCRIBER_KEY = "files:transcriber";
+
 /** The script key of a chat model's user and of a router. */
 export function chatKeyOf(user: ChatModelUser): string {
+  return user.kind === "file-transcriber" ? FILE_TRANSCRIBER_KEY : componentKeyOf(user);
+}
+
+function componentKeyOf(
+  user: Exclude<ChatModelUser, { readonly kind: "file-transcriber" }>,
+): string {
   switch (user.kind) {
     case "compaction":
       return compactionKeyOf(user.compaction);

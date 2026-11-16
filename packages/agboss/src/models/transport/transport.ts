@@ -1,4 +1,5 @@
 import type { Usd } from "../../units/index.js";
+import type { ModelProviderPart } from "../content.js";
 import type { FinishReason } from "../finish-reason.js";
 import type { PromptCaching } from "../prompt-caching.js";
 import type { Reasoning } from "../reasoning.js";
@@ -26,10 +27,17 @@ export interface ModelProviderToolCall {
   readonly arguments: Readonly<Record<string, unknown>>;
 }
 
-/** One message of the conversation, masked by the element's PII policies; text only. */
+/**
+ * One message of the conversation, masked by the element's PII policies. `text` is its text parts
+ * joined, as it always was; `parts` (#899) holds the files that ride with it — images and PDFs —
+ * absent for a message of text only. A transport that cannot take a part throws
+ * `ModelProviderInputError`.
+ */
 export interface ModelProviderMessage {
   readonly role: ModelProviderMessageRole;
   readonly text: string;
+  /** The file parts of the message, in order; absent = none. */
+  readonly parts?: readonly ModelProviderPart[];
   /** An assistant message's tool calls; absent = none. */
   readonly toolCalls?: readonly ModelProviderToolCall[];
   /** A tool message: the id of the call it answers. */

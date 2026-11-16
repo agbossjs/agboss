@@ -17,6 +17,9 @@ export const isWorkingDuration: (value: unknown) => value is WorkingDuration;
 export const kilobytes: (amount: number) => Bytes;
 
 // @public
+export const megabytes: (amount: number) => Bytes;
+
+// @public
 export type Milliseconds = Brand<number, "Milliseconds">;
 
 // @public

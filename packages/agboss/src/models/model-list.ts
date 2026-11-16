@@ -13,6 +13,9 @@ export interface ModelEntry {
       }
     | undefined;
   readonly pricing?: Record<string, unknown> | undefined;
+  readonly architecture?:
+    | { readonly input_modalities?: string[] | undefined; readonly [key: string]: unknown }
+    | undefined;
   readonly [key: string]: unknown;
 }
 
@@ -26,6 +29,7 @@ const ModelEntrySchema = z.looseObject({
     })
     .optional(),
   pricing: z.record(z.string(), z.unknown()).optional(),
+  architecture: z.looseObject({ input_modalities: z.array(z.string()).optional() }).optional(),
 }) satisfies z.ZodType<ModelEntry>;
 
 const ModelListSchema = z.looseObject({ data: z.array(ModelEntrySchema) });

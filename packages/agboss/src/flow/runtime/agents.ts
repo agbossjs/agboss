@@ -39,6 +39,7 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     excludeToolInterceptors: options.excludeToolInterceptors,
     compaction: options.compaction,
     uncompactedTurns: options.uncompactedTurns,
+    files: options.files,
   });
 }
 

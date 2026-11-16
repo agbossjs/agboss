@@ -5,7 +5,7 @@ import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
-import type { ObservabilityMask } from "../pii/observability-mask.js";
+import { NO_OBSERVABILITY_MASK, type ObservabilityMask } from "../pii/observability-mask.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/index.js";
 
@@ -65,9 +65,11 @@ export async function maskedRecordOf(
   result: ExecutionOutput,
   mask: ObservabilityMask | undefined,
 ): Promise<ExecutionOutput> {
-  if (result.record === undefined || mask === undefined) return result;
-  // the mask keeps the record's shape: every string masked, nothing else changed
-  return { ...result, record: (await mask.value(result.record)) as ExecutionRecord };
+  if (result.record === undefined) return result;
+  // the mask keeps the record's shape: every string masked, nothing else changed; no policies, still
+  // no file bytes (#899 §0)
+  const shown = await (mask ?? NO_OBSERVABILITY_MASK).value(result.record);
+  return { ...result, record: shown as ExecutionRecord };
 }
 
 /**
@@ -90,7 +92,7 @@ export async function withPauseAnswers(
     result.executionId,
   );
   // the mask keeps the shape: every string masked, nothing else changed
-  const masked = mask === undefined ? answers : ((await mask.value(answers)) as typeof answers);
+  const masked = (await (mask ?? NO_OBSERVABILITY_MASK).value(answers)) as typeof answers;
   return withAnswers(result, masked);
 }
 

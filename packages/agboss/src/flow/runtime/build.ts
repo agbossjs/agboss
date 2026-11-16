@@ -75,7 +75,7 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
         budgets: run.budgets,
         approval,
         judges: noJudges,
-        ...loopPoliciesOf(deps, name),
+        ...loopPoliciesOf(deps, name, agent),
         observer: deps.observer,
       },
       settledSaverOf(deps.pause?.checkpointer, run.budgets),

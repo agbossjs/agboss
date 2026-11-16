@@ -1,3 +1,5 @@
+import { withAgentFiles } from "../files/assemble-files.js";
+import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
@@ -56,6 +58,9 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly uncompactedTurns?: UncompactedTurns;
   /** `@Application({ workingCalendar })`: the default calendar of working-time deadlines (#944). */
   readonly workingCalendar?: WorkingCalendarSource;
+  /** `@Application({ a2aFiles, exposes })`: the limits and types the agents' files start from (#899). */
+  readonly a2aFiles?: A2AFileOptions;
+  readonly exposes?: readonly Class[];
 };
 
 function configOf(
@@ -211,8 +216,8 @@ export async function workflowOf(
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
-  const prompts = await promptsOf(agents, loader);
-  const config = configOf(bundle, agents, names, mcp, judges, compactions);
+  const files = { owner, workflow, graph, agents, pii: policies.assembled.pii };
+  const config = withAgentFiles(configOf(bundle, agents, names, mcp, judges, compactions), files);
   validateAgentsConfig(config, [...names.values()]);
   const modelUsers = { ...policies.models, replyInterpreters, rerankers: rerankerModelsOf(rags) };
   const models = modelPartsOf(owner, { config, routers }, graph, modelUsers);
@@ -227,7 +232,7 @@ export async function workflowOf(
     ...models,
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
-    prompts,
+    prompts: await promptsOf(agents, loader),
     tools: toolBuilder(bundle, agents, tools, mcp.names),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...memoryPartsOf(bundle, agents),

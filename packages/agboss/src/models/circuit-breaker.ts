@@ -1,4 +1,5 @@
 import { AGBossError } from "../core/errors.js";
+import type { ModelInputKind } from "./content.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { RateLimitRepository } from "../infrastructure/rate-limit.repository.js";
 import type { Milliseconds } from "../units/index.js";
@@ -22,15 +23,20 @@ export interface CircuitBreakerPolicy {
 }
 
 /** Codes of a failed model call the framework raises itself. */
-export type ModelCallErrorCode = "model.circuit-open";
+export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input";
 
 /** What a model call the framework failed itself takes (#906): why, the provider and the message. */
 export interface ModelCallErrorOptions {
-  /** Why: `model.circuit-open`. */
+  /** Why: `model.circuit-open`, or `model.unsupported-input` (#899: a part the model cannot take). */
   readonly code: ModelCallErrorCode;
   /** The provider's name. */
   readonly provider: string;
   readonly message: string;
+  /** The model asked (`model.unsupported-input`). */
+  readonly model?: string;
+  /** The kind and the media type of the part it cannot take (`model.unsupported-input`). */
+  readonly kind?: ModelInputKind;
+  readonly mediaType?: string;
   readonly cause?: unknown;
 }
 
@@ -41,12 +47,20 @@ export class ModelCallError extends AGBossError {
   override readonly code: ModelCallErrorCode;
   /** The provider's name. */
   readonly provider: string;
+  /** The model asked, when `code` is `model.unsupported-input`. */
+  readonly model: string | undefined;
+  /** The kind of input it cannot take, when `code` is `model.unsupported-input`. */
+  readonly kind: ModelInputKind | undefined;
+  readonly mediaType: string | undefined;
 
   constructor(options: ModelCallErrorOptions) {
-    const { code, provider, message, cause } = options;
+    const { code, provider, message, model, kind, mediaType, cause } = options;
     super(`${code}: ${message}`, { cause });
     this.code = code;
     this.provider = provider;
+    this.model = model;
+    this.kind = kind;
+    this.mediaType = mediaType;
   }
 }
 

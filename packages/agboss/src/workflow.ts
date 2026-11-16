@@ -106,6 +106,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly pii?: AssembledPii;
   /** Its guardrails (#120): per agent and model router by side, their texts and models resolved. */
   readonly guardrails?: AssembledGuardrails;
+  /** The application lists its own `FileTranscriber` (#899): the built-in's model is no use then. */
+  readonly hasOwnFileTranscriber?: boolean;
   /** Its tool interceptors (#384): each agent's chain per tool, outer first. */
   readonly toolInterceptors?: AssembledToolInterceptors;
 }

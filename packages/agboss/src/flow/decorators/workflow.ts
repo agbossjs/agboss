@@ -2,6 +2,7 @@ import { callerFile } from "../../components/call-site.js";
 import type { Class, Provider } from "../../components/injection.js";
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
+import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes } from "../../units/index.js";
 import { NodeKind, type FlowPath } from "../ast.js";
@@ -48,6 +49,8 @@ export interface FlowDefaults {
  * `@Workflow` (its own), merged field by field; the most specific level that sets a field wins.
  */
 export interface WorkflowDefaults {
+  /** What an agent's `files` take where it sets nothing, and the built-in transcriber's model (#899). */
+  readonly files?: FileDefaults;
   readonly models?: ModelDefaults;
   readonly router?: RouterDefaults;
   readonly guardrail?: GuardrailDefaults;

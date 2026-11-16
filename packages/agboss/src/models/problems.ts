@@ -8,7 +8,8 @@ export type ModelProblemCode =
   | "model.no-price"
   | "model.fallback-unmapped"
   | "model.fallback-no-price"
-  | "model.no-matching-endpoint";
+  | "model.no-matching-endpoint"
+  | "model.unsupported-input";
 
 /** One problem: the setting's key, its value, the model and what the model supports. */
 export interface ModelProblem {

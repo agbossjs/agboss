@@ -1,4 +1,8 @@
 import type { AgentsConfigOf, ResolvedModelSettings, RouterModel } from "../config/types.js";
+import { needsOf, transcriberNeedsOf } from "../files/file-needs.js";
+import type { ResolvedModelFiles } from "../files/file-settings.js";
+import { FileView } from "../files/model-files.js";
+import type { ModelInputKind } from "./content.js";
 import { resolveSettings } from "../llm/registry.js";
 import { isDecisionModel } from "./decision-models.js";
 import { ModelPurpose } from "./resolve.js";
@@ -19,6 +23,7 @@ export const MODEL_USE_KINDS = [
   "replyInterpreters",
   "guardrails",
   "rerankers",
+  "files",
 ] as const;
 
 export type ModelUseKind = (typeof MODEL_USE_KINDS)[number];
@@ -34,6 +39,20 @@ export interface ModelUse {
   readonly purpose: ModelPurpose;
   /** Chat uses: the settings over the chat defaults (reasoning and caching unset = the provider's). */
   readonly settings?: ResolvedModelSettings;
+  /**
+   * What the use reads besides text (#899 §4): each kind with a media type and the view it comes
+   * in. A model that reports its `inputs` must take every kind of a strict use; a defaulted one
+   * (`isNeedStrict: false`) is narrowed to the kinds the model takes at start.
+   */
+  readonly needs?: readonly InputNeed[];
+  readonly isNeedStrict?: boolean;
+}
+
+/** One kind of input a model use reads. */
+export interface InputNeed {
+  readonly kind: ModelInputKind;
+  readonly mediaType: string;
+  readonly view: string;
 }
 
 /** A router that names its model (`@Router({ model })`) — or a model arbiter (`@Arbiter({ model })`, #279). */
@@ -78,6 +97,33 @@ export interface ModelNamingComponents {
   readonly guardrails?: readonly ModelNamingRouter[] | undefined;
   /** Model rerankers of knowledge bases (#703): chat models. */
   readonly rerankers?: readonly ModelNamingRouter[] | undefined;
+  /**
+   * Whether the built-in transcriber is the one in use (#899): its model is a use only then — an
+   * application with its own `FileTranscriber` never needs `DEFAULT_FILE_MODEL`. Default: yes.
+   */
+  readonly builtInFileModels?: boolean | undefined;
+}
+
+/** The inputs an agent's files need of its model: strict when the developer named the types. */
+const fileNeedsOf = (files: ResolvedModelFiles | undefined): Partial<ModelUse> =>
+  files === undefined ? {} : { needs: needsOf(files), isNeedStrict: files.isTypesExplicit };
+
+/** The built-in transcriber's model of each agent that reads transcriptions: a use of its own (#899 §6). */
+function fileModelUsesOf(
+  config: AgentsConfigOf<string>,
+  isBuiltIn: boolean,
+  chat: (key: ModelUseKey, settings: Parameters<typeof resolveSettings>[0]) => ModelUse,
+): readonly ModelUse[] {
+  if (!isBuiltIn) return [];
+  return Object.entries(config.agents).flatMap(([name, agent]) => {
+    const files = agent.files;
+    if (files?.views.includes(FileView.Transcription) !== true) return [];
+    const use = chat(`files.transcriber.${name}`, {
+      model: files.transcriptionModel,
+      maxTokens: files.transcriptionMaxTokens,
+    });
+    return [{ ...use, needs: transcriberNeedsOf(files), isNeedStrict: true }];
+  });
 }
 
 /** A chat model's use at `key`, its settings over the workflow's chat defaults. */
@@ -104,7 +150,11 @@ export function modelUsesOf(
   const { arbiters = [], piiDetectors = [], interpreters = [], guardrails = [] } = components;
   const chat = chatUseOf(config);
   return [
-    ...Object.entries(config.agents).map(([name, agent]) => chat(`agents.${name}`, agent)),
+    ...Object.entries(config.agents).map(([name, agent]) => ({
+      ...chat(`agents.${name}`, agent),
+      ...fileNeedsOf(agent.files),
+    })),
+    ...fileModelUsesOf(config, components.builtInFileModels !== false, chat),
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
       compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
     ),

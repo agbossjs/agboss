@@ -624,6 +624,7 @@ export type ModelRequest = {
     readonly input: MessageContent;
     readonly messages: readonly ChatLine[];
     readonly tools: readonly ToolDefinition[];
+    readonly parts: readonly PartMeta[];
 } | {
     readonly kind: "decision";
     readonly input: MessageContent;

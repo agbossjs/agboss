@@ -1,5 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
+import type { ModelInputKind } from "../models/content.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { chatExtensionsFor, type ProviderClientOptions } from "../llm/provider-clients.js";
@@ -10,12 +11,15 @@ import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { modelChaosOf } from "../eval/chaos/model-chaos.js";
-import { checkModelUses, resolutionProblems } from "../models/check.js";
+import { checkedModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
 import { workflowModelUsesOf } from "../models/resolution.js";
 import { providersAtStart } from "./providers-at-start.js";
 import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
 import type { AssembledWorkflow } from "../workflow.js";
+
+/** The kinds of input each model use's model says it takes, by use key (#899): empty when nothing was checked. */
+export type ModelInputs = ReadonlyMap<string, readonly ModelInputKind[]>;
 
 /** The models of an app: its gateway, its config priced by the providers, the startup log lines. */
 export interface AppModels {
@@ -24,7 +28,7 @@ export interface AppModels {
    * Every setting against what its model supports (production gateway only) — run once the
    * application's container can create transport providers (#385), before any model call.
    */
-  readonly checkModels: () => Promise<void>;
+  readonly checkModels: () => Promise<ModelInputs>;
   readonly priced: (config: AgentsConfigOf<string>) => AgentsConfigOf<string>;
   readonly summary: readonly string[];
 }
@@ -97,10 +101,11 @@ export async function modelsFor(
       { ...clients, connectAtStart },
       await chatExtensionsFor(directory),
     );
-  const checkModels = async (): Promise<void> => {
-    if (given !== undefined) return;
-    const problems = await checkModelUses(uses, directory, clients);
+  const checkModels = async (): Promise<ModelInputs> => {
+    if (given !== undefined) return new Map();
+    const { problems, inputs } = await checkedModelUses(uses, directory, clients);
     if (problems.length > 0) throw new ConfigurationError({ problems });
+    return inputs;
   };
   return {
     gateway,
@@ -131,7 +136,7 @@ async function overProviders(
 /** A workflow's models with its transport providers (#385) bound to the container once it exists. */
 export interface StartingModels extends Omit<AppModels, "checkModels"> {
   /** Binds the application's container (transport providers) and checks every setting. */
-  readonly startModels: (container: TransportContainer) => Promise<void>;
+  readonly startModels: (container: TransportContainer) => Promise<ModelInputs>;
 }
 
 /**
@@ -161,9 +166,9 @@ export async function appModelsFor(
       })
     : options.gateway;
   const { checkModels, ...models } = await modelsFor(bundle, given, clients);
-  const startModels = async (container: TransportContainer): Promise<void> => {
+  const startModels = async (container: TransportContainer): Promise<ModelInputs> => {
     transports.bind(container);
-    await checkModels();
+    return checkModels();
   };
   return { ...models, startModels };
 }

@@ -1,4 +1,5 @@
 import type { UsageRecord } from "../../finops/usage.js";
+import { scrubbedFilesOfDto } from "../../a2a/files/a2a-file-scrub.js";
 import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
 import { PiiRefusedError } from "../../pii/errors.js";
@@ -83,6 +84,15 @@ async function bounded(text: string, maxResultSize: Bytes): Promise<BoundedText>
   return boundedText(text, maxResultSize);
 }
 
+/** The output with its files as `redactedFileOf` shows them — with or without a PII runtime (#899 §0). */
+function withFilesShown(
+  dto: ReturnType<typeof dtoOf>,
+  output: ToolOutput<unknown>,
+): ToolOutput<unknown> {
+  if (output.kind === "error" || dto === undefined) return output;
+  return { kind: "ok", value: scrubbedFilesOfDto(dto, output.value) };
+}
+
 /**
  * The tool's output closed for the model (`tool` absent: an interceptor's `replyToModel` text,
  * #384); a failed call is the error text as it is. Over
@@ -102,14 +112,18 @@ export async function closedResult(
     const content = refusedCall(cause.refusal);
     return { ...none, content, usage: cause.usage, isTruncated: false, refusal: cause };
   }
+  // a text an interceptor gave the model (#384) has no output DTO: its text through the policies
+  const dto = tool === undefined ? undefined : dtoOf(tool.output);
   if (set === undefined || output.kind === "error") {
-    const { kept, marker, isTruncated } = await bounded(renderToolResult(output), maxResultSize);
+    const { kept, marker, isTruncated } = await bounded(
+      renderToolResult(withFilesShown(dto, output)),
+      maxResultSize,
+    );
     return { content: `${kept}${marker}`, ...none, isTruncated };
   }
   const fields = tokenFieldMask(set.fieldKey, {});
-  // a text an interceptor gave the model (#384) has no output DTO: its text through the policies
-  const dto = tool === undefined ? undefined : dtoOf(tool.output);
-  const value = dto === undefined ? output.value : maskedDtoValue(dto, output.value, fields.mask);
+  const files = dto === undefined ? output.value : scrubbedFilesOfDto(dto, output.value);
+  const value = dto === undefined ? files : maskedDtoValue(dto, files, fields.mask);
   const { kept, marker, isTruncated } = await bounded(
     renderToolResult({ kind: "ok", value }),
     maxResultSize,

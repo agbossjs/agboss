@@ -72,6 +72,12 @@ type AttemptOutcome<T> =
   | { readonly kind: "failed"; readonly error: unknown }
   | { readonly kind: "retry"; readonly wait: number };
 
+/** An attempt that failed for good: the error it threw, or the failed answer as it is. */
+const endedWith = <T>(attempt: Attempt<T>): AttemptOutcome<T> =>
+  attempt.kind === "threw"
+    ? { kind: "failed", error: attempt.error }
+    : { kind: "answer", answer: attempt.answer };
+
 /** The end of attempt number `tries`: the breaker told, a 429 slowing the provider down. */
 async function outcomeOf<T>(
   attempt: Attempt<T>,
@@ -79,6 +85,8 @@ async function outcomeOf<T>(
   options: ResilienceOptions,
   carrier: AttemptCarrier<T>,
 ): Promise<AttemptOutcome<T>> {
+  if (attempt.kind === "threw" && attempt.isRejected === true)
+    return { kind: "failed", error: attempt.error };
   if (attempt.kind === "answered" && attempt.failure === undefined) {
     if (attempt.settledAtEnd !== true) await options.breaker?.recordSuccess();
     return { kind: "answer", answer: attempt.answer };
@@ -87,9 +95,7 @@ async function outcomeOf<T>(
   const wait = waitBefore(attempt, tries, options);
   if (wait === undefined) {
     await options.breaker?.recordFailure();
-    return attempt.kind === "threw"
-      ? { kind: "failed", error: attempt.error }
-      : { kind: "answer", answer: attempt.answer };
+    return endedWith(attempt);
   }
   if (attempt.kind === "answered") await carrier.drop(attempt.answer);
   return { kind: "retry", wait };

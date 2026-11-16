@@ -1,3 +1,4 @@
+import type { ModelInputKind } from "./content.js";
 import type { ReasoningEffort } from "./reasoning.js";
 import type { CachedPart, CacheRetention } from "./prompt-caching.js";
 
@@ -25,8 +26,22 @@ export interface PromptCachingSupport {
  */
 export interface ModelCapabilities {
   readonly model: string;
+  /**
+   * What the model takes as input (#899). Absent = the provider does not say: its input kinds are
+   * not checked at start, a refused part fails the call (`model.unsupported-input`).
+   */
+  readonly inputs?: readonly ModelInputKind[];
   /** Request parameters the model takes (`temperature`, `max_tokens`, …). */
   readonly parameters?: readonly string[];
   readonly reasoning?: ReasoningSupport;
   readonly promptCaching?: PromptCachingSupport;
 }
+
+/** The kinds every model of a use takes: the primary's, narrowed by each fallback's. */
+export const sharedInputs = (
+  own: readonly ModelInputKind[] | undefined,
+  backup: readonly ModelInputKind[] | undefined,
+): readonly ModelInputKind[] | undefined =>
+  own === undefined || backup === undefined
+    ? (own ?? backup)
+    : own.filter((kind) => backup.includes(kind));

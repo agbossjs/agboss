@@ -1,4 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
+import { FileSource } from "../../../files/model-files.js";
+import { inputFilesOf } from "../../../files/input-files.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import type { ExecutionStateType } from "../state.js";
 import { loopInputOf, loopResultOf, type AgentLoopGraph } from "../../../graph/agent-loop/index.js";
@@ -14,10 +16,21 @@ import { runGuardrails, type GuardrailsPassed } from "../../../guardrails/runtim
 import { maskedModelText } from "../../../pii/model-boundary.js";
 import { CarriedOrder, carryRecords } from "../carried-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
-import type { LoopPii, LoopResult } from "../../../graph/agent-loop/runner.js";
+import type { LoopFiles, LoopPii, LoopResult } from "../../../graph/agent-loop/runner.js";
 import { currentFrame } from "../../context/frame.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { AgentStream, withAgentStream, type StepSite } from "../../../run/stream/agent-stream.js";
+
+/** The files of the agent's input its model reads (#899), and the transcriptions the execution has. */
+function loopFilesOf(
+  deps: GraphDeps<string>,
+  node: RuntimeNode,
+  state: ExecutionStateType,
+): LoopFiles {
+  const opted = deps.config.agents[node.id]?.files?.sources.includes(FileSource.Input) === true;
+  const sources = opted ? inputFilesOf(node.fields, state.scope) : [];
+  return { sources, transcripts: state.fileTranscripts };
+}
 
 /** An agent's loops: its own, and the last level's of a recursive workflow (#264). */
 export interface AgentLoops {
@@ -101,8 +114,9 @@ export function agentRunner(
     const { input, pii } = boundaryInputOf(node, state, deps.pii);
     await reportNodeEvent((base) => deps.observer?.onAgentStart({ ...base, name, input }));
     const streamed = visitStreamOf(node, state, config, deps);
+    const start = loopInputOf(state, node.id, input, pii, loopFilesOf(deps, node, state));
     const after = await loop
-      .invoke(loopInputOf(state, node.id, input, pii), withAgentStream(config, streamed))
+      .invoke(start, withAgentStream(config, streamed))
       .catch((error: unknown) => {
         streamed?.fail();
         throw error;
@@ -129,6 +143,14 @@ export function agentRunner(
     const usage = [...result.usage, ...guarded.usage];
     const guardrailDecisions = [...result.guardrailDecisions, ...guarded.decisions];
     const records = { toolCalls, judgeVerdicts, guardrailDecisions };
-    return { value, read, usage, approvals, piiTokens, ...records };
+    return {
+      value,
+      read,
+      usage,
+      approvals,
+      piiTokens,
+      fileTranscripts: result.fileTranscripts,
+      ...records,
+    };
   };
 }

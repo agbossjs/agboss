@@ -56,7 +56,8 @@ const answerDefinition = (name: string, dto: DtoClass, isList: boolean): ToolDef
   };
 };
 
-const classesOf = (output: OutputShape): readonly DtoClass[] => {
+/** The DTO classes an `output` answers in: itself, its variants, or its list's element. */
+export const classesOf = (output: OutputShape): readonly DtoClass[] => {
   if (typeof output === "function") return [output];
   if (output.kind === Wrapper.OneOf) return output.variants;
   return classesOf(output.element);

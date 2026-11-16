@@ -127,7 +127,13 @@ function modelDecisionOf(
     });
     if (outcome.usage !== undefined) spent.push(outcome.usage);
     if (outcome.kind === "failed")
-      throw new GuardFailedError({ guard: name, usage: [...spent], reason: outcome.reason });
+      throw new GuardFailedError({
+        guard: name,
+        usage: [...spent],
+        reason: outcome.reason,
+        // the call's own error: `.onError(ModelCallError, …)` finds it through the cause chain
+        ...(outcome.cause === undefined ? {} : { cause: outcome.cause }),
+      });
     const probability = outcome.probabilities[GUARDRAIL_QUESTION] ?? 0;
     return { isBlocked: probability >= threshold, probability };
   };

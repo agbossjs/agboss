@@ -35,7 +35,9 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
     const result = await execute(app, ChatStart, { text: "second" });
 
     expect(primary.requests.filter((r) => r.url.endsWith("/chat/completions"))).toHaveLength(1);
-    expect(backup.requests.map((request) => request.body?.model)).toEqual(["backup/model"]);
+    // the start reads the backup's model list for the input kinds it takes (#899 §4): only the chat call matters here
+    const chats = backup.requests.filter((r) => r.url.endsWith("/chat/completions"));
+    expect(chats.map((request) => request.body?.model)).toEqual(["backup/model"]);
     expect(result.output).toEqual({ text: "from backup" });
     // 1M input × $10 + 0.5M output × $20 = $20 — the primary's table would say $2
     expect(result.spend.trace).toEqual([

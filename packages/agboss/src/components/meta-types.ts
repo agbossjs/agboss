@@ -1,4 +1,5 @@
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
+import type { ModelFiles } from "../files/model-files.js";
 import type { RagMode } from "../rag/types.js";
 import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { AgentToolClass } from "./decorators.js";
@@ -83,6 +84,8 @@ export interface AgentMeta
   readonly maxRetries?: number;
   /** Knowledge bases: `{ use: CompanyDocs, mode: RagMode.Tool }` — `mode` is required. */
   readonly rag?: readonly RagBinding[];
+  /** Files for the agent's model (#899): the sources, views and limits it opted in to. */
+  readonly files?: ModelFiles;
   /** The file the agent is declared in. */
   readonly source?: string;
 }

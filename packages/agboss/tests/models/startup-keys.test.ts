@@ -34,6 +34,7 @@ const ALL_LOCAL: KindModels = {
   replyInterpreters: LOCAL,
   guardrails: LOCAL,
   rerankers: LOCAL,
+  files: LOCAL,
 };
 
 /** An application of every kind of model use; no environment, so no key is there. */

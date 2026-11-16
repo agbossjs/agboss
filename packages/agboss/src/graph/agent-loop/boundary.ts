@@ -1,4 +1,5 @@
 import { Send } from "@langchain/langgraph";
+import { loopUsage } from "./state.js";
 import { unknownToolMessage } from "../../prompts/agents.js";
 import type { AsyncNode } from "../types.js";
 import {
@@ -80,6 +81,9 @@ export function routeToActions(
           piiKey: state.piiKey,
           piiValues: state.piiValues,
           progress: loopProgressOf(state),
+          fileTally: state.fileTally,
+          transcripts: state.fileTranscripts,
+          budget: { usage: state.usage, path: state.flowPath, loop: loopUsage(state) },
           ...answerOf(state, call.callId),
         } satisfies ToolTask),
     );

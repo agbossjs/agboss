@@ -1,5 +1,6 @@
 import type { FieldMask } from "../../dto/redact.js";
-import { maskedShapeValue } from "../../pii/field-masks.js";
+import { scrubbedFilesOfDto } from "../../a2a/files/a2a-file-scrub.js";
+import { dtoOfShape, maskedShapeValue } from "../../pii/field-masks.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { prettyJson } from "./json.js";
 import type { ScopeValueRecord, VariantElement } from "./records.js";
@@ -15,13 +16,21 @@ import { elementProducerOf, previousOf, type ScopeView } from "./scope.js";
  * `sensitive` field of a value goes through its action first.
  */
 
-/** A value as the message shows it: its `sensitive` fields masked when there is a mask. */
-const shown = (
+/**
+ * A value as the message shows it: its files as `redactedFileOf` shows them — always, with or
+ * without a PII runtime (#899 §0: file bytes never leave as text) — and its `sensitive` fields
+ * masked when there is a mask.
+ */
+function shown(
   field: ResolvedField,
   value: unknown,
   mask: FieldMask | undefined,
   variant?: string,
-): unknown => (mask === undefined ? value : maskedShapeValue(field.shape, value, mask, variant));
+): unknown {
+  const dto = dtoOfShape(field.shape, variant);
+  const scrubbed = dto === undefined ? value : scrubbedFilesOfDto(dto, value);
+  return mask === undefined ? scrubbed : maskedShapeValue(field.shape, scrubbed, mask, variant);
+}
 
 const listItems = (
   field: ResolvedField,

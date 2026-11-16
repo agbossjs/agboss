@@ -1,3 +1,4 @@
+import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class } from "../../components/injection.js";
 import type { ToolHandler } from "../../components/decorators.js";
@@ -72,6 +73,8 @@ export interface AgentOptions {
   readonly compaction?: Class;
   /** How many recent turns it sees in full, over the workflow's and the application's. */
   readonly uncompactedTurns?: UncompactedTurns;
+  /** Files for the agent's model (#899): `ModelFiles.of({ sources, views, … })`; without it, no byte goes to the model. */
+  readonly files?: ModelFiles;
 }
 
 /**

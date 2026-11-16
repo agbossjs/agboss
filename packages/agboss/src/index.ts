@@ -22,6 +22,7 @@ export type * from "./public/runtime-types.js";
 export type * from "./public/dsl-types.js";
 /** @beta Type machinery of the flow DSL and the decorators: not a contract, names may change. */
 export type * as FlowTypes from "./public/flow-types.js";
+export * from "./public/files.js";
 export * from "./errors.js";
 export * from "./infrastructure/store-call-timeout.js";
 export {

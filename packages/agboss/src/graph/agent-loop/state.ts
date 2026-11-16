@@ -1,3 +1,4 @@
+import { NO_FILES, type FileTally, type SourceFile } from "../../files/visit-files.js";
 import type { AIMessage, BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -39,6 +40,22 @@ export interface StoredToolCall {
    * collect node fails the step with that limit — the model never reads it.
    */
   readonly meshLimit?: MeshLimitBody;
+  /**
+   * The files of the result its model reads (#899): shown after the tool message; the collect node
+   * checks the visit's limits on what they add.
+   */
+  readonly files?: StoredToolFiles;
+}
+
+/**
+ * A tool result's files as the loop stores them (#899): references and digests, never bytes — what the
+ * checkpoint and every record hold. The collect node reads them again, pinned to the digests.
+ */
+export interface StoredToolFiles {
+  readonly sources: readonly SourceFile[];
+  readonly digests: readonly string[];
+  readonly count: number;
+  readonly bytes: number;
 }
 
 /** An approver's decision on one call, before it ran. */
@@ -85,6 +102,15 @@ export const AgentLoopState = Annotation.Root({
   summaries: Annotation<string[]>({ reducer: replace, default: () => [] }),
   /** The agent's input message (#270 Q51). */
   inputMessage: Annotation<string>({ reducer: replace, default: () => "" }),
+  /** The files of its input its model reads (#899): read once by the input node. */
+  inputFiles: Annotation<SourceFile[]>({ reducer: replace, default: () => [] }),
+  /** The transcriptions made so far in the execution (#899 §7), by cache key; the loop adds its own. */
+  fileTranscripts: Annotation<Readonly<Record<string, string>>>({
+    reducer: merge,
+    default: () => ({}),
+  }),
+  /** How many source files and bytes of them the conversation holds (#899): its limits are checked on it. */
+  fileTally: Annotation<FileTally>({ reducer: replace, default: () => NO_FILES }),
   /** The flow nodes visited up to and including this agent (limit errors name it). */
   flowPath: Annotation<string[]>({ reducer: replace, default: () => [] }),
   /** Where this loop's additions start in the lists it was handed. */
@@ -160,6 +186,15 @@ export interface ToolTask {
   readonly piiValues?: readonly SensitiveValue[];
   /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
   readonly progress?: LoopProgress;
+  /** What the loop's files and spend were when the move was made (#899): a call's files are checked on it. */
+  readonly fileTally?: FileTally;
+  /** The transcriptions the execution has made (#899 §7): a file seen again is not transcribed again. */
+  readonly transcripts?: Readonly<Record<string, string>>;
+  readonly budget?: {
+    readonly usage: readonly UsageRecord[];
+    readonly path: readonly string[];
+    readonly loop: readonly UsageRecord[];
+  };
   /** A question call's answer (#712): its result — the call asks, it runs nothing. */
   readonly answer?: unknown;
   /** Why a question call's arguments are no valid ask (#712): its result is that error. */

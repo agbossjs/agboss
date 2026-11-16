@@ -1,8 +1,14 @@
 import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import type { AIMessage, BaseMessage } from "@langchain/core/messages";
+import type {
+  AIMessage,
+  BaseMessage,
+  ContentBlock,
+  MessageContent,
+} from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
+import { partMetaOf, partOfBlock, partsOfContent } from "../models/content.js";
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { asError, TestFailure } from "./errors.js";
@@ -13,9 +19,18 @@ import { replyOf } from "./scripted-replies.js";
 import type { ScriptedCall } from "./turns.js";
 import type { RecordedInput } from "./input-match.js";
 
+/** A message's content as a test reads it: a file part as its meta, never its bytes (#899 §9). */
+const shownContentOf = (content: MessageContent): MessageContent =>
+  typeof content === "string"
+    ? content
+    : content.map((block): ContentBlock => {
+        const part = partOfBlock(block);
+        return part === undefined ? block : { ...partMetaOf(part) };
+      });
+
 const lineOf = (message: BaseMessage): ChatLine => ({
   role: message.type,
-  text: message.content,
+  text: shownContentOf(message.content),
 });
 
 const isToolDefinition = (value: unknown): value is ToolDefinition =>
@@ -38,6 +53,7 @@ export function chatRequestOf(messages: readonly BaseMessage[]): ModelRequest {
     input: inputOf(lines),
     messages: lines,
     tools: [],
+    parts: messages.flatMap((message) => partsOfContent(message.content).map(partMetaOf)),
   };
 }
 

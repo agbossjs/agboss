@@ -32,6 +32,7 @@ export interface StubModel {
     readonly supported_efforts?: readonly string[];
   };
   readonly pricing?: Readonly<Record<string, string>>;
+  readonly architecture?: { readonly input_modalities: readonly string[] };
 }
 
 /** A chat completion replyWith, with OpenRouter's cost when given. */

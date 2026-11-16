@@ -231,4 +231,8 @@ export type RuleCode =
   | "eval.duplicate-case"
   | "eval.judge-wrong-reply"
   // child placement (#333 PR 2): one placement per child in a flow
-  | "flow.conflicting-placement";
+  | "flow.conflicting-placement"
+  // an agent's files for its model (#899)
+  | "files.invalid-setting"
+  | "files.no-redactor"
+  | "pii.original-file";

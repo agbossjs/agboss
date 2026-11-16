@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { MessageContent } from "@langchain/core/messages";
+import type { PartMeta } from "../models/content.js";
 import type { DecisionQuestions, DecisionState } from "../llm/decisions.js";
 import type { InputMatcherOf, RecordedInputOf, TurnFor } from "./script-types.js";
 import type { ScriptedTurn } from "./turns.js";
@@ -20,6 +21,8 @@ export type ModelRequest =
       readonly messages: readonly ChatLine[];
       /** The tools the agent bound — its own and its answer tools, as the model sees them. */
       readonly tools: readonly ToolDefinition[];
+      /** The files that rode with it, in order: `{ kind, mediaType, filename?, sizeBytes, sha256 }`, never the bytes (#899). */
+      readonly parts: readonly PartMeta[];
     }
   | {
       readonly kind: "decision";

@@ -177,6 +177,7 @@ function succeeded(
     ...sidePathAfter(state, node, launched === undefined ? next : undefined),
     ...(launched === undefined ? {} : { launch: launched.ticket }),
     ...recordsOf(outcome),
+    ...(outcome.fileTranscripts === undefined ? {} : { fileTranscripts: outcome.fileTranscripts }),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
     stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };

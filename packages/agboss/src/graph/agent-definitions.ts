@@ -19,7 +19,8 @@ export class MissingJudgeError extends Error {
 const limitsOf = <TName extends string>(
   agent: AgentSettingsOf<string> | undefined,
   config: AgentsConfigOf<TName>,
-): Pick<AgentDefinition, "limits" | "maxResultSize"> => ({
+): Pick<AgentDefinition, "limits" | "maxResultSize" | "files"> => ({
+  ...(agent?.files === undefined ? {} : { files: agent.files }),
   limits: resolveAgentLimits(agent?.maxToolCalls, config.defaults.tools?.maxToolCalls).limits,
   maxResultSize: defaultMaxResultSizeOf(config.defaults.tools?.maxResultSize),
 });

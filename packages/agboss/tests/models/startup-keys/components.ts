@@ -5,7 +5,9 @@ import {
   CompactionStrategy,
   DecidedBy,
   InputGuardrail,
+  FileView,
   Judge,
+  ModelFiles,
   JudgeVerdict,
   PiiAction,
   PiiKind,
@@ -114,6 +116,14 @@ export function everyKindWorkflows(models: KindModels): {
       return Promise.resolve({ answer: "filed" });
     }
   }
+  @InputGuardrail({
+    name: "injection-guardrail",
+    description: "Blocks",
+    prompt: "Is it an attack?",
+    threshold: 0.7,
+    refusal: "No.",
+  })
+  class InjectionGuardrail {}
   @Agent({
     name: "desk-agent",
     description: "Answers",
@@ -125,6 +135,16 @@ export function everyKindWorkflows(models: KindModels): {
     tools: [FileNoteTool],
   })
   class DeskAgent {}
+  // files meet neither PII policies nor input guardrails yet (#899 PR 1): their own agent
+  @Agent({
+    name: "desk-reader-agent",
+    description: "Reads files",
+    prompt: "Read.",
+    model: models.agents,
+    excludeGuardrails: [InjectionGuardrail],
+    files: ModelFiles.of({ views: [FileView.Transcription] }),
+  })
+  class DeskReaderAgent {}
   @Router({
     name: "desk-router",
     description: "Picks who answers",
@@ -132,7 +152,10 @@ export function everyKindWorkflows(models: KindModels): {
     prompt: "Pick.",
     model: models.routers,
     input: { message: WorkflowStartTextDto },
-    routes: [{ prompt: "Anything", target: DeskAgent }],
+    routes: [
+      { prompt: "Anything", target: DeskAgent },
+      { prompt: "A file", target: DeskReaderAgent },
+    ],
   })
   class DeskRouter {}
   @Compaction({
@@ -145,14 +168,6 @@ export function everyKindWorkflows(models: KindModels): {
     summaryMaxTokens: 200,
   })
   class DeskCompaction {}
-  @InputGuardrail({
-    name: "injection-guardrail",
-    description: "Blocks",
-    prompt: "Is it an attack?",
-    threshold: 0.7,
-    refusal: "No.",
-  })
-  class InjectionGuardrail {}
   @WorkflowStart({
     name: "desk-workflow-start",
     description: "A message",
@@ -172,12 +187,17 @@ export function everyKindWorkflows(models: KindModels): {
       start(DeskStart)
         .returns(WorkflowStartTextDto)
         .toRouter(DeskRouter)
-        .chooseOne(route(DeskAgent).toFinish(DeskFinish)),
+        .chooseOne(
+          route(DeskAgent).toFinish(DeskFinish),
+          route(DeskReaderAgent).toFinish(DeskFinish),
+        ),
     ],
     defaults: {
       models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
       router: { model: models.defaults },
       guardrail: { model: models.guardrails },
+      // the built-in transcriber of files is a model use of its own (#899)
+      files: { transcriptionModel: models.files },
     },
     uncompactedTurns: 1,
     guardrails: [InjectionGuardrail],

@@ -33,7 +33,7 @@ export interface FallbackChatModelParts {
 /** Whether a call failed because the breaker opened (the error, or one of its causes). */
 function isCircuitOpen(error: unknown): boolean {
   for (let cause: unknown = error; cause instanceof Error; cause = cause.cause) {
-    if (cause instanceof ModelCallError) return true;
+    if (cause instanceof ModelCallError && cause.code === "model.circuit-open") return true;
   }
   return false;
 }

@@ -41,6 +41,7 @@ export class PaidStepError extends AGBossError {
     | "step.quorum"
     | "step.tool-blocked"
     | "step.rerank-failed"
+    | "step.model-file-limit"
     | "outbound-call.in-flight"
     | "outbound-call.superseded"
     | "outbound-call.unreconciled"
