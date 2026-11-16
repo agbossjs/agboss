@@ -39,6 +39,12 @@ export type Attempt<TAnswer> =
   | {
       readonly kind: "threw";
       readonly error: unknown;
+      /**
+       * The provider refused the request itself — a part it cannot take (#899): `error` is thrown as
+       * it is, not retried, and the breaker is not told: a client's input error is no failure of the
+       * provider.
+       */
+      readonly isRejected?: true;
       readonly failure?: ModelFailure;
       readonly retryAfter?: number;
     };

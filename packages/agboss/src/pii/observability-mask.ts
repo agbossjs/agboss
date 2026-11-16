@@ -1,3 +1,4 @@
+import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
 import { displayMask, maskedDtoValue } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { kindPlaceholder } from "./replacement.js";
@@ -119,8 +120,13 @@ export function observabilityMaskOf(
   const text = (line: string): string => set.maskNow(line);
   const maskText = async (item: string): Promise<string> =>
     (await set.mask(item, {}, DetectionMode.WithoutModel)).masked.text;
-  const value = async (data: unknown): Promise<unknown> =>
-    set.isEmpty ? data : mappedStringsAsync(await withMaskedMessages(data, maskText), maskText);
+  // a file's bytes are never shown, whatever the policies (#899 §0)
+  const value = async (data: unknown): Promise<unknown> => {
+    const shown = redactedFilesIn(data);
+    return set.isEmpty
+      ? shown
+      : mappedStringsAsync(await withMaskedMessages(shown, maskText), maskText);
+  };
   return {
     value,
     text,
@@ -133,9 +139,21 @@ export function observabilityMaskOf(
   };
 }
 
-/** A mask that keeps everything (a workflow without policies and without an application). */
+/** A trace attribute's JSON text with its files shown as `redactedFileOf` shows them; unchanged when it holds none. */
+function filesShownInText(text: string): string {
+  const json = parsedJson(text);
+  if (json === undefined) return text;
+  const shown = JSON.stringify(redactedFilesIn(json.value));
+  return shown === JSON.stringify(json.value) ? text : shown;
+}
+
+/**
+ * A mask that keeps everything but a file's bytes (a workflow without policies and without an
+ * application): those are never shown (#899 §0).
+ */
 export const NO_OBSERVABILITY_MASK: ObservabilityMask = {
-  value: (data) => Promise.resolve(data),
+  value: (data) => Promise.resolve(redactedFilesIn(data)),
   text: (line) => line,
-  traceData: (data) => Promise.resolve(data),
+  traceData: (data) =>
+    Promise.resolve(typeof data === "string" ? filesShownInText(data) : redactedFilesIn(data)),
 };

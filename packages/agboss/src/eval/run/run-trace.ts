@@ -1,5 +1,6 @@
 import type { ExecutionOutput } from "../../app/types.js";
 import type { HandledErrorRecord } from "../../flow/runtime/child-records.js";
+import { NO_OBSERVABILITY_MASK } from "../../pii/observability-mask.js";
 import type { SuiteRunParts } from "./case-run.js";
 import type { EvalExecutionTrace } from "./trace.js";
 import { executionTraceOf } from "./trace-of.js";
@@ -18,7 +19,7 @@ export async function runTraceOf(
   const mask = parts.deps.pii?.observability;
   // the mask keeps the shape: every string masked, nothing else changed
   const masked = async <TValue>(value: TValue): Promise<TValue> =>
-    mask === undefined ? value : ((await mask.value(value)) as TValue);
+    (await (mask ?? NO_OBSERVABILITY_MASK).value(value)) as TValue;
   const handledErrors: readonly HandledErrorRecord[] = await masked(last.handledErrors);
   return executionTraceOf({
     executionId: last.executionId,

@@ -3,6 +3,7 @@ import type { DecisionQuestion } from "../llm/decisions.js";
 import { createJevClient } from "../llm/jev-client.js";
 import { minutes, seconds } from "../units/index.js";
 import type { ModelCapabilities } from "./capabilities.js";
+import type { ModelInputKind } from "./content.js";
 import { ModelCost } from "./cost.js";
 import { DECISION_MODEL_PATTERN, DECISION_MODELS } from "./decision-models.js";
 import type { DecideRequest, ModelProviderHandler } from "./handler.js";
@@ -31,6 +32,13 @@ function sortedOptions(question: DecisionQuestion): DecisionQuestion {
  * (`openRouterApiKey: secret("OPENROUTER_API_KEY")`, #266 S73 c).
  */
 export const OPENROUTER_API_KEY_FIELD = "openRouterApiKey";
+
+/** Decision models that read images besides text: Luna, pplx-decider, Clef. */
+const IMAGE_DECISION_MODEL =
+  /^(?:openai\/gpt-6-luna-decisions$|perplexity\/pplx-decider|cloudflare\/clef)/;
+
+const decisionInputsOf = (model: string): readonly ModelInputKind[] =>
+  IMAGE_DECISION_MODEL.test(model) ? ["text", "image"] : ["text"];
 
 /** Jev's models (a subset of `DECISION_MODELS`, every model the Decisions API serves). */
 export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev-router"];
@@ -76,7 +84,9 @@ export class DecisionsModelProvider implements ModelProviderHandler {
     return client({ ...decision, questions });
   }
 
+  /** What each decision model takes (#899): text for all, images (png / jpeg / webp, `Decision.image`) for some. */
   capabilities(model: string): Promise<ModelCapabilities | undefined> {
-    return Promise.resolve(this.knownModels.includes(model) ? { model } : undefined);
+    if (!this.knownModels.includes(model)) return Promise.resolve(undefined);
+    return Promise.resolve({ model, inputs: decisionInputsOf(model) });
   }
 }

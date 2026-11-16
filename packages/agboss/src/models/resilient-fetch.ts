@@ -4,6 +4,7 @@ import { readAsStream } from "./calls/json-as-stream.js";
 import { guardedEventStream, type StreamEnd } from "./calls/event-stream-guard.js";
 import { runModelCall, type ResilienceOptions } from "./calls/attempt-runner.js";
 import type { Attempt, AttemptCarrier, ProviderFetch } from "./calls/model-call.js";
+import { refusalOfResponse } from "./calls/input-refusal.js";
 import { releasedAtBodyEnd } from "./calls/response-usage.js";
 import {
   failureOfError,
@@ -63,11 +64,28 @@ async function outcomeOf(
 }
 
 /**
+ * A response that is no failure: the answer, unless it is a 4xx that says the model cannot take an
+ * input - no failure of the provider either, but a refusal that is never retried (#899).
+ */
+async function refusedBy(
+  response: Response,
+  provider: string,
+  init: RequestInit | undefined,
+): Promise<Attempt<Response> | undefined> {
+  const body = typeof init?.body === "string" ? init.body : undefined;
+  const refused = await refusalOfResponse(response, { provider, body });
+  if (refused === undefined) return undefined;
+  await response.body?.cancel();
+  return { kind: "threw", error: refused, isRejected: true };
+}
+
+/**
  * One HTTP request as the attempts' carrier: its status says the failure, its headers `Retry-After`;
  * a streamed answer (#1005) is read up to its first content — an `{error}` there fails the attempt
  * like the same status — and its end tells the breaker.
  */
 function httpCarrier(
+  provider: string,
   send: ProviderFetch,
   input: Parameters<typeof fetch>[0],
   init: RequestInit | undefined,
@@ -79,6 +97,10 @@ function httpCarrier(
       try {
         const sent = await send(input, { ...init, signal });
         const failure = failureOfStatus(sent.status);
+        if (failure === undefined) {
+          const refused = await refusedBy(sent, provider, init);
+          if (refused !== undefined) return refused;
+        }
         // a streamed request answered 200 without events (#1049): JSON is told as a stream
         const response = failure === undefined ? await readAsStream(sent, init) : sent;
         return await outcomeOf(response, failure, init?.signal, clock, breaker);
@@ -101,5 +123,9 @@ function httpCarrier(
 export function resilientFetch(options: ResilienceOptions, send: ProviderFetch): ProviderFetch {
   const clock = options.clock ?? systemClock;
   return (input, init) =>
-    runModelCall(options, httpCarrier(send, input, init, clock, options.breaker), init?.signal);
+    runModelCall(
+      options,
+      httpCarrier(options.provider, send, input, init, clock, options.breaker),
+      init?.signal,
+    );
 }

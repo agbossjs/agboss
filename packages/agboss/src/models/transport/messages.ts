@@ -6,6 +6,7 @@ import {
 } from "@langchain/core/messages";
 import type { BindToolsInput } from "@langchain/core/language_models/chat_models";
 import { convertToOpenAITool } from "@langchain/core/utils/function_calling";
+import { partOfBlock, partsOfContent } from "../content.js";
 import { ModelProviderError } from "../model-provider.decorator.js";
 import {
   ModelProviderMessageRole,
@@ -28,14 +29,18 @@ const ROLES: Readonly<Record<string, ModelProviderMessageRole>> = {
   tool: ModelProviderMessageRole.Tool,
 };
 
-/** The text of a message; any other part (an image) cannot be carried by a transport. */
+/**
+ * The text of a message: its text blocks joined. A file part (`agboss_part`) is carried in `parts`,
+ * never as text (#899); any other block cannot be carried by a transport.
+ */
 function textOf(content: MessageContent, provider: string): string {
   if (typeof content === "string") return content;
   return content
     .map((block) => {
       if (block.type === "text" && typeof block.text === "string") return block.text;
+      if (partOfBlock(block) !== undefined) return "";
       throw new ModelProviderError({
-        message: `${provider}: a transport provider carries text only, not a "${block.type}" part`,
+        message: `${provider}: a transport provider carries text and file parts only, not a "${block.type}" part`,
       });
     })
     .join("");
@@ -50,18 +55,21 @@ const toolCallsOf = (message: AIMessage): readonly ModelProviderToolCall[] =>
 
 /** One LangChain message as a transport's message. */
 function providerMessageOf(message: BaseMessage, provider: string): ModelProviderMessage {
+  const parts = partsOfContent(message.content);
   const role = ROLES[message.type];
   if (role === undefined)
     throw new ModelProviderError({
       message: `${provider}: a "${message.type}" message has no transport role`,
     });
   const text = textOf(message.content, provider);
+  const files = parts.length === 0 ? {} : { parts };
   if (AIMessage.isInstance(message)) {
     const toolCalls = toolCallsOf(message);
-    return toolCalls.length === 0 ? { role, text } : { role, text, toolCalls };
+    return toolCalls.length === 0 ? { role, text, ...files } : { role, text, ...files, toolCalls };
   }
-  if (ToolMessage.isInstance(message)) return { role, text, toolCallId: message.tool_call_id };
-  return { role, text };
+  if (ToolMessage.isInstance(message))
+    return { role, text, ...files, toolCallId: message.tool_call_id };
+  return { role, text, ...files };
 }
 
 /** The conversation for `complete(request)`. */

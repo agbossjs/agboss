@@ -1,3 +1,4 @@
+import { filesViolations } from "../files/file-rules.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
@@ -49,7 +50,7 @@ function nodesByName(
 }
 
 export function crossWorkflowViolations(workflows: readonly AssembledWorkflow[]): RuleViolation[] {
-  const found = duplicateWorkflows(workflows);
+  const found = [...duplicateWorkflows(workflows), ...filesViolations(workflows)];
   for (const [name, { kind, classes }] of nodesByName(workflows)) {
     if (classes.size > 1) {
       const names = [...classes.keys()].map(nameOf).join(" and ");

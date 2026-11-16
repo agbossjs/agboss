@@ -55,7 +55,7 @@ describe("#385: the transport's messages", () => {
     const image = new HumanMessage([{ type: "image_url", image_url: { url: "data:," } }]);
 
     expect(() => providerMessagesOf([image], "bedrock-model-provider")).toThrow(
-      'bedrock-model-provider: a transport provider carries text only, not a "image_url" part',
+      'bedrock-model-provider: a transport provider carries text and file parts only, not a "image_url" part',
     );
   });
 

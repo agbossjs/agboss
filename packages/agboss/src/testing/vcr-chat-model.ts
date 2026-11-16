@@ -4,10 +4,27 @@ import {
   type BaseChatModelCallOptions,
   type BindToolsInput,
 } from "@langchain/core/language_models/chat_models";
-import { AIMessage, type BaseMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  type BaseMessage,
+  type ContentBlock,
+  type MessageContent,
+} from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
+import { partMetaOf, partOfBlock } from "../models/content.js";
 import type { Cassette, StoredReply } from "./vcr-cassette.js";
 import { requestHashOf } from "./vcr-cassette.js";
+
+/** A message's content as it is hashed: a file part as `{ kind, mediaType, sha256 }`, never its bytes (#899 §9). */
+const hashedContentOf = (content: MessageContent): MessageContent =>
+  typeof content === "string"
+    ? content
+    : content.map((block): ContentBlock => {
+        const part = partOfBlock(block);
+        if (part === undefined) return block;
+        const { kind, mediaType, sha256 } = partMetaOf(part);
+        return { type: "agboss_part", kind, mediaType, sha256 };
+      });
 
 /** What a chat request is matched by: the model, the bound tools and every message's role and content. */
 export function chatRequestOf(
@@ -20,7 +37,7 @@ export function chatRequestOf(
     tools,
     messages: messages.map((message) => ({
       role: message.type,
-      content: message.content,
+      content: hashedContentOf(message.content),
       toolCalls: AIMessage.isInstance(message)
         ? (message.tool_calls ?? []).map((call) => ({ name: call.name, args: call.args }))
         : [],

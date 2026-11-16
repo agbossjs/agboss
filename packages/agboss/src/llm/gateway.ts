@@ -38,7 +38,9 @@ export type ChatModelUser =
   /** A guardrail's check on a chat model (#120). */
   | { readonly kind: "guardrail"; readonly guardrail: string }
   /** A model `@Reranker` (#703). */
-  | { readonly kind: "reranker"; readonly reranker: string };
+  | { readonly kind: "reranker"; readonly reranker: string }
+  /** The built-in transcriber of files (#899): its cost caller and script key `files:transcriber`. */
+  | { readonly kind: "file-transcriber" };
 
 /** A chat model request: its user and complete settings (agents, compaction, judges, LLM routers). */
 export interface ChatModelSpec {

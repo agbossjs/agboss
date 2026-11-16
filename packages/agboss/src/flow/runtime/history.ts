@@ -1,3 +1,4 @@
+import { withoutInlineBytes } from "../../a2a/files/a2a-file-scrub.js";
 import { sortedJson } from "./json.js";
 
 /**
@@ -38,13 +39,16 @@ export function readerMemoryOf(
   return { summaries: memory.summaries, history: state.history.slice(-memory.turns) };
 }
 
-/** The start line of a turn. */
+/**
+ * The start line of a turn. A file in the input keeps its whole descriptor but its bytes (`inline`,
+ * #899 §0): the turn is read again by later visits, the bytes are never written into it.
+ */
 export const startLine = (start: string, input: unknown): string =>
-  `start ${start}: ${sortedJson(input)}`;
+  `start ${start}: ${sortedJson(withoutInlineBytes(input))}`;
 
-/** The finish line of a turn. */
+/** The finish line of a turn; a file in the output as in the start line. */
 export const finishLine = (finish: string, output: unknown): string =>
-  `finish ${finish}: ${sortedJson(output)}`;
+  `finish ${finish}: ${sortedJson(withoutInlineBytes(output))}`;
 
 /** The last `limit` turns, oldest first, as the model reads them; "" when there are none. */
 export function formatHistory(history: readonly HistoryTurn[], limit: number): string {

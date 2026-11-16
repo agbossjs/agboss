@@ -517,6 +517,8 @@ export enum CostCategory {
     // (undocumented)
     Compaction = "compaction",
     // (undocumented)
+    Files = "files",
+    // (undocumented)
     Guards = "guards",
     // (undocumented)
     Retrieval = "retrieval",
@@ -2357,6 +2359,7 @@ export interface WrittenLedgerMark {
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "inputTokens".

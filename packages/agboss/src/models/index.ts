@@ -30,6 +30,19 @@ export {
   ModelProviderFailureError,
   type ModelProviderFailureOptions,
 } from "./transport/failure-error.js";
+export {
+  ModelProviderInputError,
+  type ModelProviderInputErrorOptions,
+} from "./transport/input-error.js";
+export type {
+  ModelFilePart,
+  ModelImagePart,
+  ModelInputKind,
+  ModelInputPart,
+  ModelProviderPart,
+  ModelTextPart,
+  PartMeta,
+} from "./content.js";
 export { FinishReason } from "./finish-reason.js";
 export type { ModelCapabilities, PromptCachingSupport, ReasoningSupport } from "./capabilities.js";
 export {

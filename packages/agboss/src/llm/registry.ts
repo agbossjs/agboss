@@ -1,3 +1,4 @@
+import { FileView } from "../files/model-files.js";
 import { ModelKind } from "./decision-errors.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
@@ -42,6 +43,11 @@ export interface ModelRegistry {
   readonly compactions: ReadonlyMap<string, ModelBinding>;
   /** Each `@Judge`'s own model, by judge name. */
   readonly judges: ReadonlyMap<string, JudgeBinding>;
+  /**
+   * The built-in transcriber's chat model of each agent that reads files as transcriptions (#899),
+   * by agent name: the agent's `transcriptionModel`, its `transcriptionMaxTokens`.
+   */
+  readonly fileTranscribers: ReadonlyMap<string, ModelBinding>;
 }
 
 /**
@@ -108,7 +114,15 @@ export function createModelRegistry(
       judgeBindingOf(judge, settings, config, gateway),
     ]),
   );
-  return { agents, compactions, judges };
+  const fileTranscribers = new Map(
+    Object.entries(config.agents).flatMap(([name, settings]) => {
+      const files = settings.files;
+      if (files?.views.includes(FileView.Transcription) !== true) return [];
+      const model = { model: files.transcriptionModel, maxTokens: files.transcriptionMaxTokens };
+      return [[name, bindFor({ kind: "file-transcriber" })(model)] as const];
+    }),
+  );
+  return { agents, compactions, judges, fileTranscribers };
 }
 
 /**

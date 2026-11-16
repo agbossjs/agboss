@@ -4,8 +4,10 @@ import {
   SystemMessage,
   ToolMessage,
   type BaseMessage,
+  type ContentBlock,
   type MessageContent,
 } from "@langchain/core/messages";
+import { partOfBlock } from "../models/content.js";
 import { asRecord, mappedStringsAsync } from "./strings.js";
 
 /**
@@ -21,7 +23,37 @@ async function maskedContent(
   isIncoming: boolean,
 ): Promise<MessageContent> {
   if (typeof content === "string") return mask(content, isIncoming);
-  return (await mappedStringsAsync(content, (text) => mask(text, isIncoming))) as MessageContent;
+  // a file part is passed through untouched — PII never sees bytes (#899); every other block's
+  // strings are masked as before, a text block's or any other's
+  const blocks: typeof content = [];
+  for (const block of content) {
+    if (partOfBlock(block) !== undefined) blocks.push(block);
+    else if (block.type === "text" && typeof block.text === "string")
+      blocks.push({ ...block, text: await mask(block.text, isIncoming) });
+    else
+      blocks.push(
+        (await mappedStringsAsync(block, (text) =>
+          mask(text, isIncoming),
+        )) as (typeof content)[number],
+      );
+  }
+  return blocks;
+}
+
+/** The message rebuilt of its kind with each content block through `shown` (a file part without its bytes, #899). */
+export function messageWithBlocks(
+  message: BaseMessage,
+  shown: (block: ContentBlock) => ContentBlock,
+): BaseMessage {
+  const { content } = message;
+  if (typeof content === "string") return message;
+  const blocks = content.map(shown);
+  if (message instanceof AIMessage)
+    return new AIMessage({ content: blocks, tool_calls: message.tool_calls ?? [] });
+  if (message instanceof ToolMessage)
+    return new ToolMessage({ tool_call_id: message.tool_call_id, content: blocks });
+  if (message instanceof SystemMessage) return new SystemMessage({ content: blocks });
+  return new HumanMessage({ content: blocks });
 }
 
 /** The message rebuilt of its kind, its texts masked. */

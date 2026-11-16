@@ -10,8 +10,9 @@ import { PiiAction } from "../../pii/actions.js";
  * holds it: a descriptor, never a stream — its media type and name, and where its bytes are: in the
  * application's `A2AFileRepository` (`fileId`), inline (`inline`, base64 — a small file kept in the
  * execution's own records when no file store is listed), or elsewhere by reference (`url`). Its
- * bytes are read through the `A2AFiles` service, checked against `sha256`. `inline` is masked
- * wherever the value leaves the execution (a model, a trace, a kept record): only its metadata does.
+ * bytes are read through the `A2AFiles` service, checked against `sha256`. Wherever the value
+ * leaves the execution as text (a model's prompt, a tool result, a kept record, an event, a trace)
+ * only `redactedFileOf` of it does; its bytes reach a model as a file part, never as text.
  */
 export class A2AFileDto {
   @MediaType({ prompt: "the file's media type, e.g. application/pdf" })
@@ -61,6 +62,30 @@ export function fileSourceOf(file: A2AFileDto): A2AFileSource {
   return file.inline === undefined ? A2AFileSource.Url : A2AFileSource.Inline;
 }
 
+/**
+ * What a file is where it is shown (#899 §0): a prompt, a tool result, `onToolEnd`, a record, an
+ * observer event, a log, a trace, a cassette. Never its bytes (`inline`), never where they are
+ * (`fileId`, `url`) — only what it is, and which kind of place holds its bytes.
+ */
+export interface RedactedFile {
+  readonly mediaType: string;
+  readonly filename?: string;
+  readonly sizeBytes?: number;
+  readonly sha256?: string;
+  readonly source: A2AFileSource;
+}
+
+/** The one scrub of a file descriptor: its metadata and its source, nothing that carries bytes or leads to them. */
+export function redactedFileOf(file: A2AFileDto): RedactedFile {
+  return {
+    mediaType: file.mediaType,
+    ...(file.filename === undefined ? {} : { filename: file.filename }),
+    ...(file.sizeBytes === undefined ? {} : { sizeBytes: file.sizeBytes }),
+    ...(file.sha256 === undefined ? {} : { sha256: file.sha256 }),
+    source: fileSourceOf(file),
+  };
+}
+
 const isHttpUrl = (url: string): boolean => /^https?:\/\//i.test(url);
 
 crossFieldRule(A2AFileDto, (file) => {
@@ -107,6 +132,16 @@ export function fileFieldsOf(dto: DtoClass): readonly A2AFileField[] {
     if (field.kind !== "nested" && field.kind !== "list-of") return [];
     return [{ name: field.name, isList: field.kind === "list-of", isOptional: field.optional }];
   });
+}
+
+/** Whether a file sits anywhere in `dto`: a field, or at any depth through nested and listed DTOs. */
+export function hasFileAtAnyDepth(dto: DtoClass, seen: ReadonlySet<DtoClass> = new Set()): boolean {
+  if (isFileDto(dto)) return true;
+  if (seen.has(dto)) return false;
+  const visited = new Set([...seen, dto]);
+  return fieldsOf(dto).some(
+    (field) => field.element?.kind === "dto" && hasFileAtAnyDepth(field.element.dto, visited),
+  );
 }
 
 /** The paths below `dto` where a file sits under another DTO (`items[].file`); `prefix` is the path so far. */

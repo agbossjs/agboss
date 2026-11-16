@@ -1,3 +1,4 @@
+import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
@@ -54,7 +55,8 @@ export interface UnknownCostTally {
 /** What an event goes through before any observer sees it (the PII observability mask, #120). */
 export type EventMask = (event: unknown) => Promise<unknown>;
 
-const unmasked: EventMask = (event) => Promise.resolve(event);
+/** Without policies an event is still shown without a file's bytes (#899 §0). */
+export const unmasked: EventMask = (event) => Promise.resolve(redactedFilesIn(event));
 
 /** Told when an observer's hook throws; the execution goes on. */
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;

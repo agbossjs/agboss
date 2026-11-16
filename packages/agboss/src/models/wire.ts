@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { compareNames } from "../llm/canonical-order.js";
+import {
+  inputKindOfMediaType,
+  partOfBlock,
+  type ModelFilePart,
+  type ModelImagePart,
+} from "./content.js";
 import { CachedPart } from "./prompt-caching.js";
+import { ModelProviderInputError, unsupportedInputOf } from "./transport/input-error.js";
 
 /** Anthropic-style cache marker; `ttl` only for a retention longer than five minutes. */
 export interface CacheControl {
@@ -12,7 +19,12 @@ export interface WireContentPart {
   readonly type: string;
   readonly text?: string;
   readonly cache_control?: CacheControl;
+  /** The part's own fields (`image_url`, `file`, …) pass through. */
+  readonly [field: string]: unknown;
 }
+
+/** The most `cache_control` markers a provider takes in one request: the system's and up to three more. */
+export const MAX_CACHE_MARKERS = 4;
 
 export interface WireMessage {
   readonly role: string;
@@ -68,6 +80,50 @@ const withoutSchemaKey = (tool: WireTool): WireTool => {
 export const canonicalTools = (tools: readonly WireTool[]): readonly WireTool[] =>
   [...tools].sort((a, b) => compareNames(a.function.name, b.function.name)).map(withoutSchemaKey);
 
+const dataUrl = (mediaType: string, data: string): string => `data:${mediaType};base64,${data}`;
+
+/** A file part as the OpenAI wire writes it; a type the wire has no form for is refused. */
+function wirePartOf(part: ModelImagePart | ModelFilePart): WireContentPart {
+  if (part.kind === "image")
+    return {
+      type: "image_url",
+      image_url: {
+        url: dataUrl(part.mediaType, part.data),
+        ...(part.detail === undefined ? {} : { detail: part.detail }),
+      },
+    };
+  if (part.mediaType === "application/pdf")
+    return {
+      type: "file",
+      file: {
+        filename: part.filename ?? "document.pdf",
+        file_data: dataUrl(part.mediaType, part.data),
+      },
+    };
+  throw new ModelProviderInputError({
+    kind: inputKindOfMediaType(part.mediaType),
+    mediaType: part.mediaType,
+  });
+}
+
+/** A message whose `agboss_part` blocks are written as the wire has them: one place, no provider code in the loop. */
+function withWireParts(message: WireMessage): WireMessage {
+  const { content } = message;
+  if (typeof content === "string" || content === undefined || content === null) return message;
+  if (!content.some((block) => partOfBlock(block) !== undefined)) return message;
+  return {
+    ...message,
+    content: content.map((block) => {
+      const part = partOfBlock(block);
+      return part === undefined ? block : wirePartOf(part);
+    }),
+  };
+}
+
+const hasFile = (message: WireMessage): boolean =>
+  typeof message.content !== "string" &&
+  (message.content ?? []).some((block) => block.type === "image_url" || block.type === "file");
+
 const marked = (message: WireMessage, control: CacheControl): WireMessage => {
   const content = message.content;
   if (typeof content === "string") {
@@ -85,6 +141,17 @@ const marked = (message: WireMessage, control: CacheControl): WireMessage => {
 
 const hasText = (message: WireMessage): boolean =>
   typeof message.content === "string" ? message.content !== "" : (message.content?.length ?? 0) > 0;
+
+/**
+ * A message that holds files gets a marker too, the last user message among them (#899 §2), newest
+ * first, as far as the provider's ceiling of markers per request allows.
+ */
+function addFileMessages(indexes: Set<number>, messages: readonly WireMessage[]): void {
+  for (let index = messages.length - 1; index >= 0 && indexes.size < MAX_CACHE_MARKERS; index--) {
+    const message = messages[index];
+    if (message !== undefined && hasFile(message)) indexes.add(index);
+  }
+}
 
 /** Indexes of the messages that get a marker: the system prompt (it ends the tools + system prefix), the previous turn's end. */
 function markerIndexes(
@@ -106,6 +173,7 @@ function markerIndexes(
       .findLastIndex((message, index) => index !== system && hasText(message));
     if (previous !== -1) indexes.add(previous);
   }
+  if (parts.length > 0) addFileMessages(indexes, messages);
   return indexes;
 }
 
@@ -114,7 +182,11 @@ function markerIndexes(
  * nothing), the provider's fields, reasoning and caching fields, and cache markers where the model
  * needs them. Fingerprints (#125) hash this body.
  */
-export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest {
+export function toWireRequest(source: WireRequest, plan: WirePlan): WireRequest {
+  const request =
+    source.messages === undefined
+      ? source
+      : { ...source, messages: source.messages.map(withWireParts) };
   const messages = request.messages;
   const markers =
     messages === undefined ? new Set<number>() : markerIndexes(messages, plan.cacheMarkers);
@@ -133,11 +205,16 @@ export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest
 }
 
 /** A client that sends every JSON request through `toWireRequest`. */
-export function wireFetch(plan: WirePlan, send: typeof fetch): typeof fetch {
+export function wireFetch(plan: WirePlan, send: typeof fetch, provider = ""): typeof fetch {
   return (input, init) => {
     const body = typeof init?.body === "string" ? parseWireRequest(init.body) : undefined;
-    return body === undefined
-      ? send(input, init)
-      : send(input, { ...init, body: JSON.stringify(toWireRequest(body, plan)) });
+    if (body === undefined) return send(input, init);
+    try {
+      return send(input, { ...init, body: JSON.stringify(toWireRequest(body, plan)) });
+    } catch (error) {
+      if (error instanceof ModelProviderInputError)
+        return Promise.reject(unsupportedInputOf(error, { provider, model: body.model }));
+      throw error;
+    }
   };
 }

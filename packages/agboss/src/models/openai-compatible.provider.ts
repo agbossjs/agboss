@@ -51,7 +51,9 @@ export abstract class OpenAiCompatibleProvider<
         streamUsage: true,
         configuration: {
           baseURL: connection.baseUrl,
-          fetch: this.responseFetch(wireFetch(this.wirePlanOf(request), connection.fetch)),
+          fetch: this.responseFetch(
+            wireFetch(this.wirePlanOf(request), connection.fetch, connection.provider),
+          ),
           defaultHeaders: { "X-Title": "AGBoss" },
         },
       });

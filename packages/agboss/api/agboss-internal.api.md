@@ -179,6 +179,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly config: AgentsConfigOf<TName>;
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
+    readonly hasOwnFileTranscriber?: boolean;
     readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
@@ -378,6 +379,8 @@ export enum CostCategory {
     Agents = "agents",
     // (undocumented)
     Compaction = "compaction",
+    // (undocumented)
+    Files = "files",
     // (undocumented)
     Guards = "guards",
     // (undocumented)
@@ -1226,9 +1229,12 @@ export function modelSummaryOf(uses: readonly ModelUse[], directory: ModelProvid
 
 // @public
 export interface ModelUse {
+    // (undocumented)
+    readonly isNeedStrict?: boolean;
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
+    readonly needs?: readonly InputNeed[];
     // (undocumented)
     readonly purpose: ModelPurpose;
     readonly settings?: ResolvedModelSettings;
@@ -1467,6 +1473,9 @@ export interface UnknownCostTally {
     recorded(workflow: string, count: number): void;
     unrecorded(workflow: string): void;
 }
+
+// @public
+export const unmasked: EventMask;
 
 // @public
 export const versionOf: (value: unknown) => string;
@@ -1782,6 +1791,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
@@ -1815,6 +1825,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/models/resolve.ts - (ae-undocumented) Missing documentation for "providers".
 // src/models/uses.ts - (ae-undocumented) Missing documentation for "model".
 // src/models/uses.ts - (ae-undocumented) Missing documentation for "purpose".
+// src/models/uses.ts - (ae-undocumented) Missing documentation for "isNeedStrict".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "retrieve".

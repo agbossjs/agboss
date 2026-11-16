@@ -1,11 +1,11 @@
-import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
-import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
 import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
+import { runTool } from "./run-tool.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
+import { taskFilesOf } from "../../files/tool-files.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
@@ -13,49 +13,26 @@ import { interceptedCall, interceptorsOf, questionResultOf } from "./tool-interc
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
 import { storedCallOf } from "./stored-call.js";
 import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
-import type { AgentLoopUpdate, ToolTask } from "./state.js";
+import type { AgentLoopUpdate, StoredToolFiles, ToolTask } from "./state.js";
 import { inLoopFrame, inToolCallFrame } from "../../flow/context/frame.js";
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
-import { isRerankFailure } from "../nodes/knowledge.js";
 import { callSignalOf } from "./call-signal.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 /**
  * A guarded call: its result for the model, how its interceptors ended it (#384) and what the tool
  * gave — none when it was refused, answered by an interceptor or stopped — and its step (#395).
  */
 interface GuardedCall {
+  /** The files of the result its model reads, and the transcriptions made for them (#899). */
+  readonly files?: StoredToolFiles;
+  readonly transcripts?: Readonly<Record<string, string>>;
   readonly closed: ClosedResult;
   readonly step: StepRecord;
   readonly output?: ToolOutput<unknown>;
   /** An interceptor's `replyToModel` message: the tool never ran. */
   readonly replied?: string;
   readonly stop?: ToolCallStop;
-}
-
-/** Tool failures are recoverable: whatever went wrong, the model reads it as `Tool error: …`. */
-async function runTool(
-  tool: AnyTool,
-  args: unknown,
-  context: ToolInvocationContext,
-): Promise<ToolOutput<unknown>> {
-  try {
-    const output = await tool.invoke(args, context);
-    // a reranking that must fail the step (#703) is no tool error the model reads
-    if (output.kind === "error" && isRerankFailure(output.cause)) throw output.cause;
-    return output;
-  } catch (error) {
-    if (isRerankFailure(error)) throw error;
-    if (error && typeof error === "object" && "name" in error && error.name === "GraphInterrupt") {
-      throw error;
-    }
-    // a hand-over (#471: a fenced write too) ends the loop before onToolEnd and the tally
-    const handedOver = handedOverOf(error, context.signal);
-    if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Tool);
-    return { kind: "error", message: errorMessage(error), cause: error };
-  }
 }
 
 /** What a call gives: a question's (#712) without running the tool, else the tool's run. */
@@ -153,6 +130,13 @@ export function makeToolNode(
       : inLoopFrame(task.progress, () => run(task, config));
 }
 
+/** The guarded call with the files of its result read (#899) and what they cost counted. */
+async function withFiles(deps: AgentLoopDeps, tool: AnyTool, task: ToolTask, guarded: GuardedCall) {
+  const read = await taskFilesOf(deps, tool, task, guarded.output);
+  const usage = deps.budgets.tally([...guarded.closed.usage, ...read.usage]);
+  return { ...guarded, closed: { ...guarded.closed, usage }, ...read };
+}
+
 /** One tool call's task, in the frame it is given. */
 function runTask(
   deps: AgentLoopDeps,
@@ -180,8 +164,8 @@ function runTask(
       keep({ ...spent, caller });
     };
     const event = { toolName: task.tool, agentName: deps.agent.name };
-    await reportNodeEvent((base) =>
-      deps.observer?.onToolStart({ ...base, ...event, arguments: task.args }),
+    await reportNodeEvent((b) =>
+      deps.observer?.onToolStart({ ...b, ...event, arguments: task.args }),
     );
     // the loop calls the tool itself, so no LangChain tool callback fires: stream it (#848)
     runCtx.run.stream?.emit({ kind: "toolCall", tool: task.tool });
@@ -196,8 +180,8 @@ function runTask(
         ),
       call.signal,
     ).finally(call.release);
-    const closed = { ...guarded.closed, usage: deps.budgets.tally(guarded.closed.usage) };
-    const ended = { ...guarded, closed };
+    const ended = await withFiles(deps, tool, task, guarded);
+    const { closed } = ended;
     const record = recordOf(tool, task, ended, { startedAt, endedAt: runCtx.clock.now() }, mesh);
     await reportToolEnd(deps, event, closed);
     return endedTaskOf(tool, task, ended, { record, usage });
@@ -233,5 +217,6 @@ function endedTaskOf(
   const invalidArguments = tool.input.safeParse(task.args).success ? 0 : 1;
   const callRecords = { [task.callId]: ended.record };
   const usage = [...ended.usage, ...closed.usage];
-  return { results, callRecords, usage, piiTokens, piiMasked, invalidArguments };
+  const fileTranscripts = guarded.transcripts ?? {};
+  return { results, callRecords, usage, piiTokens, piiMasked, invalidArguments, fileTranscripts };
 }

@@ -83,6 +83,7 @@ export class TransportChatModel extends BaseChatModel {
       await this.parts.complete(),
       this.requestOf(messages),
       options.signal,
+      provider,
     );
     const response: unknown = await runModelCall(resilience, carrier, options.signal);
     const message = aiMessageOf(response, settings.model, provider);

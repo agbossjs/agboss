@@ -115,6 +115,14 @@ export const ExecutionState = Annotation.Root({
    */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
   /**
+   * The transcriptions of files made in this execution (#899 §7), by cache key: a resume, a second
+   * agent and the judges take a file's transcription from here instead of asking the model again.
+   */
+  fileTranscripts: Annotation<Readonly<Record<string, string>>>({
+    reducer: (left, right) => ({ ...left, ...right }),
+    default: () => ({}),
+  }),
+  /**
    * The key of the execution's field tokens (#334) when the application sets no `piiKeyField`:
    * made once per root execution, handed to its children — after a pause, a failover or a crash
    * another instance gives one value the same token. `null`: the application's key (or an old

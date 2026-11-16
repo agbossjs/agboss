@@ -6,6 +6,8 @@ import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
 import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
+import type { FileRuntime } from "../../files/visit-files.js";
+import type { ResolvedModelFiles } from "../../files/file-settings.js";
 import type { Bytes } from "../../units/index.js";
 import type { AnswerTools } from "../../flow/runtime/answer-tools.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
@@ -31,6 +33,8 @@ export interface AgentDefinition {
    * knowledge block at most (#336): its workflow's `defaults.tools.maxResultSize`, else 128 KB.
    */
   readonly maxResultSize: Bytes;
+  /** The files its model reads (#899); absent = none: no byte goes to the model. */
+  readonly files?: ResolvedModelFiles;
   /** What of the thread memory the agent sees; absent = the built-in sliding window. */
   readonly memory?: BaseMemoryStrategy;
   /** Context-mode knowledge bases: retrieved before the first model call. */
@@ -67,6 +71,8 @@ export interface AgentLoopDeps {
   /** Its tool interceptors (#384): the chain of its calls to each tool, outer first. */
   readonly interceptors?: ToolInterceptorChains;
   readonly observer?: ExecutionObserverManager;
+  /** What it reads its files with (#899); absent: the agent did not opt in. */
+  readonly fileRuntime?: FileRuntime | undefined;
 }
 
 /** One tool call of a move, with its id (assigned by the loop when the model gives none). */

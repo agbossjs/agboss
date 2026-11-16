@@ -4,6 +4,7 @@
  * the public API. `config/types.ts` keeps the schemas internal; tests/config/settings-types.test.ts
  * checks that each pair is the same type, so the two cannot drift.
  */
+import type { ResolvedModelFiles } from "../files/file-settings.js";
 import type { CompactionStrategy } from "../compaction/compaction.decorator.js";
 import type { CachedPart, CacheRetention } from "../models/prompt-caching.js";
 import type { ReasoningEffort } from "../models/reasoning.js";
@@ -87,6 +88,8 @@ export interface AgentSettings extends ModelSettings {
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried. */
   judges?: string[] | undefined;
   maxRetries?: number | undefined;
+  /** Files for the agent's model (#899), every level applied; absent = no byte goes to the model. */
+  files?: ResolvedModelFiles | undefined;
   /** Knowledge bases the agent uses: name, mode and passages per retrieval. */
   rag?:
     | {

@@ -44,6 +44,10 @@ export const usd = (amount: number): Usd => nonNegative(amount, "usd") as Usd;
 export const kilobytes = (amount: number): Bytes =>
   (nonNegative(amount, "kilobytes") * 1024) as Bytes;
 
+/** A size given in megabytes, 1 MB = 1,048,576 bytes: `maxFileSize: megabytes(10)` (#899). */
+export const megabytes = (amount: number): Bytes =>
+  (nonNegative(amount, "megabytes") * 1024 * 1024) as Bytes;
+
 /** A duration given in seconds. */
 export const seconds = (amount: number): Milliseconds =>
   (nonNegative(amount, "seconds") * 1000) as Milliseconds;

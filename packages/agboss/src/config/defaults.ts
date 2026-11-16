@@ -1,4 +1,5 @@
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
+import { mergedFileDefaults } from "../files/file-settings.js";
 import { withoutUndefined } from "../types/defined.js";
 
 /**
@@ -53,6 +54,7 @@ export function cascadeDefaults(
   if (application === undefined) return workflow;
   if (workflow === undefined) return application;
   return withoutUndefined({
+    files: mergedFileDefaults(application.files, workflow.files),
     models: merged(application.models, workflow.models),
     router: merged(application.router, workflow.router),
     guardrail: merged(application.guardrail, workflow.guardrail),

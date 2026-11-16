@@ -1,10 +1,10 @@
 import type { MeterProvider } from "@opentelemetry/api";
-import { resolveTools, type AssembledWorkflow } from "../workflow.js";
+import { type AssembledWorkflow } from "../workflow.js";
 import type { StepSlots } from "./step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
-import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
+import type { AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -16,13 +16,9 @@ import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
+import { startedModels } from "./started-models.js";
 import { appModelsFor } from "./models.js";
-import {
-  connectMcpServers,
-  type AnyTool,
-  type McpConnections,
-  type TransportFactory,
-} from "../tools/index.js";
+import { connectMcpServers, type McpConnections, type TransportFactory } from "../tools/index.js";
 import {
   evaluationFor,
   flowFor,
@@ -210,8 +206,6 @@ const budgetsOf = (
         clock,
       };
 
-const nameOfTool = (tool: AnyTool): string => tool.name;
-
 /** A workflow's tracing route (#1130): its spans go to its application instance's Langfuse only. */
 const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
   workflow,
@@ -234,12 +228,11 @@ export async function createWorkflowDeps(
   const { clock, records: turns, checkpointer } = parts.infrastructure;
   const contexts =
     parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
-  const { gateway, startModels, ...models } = await appModelsFor(bundle, options, parts, contexts);
+  const started = await appModelsFor(bundle, options, parts, contexts);
+  const { gateway, ...models } = started;
   const lifecycle = lifecycleOf(options.container, parts.infrastructure, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
-  await startModels({ resolve: bundle.resolve(services), created: lifecycle.created }); // #385
-  const tools: readonly AnyTool[] = resolveTools(bundle, services);
-  const config = models.priced(validateAgentsConfig(bundle.config, tools.map(nameOfTool)));
+  const { tools, config } = await startedModels(bundle, started, services, lifecycle);
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
   const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);

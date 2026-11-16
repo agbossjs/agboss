@@ -134,7 +134,6 @@ export const DECISION_MODELS: readonly string[];
 
 // @public
 export class DecisionsModelProvider implements ModelProviderHandler {
-    // (undocumented)
     capabilities(model: string): Promise<ModelCapabilities | undefined>;
     // (undocumented)
     readonly knownModels: readonly string[];
@@ -237,26 +236,35 @@ export class ModelCallError extends AGBossError {
     static readonly code: "model";
     // (undocumented)
     readonly code: ModelCallErrorCode;
+    readonly kind: ModelInputKind | undefined;
+    // (undocumented)
+    readonly mediaType: string | undefined;
+    readonly model: string | undefined;
     // (undocumented)
     name: string;
     readonly provider: string;
 }
 
 // @public
-export type ModelCallErrorCode = "model.circuit-open";
+export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input";
 
 // @public
 export interface ModelCallErrorOptions {
     // (undocumented)
     readonly cause?: unknown;
     readonly code: ModelCallErrorCode;
+    readonly kind?: ModelInputKind;
+    // (undocumented)
+    readonly mediaType?: string;
     // (undocumented)
     readonly message: string;
+    readonly model?: string;
     readonly provider: string;
 }
 
 // @public
 export interface ModelCapabilities {
+    readonly inputs?: readonly ModelInputKind[];
     // (undocumented)
     readonly model: string;
     readonly parameters?: readonly string[];
@@ -285,6 +293,11 @@ export interface ModelEntry {
     // (undocumented)
     readonly [key: string]: unknown;
     // (undocumented)
+    readonly architecture?: {
+        readonly input_modalities?: string[] | undefined;
+        readonly [key: string]: unknown;
+    } | undefined;
+    // (undocumented)
     readonly id: string;
     // (undocumented)
     readonly pricing?: Record<string, unknown> | undefined;
@@ -309,6 +322,36 @@ export enum ModelFailure {
     // (undocumented)
     Timeout = "timeout"
 }
+
+// @public (undocumented)
+export interface ModelFilePart {
+    // (undocumented)
+    readonly data: string;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly kind: "file";
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public (undocumented)
+export interface ModelImagePart {
+    // (undocumented)
+    readonly data: string;
+    // (undocumented)
+    readonly detail?: "low" | "high" | "auto";
+    // (undocumented)
+    readonly kind: "image";
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export type ModelInputKind = "text" | "image" | "file" | "audio" | "video";
+
+// @public
+export type ModelInputPart = ModelTextPart | ModelImagePart | ModelFilePart;
 
 // @public
 export interface ModelPrice {
@@ -338,7 +381,7 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint";
+export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
 
 // @public
 export function ModelProvider(options: HttpModelProviderOptions): <C extends HttpModelProviderType>(value: C) => C;
@@ -390,7 +433,29 @@ export interface ModelProviderHandler {
 }
 
 // @public
+export class ModelProviderInputError extends AGBossError {
+    constructor(options: ModelProviderInputErrorOptions);
+    // (undocumented)
+    static readonly code: "model.provider-input";
+    // (undocumented)
+    readonly code: typeof ModelProviderInputError.code;
+    // (undocumented)
+    readonly kind: ModelInputKind;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export interface ModelProviderInputErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly kind: ModelInputKind;
+    readonly mediaType: string;
+}
+
+// @public
 export interface ModelProviderMessage {
+    readonly parts?: readonly ModelProviderPart[];
     // (undocumented)
     readonly role: ModelProviderMessageRole;
     // (undocumented)
@@ -412,6 +477,9 @@ export enum ModelProviderMessageRole {
 
 // @public
 export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProviderOptions;
+
+// @public
+export type ModelProviderPart = ModelInputPart;
 
 // @public
 export interface ModelProviderRequest {
@@ -482,6 +550,14 @@ export enum ModelPurpose {
     Decision = "decision"
 }
 
+// @public (undocumented)
+export interface ModelTextPart {
+    // (undocumented)
+    readonly kind: "text";
+    // (undocumented)
+    readonly text: string;
+}
+
 // @public
 export type NoRequestFields = Readonly<Record<string, never>>;
 
@@ -539,6 +615,22 @@ export interface OpenRouterRouting {
     readonly quantizations?: readonly Quantization[];
     // (undocumented)
     readonly sort?: ProviderSort;
+}
+
+// @public
+export interface PartMeta {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly kind: "image" | "file";
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: number;
+    // (undocumented)
+    readonly type: "agboss_part";
 }
 
 // @public
@@ -812,7 +904,7 @@ export interface RoutingProblem {
 }
 
 // @public
-export function toWireRequest(request: WireRequest, plan: WirePlan): WireRequest;
+export function toWireRequest(source: WireRequest, plan: WirePlan): WireRequest;
 
 // @public
 export const TRANSIENT_FAILURES: readonly ModelFailure[];
@@ -847,6 +939,7 @@ export type TransportModelProviderType<D extends readonly Token[]> = abstract ne
 
 // @public (undocumented)
 export interface WireContentPart {
+    readonly [field: string]: unknown;
     // (undocumented)
     readonly cache_control?: CacheControl;
     // (undocumented)
@@ -932,12 +1025,33 @@ export interface WireTool {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "window".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "openFor".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "message".
+// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "cause".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "rateLimits".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "clock".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "ModelTextPart".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "text".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "ModelImagePart".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "data".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "detail".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "ModelFilePart".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "filename".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "data".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "type".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "filename".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/models/content.ts - (ae-undocumented) Missing documentation for "sha256".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "inputPerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "outputPerMillion".
 // src/models/cost.ts - (ae-undocumented) Missing documentation for "cachedInputPerMillion".
@@ -958,7 +1072,6 @@ export interface WireTool {
 // src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "knownModels".
-// src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "capabilities".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "ServerError".
@@ -967,6 +1080,7 @@ export interface WireTool {
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "supported_parameters".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "reasoning".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "pricing".
+// src/models/model-list.ts - (ae-undocumented) Missing documentation for "architecture".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "__index".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "cost".
@@ -1068,6 +1182,11 @@ export interface WireTool {
 // src/models/transport/failure-error.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/transport/failure-error.ts - (ae-undocumented) Missing documentation for "failure".
 // src/models/transport/failure-error.ts - (ae-undocumented) Missing documentation for "retryAfter".
+// src/models/transport/input-error.ts - (ae-undocumented) Missing documentation for "cause".
+// src/models/transport/input-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/models/transport/input-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/models/transport/input-error.ts - (ae-undocumented) Missing documentation for "kind".
+// src/models/transport/input-error.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "System".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "User".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "Assistant".

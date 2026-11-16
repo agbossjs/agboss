@@ -4,6 +4,9 @@ import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
 import { fallbackProblems } from "./fallback-check.js";
 import type { ModelProviderHandler, ProviderConnection } from "./handler.js";
+import { inputProblems } from "./input-check.js";
+import { sharedInputs } from "./capabilities.js";
+import type { ModelInputKind } from "./content.js";
 import { hasProviderMethod } from "./model-provider.decorator.js";
 import type { TransportResolver } from "./transport/transport-resolver.js";
 import type { ModelProblem } from "./problems.js";
@@ -97,32 +100,70 @@ async function endpointProblems(use: ModelUse, check: ProviderCheck): Promise<Mo
   }));
 }
 
-async function useProblems(use: ModelUse, check: ProviderCheck): Promise<readonly ModelProblem[]> {
+/** What checking one use found: its problems, and the kinds of input its model says it takes. */
+interface UseResult {
+  readonly problems: readonly ModelProblem[];
+  readonly inputs?: readonly ModelInputKind[];
+}
+
+async function useResult(use: ModelUse, check: ProviderCheck): Promise<UseResult> {
   const { provider, handler, connection } = check;
   const capabilitiesOf = handler?.capabilities?.bind(handler);
   // a transport without capabilities (most SDKs list none): only its prices are checked
-  if (capabilitiesOf === undefined) return priceProblems(use, provider);
+  if (capabilitiesOf === undefined) return { problems: priceProblems(use, provider) };
   const capabilities = await capabilitiesOf(use.model, connection);
   if (capabilities === undefined) {
-    return [
-      {
-        code: "model.unknown-model",
-        key: use.key,
-        value: use.model,
-        model: use.model,
-        supported: `${provider.options.name} does not list it`,
-      },
-    ];
+    return {
+      problems: [
+        {
+          code: "model.unknown-model",
+          key: use.key,
+          value: use.model,
+          model: use.model,
+          supported: `${provider.options.name} does not list it`,
+        },
+      ],
+    };
   }
   const effective = {
     reasoning: use.settings?.reasoning ?? provider.options.reasoning,
     promptCaching: use.settings?.promptCaching ?? provider.options.promptCaching,
   };
-  return [
+  const problems = [
     ...settingProblems(use, effective, capabilities),
+    ...inputProblems(use, capabilities),
     ...priceProblems(use, provider),
     ...(await endpointProblems(use, check)),
   ];
+  return {
+    problems,
+    ...(capabilities.inputs === undefined ? {} : { inputs: capabilities.inputs }),
+  };
+}
+
+/**
+ * A use's inputs against its provider's fallback model too (#899, #202): a call that falls back
+ * must read what the primary reads — a strict use is refused otherwise, a defaulted one narrows to
+ * what both read.
+ */
+async function fallbackInputs(
+  use: ModelUse,
+  provider: RegisteredModelProvider,
+  directory: ModelProviderDirectory,
+  options: ModelCheckOptions,
+  connectionFor: (provider: RegisteredModelProvider) => ProviderConnection,
+): Promise<UseResult> {
+  const mapped = provider.options.circuitBreakerPolicy.fallbackModels?.[use.model];
+  if (mapped === undefined) return { problems: [] };
+  const resolution = directory.resolve({ ...use, model: mapped });
+  if (resolution.kind === "problem") return { problems: [] };
+  const handler = handlerOf(resolution.provider, options);
+  const capabilities = await handler?.capabilities?.(mapped, connectionFor(resolution.provider));
+  if (capabilities === undefined) return { problems: [] };
+  return {
+    problems: use.isNeedStrict === true ? inputProblems(use, capabilities, mapped) : [],
+    ...(capabilities.inputs === undefined ? {} : { inputs: capabilities.inputs }),
+  };
 }
 
 /**
@@ -135,6 +176,45 @@ export async function checkModelUses(
   directory: ModelProviderDirectory,
   options: ModelCheckOptions,
 ): Promise<readonly ModelProblem[]> {
+  return (await checkedModelUses(uses, directory, options)).problems;
+}
+
+/** What `checkModelUses` found: the problems, and the input kinds each use's model takes, by use key (#899). */
+export interface ModelCheck {
+  readonly problems: readonly ModelProblem[];
+  readonly inputs: ReadonlyMap<string, readonly ModelInputKind[]>;
+}
+
+/** One use: its own model's check, and its provider's fallback model's inputs. */
+async function checkedUse(
+  use: ModelUse,
+  directory: ModelProviderDirectory,
+  options: ModelCheckOptions,
+  connectionFor: (provider: RegisteredModelProvider) => ProviderConnection,
+): Promise<UseResult> {
+  const resolution = directory.resolve(use);
+  if (resolution.kind === "problem") return { problems: [resolution.problem] };
+  const check = {
+    provider: resolution.provider,
+    handler: handlerOf(resolution.provider, options),
+    connection: connectionFor(resolution.provider),
+    endpoints: options.endpoints === true,
+  };
+  const own = await useResult(use, check);
+  const backup = await fallbackInputs(use, resolution.provider, directory, options, connectionFor);
+  const inputs = sharedInputs(own.inputs, backup.inputs);
+  return {
+    problems: [...own.problems, ...backup.problems],
+    ...(inputs === undefined ? {} : { inputs }),
+  };
+}
+
+/** `checkModelUses` with what the models said of their inputs: a defaulted set of media types narrows to it. */
+export async function checkedModelUses(
+  uses: readonly ModelUse[],
+  directory: ModelProviderDirectory,
+  options: ModelCheckOptions,
+): Promise<ModelCheck> {
   const connections = new Map<string, ProviderConnection>();
   const connectionFor = (provider: RegisteredModelProvider): ProviderConnection => {
     const known = connections.get(provider.options.name);
@@ -149,17 +229,15 @@ export async function checkModelUses(
     return made;
   };
   const found = await Promise.all(
-    uses.map((use) => {
-      const resolution = directory.resolve(use);
-      return resolution.kind === "problem"
-        ? Promise.resolve([resolution.problem])
-        : useProblems(use, {
-            provider: resolution.provider,
-            handler: handlerOf(resolution.provider, options),
-            connection: connectionFor(resolution.provider),
-            endpoints: options.endpoints === true,
-          });
+    uses.map((use) => checkedUse(use, directory, options, connectionFor)),
+  );
+  const inputs = new Map(
+    found.flatMap((result, index) => {
+      const use = uses[index];
+      return use === undefined || result.inputs === undefined
+        ? []
+        : [[use.key, result.inputs] as const];
     }),
   );
-  return found.flat();
+  return { problems: found.flatMap((result) => result.problems), inputs };
 }

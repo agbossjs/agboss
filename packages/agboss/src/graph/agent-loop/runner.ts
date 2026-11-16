@@ -1,3 +1,4 @@
+import { NO_FILES, type SourceFile } from "../../files/visit-files.js";
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
 import { readerMemoryOf } from "../../flow/runtime/history.js";
 import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
@@ -24,6 +25,14 @@ export interface LoopPii {
 
 const NO_PII: LoopPii = { tokens: {}, values: [], key: null };
 
+/** The files of an agent's input and the transcriptions the execution has (#899). */
+export interface LoopFiles {
+  readonly sources: readonly SourceFile[];
+  readonly transcripts: Readonly<Record<string, string>>;
+}
+
+const NO_LOOP_FILES: LoopFiles = { sources: [], transcripts: {} };
+
 /** What the agent remembers of the thread: its turns and its compaction's summaries (#120 PR 3). */
 function memoryOf(
   state: ExecutionStateType,
@@ -39,6 +48,7 @@ export function loopInputOf(
   agent: string,
   input: string,
   pii: LoopPii = NO_PII,
+  files: LoopFiles = NO_LOOP_FILES,
 ): AgentLoopStateType {
   return {
     runId: state.runId,
@@ -46,6 +56,9 @@ export function loopInputOf(
     approvals: state.approvals,
     ...memoryOf(state, agent),
     inputMessage: input,
+    inputFiles: [...files.sources],
+    fileTranscripts: files.transcripts,
+    fileTally: NO_FILES,
     flowPath: [...state.path, agent],
     from: { usage: state.usage.length, approvals: state.approvals.length },
     messages: [],
@@ -85,6 +98,8 @@ export interface LoopResult {
   /** Its judges' verdicts and its input guardrails' decisions (#395 C3). */
   readonly judgeVerdicts: readonly JudgeVerdictRecord[];
   readonly guardrailDecisions: readonly GuardrailDecisionRecord[];
+  /** The transcriptions it made (#899): the execution keeps them. */
+  readonly fileTranscripts: Readonly<Record<string, string>>;
 }
 
 export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
@@ -96,4 +111,5 @@ export const loopResultOf = (after: AgentLoopStateType): LoopResult => ({
   toolCalls: after.trajectory,
   judgeVerdicts: after.judgeVerdicts,
   guardrailDecisions: after.guardrailDecisions,
+  fileTranscripts: after.fileTranscripts,
 });

@@ -1,3 +1,4 @@
+import { redactedFilesIn } from "../../a2a/files/a2a-file-scrub.js";
 import { errorRecordOf } from "../../core/error-record.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import { currentFrame, toolCallFrameOf, type LoopProgress } from "../../flow/context/frame.js";
@@ -98,8 +99,19 @@ function outcomeOf(call: EndedCall): Pick<ToolCallRecord, "status" | "output" | 
   return { status, output: undefined, error: errorRecordOf(cause ?? output?.message ?? "") };
 }
 
+/** A record with its input and output as a file descriptor is shown: never its bytes (#899 §0). */
+const withFilesShown = (record: ToolCallRecord): ToolCallRecord => ({
+  ...record,
+  input: redactedFilesIn(record.input),
+  output: redactedFilesIn(record.output),
+});
+
 /** The record of a call that reached its task. */
 export function endedCallRecordOf(call: EndedCall, times: CallTimes): ToolCallRecord {
+  return withFilesShown(unscrubbedCallRecordOf(call, times));
+}
+
+function unscrubbedCallRecordOf(call: EndedCall, times: CallTimes): ToolCallRecord {
   const base = {
     step: call.step,
     isResultTruncated: call.isResultTruncated,

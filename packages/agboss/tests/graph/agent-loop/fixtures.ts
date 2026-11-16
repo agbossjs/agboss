@@ -148,6 +148,7 @@ const executionStateOf = (): ExecutionStateType => ({
   launches: [],
   piiTokens: {},
   piiKey: null,
+  fileTranscripts: {},
 });
 
 /** The loop's input for a task (its input message), as the agent's node hands it over. */

@@ -1,6 +1,10 @@
 import { HumanMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages";
 import type { ApprovalRecord } from "../../pause/index.js";
 import { invalidArgumentsMessage, rejectionMessage } from "../../prompts/agents.js";
+import { contentWithPieces } from "../../files/file-pieces.js";
+import { ModelFileLimitError } from "../../files/file-errors.js";
+import { ModelFileLimit } from "../../files/model-files.js";
+import { NO_FILES, filePiecesOf, type FileTally } from "../../files/visit-files.js";
 import type { AsyncNode } from "../types.js";
 import { callsOf, invalidCallsOf, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
@@ -70,6 +74,54 @@ const placeOf = (state: AgentLoopStateType): MeshLimitPlace => ({
 });
 
 /**
+ * The user messages that carry the files of the move's results, and what the conversation then holds
+ * of them: over `maxFiles` or `maxTotalFileSize` → `ModelFileLimitError` before the next model call.
+ */
+async function fileMessagesOf(
+  state: AgentLoopStateType,
+  calls: readonly ToolCallRequest[],
+  deps: AgentLoopDeps,
+): Promise<{ readonly messages: readonly HumanMessage[]; readonly tally: FileTally }> {
+  const runtime = deps.fileRuntime;
+  const settings = runtime?.settings;
+  let tally = state.fileTally;
+  const messages: HumanMessage[] = [];
+  for (const call of calls) {
+    const files = state.results[call.callId]?.files;
+    if (files === undefined || settings === undefined || runtime === undefined) continue;
+    tally = { count: tally.count + files.count, bytes: tally.bytes + files.bytes };
+    const agent = deps.agent.name;
+    if (tally.count > settings.maxFiles)
+      throw new ModelFileLimitError({
+        agent,
+        limit: ModelFileLimit.MaxFiles,
+        actual: tally.count,
+        allowed: settings.maxFiles,
+      });
+    if (tally.bytes > settings.maxTotalFileSize)
+      throw new ModelFileLimitError({
+        agent,
+        limit: ModelFileLimit.MaxTotalFileSize,
+        actual: tally.bytes,
+        allowed: settings.maxTotalFileSize,
+      });
+    // read again — the guarded path — and pinned to the digests the tool task saw: the stored call
+    // holds references, never bytes
+    const built = await filePiecesOf({
+      runtime,
+      files: files.sources,
+      tally: NO_FILES,
+      cache: state.fileTranscripts,
+      first: 1,
+      pins: files.digests,
+      beforeModelCall: () => undefined,
+    });
+    messages.push(new HumanMessage({ content: contentWithPieces("", built.pieces) }));
+  }
+  return { messages, tally };
+}
+
+/**
  * Fan-in after the tool tasks: one tool message per call in the MOVE's order (not completion
  * order), the decisions recorded, the calls' records appended to the visit's trajectory in that
  * order (#395); then the model takes its next turn. A call a tool interceptor stopped fails the
@@ -78,25 +130,29 @@ const placeOf = (state: AgentLoopStateType): MeshLimitPlace => ({
 export function makeCollectNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return (state) => {
+  return async (state) => {
     const calls = callsOf(state.move);
     const stopped = stoppedErrorOf(state, calls, deps.agent.name);
-    if (stopped !== undefined) return Promise.reject(stopped);
+    if (stopped !== undefined) throw stopped;
     const unread = invalidCallsOf(state.move);
     const messages: BaseMessage[] = calls.map(
       (call) => new ToolMessage({ tool_call_id: call.callId, content: contentOf(state, call) }),
     );
     // calls whose arguments were no JSON have no place in the move the model is sent back (#395)
     if (unread.length > 0) messages.push(new HumanMessage(invalidArgumentsMessage(unread)));
+    // the files of the results follow the tool messages, each call's in a user message (#899 §2)
+    const files = await fileMessagesOf(state, calls, deps);
+    messages.push(...files.messages);
     const trajectory = [...calls, ...unread].flatMap((call) => {
       const record = state.callRecords[call.callId];
       return record === undefined ? [] : [record];
     });
-    return Promise.resolve({
+    return {
       messages,
       move: null,
       approvals: decidedCalls(state, calls, deps.agent.name),
       trajectory,
-    });
+      ...(files.messages.length === 0 ? {} : { fileTally: files.tally }),
+    };
   };
 }

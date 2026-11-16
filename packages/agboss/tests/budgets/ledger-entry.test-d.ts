@@ -80,7 +80,7 @@ describe("#817 AC5: the closed sets are enums", () => {
     const source: CostSource = "api";
     const api: CostSource = CostSource.Api;
     expectTypeOf<`${CostCategory}`>().toEqualTypeOf<
-      "agents" | "routing" | "guards" | "review" | "tools" | "compaction" | "retrieval"
+      "agents" | "routing" | "guards" | "review" | "tools" | "compaction" | "retrieval" | "files"
     >();
     expectTypeOf([source, api]).toEqualTypeOf<CostSource[]>();
   });

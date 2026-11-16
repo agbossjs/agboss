@@ -749,6 +749,60 @@
             },
             "additionalProperties": false
           },
+          "files": {
+            "type": "object",
+            "properties": {
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["input", "tool-results", "history"]
+                }
+              },
+              "views": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["original", "redacted", "transcription"]
+                }
+              },
+              "maxFileSize": {
+                "type": "number"
+              },
+              "maxTotalFileSize": {
+                "type": "number"
+              },
+              "maxFiles": {
+                "type": "number"
+              },
+              "allowedMediaTypes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "isTypesExplicit": {
+                "type": "boolean"
+              },
+              "answerFiles": {
+                "type": "string",
+                "enum": ["seen-in-visit", "any"]
+              },
+              "guardToolResultFiles": {
+                "type": "boolean"
+              },
+              "transcriptionModel": {
+                "type": "string"
+              },
+              "redactionModel": {
+                "type": "string"
+              },
+              "transcriptionMaxTokens": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
           "description": {
             "type": "string",
             "minLength": 1

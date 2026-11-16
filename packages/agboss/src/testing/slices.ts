@@ -124,6 +124,7 @@ const freshState = (runId: string): ExecutionStateType => ({
   launches: [],
   piiTokens: {},
   piiKey: null,
+  fileTranscripts: {},
   child: null,
   children: [],
   handledErrors: [],

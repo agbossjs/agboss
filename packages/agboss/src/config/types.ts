@@ -1,3 +1,4 @@
+import { AgentFilesSchema } from "../files/files-schema.js";
 import type { PromptInput } from "../components/prompt-input.js";
 import type { AgentSettings, AgentsConfig, MaxTokens, Price } from "./settings-types.js";
 
@@ -115,6 +116,8 @@ export const CompactionSettingsSchema = z.object({
 });
 
 export const AgentSettingsSchema = ModelSettingsSchema.extend({
+  /** Files for the agent's model (#899), resolved over its workflow's and application's defaults. */
+  files: AgentFilesSchema.optional(),
   description: z.string().min(1),
   /** Tool names from the registry (src/tools/catalog.ts). */
   tools: z.array(z.string()).optional(),

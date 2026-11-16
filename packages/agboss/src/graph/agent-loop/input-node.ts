@@ -11,9 +11,21 @@ import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
 import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
+import { contentWithPieces } from "../../files/file-pieces.js";
+import { NO_FILES, filePiecesOf, type FilePieces } from "../../files/visit-files.js";
+import { AgentFailedError, StepFailedError } from "../errors.js";
+import { LimitExceededError } from "../limits.js";
 import { memoryViewOf } from "./memory-view.js";
 import { loopPoliciesOf } from "./model-pii.js";
-import type { AgentLoopStateType, AgentLoopUpdate } from "./state.js";
+import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
+
+const NO_PIECES: FilePieces = {
+  pieces: [],
+  usage: [],
+  digests: [],
+  transcripts: {},
+  tally: NO_FILES,
+};
 
 const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max)}…`;
@@ -76,6 +88,28 @@ async function guardedInput(
   };
 }
 
+/** The files of the agent's input as pieces of its first message; none for an agent without files. */
+async function inputFilesOf(deps: AgentLoopDeps, state: AgentLoopStateType): Promise<FilePieces> {
+  const runtime = deps.fileRuntime;
+  if (runtime === undefined || state.inputFiles.length === 0) return NO_PIECES;
+  try {
+    return await filePiecesOf({
+      runtime,
+      files: state.inputFiles,
+      tally: state.fileTally,
+      cache: state.fileTranscripts,
+      first: 1,
+      of: state.inputFiles.length,
+      beforeModelCall: () => {
+        deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
+      },
+    });
+  } catch (error) {
+    if (error instanceof StepFailedError || error instanceof LimitExceededError) throw error;
+    throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
+  }
+}
+
 /**
  * The agent's request after its static part (#270 Q51), once per call of the agent (a node of its
  * own, so a resume never retrieves, checks or pays for it again): the thread's memory as one message
@@ -108,13 +142,24 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     ]);
     const content = input === "" ? "(no input)" : input;
     const guarded = await guardedInput(deps, state, content);
+    // its files, read once and pinned for every call of the visit (#899 §3)
+    const files = await inputFilesOf(deps, state);
     const messages = [
       ...(memory === "" ? [] : [new HumanMessage({ content: memory })]),
-      new HumanMessage({ content }),
+      new HumanMessage({ content: contentWithPieces(content, files.pieces) }),
     ];
     const { piiTokens, piiMasked } = guarded;
     // counted at once (#338), in the ledger at once (#727)
-    const usage = [...deps.budgets.tally([...knowledge.records, ...guarded.usage], state.flowPath)];
-    return { messages, usage, piiTokens, piiMasked, guardrailDecisions: [...guarded.decisions] };
+    const spent = [...knowledge.records, ...guarded.usage, ...files.usage];
+    const usage = [...deps.budgets.tally(spent, state.flowPath)];
+    return {
+      messages,
+      usage,
+      piiTokens,
+      piiMasked,
+      guardrailDecisions: [...guarded.decisions],
+      fileTally: files.tally,
+      fileTranscripts: files.transcripts,
+    };
   };
 }

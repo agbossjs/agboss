@@ -15,7 +15,9 @@ import {
   isCustomCompactionIn,
   piiScriptKeyOf,
 } from "./pii-parts.js";
+import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
 import {
+  FILE_TRANSCRIBER_KEY,
   arbiterKeyOf,
   judgeScriptKeyOf,
   replyInterpreterKeyOf,
@@ -79,6 +81,8 @@ export class ModelTargets {
 
   /** The script key of a judge, a model arbiter, a PII detection, a model interpreter, a guardrail or a model reranker. */
   componentKeyOf(target: ModelTarget): string | undefined {
+    // the built-in transcriber of files (#899): `mockLlm(FileTranscriber)`
+    if (target === FileTranscriber || target === ModelFileTranscriber) return FILE_TRANSCRIBER_KEY;
     const judge = judgeScriptKeyOf(target, this.#judges);
     if (judge !== undefined) return judge;
     const interpreter = this.#interpreters.get(target);

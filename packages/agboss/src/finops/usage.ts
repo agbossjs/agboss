@@ -1,7 +1,7 @@
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import { CostCategory, costCategoryOf } from "./cost-category.js";
+import { CostCategory, costCategoryOf, NO_COST_BY_CATEGORY } from "./cost-category.js";
 import { CostSource } from "./cost-source.js";
 import { servedByOf } from "./served-by.js";
 import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
@@ -243,15 +243,7 @@ export function buildCostReport(records: readonly UsageRecord[]): CostReport {
     ...withoutLedgerMarks(record),
     category: costCategoryOf(record.caller),
   }));
-  const byCategory: Record<CostCategory, number> = {
-    [CostCategory.Agents]: 0,
-    [CostCategory.Routing]: 0,
-    [CostCategory.Guards]: 0,
-    [CostCategory.Review]: 0,
-    [CostCategory.Tools]: 0,
-    [CostCategory.Compaction]: 0,
-    [CostCategory.Retrieval]: 0,
-  };
+  const byCategory = { ...NO_COST_BY_CATEGORY };
   for (const line of trace) byCategory[line.category] += line.costUsd;
   // a lost pass's record (#853): in the trace, of no amount, counted apart from the calls
   const known = trace.filter((line) => line.costSource !== CostSource.Unknown);

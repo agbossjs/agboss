@@ -94,6 +94,7 @@ describe("finops usage", () => {
         tools: 0,
         compaction: 0,
         retrieval: 0,
+        files: 0,
       },
       byModel: {},
       trace: [],
@@ -138,6 +139,7 @@ describe("turn financials", () => {
       tools: 0.001,
       compaction: 0,
       retrieval: 0,
+      files: 0,
     });
     expect(report.byModel.jev).toBeCloseTo(0.00003);
     expect(report.trace.map((line) => [line.caller, line.category])).toEqual([

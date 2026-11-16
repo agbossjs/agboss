@@ -36,6 +36,8 @@ export interface NodeOutcome {
   readonly approvals?: readonly ApprovalRecord[];
   /** The PII tokens its model boundary made (#120): added to the execution's by key. */
   readonly piiTokens?: PiiTokenMap;
+  /** The transcriptions of files its model was given (#899): kept for the rest of the execution. */
+  readonly fileTranscripts?: Readonly<Record<string, string>>;
   /** An agent's tool calls in call order (#395). */
   readonly toolCalls?: readonly ToolCallRecord[];
   /** An agent's judges' verdicts; an agent's or a model router's guardrails' decisions (#395 C3). */
