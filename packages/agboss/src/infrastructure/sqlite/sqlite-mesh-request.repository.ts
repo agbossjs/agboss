@@ -6,6 +6,7 @@ import {
   type MeshRequestRecord,
 } from "../mesh-request.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS mesh_requests (
   tenant_id TEXT NOT NULL, peer TEXT NOT NULL, idempotency_key TEXT NOT NULL,
@@ -60,7 +61,14 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
       peer: parsed.peer,
       idempotencyKey: parsed.idempotency_key,
       createdAt: parsed.created_at,
-      ...(parsed.response === null ? {} : { response: JSON.parse(parsed.response) as unknown }),
+      ...(parsed.response === null
+        ? {}
+        : {
+            response: parsedStoredJson("mesh request response", parsed.response, {
+              peer: parsed.peer,
+              idempotencyKey: parsed.idempotency_key,
+            }),
+          }),
     };
     return Promise.resolve(record);
   }

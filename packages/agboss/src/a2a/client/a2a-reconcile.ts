@@ -10,6 +10,7 @@ import { safeTaskIdOf } from "./a2a-task-errors.js";
 import { A2AClientOperation } from "./a2a-client-errors.js";
 import { checkedTask } from "./a2a-task-view.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
+import { parsedStoredJson } from "../../infrastructure/stored-step.js";
 
 /**
  * How a pending accept is reconciled (#809, design §4.3.1), by the peer's trust as it was when the
@@ -84,7 +85,7 @@ const identityOf = (request: object): readonly unknown[] =>
 
 /** The identity a stored request names (its JSON, as stored); none for one that is no object. */
 function storedIdentityOf(storedRequest: string): unknown {
-  const stored: unknown = JSON.parse(storedRequest);
+  const stored = parsedStoredJson("a2a call request", storedRequest, {});
   return typeof stored === "object" && stored !== null ? identityOf(stored) : null;
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { PauseClosedReason } from "../pause-record.js";
 import type { StoredMailbox } from "../pause-mailboxes.js";
 import { PauseNoticeKind } from "../pause-notices.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 /** The `pause_notices` table (#935) and how its rows read: validated on the way out. */
 
@@ -39,7 +40,9 @@ export function toMailbox(row: unknown): StoredMailbox {
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     recipient: r.recipient,
-    notices: z.array(StoredNotice).parse(JSON.parse(r.notices)),
+    notices: z
+      .array(StoredNotice)
+      .parse(parsedStoredJson("pause notice mailbox", r.notices, { pauseId: r.pause_id })),
     delivered: r.delivered,
     attempts: r.attempts,
     nextAttemptAt: new Date(r.next_attempt_at),

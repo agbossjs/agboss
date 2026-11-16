@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { Injectable } from "../../components/decorators.js";
 import { StoreClock } from "../clock.js";
+import { parsedStoredJson } from "../stored-step.js";
 import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
   assertBusinessKey,
@@ -157,10 +158,14 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     if (stored !== undefined) {
       const { token, result, facts } = ResultRow.parse(stored);
       // written by this store from the key's facts; checked by replayedFromOf
-      const replayedFrom = replayedFromOf(key, JSON.parse(facts) as StoredKeyFacts);
+      const ids = { name: key.name };
+      const replayedFrom = replayedFromOf(
+        key,
+        parsedStoredJson("fenced effect facts", facts, ids) as StoredKeyFacts,
+      );
       return {
         status: FencedEffectStatus.Replayed,
-        result: JSON.parse(result) as TResult,
+        result: parsedStoredJson("fenced effect result", result, ids) as TResult,
         token,
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
       };

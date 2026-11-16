@@ -11,6 +11,8 @@ export default defineConfig({
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
     include: [
+      // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
+      "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
       "tests/app/{business-key*,key-text*,*-key-text*,fenced-effect*,outbound-call*,outbound-calls-read,fingerprint-required,idempotency-key-rotation,pending-calls-paging}.test.ts",
       "tests/infrastructure/{key-text*,fenced-key-helpers,fenced-key-identity,fenced-key-errors,minted-id-key-text,fenced-effect-join-fingerprint,outbound-call-naive-store,store-conformance.in-memory,in-memory-store-edges}.test.ts",
       // #825: who reaches a writer of business keys, as the assembly rule names it

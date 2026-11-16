@@ -6,6 +6,7 @@ import {
   type ExecutionTreeValue,
 } from "../execution-tree.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_tree_keys (
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, tree_key TEXT NOT NULL,
@@ -65,7 +66,9 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
       )
       .get(tree.tenantId, tree.rootExecutionId, key);
     if (row === undefined) return Promise.resolve(undefined);
-    return Promise.resolve(TreeValue.parse(JSON.parse(ValueRow.parse(row).value)));
+    return Promise.resolve(
+      TreeValue.parse(parsedStoredJson("execution tree value", ValueRow.parse(row).value, { key })),
+    );
   }
 
   deleteAllInTree(tree: ExecutionTree): Promise<void> {

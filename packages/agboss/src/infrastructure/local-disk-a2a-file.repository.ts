@@ -16,6 +16,7 @@ import {
   type NewA2AFile,
 } from "./a2a-file.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
+import { parsedStoredJson } from "./stored-step.js";
 
 /** A name of a folder or a file for any text: its SHA-256, so no id reaches a path. */
 const nameOf = (text: string): string => createHash("sha256").update(text).digest("hex");
@@ -29,7 +30,7 @@ const isTaken = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === "EEXIST";
 
 const parsedOf = (text: string): A2AFileMetadata => {
-  const stored = JSON.parse(text) as StoredMetadata;
+  const stored = parsedStoredJson("a2a file metadata", text, {}) as StoredMetadata;
   return metadataOf({ ...stored, createdAt: new Date(stored.createdAt) });
 };
 

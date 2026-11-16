@@ -4,6 +4,7 @@ import {
   type A2ADirectMessageRecord,
 } from "../a2a-direct-message.repository.js";
 import { ownerColumnOf } from "./sqlite-a2a-task-rows.js";
+import { parsedStoredJson } from "../stored-step.js";
 
 /** The rows of `SqliteA2ADirectMessageRepository` (#860): its schema, and their records. */
 
@@ -59,7 +60,9 @@ function replyOf(
     return {};
   }
   if (reply === null || completedAt === null) throw disagree();
-  const kept = Reply.parse(JSON.parse(reply));
+  const kept = Reply.parse(
+    parsedStoredJson("a2a direct message reply", reply, { messageId: row.message_id }),
+  );
   return {
     reply: { finish: kept.finish, output: kept.output, spentUsd: kept.spentUsd },
     completedAt: new Date(completedAt),

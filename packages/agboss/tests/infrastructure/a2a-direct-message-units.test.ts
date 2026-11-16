@@ -117,7 +117,9 @@ describe("#860: a SQLite row of a direct message", () => {
   it("whose reply is not the JSON of a reply is refused", () => {
     const completed = { state: "completed", completed_at: NINE.toISOString() };
 
-    expect(() => directMessageOf(row({ ...completed, reply: "{" }))).toThrow(SyntaxError);
+    expect(() => directMessageOf(row({ ...completed, reply: "{" }))).toThrow(
+      expect.objectContaining({ code: "stored.unreadable", record: "a2a direct message reply" }),
+    );
     expect(() => directMessageOf(row({ ...completed, reply: '{"finish":1}' }))).toThrow();
   });
 });

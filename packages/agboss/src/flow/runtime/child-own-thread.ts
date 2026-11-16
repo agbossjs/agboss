@@ -16,6 +16,7 @@ import {
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { hasGraphEnded } from "../../run/graph-end.js";
 import { finishedTaskIdsOf } from "../../run/paused.js";
+import { parsedStoredJson } from "../../infrastructure/stored-step.js";
 
 /**
  * A child execution on its own thread (ADR-0022, #333 PR 1), awaited inside its parent's step
@@ -74,7 +75,7 @@ export type OwnThreadEnd =
 /** A forwarded resume map, read from the marker's answer (the drain wrote it as JSON). */
 export function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
   if (typeof answer !== "string") return {};
-  const parsed: unknown = JSON.parse(answer);
+  const parsed = parsedStoredJson("forwarded resume map", answer, {});
   if (typeof parsed !== "object" || parsed === null) return {};
   return Object.fromEntries(
     Object.entries(parsed).filter(
