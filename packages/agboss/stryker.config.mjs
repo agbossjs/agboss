@@ -1,6 +1,7 @@
 import process from "node:process";
 import {
   audienceRefusalOf,
+  stallBoundOf,
   keyTextRulesOf,
   settledSpendSaverOf,
 } from "../../scripts/stryker-ranges.mjs";
@@ -217,16 +218,14 @@ const SHARDS = {
   },
   // #1048: what the run's stream tells, retracts, reveals and holds back (#1004-#1007), the fallback's
   // streamed answer, the JSON answer to a streamed request (#1049), and the A2A artifact view, the SSE
-  // writer and the subscribers' queue (#1008)
+  // writer and the subscribers' queue (#1008), and the stall bound of a streamed answer (#1125)
   stream: {
     configFile: "vitest.mutation-stream.config.ts",
     mutate: [
       "src/run/stream/*.ts",
-      "src/models/fallback-stream.ts",
-      "src/models/calls/json-as-stream.ts",
-      "src/a2a/server/a2a-sse-write.ts",
-      "src/a2a/server/a2a-subscriber-queue.ts",
-      "src/a2a/server/a2a-artifact-view.ts",
+      "src/models/{fallback-stream,calls/json-as-stream}.ts",
+      "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
+      ...stallBoundOf("src/models/calls/event-stream-guard.ts"),
     ],
   },
   // #1069: the store-call bound (#928) — no call waits for ever on a store —, its outcome

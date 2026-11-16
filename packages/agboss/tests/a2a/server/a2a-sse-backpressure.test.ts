@@ -10,12 +10,14 @@ import { describe, expect, it } from "vitest";
 import { StreamEnd, taskStream } from "../../../src/a2a/server/a2a-stream.js";
 import { SSE_DRAIN_TIMEOUT, writeSse } from "../../../src/a2a/server/a2a-sse-write.js";
 import { SUBSCRIBER_MAX_BYTES } from "../../../src/a2a/server/a2a-subscriber-queue.js";
+import { taskChanged } from "../../../src/a2a/tasks/task-changes.js";
+import { A2ATaskState } from "../../../src/infrastructure/a2a-task.repository.js";
 import { LocalRuns } from "../../../src/a2a/server/a2a-local-runs.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import type { StreamStep } from "../../../src/run/types.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
-import { savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
+import { NINE, savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
 import { sseClient, sseServer } from "./support/sse-socket.js";
 
 const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
@@ -32,7 +34,7 @@ async function streamed() {
   const events = (signal: AbortSignal) =>
     taskStream(parts, task, { end: StreamEnd.Terminal, signal });
   const server = await sseServer(events, clock);
-  return { task, script, runs, clock, server };
+  return { task, tasks, script, runs, clock, server };
 }
 
 describe("#1008 AC1: a slow reader", () => {
@@ -76,6 +78,52 @@ describe("#1008 AC1: a slow reader", () => {
     expect(SUBSCRIBER_MAX_BYTES).toBe(1024 * 1024);
     await server.close();
   });
+
+  it("#1140: one delta of 3 MiB reaches a reader that is keeping up whole; nobody is dropped", async () => {
+    const { task, tasks, script, runs, server } = await streamed();
+    let finish = (): void => undefined;
+    let emit: Parameters<Parameters<LocalRuns["start"]>[1]>[0] = () => undefined;
+    const settled = runs.start(task, (onStream) => {
+      emit = onStream;
+      return new Promise<void>((resolve) => (finish = resolve));
+    });
+    const client = await sseClient(server.port);
+    const parts: Buffer[] = [];
+    let bytes = 0;
+    client.on("data", (chunk: Buffer) => {
+      parts.push(chunk);
+      bytes += chunk.length;
+    });
+    await nextTurn();
+
+    emit({ kind: "textDelta", delta: "é".repeat(3 * 1024 * 1024), step: STEP });
+    await nextTurn();
+    finish();
+    await settled;
+    const ended = new Promise<void>((resolve) => client.once("end", resolve));
+    while (bytes < 6 * 1024 * 1024) await nextTurn(); // the reader keeps up: all of it arrives
+    // the task completes: the stream ends there
+    await tasks.compareAndSetStatus(
+      task,
+      task.version,
+      {
+        state: A2ATaskState.Completed,
+        pendingPauses: [],
+        finish: "unit-workflow-finish",
+        output: { text: "x" },
+      },
+      NINE,
+    );
+    taskChanged(task);
+    await ended;
+    await server.answered();
+
+    expect(script.warnings.filter((line) => line.startsWith("stream.subscriber-dropped"))).toEqual(
+      [],
+    );
+    expect(Buffer.concat(parts).toString("utf8").split("é").length - 1).toBe(3 * 1024 * 1024);
+    await server.close();
+  }, 30_000); // 6 MiB over a socket: on a loaded machine the default 5 s is not a margin
 
   it("a hang-up mid-stream ends the writer and its listener, and the run goes on to its end", async () => {
     const { task, runs, server } = await streamed();
@@ -122,6 +170,37 @@ describe("#1008: drain", () => {
     client.destroy();
     await server.close();
   });
+
+  it("#1232: non-ASCII frames to a reader that pushes back and then reads are all written and all arrive (Node 24 lost `drain` after a string write)", async () => {
+    const { server } = await streamed();
+    const client = await sseClient(server.port);
+    const arrived: Buffer[] = [];
+    client.on("data", (chunk: Buffer) => {
+      arrived.push(chunk);
+    });
+    client.pause();
+    const res = server.response();
+    if (res === undefined) throw new Error("no response");
+    const frame = `data: ${JSON.stringify({ text: "é".repeat(2000) })}\n\n`;
+    const frames = 200;
+
+    const all = (async () => {
+      for (let index = 0; index < frames; index += 1) {
+        if (!(await writeSse(res, frame, new VirtualClock()))) return false;
+      }
+      return true;
+    })();
+    await nextTurn();
+    await nextTurn();
+    client.resume(); // the reader pushed back; now it reads at full speed
+
+    expect(await all).toBe(true);
+    const ended = new Promise<void>((resolve) => client.once("end", resolve));
+    res.end();
+    await ended;
+    expect(Buffer.concat(arrived).toString("utf8").split("é").length - 1).toBe(frames * 2000);
+    await server.close();
+  }, 15_000);
 
   it("a reader that never drains is cut after the drain timeout on the app's clock", async () => {
     const { server, clock } = await streamed();

@@ -19,7 +19,11 @@ export interface HttpModelProviderOptions {
   readonly description: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
-  /** Per attempt; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
+  /**
+   * Per attempt: the response head and a plain answer's body, and — for a streamed answer — the longest
+   * it may be quiet between two chunks after its first content (#1125). At most 24 hours
+   * (`[limits.timeout-invalid]`, #1141).
+   */
   readonly timeout: Milliseconds;
   readonly cost: ModelCost;
   /** Retries one call: attempts and backoff (the only place backoff is set). */
@@ -65,7 +69,10 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
   readonly description: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
-  /** Per attempt. */
+  /**
+   * Per attempt: the response head and a plain answer's body, and — for a streamed answer — the longest
+   * it may be quiet between two chunks after its first content (#1125).
+   */
   readonly timeout: Milliseconds;
   readonly cost: ModelCost;
   /** Retries one call: attempts and backoff (the only place backoff is set). */

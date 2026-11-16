@@ -16,6 +16,8 @@ import {
   GuardedAgent,
   GuardedApplication,
   GuardedStart,
+  GuardrailOnlyAgent,
+  GuardrailStart,
 } from "./guarded.fixture.js";
 import { keptText } from "./kept-text.js";
 
@@ -26,6 +28,41 @@ const failureOf = (run: Promise<unknown>): Promise<unknown> =>
     () => undefined,
     (error: unknown) => error,
   );
+
+describe("#1006: an agent whose only blocking check is an output guardrail", () => {
+  test("a blocked answer never reaches the stream: not a byte, nothing to retract", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(GuardrailOnlyAgent).thenReturn(replyWith("Here is the FORBIDDEN thing."));
+    const events: ExecutionStreamEvent[] = [];
+
+    const failure = await failureOf(
+      execute(app, GuardrailStart, { text: "Q" }, { onStream: (event) => events.push(event) }),
+    );
+
+    expect(failure).toBeInstanceOf(GuardrailBlockedError);
+    expect(events).toEqual([]);
+  });
+
+  test("an answer that passes goes out after the check, as the output", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(GuardrailOnlyAgent).thenReturn(replyWith("A fine answer."));
+    const events: ExecutionStreamEvent[] = [];
+
+    const done = await execute(
+      app,
+      GuardrailStart,
+      { text: "Q" },
+      { onStream: (event) => events.push(event) },
+    );
+
+    expect(events.map((event) => event.kind)).toEqual(["textDelta"]);
+    expect(done.output).toEqual({ text: keptText(events) });
+  });
+});
 
 describe("#1006: a blocking output guardrail holds the text back", () => {
   test("AC3: a blocked answer: GuardrailBlockedError, zero events", async ({ app, mockLlm }) => {

@@ -8,7 +8,12 @@ import { kilobytes, type Bytes } from "../../units/index.js";
  * reader that is slow lets events pile up here: a text delta joins the delta before it when both
  * are of one step (one pending chunk, nothing lost for the reader), and past the bound the
  * subscriber is dropped — its queue is cleared and it hears no more. Memory per subscriber is
- * bounded by `SUBSCRIBER_MAX_BYTES` of text plus `SUBSCRIBER_MAX_EVENTS` small events.
+ * bounded by `SUBSCRIBER_MAX_BYTES` of text plus `SUBSCRIBER_MAX_EVENTS` small events, plus the one
+ * event that arrived: an event that finds nothing waiting is always taken (#1140), so a single delta
+ * larger than the bound — a transport provider's whole answer — never drops a reader that is keeping
+ * up. A delta larger than `SUBSCRIBER_CHUNK_CHARS` is queued as chunks of at most that many characters
+ * (a code point is never cut), and two deltas of one step are joined only up to that size, so no frame
+ * the reader writes is larger than a chunk.
  */
 
 /** Events a subscriber may have waiting. */
@@ -16,6 +21,23 @@ export const SUBSCRIBER_MAX_EVENTS = 1000;
 
 /** Text, in bytes, a subscriber may have waiting. */
 export const SUBSCRIBER_MAX_BYTES: Bytes = kilobytes(1024);
+
+/** The most characters (UTF-16 units) of one queued chunk of text. */
+export const SUBSCRIBER_CHUNK_CHARS = 16_384;
+
+const isHighSurrogate = (code: number): boolean => code >= 0xd800 && code <= 0xdbff;
+
+/** `text` as pieces of at most `SUBSCRIBER_CHUNK_CHARS`, none cutting a surrogate pair. */
+function piecesOf(text: string): string[] {
+  const pieces: string[] = [];
+  for (let from = 0; from < text.length;) {
+    let to = Math.min(from + SUBSCRIBER_CHUNK_CHARS, text.length);
+    if (to < text.length && isHighSurrogate(text.charCodeAt(to - 1))) to -= 1;
+    pieces.push(text.slice(from, to));
+    from = to;
+  }
+  return pieces.length === 0 ? [text] : pieces;
+}
 
 const textBytesOf = (event: ExecutionStreamEvent): number =>
   event.kind === "textDelta" ? Buffer.byteLength(event.delta) : 0;
@@ -45,24 +67,38 @@ export class SubscriberQueue {
   /** Queues `event`; returns `false` when this made the subscriber exceed its bound (dropped). */
   push(event: ExecutionStreamEvent): boolean {
     if (this.#dropped) return false;
-    const last = this.#events.at(-1);
-    if (
-      last?.kind === "textDelta" &&
-      event.kind === "textDelta" &&
-      sameStep(last.step, event.step)
-    ) {
-      this.#events[this.#events.length - 1] = { ...event, delta: last.delta + event.delta };
+    const waiting = this.#events.length;
+    if (event.kind === "textDelta") {
+      for (const delta of piecesOf(event.delta)) this.#addText({ ...event, delta });
     } else {
       this.#events.push(event);
     }
     this.#size += textBytesOf(event);
-    if (this.#size > SUBSCRIBER_MAX_BYTES || this.#events.length > SUBSCRIBER_MAX_EVENTS) {
+    // an event that found nothing waiting is the reader's to take, however large (#1140)
+    const behind =
+      waiting > 0 &&
+      (this.#size > SUBSCRIBER_MAX_BYTES || this.#events.length > SUBSCRIBER_MAX_EVENTS);
+    if (behind) {
       this.#dropped = true;
       this.#events = [];
       this.#size = 0;
       return false;
     }
     return true;
+  }
+
+  /** One chunk of text: joined to the chunk before when that is of its step and both fit one chunk. */
+  #addText(event: ExecutionStreamEvent & { readonly kind: "textDelta" }): void {
+    const last = this.#events.at(-1);
+    if (
+      last?.kind === "textDelta" &&
+      sameStep(last.step, event.step) &&
+      last.delta.length + event.delta.length <= SUBSCRIBER_CHUNK_CHARS
+    ) {
+      this.#events[this.#events.length - 1] = { ...event, delta: last.delta + event.delta };
+    } else {
+      this.#events.push(event);
+    }
   }
 
   /** Everything waiting, in order; the queue is empty after. */

@@ -26,6 +26,8 @@ examples/.scaffold-tmp-*
 # #533: Stryker mutation runs (reports/ — the incremental file is CI-cached, never committed)
 packages/agboss/reports/
 packages/agboss/.stryker-tmp*/
+packages/agboss-cli/reports/
+packages/agboss-cli/.stryker-tmp*/
 .a2a-tck/
 
 # a crashed changelog assemble (#981): the temp file beside CHANGELOG.md

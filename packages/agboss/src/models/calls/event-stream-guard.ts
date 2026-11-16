@@ -1,3 +1,5 @@
+import { timeoutOn, type Clock } from "../../infrastructure/clock.js";
+import type { Milliseconds } from "../../units/index.js";
 import type { ModelFailure } from "../model-failure.js";
 import { EventScanner, type StreamSignal } from "./event-stream.js";
 
@@ -15,6 +17,18 @@ export type StreamEnd = "completed" | "failed" | "ignored";
 /** A stream that ended before it said it was complete, or said it failed. */
 export class EventStreamError extends Error {
   override name = "EventStreamError";
+}
+
+/**
+ * A streamed answer that went quiet for longer than the provider's `timeout` after its first
+ * content (#1125). Named `TimeoutError`, so it reads as `ModelFailure.Timeout`.
+ */
+export class StreamStalledError extends Error {
+  override name = "TimeoutError";
+
+  constructor(readonly idle: Milliseconds) {
+    super(`the model's stream stalled: no data for ${String(idle)} ms`);
+  }
 }
 
 /** The most that is read waiting for the first content before the client gets the stream as it is. */
@@ -56,6 +70,29 @@ async function peek(
   }
 }
 
+/** One read of the body under the stall bound: the idle timer counts only while this waits for the provider. */
+async function readWithin(
+  reader: Reader,
+  idle: Idle | undefined,
+): Promise<Awaited<ReturnType<Reader["read"]>>> {
+  if (idle === undefined) return await reader.read();
+  const timer = timeoutOn(idle.clock, idle.timeout, () => new StreamStalledError(idle.timeout));
+  const stalled = new Promise<never>((_resolve, reject) => {
+    timer.signal.addEventListener("abort", () => {
+      reject(timer.signal.reason as StreamStalledError); // what the timer aborted with, made above
+    });
+  });
+  try {
+    return await Promise.race([reader.read(), stalled]);
+  } catch (error) {
+    // a stalled provider's connection is closed; on a body that failed by itself it is a no-op
+    await reader.cancel(error).catch(() => undefined);
+    throw error;
+  } finally {
+    timer.release();
+  }
+}
+
 /** The body: what was read, then the rest; the watcher's `onChunk` / `onEnd` see every chunk and the end. */
 function replayed(
   reader: Reader,
@@ -82,7 +119,7 @@ function replayed(
       try {
         const next = queue.shift();
         const { done, value } =
-          next === undefined ? await reader.read() : { done: false, value: next };
+          next === undefined ? await readWithin(reader, watch?.idle) : { done: false, value: next };
         if (done) {
           await tell(ended ? "completed" : "failed");
           if (ended || watch === undefined) controller.close();
@@ -103,8 +140,16 @@ function replayed(
   });
 }
 
+/** The longest a streamed answer may be quiet between two chunks (#1125), counted on the clock. */
+export interface Idle {
+  readonly clock: Clock;
+  readonly timeout: Milliseconds;
+}
+
 /** What watches a guarded body to its end. */
 export interface Watch {
+  /** The stall bound of the body after its first content; none = unbounded (the head's timeout ended). */
+  readonly idle?: Idle;
   readonly settle: (end: StreamEnd) => Promise<void>;
   /** Whether the caller's own signal aborted (its body error is then not the provider's). */
   readonly aborted: () => boolean;

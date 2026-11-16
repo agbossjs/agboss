@@ -15,12 +15,15 @@ import type { Milliseconds } from "../../../src/units/index.js";
 /** A response whose socket takes `accepts` writes or says it is full; what it was given is kept. */
 class Response extends ServerResponse {
   readonly written: string[] = [];
+  /** Whether each write was given bytes (not a string). */
+  readonly asBytes: boolean[] = [];
   accepts = true;
   constructor() {
     super(new IncomingMessage(new Socket()));
   }
-  override write(chunk: string): boolean {
-    this.written.push(chunk);
+  override write(chunk: string | Buffer): boolean {
+    this.asBytes.push(typeof chunk !== "string");
+    this.written.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
     return this.accepts;
   }
 }
@@ -43,6 +46,15 @@ describe("writeSse", () => {
 
     expect(await writeSse(res, "data: 1\n\n", new VirtualClock())).toBe(true);
     expect(res.written).toEqual(["data: 1\n\n"]);
+  });
+
+  it("hands the socket bytes, whole and in UTF-8, never a string (a long non-ASCII string stalled drain on Node 24)", async () => {
+    const res = new Response();
+    const frame = `data: ${"é😀".repeat(9000)}\n\n`;
+
+    expect(await writeSse(res, frame, new VirtualClock())).toBe(true);
+    expect(res.asBytes).toEqual([true]);
+    expect(res.written).toEqual([frame]);
   });
 
   it("writes nothing to a destroyed response", async () => {

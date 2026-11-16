@@ -13,14 +13,14 @@ export class AnswerTokenHandler extends BaseCallbackHandler {
   override awaitHandlers = true;
 
   /**
-   * Whether the call is made as a stream (#1005): LangChain asks each handler. An attempt whose text
-   * is held back never goes on the wire, so it is a plain call and pays nothing for a stream.
+   * The call is made as a stream (#1005): LangChain asks each handler. A held attempt (#1006) is a
+   * stream too — its tokens go to the holding buffer and out only after the visit's checks passed, so
+   * what the wire carries to the provider is no concern of the consumer's stream (#1122).
    */
-  readonly lc_prefer_streaming: boolean;
+  readonly lc_prefer_streaming = true;
 
   constructor(private readonly attempt: AttemptStream) {
     super();
-    this.lc_prefer_streaming = !attempt.isHeld;
   }
 
   /** The model started its answer over (a fallback after its primary died mid-stream, #1005). */

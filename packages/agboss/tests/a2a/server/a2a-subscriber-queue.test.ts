@@ -4,12 +4,13 @@ import {
   droppedLog,
   listenerOf,
   SubscriberQueue,
+  SUBSCRIBER_CHUNK_CHARS,
   SUBSCRIBER_MAX_BYTES,
   SUBSCRIBER_MAX_EVENTS,
 } from "../../../src/a2a/server/a2a-subscriber-queue.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { StreamStep } from "../../../src/run/types.js";
+import type { ExecutionStreamEvent, StreamStep } from "../../../src/run/types.js";
 import { savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
 
 const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
@@ -115,7 +116,7 @@ describe("#1048: listenerOf", () => {
     );
 
     listen({ kind: "toolCall", tool: "t" });
-    listen({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1), step: STEP });
+    listen({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1), step: STEP }); // behind: dropped
     listen({ kind: "toolCall", tool: "t" }); // dropped: heard no more
 
     expect(told).toEqual(["wake", "drop", "wake"]);
@@ -134,6 +135,107 @@ describe("#1048: droppedLog", () => {
 
     expect(script.warnings).toEqual([
       `stream.subscriber-dropped a stream subscriber of task ${task.taskId} fell too far behind and was ended; the task goes on ${JSON.stringify({ executionId: task.taskId, tenantId: task.tenantId })}`,
+    ]);
+  });
+});
+
+const textOf = (events: readonly ExecutionStreamEvent[]): string[] =>
+  events.map((event) => (event.kind === "textDelta" ? event.delta : ""));
+
+describe("#1140: a single large delta never drops a reader that is keeping up", () => {
+  it("a delta over the byte bound, found by an empty queue, is taken as chunks that join to it", () => {
+    const queue = new SubscriberQueue();
+    const big = "ab".repeat(SUBSCRIBER_MAX_BYTES); // 2 MiB
+
+    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+
+    expect(queue.isDropped).toBe(false);
+    const taken = textOf(queue.take());
+    expect(taken.every((piece) => piece.length <= SUBSCRIBER_CHUNK_CHARS)).toBe(true);
+    expect(taken.length).toBe(Math.ceil(big.length / SUBSCRIBER_CHUNK_CHARS));
+    expect(taken.join("")).toBe(big);
+  });
+
+  it("then the next one is taken too, once the reader took the first", () => {
+    const queue = new SubscriberQueue();
+    const big = "x".repeat(2 * SUBSCRIBER_MAX_BYTES);
+
+    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+    queue.take();
+    expect(queue.push({ kind: "textDelta", delta: big, step: STEP })).toBe(true);
+    expect(queue.isDropped).toBe(false);
+  });
+
+  it("a reader already behind (something waiting) that gets a delta over the bound is dropped", () => {
+    const queue = new SubscriberQueue();
+    queue.push({ kind: "toolCall", tool: "t" });
+
+    expect(
+      queue.push({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_MAX_BYTES + 1), step: STEP }),
+    ).toBe(false);
+    expect(queue.isDropped).toBe(true);
+  });
+
+  it("a chunk never cuts a surrogate pair, whichever side of the cut it falls on", () => {
+    for (const lead of [SUBSCRIBER_CHUNK_CHARS - 1, SUBSCRIBER_CHUNK_CHARS - 2]) {
+      const queue = new SubscriberQueue();
+      const text = `${"a".repeat(lead)}😀${"b".repeat(5)}`;
+
+      queue.push({ kind: "textDelta", delta: text, step: STEP });
+      const taken = textOf(queue.take());
+
+      expect(taken.join("")).toBe(text);
+      for (const piece of taken) {
+        expect(piece.length).toBeLessThanOrEqual(SUBSCRIBER_CHUNK_CHARS);
+        expect(piece).toBe(Buffer.from(piece, "utf8").toString("utf8")); // no lone surrogate
+      }
+    }
+  });
+
+  it("the first and the last high surrogate are kept with their low one too", () => {
+    for (const pair of ["\ud800\udc00", "\udbff\udfff"]) {
+      const queue = new SubscriberQueue();
+      const text = `${"a".repeat(SUBSCRIBER_CHUNK_CHARS - 1)}${pair}${"b".repeat(3)}`;
+
+      queue.push({ kind: "textDelta", delta: text, step: STEP });
+      const taken = textOf(queue.take());
+
+      expect(taken.map((piece) => piece.length)).toEqual([SUBSCRIBER_CHUNK_CHARS - 1, 5]);
+      expect(taken.join("")).toBe(text);
+    }
+  });
+
+  it("a high surrogate that ends the whole text stays in its chunk: nothing follows to pair with", () => {
+    const queue = new SubscriberQueue();
+    const text = `${"a".repeat(SUBSCRIBER_CHUNK_CHARS - 1)}\ud83d`;
+
+    queue.push({ kind: "textDelta", delta: text, step: STEP });
+
+    expect(textOf(queue.take())).toEqual([text]);
+  });
+
+  it("deltas of one step join only while they fit one chunk", () => {
+    const queue = new SubscriberQueue();
+    const half = "x".repeat(SUBSCRIBER_CHUNK_CHARS / 2);
+
+    queue.push({ kind: "textDelta", delta: half, step: STEP });
+    queue.push({ kind: "textDelta", delta: half, step: STEP }); // exactly one chunk: joined
+    queue.push({ kind: "textDelta", delta: "y", step: STEP }); // over it: a chunk of its own
+
+    expect(textOf(queue.take()).map((piece) => piece.length)).toEqual([SUBSCRIBER_CHUNK_CHARS, 1]);
+  });
+
+  it("an empty delta stays one (empty) event; a delta of exactly one chunk is not split", () => {
+    const queue = new SubscriberQueue();
+
+    queue.push({ kind: "textDelta", delta: "x".repeat(SUBSCRIBER_CHUNK_CHARS), step: OTHER });
+    queue.push({ kind: "toolCall", tool: "t" });
+    queue.push({ kind: "textDelta", delta: "", step: STEP });
+
+    expect(textOf(queue.take()).map((piece) => piece.length)).toEqual([
+      SUBSCRIBER_CHUNK_CHARS,
+      0,
+      0,
     ]);
   });
 });

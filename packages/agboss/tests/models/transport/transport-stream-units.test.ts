@@ -50,7 +50,11 @@ async function opened(source: (signal: AbortSignal) => ModelProviderStream, brea
     undefined,
     { provider: "p", clock, timeout: seconds(5), breaker },
   );
-  const attempt = await carrier.send(new AbortController().signal);
+  const attempt = await carrier.send(new AbortController().signal, {
+    gate: undefined,
+    timeout: seconds(5),
+    clock,
+  });
   if (attempt.kind !== "answered") throw new Error("not answered");
   const answer: StreamedAnswer = attempt.answer;
   return { answer, clock, seen };

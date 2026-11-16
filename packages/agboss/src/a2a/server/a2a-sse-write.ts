@@ -24,7 +24,9 @@ export const KEEP_ALIVE_COMMENT = ": keep-alive\n\n";
 /** `false` when the connection is gone (or was cut for not reading): write no more. */
 export async function writeSse(res: ServerResponse, chunk: string, clock: Clock): Promise<boolean> {
   if (res.destroyed || res.writableEnded) return false;
-  if (res.write(chunk)) return true;
+  // bytes, not the string: on Node 24 a long non-ASCII string the socket did not take whole never
+  // emitted `drain` and the stream stalled (a 3 MiB answer in 32 KiB frames, #1140)
+  if (res.write(Buffer.from(chunk))) return true;
   const stop = new AbortController();
   const gone = new Promise<boolean>((resolve) => {
     const done = (): void => {

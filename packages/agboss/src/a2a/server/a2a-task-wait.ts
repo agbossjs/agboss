@@ -3,6 +3,7 @@ import {
   isTerminalA2ATaskState,
   type A2ATaskRecord,
 } from "../../infrastructure/a2a-task.repository.js";
+import { TaskWatch } from "../tasks/task-changes.js";
 import { nextChange } from "./a2a-local-runs.js";
 import { repairedOf, taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
 import { taskNotFound } from "./a2a-wire-errors.js";
@@ -48,8 +49,16 @@ export async function restingTask(
   signal: AbortSignal,
   answered = 0,
 ): Promise<A2ATaskRecord> {
-  let current = task;
-  while (!isAtRest(current, answered) && !signal.aborted)
-    current = await changedTask(parts, current, signal);
-  return current;
+  const watch = new TaskWatch(taskKeyOf(task));
+  try {
+    let current = task;
+    while (!isAtRest(current, answered) && !signal.aborted) {
+      // a change announced while this read the store is the next take's: never lost
+      const isPending = watch.takeChanged();
+      current = await changedTask(parts, current, isPending ? AbortSignal.abort() : signal);
+    }
+    return current;
+  } finally {
+    watch.close();
+  }
 }
