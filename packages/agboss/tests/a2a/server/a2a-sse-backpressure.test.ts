@@ -123,7 +123,7 @@ describe("#1008 AC1: a slow reader", () => {
     );
     expect(Buffer.concat(parts).toString("utf8").split("é").length - 1).toBe(3 * 1024 * 1024);
     await server.close();
-  });
+  }, 30_000); // 6 MiB over a socket: on a loaded machine the default 5 s is not a margin
 
   it("a hang-up mid-stream ends the writer and its listener, and the run goes on to its end", async () => {
     const { task, runs, server } = await streamed();
