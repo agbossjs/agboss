@@ -1,7 +1,6 @@
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
-import type { ExecutionHistoryRecord } from "../../infrastructure/execution-history.repository.js";
 
 /**
  * The store hold points (#484 AC5): the operations of the fencing stores — the lease, the fenced
@@ -263,16 +262,6 @@ export const CHILD_QUEUE_METHODS: Readonly<Record<string, StoreMethod>> = {
     point: StoreHoldPoint.ChildComplete,
     keyOf: (args) => String(args[1]),
     inputOf: (args) => ({ tenantId: args[0], executionId: args[1] }),
-    outputOf: asIs,
-  },
-};
-
-/** The history store's save: the record of a root, by its execution. */
-export const HISTORY_METHODS: Readonly<Record<string, StoreMethod>> = {
-  save: {
-    point: StoreHoldPoint.HistorySave,
-    keyOf: (args) => (args[0] as ExecutionHistoryRecord).executionId,
-    inputOf: (args) => ({ status: (args[0] as ExecutionHistoryRecord).status }),
     outputOf: asIs,
   },
 };
