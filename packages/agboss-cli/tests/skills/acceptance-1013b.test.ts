@@ -29,6 +29,7 @@ import {
   sweepStray,
 } from "../../src/skills/lock-owner.js";
 import { SEEN_MARKER } from "../../src/skills/lock-files.js";
+import { realClock } from "../../src/skills/lock-clock.js";
 import { fingerprintOf } from "../../src/skills/lock-watch.js";
 import { MANIFEST_FILE, readManifest } from "../../src/skills/manifest.js";
 import { carryOver } from "../../src/skills/migrate.js";
@@ -49,7 +50,8 @@ const setTime = (path: string, offsetMs: number): void => {
 /** A waiter saw the lock as it stands now `ageMs` ago: the marker holds its fingerprint, dated so. */
 const markSeen = (root: string, ageMs: number): void => {
   const marker = join(lockOf(root), SEEN_MARKER);
-  writeFileSync(marker, fingerprintOf(lockOf(root), readHolder(lockOf(root))?.token));
+  const print = fingerprintOf(lockOf(root), readHolder(lockOf(root))?.token);
+  writeFileSync(marker, `${print}\n${String(realClock.mono() - ageMs)}`);
   setTime(marker, -ageMs);
 };
 

@@ -1,5 +1,14 @@
 import { randomBytes } from "node:crypto";
-import { lstatSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  futimesSync,
+  lstatSync,
+  openSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs";
 
 /** What a waiter leaves in a lock folder it cannot judge by time: its mtime is when it first saw the lock as it is. */
 export const SEEN_MARKER = "seen-future";
@@ -8,9 +17,9 @@ export const SEEN_MARKER = "seen-future";
  * How long ago `path` was last written, signed (negative: the time lies ahead); undefined when it
  * cannot be stat'ed. What to make of a time far ahead is the caller's (`readHolder`, `observed`).
  */
-export function ageOf(path: string): number | undefined {
+export function ageOf(path: string, now: number = Date.now()): number | undefined {
   try {
-    return Date.now() - lstatSync(path).mtimeMs;
+    return now - lstatSync(path).mtimeMs;
   } catch {
     return undefined;
   }
@@ -36,12 +45,19 @@ export function unlinkEntry(path: string): boolean {
 
 /**
  * Writes `text` to `path` as a new file made `wx` beside it and renamed over it: what is at `path`
- * (a link to somewhere else included) is replaced, never written through.
+ * (a link to somewhere else included) is replaced, never written through. `at` is the file's
+ * mtime (this clock's now), set on the new file before it is renamed into place.
  */
-export function writeBeside(path: string, text: string): void {
+export function writeBeside(path: string, text: string, at: number = Date.now()): void {
   const temp = `${path}.${randomBytes(4).toString("hex")}.tmp`;
-  writeFileSync(temp, text, { flag: "wx" });
   try {
+    const fd = openSync(temp, "wx");
+    try {
+      writeSync(fd, text);
+      futimesSync(fd, new Date(at), new Date(at));
+    } finally {
+      closeSync(fd);
+    }
     renameSync(temp, path);
   } catch (error) {
     rmSync(temp, { force: true });
