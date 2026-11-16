@@ -8,11 +8,17 @@ import type { BaseMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import { TokenLimit, type ResolvedModelSettings } from "../../config/types.js";
 import { runModelCall, type ResilienceOptions } from "../calls/attempt-runner.js";
+import { systemClock } from "../../infrastructure/clock.js";
 import type { PromptCaching } from "../prompt-caching.js";
 import type { Reasoning } from "../reasoning.js";
 import { aiMessageOf, providerMessagesOf, toolDefinitionsOf } from "./messages.js";
 import { transportCarrier, type TransportCall } from "./transport-carrier.js";
-import type { ModelProviderRequest, ModelProviderToolDefinition } from "./transport.js";
+import { transportStreamCarrier, type TransportStreamCall } from "./transport-stream.js";
+import type {
+  ModelProviderRequest,
+  ModelProviderResponse,
+  ModelProviderToolDefinition,
+} from "./transport.js";
 
 /** What a transport chat model is made of: its settings, the provider's policies and its `complete`. */
 export interface TransportChatModelParts {
@@ -21,8 +27,14 @@ export interface TransportChatModelParts {
   readonly reasoning: Reasoning;
   readonly promptCaching: PromptCaching;
   readonly resilience: ResilienceOptions;
-  /** The provider's `complete`, its instance created (and started) by the container on first use. */
-  readonly complete: () => Promise<TransportCall>;
+  /** The provider's calls, its instance created (and started) by the container on first use. */
+  readonly calls: () => Promise<TransportCalls>;
+}
+
+/** What a transport provider can do: `complete`, and, when it has one, `stream` (#1011). */
+export interface TransportCalls {
+  readonly complete: TransportCall;
+  readonly stream?: TransportStreamCall;
 }
 
 /**
@@ -73,18 +85,41 @@ export class TransportChatModel extends BaseChatModel {
     };
   }
 
+  /** A streamed call: its text goes out as it comes; the answer is the plain call's. */
+  private async streamed(
+    stream: TransportStreamCall,
+    messages: readonly BaseMessage[],
+    signal: AbortSignal | undefined,
+    runManager: CallbackManagerForLLMRun | undefined,
+  ): Promise<ModelProviderResponse> {
+    const { resilience, provider } = this.parts;
+    const limits = {
+      provider,
+      clock: resilience.clock ?? systemClock,
+      timeout: resilience.timeout,
+      breaker: resilience.breaker,
+    };
+    const carrier = transportStreamCarrier(stream, this.requestOf(messages), signal, limits);
+    const answer = await runModelCall(resilience, carrier, signal);
+    return await answer.consume(async (text) => {
+      if (text !== "") await runManager?.handleLLMNewToken(text);
+    });
+  }
+
   async _generate(
     messages: BaseMessage[],
     options: this["ParsedCallOptions"],
     runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
     const { resilience, settings, provider } = this.parts;
-    const carrier = transportCarrier(
-      await this.parts.complete(),
-      this.requestOf(messages),
-      options.signal,
-      provider,
-    );
+    const { complete, stream } = await this.parts.calls();
+    // a text stream carries no tool call: a call with tools bound is answered by `complete`
+    if (stream !== undefined && this.tools.length === 0) {
+      const response = await this.streamed(stream, messages, options.signal, runManager);
+      const message = aiMessageOf(response, settings.model, provider);
+      return { generations: [{ text: message.text, message }] };
+    }
+    const carrier = transportCarrier(complete, this.requestOf(messages), options.signal, provider);
     const response: unknown = await runModelCall(resilience, carrier, options.signal);
     const message = aiMessageOf(response, settings.model, provider);
     if (message.text !== "") await runManager?.handleLLMNewToken(message.text);

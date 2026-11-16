@@ -430,6 +430,7 @@ export interface ModelProviderHandler {
     // (undocumented)
     readonly routeTo?: (request: DecideRequest) => Promise<unknown>;
     readonly routingProblems?: (model: string, connection: ProviderConnection) => Promise<readonly RoutingProblem[]>;
+    readonly stream?: (request: ModelProviderRequest) => ModelProviderStream;
 }
 
 // @public
@@ -506,6 +507,14 @@ export interface ModelProviderResponse {
     readonly toolCalls?: readonly ModelProviderToolCall[];
     // (undocumented)
     readonly usage: ModelProviderUsage;
+}
+
+// @public
+export interface ModelProviderStream {
+    // (undocumented)
+    readonly textStream: AsyncIterable<string>;
+    // (undocumented)
+    readonly usage: Promise<ModelProviderUsage>;
 }
 
 // @public
@@ -1201,6 +1210,8 @@ export interface WireTool {
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "outputTokens".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
+// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "textStream".
+// src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "usage".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "messages".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/models/transport/transport.ts - (ae-undocumented) Missing documentation for "text".

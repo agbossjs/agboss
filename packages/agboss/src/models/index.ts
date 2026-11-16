@@ -22,6 +22,7 @@ export {
   type ModelProviderMessage,
   type ModelProviderRequest,
   type ModelProviderResponse,
+  type ModelProviderStream,
   type ModelProviderToolCall,
   type ModelProviderToolDefinition,
   type ModelProviderUsage,

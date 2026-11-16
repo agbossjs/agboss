@@ -14,7 +14,7 @@ function reasonOf(signal: AbortSignal): Error {
 }
 
 /** The call, ended by `signal` too: an SDK that ignores it cannot hold the attempt past its timeout. */
-function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+export function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(reasonOf(signal));
   return new Promise<T>((resolve, reject) => {
     const onAbort = (): void => {
@@ -28,7 +28,7 @@ function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 }
 
 /** The tokens an answer used (0 when it reports none it can be read by: it is checked later). */
-function tokensOf(answer: ModelProviderResponse): number {
+export function tokensOf(answer: ModelProviderResponse): number {
   const usage: unknown = Reflect.get(answer, "usage");
   if (typeof usage !== "object" || usage === null) return 0;
   const tokens =
@@ -37,11 +37,11 @@ function tokensOf(answer: ModelProviderResponse): number {
 }
 
 /** What a thrown error of `complete()` means: the failure it says, a timeout of ours, or none. */
-function failedAttempt(
+export function failedAttempt<T>(
   error: unknown,
   signal: AbortSignal,
   call: { readonly provider: string; readonly model: string },
-): Attempt<ModelProviderResponse> {
+): Attempt<T> {
   // a part the transport cannot take (#899): its own error, not a failure of the provider
   if (error instanceof ModelProviderInputError)
     return { kind: "threw", error: unsupportedInputOf(error, call), isRejected: true };
