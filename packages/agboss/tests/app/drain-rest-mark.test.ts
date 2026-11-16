@@ -3,7 +3,7 @@
  * rest (`paused`, an unconditional write), its pass 2 takes the answer. The record must say
  * `running` before pass 2, or a holder killed there leaves a `paused` root beside an answer it took —
  * no recovery (only `running` records), no resume (the pause is not pending): stuck for ever.
- * - the held-write twin of scenario 27b: the rest lands after the waiting resume's two marks (as
+ * - the held-write twin of scenario 27b: the rest lands after the waiting resume's mark (as
  *   on PostgreSQL), so only the drain's own mark makes the record `running` for the resume;
  * - a kill in the drain's second pass, the resume's caller gone: the sweep continues the tree;
  * - a kill between the rest write and the drain's mark, the resume's caller gone: the sweep's look
@@ -64,8 +64,8 @@ const writesSince = (from: number): readonly RecordWrite[] => pausesWindow.recor
  * the question meanwhile — outside A's pass, as another process's call would — so A's drain finds
  * the answer only after its rest, the order of #1187. With `gone` B's call is aborted once its
  * answer is recorded: its caller is gone, nothing waits to take the tree. A's write lands once B's
- * call recorded its answer and, unless it is gone, made its two marks (they land before the rest,
- * as on PostgreSQL). `restAt` is the record log's length when the rest was held.
+ * call recorded its answer and, unless it is gone, made its mark (it lands before the rest,
+ * as on PostgreSQL; its second, under the lease, is made after the take, #1179). `restAt` is the record log's length when the rest was held.
  */
 function restHeldWhileBAnswers(a: TestApp, b: TestApp, executionId: () => string, gone: boolean) {
   const state: { resumed?: Promise<ExecutionOutput>; restAt?: number } = {};
@@ -99,7 +99,7 @@ function restHeldWhileBAnswers(a: TestApp, b: TestApp, executionId: () => string
         (one) => one.pauseId === pauseId && one.status === PauseStatus.Resolved,
       );
       const marks = writesSince(state.restAt ?? 0).filter((one) => one.instanceId === idOf(b));
-      if (isRecorded && (gone || marks.length >= 2)) break;
+      if (isRecorded && (gone || marks.length >= 1)) break;
       await tick();
     }
     if (gone) {
@@ -148,7 +148,7 @@ const traceOf = (a: TestApp, from: number): readonly string[] =>
 
 describe("#1187: a drain's later pass runs with its record marked running", () => {
   for (const [store, test] of cases) {
-    test(`AC1 (the held-write twin of 27b): the rest lands after the waiting resume's two marks — the drain marks the record running again, so the resume moves the tree on (${store})`, async ({
+    test(`AC1 (the held-write twin of 27b): the rest lands after the waiting resume's mark — the drain marks the record running again, so the resume moves the tree on (${store})`, async ({
       apps,
       clock,
     }) => {
@@ -166,9 +166,9 @@ describe("#1187: a drain's later pass runs with its record marked running", () =
 
       await passLive(clock, seconds(40));
       expect(await moved).toBeInstanceOf(ExecutionLeaseLostError);
-      // the window: b's two marks (no-ops, the record was running), then a's rest over them, then a's mark
+      // the window: b's mark (a no-op, the record was running), then a's rest over it, then a's mark;
+      // b's own mark again waits for the lease (#1179), so it cannot land on a rest
       expect(traceOf(a, waiting.restAt ?? 0)).toEqual([
-        "b:mark:running",
         "b:mark:running",
         "a:complete:paused",
         "a:mark:running",

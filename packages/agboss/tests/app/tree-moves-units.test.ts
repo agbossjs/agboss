@@ -339,7 +339,7 @@ describe("#901: a resume whose tree failed after its answer was recorded", () =>
       const { moves, paused, lease, turns } = partsOf();
       turns.findByTenantIdAndRunId.mockResolvedValue({ threadId: "thread-1", status });
       mocks.treeResumeNow.mockResolvedValue(resumeOf("pause-1"));
-      paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+      paused.find.mockResolvedValue(restOf());
 
       await expect(moves.resumed(answerOf("1.0.0"), call)).rejects.toBeInstanceOf(PauseClosedError);
       expect(lease.released()).toBe(1);
@@ -355,12 +355,44 @@ describe("#901: a resume whose tree failed after its answer was recorded", () =>
     const { moves, paused, turns } = partsOf();
     turns.findByTenantIdAndRunId.mockResolvedValue(record);
     mocks.treeResumeNow.mockResolvedValueOnce(resumeOf("pause-1"));
-    paused.find.mockResolvedValue({ run: { runId: ROOT } } as never);
+    paused.find.mockResolvedValue(restOf());
     mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Finished));
 
     await moves.resumed(answerOf("1.0.0"), call);
 
     expect(mocks.observedPass).toHaveBeenCalledOnce();
+  });
+});
+
+/** The tree's stored rest, as the mark of its record reads it. */
+const restOf = () =>
+  ({ run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } } }) as never;
+
+describe("#1179: a resume's `running` mark is made under its lease, never before", () => {
+  it("the record is marked after the take of the lease, from `paused`, once an answer is there to take", async () => {
+    const { moves, paused, leases, parts } = partsOf();
+    mocks.treeResumeNow.mockResolvedValueOnce(resumeOf("pause-1"));
+    paused.find.mockResolvedValue(restOf());
+    mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Finished));
+
+    await moves.resumed(answerOf("1.0.0"), call);
+
+    const { completeIfStatus } = parts.deps.turns;
+    expect(completeIfStatus).toHaveBeenCalledOnce();
+    expect(completeIfStatus).toHaveBeenCalledWith("tern-1", "paused", expect.anything());
+    const marked = vi.mocked(completeIfStatus).mock.invocationCallOrder[0] ?? 0;
+    const held = vi.mocked(leases.hold).mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER;
+    expect(marked).toBeGreaterThan(held);
+  });
+
+  it("no answer to take (another call's pass took it, the tree rests again): the record is not marked", async () => {
+    const { moves, paused, parts } = partsOf();
+    mocks.treeResumeNow.mockResolvedValue(undefined);
+    paused.find.mockResolvedValue(restOf());
+
+    await moves.resumed(answerOf("1.0.0"), call);
+
+    expect(parts.deps.turns.completeIfStatus).not.toHaveBeenCalled();
   });
 });
 
