@@ -102,6 +102,7 @@ export interface FaultStoreSet<TTransaction = unknown> {
     // (undocumented)
     readonly environment: FaultEnvironment;
     readonly providers: readonly Class[];
+    readonly resolvesCommitByRetry?: boolean;
     readonly storeTime: FaultStoreTime;
 }
 

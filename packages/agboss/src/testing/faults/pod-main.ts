@@ -17,6 +17,7 @@ import { resolveEnvironment } from "../../environments/resolve.js";
 import {
   FAULT_STORES_EXPORT,
   optedOutStoresOf,
+  resolvesCommitByRetryOf,
   storeTimeOf,
   type FaultStoreSet,
 } from "./fault-stores.js";
@@ -142,5 +143,9 @@ const optedOut = optedOutStoresOf(stores);
 // #811 AC4: a set that keeps A2A tasks is served over A2A — whether it keeps them, and the URL
 const keepsA2ATasks = keepsA2ATasksOf(stores.providers);
 const a2aUrl = (await podA2AListenerOf(built.app, stores))?.url ?? null;
-const ready = { instanceId, pid: process.pid, optedOut, storeTime, keepsA2ATasks, a2aUrl };
+const resolvesCommitByRetry = resolvesCommitByRetryOf(stores);
+const ready = {
+  ...{ instanceId, pid: process.pid, optedOut, storeTime },
+  ...{ keepsA2ATasks, a2aUrl, resolvesCommitByRetry },
+};
 send({ kind: "event", event: { type: "ready", ...ready } });

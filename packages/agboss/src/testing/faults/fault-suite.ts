@@ -53,11 +53,14 @@ export async function sabotaged(
   sabotage: FaultSabotage,
   options: FaultSuiteOptions,
   expect: Vitest.ExpectStatic,
+  context?: TestContext,
 ): Promise<void> {
   const failure: unknown = await runFaultScenario(sabotage, options).then(
     () => undefined,
     (error: unknown) => error,
   );
+  // one this set cannot run (#1017: 23b's on a set whose commit is not retried): skipped with the reason
+  if (failure instanceof FaultScenarioSkippedError) context?.skip(failure.message);
   expect(failure, `${sabotage.id}: the sabotage passed — the suite does not bite`).toBeInstanceOf(
     FaultInvariantError,
   );
@@ -131,7 +134,7 @@ export function faultSuite(options: FaultSuiteOptions): void {
         (context: TestContext) =>
           sabotage === undefined
             ? scenarioCase(scenario, options, expect, context)
-            : sabotaged(sabotage, options, expect),
+            : sabotaged(sabotage, options, expect, context),
         timeout,
       );
     }
