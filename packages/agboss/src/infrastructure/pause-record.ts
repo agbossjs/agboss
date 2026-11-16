@@ -113,6 +113,13 @@ export interface PauseAnswer {
    */
   readonly answeredBy: string | undefined;
   /**
+   * `true` when the channel itself decided this answer — the replacement of a reassigned send that
+   * `ChannelOutcome.decided` answered at once (#1193) — not a person's reply. The store keeps it as
+   * written, so after a crash the retention repair logs the pause `decided`, not `replied` (#1197).
+   * Absent for a person's answer.
+   */
+  readonly byChannel?: true;
+  /**
    * The model calls of its reply interpreter (`app.resume({ pauseId, reply })`): already in the
    * ledger, added to the execution's spend when its step takes the answer.
    */

@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import type { PauseAnswer } from "../../infrastructure/pause-record.js";
 import {
   PauseResolution,
   PauseStatus,
@@ -80,6 +81,34 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
         isSent: true,
         answer: { decision: { approved: true } },
       });
+    },
+  },
+  {
+    // #1197: a channel's decision stays distinguishable from a person's reply after a crash
+    name: "an answer's byChannel marker is kept as written, read by another instance, and absent when never set",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(pauseOf("pause-a"));
+      await first.findOrCreateByStepKey(pauseOf("pause-b", "run-1:clerk-agent:1:call-2"));
+      const decided: PauseAnswer = {
+        decision: { approved: true },
+        answeredBy: "refund-channel",
+        byChannel: true,
+      };
+
+      await first.resolveByTenantIdAndPauseId("default", "pause-a", decided, NINE, NO_RECIPIENTS);
+      await first.resolveByTenantIdAndPauseId(
+        "default",
+        "pause-b",
+        APPROVED_BY_MANAGER,
+        NINE,
+        NO_RECIPIENTS,
+      );
+
+      const marked = await second.findByTenantIdAndPauseId("default", "pause-a");
+      expect(marked?.answer).toEqual(decided);
+      const unmarked = await second.findByTenantIdAndPauseId("default", "pause-b");
+      expect(unmarked?.answer).toEqual(APPROVED_BY_MANAGER);
+      expect(unmarked?.answer).not.toHaveProperty("byChannel");
     },
   },
   {

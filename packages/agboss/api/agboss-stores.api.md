@@ -1516,6 +1516,7 @@ export function parsedStoredJson(what: string, text: string, ids: Readonly<Recor
 // @public
 export interface PauseAnswer {
     readonly answeredBy: string | undefined;
+    readonly byChannel?: true;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];

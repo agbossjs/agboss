@@ -37,11 +37,14 @@ export const StoredAnswer = z
     decision: z.unknown(),
     answerer: z.string().optional(),
     answeredBy: z.string().optional(),
+    // #1197: the channel's own decision; `false` is no marker
+    byChannel: z.boolean().optional(),
     usage: z.array(StoredUsage).optional(),
   })
   .transform((stored): PauseAnswer => ({
     decision: stored.decision,
     answeredBy: stored.answeredBy ?? stored.answerer,
+    ...(stored.byChannel === true ? { byChannel: true as const } : {}),
     ...(stored.usage === undefined ? {} : { usage: stored.usage }),
   }));
 /** The tool call an approval's pause asks about. */

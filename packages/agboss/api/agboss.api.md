@@ -6412,6 +6412,7 @@ export type PathSource = StartSource | ComponentSource;
 // @public
 export interface PauseAnswer {
     readonly answeredBy: string | undefined;
+    readonly byChannel?: true;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];

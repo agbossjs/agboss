@@ -11,6 +11,7 @@ import {
   NO_RECIPIENTS,
   PauseResolution,
   PauseStatus,
+  type PauseAnswer,
 } from "../../src/infrastructure/pause-record.js";
 import { removeClosedPauses, REPAIR_PAGE } from "../../src/infrastructure/pause-log-repair.js";
 import { removeExpired } from "../../src/infrastructure/recovery.js";
@@ -102,6 +103,24 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
       },
     ]);
     expect(await pauses.findByTenantIdAndPauseId("default", "p-2")).toBeUndefined();
+  });
+
+  it("#1197: a channel's decision whose log write was lost is written `decided`, not `replied`", async () => {
+    const { pauses, sweep, logOf } = setUp();
+    await pauses.findOrCreateByStepKey(pauseOf("p-d", "run-1:clerk-agent:1:call-1"));
+    const decision: PauseAnswer = {
+      decision: { approved: true },
+      answeredBy: "refund-channel",
+      byChannel: true,
+    };
+    await pauses.resolveByTenantIdAndPauseId("default", "p-d", decision, CLOSED, NO_RECIPIENTS);
+    await pauses.markTakenByTenantIdAndPauseId("default", "p-d");
+
+    await sweep();
+
+    expect(await logOf()).toMatchObject([
+      { resolution: PauseResolution.Decided, answeredBy: "refund-channel" },
+    ]);
   });
 
   it("a not-taken close whose mark was lost: the entry is written not taken, the answer kept", async () => {
