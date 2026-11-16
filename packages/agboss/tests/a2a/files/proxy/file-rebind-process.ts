@@ -23,7 +23,7 @@ import type * as HttpModule from "node:http";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import type * as NetModule from "node:net";
 import { constants } from "node:os";
-import { report as reportToParent } from "../../../helpers/child-channel.js";
+import { report as reportToParent, reportIfSocketLingers } from "../../../helpers/child-channel.js";
 
 const load = createRequire(import.meta.url);
 const dns = load("node:dns") as typeof DnsModule;
@@ -165,10 +165,8 @@ async function main(): Promise<void> {
   // a connection the refused request's agent started has had time to be made (or pooled)
   await new Promise((resolve) => setTimeout(resolve, 300));
   await reportToParent({ outcome, ...report, pooled: pooled() });
-  // a socket left open keeps the loop alive: the unref'd timer then fires and says so
-  setTimeout(() => {
-    void reportToParent({ lingering: true }).then(() => process.exit(0));
-  }, 1500).unref();
+  // a socket left open keeps the loop alive: the unref'd timer then finds it and says so
+  reportIfSocketLingers();
 }
 
 void main();
