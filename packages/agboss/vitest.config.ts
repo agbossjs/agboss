@@ -25,6 +25,11 @@ export default defineConfig({
           name: "unit",
           include: ["tests/**/*.test.ts"],
           exclude: [...FAULT_FILES, ...EXCLUDED],
+          // 5 s only caught a slow machine: under load (3 workers beside other gates) ordinary cases ran
+          // 5-11 s and failed, while 20 s still catches a hang. A test that asserts a timing keeps its own
+          // tighter bound. Hooks match (#1225).
+          testTimeout: 20_000,
+          hookTimeout: 20_000,
         },
       },
       // #484: the fault suite's files spawn real pods — one file at a time, beside the rest
