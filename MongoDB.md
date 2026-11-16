@@ -143,7 +143,14 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
 
 The collections, their indexes and the ledger's pruning mark are a versioned schema, recorded in
 `agboss_schema` and migrated explicitly by `agboss-mongodb migrate` (#891). Each version is one
-migration, applied in order:
+migration, applied in order. An upgrade that changes the schema is: stop every instance of the old
+version, run `migrate`, start the new one (#1104, ADR-0034). With migrations pending on an already
+migrated database, `migrate` refuses while an execution lease is live on the server's clock
+(`MongoLiveLeasesError`, `mongodb.live-leases`: `count`, up to 5 sorted `holders`); `--allow-live-leases`
+(`allowLiveLeases: true`) migrates anyway, and `SchemaSetup.MigrateOnStart` is not guarded. An idle old
+instance holds no lease and is not seen. As a backstop, a channel-filtered page of pauses gives a pause
+with no `channel` its channel from its record before it reads:
+
 
 | Version | Migration | What it adds |
 | --- | --- | --- |
