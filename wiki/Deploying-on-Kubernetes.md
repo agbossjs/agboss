@@ -343,5 +343,6 @@ kubectl apply -f deployment.yaml   # the new image, replicas: N
 With Helm, run the Job as a release of its own (or a pipeline step) between a scale-to-zero and the
 chart's upgrade; with Argo CD, a sync wave that sets the replicas to zero before the migration Job.
 A `pre-upgrade` / `PreSync` hook stays right for an upgrade that changes no schema: `migrate` prints
-`nothing to apply` and exits 0. What `migrate` can check is the leases of running executions; an idle
+`nothing to apply` and exits 0. What `migrate` can check is the leases of running executions (it refuses with
+`PostgresLiveLeasesError` / `MongoLiveLeasesError`; `--allow-live-leases` overrides); an idle
 old pod holds none, so only scaling to zero proves that nothing old is running.
