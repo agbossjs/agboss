@@ -16,4 +16,4 @@ error status with `error.type` when the fetch fails or is refused. No propagatio
 API is a no-op: no overhead, no error. The span goes to the host's global provider only: the
 framework's Langfuse tracing uses an isolated provider and does not receive it. dd-trace's http
 plugin is not involved; the span reaches Datadog only when its OpenTelemetry `TracerProvider`
-bridge is registered.
+bridge is registered. (Since #1138 the fetch builds no `ClientRequest` at all: it writes its own HTTP/1.1 exchange on the checked socket; the span is unchanged.)

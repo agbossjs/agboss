@@ -10,4 +10,4 @@ and kept the process alive. Every failure after the connection is made now destr
 constructor throwing, a request that has an agent, a request on a socket that is not the module's
 own, and the request's `error`. A constructor that throws is refused `a2a.file-address-denied`,
 the same as a request that has an agent. Supersedes the "destroyed together with the connection"
-sentence of `916-sni`, which did not hold for the throwing case.
+sentence of `916-sni`, which did not hold for the throwing case. (Superseded in part by 1138-file-fetch-pinned-agent: there is no `ClientRequest` to build or refuse any more; every failure of the fetch's own exchange still destroys the TLS socket.)

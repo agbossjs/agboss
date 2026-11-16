@@ -1,9 +1,9 @@
 /**
  * #916 (the fix after the spec review of #1010): the TLS handshake of a file fetch carries the
  * host as SNI (a TLS socket made on an existing socket has none unless `servername` is given), an
- * APM's pass-through wrappers over `net`, `tls` and `ClientRequest` do not break the fetch, and a
- * request that is not the module's own (an agent) or a peer that is not the answered address is
- * refused with no byte sent. Each case is a child process on a simulated public network
+ * APM's pass-through wrappers over `net` and `tls` do not break the fetch, a replaced
+ * `ClientRequest` is never asked (#1138: the fetch writes its own exchange), and a peer that is not
+ * the answered address is refused with no byte sent. Each case is a child process on a simulated public network
  * (proxy/file-tls-process.ts: the name resolves to a public address, the socket is really made to
  * a local server and reports that address as its remote one).
  */
@@ -115,13 +115,13 @@ describe("#916 SNI: the handshake of a file fetch names the host", () => {
 });
 
 describe("#916 APM: pass-through wrappers do not break a legitimate fetch", () => {
-  it("S3 net.connect, tls.connect and ClientRequest wrapped as an APM does: the fetch succeeds", async () => {
+  it("S3 net.connect, tls.connect and ClientRequest wrapped as an APM does: the fetch succeeds, ClientRequest never asked", async () => {
     const fetched = await fetchedUnder(`https://${HOST}:${String(port)}/a.pdf`, "otel", port);
 
     expect(fetched.outcome).toBe("fetched");
     expect(fetched.calls.net).toBeGreaterThan(0);
     expect(fetched.calls.tls).toBeGreaterThan(0);
-    expect(fetched.calls.request).toBeGreaterThan(0);
+    expect(fetched.calls.request).toBe(0);
   }, 30_000);
 
   it("S4 a net.connect that reaches another public-looking address is refused, 0 bytes sent", async () => {
@@ -138,7 +138,7 @@ describe("#916 APM: pass-through wrappers do not break a legitimate fetch", () =
     expect(network.targetBytes()).toBe(0);
   }, 30_000);
 
-  it("S5 a replaced ClientRequest that gives the request an agent is refused: no request reaches the server", async () => {
+  it("S5 a replaced ClientRequest that would give the request an agent is never asked: one request, over the checked connection", async () => {
     requests.length = 0;
 
     const fetched = await fetchedUnder(
@@ -147,7 +147,7 @@ describe("#916 APM: pass-through wrappers do not break a legitimate fetch", () =
       port,
     );
 
-    expect(fetched.outcome).toBe("a2a.file-address-denied");
-    expect(requests).toEqual([]);
+    expect(fetched.outcome).toBe("fetched");
+    expect(requests).toEqual(["/a.pdf"]);
   }, 30_000);
 });

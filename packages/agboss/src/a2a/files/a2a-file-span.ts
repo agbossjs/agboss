@@ -1,13 +1,13 @@
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 /**
- * The file fetch's own OpenTelemetry span (#1021). The request is a direct `ClientRequest` over a
- * pre-checked socket (#916) — it never goes through `https.request`, which `instrumentation-http`
- * and dd-trace wrap, so no APM sees it. Going through `https.request` would reopen the SSRF
- * (an agent's `addRequest` runs before the peer is checked: a second, unguarded lookup, a proxy
- * `CONNECT`, trace headers to an untrusted origin), so the span is explicit: one `CLIENT` span per
- * request, HTTP semantic-convention attributes, `url.full` without query or fragment (a pre-signed
- * S3/GCS token never reaches a trace). No propagation header is injected into the request.
+ * The file fetch's own OpenTelemetry span (#1021). The request is the fetch's own HTTP/1.1 exchange
+ * over a pre-checked socket (#916, #1138) — it never goes through `https.request` or
+ * `ClientRequest`, which `instrumentation-http` and dd-trace wrap, so no APM sees it. Going through
+ * `https.request` would reopen the SSRF (an agent's `addRequest` runs before the peer is checked: a
+ * second, unguarded lookup, a proxy `CONNECT`, trace headers to an untrusted origin), so the span is
+ * explicit: one `CLIENT` span per request, HTTP semantic-convention attributes, `url.full` without
+ * query or fragment (a pre-signed S3/GCS token never reaches a trace). No propagation header is injected into the request.
  *
  * `trace.getTracer` is the global API: a no-op until the host registers an SDK. The framework's
  * Langfuse tracing uses an isolated provider (`langfuseTracing`), so this span never reaches

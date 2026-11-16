@@ -1,14 +1,15 @@
-import type { IncomingMessage } from "node:http";
 import { isIP } from "node:net";
 import { ADDRESS_DENIED, isDeniedAddress } from "./a2a-file-address.js";
-import { isOwnSocket, requestTo } from "./a2a-file-connect.js";
+import { connectionTo } from "./a2a-file-connect.js";
+import { exchangeOver, type FileExchange } from "./a2a-file-exchange.js";
 import { errorTypeOf, type FileFetchSpan, startFileFetchSpan } from "./a2a-file-span.js";
 
 /**
  * One `GET` of a file by `url` (#859): what the fetch of a file sees of the network — a status, a
- * redirect's `Location`, the body as it arrives. The built-in one is `node:https` with the guarded
- * lookup (no private address, ever), no redirect followed and no header but `accept`; a test passes
- * its own (`a2aHttpListener`'s internal seam). It never goes through a proxy (#916).
+ * redirect's `Location`, the body as it arrives. The built-in one is the fetch's own connection
+ * and HTTP/1.1 exchange (no private address, ever), no redirect followed and no header but `Host`,
+ * `Accept` and `Connection: close`; a test passes its own (`a2aHttpListener`'s internal seam). It
+ * never goes through a proxy (#916) nor through `node:http(s)` (#1138).
  */
 export interface FileHttpResponse {
   readonly status: number;
@@ -32,35 +33,31 @@ export class FileAddressDeniedError extends Error {
 const ABORTED = "ABORT_ERR";
 
 /**
- * The response, its span ended when the message closes (#1139): a read the fetch cancelled ends
+ * The response, its span ended when the body closes (#1139): a read the fetch cancelled ends
  * it with the fetch's failure (none for a redirect or a refused status, whose status says it); a
  * body that did not arrive whole ends it with an error — `ABORT_ERR` when the deadline or the
  * request's end cut it, else the body's own error (`ECONNRESET` for a peer that reset it).
  */
 const responseOf = (
-  message: IncomingMessage,
+  exchange: FileExchange,
   span: FileFetchSpan,
   signal: AbortSignal,
 ): FileHttpResponse => {
-  const location = message.headers.location;
+  const { body } = exchange;
   let cancelled: { failure: string | undefined } | undefined;
-  let bodyFailure: string | undefined;
-  // read as the body fails: the fetch's end aborts the signal right after it settles
-  message.once("error", (error) => {
-    bodyFailure = signal.aborted ? ABORTED : errorTypeOf(error);
-  });
-  message.once("close", () => {
+  void exchange.ended.then(({ isComplete, error }) => {
     if (cancelled !== undefined) span.finished(cancelled.failure);
-    else if (message.complete) span.finished();
-    else span.finished(bodyFailure ?? (signal.aborted ? ABORTED : "a2a.file-fetch-failed"));
+    else if (isComplete) span.finished();
+    else if (signal.aborted) span.finished(ABORTED);
+    else span.finished(error === undefined ? "a2a.file-fetch-failed" : errorTypeOf(error));
   });
   return {
-    status: message.statusCode ?? 0,
-    location: typeof location === "string" ? location : undefined,
-    body: message,
+    status: exchange.status,
+    location: exchange.location,
+    body,
     cancel: (failure) => {
       cancelled ??= { failure };
-      message.destroy();
+      body.destroy();
     },
   };
 };
@@ -69,13 +66,15 @@ const isDenied = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === ADDRESS_DENIED;
 
 /**
- * The built-in transport: `https:` only, its own connection (`requestTo`: its own agent pinned to
- * that connection, so nothing a patched or proxying `https.Agent`, `https.globalAgent`,
- * `NODE_USE_ENV_PROXY` or `global-agent` says reaches it), no proxy ever (#916). Guards, so none of
- * them is the only one: the connection is made by `net` to an address the guarded resolver allowed
- * and checked before a byte is sent, and TLS starts on that socket only; the request is built over
- * that connection after it (a denied address constructs none); a request on another agent (#1138)
- * or a socket that is not the module's own is refused. Pass-through wrappers (APM) of `net`, `tls` and `ClientRequest` change nothing of this.
+ * The built-in transport: `https:` only, its own connection (`connectionTo`) and its own exchange
+ * on it (`exchangeOver`), so nothing a patched or proxying `https.Agent`, `https.globalAgent`,
+ * `NODE_USE_ENV_PROXY`, `global-agent` or a replaced `ClientRequest` says reaches it (#916, #1138):
+ * none of them is ever asked. The one TCP connection a fetch makes goes to an address the guarded
+ * resolver vetted (resolved once, every answer checked), by that address and a lookup that answers
+ * only it; its remote address is checked at `connect` before a byte is sent; TLS starts on that
+ * socket only; the request is written on that socket, after it (a denied address writes none). A
+ * redirect is a new fetch through the same steps. Pass-through wrappers (APM) of `net` and `tls`
+ * change nothing of this.
  */
 export const httpsFileTransport: FileTransport = (url, signal) => {
   const span = startFileFetchSpan(url);
@@ -90,27 +89,12 @@ function sent(url: URL, signal: AbortSignal, span: FileFetchSpan): Promise<FileH
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0 && isDeniedAddress(host))
     return Promise.reject(new FileAddressDeniedError());
-  return requestTo(url, signal).then(
-    ({ request, secure }) =>
-      new Promise((resolve, reject) => {
-        // `on`, not `once`: destroying the TLS socket makes the request fail again ("socket hang up")
-        request.on("error", (error) => {
-          secure.destroy();
-          reject(isDenied(error) ? new FileAddressDeniedError() : error);
-        });
-        request.once("socket", (socket) => {
-          if (!isOwnSocket(socket)) {
-            socket.destroy();
-            secure.destroy();
-            reject(new FileAddressDeniedError());
-          }
-        });
-        request.once("response", (message) => {
-          span.responded(message.statusCode ?? 0);
-          resolve(responseOf(message, span, signal));
-        });
-        request.end();
-      }),
+  return connectionTo(url, signal).then(
+    async ({ secure }) => {
+      const exchange = await exchangeOver(secure, url, signal);
+      span.responded(exchange.status);
+      return responseOf(exchange, span, signal);
+    },
     (error: unknown) => {
       throw isDenied(error) ? new FileAddressDeniedError() : error;
     },

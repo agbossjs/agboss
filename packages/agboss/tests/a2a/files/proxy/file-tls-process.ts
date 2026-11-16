@@ -2,9 +2,11 @@
 // resolves to PUBLIC, `net.connect` is really made to the local server `port` (the test's TLS
 // server, or its byte-counting target) and the socket reports `claimed` as its remote address.
 // `mode`: "plain" (nothing else), "otel" (pass-through wrappers over `net.connect`, `tls.connect`
-// and `http.ClientRequest`, as an APM agent installs them: they change nothing) and "refuse-agent"
-// (a replaced `ClientRequest` that gives the request an agent). Everything is installed before the
-// core is loaded, as a patch applied at start-up is. Reports (IPC, never stdout) one message: the outcome and how many
+// and `http.ClientRequest`, as an APM agent installs them: they change nothing), "refuse-agent" /
+// "refuse-https-agent" (a replaced `ClientRequest` that gives the request an agent: #1138, never
+// asked), "span-*" (an OpenTelemetry SDK registered), "span-wrong-peer" (the socket claims another
+// public address: the peer check refuses it). Everything is installed before the core is loaded, as
+// a patch applied at start-up is. Reports (IPC, never stdout) one message: the outcome and how many
 // times each wrapper ran (a wrapper that never ran proves nothing).
 import type * as DnsModule from "node:dns";
 import type * as HttpModule from "node:http";
@@ -21,7 +23,8 @@ const net = load("node:net") as typeof NetModule;
 const tls = load("node:tls") as typeof TlsModule;
 const https = load("node:https") as typeof HttpsModule;
 
-const [url = "", mode = "plain", portText = "0", claimed = ""] = process.argv.slice(2);
+const [url = "", mode = "plain", portText = "0", claimedText = ""] = process.argv.slice(2);
+const claimed = mode === "span-wrong-peer" ? "93.184.216.99" : claimedText;
 const PUBLIC = "93.184.216.34";
 const calls = { net: 0, tls: 0, request: 0 };
 
@@ -177,7 +180,7 @@ async function inCallerSpan(fetch: () => Promise<string>): Promise<string> {
 async function main(): Promise<void> {
   simulateNetwork();
   if (mode === "otel") instrument();
-  if (mode === "refuse-agent" || mode === "span-refuse-agent") giveRequestAnAgent();
+  if (mode === "refuse-agent") giveRequestAnAgent();
   if (mode === "refuse-https-agent") giveRequestAnHttpsAgent();
   const spans = mode.startsWith("span") ? await registerSdk() : () => [];
   syncBuiltinESMExports();
