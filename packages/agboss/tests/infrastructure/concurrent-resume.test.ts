@@ -182,10 +182,9 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
     const paused = await execute(app, OrderWorkflowStart, { text: "charge twice" });
     const answered = answerNextPauseFrom(second(apps));
     hooks.beforeGuardedWrite = async () => {
-      // each resume writes `running` twice: before it records its answer (#850) and before it takes
-      // the lease. The first resume's go at once (the first lands), and so does the other's first —
-      // it lands on the rest the holder wrote before its drain, which takes that answer; the other's
-      // last waits until the holder ended the tree
+      // a resume writes `running` before it records its answer (#850), and again only once it holds
+      // the lease and finds an answer to take (#1179: never before the lease, where it could land
+      // on a holder's rest or end). The fourth write waits until the holder ended the tree
       if (seen.guarded.length !== 3) return;
       for (let tick = 0; tick < 1000 && !seen.completed.includes("answered"); tick += 1) {
         await new Promise((resolve) => setImmediate(resolve));
@@ -202,7 +201,6 @@ describe("#265 S66 h: a resume's late `running` write never lands over the holde
       { status: "running", landed: true },
       // #1187: the holder's drain marks its record running after its rest, before it takes the
       // other's answer — already running here: the other's first mark landed on that rest
-      { status: "running", landed: false },
       { status: "running", landed: false },
     ]);
     const [stored] = (await seen.records[0]?.lastTurns(paused.tenantId, paused.threadId, 1)) ?? [];

@@ -135,19 +135,20 @@ async function markedRunning(
 
 /**
  * The pass that takes the tree's recorded answers now (`answeredRunOf`); `undefined` when it has
- * none. `isAfterRest`: the drain's pass after its rest — the record is marked `running` first
- * (`markedRunning`); a resume or an expiry marked it before taking the lease.
+ * none. `isMarking`: the record is marked `running` first (`markedRunning`, under the lease the
+ * caller holds, a compare-and-set from `paused`) — the drain's pass after its rest, and a resume's
+ * take (#1179); an expiry marked it first, under the lease (`expiredPassOf`).
  */
 export async function answeredPassOf(
   parts: TreeMoveParts,
   state: TreeState,
   call: TreeCall,
   passed?: ReadonlySet<string>,
-  isAfterRest = false,
+  isMarking = false,
 ): Promise<AnsweredPass | undefined> {
   const answered = await answeredRunOf(parts, state, passed);
   if (answered === undefined) return undefined;
-  if (isAfterRest) await markedRunning(parts.deps, answered.stored);
+  if (isMarking) await markedRunning(parts.deps, answered.stored);
   return { resume: answered.resume, pass: resumePassOf(answered.stored, answered.resume, call) };
 }
 
@@ -161,7 +162,9 @@ export async function takenPassOf(
   state: TreeState,
   call: TreeCall,
 ): Promise<{ readonly reason: ResumeReason; readonly planned: PlannedPass } | undefined> {
-  const answered = await answeredPassOf(parts, state, call);
+  // under the lease it holds: marked `running` only when an answer is there to take, from `paused`
+  // only (#1179: a mark made before the lease could land on the rest of the holder that took it)
+  const answered = await answeredPassOf(parts, state, call, undefined, true);
   if (answered !== undefined) return { reason: ResumeReason.Answered, planned: answered };
   const stalled = await stalledPassOf(parts.deps, state, call);
   return stalled === undefined ? undefined : { reason: ResumeReason.Recovered, planned: stalled };

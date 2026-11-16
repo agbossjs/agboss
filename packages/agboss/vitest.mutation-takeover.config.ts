@@ -22,6 +22,8 @@ export default defineConfig({
       "tests/app/writes-window-{resume,pauses}.test.ts",
       // #1187: the drain's mark before it takes an answer, the wake of a paused root beside one
       "tests/app/{drain-rest-mark,answered-wake-units}.test.ts",
+      // #1179: the pass of a tree left mid-pass, its waiting check pinned on its own
+      "tests/app/stalled-pass-units.test.ts",
       "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
     ],
   },

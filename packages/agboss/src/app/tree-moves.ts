@@ -1,5 +1,4 @@
 import { ResumeReason } from "../core/observability.js";
-import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { recordEndedOf, recoveryPassOf, RootCalls, takenPassOf } from "./recovery-pass.js";
 import type {
   PlannedPass,
@@ -9,7 +8,6 @@ import type {
   TreePass,
   TreeState,
 } from "./tree-move-types.js";
-import { runningOutcome } from "../run/execute.js";
 import type { InterruptedRun } from "../run/continue-agent.js";
 import type { TreeResume } from "../run/resume-map.js";
 import { currentOutputOf, refusedIfFailed } from "./current-output.js";
@@ -73,16 +71,10 @@ class TreeMover implements TreeMoves {
     });
     const leaving = this.#resuming.enter(state.runId);
     try {
-      // answered: the tree has work again — its record is `running` until it rests (#265 S30); the
-      // answer's own mark made it so (#850): again here only for a recovery that rested it meanwhile,
-      // and only while it is still `paused`: a holder that took the decision may have ended it (S66 h)
-      if (run !== undefined) {
-        await deps.turns.completeIfStatus(
-          run.turnId,
-          ExecutionRecordStatus.Paused,
-          runningOutcome(run.path, run.cost.totalUsd),
-        );
-      }
+      // answered: the tree has work again — the answer's own mark made its record `running` (#850);
+      // a mark again, for a recovery that rested it meanwhile, is made under the lease, once the
+      // answer is known to be there to take (`takenPassOf`): a write before the lease could land on
+      // the rest a holder wrote after taking this very answer (#1179)
       const take = rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed);
       const lease = await leases.hold(treeOf(state), given.signal, take);
       // ended at the take: the resume rejects with the tree's final error (#340 S7 1)
