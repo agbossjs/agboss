@@ -6,6 +6,7 @@ import {
 import type { ExecutionStreamEvent } from "../../run/types.js";
 import { ArtifactView } from "./a2a-artifact-view.js";
 import { droppedLog, listenerOf, SubscriberQueue } from "./a2a-subscriber-queue.js";
+import { TaskWatch } from "../tasks/task-changes.js";
 import { changedTask, isAtRest } from "./a2a-task-wait.js";
 import { taskKeyOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
@@ -123,6 +124,31 @@ async function changedOrHeard(
   return changedTask(parts, task, AbortSignal.any([signal, heard]));
 }
 
+/**
+ * The task to go on with: read at once when a change was announced while the stream was busy
+ * writing or reading (#1140: such a notice reaches nobody waiting), else — with nothing queued —
+ * after its next change, a run event of the stream's own, or the poll.
+ */
+async function awaitedTask(
+  parts: A2AServerParts,
+  task: A2ATaskRecord,
+  waits: {
+    readonly queued: SubscriberQueue;
+    readonly watch: TaskWatch;
+    readonly signal: AbortSignal;
+    readonly wake: AbortSignal;
+  },
+): Promise<A2ATaskRecord> {
+  const isPending = waits.watch.takeChanged();
+  if (!isPending && !waits.queued.isWaiting) return task;
+  return await changedOrHeard(
+    parts,
+    task,
+    waits.signal,
+    isPending ? AbortSignal.abort() : waits.wake,
+  );
+}
+
 /** What a run's event is on the wire: a chunk of the artifact, its retraction, or a tool call. */
 const updateOf = (
   view: ArtifactView,
@@ -132,6 +158,16 @@ const updateOf = (
   view.textOf(task, event) ??
   view.retractionOf(task, event) ??
   (event.kind === "toolCall" ? toolEventOf(task, event.tool) : undefined);
+
+/** What a changed task adds: a task over without an output replaces what its stream showed, then its last events. */
+async function* changeOf(
+  parts: A2AServerParts,
+  view: ArtifactView,
+  task: A2ATaskRecord,
+): AsyncGenerator<StreamResponse, void, undefined> {
+  yield* view.closing(task);
+  yield* await changeEventsOf(parts, task);
+}
 
 /** The stream of a task from `task` on. */
 export async function* taskStream(
@@ -160,11 +196,12 @@ export async function* taskStream(
     droppedLog(parts, task),
   );
   let stopListening = parts.runs.listen(key, hear);
+  const watch = new TaskWatch(key);
   try {
     yield { payload: { $case: "task", value: await wireTaskOf(current, parts) } };
     while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {
       wake = new AbortController();
-      if (queued.isWaiting) current = await changedOrHeard(parts, current, signal, wake.signal);
+      current = await awaitedTask(parts, current, { queued, watch, signal, wake: wake.signal });
       if (queued.isDropped) return;
       for (const event of queued.take()) {
         const update = updateOf(view, current, event);
@@ -172,18 +209,16 @@ export async function* taskStream(
       }
       if (current.version !== shown) {
         shown = current.version;
-        // a task over without an output replaces what its stream showed, before its last status
-        yield* view.closing(current);
-        yield* await changeEventsOf(parts, current);
+        yield* changeOf(parts, view, current);
       }
       // a run started here since (a resume): its stream is heard from now on, its text anew
       stopListening();
       stopListening = parts.runs.listen(key, hear);
-      const run = parts.runs.settledOf(key);
-      if (run !== heard) view.restart();
-      heard = run;
+      if (parts.runs.settledOf(key) !== heard) view.restart();
+      heard = parts.runs.settledOf(key);
     }
   } finally {
     stopListening();
+    watch.close();
   }
 }
