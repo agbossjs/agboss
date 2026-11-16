@@ -108,13 +108,16 @@ describe("framework and examples apart (#91)", () => {
         !skip.test(file) &&
         /\.(ts|js|cjs|mjs|json|md|ya?ml|sh)$|Makefile$/.test(file),
     );
+    // The Wiki's ADR-0011 page keeps the name it was published under, so the ADR index links to it by
+    // that name: the page's address is history, not a use of the old name, and is the one allowed mention.
+    const historicPage = /ADR-0011-graphInject-framework-package-and-examples-apart/gu;
     const self = "packages/agboss/tests/boundary.test.ts";
     const selfJs = "packages/agboss/tests/boundary.test.js"; // names the old name on purpose
     const left = files.filter(
       (file) =>
         file !== self &&
         file !== selfJs &&
-        /graphinject/i.test(readFileSync(join(root, file), "utf8")),
+        /graphinject/i.test(readFileSync(join(root, file), "utf8").replace(historicPage, "")),
     );
 
     expect(left).toEqual([]);
