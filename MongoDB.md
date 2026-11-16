@@ -81,27 +81,55 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   a close of that lease either committed before the touch, which conflicts (`WriteConflict`, a
   `TransientTransactionError`: the driver runs the transaction again and reads it), or waits for
   the transaction to end. A business key is locked the same way, before the work runs.
-- **The cancel's fence** (#909, [ADR-0030](ADR-0030-A-cancel-is-a-fence)) — `requestCancel` is one
-  upsert (a pipeline keeping the first `requestedAt`) of the tree's document in
-  `agboss_execution_cancel_requests`, outside any transaction; the fenced effect and the outbound
-  call (`saveIfAbsent`, `markPending`) check it in their transaction as the lease: the document is
-  *written* first (`touchedAt`, `touches` counted up), then read, and a set `requestedAt` refuses
-  the write with `ExecutionCancelFencedError`. The cancel either waits for a transaction that
-  already touched the document or commits first, and the transaction's later touch conflicts and
-  runs again on a snapshot that holds it; the price is that fenced writes of one tree's
-  `AnyInstance` children conflict and retry. It is a **schema version of its own** ([below](#the-schema-and-its-versions)) — run
-  `agboss-mongodb migrate` with no instance of an older version running, then start the version that
-  writes it (an older instance neither writes nor reads the collection, so the fence of
-  [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then). A mark is **permanent** (#1117, [Guarantees](Guarantees) A18): no retention pass lifts it, by age or
-  once the tree's lease is retired; one document per cancelled tree is kept, as the lease documents are.
+- **The cancel's fence** (#909, #1117, [ADR-0030](ADR-0030-A-cancel-is-a-fence)) — the mark is the
+  field `cancelRequestedAt` of the tree's own lease document `(tenantId, rootExecutionId)`, kept as
+  the lease documents are: **permanent** — every write of the document keeps it (`acquire` is an
+  update of the stored document, never a replacement) and no retention removes it. `requestCancel`
+  is one upsert (a pipeline keeping the first value) outside any transaction; a cancel before the
+  tree's first `acquire` upserts a **seed document** — token 0, released, empty holder, never held —
+  so that `acquire` is token 1 with no takeover. The fenced effect and the outbound call
+  (`saveIfAbsent`, `markPending`) check it in their transaction after the lease, the scope's mark
+  and (for an effect) the key's stored result: the root's document is *written* first (a counter
+  nothing reads — an update that changes nothing is skipped and locks nothing), then read, and a
+  set `cancelRequestedAt` refuses the write with `ExecutionCancelFencedError`; an undo's key is not
+  refused. For a root's or a `SameInstance` key that document is the lease `checkFence` already
+  wrote; for a child's key it is its root's, seeded in the same transaction when it does not exist
+  yet, so a document always exists to conflict on. The cancel either waits for a transaction that
+  already wrote the document or commits first, and the transaction's later write conflicts and runs
+  again on a snapshot that holds it; the price is that fenced writes of one tree's `AnyInstance`
+  children conflict and retry. An `acquire` that finds no document and inserts the first lease can
+  lose to a cancel's seed (a duplicate key): it takes the seed instead. **Schema version 4**
+  (`execution-cancel-mark`): no collection, no index — run `agboss-mongodb migrate` with no
+  instance of an older version running,
+  then start the version that writes it: an older instance neither writes nor reads the field, so
+  the fence of [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then.
 - **The pause store** (#938, contract v2) — a pause change is one compare-and-set on the pause's
   document in a transaction: the deadline (`deadlineAt`, extension) sits in the filter, so of two
   instances exactly one records an expiry or an extension, and the per-recipient notices are
   appended in the same transaction, in order (`noticeOnce` is a guarded upsert, not a duplicate-key
   error inside the transaction). A not-taken answer is kept with its answer and `answeredBy`, and a
-  later save is ignored. It is **schema version 3** (`pause-deadlines-and-notices`; the cancel's fence below makes it 4) — stop the
+  later save is ignored. An extension (#1099, #1148) is one `findOneAndUpdate`-style compare-and-set
+  whose filter holds "pending, the stored deadline is still the one the caller read
+  (`previousExpiresAt`), after the caller's `at`, earlier than the new one" — the loser and a write
+  after the deadline change nothing. `renewNotice` (#1131) is one conditional update of the
+  mailbox (its token, `claimedUntil > at`, never earlier than it was), and the scans for expiries
+  and reminders take a keyset `after` `(at, tenantId, pauseId)`. It is **schema version 3** (`pause-deadlines-and-notices`; the cancel's fence above makes it 4) — stop the
   old instances, then run `agboss-mongodb migrate`; it backfills the pause channels once, so a pause an
   older instance writes afterwards has none.
+- **A write whose outcome is unknown** (#1017) — the driver sends a lost `commitTransaction` and a
+  retryable write once more, and the server answers the retry from its transaction number: after one
+  reset the real outcome is learned and nothing is unknown. A commit that is still unknown after it
+  (`UnknownTransactionCommitResult`, or a transport error), and a lease write that still fails as a
+  transport or write concern error, rejects with `StoreOutcomeUnknownError` (source `Transport`):
+  under a lease the holder hands the tree over, the next one reads what was left, and the work is
+  never run again for it. Fault scenario 23 asks that one reset leaves the charge applied once with
+  no hand-over, 23b that a reset which persists across the retry hands over and replays.
+- **A reassigned pause** (#946) — `reassignByTenantIdAndPauseId` is one transaction: the old pause is
+  closed `Cancelled` / `Reassigned` by the compare-and-set of an answer's (pending, its deadline after
+  `at`: of two racing reassignments, or one and an answer, one applies) and the replacement is
+  inserted unsent, its step key `<original>~r<n>` read from the tree's step keys in the same
+  snapshot. The re-send scan reads the partial index `reassigned_unsent` `(askedAt, tenantId,
+  pauseId)`; the retention keeps a reassigned pause while its replacement is stored.
 - **One instance's own calls** on one lease or business key run in the order they were made: a
   MongoDB transaction takes no lock it waits on — of two transactions on one document the one that
   writes second conflicts — so without it the call that reached the server first would win, not
@@ -122,9 +150,9 @@ migration, applied in order:
 | 1 | `stores` | every collection with the simple collation, their indexes, the ledger's mark |
 | 2 | `checkpoint_latest_by_step` | the checkpoints' index `latest_by_step` — `{ threadId, namespace, step: -1, checkpointId: -1 }` (#962) |
 | 3 | `pause-deadlines-and-notices` | the pause store's contract v2 (#938): deadlines and notices; backfills the pause channels |
+| 4 | `execution-cancel-mark` | the cancel's mark as the field `cancelRequestedAt` of the tree's lease document (#909, #1117); no collection, no index — it makes an older build refuse the database |
 
-The cancel's fence (#909) adds `agboss_execution_cancel_requests` in version 4. A database stays at the
-version of the build that migrated it: run the command of the build you deploy.
+A database stays at the version of the build that migrated it: run the command of the build you deploy.
 
 **`latest_by_step`** (#962). `MongoCheckpointSaver.latestByStep` reads a marked thread's newest
 checkpoint by LangGraph's step ([Your own store](Your-own-store#the-checkpoint-savers-optional-latestbystep-962))
@@ -162,6 +190,17 @@ read of their thread gives them one.
 | a single-document write whose reply was lost | retries it once; the server answers the first outcome | no epoch counted twice; an id kept is told `true` |
 
 Each row is a test against the server's own fail points (`tests/integration/retries.test.ts`).
+
+## A stop against a quiet server
+
+`MongoConnection.onDestroy` and the child queue's watch close the driver's topology of each client
+beside its `close()` (the driver's `close()` takes no `force` and waits for the server to end its
+sessions and kill its cursors first). When calls are in flight at the stop, the sockets go at once;
+otherwise after a 1 s grace, so an orderly close on a healthy server ends sooner and tells it about
+its sessions. A connection attempt whose handshake the server never answers has no handle in the
+driver: it ends by the client's own `connectTimeoutMS`. An `execute()` the stop abandons settles with
+`ApplicationStoppingError` (`app.stopping`). Proven by a socket count against a paused server
+(`tests/integration/close-quiet-app.integration.test.ts`).
 
 ## The proofs
 
