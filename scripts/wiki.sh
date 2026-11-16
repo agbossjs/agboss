@@ -10,7 +10,8 @@
 #                                         else the published Wiki) into ./wiki/ here, to edit it there;
 #                                         a new page is just a new file wiki/<Page>.md
 #   scripts/wiki.sh check                 what CI checks: the shared Wiki + this branch's wiki/ pages
-#                                         (vs origin/main), through scripts/check-docs.mjs --wiki
+#                                         (vs origin/main; committed or not: staged, edited, new), through
+#                                         scripts/check-docs.mjs --wiki; an error names wiki/<Page>.md:<line>
 #
 # For Wiki edits with no code change, and when the pages' code is already on main:
 #   scripts/wiki.sh pull                  clone or update ../<project>.wiki
@@ -56,11 +57,14 @@ case "${1:-}" in
     ;;
   check)
     shared_wiki
-    trap 'rm -rf "${SHARED}"' EXIT
+    # the pages sit in <tmp>/wiki and the check runs from <tmp>, so a problem reads wiki/<Page>.md:<line>
+    PARENT="$(mktemp -d)"
+    trap 'rm -rf "${SHARED}" "${PARENT}"' EXIT
     git -C "${ROOT}" fetch -q origin main
-    (cd "${ROOT}" && scripts/wiki-overlay.sh apply "${SHARED}" origin/main)
+    (cd "${ROOT}" && scripts/wiki-overlay.sh apply "${SHARED}" origin/main --worktree)
     rm -rf "${SHARED}/.git"
-    node "${ROOT}/scripts/check-docs.mjs" --wiki "${SHARED}"
+    mv "${SHARED}" "${PARENT}/wiki"
+    (cd "${PARENT}" && node "${ROOT}/scripts/check-docs.mjs" --wiki wiki)
     ;;
   pull)
     if [[ -d "${DIR}/.git" ]]; then
@@ -98,6 +102,6 @@ case "${1:-}" in
     exec "$0" publish "docs: seed wiki from ${SOURCE}"
     ;;
   *)
-    sed -n '2,19p' "$0" && exit 1
+    sed -n '2,20p' "$0" && exit 1
     ;;
 esac

@@ -55,9 +55,17 @@ c() { git -C "${CODE}" "$@"; }
 w init -q
 w fetch -q "${WIKI_URL}" master:refs/remotes/wiki/master
 HAVE_PENDING=0
-if git ls-remote --exit-code --heads "${REPO_URL}" docs/wiki-pending > /dev/null 2>&1; then
+# `ls-remote --exit-code` exits 2 for "no such ref" and 128 (or another status) for an unreachable or
+# refused repository: only 2 means the branch is missing, anything else fails before a push (#1083)
+LS_STATUS=0
+LS_OUT="$(git ls-remote --exit-code --heads "${REPO_URL}" docs/wiki-pending 2>&1)" || LS_STATUS=$?
+if [[ "${LS_STATUS}" -eq 0 ]]; then
   w fetch -q "${REPO_URL}" docs/wiki-pending:refs/remotes/pending/head
   HAVE_PENDING=1
+elif [[ "${LS_STATUS}" -ne 2 ]]; then
+  echo "::error::Cannot read docs/wiki-pending from the code repository (git ls-remote exit ${LS_STATUS}); nothing was pushed:"
+  echo "${LS_OUT}" >&2
+  exit 1
 fi
 
 # the base: the one of the two that contains the other
@@ -101,7 +109,7 @@ while IFS= read -r sha; do
     STARTED=1
   fi
   PARENT="$(c rev-parse -q --verify "${sha}^1" 2> /dev/null || echo "${EMPTY_TREE}")"
-  PAGES="$(c diff -z --name-only --diff-filter=AM "${PARENT}" "${sha}" -- wiki/ | tr '\0' '\n')"
+  PAGES="$(c diff -z --no-renames --name-only --diff-filter=AM "${PARENT}" "${sha}" -- wiki/ | tr '\0' '\n')"
   [[ -n "${PAGES}" ]] || continue
   NAMES=()
   while IFS= read -r path; do

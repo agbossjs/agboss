@@ -9,9 +9,12 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  chmodSync,
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -53,8 +56,8 @@ const bad = ts('export const n: number = "one";');
 interface Harness {
   readonly root: string;
   readonly work: string;
-  /** A PR branch off main's current tip, with these files (`wiki/…` pages and a code file). */
-  pr(name: string, files: Record<string, string>): Promise<void>;
+  /** A PR branch off main's current tip, with these files (`wiki/…` pages and a code file); null deletes one. */
+  pr(name: string, files: Record<string, string | null>): Promise<void>;
   /** GitHub's squash merge of a PR branch into main, pushed. */
   merge(name: string): Promise<void>;
   /** The PR's check tree: shared Wiki + its own pages, as the `static` job assembles it. */
@@ -116,6 +119,10 @@ async function harness(): Promise<Harness> {
     async pr(name, files) {
       await git(work, "checkout", "-q", "-b", name, "main");
       for (const [path, content] of Object.entries(files)) {
+        if (content === null) {
+          unlinkSync(join(work, path));
+          continue;
+        }
         mkdirSync(dirname(join(work, path)), { recursive: true });
         writeFileSync(join(work, path), content);
       }
@@ -479,5 +486,162 @@ describe("#1026: a PR's Wiki pages travel with it", { timeout: 120_000 }, () => 
     expect(result.stdout + result.stderr).toContain("5 attempts");
     expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v0"));
     expect((await h.wikiLog()).filter((line) => line === "raced")).toHaveLength(5);
+  });
+});
+
+// A new page next to a deleted one: git calls it a rename (similar content), the filter AM dropped it.
+describe("#1081: a page that git sees as a rename is a new page", { timeout: 120_000 }, () => {
+  // `Old.md` is page("Old"); the renamed copy keeps most of it, so git pairs the two as R
+  const renamed = `${page("Old")}x\n`;
+  const renaming = { "wiki/Old.md": null, "wiki/Renamed.md": renamed } as const;
+
+  it("AC1: the premise: git itself reports the change as a rename", async () => {
+    await h.pr("rename", renaming);
+    const status = await git(h.work, "diff", "--name-status", "main", "rename");
+    expect(status).toMatch(/^R\d+\s+wiki\/Old\.md\s+wiki\/Renamed\.md$/);
+  });
+
+  it("AC1: CI's overlay adds the renamed page, and nothing for the deleted one", async () => {
+    await h.pr("rename", renaming);
+
+    const { dir, overlay } = await h.tree("rename");
+
+    expect(overlay.status).toBe(0);
+    expect(overlay.stdout).toContain("overlay: Renamed.md");
+    expect(read(dir, "Renamed.md")).toBe(renamed);
+    expect(read(dir, "Old.md")).toBeUndefined();
+  });
+
+  it("AC1: Sync Wiki publishes the renamed page exactly once", async () => {
+    await h.pr("rename", renaming);
+    await h.merge("rename");
+
+    const first = await h.sync();
+    const head = await h.wikiHead();
+    const again = await h.sync();
+
+    expect(first.status).toBe(0);
+    expect(first.stdout).toContain("Renamed.md");
+    expect(await h.wikiPage("Renamed.md")).toBe(renamed);
+    expect(await h.pendingHead()).toBe(head);
+    expect(again.stdout).toContain("nothing to publish");
+    expect(await h.wikiHead()).toBe(head);
+    expect((await h.wikiLog()).filter((line) => line === "docs: feat: rename (#1)")).toHaveLength(
+      1,
+    );
+  });
+});
+
+describe(
+  "#1083: Sync Wiki fails closed when it cannot read docs/wiki-pending",
+  { timeout: 120_000 },
+  () => {
+    it("AC1: an unreachable REPO_URL fails the run, and nothing is pushed", async () => {
+      await h.pr("pr1", { "wiki/Alpha.md": page("Alpha", "v1") });
+      await h.merge("pr1");
+      const wikiBefore = await h.wikiHead();
+      const pendingBefore = await h.pendingHead();
+
+      const result = await h.sync({ REPO_URL: join(h.root, "does-not-exist.git") });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout + result.stderr).toContain("Cannot read docs/wiki-pending");
+      expect(await h.wikiHead()).toBe(wikiBefore);
+      expect(await h.pendingHead()).toBe(pendingBefore);
+      expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v0"));
+      // the next run with a good URL publishes it, as before
+      expect((await h.sync()).status).toBe(0);
+      expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v1"));
+    });
+
+    it("AC1: a missing branch still means the base is the Wiki", async () => {
+      await git(
+        h.root,
+        "--git-dir",
+        join(h.root, "code.git"),
+        "update-ref",
+        "-d",
+        "refs/heads/docs/wiki-pending",
+      );
+      await h.pr("pr1", { "wiki/Alpha.md": page("Alpha", "v1") });
+      await h.merge("pr1");
+
+      const result = await h.sync();
+
+      expect(result.status).toBe(0);
+      expect(await h.wikiPage("Alpha.md")).toBe(page("Alpha", "v1"));
+    });
+  },
+);
+
+describe("#1082: wiki.sh check sees the uncommitted wiki/ pages", { timeout: 180_000 }, () => {
+  /** A developer's clone on a branch off main, with `gh` and github.com stubbed onto the local bare repos. */
+  async function developer(): Promise<{ dir: string; check(): Promise<ProcessRun> }> {
+    const dir = join(h.root, "dev");
+    await git(h.root, "clone", "-q", "--branch", "main", join(h.root, "code.git"), dir);
+    await git(dir, "checkout", "-q", "-b", "dev");
+    for (const script of ["wiki.sh", "check-docs.mjs"]) {
+      const target = join(dir, "scripts", script);
+      if (script === "wiki.sh") cpSync(join(repo, "scripts", script), target);
+      else symlinkSync(join(repo, "scripts", script), target);
+    }
+    const bin = join(h.root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "gh"), '#!/bin/sh\n[ "$1" = repo ] && echo o/r\nexit 0\n');
+    chmodSync(join(bin, "gh"), 0o755);
+    const rewrite = {
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "url.file://" + join(h.root, "code.git") + ".insteadOf",
+      GIT_CONFIG_VALUE_0: "https://github.com/o/r.git",
+      GIT_CONFIG_KEY_1: "url.file://" + join(h.root, "wiki.git") + ".insteadOf",
+      GIT_CONFIG_VALUE_1: "https://github.com/o/r.wiki.git",
+      PATH: `${bin}:${process.env.PATH ?? ""}`,
+    };
+    return {
+      dir,
+      check: () =>
+        runProcess("scripts/wiki.sh", ["check"], { cwd: dir, env: { ...env, ...rewrite } }),
+    };
+  }
+
+  it("AC1: an edited, uncommitted page that does not compile fails, naming wiki/<Page>.md:<line>; the fixed page passes", async () => {
+    const dev = await developer();
+    writeFileSync(join(dev.dir, "wiki/Alpha.md"), page("Alpha", bad));
+
+    const failed = await dev.check();
+    writeFileSync(join(dev.dir, "wiki/Alpha.md"), page("Alpha", good));
+    const passed = await dev.check();
+
+    expect(failed.status).toBe(1);
+    expect(failed.stderr).toMatch(/^ {2}wiki\/Alpha\.md:\d+: TS2322/m);
+    expect(passed.status).toBe(0);
+    expect(passed.stdout).toContain("references and links exist");
+  });
+
+  it("AC1: a staged page, a new untracked page, and a committed page are all checked", async () => {
+    const dev = await developer();
+    writeFileSync(join(dev.dir, "wiki/Alpha.md"), page("Alpha", bad)); // not in the shared Wiki's text
+    await git(dev.dir, "add", "wiki/Alpha.md");
+    const staged = await dev.check();
+    await git(dev.dir, "commit", "-q", "-m", "x");
+    const committed = await dev.check();
+    writeFileSync(join(dev.dir, "wiki/Alpha.md"), page("Alpha", good));
+    writeFileSync(join(dev.dir, "wiki/Fresh.md"), page("Fresh", bad)); // untracked
+    const fresh = await dev.check();
+
+    expect(staged.stderr).toMatch(/^ {2}wiki\/Alpha\.md:\d+: TS2322/m);
+    expect(committed.stderr).toMatch(/^ {2}wiki\/Alpha\.md:\d+: TS2322/m);
+    expect(fresh.status).toBe(1);
+    expect(fresh.stderr).toMatch(/^ {2}wiki\/Fresh\.md:\d+: TS2322/m);
+    expect(fresh.stderr).not.toMatch(/wiki\/Alpha\.md/);
+  });
+
+  it("AC1: no pages of its own: the shared Wiki alone is checked", async () => {
+    const dev = await developer();
+
+    const result = await dev.check();
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("references and links exist");
   });
 });
