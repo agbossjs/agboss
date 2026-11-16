@@ -19,7 +19,9 @@ interface Heard {
 }
 
 /** The pauses of an ended tree: the ids a rest listed, and the ones its record lists. */
-function pausesOf(run: FaultRun): readonly { readonly key: string; readonly root: string }[] {
+export function pausesOf(
+  run: FaultRun,
+): readonly { readonly key: string; readonly root: string }[] {
   const ended = run.records.filter((record) => record.status !== ExecutionHistoryStatus.Paused);
   return ended.flatMap((record) => {
     const rested = run.events
@@ -36,7 +38,7 @@ function pausesOf(run: FaultRun): readonly { readonly key: string; readonly root
 }
 
 /** The deliveries the listener told of the pause, in the order the test heard them. */
-const heardOf = (run: FaultRun, key: string): readonly Heard[] =>
+export const heardOf = (run: FaultRun, key: string): readonly Heard[] =>
   run.events
     .filter((event) => event.type === "pause-notice" && event.pauseKey === key)
     .map((event) => ({ notice: String(event.notice), deliveryId: String(event.deliveryId) }));
