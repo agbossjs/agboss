@@ -149,10 +149,27 @@ jobs:
       - run: npm run coverage -w @agboss/cli -w flow-patterns-example
       - run: npm run check:models
 
+  # #1226: `engines.node` is a floor CI otherwise never runs (.nvmrc is Node 24). The RAG tests, whose
+  # connector needs FTS5 of `node:sqlite` (absent before Node 22.16), run on exactly that floor.
+  engines-floor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.16.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: RAG tests on the engines floor
+        run: ../../node_modules/.bin/vitest run --project unit tests/rag
+        working-directory: packages/agboss
+
   # The one required check. Red unless every job above passed: a skipped or cancelled job is not
   # a pass here (GitHub counts a skipped required job as one, hence `always()` and the test).
   check:
-    needs: [static, tests, coverage, packages]
+    needs: [static, tests, coverage, packages, engines-floor]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -162,7 +179,7 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$RESULTS" | jq -e 'length == 4 and all(.[]; .result == "success")' > /dev/null || {
+          echo "$RESULTS" | jq -e 'length == 5 and all(.[]; .result == "success")' > /dev/null || {
             echo "check: a job did not pass" >&2
             exit 1
           }

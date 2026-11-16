@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { checkedTenantId } from "../flow/context/context-values.js";
 import { OncePerTenant } from "./once-per-tenant.js";
-import { openSchema } from "./sqlite-fts-schema.js";
+import { openSchema, requireFts5 } from "./sqlite-fts-schema.js";
 import { writeTenant } from "./sqlite-fts-write.js";
 import type {
   RagConnector,
@@ -233,6 +233,7 @@ export class SqliteFtsConnector implements RagConnector {
     mkdirSync(dirname(this.options.sqlitePath), { recursive: true });
     const db = new DatabaseSync(this.options.sqlitePath);
     try {
+      requireFts5(db);
       openSchema(db);
     } catch (error) {
       db.close();
