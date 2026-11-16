@@ -1385,7 +1385,18 @@ A server that ignores `stream: true` and answers a plain JSON completion is read
 one delta, the plain call's output, usage, cost and finish reason (#1049); a body that is neither a
 stream nor a completion (empty, another content type) fails that call like any other failed call,
 never as a configuration error.
-A transport provider (`complete()`) streams the whole answer as one delta at the end. A fallback
+A transport provider streams the text as it comes when its class has `stream(request)` (#1011): it
+returns `{ textStream: AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, the shape of the
+Vercel AI SDK's `streamText` — each chunk is a `textDelta`, and the call's usage, cost and budgets are
+a plain call's. It goes through the same attempt runner as `complete()`: a failure before the first
+chunk is retried, a failure after text (a thrown stream, a `usage` that rejects) fails the call, is
+not retried and counts once in the breaker, a caller's abort is neither. Every wait — for a chunk,
+for the `usage` after the last one — is bound by the provider's `timeout`; a stall or a `usage` that
+never settles is a `ModelProviderFailureError` (`ModelFailure.Timeout`), and the request's `signal` is
+aborted so the SDK stops. `usage` must settle when the stream ends, fails or is aborted. A call with
+tools bound (an agent with an `output` DTO, a tool loop) goes through `complete()`: a text stream
+carries no tool call; so does a run under `--chaos`. A transport provider without `stream` streams
+the whole answer as one delta at the end. A fallback
 model's answer streams like the primary's; when the primary dies mid-stream and its breaker opens,
 the text so far is retracted (`stream-broken`) and the fallback answers from the start. `agboss run`
 prints the answer from the result when nothing streamed.

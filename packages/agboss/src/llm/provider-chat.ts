@@ -6,8 +6,10 @@ import { resilienceOf } from "../models/connections.js";
 import { ModelProviderError } from "../models/model-provider.decorator.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
-import { TransportChatModel } from "../models/transport/transport-chat-model.js";
-import type { TransportCall } from "../models/transport/transport-carrier.js";
+import {
+  TransportChatModel,
+  type TransportCalls,
+} from "../models/transport/transport-chat-model.js";
 import type { Clock } from "../infrastructure/clock.js";
 
 /**
@@ -24,18 +26,23 @@ export interface ChatExtensionOptions {
   readonly transports?: TransportResolver;
 }
 
-/** The transport's `complete`, its instance from the container on first use. */
-async function completeOf(
+/**
+ * The transport's calls, its instance from the container on first use: `complete`, and its
+ * `stream` when it has one — not under chaos (#396), which injects its failures into `complete`.
+ */
+async function callsOf(
   provider: RegisteredModelProvider,
   options: ChatExtensionOptions,
-): Promise<TransportCall> {
+): Promise<TransportCalls> {
   const handler = provider.handler ?? (await options.transports?.started(provider.type));
   const complete = handler?.complete?.bind(handler);
   if (complete === undefined)
     throw new ModelProviderError({
       message: `${provider.options.name}: a transport provider is created by the application's container — run it through createApp or testWith`,
     });
-  return options.chaos === undefined ? complete : options.chaos.completeOf(complete);
+  if (options.chaos !== undefined) return { complete: options.chaos.completeOf(complete) };
+  const stream = handler?.stream?.bind(handler);
+  return stream === undefined ? { complete } : { complete, stream };
 }
 
 /** A transport provider's chat model for one set of settings. */
@@ -50,6 +57,6 @@ export function transportChatOf(
     reasoning: settings.reasoning ?? provider.options.reasoning,
     promptCaching: settings.promptCaching ?? provider.options.promptCaching,
     resilience: resilienceOf(provider.options, options),
-    complete: () => completeOf(provider, options),
+    calls: () => callsOf(provider, options),
   });
 }

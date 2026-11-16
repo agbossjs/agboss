@@ -60,6 +60,17 @@ export interface ModelProviderUsage {
   readonly cacheWriteTokens?: number;
 }
 
+/**
+ * A streamed answer (#1011), in the shape of the Vercel AI SDK's `streamText`: the text as its chunks
+ * come, and what the call used. `usage` must settle once the stream ends — also when it fails or is
+ * aborted (`request.signal`); the gateway bounds both by the provider's `timeout`, and one that
+ * does not settle is a `ModelProviderFailureError` (`ModelFailure.Timeout`), never a hang.
+ */
+export interface ModelProviderStream {
+  readonly textStream: AsyncIterable<string>;
+  readonly usage: Promise<ModelProviderUsage>;
+}
+
 /** One model call as the gateway hands it to `complete(request)`. */
 export interface ModelProviderRequest {
   /** The model served (with a breaker's fallback: its `fallbackModels` entry). */

@@ -4,7 +4,11 @@ import type { JevDecisionRequest } from "../llm/jev-client.js";
 import type { ModelCapabilities } from "./capabilities.js";
 import type { PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
-import type { ModelProviderRequest, ModelProviderResponse } from "./transport/transport.js";
+import type {
+  ModelProviderRequest,
+  ModelProviderResponse,
+  ModelProviderStream,
+} from "./transport/transport.js";
 
 /**
  * How a provider is reached: its base URL, key (when it has one) and HTTP client. A transport
@@ -54,6 +58,12 @@ export interface ModelProviderHandler {
    * `ModelProviderFailureError` to say what failed (a 429, a timeout, a server error).
    */
   readonly complete?: (request: ModelProviderRequest) => Promise<ModelProviderResponse>;
+  /**
+   * The same call, streamed (#1011): the text chunks as they come and the call's usage. Optional;
+   * a provider without it keeps its answer as one `textDelta` at the end. Used for a call with no
+   * tools bound — a text stream carries no tool call, so a call with tools goes through `complete`.
+   */
+  readonly stream?: (request: ModelProviderRequest) => ModelProviderStream;
   /**
    * `undefined` = the provider does not serve this model (`model.unknown-model`). Required of an
    * HTTP provider; a transport provider without it is not checked against its models' capabilities.
