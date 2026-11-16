@@ -155,9 +155,13 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
 - **Or in code**: `await migratePostgres({ url, signal })` → `{ schema, applied, version,
   checkpointMigrations, stepIndex }`.
 - **Or at start** with `postgresSchemaSetup: SchemaSetup.MigrateOnStart` — for a single instance or a
-  development database. With migrations pending the start waits up to a minute for live leases to
+  development database. With migrations pending the start waits for live leases to
   lapse and fails with `PostgresLiveLeasesError` while one is live (a rolling restart over a running
-  old pod is refused); `allowLiveLeases: true` in the connection's settings overrides it.
+  old pod is refused); `allowLiveLeases: true` in the connection's settings, or `postgresAllowLiveLeases: true`
+  in the application's environment, overrides it. The wait is twice the longest lease the database shows
+  (the lease of a running instance is renewed, so a custom lease duration is waited for too): at least a
+  minute, at most ten, polled each second on the database's clock. A lease that outlasts ten minutes
+  is refused: stop the old pods first.
 
 Every run takes one advisory lock per schema (`pg_advisory_lock`, a session lock), so concurrent
 runs serialize; each file runs in its own transaction; `agboss_schema_migrations` records each with
