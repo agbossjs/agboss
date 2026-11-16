@@ -34,7 +34,7 @@
     "llm-evaluation"
   ],
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.16.0"
   },
   "bin": {
     "agboss": "bin/agboss.js",

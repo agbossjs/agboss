@@ -47,10 +47,21 @@ async function fetchedBehindProxy(url: string, mode: string): Promise<ChildOutco
   return run.messages[0] as ChildOutcome;
 }
 
+/**
+ * #1226: Node's environment-proxy support (`NODE_USE_ENV_PROXY`, `--use-env-proxy`) is not in every
+ * Node of `engines` (22.16.0 lacks it: nothing there reads `HTTPS_PROXY`, so no fetch can be proxied
+ * by it). Those two cases run where the runtime has it; the replaced-agent case runs everywhere.
+ */
+const HAS_ENV_PROXY = process.allowedNodeEnvironmentFlags.has("--use-env-proxy");
+
 describe("#916 item 1 AC1: no file fetch goes through a proxy", () => {
   it.each([
-    ["NODE_USE_ENV_PROXY=1 and HTTPS_PROXY", "env"],
-    ["--use-env-proxy and HTTPS_PROXY", "flag"],
+    ...(HAS_ENV_PROXY
+      ? [
+          ["NODE_USE_ENV_PROXY=1 and HTTPS_PROXY", "env"],
+          ["--use-env-proxy and HTTPS_PROXY", "flag"],
+        ]
+      : []),
     ["https.globalAgent replaced by a proxying agent", "global-agent"],
   ])(
     "AC1 %s: a name resolving to loopback is refused a2a.file-address-denied, nothing tunnelled",

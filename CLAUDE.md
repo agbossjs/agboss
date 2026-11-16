@@ -5,7 +5,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
 
 ## Stack
 
-- Node 22+, TypeScript (strict, fully typed — see `QUALITY.md` → Types), ESM
+- Node 22.16+ (FTS5 in node:sqlite), TypeScript (strict, fully typed — see `QUALITY.md` → Types), ESM
 - `@langchain/langgraph` (graph, and each agent's own loop as a subgraph), `@langchain/core`
   (messages, prompts, tools, test fakes), `zod` (inside the framework only — workflows use DTO
   classes, `@agboss/core/dto`)
@@ -1801,7 +1801,7 @@ signal })` (read from the step's frame, checked as a key's text — `dto.invalid
   compile error, and a JS project or a cast is `[rag.tenancy-required]` at assembly; describe prints
   it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
   (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
-  file migrates in place to the `default` tenant, a later version is `rag.index-version`), a tenant's
+  file migrates in place to the `default` tenant, a later version is `rag.index-version`; a `node:sqlite` without FTS5, Node 22.13–22.15, is `rag.fts5-unavailable` on first use, #1226), a tenant's
   index built whole by `index()` — every document read first, every change written in one transaction
   (#891: an interrupted run leaves the index it found) —, a tenant never indexed indexed by its first retrieval on the instance, once and whole — one transaction, so a failure midway leaves nothing and the next retrieval builds it again (#818: later retrievals only read; `OncePerTenant`, each caller waiting under its own signal); `SqliteFtsOptions { folder, sqlitePath, maxChunkLength? }`; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
   context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`; #891:
