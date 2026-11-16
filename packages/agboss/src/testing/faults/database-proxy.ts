@@ -13,7 +13,9 @@ import {
  * new ones (its queries fail), `reconnect()` lets traffic and new connections through again. One
  * proxy per pod, so one pod loses its database while the others keep theirs. `dropAfter(...)` (#1017)
  * cuts one link after the bytes that apply a write were forwarded: the database applies it, its
- * answer is lost.
+ * answer is lost. `answerAfter(...)` (#1017) is the same with another answer in its place: the
+ * database's answer is replaced by bytes of the test's choosing (a pooler's protocol error), then
+ * the link ends.
  */
 
 /** Where the proxy forwards to. */
@@ -50,6 +52,8 @@ interface Cut {
   readonly repeats: number;
   /** Shared by a cut and its repeats: the disarm of `dropAfterRepeated` clears it. */
   readonly armed: { value: boolean };
+  /** Written to the client in place of the database's answer, before the link ends; none: it hears nothing. */
+  readonly answer?: Uint8Array;
 }
 
 const matchesBytes = (pattern: ByteMatch, text: string): boolean =>
@@ -73,12 +77,18 @@ export class DatabaseProxy {
   #server: Server | undefined;
   #state = ProxyState.Open;
   #cutsAfterWrite = 0;
+  #answersAfterWrite = 0;
 
   constructor(private readonly target: ProxyTarget) {}
 
   /** How many links `dropAfter` cut so far: a scenario checks its fault was really delivered. */
   get cutsAfterWrite(): number {
     return this.#cutsAfterWrite;
+  }
+
+  /** How many links `answerAfter` ended with its own answer so far. */
+  get answersAfterWrite(): number {
+    return this.#answersAfterWrite;
   }
 
   /** What it does with traffic now. */
@@ -128,6 +138,18 @@ export class DatabaseProxy {
   }
 
   /**
+   * `dropAfter` that tells the client something instead of nothing: once a link's client bytes
+   * matched every one of `patterns` (as `dropAfter`'s) and were forwarded — the database applies
+   * them —, the database's answer is not forwarded; `answer` is written to the client instead and
+   * the link is ended after those bytes were flushed (the client reads exactly `answer`, then the
+   * end). A write whose answer is replaced by a server error of its own kind (a pooler's protocol
+   * error after a COMMIT, #1017). One link is answered; the returned function disarms it.
+   */
+  answerAfter(answer: Uint8Array, ...patterns: readonly ByteMatch[]): () => void {
+    return this.#arm(1, patterns, answer);
+  }
+
+  /**
    * `dropAfter`, `times` times over: the first cut is as `dropAfter`'s; each of the `times - 1`
    * after it cuts the next link — a retry's, on a new connection — whose client bytes match only
    * the last pattern (the COMMIT again). A commit whose answer is lost again and again: its
@@ -135,11 +157,20 @@ export class DatabaseProxy {
    * the cut that is armed and every one still to come.
    */
   dropAfterRepeated(times: number, ...patterns: readonly ByteMatch[]): () => void {
+    return this.#arm(times, patterns);
+  }
+
+  #arm(times: number, patterns: readonly ByteMatch[], answer?: Uint8Array): () => void {
     if (!Number.isInteger(times) || times < 1)
       throw new RangeError(
         `a cut is repeated a whole number of times from 1, got ${String(times)}`,
       );
-    const cut: Cut = { patterns, repeats: times - 1, armed: { value: true } };
+    const cut: Cut = {
+      patterns,
+      repeats: times - 1,
+      armed: { value: true },
+      ...(answer === undefined ? {} : { answer }),
+    };
     this.#cuts.add(cut);
     return () => {
       cut.armed.value = false;
@@ -203,22 +234,38 @@ export class DatabaseProxy {
       this.#cuts.delete(cut);
       const last = cut.patterns.at(-1);
       if (cut.repeats > 0 && cut.armed.value && last !== undefined)
-        this.#cuts.add({ patterns: [last], repeats: cut.repeats - 1, armed: cut.armed });
-      this.#cutAfterWrite(link);
+        this.#cuts.add({ ...cut, patterns: [last], repeats: cut.repeats - 1 });
+      this.#cutAfterWrite(link, cut.answer);
       return;
     }
   }
 
-  /** The client is cut at once; the database's side is ended after what was written to it. */
-  #cutAfterWrite(link: Link): void {
+  /**
+   * The database's answer never reaches the client: it is cut at once, or, with an `answer`, hears
+   * exactly it and then the end. The database's side is ended after what was written to it.
+   */
+  #cutAfterWrite(link: Link, answer?: Uint8Array): void {
     if (!this.#links.delete(link)) return;
-    this.#cutsAfterWrite += 1;
     link.server.unpipe(link.client);
     link.client.unpipe(link.server);
-    link.client.destroy();
-    this.#draining.add(link.server);
-    link.server.on("close", () => this.#draining.delete(link.server));
+    if (answer === undefined) {
+      this.#cutsAfterWrite += 1;
+      link.client.destroy();
+    } else {
+      this.#answersAfterWrite += 1;
+      this.#drain(link.client);
+      link.client.end(answer);
+    }
+    // the database's own answer is read and thrown away, so its side can close
+    link.server.resume();
+    this.#drain(link.server);
     link.server.end();
+  }
+
+  /** Left to finish what is written to it; destroyed with the proxy at the latest. */
+  #drain(socket: Socket): void {
+    this.#draining.add(socket);
+    socket.on("close", () => this.#draining.delete(socket));
   }
 
   #cut(link: Link): void {
