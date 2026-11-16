@@ -7,7 +7,7 @@
  */
 import { createHash, createHmac } from "node:crypto";
 import sharp from "sharp";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileView, ModelFiles, RedactionValues } from "../../src/files/model-files.js";
@@ -66,6 +66,12 @@ async function injectedPhoto(): Promise<Buffer> {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="160"><rect width="480" height="160" fill="#fff"/><text x="10" y="50" font-size="24" font-family="Helvetica">no personal data here</text><text x="10" y="110" font-size="28" font-family="Helvetica">4242 4242 4242 4242</text></svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
+
+// the first text rendered by sharp loads librsvg and builds the fonts' cache: over vitest's 5 s default on a clean CI
+// runner (#899's first case timed out there, main's CI run 43916824156), about 0.2 s once warm
+beforeAll(async () => {
+  await injectedPhoto();
+}, 60_000);
 
 const asFile = (bytes: Buffer) => inline(bytes, "image/png", "photo.png");
 const FILES = ModelFiles.of({ views: [FileView.Redacted], allowedMediaTypes: ["image/png"] });
