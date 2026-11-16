@@ -136,6 +136,7 @@ export class LiveRuns {
       resumed: (...call) => this.untilAbandoned(moves.resumed(...call)),
       recovered: (...call) => moves.recovered(...call),
       endIfEnding: (...call) => moves.endIfEnding(...call),
+      expired: (...call) => moves.expired(...call),
     };
   }
 

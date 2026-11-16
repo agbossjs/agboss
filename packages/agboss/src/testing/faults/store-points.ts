@@ -213,6 +213,9 @@ export const FENCED_EFFECT_METHODS: Readonly<Record<string, StoreMethod>> = {
   }),
 };
 
+/** The input of a mark that names the attempt's owner. */
+const byAttemptOwner = (args: readonly unknown[]): object => ({ attemptOwner: args[1] });
+
 /** The outbound-call store's fenced methods. */
 export const OUTBOUND_CALL_METHODS: Readonly<Record<string, StoreMethod>> = {
   findByKey: onKey(StoreHoldPoint.OutboundFindByKey, (record) => {
@@ -227,12 +230,8 @@ export const OUTBOUND_CALL_METHODS: Readonly<Record<string, StoreMethod>> = {
     expected: args[1],
     claim: args[2],
   })),
-  markCompleted: withArguments(onKey(StoreHoldPoint.OutboundMarkCompleted), (args) => ({
-    attemptOwner: args[1],
-  })),
-  markFailed: withArguments(onKey(StoreHoldPoint.OutboundMarkFailed), (args) => ({
-    attemptOwner: args[1],
-  })),
+  markCompleted: withArguments(onKey(StoreHoldPoint.OutboundMarkCompleted), byAttemptOwner),
+  markFailed: withArguments(onKey(StoreHoldPoint.OutboundMarkFailed), byAttemptOwner),
   leaseStateOf: {
     point: StoreHoldPoint.OutboundLeaseStateOf,
     keyOf: (args) => (args[0] as { readonly leaseExecutionId: string }).leaseExecutionId,

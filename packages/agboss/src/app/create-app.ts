@@ -123,10 +123,6 @@ export async function buildApp(
     events: parts.auditLog,
     stopping: live.interruption,
   });
-  // a caller's wait ends when the stop gives the run up (#954)
-  const moves = live.abandonable(
-    treeMovesOf({ deps, live, paused, leases, trees, clock, auditLog }),
-  );
   const owned = (access: ThreadAccess) => checkThreadOwner(deps.turns, deps.config.name, access);
   const known = (access: ThreadAccess) => checkThreadAccess(deps.turns, deps.config.name, access);
   const fresh = (access: ThreadAccess) => isNewThread(deps.turns, deps.config.name, access);
@@ -144,6 +140,8 @@ export async function buildApp(
   const admit = <T>(request: ExecutionRequest, checks: () => Promise<T>) =>
     admitRequest(deps.observer, deps, request, checks);
   const cancelParts = { deps, live, paused, trees, clock, leases, admit, known };
+  // a caller's wait ends when the stop gives the run up (#954)
+  const moves = live.abandonable(treeMovesOf({ ...cancelParts, auditLog }));
   // its trees by id and the ids transports reserve (#807)
   const byId = treeControlOf(parts.infrastructure, cancelParts);
   /** From `app.close()` on (`onStop`), no new execution is accepted; running ones go on (#261). */
