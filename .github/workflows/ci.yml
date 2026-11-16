@@ -1,12 +1,10 @@
 name: CI
 
 on:
-  # CI OFF until the one pre-0.1.1 run (user, 2026-11-16); restore by uncommenting
-# pull_request:
-#   branches: [main]
-# push:
-#   branches: [main]
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
