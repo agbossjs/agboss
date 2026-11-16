@@ -1,10 +1,10 @@
 import { ModelProviderError } from "../model-provider.decorator.js";
-import type { ModelProviderStream, ModelProviderUsage } from "./transport.js";
+import type { ModelProviderStream, ModelProviderStreamUsage } from "./transport.js";
 
 const isAsyncIterable = (value: unknown): value is AsyncIterable<string> =>
   typeof value === "object" && value !== null && Symbol.asyncIterator in value;
 
-const isThenable = (value: unknown): value is PromiseLike<ModelProviderUsage> =>
+const isThenable = (value: unknown): value is PromiseLike<ModelProviderStreamUsage> =>
   typeof value === "object" &&
   value !== null &&
   "then" in value &&

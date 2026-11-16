@@ -527,7 +527,13 @@ export interface ModelProviderStream {
     // (undocumented)
     readonly textStream: AsyncIterable<string>;
     // (undocumented)
-    readonly usage: Promise<ModelProviderUsage>;
+    readonly usage: Promise<ModelProviderStreamUsage>;
+}
+
+// @public
+export interface ModelProviderStreamUsage extends ModelProviderUsage {
+    readonly cost?: Usd;
+    readonly finishReason?: FinishReason;
 }
 
 // @public
