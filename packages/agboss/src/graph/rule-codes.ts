@@ -235,4 +235,6 @@ export type RuleCode =
   // an agent's files for its model (#899)
   | "files.invalid-setting"
   | "files.no-redactor"
-  | "pii.original-file";
+  | "files.answer-file-unseen"
+  | "pii.original-file"
+  | "pii.redacted-needs-kinds";

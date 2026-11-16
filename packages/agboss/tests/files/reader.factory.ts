@@ -16,6 +16,7 @@ import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
+import type { JudgeHandlerClass } from "../../src/components/judge-decorators.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { ListOf, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -92,10 +93,14 @@ export interface ReaderOptions {
   readonly files?: ModelFiles;
   readonly providers?: readonly Class[];
   readonly piiPolicies?: readonly Class[];
+  /** Policies the agent leaves out of the application's. */
+  readonly excludePiiPolicies?: readonly Class[];
   readonly defaults?: WorkflowDefaults;
   readonly a2aFiles?: A2AFileOptions;
   readonly model?: string;
   readonly guardrails?: readonly Class[];
+  /** Output guardrails of the agent: attached on the agent's `guardrails` list as the classes say. */
+  readonly judges?: readonly JudgeHandlerClass[];
   /** The agent answers in this DTO (and the workflow finishes with it). */
   readonly output?: DtoClass;
 }
@@ -113,6 +118,17 @@ function flowOf(output: DtoClass | undefined, startNode: Class, agent: Class, fi
   return output === undefined ? toAgent.toFinish(finish) : toAgent.returns(output).toFinish(finish);
 }
 
+/** The agent's options a test gives: only the ones it names. */
+const agentOptionsOf = (options: ReaderOptions) => ({
+  ...(options.files === undefined ? {} : { files: options.files }),
+  ...(options.output === undefined ? {} : { output: options.output }),
+  ...(options.guardrails === undefined ? {} : { guardrails: options.guardrails }),
+  ...(options.judges === undefined ? {} : { judges: options.judges }),
+  ...(options.excludePiiPolicies === undefined
+    ? {}
+    : { excludePiiPolicies: [...options.excludePiiPolicies] }),
+});
+
 let counter = 0;
 
 /** A reader application, its start and its agent: unique names, one workflow. */
@@ -128,9 +144,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
     model,
     input: { bundle: BundleDto },
     tools: [FetchTool],
-    ...(options.files === undefined ? {} : { files: options.files }),
-    ...(options.output === undefined ? {} : { output: options.output }),
-    ...(options.guardrails === undefined ? {} : { guardrails: options.guardrails }),
+    ...agentOptionsOf(options),
   })
   class ReaderAgent {}
 

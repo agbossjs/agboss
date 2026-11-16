@@ -1,7 +1,15 @@
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { BaseChatModelCallOptions } from "@langchain/core/language_models/chat_models";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
 import { jsonSchemaOf, validate } from "../../dto/schema.js";
-import { DtoValidationError } from "../../dto/errors.js";
+import {
+  answerFilesOf,
+  mapFileFields,
+  pickingMapper,
+  shownAnswerOf,
+  withPickedFiles,
+  type FilePicker,
+} from "../../files/answer-files.js";
 import type { DtoClass } from "../../dto/types.js";
 import { answerToolName } from "../analyse/rules/models.js";
 import { Wrapper, type OutputShape } from "../dto-wrappers.js";
@@ -37,8 +45,14 @@ export const NO_ANSWER_TOOLS: AnswerTools = { tools: [], isList: false, hasVaria
 export const answerToolDescription = (dtoName: string, isList: boolean): string =>
   `Finish with your answer as ${dtoName}${isList ? " items" : ""}`;
 
-const answerDefinition = (name: string, dto: DtoClass, isList: boolean): ToolDefinition => {
-  const schema = jsonSchemaOf(dto);
+const answerDefinition = (
+  name: string,
+  dto: DtoClass,
+  isList: boolean,
+  isPicking: boolean,
+): ToolDefinition => {
+  // a file in the answer is picked by its number (#899 §8), never written as a descriptor
+  const schema = isPicking ? withPickedFiles(dto, jsonSchemaOf(dto)) : jsonSchemaOf(dto);
   const parameters = isList
     ? {
         type: "object",
@@ -63,15 +77,21 @@ export const classesOf = (output: OutputShape): readonly DtoClass[] => {
   return classesOf(output.element);
 };
 
-/** The answer tools of an agent's `output`; none for a text agent. */
-export function answerToolsOf(output: OutputShape | undefined): AnswerTools {
+/**
+ * The answer tools of an agent's `output`; none for a text agent. `isPickingFiles`: the answer's files
+ * are picked by number from the ones the agent saw (`AnswerFiles.SeenInVisit`, #899 §8).
+ */
+export function answerToolsOf(
+  output: OutputShape | undefined,
+  isPickingFiles = false,
+): AnswerTools {
   if (output === undefined) return NO_ANSWER_TOOLS;
   const isList = typeof output !== "function" && output.kind === Wrapper.List;
   const classes = classesOf(output);
   return {
     tools: classes.map((dto) => {
       const name = answerToolName(dto);
-      return { name, dto, definition: answerDefinition(name, dto, isList) };
+      return { name, dto, definition: answerDefinition(name, dto, isList, isPickingFiles) };
     }),
     isList,
     hasVariants: classes.length > 1,
@@ -99,37 +119,69 @@ export interface ValidAnswerReading {
   readonly kind: "valid";
   readonly answer: AgentAnswer;
   readonly answeredWith: readonly number[];
+  /** The answer as it may be shown to a guardrail or a record: its files as `redactedFileOf` shows them (#899 §0). */
+  readonly shown: unknown;
+  /** The files in the answer (#899 §8), in order. */
+  readonly files: readonly A2AFileDto[];
 }
 
 export type AnswerReading =
   ValidAnswerReading | { readonly kind: "invalid"; readonly problem: string };
 
 const problemOf = (error: unknown): string =>
-  error instanceof DtoValidationError ? error.message : String(error);
+  error instanceof Error ? error.message : String(error);
 
 /** The position of a call's answer tool among the agent's answer tools. */
 const positionOf = (tools: AnswerTools, call: AnswerCall): number => tools.tools.indexOf(call.tool);
 
-/** Checks one or more answer calls of a message against the agent's output. */
-export function readAnswer(tools: AnswerTools, calls: readonly AnswerCall[]): AnswerReading {
+/** One answer value: files picked by number when a picker is given, then validated; its files and its shown form. */
+function checkedValue(tool: AnswerTool, raw: unknown, picker: FilePicker | undefined) {
+  const given = picker === undefined ? raw : mapFileFields(tool.dto, raw, pickingMapper(picker));
+  const value = validate(tool.dto, given);
+  return { value, files: answerFilesOf(tool.dto, value), shown: shownAnswerOf(tool.dto, value) };
+}
+
+/**
+ * Checks one or more answer calls of a message against the agent's output. With a `picker` the answer's
+ * files are numbers of the files the agent saw (#899 §8) and are mapped back to their descriptors.
+ */
+export function readAnswer(
+  tools: AnswerTools,
+  calls: readonly AnswerCall[],
+  picker?: FilePicker,
+): AnswerReading {
   try {
     if (!tools.isList) {
       const [only] = calls;
       if (only === undefined) return { kind: "invalid", problem: "no answer tool was called" };
-      const value = validate(only.tool.dto, only.args);
+      const { value, files, shown } = checkedValue(only.tool, only.args, picker);
       return {
         kind: "valid",
         answer: tools.hasVariants ? { value, variant: only.tool.dto.name } : { value },
         answeredWith: [positionOf(tools, only)],
+        shown,
+        files,
       };
     }
     const items = calls.flatMap((call) => itemsOf(call).map((item) => ({ call, item })));
-    const value = items.map(({ call, item }) => {
-      const checked = validate(call.tool.dto, item);
-      return tools.hasVariants ? { variant: call.tool.dto.name, value: checked } : checked;
-    });
+    const checked = items.map(({ call, item }) => ({
+      call,
+      ...checkedValue(call.tool, item, picker),
+    }));
+    const value = checked.map(({ call, value: item }) =>
+      tools.hasVariants ? { variant: call.tool.dto.name, value: item } : item,
+    );
+    const shown = checked.map(({ call, shown: item }) =>
+      tools.hasVariants ? { variant: call.tool.dto.name, value: item } : item,
+    );
     const answeredWith = items.map(({ call }) => positionOf(tools, call));
-    return { kind: "valid", answer: { value }, answeredWith };
+    return {
+      kind: "valid",
+      answer: { value },
+      answeredWith,
+      shown,
+      files: checked.flatMap(({ files }) => files),
+    };
   } catch (error) {
     return { kind: "invalid", problem: problemOf(error) };
   }

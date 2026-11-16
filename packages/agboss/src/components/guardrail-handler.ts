@@ -1,3 +1,5 @@
+import type { FileContent } from "../files/file-bytes.js";
+
 /**
  * A code guardrail (#383): `@InputGuardrail` / `@OutputGuardrail({ decidedBy: DecidedBy.Code })`
  * decides by its class's `check(text)` instead of a model — no model call, cost 0. The text is what
@@ -34,8 +36,26 @@ export class GuardrailVerdict {
 export const isGuardrailVerdict = (value: unknown): value is GuardrailVerdict =>
   value instanceof GuardrailVerdict;
 
+/**
+ * What a code guardrail reads when the guarded model reads files too (#899 §8): the masked text and
+ * every file in every view the model got — an original as the file, a transcription as a `text/plain`
+ * file of the masked text.
+ */
+export interface GuardrailContent {
+  readonly text: string;
+  readonly files: readonly FileContent[];
+}
+
 /** What a code guardrail's class implements: `check(text)` on the masked text. */
 export interface GuardrailHandler {
   /** Checks one text: `GuardrailVerdict.passed()` or `GuardrailVerdict.blocked()`. */
   readonly check: (text: string) => Promise<GuardrailVerdict> | GuardrailVerdict;
+  /**
+   * Checks the text and the files the model reads: called instead of `check` when there are files.
+   * Without it `check` gets the text, and the files that are text (a transcription, a CSV) appended
+   * to it — an image or a PDF is then not read by this guardrail.
+   */
+  readonly checkContent?: (
+    content: GuardrailContent,
+  ) => Promise<GuardrailVerdict> | GuardrailVerdict;
 }

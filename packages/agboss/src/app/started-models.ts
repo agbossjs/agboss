@@ -1,6 +1,7 @@
 import { validateAgentsConfig, type AgentsConfigOf } from "../config/types.js";
 import { withNarrowedFiles } from "../files/assemble-files.js";
 import type { AnyTool } from "../tools/index.js";
+import { workflowModelUsesOf } from "../models/resolution.js";
 import { resolveTools, type AssembledWorkflow } from "../workflow.js";
 import type { TransportContainer } from "./late-transports.js";
 import type { StartingModels } from "./models.js";
@@ -27,5 +28,5 @@ export async function startedModels(
       tools.map((tool) => tool.name),
     ),
   );
-  return { tools, config: withNarrowedFiles(priced, inputs) };
+  return { tools, config: withNarrowedFiles(priced, inputs, workflowModelUsesOf(bundle)) };
 }

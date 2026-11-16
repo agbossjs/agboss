@@ -16,6 +16,14 @@ import type { PiiKind, PiiTarget } from "./kinds.js";
  * up; `excludePiiPolicies` removes one for an agent or a router).
  */
 
+/** What a policy lets happen to the files of an agent's model (#899 §5); a closed set. */
+export enum PiiFileAction {
+  /** Files reach the model masked: a transcription masked by the rules, a redacted copy (the default). */
+  Mask = "mask",
+  /** The original file may reach the model as it is: the task hinges on the personal data. */
+  AllowOriginal = "allow-original",
+}
+
 /** One rule: a kind or a group, and what happens to its values. */
 export interface PiiRule {
   readonly target: PiiTarget;
@@ -54,6 +62,8 @@ export type PiiRefusalShape<TInstance> = TInstance extends { readonly refusal: u
 
 /** The declarative form's options. */
 export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
+  /** What the policy does to the files an agent's model reads (#899 §5); `PiiFileAction.Mask` when left out. */
+  readonly files?: PiiFileAction;
   /** Ends with `-pii-policy` (`contact-pii-policy`). */
   readonly name: string;
   readonly description: string;
@@ -72,6 +82,8 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
 
 /** The form of a project's own detector (`implements PiiPolicyHandler`). */
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
+  /** What the policy does to the files an agent's model reads (#899 §5); `PiiFileAction.Mask` when left out. */
+  readonly files?: PiiFileAction;
   /** Ends with `-pii-policy` (`employee-id-pii-policy`). */
   readonly name: string;
   /** What happens to every range `findMatches` gives. */
@@ -116,3 +128,7 @@ export function PiiPolicy(
 /** Whether the policy is a project's own detector. */
 export const isCustomPolicy = (meta: PiiPolicyMeta): meta is CustomPiiPolicyMeta =>
   meta.action !== undefined;
+
+/** What a policy does to files: its own setting, `Mask` when it has none. */
+export const fileActionOf = (meta: PiiPolicyMeta): PiiFileAction =>
+  meta.files ?? PiiFileAction.Mask;

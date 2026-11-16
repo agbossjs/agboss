@@ -1,5 +1,6 @@
 import type { AgentsConfigOf, ResolvedModelSettings, RouterModel } from "../config/types.js";
 import { needsOf, transcriberNeedsOf } from "../files/file-needs.js";
+import { judgeReadersOf, type FileReader } from "../files/file-readers.js";
 import type { ResolvedModelFiles } from "../files/file-settings.js";
 import { FileView } from "../files/model-files.js";
 import type { ModelInputKind } from "./content.js";
@@ -33,6 +34,8 @@ export type ModelUseKey = `${ModelUseKind}.${string}` | `${string} ${ModelUseKin
 
 /** One place a model is used, with the settings it is used with. */
 export interface ModelUse {
+  /** The agents whose files it reads besides its agent's own model (a guardrail's or a judge's model, #899): their types are narrowed to it. */
+  readonly forAgents?: readonly string[];
   /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compactions.conversation-compaction`, `guardrails.legal-advice-guardrail`. */
   readonly key: ModelUseKey;
   readonly model: string;
@@ -59,7 +62,15 @@ export interface InputNeed {
 export interface ModelNamingRouter {
   readonly name: string;
   readonly model: string;
+  /** What it reads of agents' files (#899 §8): a guardrail's. */
+  readonly reads?: FileReader | undefined;
 }
+
+/** What a model reads of agents' files, as the use says it (#899 §4, §8). */
+const fileReadsOf = (reader: FileReader | undefined): Partial<ModelUse> =>
+  reader === undefined
+    ? {}
+    : { needs: reader.needs, isNeedStrict: reader.isNeedStrict, forAgents: reader.agents };
 
 /** A model's use: a decision (decision models) or a chat model with its settings over the defaults. */
 const purposeOf = (model: string): ModelPurpose =>
@@ -136,6 +147,20 @@ const chatUseOf =
     settings: resolveSettings(settings, config.defaults.models),
   });
 
+/** The judges' models: a decision model or a chat model, each with what it reads of its agents' files (#899 §8). */
+function judgeUsesOf(
+  config: AgentsConfigOf<string>,
+  chat: (key: ModelUseKey, settings: Parameters<typeof resolveSettings>[0]) => ModelUse,
+): readonly ModelUse[] {
+  const readers = judgeReadersOf(config);
+  return Object.entries(config.judges ?? {}).map(([name, judge]): ModelUse => {
+    const reads = fileReadsOf(readers.get(name));
+    return purposeOf(judge.model) === ModelPurpose.Decision
+      ? { key: `judges.${name}`, model: judge.model, purpose: ModelPurpose.Decision, ...reads }
+      : { ...chat(`judges.${name}`, judge), ...reads };
+  });
+}
+
 /**
  * Every model use of a workflow: agents, compactions, judges, the default router, flow routers,
  * model arbiters (#279), the PII policies' model detections (#120, `pii.<policy>`), model reply
@@ -158,11 +183,7 @@ export function modelUsesOf(
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
       compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
     ),
-    ...Object.entries(config.judges ?? {}).map(([name, judge]): ModelUse =>
-      purposeOf(judge.model) === ModelPurpose.Decision
-        ? { key: `judges.${name}`, model: judge.model, purpose: ModelPurpose.Decision }
-        : chat(`judges.${name}`, judge),
-    ),
+    ...judgeUsesOf(config, chat),
     ...(config.defaults.router === undefined
       ? []
       : [routerUse("defaults.router", config.defaults.router, config)]),
@@ -189,6 +210,7 @@ export function modelUsesOf(
       key: `guardrails.${guardrail.name}`,
       model: guardrail.model,
       purpose: purposeOf(guardrail.model),
+      ...fileReadsOf(guardrail.reads),
     })),
     ...(components.rerankers ?? []).map(({ name, model }) => chat(`rerankers.${name}`, { model })),
   ];

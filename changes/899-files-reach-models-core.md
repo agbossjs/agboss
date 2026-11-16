@@ -24,9 +24,3 @@ cached per file hash in the execution. Assembly rules `[files.invalid-setting]`,
 `[files.no-redactor]`, `[pii.original-file]`. `FallbackChatModel` falls back on `model.circuit-open`
 only; `GuardFailedError` keeps its `cause`; `mockLlm` requests carry `parts`; a cassette hashes a
 part by digest.
-
-Interim rules until PR 2, each `[files.invalid-setting]` at start: an agent whose files can produce a
-part (`FileSource.Input`, or `FileSource.ToolResults` while `guardToolResultFiles` is true) and that
-has an input guardrail (guardrails read text only); an `@Agent` whose `output` DTO has file fields at any depth
-(`AnswerFiles` is not enforced yet); `FileView.Transcription` under an applying PII policy (a
-transcript is kept unmasked in the state).

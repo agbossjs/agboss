@@ -1,4 +1,5 @@
 import type { AgentSettingsOf, AgentsConfigOf } from "../config/types.js";
+import { AnswerFiles } from "../files/model-files.js";
 import { NodeKind } from "../flow/ast.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtime/answer-tools.js";
@@ -44,10 +45,16 @@ function judgesOf<TName extends string>(
 }
 
 /** How an agent of the graph answers: its `output`'s answer tools, none for a text agent. */
-function answerToolsFor<TName extends string>(deps: GraphDeps<TName>, name: string): AnswerTools {
+function answerToolsFor<TName extends string>(
+  deps: GraphDeps<TName>,
+  name: string,
+  files: AgentSettingsOf<string>["files"],
+): AnswerTools {
   const declaration = deps.graph.nodes.get(name)?.declaration;
+  // the files of its answer are picked by number from the ones it saw (#899 §8), unless the developer allowed any
+  const isPicking = files?.answerFiles === AnswerFiles.SeenInVisit;
   return declaration?.kind === NodeKind.Agent
-    ? answerToolsOf(declaration.options.output)
+    ? answerToolsOf(declaration.options.output, isPicking)
     : NO_ANSWER_TOOLS;
 }
 
@@ -68,7 +75,7 @@ export function agentDefinitions<TName extends string>(
       binding,
       instructions,
       tools: (agent?.tools ?? []).map(deps.tools),
-      answerTools: answerToolsFor(deps, name),
+      answerTools: answerToolsFor(deps, name, agent?.files),
       ...limitsOf(agent, deps.config),
       ...judgesOf(agent, deps),
       knowledge: deps.knowledge?.(name) ?? [],

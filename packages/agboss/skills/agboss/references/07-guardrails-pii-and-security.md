@@ -498,21 +498,22 @@ asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `ps
 
 ## Rule codes
 
-| Code                                                                | Cause → fix                                                                       |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used) |
-| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | neither / both a `refusal` text and a `refusal()` method → exactly one            |
-| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                            |
-| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(text)` → `implements GuardrailHandler`            |
-| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                           |
-| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                 |
-| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                     |
-| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                  |
-| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                             |
-| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                |
-| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `blockWithRefusal()` without `refusal(kind)` / a `refusal` nobody uses            |
-| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind       |
-| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`   |
+| Code                                                                | Cause → fix                                                                                       |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used)                 |
+| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | neither / both a `refusal` text and a `refusal()` method → exactly one                            |
+| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                                            |
+| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(text)` → `implements GuardrailHandler`                            |
+| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                           |
+| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                 |
+| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                                     |
+| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                  |
+| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                             |
+| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                |
+| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `blockWithRefusal()` without `refusal(kind)` / a `refusal` nobody uses                            |
+| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                       |
+| `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above |
+| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                   |
 
 ## Pitfalls
 

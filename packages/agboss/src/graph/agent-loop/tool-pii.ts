@@ -26,7 +26,7 @@ import type { ToolTask } from "./state.js";
  */
 
 /** What blocks a call: the text the model reads instead of a result. */
-const refusedCall = (refusal: string): string =>
+export const refusedCall = (refusal: string): string =>
   `Tool error: the call was refused${refusal === "" ? "" : `: ${refusal}`}`;
 
 /** Every string of a value searched; the findings of block rules and the spend. */

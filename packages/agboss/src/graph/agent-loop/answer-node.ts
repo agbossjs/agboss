@@ -12,6 +12,9 @@ import {
   type InvalidToolCallRequest,
   type ToolCallRequest,
 } from "./deps.js";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import { modelWrittenFileProblem, seenPicker, type FilePicker } from "../../files/answer-files.js";
+import { AnswerFiles, FileView } from "../../files/model-files.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
 /** Invalid answers an agent may give before its step fails (S9: 2 retries, 3 attempts). */
@@ -112,11 +115,40 @@ function unreadAnswer(
 export function makeAnswerNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return (state) => Promise.resolve(answered(state, deps));
+  return (state) => answered(state, deps);
+}
+
+/**
+ * The files of the answer are numbers of the files the agent saw (`AnswerFiles.SeenInVisit`, #899 §8):
+ * the picker over them, and which views the agent had; none for any other answer.
+ */
+function pickerOf(state: AgentLoopStateType, deps: AgentLoopDeps): FilePicker | undefined {
+  const files = deps.agent.files;
+  if (files?.answerFiles !== AnswerFiles.SeenInVisit) return undefined;
+  return seenPicker(state.seen, files.views.includes(FileView.Original));
+}
+
+/**
+ * Descriptors the model wrote itself (`AnswerFiles.Any`) must be ones that may travel: a url on an
+ * allowed `https:` origin, a stored file this root execution owns (#899 §8). The problem, else `undefined`.
+ */
+function writtenFilesProblem(
+  deps: AgentLoopDeps,
+  files: readonly A2AFileDto[],
+): Promise<string | undefined> {
+  const { fileRuntime, agent } = deps;
+  if (
+    agent.files?.answerFiles !== AnswerFiles.Any ||
+    fileRuntime === undefined ||
+    files.length === 0
+  )
+    return Promise.resolve(undefined);
+  const { store, tenantId, ownerId, allowedOrigins } = fileRuntime.context();
+  return modelWrittenFileProblem(files, { store, tenantId, ownerId, allowedOrigins });
 }
 
 /** The answer node's update for the move. */
-function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpdate {
+async function answered(state: AgentLoopStateType, deps: AgentLoopDeps): Promise<AgentLoopUpdate> {
   const calls = callsOf(state.move);
   const move = state.move === null ? [] : [state.move];
   const unread = invalidCallsOf(state.move);
@@ -128,12 +160,16 @@ function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpda
       ...toolMessages(calls, `Tool error: ${ONE_ANSWER_MESSAGE}`),
     ]);
   }
-  const reading = readAnswer(deps.agent.answerTools, answers.answers);
-  if (reading.kind === "invalid") {
-    const content = `Tool error: the answer is invalid — ${reading.problem}`;
-    return invalidAnswer(state, deps, reading.problem, [...move, ...toolMessages(calls, content)]);
+  const reading = readAnswer(deps.agent.answerTools, answers.answers, pickerOf(state, deps));
+  const problem =
+    reading.kind === "invalid" ? reading.problem : await writtenFilesProblem(deps, reading.files);
+  if (reading.kind === "invalid" || problem !== undefined) {
+    const why = reading.kind === "invalid" ? reading.problem : (problem ?? "");
+    const content = `Tool error: the answer is invalid — ${why}`;
+    return invalidAnswer(state, deps, why, [...move, ...toolMessages(calls, content)]);
   }
-  const reply = sortedJson(reading.answer.value);
+  // its files as they may be shown (#899 §0): a guardrail and a judge never read their bytes as text
+  const reply = sortedJson(reading.shown);
   const received = toolMessages(calls, "Answer received.");
   const { answer, answeredWith } = reading;
   return {
@@ -142,5 +178,6 @@ function answered(state: AgentLoopStateType, deps: AgentLoopDeps): AgentLoopUpda
     reply,
     answer,
     answeredWith: [...answeredWith],
+    answerFiles: [...reading.files],
   };
 }

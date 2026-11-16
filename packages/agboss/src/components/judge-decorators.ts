@@ -2,6 +2,7 @@ import type { BaseMessageLike } from "@langchain/core/messages";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
+import type { FileContent } from "../files/file-bytes.js";
 import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { recordComponent } from "./metadata.js";
@@ -81,7 +82,8 @@ export abstract class JudgeModel {
  * validated as (#262 S125), the class of the answer tool the agent used, never guessed from the
  * answer's shape; `task` — the run's task (the agent's input message); `attempt` — retries so far,
  * 0 for the agent's first reply; `toolCalls` — the agent's tool calls in this visit, every attempt's,
- * in call order (#395: `toolCallsOf(Tool, toolCalls)` types one tool's), with real values.
+ * in call order (#395: `toolCallsOf(Tool, toolCalls)` types one tool's), with real values; `files` —
+ * what the model read of files (#899).
  *
  * For a `oneOf(A, B)` reply a discriminated union on `variant`: `isVariant(input, A)` narrows
  * `reply` to `A`. A single DTO, `listOf(XDto)` or `PlainTextDto` judge has `variant` as that one
@@ -90,6 +92,13 @@ export abstract class JudgeModel {
  */
 export type JudgeInput<TReply> = JudgedReply<TReply> & {
   readonly toolCalls: readonly ToolCallRecord[];
+  /**
+   * The files the agent's model read in this visit (#899 §8), in the views it got them — an original
+   * as the file, a transcription as a `text/plain` file of its masked text; none for an agent without
+   * `files`. A judge's own model reads them too: `judgeModel.invoke` and `judgeModel.decide` carry them
+   * as parts of their input.
+   */
+  readonly files: readonly FileContent[];
 };
 
 /** What a judge reads of the reply itself, in the shape of its `reply` (`JudgeInput` without the trajectory). */

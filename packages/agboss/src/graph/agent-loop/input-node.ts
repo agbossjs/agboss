@@ -12,7 +12,10 @@ import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.j
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { contentWithPieces } from "../../files/file-pieces.js";
+import { fileMaskOf, type FileMask } from "../../files/file-mask.js";
+import { guardedFilesOf } from "../../files/guarded-files.js";
 import { NO_FILES, filePiecesOf, type FilePieces } from "../../files/visit-files.js";
+import { PiiRefusedError } from "../../pii/errors.js";
 import { AgentFailedError, StepFailedError } from "../errors.js";
 import { LimitExceededError } from "../limits.js";
 import { memoryViewOf } from "./memory-view.js";
@@ -21,6 +24,9 @@ import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./stat
 
 const NO_PIECES: FilePieces = {
   pieces: [],
+  viewed: [],
+  tokens: {},
+  maskedTexts: [],
   usage: [],
   digests: [],
   transcripts: {},
@@ -70,6 +76,7 @@ async function guardedInput(
   deps: AgentLoopDeps,
   state: AgentLoopStateType,
   input: string,
+  files: FilePieces,
 ): Promise<GuardedInput> {
   const guardrails = deps.guardrails ?? [];
   if (guardrails.length === 0) return NOTHING_GUARDED;
@@ -78,18 +85,37 @@ async function guardedInput(
     set === undefined
       ? { text: input, tokens: {}, usage: [] }
       : await maskedModelText(set, input, state.piiTokens);
-  const checked = { text: masked.text, element: deps.agent.name, side: GuardrailSide.Input };
+  // the files its model reads, in the views it reads them (#899 §8): what the guardrails check with the text
+  const seen = await guardedFilesOf(
+    files.viewed,
+    deps.agent.maxResultSize,
+    fileMaskOf(set, state.piiTokens),
+  );
+  const checked = {
+    text: masked.text,
+    element: deps.agent.name,
+    side: GuardrailSide.Input,
+    files: seen.files,
+  };
   const passed = await runGuardrails(guardrails, checked, deps.observer);
   return {
-    usage: [...masked.usage, ...passed.usage],
+    usage: [...masked.usage, ...seen.usage, ...passed.usage],
     decisions: passed.decisions,
     piiTokens: masked.tokens,
     piiMasked: set === undefined ? {} : { [maskCacheKey(input, true)]: masked.text },
   };
 }
 
-/** The files of the agent's input as pieces of its first message; none for an agent without files. */
-async function inputFilesOf(deps: AgentLoopDeps, state: AgentLoopStateType): Promise<FilePieces> {
+/**
+ * The files of the agent's input as pieces of its first message; none for an agent without files. Read
+ * before its guardrails, which check what the model will read (#899 §3, §8); a block rule in a transcription
+ * fails the execution as one in the text does (#899 §5).
+ */
+async function inputFilesOf(
+  deps: AgentLoopDeps,
+  state: AgentLoopStateType,
+  mask: FileMask | undefined,
+): Promise<FilePieces> {
   const runtime = deps.fileRuntime;
   if (runtime === undefined || state.inputFiles.length === 0) return NO_PIECES;
   try {
@@ -100,15 +126,35 @@ async function inputFilesOf(deps: AgentLoopDeps, state: AgentLoopStateType): Pro
       cache: state.fileTranscripts,
       first: 1,
       of: state.inputFiles.length,
+      mask,
       beforeModelCall: () => {
         deps.budgets.check(state.usage, state.flowPath, loopUsage(state));
       },
     });
   } catch (error) {
-    if (error instanceof StepFailedError || error instanceof LimitExceededError) throw error;
+    if (
+      error instanceof StepFailedError ||
+      error instanceof LimitExceededError ||
+      error instanceof PiiRefusedError
+    )
+      throw error;
     throw new AgentFailedError({ agent: deps.agent.name, usage: loopUsage(state), cause: error });
   }
 }
+
+/** The texts of the files' pieces already masked: the model boundary has nothing to search in them (#899 §7). */
+const maskedPiecesOf = (files: FilePieces): Record<string, string> =>
+  Object.fromEntries(files.maskedTexts.map((text) => [maskCacheKey(text, true), text]));
+
+/** What the input's files add to the loop: their tally, their transcriptions, the numbered files the model saw (#899 §8). */
+const filesUpdateOf = (state: AgentLoopStateType, files: FilePieces): AgentLoopUpdate => ({
+  fileTally: files.tally,
+  fileTranscripts: files.transcripts,
+  seen: state.inputFiles.flatMap((source, index) => {
+    const digest = files.digests[index];
+    return digest === undefined ? [] : [{ source, digest }];
+  }),
+});
 
 /**
  * The agent's request after its static part (#270 Q51), once per call of the agent (a node of its
@@ -141,25 +187,24 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       formatDecisionsForAgent(state.approvals, agent.name),
     ]);
     const content = input === "" ? "(no input)" : input;
-    const guarded = await guardedInput(deps, state, content);
-    // its files, read once and pinned for every call of the visit (#899 §3)
-    const files = await inputFilesOf(deps, state);
+    // its files, read once and pinned for every call of the visit (#899 §3), then guarded with the text
+    const mask = fileMaskOf(loopPoliciesOf(state, deps), state.piiTokens);
+    const files = await inputFilesOf(deps, state, mask);
+    const guarded = await guardedInput(deps, state, content, files);
     const messages = [
       ...(memory === "" ? [] : [new HumanMessage({ content: memory })]),
       new HumanMessage({ content: contentWithPieces(content, files.pieces) }),
     ];
-    const { piiTokens, piiMasked } = guarded;
     // counted at once (#338), in the ledger at once (#727)
     const spent = [...knowledge.records, ...guarded.usage, ...files.usage];
     const usage = [...deps.budgets.tally(spent, state.flowPath)];
     return {
       messages,
       usage,
-      piiTokens,
-      piiMasked,
+      piiTokens: { ...guarded.piiTokens, ...files.tokens },
+      piiMasked: { ...guarded.piiMasked, ...maskedPiecesOf(files) },
       guardrailDecisions: [...guarded.decisions],
-      fileTally: files.tally,
-      fileTranscripts: files.transcripts,
+      ...filesUpdateOf(state, files),
     };
   };
 }

@@ -1,5 +1,8 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Provider } from "../components/injection.js";
+import { guardrailReadersOf, type FileReader } from "../files/file-readers.js";
+import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
+import type { ElementGuardrails } from "../guardrails/assembly.js";
 import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import {
@@ -64,7 +67,13 @@ export interface WorkflowModels {
   /** Its reply interpreters (#267 PR 3), by `name` and `model` (none for a code one). */
   readonly replyInterpreters?: readonly ModelNamingInterpreter[];
   /** Its guardrails (#120): the model ones by `name` and `model`, a code one (#383) names none. */
-  readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] };
+  readonly guardrails?: {
+    readonly guardrails: readonly LoadedGuardrail[];
+    /** Each agent's and router's guardrails by side: which files each model reads (#899 §8). */
+    readonly byElement?: ReadonlyMap<string, ElementGuardrails>;
+  };
+  /** The graph: which agents answer with files (#899 §8). */
+  readonly graph?: Pick<RuntimeGraph, "nodes">;
   /** Its knowledge bases' model rerankers (#703), by `name` and `model`. */
   readonly rerankers?: readonly ModelNamingRouter[];
   /** The application lists its own `FileTranscriber` (#899): the built-in's model is no use then. */
@@ -84,11 +93,26 @@ export function workflowModelUsesOf(
     arbiters: workflow.arbiters,
     piiDetectors: workflow.pii?.detectors,
     interpreters: workflow.replyInterpreters,
-    guardrails: modelGuardrailsOf(workflow.guardrails),
+    guardrails: guardrailUsesOf(workflow),
     rerankers: workflow.rerankers,
     builtInFileModels: workflow.hasOwnFileTranscriber !== true,
   } satisfies Record<keyof ModelNamingComponents, unknown>;
   return modelUsesOf(workflow.config, workflow.routers, components);
+}
+
+/** The model guardrails with what each reads of the agents' files (#899 §8). */
+function guardrailUsesOf(
+  workflow: Omit<WorkflowModels, "modelProviders">,
+): readonly ModelNamingRouter[] {
+  const readers =
+    workflow.guardrails?.byElement === undefined || workflow.graph === undefined
+      ? new Map<string, FileReader>()
+      : guardrailReadersOf(workflow.config, workflow.guardrails.byElement, workflow.graph);
+  return modelGuardrailsOf(workflow.guardrails).map((guardrail) => ({
+    name: guardrail.name,
+    model: guardrail.model,
+    reads: readers.get(guardrail.name),
+  }));
 }
 
 /** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */

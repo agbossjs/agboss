@@ -15,6 +15,7 @@ export {
 } from "./actions.js";
 export { PiiGroup, PiiKind, type PiiTarget } from "./kinds.js";
 export {
+  PiiFileAction,
   PiiPolicy,
   pii,
   type CustomPiiPolicyOptions,

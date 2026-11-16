@@ -22,11 +22,13 @@ import { isDecisionModel } from "../../models/decision-models.js";
 import { judgeKeyOf } from "../scripted-gateway.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import { unitChatSettings } from "./unit-models.js";
+import type { FileContent } from "../../files/file-bytes.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
-/** A judge's input with `toolCalls` optional (#395): `[]` when not given. */
+/** A judge's input with `toolCalls` (#395) and `files` (#899) optional: `[]` when not given. */
 export type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
   readonly toolCalls?: readonly ToolCallRecord[];
+  readonly files?: readonly FileContent[];
 };
 
 /**
@@ -83,7 +85,11 @@ export function testJudge<
   const binding = isCodeJudge(meta) ? undefined : bindingOf(site, meta.name, meta.model);
   const run = async (given: JudgeRunnerInput<JudgeReplyOf<TJudge>>, call: UnitCallOptions = {}) => {
     // the judge reads the trajectory it would read at run time: none given → none (#395)
-    const input: JudgeInput<JudgeReplyOf<TJudge>> = { ...given, toolCalls: given.toolCalls ?? [] };
+    const input: JudgeInput<JudgeReplyOf<TJudge>> = {
+      ...given,
+      toolCalls: given.toolCalls ?? [],
+      files: given.files ?? [],
+    };
     // the container creates the class itself: an instance of the judge, `judge` included
     const handler = site.instanceOf(judge) as JudgeHandler<JudgeReplyOf<TJudge>>;
     const frame = {

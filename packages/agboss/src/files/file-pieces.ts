@@ -11,8 +11,17 @@ import { isTextFormat } from "./file-needs.js";
  */
 
 /** One piece of a message: a text (a heading and what follows) or a file part. */
-export type FilePiece =
-  { readonly kind: "text"; readonly text: string } | ModelImagePart | ModelFilePart;
+export type FilePiece = FileTextPiece | ModelImagePart | ModelFilePart;
+
+/**
+ * A text piece. `isMasked`: its text went through the agent's PII policies where it was made (a
+ * transcription, #899 §7) — the model boundary has nothing left to search in it.
+ */
+export interface FileTextPiece {
+  readonly kind: "text";
+  readonly text: string;
+  readonly isMasked?: true;
+}
 
 const sizeLabel = (bytes: number): string =>
   bytes < 1024 ? `${String(bytes)} B` : `${String(Math.round(bytes / 1024))} KB`;
@@ -42,6 +51,22 @@ const utf8Of = (content: FileContent): string => Buffer.from(content.bytes).toSt
 export function textPiece(heading: string, text: string, maxResultSize: Bytes): FilePiece {
   const { kept, marker } = boundedText(text, maxResultSize);
   return { kind: "text", text: `${heading}\n${kept}${marker}` };
+}
+
+/**
+ * A masked text after its heading, as two blocks: the heading (a file name may be personal data) is
+ * masked by the model boundary, the text already was.
+ */
+export function maskedTextPieces(
+  heading: string,
+  text: string,
+  maxResultSize: Bytes,
+): readonly FilePiece[] {
+  const { kept, marker } = boundedText(text, maxResultSize);
+  return [
+    { kind: "text", text: heading },
+    { kind: "text", text: `${kept}${marker}`, isMasked: true },
+  ];
 }
 
 /** The original of a file: its text, or its heading and its part. */
@@ -74,6 +99,9 @@ export function contentWithPieces(text: string, pieces: readonly FilePiece[]): M
     ),
   ];
 }
+
+/** The pieces of a file as a model saw it, whatever the view: a text (a transcription too) or a part. */
+export const piecesOfContent = originalPieces;
 
 /** What a text format transcribes to: itself — no model is asked. */
 export const ownTranscriptOf = (content: FileContent): string | undefined =>

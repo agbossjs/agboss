@@ -5,6 +5,7 @@ import { PiiActionKind, actionText, isSameAction, type AnyPiiAction } from "./ac
 import { isPiiGroup, MODEL_ONLY_KINDS, type PiiKind } from "./kinds.js";
 import {
   isCustomPolicy,
+  PiiFileAction,
   type DeclarativePiiPolicyMeta,
   type PiiPolicyMeta,
 } from "./pii-policy.decorator.js";
@@ -68,7 +69,17 @@ function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
           cls.name,
         ]),
       ];
-  if (isCustomPolicy(meta)) return name;
+  const files =
+    meta.files === undefined || Object.values(PiiFileAction).includes(meta.files)
+      ? []
+      : [
+          violation(
+            "files.invalid-setting",
+            `${meta.name}: files is not a PiiFileAction — PiiFileAction.Mask or PiiFileAction.AllowOriginal`,
+            [cls.name],
+          ),
+        ];
+  if (isCustomPolicy(meta)) return [...name, ...files];
   const own = kindActionsOf(meta.rules).conflicts.map((conflict) =>
     violation(
       "pii.conflicting-rules",
@@ -76,7 +87,13 @@ function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
       [cls.name],
     ),
   );
-  return [...name, ...own, ...refusalViolations(cls, meta), ...modelViolations(cls, meta)];
+  return [
+    ...name,
+    ...files,
+    ...own,
+    ...refusalViolations(cls, meta),
+    ...modelViolations(cls, meta),
+  ];
 }
 
 /** The rules each policy class breaks on its own. */

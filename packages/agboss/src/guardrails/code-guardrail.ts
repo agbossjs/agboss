@@ -3,10 +3,11 @@ import { isGuardrailVerdict, type GuardrailHandler } from "../components/guardra
 import type { GuardrailOutcome } from "../core/observability.js";
 import { GuardFailedError } from "../graph/errors.js";
 import type { LoadedCodeGuardrail } from "./assembly.js";
+import { textOfGuarded, type GuardedText } from "./guarded-text.js";
 import type { GuardrailDecision } from "./runtime.js";
 
 /**
- * A code guardrail at run time (#383): its class's `check(text)` on the text the guarded model reads
+ * A code guardrail at run time (#383): its class's `check(text)` (or `checkContent` with files) on the text the guarded model reads
  * (masked), in the step's frame — no model call, no spend. Its verdict is certain: blocked is
  * `probability` 1, passed 0, so its hit meets the fixed threshold `CODE_GUARDRAIL_THRESHOLD`. A
  * `check` that throws, or returns anything but a `GuardrailVerdict`, fails closed
@@ -28,12 +29,24 @@ const isHandler = (value: unknown): value is GuardrailHandler =>
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
+/**
+ * What the class is asked: with files, `checkContent` when it has one (the files as they are), else `check`
+ * on the text and the text of the files; without files, `check(text)` as ever.
+ */
+function verdictOf(instance: GuardrailHandler, checked: GuardedText): unknown {
+  const files = checked.files ?? [];
+  if (files.length === 0) return instance.check(checked.text);
+  if (instance.checkContent !== undefined)
+    return instance.checkContent({ text: checked.text, files: files.map((file) => file.content) });
+  return instance.check(textOfGuarded(checked));
+}
+
 /** A code guardrail's decision on one text: the instance's verdict as an outcome. */
 export function codeGuardrailDecision(
   guardrail: LoadedCodeGuardrail,
   resolve: (cls: Class) => unknown,
 ): GuardrailDecision {
-  return async ({ text }, spent) => {
+  return async (checked, spent) => {
     const instance = resolve(guardrail.type);
     if (!isHandler(instance))
       throw new GuardFailedError({
@@ -43,7 +56,7 @@ export function codeGuardrailDecision(
       });
     let verdict: unknown;
     try {
-      verdict = await instance.check(text);
+      verdict = await verdictOf(instance, checked);
     } catch (error: unknown) {
       throw new GuardFailedError({
         guard: guardrail.name,

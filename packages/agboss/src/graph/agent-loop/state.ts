@@ -1,4 +1,10 @@
-import { NO_FILES, type FileTally, type SourceFile } from "../../files/visit-files.js";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import {
+  NO_FILES,
+  type FileTally,
+  type SeenFile,
+  type SourceFile,
+} from "../../files/visit-files.js";
 import type { AIMessage, BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -109,6 +115,14 @@ export const AgentLoopState = Annotation.Root({
     reducer: merge,
     default: () => ({}),
   }),
+  /**
+   * The source files the model has seen in this visit, numbered from 1 in the order it was shown them
+   * (#899 §8): the input's, then each tool call's as it is collected. An answer file is one of these by
+   * number; the judges and the output guardrails read them again, pinned to their digests.
+   */
+  seen: Annotation<SeenFile[]>({ reducer: append, default: () => [] }),
+  /** The files of the answer (#899 §8): what the output guardrails check with it; none while working. */
+  answerFiles: Annotation<A2AFileDto[]>({ reducer: replace, default: () => [] }),
   /** How many source files and bytes of them the conversation holds (#899): its limits are checked on it. */
   fileTally: Annotation<FileTally>({ reducer: replace, default: () => NO_FILES }),
   /** The flow nodes visited up to and including this agent (limit errors name it). */

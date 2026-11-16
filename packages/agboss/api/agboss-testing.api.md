@@ -551,6 +551,7 @@ export interface JudgeRunner<TReply> extends UnitClock {
 // @public
 export type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
     readonly toolCalls?: readonly ToolCallRecord[];
+    readonly files?: readonly FileContent[];
 };
 
 // @public

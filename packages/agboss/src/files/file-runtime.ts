@@ -3,6 +3,7 @@ import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { lazyLoad, systemClock } from "../infrastructure/clock.js";
+import type { BudgetMeter } from "../budgets/execution-budgets.js";
 import { recordReportedCost } from "../finops/usage.js";
 import type { AgentDefinition } from "../graph/agent-loop/deps.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -82,4 +83,10 @@ export function fileRuntimeOf(
           };
     },
   };
+}
+
+/** What the files of an agent's answer are read with (#899 §8): its file runtime and the pass's budgets. */
+export interface AnswerFileReading {
+  readonly runtime: FileRuntime | undefined;
+  readonly budgets: BudgetMeter;
 }

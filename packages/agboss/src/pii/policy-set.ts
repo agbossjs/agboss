@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
 import { PiiActionKind, type MaskingPiiAction } from "./actions.js";
+import { isCustomPolicy } from "./pii-policy.decorator.js";
 import { PiiRefusedError } from "./errors.js";
 import { maskedText, withoutOverlaps, type MaskedText, type PiiFinding } from "./masking.js";
 import { DetectionMode, type RuntimePiiPolicy } from "./runtime-policy.js";
@@ -71,6 +73,23 @@ export class PiiPolicySet {
     return this.policies.some((policy) =>
       [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
     );
+  }
+
+  /**
+   * What this set masks with, as a short hash: its policies (their rules or action, model detection and
+   * file action), the execution's key and its sensitive values. A masked text kept for reuse (a file's
+   * transcription, #899 §7) is keyed by it, so it is never handed to a place that masks differently.
+   */
+  get fingerprint(): string {
+    const policies = this.policies.map(({ meta }) => ({
+      name: meta.name,
+      masks: isCustomPolicy(meta) ? meta.action : meta.rules,
+      model: isCustomPolicy(meta) ? null : (meta.detectWithModel ?? null),
+      files: meta.files ?? null,
+    }));
+    const values = this.values.map(({ value, label, action }) => [label, value, action]);
+    const text = JSON.stringify([policies, this.fieldKey, values]);
+    return createHash("sha256").update(text).digest("hex").slice(0, 16);
   }
 
   /** The same policies with the sensitive values of one execution. */

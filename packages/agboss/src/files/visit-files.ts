@@ -2,6 +2,7 @@ import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { Bytes } from "../units/index.js";
+import type { PiiTokenMap } from "../pii/tokens.js";
 import { fileContentOf, type FileContent, type FileReadContext } from "./file-bytes.js";
 import {
   ModelFileLimitError,
@@ -9,17 +10,12 @@ import {
   ModelFileUnavailableReason,
 } from "./file-errors.js";
 import { hasModelForm } from "./file-needs.js";
-import {
-  headingOf,
-  originalPieces,
-  ownTranscriptOf,
-  sizeOfPiece,
-  textPiece,
-  type FilePiece,
-} from "./file-pieces.js";
+import type { FileMask } from "./file-mask.js";
+import { headingOf, sizeOfPiece, type FilePiece, type FilePlace } from "./file-pieces.js";
+import { transcriptKeyOf, viewOf } from "./file-views.js";
 import type { ResolvedModelFiles } from "./file-settings.js";
 import type { TranscriptionResult } from "./file-transcriber.js";
-import { FileView, ModelFileLimit } from "./model-files.js";
+import { ModelFileLimit } from "./model-files.js";
 
 /**
  * What a visit's files become in a model message (#899 §2, §3): each source file read once — through
@@ -34,6 +30,12 @@ export interface SourceFile {
   readonly field: string;
   /** Who gave it: the producer of the input value, or `tool <name>`. */
   readonly producer: string;
+}
+
+/** A source file the model has seen in its visit, with the digest of the bytes it saw: later reads are pinned to it. */
+export interface SeenFile {
+  readonly source: SourceFile;
+  readonly digest: string;
 }
 
 /** What the loop reads files with: its settings and where its bytes and transcriptions come from. */
@@ -56,9 +58,25 @@ export interface FileTally {
 
 export const NO_FILES: FileTally = { count: 0, bytes: 0 };
 
+/**
+ * One file in one view as a model saw it (#899 §8): what guardrails and judges are given. A
+ * transcription is a `text/plain` file of the masked text; an original is the file itself.
+ */
+export interface ViewedFile {
+  readonly content: FileContent;
+  /** The heading it had in the message: field, producer, number, view. */
+  readonly heading: string;
+}
+
 /** What building the pieces of some files gave. */
 export interface FilePieces {
   readonly pieces: readonly FilePiece[];
+  /** Every file in every view the pieces show, in the same order. */
+  readonly viewed: readonly ViewedFile[];
+  /** The tokens the masked transcriptions introduced (merged into the execution's `piiTokens`). */
+  readonly tokens: PiiTokenMap;
+  /** The texts of the pieces already masked: the model boundary skips them. */
+  readonly maskedTexts: readonly string[];
   readonly usage: readonly UsageRecord[];
   /** The sha256 of each source file's bytes, in order: what a later read of the same files is pinned to. */
   readonly digests: readonly string[];
@@ -78,15 +96,16 @@ export interface FileBatch {
   /** The number of the batch's first file in its visit; `of`: how many files the visit has, when known. */
   readonly first: number;
   readonly of?: number;
+  /**
+   * How the policies mask a transcription (#899 §5, §7); none where nothing is masked. The masked
+   * transcription is what is cached: its key names the policies.
+   */
+  readonly mask?: FileMask | undefined;
   /** The digests the files must have (a later read of files already pinned): another is `digest-mismatch`. */
-  readonly pins?: readonly string[];
+  readonly pins?: readonly (string | undefined)[];
   /** Called before each model call a transcription makes: the budgets are checked. */
   readonly beforeModelCall: () => void;
 }
-
-/** Where a transcription is cached: per file's bytes and per transcriber, model and bound (#899 §7). */
-export const transcriptKeyOf = (runtime: FileRuntime, content: FileContent): string =>
-  `${content.sha256}:${runtime.transcriberKey()}:${String(runtime.settings.transcriptionMaxTokens)}`;
 
 /** The batch's counts and each file's declared type and size against the agent's limits, before any read. */
 function checkedDeclared(batch: FileBatch): void {
@@ -118,72 +137,87 @@ function checkedDeclared(batch: FileBatch): void {
   }
 }
 
-/** One file in one view: its pieces, and — for a transcription — the text and what it cost. */
-async function viewOf(
+/** What building the pieces of a batch has gathered so far. */
+interface Gathered {
+  readonly pieces: FilePiece[];
+  readonly viewed: ViewedFile[];
+  readonly usage: UsageRecord[];
+  readonly transcripts: Record<string, string>;
+  readonly tokens: Record<string, string>;
+  readonly digests: string[];
+  bytes: number;
+}
+
+/** A file's bytes through the guarded path, held to the digest it was pinned to (if it was). */
+async function pinnedContentOf(batch: FileBatch, source: SourceFile, index: number) {
+  const content = await fileContentOf(source.descriptor, batch.runtime.context());
+  const pin = batch.pins?.[index];
+  if (pin !== undefined && pin !== content.sha256)
+    throw new ModelFileUnavailableError({ reason: ModelFileUnavailableReason.DigestMismatch });
+  return content;
+}
+
+/** One file in every view of the agent's: gathered, its bytes counted against the total limit. */
+async function gatherViews(
   batch: FileBatch,
   content: FileContent,
-  view: FileView,
-  heading: string,
-): Promise<{ pieces: readonly FilePiece[]; made?: string; usage: readonly UsageRecord[] }> {
+  place: FilePlace,
+  gathered: Gathered,
+): Promise<void> {
   const { runtime } = batch;
-  if (view !== FileView.Transcription)
-    return { pieces: originalPieces(heading, content, runtime.maxResultSize), usage: [] };
-  const own = ownTranscriptOf(content);
-  const key = transcriptKeyOf(runtime, content);
-  const cached = own ?? batch.cache[key];
-  if (cached !== undefined)
-    return { pieces: [textPiece(heading, cached, runtime.maxResultSize)], usage: [] };
-  batch.beforeModelCall();
-  const result = await runtime.transcribe(content);
-  return {
-    pieces: [textPiece(heading, result.text, runtime.maxResultSize)],
-    made: result.text,
-    usage: result.usage === undefined ? [] : [result.usage],
-  };
+  const { settings, agent } = runtime;
+  for (const view of settings.views) {
+    const heading = headingOf(place, content, view);
+    const known = { ...batch.mask?.known, ...gathered.tokens };
+    const shown = await viewOf(batch, content, view, heading, known);
+    gathered.bytes += shown.pieces.reduce((sum, piece) => sum + sizeOfPiece(piece), 0);
+    if (gathered.bytes > settings.maxTotalFileSize)
+      throw new ModelFileLimitError({
+        agent,
+        limit: ModelFileLimit.MaxTotalFileSize,
+        actual: gathered.bytes,
+        allowed: settings.maxTotalFileSize,
+      });
+    gathered.pieces.push(...shown.pieces);
+    gathered.viewed.push({ content: shown.viewed, heading });
+    gathered.usage.push(...shown.usage);
+    Object.assign(gathered.tokens, shown.tokens);
+    if (shown.made !== undefined)
+      gathered.transcripts[transcriptKeyOf(runtime, content, batch.mask?.policyHash ?? "")] =
+        shown.made;
+  }
 }
 
 /** The pieces of a batch of files, in order; over a limit → `ModelFileLimitError`, before any model call. */
 export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
   checkedDeclared(batch);
-  const { runtime } = batch;
-  const { settings, agent } = runtime;
-  const pieces: FilePiece[] = [];
-  const usage: UsageRecord[] = [];
-  const transcripts: Record<string, string> = {};
-  const digests: string[] = [];
-  let bytes = batch.tally.bytes;
+  const gathered: Gathered = {
+    pieces: [],
+    viewed: [],
+    usage: [],
+    transcripts: {},
+    tokens: {},
+    digests: [],
+    bytes: batch.tally.bytes,
+  };
   for (const [index, source] of batch.files.entries()) {
-    const content = await fileContentOf(source.descriptor, runtime.context());
-    const pin = batch.pins?.[index];
-    if (pin !== undefined && pin !== content.sha256)
-      throw new ModelFileUnavailableError({ reason: ModelFileUnavailableReason.DigestMismatch });
-    digests.push(content.sha256);
+    const content = await pinnedContentOf(batch, source, index);
+    gathered.digests.push(content.sha256);
     const place = {
       field: source.field,
       producer: source.producer,
       number: batch.first + index,
       of: batch.of,
     };
-    for (const view of settings.views) {
-      const shown = await viewOf(batch, content, view, headingOf(place, content, view));
-      bytes += shown.pieces.reduce((sum, piece) => sum + sizeOfPiece(piece), 0);
-      if (bytes > settings.maxTotalFileSize)
-        throw new ModelFileLimitError({
-          agent,
-          limit: ModelFileLimit.MaxTotalFileSize,
-          actual: bytes,
-          allowed: settings.maxTotalFileSize,
-        });
-      pieces.push(...shown.pieces);
-      usage.push(...shown.usage);
-      if (shown.made !== undefined) transcripts[transcriptKeyOf(runtime, content)] = shown.made;
-    }
+    await gatherViews(batch, content, place, gathered);
   }
+  const { pieces, bytes, ...rest } = gathered;
   return {
+    ...rest,
     pieces,
-    usage,
-    digests,
-    transcripts,
+    maskedTexts: pieces.flatMap((piece) =>
+      piece.kind === "text" && piece.isMasked ? [piece.text] : [],
+    ),
     tally: { count: batch.tally.count + batch.files.length, bytes },
   };
 }

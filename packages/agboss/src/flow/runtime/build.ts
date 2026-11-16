@@ -1,5 +1,5 @@
 import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
-import { loopPoliciesOf } from "./loop-policies.js";
+import { answerReadingOf, loopPoliciesOf } from "./loop-policies.js";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
 import { workflowIdentityOf } from "./workflow-keys.js";
 import { seamApprovalOf } from "./seam-approval.js";
@@ -84,10 +84,10 @@ function agentLoops(deps: GraphDeps<string>, run: RunLimits): ReadonlyMap<string
   return new Map(
     [...agentDefinitions(deps)].map(([name, agent]) => {
       const branch = recursiveBranchOf(recursion, name, RecursionDecider.Agent);
-      const loop = loopOf(name, agent);
-      if (branch === undefined) return [name, { loop }] as const;
+      const own = { loop: loopOf(name, agent), files: answerReadingOf(deps, agent, run) };
+      if (branch === undefined) return [name, own] as const;
       const answerTools = lastLevelAnswerTools(agent.answerTools, branch);
-      return [name, { loop, lastLevel: loopOf(name, { ...agent, answerTools }) }] as const;
+      return [name, { ...own, lastLevel: loopOf(name, { ...agent, answerTools }) }] as const;
     }),
   );
 }
