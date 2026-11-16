@@ -153,15 +153,21 @@ export async function recordAnswer(
   return recordedAnswer(parts, pause, request, await answeredByOf(parts, pause, call));
 }
 
+/** Whose answer is recorded: a person's reply, or the decision a channel gave at once (#1193). */
+export type AnswerSource = PauseResolution.Replied | PauseResolution.Decided;
+
 /**
  * The answer recorded on its pause by `answeredBy` (already checked, or a channel's own name — #946):
- * what `recordAnswer` does once it knows who answers.
+ * what `recordAnswer` does once it knows who answers. A channel's decision (`source` `Decided`) is
+ * logged `decided`, like the first send's decided-at-once outcome, and is not counted: the pause was
+ * never asked of anyone — not opened, so not closed, and no wait for a human to time (#1193).
  */
 export async function recordedAnswer(
   parts: AnswerParts,
   pause: PauseRecord,
   request: ResumeRequest,
   answeredBy: string | undefined,
+  source: AnswerSource = PauseResolution.Replied,
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
   // refused at its deadline before the interpreter reads a reply or the tree is marked (#941, I2):
@@ -192,8 +198,8 @@ export async function recordedAnswer(
   }
   // its notices are written: looked for at once, before anything that may throw
   noticesWritten(parts);
-  pauseTallyOf(parts)?.closed(resolved);
-  await logPauseAnswer(parts.answers, resolved, PauseResolution.Replied);
+  if (source === PauseResolution.Replied) pauseTallyOf(parts)?.closed(resolved);
+  await logPauseAnswer(parts.answers, resolved, source);
   return { pause: resolved, run };
 }
 

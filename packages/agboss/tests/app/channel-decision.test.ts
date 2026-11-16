@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { channelDecisionOf } from "../../src/app/channel-decision.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
-import { PauseClosedReason } from "../../src/infrastructure/pause-record.js";
+import { PauseClosedReason, PauseResolution } from "../../src/infrastructure/pause-record.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 
 const recorded = vi.hoisted(() => ({ fn: vi.fn() }));
@@ -48,6 +48,7 @@ describe("#946: a channel's decision for a pause", () => {
       pause,
       { pauseId: "p-1", decision: { approved: true } },
       "refund-channel",
+      PauseResolution.Decided,
     );
     expect(resumed).toHaveBeenCalledWith(expect.anything(), { ownerId: "alice" });
   });

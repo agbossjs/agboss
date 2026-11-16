@@ -5,7 +5,7 @@ import { endedByRun } from "./tree-expiry.js";
 import { isHandedOver } from "./handed-over.js";
 import { PauseClosedError } from "./pause-closed-error.js";
 import { recordedAnswer, type ResumeParts } from "./resume.js";
-import type { PauseRecord } from "../infrastructure/pause-record.js";
+import { PauseResolution, type PauseRecord } from "../infrastructure/pause-record.js";
 
 /**
  * A channel's own decision for a pause (#946): the channel that was asked again by a reassignment
@@ -13,7 +13,8 @@ import type { PauseRecord } from "../infrastructure/pause-record.js";
  * checked and no request is observed (`answeredByOf` and `admit` are skipped), and `answeredBy` is the
  * channel's name for a channel's pause and a thread owner's alike — the owner only reassigned it.
  * Recorded as an answer (`Pending → Resolved`, the store's compare-and-set: of two sends that decide, a
- * crash's re-send included, one applies — a pause already closed is applied once, a no-op) and the tree
+ * crash's re-send included, one applies — a pause already closed is applied once, a no-op), logged `decided`
+ * and neither counted closed nor timed as an answer (#1193: the replacement was never opened), and the tree
  * moved under its lease as the thread's owner. A hand-over, or a run that ended, after the decision is the
  * run's own outcome — told and recorded by the pass — not a failure of the send.
  */
@@ -34,7 +35,13 @@ export const channelDecisionOf =
   (parts: ChannelDecisionParts): ChannelDecision =>
   async (pause, decision, channel) => {
     const request = { pauseId: pause.pauseId, decision };
-    const answer = await recordedAnswer(parts, pause, request, channel).catch((error: unknown) => {
+    const answer = await recordedAnswer(
+      parts,
+      pause,
+      request,
+      channel,
+      PauseResolution.Decided,
+    ).catch((error: unknown) => {
       // answered, cancelled or expired meanwhile — another send's decision, or the run's own end
       if (error instanceof PauseClosedError) return undefined;
       throw error;
