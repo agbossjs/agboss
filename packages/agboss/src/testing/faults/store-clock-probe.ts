@@ -20,10 +20,18 @@ export const CLOCK_PROBE_KEY_PREFIX = "fault-clock-probe-";
 export const isClockProbeKey = (key: string | undefined): boolean =>
   key?.startsWith(CLOCK_PROBE_KEY_PREFIX) === true;
 
-/** How long the store's time ran, against how long real time did. */
+/**
+ * How long the store's time ran, against how long real time did. The store read its two times
+ * somewhere inside the real calls, so the real time that passed between them is not one number but
+ * a bracket: at least `realMs` (from the end of the first call to the start of the second) and at
+ * most `bracketMs` (from the start of the first to the end of the second). A loaded host widens the
+ * bracket by exactly the scheduling delay it measured; `bracketMs` is `realMs` for a reading taken
+ * without one.
+ */
 export interface StoreClockReading {
   readonly storeMs: number;
   readonly realMs: number;
+  readonly bracketMs?: number;
 }
 
 /** A store set whose declared `storeTime` contradicts the clock rate its stores measured (#959). */
@@ -49,34 +57,47 @@ const realNow = (): number => Number(process.hrtime.bigint() / 1_000_000n);
 export async function readStoreClock(app: App, waitMs: number): Promise<StoreClockReading> {
   const leases = app.resolve(ExecutionLeaseRepository);
   const duration = waitOf(60_000);
+  const begun = realNow();
   const first = await leases.acquire("default", `${CLOCK_PROBE_KEY_PREFIX}1`, duration);
   const started = realNow();
   await systemClock.sleep(waitOf(waitMs));
+  const resumed = realNow();
   const second = await leases.acquire("default", `${CLOCK_PROBE_KEY_PREFIX}2`, duration);
-  const realMs = realNow() - started;
+  const ended = realNow();
+  // the store read its first time before `started` and its second after `resumed`
+  const realMs = resumed - started;
+  const bracketMs = ended - begun;
   if (first === undefined || second === undefined)
     throw new Error("the store refused a lease of a key nobody held: the clock was not read");
   await Promise.all([leases.release(first), leases.release(second)]);
-  return { storeMs: second.expiresAt.getTime() - first.expiresAt.getTime(), realMs };
+  return { storeMs: second.expiresAt.getTime() - first.expiresAt.getTime(), realMs, bracketMs };
 }
+
+/** A field of a pod's reply, whatever the reply is. */
+const fieldOf = (value: unknown, name: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
 
 /** A reading from a pod's reply, or why it is none. */
 export function readingOf(value: unknown): StoreClockReading {
-  const storeMs: unknown =
-    typeof value === "object" && value !== null ? Reflect.get(value, "storeMs") : undefined;
-  const realMs: unknown =
-    typeof value === "object" && value !== null ? Reflect.get(value, "realMs") : undefined;
+  const storeMs = fieldOf(value, "storeMs");
+  const realMs = fieldOf(value, "realMs");
+  const bracketMs = fieldOf(value, "bracketMs");
   if (typeof storeMs !== "number" || typeof realMs !== "number" || realMs <= 0)
     throw new TypeError(
       `a store clock reading is { storeMs, realMs }, got ${JSON.stringify(value)}`,
     );
-  return { storeMs, realMs };
+  return typeof bracketMs === "number" && bracketMs >= realMs
+    ? { storeMs, realMs, bracketMs }
+    : { storeMs, realMs };
 }
 
 /**
- * Refuses a declaration the reading contradicts: the rate it shows is nearer (in ratio) the other
- * time's than the declared one's. At a timeScale of 1 the two times are the same rate — nothing to
- * contradict.
+ * Refuses a declaration the reading contradicts: the store's time ran nearer (in ratio) to the span
+ * the other time predicts than to the declared one's. Each time predicts a span, not a point: the
+ * real time between the store's two reads is somewhere in the reading's bracket, and the pods' time
+ * runs `timeScale` times that. Where a loaded host stretched the bracket until the two spans meet,
+ * the reading cannot tell them apart and contradicts nothing. At a timeScale of 1 the two times are
+ * the same rate — nothing to contradict.
  */
 export function checkStoreTime(
   declared: FaultStoreTime,
@@ -84,12 +105,18 @@ export function checkStoreTime(
   timeScale: number,
 ): void {
   if (timeScale <= 1) return;
-  const rate = reading.storeMs / reading.realMs;
   const other =
     declared === FaultStoreTime.Database ? FaultStoreTime.Host : FaultStoreTime.Database;
-  const distance = (time: FaultStoreTime): number =>
-    Math.abs(Math.log(rate / storeTimeScaleOf(time, timeScale)));
-  if (!(rate > 0) || distance(other) < distance(declared))
+  const bracketMs = reading.bracketMs ?? reading.realMs;
+  /** How far (in ratio) the store's time is from the span `time` predicts: 0 inside it. */
+  const distance = (time: FaultStoreTime): number => {
+    const scale = storeTimeScaleOf(time, timeScale);
+    const lowest = reading.realMs * scale;
+    const highest = bracketMs * scale;
+    if (reading.storeMs >= lowest && reading.storeMs <= highest) return 0;
+    return Math.abs(Math.log(reading.storeMs / (reading.storeMs < lowest ? lowest : highest)));
+  };
+  if (!(reading.storeMs > 0) || distance(other) < distance(declared))
     throw new FaultStoreTimeMismatchError(declared, reading, timeScale);
 }
 
