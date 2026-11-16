@@ -325,7 +325,7 @@ npx agboss rag index   # every knowledge base of the application [--rag company_
 
 ## The reference implementation — `SqliteFtsConnector`
 
-SQLite FTS5 (built into Node's `node:sqlite`), ranked by BM25 — no dependencies, no cost. `index()`
+SQLite FTS5 (built into Node's `node:sqlite` from Node 22.16 — 22.13 to 22.15 have no FTS5 module: the connector then refuses its first use with `rag.fts5-unavailable`, naming the Node it needs, #1226), ranked by BM25 — no dependencies, no cost. `index()`
 splits Markdown at headings and paragraphs (≤ 800 characters) and skips files whose content hash did
 not change (`maxChunkLength`, in characters); it reads every document of the tenant first and then
 writes every change — changed documents, removed ones — in one transaction on a connection of its
