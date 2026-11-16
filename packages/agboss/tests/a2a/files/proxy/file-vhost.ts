@@ -1,8 +1,9 @@
 // #1021 / #1022: a local TLS server for one host name (a self-signed certificate), recording every
 // HTTP request it receives and every TCP connection made to it. A child process trusts it through
 // `NODE_EXTRA_CA_CERTS` (`trust`). Paths (#1139): `/big` sends 100 KB, `/slow` a status line then
-// one body byte per 100 ms, `/cut` a status line and part of the body, then a reset; any other
-// path a small PDF.
+// one body byte per 100 ms, `/cut` a status line and part of the body, then a reset,
+// `/redirect?to=<url>` a 302 to that url, `/garbage` a head no HTTP parser takes (#1138); any
+// other path a small PDF.
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:https";
@@ -23,6 +24,8 @@ export interface Vhost {
   readonly trust: string;
   readonly close: () => Promise<void>;
 }
+
+const REDIRECT = "/redirect?to=";
 
 export async function startVhost(host: string): Promise<Vhost> {
   const directory = await mkdtemp(join(tmpdir(), "agboss-vhost-"));
@@ -57,6 +60,12 @@ export async function startVhost(host: string): Promise<Vhost> {
       setTimeout(() => {
         request.socket.destroy();
       }, 50);
+    } else if (request.url === "/garbage") {
+      request.socket.end("HTTP/1.1 200 OK\r\nno colon here\r\n\r\n");
+    } else if (request.url?.startsWith(REDIRECT) === true) {
+      response.statusCode = 302;
+      response.setHeader("location", decodeURIComponent(request.url.slice(REDIRECT.length)));
+      response.end();
     } else response.end("%PDF-1.4 a file");
   });
   server.on("tlsClientError", () => undefined);

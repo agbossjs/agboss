@@ -1,6 +1,7 @@
 /**
- * #1022: a file fetch whose request cannot be built or is refused destroys the TLS socket it made
- * (the child exits by itself, nothing reaches the server). #1021: a fetch is one OpenTelemetry
+ * #1022: a file fetch whose exchange fails destroys the TLS socket it made (the child exits by
+ * itself); #1138: a replaced `ClientRequest` is never asked, so one that would put the request on an
+ * agent changes nothing. #1021: a fetch is one OpenTelemetry
  * CLIENT span with HTTP attributes and no query string, and costs nothing without an SDK; it
  * injects no propagation header. #1139: a fetch that fails after a 2xx status line (the body too
  * large, cut by the deadline, reset by the peer) ends its span with an error. Each case is a child
@@ -51,20 +52,27 @@ async function fetchedUnder(path: string, mode: string): Promise<Report> {
 }
 
 describe("#1022: every failure after the connection destroys its TLS socket", () => {
-  it("L1 a request whose constructor throws (an https.Agent swap): denied, the child exits, no HTTP byte", async () => {
+  it("L1 a replaced ClientRequest that would give the request an https.Agent: never asked, fetched, the child exits", async () => {
     const fetched = await fetchedUnder("/a.pdf", "refuse-https-agent");
 
-    expect(fetched.outcome).toBe("a2a.file-address-denied");
+    expect(fetched.outcome).toBe("fetched");
     expect(fetched.lingering).toBe(false);
-    expect(vhost.requests).toEqual([]);
+    expect(vhost.requests).toEqual(["/a.pdf"]);
   }, 30_000);
 
-  it("L2 a request that has an http.Agent: denied, the child exits, no HTTP byte", async () => {
+  it("L2 a replaced ClientRequest that would give the request an http.Agent: never asked, fetched, the child exits", async () => {
     const fetched = await fetchedUnder("/a.pdf", "refuse-agent");
 
-    expect(fetched.outcome).toBe("a2a.file-address-denied");
+    expect(fetched.outcome).toBe("fetched");
     expect(fetched.lingering).toBe(false);
-    expect(vhost.requests).toEqual([]);
+    expect(vhost.requests).toEqual(["/a.pdf"]);
+  }, 30_000);
+
+  it("L3 a response the fetch cannot read: a2a.file-fetch-failed, the child exits", async () => {
+    const fetched = await fetchedUnder("/garbage", "plain");
+
+    expect(fetched.outcome).toBe("a2a.file-fetch-failed");
+    expect(fetched.lingering).toBe(false);
   }, 30_000);
 });
 
@@ -87,8 +95,8 @@ describe("#1021: a file fetch is one OpenTelemetry CLIENT span", () => {
     expect(JSON.stringify(fetched.spans)).not.toContain("secret");
   }, 30_000);
 
-  it("T2 a refused request: the span ends with an error status and an error type", async () => {
-    const fetched = await fetchedUnder("/a.pdf", "span-refuse-agent");
+  it("T2 a refused request (the peer is not the answered address): the span ends with an error status and an error type", async () => {
+    const fetched = await fetchedUnder("/a.pdf", "span-wrong-peer");
 
     expect(fetched.outcome).toBe("a2a.file-address-denied");
     expect(fetched.spans).toHaveLength(1);

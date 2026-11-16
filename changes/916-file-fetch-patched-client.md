@@ -14,4 +14,4 @@ and no request byte reach a refused peer), checks the remote address again. A de
 (a proxy in the way), or a socket that did not come through the file agent is destroyed and
 refused `a2a.file-address-denied`. File fetches bypass any HTTP(S) proxy and global agent. (Superseded in part by 916-own-connect and
 916-sni: the fetch has no agent of its own any more, and the peer check is on a raw socket made
-before TLS; a patch below the request that redirects the TCP connection is stopped by that check.)
+before TLS; a patch below the request that redirects the TCP connection is stopped by that check.) (Since #1138 there is no `ClientRequest` either: the fetch writes its own HTTP/1.1 exchange on the checked socket.)
