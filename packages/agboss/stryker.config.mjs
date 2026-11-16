@@ -17,29 +17,30 @@ import {
  * Locally: `MUTATION_SHARD=<shard> npm run test:mutation` (3 workers at most).
  */
 const SHARDS = {
-  // the leases, the holder's fence, the held lease, the fenced effect, the outbound call's
-  // protocol and in-memory store, and the store's clock (#533)
+  // the leases, the holder's fence, the held lease and the store's clock (#533). #1242: split from
+  // `fencing-effects` — one shard of both took past its CI limit cold, and each static mutant reruns
+  // every test of its shard, so two shards over one test set halve the wall time
   fencing: {
     configFile: "vitest.mutation.config.ts",
     mutate: [
-      "src/infrastructure/execution-lease.repository.ts",
+      "src/infrastructure/{execution-lease.repository,live-lease,clock}.ts",
       // #1117: the cancel mark on the in-memory lease row, kept by every write of it
       "src/infrastructure/in-memory-cancel-mark.ts",
-      "src/infrastructure/live-lease.ts",
-      "src/infrastructure/fenced-effect.repository.ts",
-      "src/infrastructure/in-memory-fenced-effect.repository.ts",
-      "src/infrastructure/outbound-call.repository.ts",
-      "src/infrastructure/outbound-call-changes.ts",
-      // #825: the paged listing's keyset, the in-memory record order
-      "src/infrastructure/outbound-call-pages.ts",
+      "src/app/{held-lease,lease-fence}.ts",
+    ],
+  },
+  // the fenced effect, the outbound call's protocol and in-memory store (#533), on the fencing
+  // shard's tests (#1242)
+  "fencing-effects": {
+    configFile: "vitest.mutation.config.ts",
+    mutate: [
+      "src/infrastructure/{fenced-effect,in-memory-fenced-effect,outbound-call}.repository.ts",
+      // the call's changes; #825: the paged listing's keyset, the in-memory record order
+      "src/infrastructure/outbound-call-{changes,pages}.ts",
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
-      "src/infrastructure/clock.ts",
-      "src/app/held-lease.ts",
-      "src/app/lease-fence.ts",
-      "src/app/outbound-call-protocol.ts",
-      // #657, #658: an error of unknown outcome, the key's age and its retention
-      "src/app/outbound-call-ambiguity.ts",
+      // #657, #658 (ambiguity): an error of unknown outcome, the key's age and its retention
+      "src/app/outbound-call-{protocol,ambiguity}.ts",
     ],
   },
   // the SQLite fencing stores (#626): epochs, expiry, finish, yield and reclaim in SQL, the lease
@@ -260,5 +261,9 @@ export default {
   jsonReporter: { fileName: `reports/mutation/${shard}.json` },
   thresholds: { high: 100, low: 95, break: 100 },
   timeoutMS: 20000,
+  // #1242: the initial run of a shard's tests under coverage, bounded by Stryker at 5 min unless set:
+  // the fencing and keys-and-calls dry runs took up to 4 min 46 s on a slow runner and failed there
+  // at exactly 5 min (#1207, #1138), with no test hung. 10 min keeps a hang bounded and a slow runner green.
+  dryRunTimeoutMinutes: 10,
   tempDirName: `.stryker-tmp-${shard}`,
 };

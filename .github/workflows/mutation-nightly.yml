@@ -21,6 +21,7 @@ jobs:
         shard:
           [
             fencing,
+            fencing-effects,
             sqlite-stores,
             keys-and-calls,
             takeover,
