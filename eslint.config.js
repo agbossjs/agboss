@@ -131,8 +131,11 @@ export default tseslint.config(
               message: "The framework never imports example code (#91).",
             },
             {
-              regex: "^\\.\\./",
-              message: "Turns are isolated: they depend on nothing else in src.",
+              // `../core/` only: core is the leaf layer of errors and has no dependencies (#1194, so
+              // the turn store's stored texts are read with `parsedStoredJson`); turns stay isolated
+              // from infrastructure, stores and everything else.
+              regex: "^\\.\\./(?!core/)",
+              message: "Turns are isolated: they depend on nothing else in src but core.",
             },
           ],
         },

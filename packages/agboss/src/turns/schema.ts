@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { parsedStoredJson } from "../core/stored-json.js";
 import { TURN_STATUSES, type Turn } from "./types.js";
 
 /** Ordered schema migrations; `PRAGMA user_version` = how many are applied. */
@@ -141,12 +142,17 @@ const Steps = z.array(z.object({ agent: z.string(), content: z.string() }));
  */
 export const storedTextOf = (text: string): string => JSON.stringify(text);
 
+/** The ids of the row a text is read from, named by an unreadable refusal (never the text). */
+type StoredIds = Readonly<Record<string, string | undefined>>;
+
 /** The free text a column keeps (`storedTextOf`). */
-export const textOf = (stored: string): string => z.string().parse(JSON.parse(stored));
+export const textOf = (stored: string, what: string, ids: StoredIds): string =>
+  z.string().parse(parsedStoredJson(what, stored, ids));
 
 /** A database row → a typed Turn; rows are validated, never trusted. */
 export function toTurn(row: unknown): Turn {
   const r = TurnRow.parse(row);
+  const ids = { turnId: r.id, runId: r.run_id ?? undefined };
   return {
     id: r.id,
     runId: r.run_id,
@@ -154,12 +160,12 @@ export function toTurn(row: unknown): Turn {
     tenantId: r.tenant_id,
     bundle: r.bundle,
     createdAt: r.created_at,
-    task: textOf(r.task),
-    replyWith: textOf(r.replyWith),
+    task: textOf(r.task, "turn task", ids),
+    replyWith: textOf(r.replyWith, "turn answer", ids),
     status: r.status,
-    stopReason: textOf(r.stop_reason),
-    route: Route.parse(JSON.parse(r.route)),
-    steps: Steps.parse(JSON.parse(r.steps)),
+    stopReason: textOf(r.stop_reason, "turn stop reason", ids),
+    route: Route.parse(parsedStoredJson("turn route", r.route, ids)),
+    steps: Steps.parse(parsedStoredJson("turn steps", r.steps, ids)),
     costUsd: r.cost_usd,
     promptVersion: r.prompt_version,
     modelVersion: r.model_version,
