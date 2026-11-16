@@ -70,7 +70,8 @@ function gateOf(gate: Mocked<UnwindGate>): { readonly open: () => void } {
 const releasedIds = (desk: { release: { mock: { calls: unknown[][] } } }): unknown[] =>
   desk.release.mock.calls.map(([id]) => id);
 
-describe("a cancel of a running execution (AC1)", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
   test("undoes its open actions newest first, then rejects as cancelled", async ({
     app,
     mockOf,
@@ -141,7 +142,8 @@ describe("a cancel of a running execution (AC1)", () => {
   });
 });
 
-describe("what is committed or already undone is left (AC2)", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("what is committed or already undone is left (AC2)", { timeout: 60_000 }, () => {
   test("a committed seat: only the room is undone", async ({ app, mockOf }) => {
     const desk = mockOf(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
@@ -179,7 +181,8 @@ describe("what is committed or already undone is left (AC2)", () => {
   });
 });
 
-describe("an uncaught failure", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("an uncaught failure", { timeout: 60_000 }, () => {
   test("undoes the open actions, then fails with the step's error", async ({ app, mockOf }) => {
     const desk = mockOf(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
@@ -212,7 +215,8 @@ describe("an uncaught failure", () => {
   });
 });
 
-describe("a body still running when the execution ends (Q-A, Q-B)", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 60_000 }, () => {
   test("one that returns before the undo ends is undone too", async ({ app, mockOf }) => {
     const desk = mockOf(UndoDesk);
     let roomReserved = (): void => undefined;
@@ -275,7 +279,8 @@ describe("a body still running when the execution ends (Q-A, Q-B)", () => {
   });
 });
 
-describe("a child that ends without a finish (Q2, S5)", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () => {
   real(
     "a FailFast sibling: each child undoes its own room, then the launch fails",
     async ({ app, mockOf }) => {

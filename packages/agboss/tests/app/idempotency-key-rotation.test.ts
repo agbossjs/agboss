@@ -84,7 +84,8 @@ const bookingsOn = (path: string): number => {
   }
 };
 
-describe("#825 AC7: an outbound call recorded before the rotation", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 60_000 }, () => {
   it("completed before, retried during it: replayed — no conflict, sent once", async () => {
     const first = await instanceOf(RotationBeforeApplication);
     await execute(first, ChargeOrderStart, ORDER);
@@ -152,7 +153,8 @@ describe("#825 AC7: an outbound call recorded before the rotation", () => {
   });
 });
 
-describe("#825 AC7: a fenced effect stored before the rotation", () => {
+// under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
+describe("#825 AC7: a fenced effect stored before the rotation", { timeout: 60_000 }, () => {
   it("retried during it: replayed, booked once; after the previous key is removed: a conflict, nothing run", async () => {
     const first = await instanceOf(RotationBeforeApplication);
     await execute(first, BookOrderStart, ORDER);

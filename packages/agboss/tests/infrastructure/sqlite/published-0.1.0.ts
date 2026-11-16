@@ -1,4 +1,5 @@
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll } from "vitest";
@@ -37,9 +38,11 @@ export function installPublished010(): void {
       join(folder, "writer.mjs"),
     );
   }, 240_000);
-  afterAll(() => {
-    rmSync(folder, { recursive: true, force: true });
-  });
+  // removing an install of thousands of files took 1.7-2.3 s with 3 workers and two busy loops, and over
+  // vitest's 10 s hook default in a full gate (#1214): async, so it does not block the worker, with a bound
+  afterAll(async () => {
+    await rm(folder, { recursive: true, force: true });
+  }, 120_000);
 }
 
 /** 0.1.0 puts `puts` into the file at `path`, in order (a failure throws with 0.1.0's message). */

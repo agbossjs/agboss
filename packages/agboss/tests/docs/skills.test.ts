@@ -41,8 +41,9 @@ const FRONTMATTER = `name: agboss\ndescription: d\nlicense: Apache-2.0\nmetadata
 const header = (version: string, frontmatter: string = FRONTMATTER): string =>
   `---\n${frontmatter}\n---\n\n<!-- agboss-skills-version: ${version} — managed by \`agboss check\`; edits here are replaced -->\n`;
 
-// each test runs tsc over the written snippets: the whole skill takes ~25 s locally
-describe("#305: the project skills in check:docs", { timeout: 120_000 }, () => {
+// each test runs tsc over the written snippets: the whole skill takes 19-25 s alone, and ran past 120 s (147 s for
+// the file) in a full gate with other gates beside it (#1225): the bound says "not hung"
+describe("#305: the project skills in check:docs", { timeout: 300_000 }, () => {
   it("AC1: the shipped SKILL.md and its 13 references pass — header, codes, matrix coverage", async () => {
     const references = readdirSync(join(SKILLS, "references")).sort();
     const files = Object.fromEntries([
