@@ -43,7 +43,8 @@ charge that had already left was a refund, not a prevention.
   tree's, an A2A `CancelTask` — then the tree key the holder's watch reads.
 - **A step refused by the cancel stops at once**, not at the next renewal: the holder aborts its own
   pass as for a found cancel, the open undos run under its lease, the record is failed as cancelled.
-  Redis keeps no fencing stores (A2): its `requestCancel` writes nothing.
+  Redis keeps no fencing stores (A2): its `requestCancel` and `isCancelRequested` go to the durable lease
+  store under `EXECUTION_ID_STORE`, and nothing is written to Redis (#1198).
 
 ## Consequences
 
