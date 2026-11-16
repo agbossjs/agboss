@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 /** What went wrong with a DTO class itself (found at registration, before any data). */
-export type DtoErrorCode = "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata";
+export type DtoErrorCode =
+  "dto.undecorated-field" | "dto.not-plain-data" | "dto.no-metadata" | "dto.cyclic";
 
 /** What a DTO class error takes (#906): why, and the sentence naming the class and fields. */
 export interface DtoErrorOptions {
