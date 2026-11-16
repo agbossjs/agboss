@@ -15,7 +15,12 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { OPTED_OUT_REASON } from "../../../src/testing/contracts/fencing-gate.js";
-import { runContractFixtures, type FixtureCase, type FixtureRun } from "./fixture-runs.js";
+import {
+  LOADED_CASE_TIMEOUT,
+  runContractFixtures,
+  type FixtureCase,
+  type FixtureRun,
+} from "./fixture-runs.js";
 
 const ACCEPTED = "fencing-opted-out.contract-fixture.ts";
 const REFUSED = "opted-out-refused.contract-fixture.ts";
@@ -26,7 +31,10 @@ const UNFLAGGED = "fencing-check-then-write.contract-fixture.ts";
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures([ACCEPTED, REFUSED, HONEST, UNUSED_FLAG, UNFLAGGED]);
+  run = await runContractFixtures(
+    [ACCEPTED, REFUSED, HONEST, UNUSED_FLAG, UNFLAGGED],
+    LOADED_CASE_TIMEOUT,
+  );
 }, 180_000);
 
 const casesOf = (file: string, suite: string): readonly FixtureCase[] =>

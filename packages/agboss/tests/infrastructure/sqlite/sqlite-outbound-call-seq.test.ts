@@ -42,7 +42,10 @@ async function storesOn(path: string, executionId = "execution-1") {
 const namesOf = (page: { readonly calls: readonly { readonly name: string }[] }) =>
   page.calls.map((call) => call.name);
 
-describe("#825: the SQLite outbound calls page on a declared seq", () => {
+// each case opens a SQLite file, writes, VACUUMs or rebuilds a table (file I/O and fsync), and the first
+// one also loads the stores: under machine load the 5 s default measured the scheduler (#1205, as #1149
+// and #1160). About 10 ms a case on a loaded machine in 20 runs; the bound only says "not hung".
+describe("#825: the SQLite outbound calls page on a declared seq", { timeout: 60_000 }, () => {
   it("a VACUUM after rows are removed keeps a cursor's place: the next page neither repeats nor skips", async () => {
     const { connection, calls, record } = await storesOn(temporarySqlitePath());
     for (const name of ["a", "b", "c", "d", "e"]) await record(name);

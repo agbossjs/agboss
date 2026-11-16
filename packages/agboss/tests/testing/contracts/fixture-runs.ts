@@ -53,8 +53,24 @@ function casesOf(task: RunnerTask, file: string, suites: readonly string[]): Fix
   ];
 }
 
+/**
+ * How long a case of a fixture may take before it fails as hung. A broken store may leave a case
+ * waiting: fail it soon, not at the default 5 s.
+ */
+const FIXTURE_CASE_TIMEOUT = 2000;
+
+/**
+ * The bound for fixtures whose cases do real work: the lease contract's clock-skew cases wait one
+ * real second, and under a loaded machine (3 workers and 2 busy loops, #1190) the 2 s above left
+ * them a second of room. Sized to those waits with ten times their length.
+ */
+export const LOADED_CASE_TIMEOUT = 10_000;
+
 /** Runs `fixtures` (names in tests/fixtures/contracts) in a nested vitest, quietly. */
-export async function runContractFixtures(fixtures: readonly string[]): Promise<FixtureRun> {
+export async function runContractFixtures(
+  fixtures: readonly string[],
+  testTimeout: number = FIXTURE_CASE_TIMEOUT,
+): Promise<FixtureRun> {
   const exitCode = process.exitCode;
   const vitest = await startVitest("test", [], {
     root: PACKAGE_ROOT,
@@ -63,8 +79,7 @@ export async function runContractFixtures(fixtures: readonly string[]): Promise<
     include: fixtures.map((fixture) => `tests/fixtures/contracts/${fixture}`),
     reporters: [{}],
     coverage: { enabled: false },
-    // a broken store may leave a case waiting: fail it soon, not at the default 5 s
-    testTimeout: 2000,
+    testTimeout,
   });
   try {
     const files = vitest.state.getFiles();

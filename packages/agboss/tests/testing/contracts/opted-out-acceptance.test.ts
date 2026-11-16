@@ -15,7 +15,12 @@ import {
   OPT_OUT_SHOWN_CASE,
   OPTED_OUT_REASON,
 } from "../../../src/testing/contracts/fencing-gate.js";
-import { runContractFixtures, type FixtureCase, type FixtureRun } from "./fixture-runs.js";
+import {
+  LOADED_CASE_TIMEOUT,
+  runContractFixtures,
+  type FixtureCase,
+  type FixtureRun,
+} from "./fixture-runs.js";
 
 const INHERITED = "opted-out-inherited.contract-fixture.ts";
 const RESTATED = "opted-out-restated.contract-fixture.ts";
@@ -33,7 +38,10 @@ const FLAG_CASE =
 let run: FixtureRun;
 
 beforeAll(async () => {
-  run = await runContractFixtures([INHERITED, RESTATED, WITHOUT, NO_FENCING, ALONE, ALONE_ATOMIC]);
+  run = await runContractFixtures(
+    [INHERITED, RESTATED, WITHOUT, NO_FENCING, ALONE, ALONE_ATOMIC],
+    LOADED_CASE_TIMEOUT,
+  );
 }, 180_000);
 
 const casesOf = (file: string, suite: string): readonly FixtureCase[] =>
@@ -145,7 +153,7 @@ async function printedWithSkipsHidden(fixture: string): Promise<string> {
       reporters: ["verbose"],
       hideSkippedTests: true,
       coverage: { enabled: false },
-      testTimeout: 2000,
+      testTimeout: LOADED_CASE_TIMEOUT,
     },
     {},
     { stdout: sink, stderr: sink },
