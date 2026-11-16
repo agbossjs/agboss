@@ -47,10 +47,13 @@ combination cannot meet P1 and is **refused**: a Redis lease store beside a fenc
 outbound-call store of another backend fails assembly with `[application.store-backend-mismatch]`.
 The rule is not relaxed for Redis.
 
-Redis keeps no fencing stores, so it keeps no cancel mark either (#909): its `requestCancel`
-resolves and writes nothing. The cancel's mark is written by the lease store of the backend the
-fenced-effect and outbound-call stores share (A2 puts their leases there): a layout with Redis leases
-has no fenced write to refuse, and its holder sees a cancel at its next renewal, as before.
+Redis keeps no fencing stores, so it keeps no cancel mark either (#909, #1117): its `requestCancel`
+and `isCancelRequested` go to the durable lease store the application gives under `EXECUTION_ID_STORE`
+(the store that also keeps the execution ids), and nothing is written to Redis. The mark is permanent
+and lives on that store's lease row, so it survives a flushed Redis. Both methods are part of the
+`ExecutionIdStore` type, so a store handed under that token that lacks one fails to compile. A layout
+with Redis leases has no fenced write of its own to refuse; its holder sees a cancel at its next
+renewal, as before.
 
 The layouts that hold:
 

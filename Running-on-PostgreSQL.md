@@ -289,7 +289,12 @@ stores in their own transactions, each under a pair of advisory locks of the tre
 (namespace 909, beside the business key's 508): the cancel takes the exclusive one, so it waits for
 the tree's open fencing transactions; a fencing transaction takes the shared one after its lease and
 key checks and reads the committed mark. A long fenced `work` therefore delays a cancel of its tree,
-never the other way round. Rows older than the fencing stores' retention are pruned with them.
+never the other way round.
+
+A mark is **permanent** (#1117, [Guarantees](Guarantees) A18): no retention pass lifts it, not by age
+and not once the tree's lease is retired, because a still-live lease of a child of the cancelled tree
+would then write after the cancel. It is kept as the lease rows and the execution ids are, one per
+cancelled tree, never scanned, so size it as one row per cancelled tree.
 
 ## What the guarantees assume of PostgreSQL
 
