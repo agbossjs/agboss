@@ -100,4 +100,25 @@ describe("#831 AC2: a sabotage's case passes only when the sabotage breaks its i
       /s00-harmless: the sabotage passed — the suite does not bite/u,
     );
   }, 120_000);
+
+  it("#1219 a scenario that fails otherwise than on an invariant: its own error is shown, not 'the suite does not bite'", async () => {
+    const broken: FaultSabotage = {
+      id: "s00-broken",
+      title: "a run that throws",
+      run: () => Promise.reject(new Error("a wait ran out")),
+      violates: FaultInvariant.EffectsOnce,
+      evidence: /was paid 2 times/u,
+    };
+
+    const failure = await sabotaged(broken, sqliteFaultTarget(), expect).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toMatch(
+      /s00-broken: the scenario failed, but not on an invariant — .*a wait ran out/u,
+    );
+    expect((failure as Error).message).not.toMatch(/does not bite/u);
+  }, 120_000);
 });

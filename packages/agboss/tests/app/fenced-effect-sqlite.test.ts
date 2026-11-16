@@ -60,72 +60,77 @@ function charges(): readonly string[] {
   }
 }
 
-describe("#500 AC1, AC2: the fenced effect on one SQLite file, two instances", () => {
-  two(
-    "AC1: a crash before the checkpoint charges once on the file and the replay gets the first receipt",
-    async ({ apps, clock, leases }) => {
-      gates.after = 1;
-      const [a, b] = [instance(apps, 0), instance(apps, 1)];
-      await a.ready();
-      await b.ready();
-      const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
-      call.catch(() => undefined);
-      await frozenRuns(1);
-      leases.freeze(a);
-      await clock.advance(seconds(31));
-      // the new holder is live: its renewals reach the store in time (#534)
-      await passLive(clock, seconds(31));
-      const [end] = await ends(1);
+// 0.15 s a case alone, 4.4-6.3 s in a loaded run (3 workers, two busy loops) against vitest's 5 s default (#1219): the bound says "not hung"
+describe(
+  "#500 AC1, AC2: the fenced effect on one SQLite file, two instances",
+  { timeout: 60_000 },
+  () => {
+    two(
+      "AC1: a crash before the checkpoint charges once on the file and the replay gets the first receipt",
+      async ({ apps, clock, leases }) => {
+        gates.after = 1;
+        const [a, b] = [instance(apps, 0), instance(apps, 1)];
+        await a.ready();
+        await b.ready();
+        const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
+        call.catch(() => undefined);
+        await frozenRuns(1);
+        leases.freeze(a);
+        await clock.advance(seconds(31));
+        // the new holder is live: its renewals reach the store in time (#534)
+        await passLive(clock, seconds(31));
+        const [end] = await ends(1);
 
-      expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
-      expect(charges()).toEqual(["charge-order-7-1"]);
-      expect(book.runs).toEqual([
-        { token: 1, status: FencedEffectStatus.Ran },
-        { token: 2, status: FencedEffectStatus.Replayed },
-      ]);
+        expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
+        expect(charges()).toEqual(["charge-order-7-1"]);
+        expect(book.runs).toEqual([
+          { token: 1, status: FencedEffectStatus.Ran },
+          { token: 2, status: FencedEffectStatus.Replayed },
+        ]);
 
-      letAllGo();
-      leases.thaw(a);
-      await settle();
-      expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
-      expect(charges()).toHaveLength(1);
-    },
-  );
+        letAllGo();
+        leases.thaw(a);
+        await settle();
+        expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
+        expect(charges()).toHaveLength(1);
+      },
+    );
 
-  two(
-    "AC2: the zombie arriving before the new holder writes is refused: nothing on the file, no receipt",
-    async ({ apps, clock, leases }) => {
-      gates.before = 2;
-      const [a, b] = [instance(apps, 0), instance(apps, 1)];
-      await a.ready();
-      await b.ready();
-      const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
-      call.catch(() => undefined);
-      await frozenRuns(1);
-      leases.freeze(a);
-      await clock.advance(seconds(31));
-      // the new holder is live: its renewals reach the store in time (#534)
-      await passLive(clock, seconds(31));
-      await frozenRuns(2);
-      const [zombie, holder] = gates.frozen.splice(0);
+    two(
+      "AC2: the zombie arriving before the new holder writes is refused: nothing on the file, no receipt",
+      async ({ apps, clock, leases }) => {
+        gates.before = 2;
+        const [a, b] = [instance(apps, 0), instance(apps, 1)];
+        await a.ready();
+        await b.ready();
+        const call = execute(a, SqliteChargeWorkflowStart, { text: "order-7" });
+        call.catch(() => undefined);
+        await frozenRuns(1);
+        leases.freeze(a);
+        await clock.advance(seconds(31));
+        // the new holder is live: its renewals reach the store in time (#534)
+        await passLive(clock, seconds(31));
+        await frozenRuns(2);
+        const [zombie, holder] = gates.frozen.splice(0);
 
-      zombie?.();
-      await settle();
-      leases.thaw(a);
-      const error = await rejectionOf(call);
-      const afterZombie = charges();
-      holder?.();
-      const [end] = await ends(1);
+        zombie?.();
+        await settle();
+        leases.thaw(a);
+        const error = await rejectionOf(call);
+        const afterZombie = charges();
+        holder?.();
+        const [end] = await ends(1);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
-      expect(error).toMatchObject({ token: 1, observedToken: 2 });
-      expect(afterZombie).toEqual([]);
-      expect(charges()).toEqual(["charge-order-7-2"]);
-      expect(end?.output).toEqual({ chargeId: "charge-order-7-2" });
-      expect(recovery.errors).toEqual([]);
-    },
-  );
-});
+        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toMatchObject({ token: 1, observedToken: 2 });
+        expect(afterZombie).toEqual([]);
+        expect(charges()).toEqual(["charge-order-7-2"]);
+        expect(end?.output).toEqual({ chargeId: "charge-order-7-2" });
+        expect(recovery.errors).toEqual([]);
+      },
+    );
+  },
+);
 
 describe("#500: a unit runner's SQLite fenced effect", () => {
   const order = { message: { value: { text: "order-1" } } } as never;

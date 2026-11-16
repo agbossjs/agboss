@@ -119,7 +119,7 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
       "router.policy-with-choose-one",
     ]); // the broken workflows are broken on purpose; topics-workflow keeps policies on .chooseOne(…)
     await expect(generated.text).toMatchFileSnapshot("./__snapshots__/fixtures.types.d.ts.snap");
-  }, 60_000); // loads every fixture module, as the check:types step below does
+  }, 240_000); // loads every fixture module, as the check:types step below does (#1228: see below)
 
   it("regenerating gives the same file: sorted keys, whatever the order of workflows and modules", async () => {
     const request = await requestFor(FIXTURE_WORKFLOWS);
@@ -137,7 +137,9 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
 
     const generated = generateFlowTypes(await requestFor(FIXTURE_WORKFLOWS));
     expect(readFileSync(outFile, "utf8")).toBe(generated.text);
-  }, 60_000);
+    // a spawn of node over every fixture module: 4.9 s for the file alone, over 60 s in a full run with
+    // three workers and the fault suite beside it (#1228, as #1160): the bound says "not hung"
+  }, 240_000);
 });
 
 describe("S4: InputOf is an exact union up to 32 input shapes, flat above", () => {

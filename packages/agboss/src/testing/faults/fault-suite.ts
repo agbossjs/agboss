@@ -48,6 +48,19 @@ const vitest: typeof Vitest | undefined = await lazyLoad(import("vitest")).catch
   },
 );
 
+/**
+ * A scenario that failed otherwise than on an invariant (a wait that ran out, a pod that died) is
+ * not a sabotage that passed: its own error is what the report must show, not "the suite does not
+ * bite" (#1219).
+ */
+function refuseOtherFailure(sabotage: FaultSabotage, failure: unknown): void {
+  if (failure === undefined || failure instanceof FaultInvariantError) return;
+  const what = failure instanceof Error ? failure.message : "something that is not an error";
+  throw new Error(`${sabotage.id}: the scenario failed, but not on an invariant — ${what}`, {
+    cause: failure,
+  });
+}
+
 /** A sabotage's case: the scenario must fail, on its invariant, with its evidence. */
 export async function sabotaged(
   sabotage: FaultSabotage,
@@ -61,6 +74,7 @@ export async function sabotaged(
   );
   // one this set cannot run (#1017: 23b's on a set whose commit is not retried): skipped with the reason
   if (failure instanceof FaultScenarioSkippedError) context?.skip(failure.message);
+  refuseOtherFailure(sabotage, failure);
   expect(failure, `${sabotage.id}: the sabotage passed — the suite does not bite`).toBeInstanceOf(
     FaultInvariantError,
   );

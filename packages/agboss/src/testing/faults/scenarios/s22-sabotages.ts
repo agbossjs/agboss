@@ -24,6 +24,14 @@ import { stuckOn, type StuckCall } from "./s22-kit.js";
 /** Pod a held for ever at `point`, its order made as `order`; b takes over, and a's hold goes at the end. */
 async function takenOverStuck(cluster: FaultCluster, call: StuckCall): Promise<FaultPod> {
   const stuck = await stuckOn(cluster, call);
+  // the sabotage's own effect, awaited before b moves: a's bound ends the held call, a takes it for
+  // not sent and charges again. Without this, b's takeover and end could come first on a loaded
+  // machine (a's timers starved), a's late charge would then be refused or come after the check, and
+  // the sabotage would pass unseen (#1219)
+  await cluster.next(
+    `a's payment sent again after the call ended at the bound`,
+    (event) => event.type === "paid" && event.pod === stuck.a.name && event.status === "resent",
+  );
   await takenOverBy(cluster, stuck.b, stuck.key);
   await endedOn(cluster, stuck.key, stuck.b);
   await release(stuck.a, stuck.held);
