@@ -1,7 +1,8 @@
-import { ExecutionCancelledError } from "../core/errors.js";
+import { ApplicationStoppingError, ExecutionCancelledError } from "../core/errors.js";
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TurnOutcome } from "../turns/index.js";
 import type { CallOptions } from "./types.js";
+import type { TreeMoves } from "./tree-move-types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
@@ -33,6 +34,8 @@ export class LiveRuns {
   readonly #interruption = new AbortController();
   /** Set when the instance starts its stop (#367): aborted at the end of its shutdown timeout. */
   #stopDeadline: AbortSignal | undefined;
+  /** The callers waiting for a run: rejected when the stop gives the run up (#954). */
+  readonly #callers = new Set<(reason: ApplicationStoppingError) => void>();
 
   /** Runs `work` with a signal that `abort(thread)` or the caller's own signal aborts. */
   async track<T>(
@@ -111,7 +114,49 @@ export class LiveRuns {
    * step bodies returned, or `deadline` (the end of the shutdown timeout) aborted.
    */
   stopBy(deadline: AbortSignal): void {
-    this.#stopDeadline ??= deadline;
+    if (this.#stopDeadline !== undefined) return;
+    this.#stopDeadline = deadline;
+    // after the turn the end passes on: what settles on it (a lease release after the last body) is not given up
+    deadline.addEventListener(
+      "abort",
+      () => {
+        setImmediate(() => {
+          const reason = abandonedOf();
+          for (const give of [...this.#callers]) give(reason);
+        });
+      },
+      { once: true },
+    );
+  }
+
+  /** `moves` whose first and resumed runs a caller stops waiting for when the stop gives them up (#954). */
+  abandonable(moves: TreeMoves): TreeMoves {
+    return {
+      first: (...call) => this.untilAbandoned(moves.first(...call)),
+      resumed: (...call) => this.untilAbandoned(moves.resumed(...call)),
+      recovered: (...call) => moves.recovered(...call),
+      endIfEnding: (...call) => moves.endIfEnding(...call),
+      expired: (...call) => moves.expired(...call),
+    };
+  }
+
+  /**
+   * What a caller awaits for its run (#954): the run's own outcome — or, when the stop's end
+   * passes first, `ApplicationStoppingError`: the run is given up (it stays `running`, another
+   * holder continues it) and its caller is never left waiting on a store that does not answer.
+   * The run's late outcome is dropped.
+   */
+  untilAbandoned<T>(run: Promise<T>): Promise<T> {
+    let abandon: (reason: ApplicationStoppingError) => void = () => undefined;
+    const abandoned = new Promise<never>((_, reject) => {
+      abandon = (reason) => {
+        reject(reason);
+      };
+    });
+    this.#callers.add(abandon);
+    return Promise.race([run, abandoned]).finally(() => {
+      this.#callers.delete(abandon);
+    });
   }
 
   /**
@@ -240,3 +285,10 @@ export const cancelledRecordOutcome = (route: readonly string[], costUsd: number
 /** The Turn outcome of a paused run that was cancelled instead of resumed. */
 export const cancelledOutcome = (run: AgentExecutionOutput): TurnOutcome =>
   cancelledRecordOutcome(run.path, run.cost.totalUsd);
+
+/** What a caller whose run the stop gave up at its end is told (#954). */
+const abandonedOf = (): ApplicationStoppingError =>
+  new ApplicationStoppingError({
+    message:
+      "the app stopped before the execution ended and its store did not answer: the execution is given up — it stays running: the next take of its lease continues it (another instance, or this application once it starts again)",
+  });

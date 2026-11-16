@@ -19,6 +19,7 @@ import { Application } from "../../../src/application/application.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
+import { Checkout } from "./run-context.workflow.js";
 import { ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow } from "./claim-room.workflow.js";
 
 /**
@@ -39,6 +40,21 @@ export const resetHung = (): void => {
 const never = <T>(): Promise<T> => {
   hung.calls += 1;
   return new Promise<T>(() => undefined);
+};
+
+const waiting: (() => void)[] = [];
+
+/** A call that waits until `answerHung()` (a server that came back). */
+const held = (): Promise<void> => {
+  hung.calls += 1;
+  return new Promise<void>((resolve) => {
+    waiting.push(resolve);
+  });
+};
+
+/** Answers every lease release left hanging: the server came back. */
+export const answerHung = (): void => {
+  for (const answer of waiting.splice(0)) answer();
 };
 
 @Injectable({ deps: [Clock, ApplicationContext, IN_MEMORY_DATABASE] })
@@ -65,7 +81,7 @@ export class HungLeaseRepository extends InMemoryExecutionLeaseRepository {
   override release(
     lease: Parameters<InMemoryExecutionLeaseRepository["release"]>[0],
   ): Promise<void> {
-    return hung.lease ? never() : super.release(lease);
+    return hung.lease ? held() : super.release(lease);
   }
 }
 
@@ -96,3 +112,15 @@ export class HungConnection {
   ],
 })
 export class HungStoreApplication {}
+
+/** The checkout workflow (it pauses for an approval) on a lease store that can go quiet: for a `resume()`. */
+@Application({
+  name: "hung-checkout-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [Checkout],
+  budgets: TEST_BUDGETS,
+  shutdownTimeout: seconds(5),
+  providers: [HungConnection, HungLeaseRepository, RecordingLogger],
+})
+export class HungCheckoutApplication {}
