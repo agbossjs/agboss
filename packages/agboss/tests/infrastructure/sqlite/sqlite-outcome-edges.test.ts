@@ -87,10 +87,19 @@ describe("#1069: a ROLLBACK that fails after a failed COMMIT", () => {
   });
 });
 
+/** `database.prepare(...args)`, whatever the arguments (the typed signature takes text only). */
+const prepareWith = (database: DatabaseSync, ...args: unknown[]): unknown => {
+  const prepare: unknown = Reflect.get(database, "prepare");
+  if (typeof prepare !== "function") throw new Error("the fake has no prepare");
+  return Reflect.apply(prepare, database, args);
+};
+
 describe("#1069: a single write outside a transaction", () => {
   const statementOf = (run: () => unknown, extra: Record<string, unknown> = {}) => ({
     run,
     all: run,
+    get: run,
+    iterate: run,
     ...extra,
   });
 
@@ -145,7 +154,7 @@ describe("#1069: a single write outside a transaction", () => {
     }).toThrow(ioError);
   });
 
-  it("the `run` of a prepared statement is classified, any other method of it is not", () => {
+  it("a write statement is classified through run, get and all; a read statement through none (#1017)", () => {
     const error = failure(IOERR);
     const throwing = () => {
       throw error;
@@ -153,11 +162,72 @@ describe("#1069: a single write outside a transaction", () => {
     const database = classifiedDatabase(
       fake({ isTransaction: false, prepare: () => statementOf(throwing) }),
     );
-    const statement = database.prepare("x");
+    const write = database.prepare("insert into t values (1)");
+    const read = database.prepare("select 1");
 
-    expect(() => statement.run()).toThrow(StoreOutcomeUnknownError);
-    expect(() => statement.all()).toThrow(error);
-    expect(() => statement.all()).not.toThrow(StoreOutcomeUnknownError);
+    expect(() => write.run()).toThrow(StoreOutcomeUnknownError);
+    expect(() => write.get()).toThrow(StoreOutcomeUnknownError);
+    expect(() => write.all()).toThrow(StoreOutcomeUnknownError);
+    expect(() => read.all()).toThrow(error);
+    expect(() => read.all()).not.toThrow(StoreOutcomeUnknownError);
+    expect(() => read.run()).not.toThrow(StoreOutcomeUnknownError);
+  });
+
+  it("iterate of a write statement is classified too (#1017)", () => {
+    const throwing = () => {
+      throw failure(IOERR);
+    };
+    const database = classifiedDatabase(
+      fake({ isTransaction: false, prepare: () => statementOf(throwing) }),
+    );
+
+    expect(() => database.prepare("update t set a = 1").iterate()).toThrow(
+      StoreOutcomeUnknownError,
+    );
+  });
+
+  it("a statement's own non-function member is handed back as it is (#1017)", () => {
+    const database = classifiedDatabase(
+      fake({
+        isTransaction: false,
+        prepare: () => statementOf(() => undefined, { sourceSQL: "delete from t" }),
+      }),
+    );
+
+    expect(Reflect.get(database.prepare("delete from t"), "sourceSQL")).toBe("delete from t");
+  });
+
+  it.each([null, undefined, 7])(
+    "what prepare answers that is no statement (%s) is handed back as it is, even for a write's SQL (#1017)",
+    (answer) => {
+      const database = classifiedDatabase(fake({ isTransaction: false, prepare: () => answer }));
+
+      expect(prepareWith(database, "insert into t values (1)")).toBe(answer);
+    },
+  );
+
+  it("only prepare's answer is read as a statement: another method's object is handed back as it is (#1017)", () => {
+    const answer = statementOf(() => undefined);
+    const database = classifiedDatabase(
+      fake({ isTransaction: false, createSession: () => answer }),
+    );
+
+    const session: unknown = Reflect.get(database, "createSession");
+    if (typeof session !== "function") throw new Error("the fake has no createSession");
+
+    expect(Reflect.apply(session, database, ["insert into t values (1)"])).toBe(answer);
+  });
+
+  it("a prepare whose SQL is no text is never read as a write (#1017)", () => {
+    const error = failure(IOERR);
+    const statement = statementOf(() => {
+      throw error;
+    });
+    const database = classifiedDatabase(fake({ isTransaction: false, prepare: () => statement }));
+
+    const prepared: unknown = prepareWith(database, 42);
+
+    expect(prepared).toBe(statement);
   });
 
   it("the `run` of a statement inside a transaction is its own error", () => {

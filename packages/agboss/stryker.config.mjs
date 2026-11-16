@@ -236,7 +236,7 @@ const SHARDS = {
     configFile: "vitest.mutation-store-bound.config.ts",
     mutate: [
       "src/app/store-call-{bound,kind,outcome}.ts",
-      "src/infrastructure/sqlite/sqlite-outcome.ts",
+      "src/infrastructure/sqlite/sqlite-{outcome,write-sql}.ts",
       "src/app/lease-abandon.ts",
       "src/app/lease-scope.ts",
     ],

@@ -144,9 +144,10 @@ describe("#1144 AC2: the fallback holds no checkpoint blob but the winner's", ()
       return new Proxy(statement, {
         get(target, property) {
           const value: unknown = Reflect.get(target, property, target);
-          if (property !== "all") return value;
-          return (...args: unknown[]) => {
-            const found = (value as (...a: unknown[]) => unknown[]).apply(target, args);
+          if (typeof value !== "function") return value;
+          return (...args: unknown[]): unknown => {
+            const found: unknown = Reflect.apply(value, target, args);
+            if (property !== "all" || !Array.isArray(found)) return found;
             namespaceRowsWithBlobs += found.filter(
               (row) => typeof row === "object" && row !== null && "checkpoint" in row,
             ).length;
