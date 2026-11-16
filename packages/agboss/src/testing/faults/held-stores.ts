@@ -24,9 +24,9 @@ import {
   type OperationRecorder,
 } from "./operation-history.js";
 import { CHECKPOINT_METHODS } from "./checkpoint-points.js";
+import { HISTORY_METHODS } from "./history-points.js";
 import {
   CHILD_QUEUE_METHODS,
-  HISTORY_METHODS,
   FENCED_EFFECT_METHODS,
   LEASE_METHODS,
   OUTBOUND_CALL_METHODS,

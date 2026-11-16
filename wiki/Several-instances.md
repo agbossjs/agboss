@@ -1512,7 +1512,7 @@ export class TableExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.leaseTableService.insertCancelIfAbsent(tree);
   }
 
-  // #1152: the same mark, read back from the tree's own row: the sweep ends a resting tree with it
+  // #1152: the same mark, read back from the tree's own row; the sweep ends a resting tree with it
   override isCancelRequested(tree: ExecutionTree): Promise<boolean> {
     return this.leaseTableService.selectCancelMark(tree);
   }
