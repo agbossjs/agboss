@@ -83,12 +83,18 @@ export function isReused(owner: LockOwner): boolean {
 /** How far ahead of this clock a time on disk may lie before it is not a clock skew any more. */
 export const SKEW_MS = 60_000;
 
+/** A time ahead of this clock means the age on disk is not known (0): the caller watches the lock instead. */
+function judgedAge(ages: readonly number[]): { isFuture: boolean; ageMs: number } {
+  const isFuture = ages.some((age) => age < -SKEW_MS);
+  return { isFuture, ageMs: isFuture ? 0 : Math.max(0, ...ages) };
+}
+
 /**
  * The lock folder's owner; undefined when there is no folder. What cannot be read is judged by its
  * age on disk (the older of the file's and the folder's mtime), never as "just now": an empty or
  * garbage owner file, or a folder with no owner file, must age out (#1075).
  */
-export function readHolder(lock: string): Holder | undefined {
+export function readHolder(lock: string, now: number = Date.now()): Holder | undefined {
   let names: string[];
   try {
     names = readdirSync(lock);
@@ -96,11 +102,10 @@ export function readHolder(lock: string): Holder | undefined {
     return undefined;
   }
   const name = names.find((entry) => entry.startsWith(OWNER_PREFIX));
-  const folderAge = ageOf(lock) ?? 0;
+  const folderAge = ageOf(lock, now) ?? 0;
   const file = name === undefined ? undefined : join(lock, name);
-  const ages = file === undefined ? [folderAge] : [folderAge, ageOf(file) ?? 0];
-  const isFuture = ages.some((age) => age < -SKEW_MS);
-  const ageMs = Math.max(0, ...ages);
+  const ages = file === undefined ? [folderAge] : [folderAge, ageOf(file, now) ?? 0];
+  const { isFuture, ageMs } = judgedAge(ages);
   if (file === undefined || name === undefined)
     return { token: undefined, owner: undefined, ageMs, isFuture };
   const token = name.slice(OWNER_PREFIX.length);

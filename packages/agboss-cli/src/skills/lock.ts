@@ -19,6 +19,7 @@ import {
 } from "./lock-owner.js";
 import { unlinkEntry } from "./lock-files.js";
 import { observedMs, renewOwner } from "./lock-watch.js";
+import { realClock, type LockClock } from "./lock-clock.js";
 
 /**
  * The lock that serialises the skills syncs of one project (#983 D3, #1013): a `dev` pass beside
@@ -42,15 +43,13 @@ export const LOCK_NAME = `${TEMP_PREFIX}lock`;
 export interface LockOptions {
   readonly waitMs: number;
   readonly staleMs: number;
+  /** The clocks; a test's fake one lets the real defaults run without waiting (#1235). */
+  readonly clock?: LockClock;
 }
 
 export const DEFAULT_LOCK: LockOptions = { waitMs: 12_000, staleMs: 10 * 60_000 };
 
 const POLL_MS = 25;
-
-const sleep = (ms: number): void => {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-};
 
 /** The errors of a rename onto a folder that is someone's (POSIX and Windows spell it differently). */
 const HELD = new Set(["ENOTEMPTY", "EEXIST", "EPERM"]);
@@ -77,8 +76,8 @@ function tryMake(agents: string, lock: string, owner: LockOwner): boolean {
  * would wait `staleMs` again (#1106). While any entry stands no new lock can be renamed in, and a
  * sweep never removes an `owner-` file, so a lock made meanwhile is safe.
  */
-function clearIfStale(lock: string, staleMs: number): void {
-  const seen = readHolder(lock);
+function clearIfStale(lock: string, staleMs: number, clock: LockClock): void {
+  const seen = readHolder(lock, clock.wall());
   if (seen === undefined) return;
   if (seen.isLinked === true && seen.token !== undefined) {
     // the owner entry is a link, not a file: not followed, removed itself; the lock is unknown
@@ -86,7 +85,7 @@ function clearIfStale(lock: string, staleMs: number): void {
     unlinkEntry(join(lock, `${OWNER_PREFIX}${seen.token}`));
     return;
   }
-  const holder = withObserved(lock, seen);
+  const holder = withObserved(lock, seen, clock);
   if (holder.token === undefined) {
     clearEmpty(lock);
     if (holder.ageMs > staleMs) sweepStray(lock);
@@ -100,24 +99,23 @@ function clearIfStale(lock: string, staleMs: number): void {
  * unknown, not dead: only the watch can take it, and a holder that refreshes its owner file
  * restarts it. A lock dated in the future is watched the same way; a dead pid is taken at once.
  */
-function withObserved(lock: string, holder: Holder): Holder {
+function withObserved(lock: string, holder: Holder, clock: LockClock): Holder {
   const { owner } = holder;
   if (owner?.host === hostname() && isAlive(owner.pid)) {
     if (holder.ageMs <= REUSE_CHECK_MS || !isReused(owner)) return holder;
-    return { ...holder, isUnknown: true, ageMs: observedMs(lock, holder.token) };
+    return { ...holder, isUnknown: true, ageMs: observedMs(lock, holder.token, clock) };
   }
   if (!holder.isFuture) return holder;
-  return { ...holder, ageMs: Math.max(holder.ageMs, observedMs(lock, holder.token)) };
+  return { ...holder, ageMs: Math.max(holder.ageMs, observedMs(lock, holder.token, clock)) };
 }
 
 /** The `-new-` folders of a crash between the lock's `mkdir` and its rename, once they are stale. */
-function sweepCrashed(agents: string, staleMs: number): void {
+function sweepCrashed(agents: string, staleMs: number, now: number): void {
   for (const name of readdirSync(agents)) {
     if (!name.startsWith(`${LOCK_NAME}-new-`)) continue;
     const path = join(agents, name);
     try {
-      if (Date.now() - lstatSync(path).mtimeMs > staleMs)
-        rmSync(path, { recursive: true, force: true });
+      if (now - lstatSync(path).mtimeMs > staleMs) rmSync(path, { recursive: true, force: true });
     } catch {
       // gone meanwhile: nothing to sweep
     }
@@ -170,17 +168,18 @@ export function withSyncLock<T>(
   mkdirSync(agents, { recursive: true });
   const lock = join(agents, LOCK_NAME);
   const owner = newOwner();
-  const until = Date.now() + options.waitMs;
+  const clock = options.clock ?? realClock;
+  const until = clock.mono() + options.waitMs;
   refuseLinkedLock(lock);
   while (!tryMake(agents, lock, owner)) {
     refuseLinkedLock(lock);
-    clearIfStale(lock, options.staleMs);
-    if (Date.now() >= until) return undefined;
-    sleep(POLL_MS);
+    clearIfStale(lock, options.staleMs, clock);
+    if (clock.mono() >= until) return undefined;
+    clock.sleep(POLL_MS);
   }
   const unguard = guardSignals();
   try {
-    sweepCrashed(agents, options.staleMs);
+    sweepCrashed(agents, options.staleMs, clock.wall());
     return {
       value: work(() => {
         renewOwner(lock, owner.token);

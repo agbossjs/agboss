@@ -5,11 +5,12 @@
  * AC2 — a doc's flow snippet with two calls on one line fails `check:docs`, naming the doc, the line
  * and the rule; Prettier leaves the docs' code blocks alone.
  */
-import { readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { ESLint } from "eslint";
 import * as prettier from "prettier";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runNode } from "../helpers/process.js";
 import { checkDocs, repo, scratch, writeDocs } from "./docs-check.js";
 
 const RULE = "@stylistic/newline-per-chained-call";
@@ -19,6 +20,23 @@ const WORKFLOW = join(
   repo,
   "examples/flow-patterns/src/hiring/workflows/send-offer/send-offer.workflow.ts",
 );
+
+const EXAMPLE = join(repo, "examples/flow-patterns");
+const TYPES = join(EXAMPLE, ".agboss/types.d.ts");
+
+/**
+ * The typed lint of the example reads the `.agboss/types.d.ts` that `agboss check` generates (never
+ * committed): a fresh clone has none, so the test makes it, as `npm run types` in the example does.
+ */
+async function generateTypes(): Promise<void> {
+  if (existsSync(TYPES)) return;
+  const run = await runNode([join(repo, "packages/agboss-cli/bin/agboss.js"), "check"], {
+    cwd: EXAMPLE,
+  });
+  expect(existsSync(TYPES), `agboss check wrote no ${TYPES}:\n${run.stdout}${run.stderr}`).toBe(
+    true,
+  );
+}
 
 const imports = [
   'import { start } from "@agboss/core";',
@@ -61,6 +79,8 @@ afterAll(() => {
 
 // ESLint with types and a spawned docs check: slower than 5 s on CI runners
 describe("#289 AC1: workflow modules have one call per line", { timeout: 60_000 }, () => {
+  beforeAll(generateTypes, 120_000);
+
   it("a chain of three calls on one line fails the lint with newline-per-chained-call", async () => {
     const messages = await lint(JOINED);
 
