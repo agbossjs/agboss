@@ -163,7 +163,7 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "coverage": "node ../../scripts/check-test-run.mjs --expect test-run.json -- vitest run --coverage",
-    "coverage:shard": "AGBOSS_COVERAGE_SHARD=1 vitest run --coverage --reporter=blob",
+    "coverage:shard": "AGBOSS_COVERAGE_SHARD=1 vitest run --coverage --reporter=blob --reporter=default",
     "coverage:merge": "node ../../scripts/check-test-run.mjs --expect test-run.json -- vitest --merge-reports --coverage",
     "smoke": "vitest run --config vitest.smoke.config.ts",
     "test:mutation": "stryker run",
