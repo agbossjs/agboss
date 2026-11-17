@@ -108,7 +108,7 @@ describe("#1138 the exchange reads each framing to its end", () => {
     );
 
     expect(received).toEqual([
-      `GET /f.pdf?a=1 HTTP/1.1\r\nHost: ${HOST}\r\nAccept: */*\r\nConnection: close\r\n\r\n`,
+      `GET /f.pdf?a=1 HTTP/1.1\r\nHost: ${HOST}\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n`,
     ]);
     expect(exchange.status).toBe(200);
     expect(await bodyOf(exchange)).toBe("hello");
@@ -127,8 +127,8 @@ describe("#1138 the exchange reads each framing to its end", () => {
     expect((await exchange.ended).isComplete).toBe(true);
   });
 
-  it("E3 a body to the connection's close; a redirect's Location; a 204 with no body", async () => {
-    const toClose = await exchanged(writes(["HTTP/1.1 200 OK\r\n\r\nall", " of it"]));
+  it("E3 a body (of an error) to the connection's close; a redirect's Location; a 204 with no body", async () => {
+    const toClose = await exchanged(writes(["HTTP/1.1 404 Not Found\r\n\r\nall", " of it"]));
     expect(await bodyOf(toClose.exchange)).toBe("all of it");
     expect((await toClose.exchange.ended).isComplete).toBe(true);
 

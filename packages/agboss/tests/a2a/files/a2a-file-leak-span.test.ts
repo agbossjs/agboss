@@ -109,7 +109,12 @@ describe("#1021: a file fetch is one OpenTelemetry CLIENT span", () => {
 
     expect(fetched.outcome).toBe("fetched");
     expect(vhost.headers).toHaveLength(1);
-    expect(Object.keys(vhost.headers[0] ?? {}).sort()).toEqual(["accept", "connection", "host"]);
+    expect(Object.keys(vhost.headers[0] ?? {}).sort()).toEqual([
+      "accept",
+      "accept-encoding",
+      "connection",
+      "host",
+    ]);
     expect(JSON.stringify(vhost.headers)).not.toContain("secret-tenant");
   }, 30_000);
 

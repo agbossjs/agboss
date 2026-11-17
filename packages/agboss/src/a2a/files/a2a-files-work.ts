@@ -4,7 +4,7 @@ import {
   isInlineFileStore,
   type A2AFileRepository,
 } from "../../infrastructure/a2a-file.repository.js";
-import type { Clock } from "../../infrastructure/clock.js";
+import { definedOf, type Clock } from "../../infrastructure/clock.js";
 import { contextMeshSettingsOf } from "../../mesh/mesh-settings.js";
 import { A2AFileSource, fileSourceOf, type A2AFileDto } from "./a2a-file.dto.js";
 import {
@@ -81,9 +81,16 @@ async function bytesOf(
     case A2AFileSource.Url:
       throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.ByReference });
     case A2AFileSource.Inline:
-      return new Uint8Array(Buffer.from(file.inline ?? "", "base64"));
+      return new Uint8Array(
+        // Stryker disable next-line StringLiteral: equivalent: the text of an invariant that holds is never read
+        Buffer.from(definedOf(file.inline, "an inline file has its bytes"), "base64"),
+      );
     case A2AFileSource.Stored: {
-      const key = { tenantId: execution.tenant.tenantId, fileId: file.fileId ?? "" };
+      const key = {
+        tenantId: execution.tenant.tenantId,
+        // Stryker disable next-line StringLiteral: equivalent: the text of an invariant that holds is never read
+        fileId: definedOf(file.fileId, "a stored file has its id"),
+      };
       const meta = await store.findMetadata(key);
       const bytes =
         meta?.ownerId === rootFactsOf(execution).executionId

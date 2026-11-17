@@ -6,9 +6,9 @@
  */
 
 const startsWith = (bytes: Uint8Array, signature: readonly number[], at = 0): boolean =>
-  bytes.length >= at + signature.length &&
   signature.every((byte, index) => bytes[at + index] === byte);
 
+// Stryker disable next-line StringLiteral: equivalent: the signatures are ASCII, which latin1 and utf8 spell alike
 const ascii = (text: string): readonly number[] => [...Buffer.from(text, "latin1")];
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -22,8 +22,7 @@ const isGif = (bytes: Uint8Array): boolean =>
   startsWith(bytes, ascii("GIF87a")) || startsWith(bytes, ascii("GIF89a"));
 
 const isMp3 = (bytes: Uint8Array): boolean =>
-  startsWith(bytes, ascii("ID3")) ||
-  (bytes.length > 1 && bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0);
+  startsWith(bytes, ascii("ID3")) || (bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0);
 
 const isWav = (bytes: Uint8Array): boolean =>
   startsWith(bytes, ascii("RIFF")) && startsWith(bytes, ascii("WAVE"), 8);
@@ -36,7 +35,7 @@ const isIsoMedia = (bytes: Uint8Array, isAudioBrand: boolean): boolean => {
 };
 
 const isAdts = (bytes: Uint8Array): boolean =>
-  bytes.length > 1 && bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xf6) === 0xf0;
+  bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xf6) === 0xf0;
 
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
 
@@ -45,14 +44,16 @@ export function utf8Of(bytes: Uint8Array): string | undefined {
   try {
     return UTF8.decode(bytes);
   } catch {
-    return undefined; // not UTF-8
+    // not UTF-8: the answer below
   }
+  return undefined;
 }
 
 const isText = (bytes: Uint8Array): boolean => utf8Of(bytes) !== undefined;
 
 function isJson(bytes: Uint8Array): boolean {
   const text = utf8Of(bytes);
+  // Stryker disable next-line ConditionalExpression: equivalent: `JSON.parse(undefined)` throws, and the catch answers false too
   if (text === undefined) return false;
   try {
     JSON.parse(text);
