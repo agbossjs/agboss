@@ -18,6 +18,7 @@
     "vitest.mutation-a2a-files.config.ts",
     "vitest.mutation-stream.config.ts",
     "vitest.mutation-store-bound.config.ts",
+    "vitest.mutation-files-pii.config.ts",
     ".agboss/types.d.ts"
   ]
 }

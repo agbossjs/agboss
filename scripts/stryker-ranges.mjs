@@ -74,3 +74,15 @@ export function policySetHashingOf(file) {
     throw new Error(`${file}: the policy set's hashing not found`);
   return `${file}:${String(start + 1)}-${String(end + 1)}`;
 }
+
+/** The `files-pii` shard (#1269) of `stryker.config.mjs`: its tests and the files they kill. */
+export function filesPiiShard() {
+  return {
+    configFile: "vitest.mutation-files-pii.config.ts",
+    mutate: [
+      "src/files/*.ts",
+      "src/pii/{key-hierarchy,tokens}.ts",
+      policySetHashingOf("src/pii/policy-set.ts"),
+    ],
+  };
+}
