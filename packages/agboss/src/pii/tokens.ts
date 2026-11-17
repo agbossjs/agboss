@@ -36,18 +36,19 @@ export const keyedDigestOf = (key: string, text: string): string =>
   createHmac("sha256", key).update(text).digest("hex");
 
 /**
- * The token of a value: the shortest prefix (6 hex digits and up) that does not stand for another
- * value in `known` — one token per value within an execution.
+ * The token of a value: the shortest prefix (6 hex digits and up, by two) that does not stand for another
+ * value in `known` — one token per value within an execution; the whole digest (64 digits, reached from 6
+ * by twos) when every shorter prefix is taken, even if it is too (an HMAC-SHA256 collision).
  */
 export function tokenOf(label: string, value: string, key: string, known: PiiTokenMap): string {
   const digest = purposeDigestOf(key, PiiKeyPurpose.Pseudonym, normalisedValue(label, value));
-  for (let length = SHORT; length < digest.length; length += 2) {
+  for (let length = SHORT; ; length += 2) {
     const token = `<${label}:${digest.slice(0, length)}>`;
     const taken = known[token];
-    if (taken === undefined || normalisedValue(label, taken) === normalisedValue(label, value))
-      return token;
+    const isFree =
+      taken === undefined || normalisedValue(label, taken) === normalisedValue(label, value);
+    if (isFree || length === digest.length) return token;
   }
-  return `<${label}:${digest}>`;
 }
 
 /** Text with its known tokens replaced by their values, and the tokens it has that the map does not know. */
