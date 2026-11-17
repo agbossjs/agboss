@@ -363,9 +363,9 @@ model checked against the providers' `serves`) finds them, and a rule naming one
 | `PiiAction.blockWithRefusal({ refusal })` / `()`   | — refused                 | —          |
 
 `replacePart` takes either what to keep or what to replace — both does not compile. A token is the
-first hex digits of the HMAC-SHA256 of the normalised value with `pseudonymKey`, so one value is
-one token everywhere (longer when a prefix is taken in the execution). The key comes from one of two
-places:
+first hex digits of the HMAC-SHA256 of the normalised value under the pseudonym key derived from
+`pseudonymKey` ([the key hierarchy](#the-pii-key-hierarchy) below), so one value is one token
+everywhere (longer when a prefix is taken in the execution). The key comes from one of two places:
 
 - the policy's own `pseudonymKey`;
 - the application's key, `@Application({ piiKeyField: "piiPseudonymKey" })` — a `Secret` field of
@@ -379,6 +379,47 @@ none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal
 incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
 `kind`, `refusal` — the text to send instead); in tool arguments or a tool result it rejects only
 that call (the model reads `Tool error: the call was refused: …`).
+
+### The PII key hierarchy
+
+The PII key (#1269) is a root, never used as it is. Every use gets a key of its own, derived when it
+is used and never kept anywhere: HKDF-SHA256 of the root, the salt `agboss/pii-key-hierarchy`, the
+purpose's label as `info`, 32 bytes. Each digest is an HMAC-SHA256 under that key — never a plain
+hash, so a digest of a guessable value (a phone number, a name) is no oracle for whoever reads it.
+
+| Purpose | Label (`info`) | Root | What it keys |
+| --- | --- | --- | --- |
+| Pseudonyms | `agboss/pii/pseudonym/v2` | a policy's `pseudonymKey`; else the application's key; else the execution's own (#334) | `replaceWithToken()` and `sensitive` tokens, `<email:7f3a91>` |
+| Policy hash | `agboss/pii/policy-hash/v2` | the application's key (else the instance's) | what a set of policies masks with — its rules, its token key's id, the execution's sensitive values: a cached file transcription's key ([Files for models](Files-for-models)) |
+| File cache | `agboss/files/cache-key/v2` | the application's key (else the instance's) | a cached redacted copy's key: the policies and the exact values the redactor was told |
+| Mask cache | `agboss/pii/mask-cache/v2` | the application's key (else the instance's) | an agent's loop's masked texts (`piiMasked`), by the text |
+| Key id | `agboss/pii/key-id/v2` | the token key | which key a policy set makes tokens with, inside its hash only |
+
+Two uses never share a key, so one input gives a different digest in each (a value's token is never
+the key of its cached text). A label is never reused: a new scheme is a new label.
+
+The application's key (`piiKeyField`, `PII_PSEUDONYM_KEY`) is read from the environment and held in
+memory only. Without it the instance makes a key of its own at start (S94), in memory too. The one
+key an execution keeps is its own token key (#334: no `piiKeyField`, kept in its checkpoint so that
+another instance gives one value the same token): it roots that execution's pseudonyms and nothing
+else, and their values are in the same checkpoint already (`piiTokens`). Every digest kept beside it —
+`fileTranscripts`, `piiMasked`, the policy hash — is under a key of the application's (or the
+instance's) root, which no store holds: reading a checkpoint gives no way to test a guess against
+them. Without `piiKeyField`, an execution continued on another instance therefore masks its cached
+texts and files again instead of reusing them — another reason to set it.
+
+Keyed apart from this hierarchy: a business key's handle (`HMAC(piiKey, "agboss/business-key-handle/v1")`,
+[Several instances](Several-instances#business-idempotency-keys-508)) — the only direct use of the PII key as
+an HMAC key, under a label no other use has — and the fingerprints, under the idempotency key. A file's
+`sha256`, and the ids of its stored copies (`redacted-…`, `history-…`), are content addresses of an
+execution's files, no secret in them.
+
+**From 0.1.0.** Tokens were the HMAC of the value under the key itself; from 0.1.1 they are under the
+pseudonym key, so one value has another token after the upgrade (in logs and traces too: a token of
+0.1.0 does not match its 0.1.1 one). A kept token map is still read as it is: a 0.1.0 token in a paused
+execution's `piiTokens` is revealed as before (tokens are looked up, never derived again), and a new
+token never takes one's place. A loop's masked texts of 0.1.0 (`piiMasked`, by plain SHA-256) are never
+reused — the conversation is masked again, in the new tokens, so one model call never mixes the two.
 
 ### Levels
 
