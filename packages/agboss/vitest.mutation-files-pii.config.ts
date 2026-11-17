@@ -12,7 +12,7 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/files/*.test.ts",
-      "tests/pii/{key-hierarchy,tokens,policy,sensitive-field,model-boundary,instance-key,child-tokens}.test.ts",
+      "tests/pii/*.test.ts",
       "tests/run/file-processors-hash.test.ts",
     ],
   },
