@@ -29,7 +29,7 @@ processes on one file.
   its MongoDB twin: the count and up to five holder ids; `--allow-live-leases` / `allowLiveLeases: true`
   overrides). A start with `SchemaSetup.MigrateOnStart` is held to the same rule: with migrations pending
   it waits (twice the longest lease left, a minute to ten) for live leases to lapse (a stopped single instance's own do) and fails with
-  the same error while one is live; `allowLiveLeases: true` in the store's settings (PostgreSQL: `postgresAllowLiveLeases: true` in the environment) overrides it; when the applied version equals the
+  the same error while one is live; `allowLiveLeases: true` in the store's settings (the environment's `postgresAllowLiveLeases: true`, `mongodbAllowLiveLeases: true`) overrides it; when the applied version equals the
   build's, `migrate` stays a no-op and exits 0. A lease check cannot see an **idle** old pod — it holds
   no lease — so the docs name the blind spot, and the sequence stays the operator's.
 - **A file or database says what version it is, and an older build refuses it.** SQLite is stamped
