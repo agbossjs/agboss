@@ -39,3 +39,5 @@ One page per significant, hard-to-reverse decision: `ADR-NNNN-Title`, from
 | [0032 — Every store call is bounded](ADR-0032-Every-store-call-is-bounded) | Accepted |
 | [0033 — A pause has a deadline decided in the store](ADR-0033-A-pause-has-a-deadline) | Accepted |
 | [0034 — Schema upgrades stop the old version first](ADR-0034-Schema-upgrades-stop-the-old-version-first) | Accepted |
+| [0035 — Working-time deadlines are computed once, when the pause opens](ADR-0035-Working-time-deadlines-are-computed-once-at-pause-open) | Accepted |
+| [0036 — Files reach models through sources and views](ADR-0036-Files-reach-models-through-views) | Accepted |
