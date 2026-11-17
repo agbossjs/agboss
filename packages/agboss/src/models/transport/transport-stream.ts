@@ -11,7 +11,7 @@ import type {
   ModelProviderRequest,
   ModelProviderResponse,
   ModelProviderStream,
-  ModelProviderUsage,
+  ModelProviderStreamUsage,
 } from "./transport.js";
 
 /**
@@ -89,7 +89,7 @@ type End = "completed" | "failed" | "ignored";
 interface Reading {
   readonly iterator: AsyncIterator<string>;
   readonly first: Pull;
-  readonly usage: Promise<ModelProviderUsage>;
+  readonly usage: Promise<ModelProviderStreamUsage>;
   readonly caller: AbortSignal | undefined;
   readonly limits: StreamLimits;
   /** Tells the SDK to stop (the request's signal): a stream that failed or stalled is not left open. */
@@ -178,15 +178,21 @@ function answerOf(reading: Reading, release: Release): StreamedAnswer {
         const isWaited = !isRanOut(error, caller) && caller?.aborted !== true;
         return await failWith(reading, release, error, isWaited);
       }
-      let usage: ModelProviderUsage;
+      let end: ModelProviderStreamUsage;
       try {
-        usage = await within(reading.usage, limits, caller);
+        end = await within(reading.usage, limits, caller);
       } catch (error) {
         return await failWith(reading, release, error, false);
       }
       await tell(limits, "completed");
+      const { cost, finishReason, ...usage } = end;
       await release?.(tokensOf({ text, usage }));
-      return { text, usage };
+      return {
+        text,
+        usage,
+        ...(cost === undefined ? {} : { cost }),
+        ...(finishReason === undefined ? {} : { finishReason }),
+      };
     },
   };
 }
@@ -214,8 +220,10 @@ export function transportStreamCarrier(
         const source = sourceOf(stream({ ...request, signal: controller.signal }), limits.provider);
         source.usage.catch(nothing); // read at the end; a failed attempt never reads it
         iterator = source.textStream[Symbol.asyncIterator]();
-        const first = await untilAborted(iterator.next(), signal);
-        textOf(first, limits.provider);
+        let first = await untilAborted(iterator.next(), signal);
+        // an empty chunk is no text: a failure after it is still before the first token (retried)
+        while (textOf(first, limits.provider) === "")
+          first = await untilAborted(iterator.next(), signal);
         const answer = answerOf(
           {
             iterator,

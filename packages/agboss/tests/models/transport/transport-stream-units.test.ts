@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ModelProviderFailureError } from "../../../src/models/index.js";
+import {
+  FinishReason,
+  ModelFailure,
+  ModelProviderFailureError,
+} from "../../../src/models/index.js";
 import { transportStreamCarrier } from "../../../src/models/transport/transport-stream.js";
 import type { StreamedAnswer } from "../../../src/models/transport/transport-stream.js";
 import type { ModelProviderRequest, ModelProviderStream } from "../../../src/models/index.js";
 import { Reasoning } from "../../../src/models/reasoning.js";
 import { PromptCaching } from "../../../src/models/prompt-caching.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
-import { seconds } from "../../../src/units/index.js";
+import { seconds, usd } from "../../../src/units/index.js";
 
 /** #1011: the streamed carrier's end — what the breaker is told, and that a failed stream is stopped. */
 
@@ -55,10 +59,54 @@ async function opened(source: (signal: AbortSignal) => ModelProviderStream, brea
     timeout: seconds(5),
     clock,
   });
-  if (attempt.kind !== "answered") throw new Error("not answered");
+  if (attempt.kind !== "answered") throw new Error("not answered", { cause: attempt });
   const answer: StreamedAnswer = attempt.answer;
   return { answer, clock, seen };
 }
+
+describe("#1249: a streamed call's end carries its cost and finish reason", () => {
+  it("the usage's cost and finishReason are the response's, as complete()'s are", async () => {
+    const { answer } = await opened(
+      () => ({
+        textStream: chunks(["cut"]),
+        usage: Promise.resolve({
+          inputTokens: 1,
+          outputTokens: 2,
+          cost: usd(0.5),
+          finishReason: FinishReason.Length,
+        }),
+      }),
+      new Breaker(),
+    );
+
+    const response = await answer.consume(() => Promise.resolve());
+
+    expect(response).toEqual({
+      text: "cut",
+      usage: { inputTokens: 1, outputTokens: 2 },
+      cost: 0.5,
+      finishReason: "length",
+    });
+  });
+
+  it("an empty first chunk is no text: a failure right after it fails the attempt, not the answer", async () => {
+    const failure = new ModelProviderFailureError({ failure: ModelFailure.ServerError });
+    const breaker = new Breaker();
+
+    const failed = opened(
+      () => ({
+        textStream: chunks([""], () => Promise.reject(failure)),
+        usage: Promise.reject(failure),
+      }),
+      breaker,
+    );
+
+    // not an answer: the attempt failed before any text, which the retry policy may retry
+    await expect(failed).rejects.toMatchObject({
+      cause: { kind: "threw", error: failure },
+    });
+  });
+});
 
 describe("#1011: a streamed call's end is told to the breaker once", () => {
   it("a completed stream is one success", async () => {

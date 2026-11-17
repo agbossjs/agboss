@@ -68,7 +68,19 @@ export interface ModelProviderUsage {
  */
 export interface ModelProviderStream {
   readonly textStream: AsyncIterable<string>;
-  readonly usage: Promise<ModelProviderUsage>;
+  readonly usage: Promise<ModelProviderStreamUsage>;
+}
+
+/**
+ * What a streamed call settles with (#1249): its usage and, as the plain call's response has them,
+ * its exact `cost` (a provider with `ModelCost.fromResponse()` must report it: a streamed call
+ * without one cannot be accounted) and why the model stopped.
+ */
+export interface ModelProviderStreamUsage extends ModelProviderUsage {
+  /** The call's exact cost (`costSource: "api"`); absent = tokens x the decorator's price table. */
+  readonly cost?: Usd;
+  /** Why the model stopped: `FinishReason.Length` when the answer was cut at `maxTokens`. */
+  readonly finishReason?: FinishReason;
 }
 
 /** One model call as the gateway hands it to `complete(request)`. */
