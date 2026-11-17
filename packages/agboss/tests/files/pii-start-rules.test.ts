@@ -292,6 +292,50 @@ describe("AC2: an agent's answer files (PR 1's interim refusal is gone)", () => 
     await expect(applicationOf(any.Application)).resolves.toBeDefined();
   });
 
+  it("[files.answer-file-unseen]: a redacted view is no original to return — the pick would fail at run time, and the original must not be handed back instead", async () => {
+    const redacted = readerApplication({
+      files: ModelFiles.of({ views: [FileView.Redacted], allowedMediaTypes: ["image/png"] }),
+      piiPolicies: [CardsPiiPolicy],
+      output: FetchedDto,
+    });
+
+    expect(await codesOf(redacted)).toEqual(["files.answer-file-unseen"]);
+  });
+
+  it("[pii.original-file]: AnswerFiles.Any lets the model return the unmasked original, so it is refused where a policy masks the agent's files and the original is not allowed", async () => {
+    const answering = (views: FileView[], policy: new () => object) =>
+      readerApplication({
+        files: ModelFiles.of({
+          views,
+          allowedMediaTypes: ["image/png"],
+          answerFiles: AnswerFiles.Any,
+        }),
+        piiPolicies: [policy],
+        output: FetchedDto,
+      });
+
+    expect(await codesOf(answering([FileView.Redacted], CardsPiiPolicy))).toEqual([
+      "pii.original-file",
+    ]);
+    expect(await codesOf(answering([FileView.Transcription], CardsPiiPolicy))).toEqual([
+      "pii.original-file",
+    ]);
+    // the developer lets the original through: no new rule
+    await expect(
+      applicationOf(answering([FileView.Redacted], OpenCardsPiiPolicy).Application),
+    ).resolves.toBeDefined();
+    // an agent whose answer has no file fields has nothing to return
+    const textOnly = readerApplication({
+      files: ModelFiles.of({
+        views: [FileView.Redacted],
+        allowedMediaTypes: ["image/png"],
+        answerFiles: AnswerFiles.Any,
+      }),
+      piiPolicies: [CardsPiiPolicy],
+    });
+    await expect(applicationOf(textOnly.Application)).resolves.toBeDefined();
+  });
+
   it("a file at any depth counts: nested, twice nested, in a list of DTOs; a DTO that holds itself has no file and the search ends", async () => {
     const text = (output: DtoClass) => readerApplication({ output });
     for (const output of [InnerDto, MiddleDto, TopDto, ListedDto])

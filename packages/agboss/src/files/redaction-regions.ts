@@ -6,9 +6,15 @@
 /**
  * The padding of a region, as a part of its size: 10 % along a line of text, half a line above and below — a
  * vision model's boxes are often a little off vertically, and a digit half under a box is a digit leaked.
+ * Two bounds, because a box's error is about a line, not about the whole region: the vertical padding is at
+ * most 5 % of the image (a tall block does not black out its neighbours), and the sideways padding is at
+ * least a quarter of the region's height, up to 3 % (a short token — a CVV — keeps no digit out of its box).
  */
 const PADDING_X = 0.1;
 const PADDING_Y = 0.5;
+const MAX_PADDING_Y = 0.05;
+const MIN_PADDING_X_OF_HEIGHT = 0.25;
+const MAX_MIN_PADDING_X = 0.03;
 
 /** A region the model named, validated: fractions of the image. */
 export interface Region {
@@ -74,9 +80,14 @@ export function boxOf(
   width: number,
   height: number,
 ): { left: number; top: number; width: number; height: number } {
-  const left = Math.max(0, Math.floor((region.x - region.w * PADDING_X) * width));
-  const top = Math.max(0, Math.floor((region.y - region.h * PADDING_Y) * height));
-  const right = Math.min(width, Math.ceil((region.x + region.w * (1 + PADDING_X)) * width));
-  const bottom = Math.min(height, Math.ceil((region.y + region.h * (1 + PADDING_Y)) * height));
+  const padX = Math.max(
+    region.w * PADDING_X,
+    Math.min(region.h * MIN_PADDING_X_OF_HEIGHT, MAX_MIN_PADDING_X),
+  );
+  const padY = Math.min(region.h * PADDING_Y, MAX_PADDING_Y);
+  const left = Math.max(0, Math.floor((region.x - padX) * width));
+  const top = Math.max(0, Math.floor((region.y - padY) * height));
+  const right = Math.min(width, Math.ceil((region.x + region.w + padX) * width));
+  const bottom = Math.min(height, Math.ceil((region.y + region.h + padY) * height));
   return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
 }

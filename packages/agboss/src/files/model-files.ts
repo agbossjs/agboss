@@ -28,7 +28,10 @@ export enum FileView {
 
 /** Whether the exact PII values of the execution go to the redaction model with the kinds (#899 §6). */
 export enum RedactionValues {
-  /** Only when the redaction model is served by the same provider as the agent's model (the default). */
+  /**
+   * Only when the redaction model is the same provider as the agent's model (the default): the same provider, or
+   * the same base URL and key field, the same vendor's model, no breaker fallback to another provider. In doubt, not.
+   */
   SameProvider = "same-provider",
   /** Never: the kinds only. */
   Never = "never",
