@@ -46,7 +46,7 @@ export interface FilesSources {
 export const ownFileTranscriberOf = (
   providers: readonly Provider[] | undefined,
 ): Class | undefined =>
-  (providers ?? []).find(
+  providers?.find(
     (provider): provider is Class =>
       typeof provider === "function" &&
       provider.prototype instanceof FileTranscriber &&
@@ -55,17 +55,17 @@ export const ownFileTranscriberOf = (
 
 /** Whether the application lists an `A2AFileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
 export const hasFileStore = (providers: readonly Provider[] | undefined): boolean =>
-  (providers ?? []).some(
+  providers?.some(
     (provider) =>
       typeof provider === "function" &&
       provider.prototype instanceof A2AFileRepository &&
       provider !== InlineA2AFileRepository &&
       !(provider.prototype instanceof InlineA2AFileRepository),
-  );
+  ) === true;
 
 /** The application's own `FileRedactor` (#899), not the built-in: the listed class, when there is one. */
 export const ownFileRedactorOf = (providers: readonly Provider[] | undefined): Class | undefined =>
-  (providers ?? []).find(
+  providers?.find(
     (provider): provider is Class =>
       typeof provider === "function" &&
       provider.prototype instanceof FileRedactor &&
@@ -73,15 +73,20 @@ export const ownFileRedactorOf = (providers: readonly Provider[] | undefined): C
   );
 
 /** The `files` options of the skills of the application's exposes whose starts are the workflow's. */
-function skillFilesOf(owner: FilesOwner | undefined, starts: readonly string[]): A2AFileOptions[] {
-  return (owner?.exposes ?? []).flatMap((expose) => {
-    const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") return [];
-    return meta.meta.exports.flatMap((start) => {
-      const name = nameOf(start);
-      return starts.includes(name) ? (meta.meta.skills?.[name]?.files ?? []) : [];
-    });
-  });
+export function skillFilesOf(
+  owner: FilesOwner | undefined,
+  starts: readonly string[],
+): A2AFileOptions[] {
+  return (
+    owner?.exposes?.flatMap((expose) => {
+      const meta = componentOf(expose);
+      if (meta?.kind !== "a2a-expose") return [];
+      return meta.meta.exports.flatMap((start) => {
+        const name = nameOf(start);
+        return starts.includes(name) ? (meta.meta.skills?.[name]?.files ?? []) : [];
+      });
+    }) ?? []
+  );
 }
 
 /** An agent's files of its sources, or none when it did not opt in. */
@@ -109,7 +114,7 @@ export function agentFilesOf(
 export function withNarrowedFiles(
   config: AgentsConfigOf<string>,
   inputs: ReadonlyMap<string, readonly ModelInputKind[]>,
-  uses: readonly Pick<ModelUse, "key" | "forAgents">[] = [],
+  uses: readonly Pick<ModelUse, "key" | "forAgents">[],
 ): AgentsConfigOf<string> {
   return {
     ...config,
@@ -137,10 +142,11 @@ export function withNarrowedFiles(
   };
 }
 
-/** The kinds every list has. */
-const intersectionOf = (lists: readonly (readonly ModelInputKind[])[]): ModelInputKind[] => {
-  const [first = [], ...rest] = lists;
-  return first.filter((kind) => rest.every((list) => list.includes(kind)));
+/** The kinds every list has (of at least one list: the caller asks only then). */
+const intersectionOf = (
+  lists: readonly (readonly ModelInputKind[])[],
+): readonly ModelInputKind[] => {
+  return lists.reduce((common, list) => common.filter((kind) => list.includes(kind)));
 };
 
 /** The config with each opted-in agent's resolved `files`. */
