@@ -59,6 +59,17 @@ export interface RagConnector {
 }
 
 // @public
+export class RagFts5UnavailableError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "rag.fts5-unavailable";
+    // (undocumented)
+    readonly code: typeof RagFts5UnavailableError.code;
+    // (undocumented)
+    name: string;
+}
+
+// @public
 export interface RagIndexOptions {
     // (undocumented)
     readonly signal: AbortSignal;
@@ -74,6 +85,17 @@ export interface RagIndexReport {
     // (undocumented)
     readonly documents: number;
     readonly skipped: number;
+}
+
+// @public
+export class RagIndexVersionError extends AGBossError {
+    constructor(options: MessageErrorOptions);
+    // (undocumented)
+    static readonly code: "rag.index-version";
+    // (undocumented)
+    readonly code: typeof RagIndexVersionError.code;
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -220,6 +242,12 @@ export interface SqliteFtsOptions {
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "model".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "name".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
+// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "name".
 // src/rag/sqlite-fts.ts - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "documents".

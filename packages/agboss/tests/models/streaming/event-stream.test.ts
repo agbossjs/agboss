@@ -71,3 +71,45 @@ describe("#1005: the scanner reads what a provider's events say", () => {
     });
   });
 });
+
+describe("#1125: what is progress of a stream and what is only its upkeep", () => {
+  /** Whether each part, pushed in turn, carried progress. */
+  const progressOf = (...parts: string[]): boolean[] => {
+    const scanner = new EventScanner();
+    return parts.map((part) => {
+      scanner.push(encoder.encode(part));
+      return scanner.progressed;
+    });
+  };
+
+  it("a comment, blank lines and a CRLF comment are upkeep; a data line, a field and a partial data line are progress", () => {
+    expect(progressOf(": keep-alive\n\n", "\n", ": x\r\n\r\n", "")).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(progressOf(frame(delta("a")), "event: ping\n", "da", "id: 7\n")).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it("a line is a comment by its first character, however it is cut into chunks", () => {
+    expect(progressOf(":", " still", " going", "\n", ": next\n")).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(progressOf("d", "ata: {", "}\n\n")).toEqual([true, true, true]); // the rest of a data line is that line's
+  });
+
+  it("a chunk with a comment and then data is progress; data and then a comment is progress", () => {
+    expect(progressOf(": a\n" + frame(delta("a")))).toEqual([true]);
+    expect(progressOf(frame(delta("a")) + ": a\n")).toEqual([true]);
+  });
+});

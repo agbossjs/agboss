@@ -86,15 +86,43 @@ function signalsOfData(payload: string): StreamSignal[] {
 export class EventScanner {
   #pending = "";
   readonly #decoder = new TextDecoder();
+  /** The kind of the line being read: `undefined` until its first character. */
+  #line: "comment" | "field" | undefined;
+  #progressed = false;
+
+  /**
+   * Whether the last `push` carried more than the stream's own upkeep (#1125): any byte of a line
+   * that is no `:` comment (a data line, even a partial one, a field) is progress; comments and
+   * blank lines — what a proxy or a hung provider sends to keep a connection open — are not.
+   */
+  get progressed(): boolean {
+    return this.#progressed;
+  }
 
   /** The signals of what `bytes` completed. */
   push(bytes: Uint8Array): StreamSignal[] {
-    this.#pending += this.#decoder.decode(bytes, { stream: true });
+    const text = this.#decoder.decode(bytes, { stream: true });
+    this.#progressed = this.#progressOf(text);
+    this.#pending += text;
     const lines = this.#pending.split("\n");
     this.#pending = lines.pop() ?? "";
     return lines.flatMap((line) => {
       if (!line.startsWith("data:")) return [];
       return signalsOfData(line.slice("data:".length).trim());
     });
+  }
+
+  #progressOf(text: string): boolean {
+    let progressed = false;
+    const parts = text.split("\n");
+    parts.forEach((part, index) => {
+      const content = part.replace(/\r$/, "");
+      if (content !== "") {
+        this.#line ??= content.startsWith(":") ? "comment" : "field";
+        if (this.#line === "field") progressed = true;
+      }
+      if (index < parts.length - 1) this.#line = undefined; // a newline ends the line
+    });
+    return progressed;
   }
 }
