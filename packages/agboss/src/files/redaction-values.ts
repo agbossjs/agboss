@@ -25,6 +25,7 @@ const vendorOf = (model: string): string | undefined =>
 function isSameServerAndKey(a: RegisteredModelProvider, b: RegisteredModelProvider): boolean {
   const [x, y] = [a.options, b.options];
   return (
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent, x.baseUrl === y.baseUrl below holds only for a string, and a string baseUrl makes x HTTP; the y check stays tested
     isHttpProvider(x) &&
     isHttpProvider(y) &&
     x.apiKey !== undefined &&

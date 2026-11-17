@@ -29,10 +29,7 @@ export interface Region {
 }
 
 const isFraction = (value: unknown, min: number, max: number, isMinOpen: boolean): boolean =>
-  typeof value === "number" &&
-  Number.isFinite(value) &&
-  (isMinOpen ? value > min : value >= min) &&
-  value <= max;
+  typeof value === "number" && (isMinOpen ? value > min : value >= min) && value <= max;
 
 /** The JSON of the model's answer: bare, or inside a code fence; `undefined` when it is none. */
 function jsonOf(text: string): unknown {
@@ -40,7 +37,7 @@ function jsonOf(text: string): unknown {
   try {
     return JSON.parse((fenced ?? text).trim());
   } catch {
-    return undefined; // never the parser's message: it quotes the model's text
+    // none: never the parser's message, it quotes the model's text
   }
 }
 
@@ -75,8 +72,9 @@ export function regionsOf(
     const at = `region ${String(index + 1)} of ${String(list.length)}`;
     if (!isRecord(entry)) throw new RegionsAnswerError(`${at} is no object`);
     const { target, x, y, w, h } = entry;
-    if (typeof target !== "string" || !known.has(target))
-      throw new RegionsAnswerError(`${at} names an unknown target`);
+    // the known target that is the answer's, so no text check beside the set's
+    const named = [...known].find((candidate) => candidate === target);
+    if (named === undefined) throw new RegionsAnswerError(`${at} names an unknown target`);
     if (
       !isFraction(x, 0, 0.999999, false) ||
       !isFraction(y, 0, 0.999999, false) ||
@@ -84,7 +82,7 @@ export function regionsOf(
       !isFraction(h, 0, 1, true)
     )
       throw new RegionsAnswerError(`${at} is out of bounds`);
-    return { target, x: x as number, y: y as number, w: w as number, h: h as number };
+    return { target: named, x: x as number, y: y as number, w: w as number, h: h as number };
   });
 }
 

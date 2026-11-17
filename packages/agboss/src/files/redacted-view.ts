@@ -23,7 +23,7 @@ export const MAX_INLINE_REDACTED = 64 * 1024;
 /** What is kept of a redacted copy: in the state (inline) or in the file store (by id). */
 interface KeptRedacted {
   readonly mediaType: string;
-  readonly filename?: string;
+  readonly filename?: string | undefined;
   readonly sha256: string;
   readonly inline?: string;
   readonly fileId?: string;
@@ -69,11 +69,8 @@ async function keptContentOf(batch: FileBatch, kept: KeptRedacted): Promise<File
 /** Keeps a copy: in the file store, owned by the root execution, or inline up to 64 KB. */
 async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted> {
   const context = batch.runtime.context();
-  const base = {
-    mediaType: copy.mediaType,
-    sha256: copy.sha256,
-    ...(copy.filename === undefined ? {} : { filename: copy.filename }),
-  };
+  // only ever serialized, where an absent name is left out: no need to leave the key out here
+  const base = { mediaType: copy.mediaType, sha256: copy.sha256, filename: copy.filename };
   if (context.store instanceof InlineA2AFileRepository) {
     if (copy.bytes.byteLength > MAX_INLINE_REDACTED)
       throw new FileRedactionFailedError({
@@ -108,10 +105,10 @@ export interface RedactedView {
 }
 
 /** The copy checked: a file of the media type the redactor said it takes, of the bytes that type has. */
-function checkedCopy(batch: FileBatch, original: FileContent, copy: FileContent): FileContent {
+function checkedCopy(batch: FileBatch, copy: FileContent): FileContent {
   const fail = (reason: string) =>
     new FileRedactionFailedError({ agent: batch.runtime.agent, reason });
-  if (copy.mediaType !== original.mediaType && !batch.runtime.supportsRedaction(copy.mediaType))
+  if (!batch.runtime.supportsRedaction(copy.mediaType))
     throw fail("the redactor answered a file of another media type");
   if (copy.bytes.byteLength === 0 || !isOfMediaType(copy.mediaType, copy.bytes))
     throw fail("the redactor's file is not what its media type says");
@@ -182,7 +179,7 @@ export async function redactedViewOf(
     const refusal = await mask.refusalForKind(target as PiiKind);
     if (refusal !== undefined) throw refusal;
   }
-  const copy = checkedCopy(batch, content, result.file);
+  const copy = checkedCopy(batch, result.file);
   const kept = await keptOf(batch, copy).catch((error: unknown) => {
     if (error instanceof FileRedactionFailedError) throw error;
     throw new FileRedactionFailedError({

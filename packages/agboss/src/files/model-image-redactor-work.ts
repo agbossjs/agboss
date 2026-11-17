@@ -61,17 +61,16 @@ async function sharpOf(agent: string): Promise<Sharp> {
   }
 }
 
-const FORMATS = new Set(["png", "jpeg", "webp"]);
-const MEDIA_TYPES: Readonly<Record<string, string>> = {
-  png: "image/png",
-  jpeg: "image/jpeg",
-  webp: "image/webp",
-};
+const MEDIA_TYPES = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp" } as const;
+
+/** An image format the redactor reads and writes. */
+type Format = keyof typeof MEDIA_TYPES;
+const isFormat = (format: string): format is Format => Object.hasOwn(MEDIA_TYPES, format);
 
 /** The image turned upright and read: its bytes, format and size. */
 interface Upright {
   readonly data: Buffer;
-  readonly format: string;
+  readonly format: Format;
   readonly width: number;
   readonly height: number;
 }
@@ -94,7 +93,7 @@ async function uprightOf(
       throw failed(`the image has more than ${String(maxPixels)} pixels`);
     const base = sharp(file.bytes, { limitInputPixels: maxPixels });
     const { data, info } = await base.rotate().toBuffer({ resolveWithObject: true });
-    if (!FORMATS.has(info.format)) throw failed(`the image format ${info.format} is not redacted`);
+    if (!isFormat(info.format)) throw failed(`the image format ${info.format} is not redacted`);
     return { data, format: info.format, width: info.width, height: info.height };
   } catch (cause) {
     throw cause instanceof FileRedactionFailedError
@@ -113,7 +112,7 @@ async function regionsAsked(
 ): Promise<{ readonly regions: readonly Region[]; readonly usage: UsageRecord }> {
   const kinds = options.targets.map(String);
   const known = new Set<string>([...kinds, ...(options.values.length > 0 ? ["value"] : [])]);
-  const mediaType = MEDIA_TYPES[image.format] ?? "image/png";
+  const mediaType = MEDIA_TYPES[image.format];
   let response;
   try {
     response = await binding.model.invoke(
@@ -173,7 +172,7 @@ async function paintedOf(
     }
   }
   return sharp(data, { raw: { width, height, channels }, limitInputPixels: maxPixels })
-    .toFormat(image.format as "png" | "jpeg" | "webp")
+    .toFormat(image.format)
     .toBuffer();
 }
 
@@ -203,7 +202,7 @@ export async function redacted(
     (target): target is PiiKind => kinds.has(target),
   );
   const copy: FileContent = {
-    mediaType: MEDIA_TYPES[image.format] ?? file.mediaType,
+    mediaType: MEDIA_TYPES[image.format],
     ...(file.filename === undefined ? {} : { filename: file.filename }),
     bytes,
     sha256: sha256Of(bytes),
