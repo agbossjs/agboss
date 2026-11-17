@@ -138,6 +138,7 @@ function checkedDeclared(batch: FileBatch): void {
         actual: mediaType,
         allowed: settings.allowedMediaTypes.join(", "),
       });
+    // Stryker disable next-line ConditionalExpression: `undefined > n` is false, so the `!== undefined` guard changes nothing
     if (descriptor.sizeBytes !== undefined && descriptor.sizeBytes > settings.maxFileSize)
       throw new ModelFileLimitError({
         agent,
@@ -193,6 +194,7 @@ async function gatherViews(
     gathered.viewed.push({ content: shown.viewed, heading });
     gathered.usage.push(...shown.usage);
     Object.assign(gathered.tokens, shown.tokens);
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: a view sets `made` and `cacheKey` together or neither (file-views.ts, redacted-view.ts)
     if (shown.made !== undefined && shown.cacheKey !== undefined)
       gathered.transcripts[shown.cacheKey] = shown.made;
   }
@@ -245,6 +247,7 @@ export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
     ...rest,
     pieces,
     maskedTexts: pieces.flatMap((piece) =>
+      // Stryker disable next-line ConditionalExpression: only a text piece has `isMasked` (a part never does), so `kind === "text"` adds nothing
       piece.kind === "text" && piece.isMasked ? [piece.text] : [],
     ),
     tally: { count: batch.tally.count + batch.files.length, bytes },

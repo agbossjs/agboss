@@ -30,6 +30,7 @@ function mappedField(field: FieldSpec, held: unknown, map: FileMapper): unknown 
   const one = (item: unknown): unknown =>
     isFileDto(element.dto) ? map(item) : mapFileFields(element.dto, item, map);
   if (field.kind === "list-of") return Array.isArray(held) ? held.map(one) : held;
+  // Stryker disable next-line ConditionalExpression: a field with a DTO element is only ever `list-of` (returned above) or `nested` (decorators.ts), so the other branch is unreachable
   return field.kind === "nested" ? one(held) : held;
 }
 
@@ -159,6 +160,7 @@ export function withPickedFiles(dto: DtoClass, schema: JsonSchema): JsonSchema {
   for (const field of fieldsOf(dto)) {
     const { element } = field;
     if (element?.kind !== "dto" || !hasFileAtAnyDepth(element.dto)) continue;
+    // Stryker disable next-line ConditionalExpression: a field with a DTO element is only ever `nested` or `list-of` (decorators.ts), so the whole test is always true
     if (field.kind === "nested" || field.kind === "list-of")
       replaced[field.name] = pickedSchemaOf(
         properties[field.name],

@@ -102,6 +102,7 @@ async function readToolFiles(
         if (budget !== undefined) deps.budgets.check(budget.usage, budget.path, budget.loop);
       },
     });
+    // Stryker disable next-line StringLiteral: `taskFilesOf` tests for "none" and "refused" only; the tag "read" is never compared
     return built === undefined ? { kind: "none" } : { kind: "read", built };
   } catch (error) {
     if (!(error instanceof PiiRefusedError)) throw error;
@@ -120,6 +121,7 @@ async function guardedToolFiles(
   built: ToolFilesBuilt,
 ): Promise<Pick<TaskFiles, "usage" | "decisions" | "refused">> {
   const guardrails = deps.guardrails ?? [];
+  // Stryker disable next-line OptionalChaining: only reached with files read, which needs `deps.fileRuntime`
   if (deps.fileRuntime?.settings.guardToolResultFiles !== true || guardrails.length === 0)
     return { usage: built.usage };
   const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);

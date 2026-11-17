@@ -24,11 +24,13 @@ async function maskedPiece(
   spent: UsageRecord[],
 ): Promise<FilePiece> {
   // a transcription's text was masked where it was made; a file part has no text but its name
+  // Stryker disable next-line ConditionalExpression,BooleanLiteral: `originalPieces` never makes a masked text piece, so `isMasked` is always undefined here
   if (piece.kind === "text" && piece.isMasked !== true) {
     const masked = await mask.mask(piece.text, mask.known);
     spent.push(...masked.usage);
     return { ...piece, text: masked.text };
   }
+  // Stryker disable next-line ConditionalExpression: only a file part has a `filename` (image, audio and video parts have none), so `kind === "file"` adds nothing to the next test
   if (piece.kind === "file" && piece.filename !== undefined) {
     const masked = await mask.mask(piece.filename, mask.known);
     spent.push(...masked.usage);
