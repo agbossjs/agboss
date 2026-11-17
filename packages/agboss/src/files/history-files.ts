@@ -13,6 +13,7 @@ import type { SourceFile, FileRuntime } from "./visit-files.js";
  * shown as its descriptor, `(removed)`.
  */
 
+// Stryker disable next-line Regex: without the `$` the greedy `[\s\S]*` still takes the rest of the line: same matches
 const LINE = /^(start|finish) ([^:]+): ([\s\S]*)$/u;
 
 /** Every file descriptor in a JSON value, at any depth. */
@@ -21,6 +22,7 @@ function descriptorsIn(value: unknown, found: A2AFileDto[]): void {
     found.push(value);
     return;
   }
+  // Stryker disable next-line ConditionalExpression: an array walked as an object (Object.values) gives the same items in the same order
   if (Array.isArray(value)) for (const item of value) descriptorsIn(item, found);
   else if (typeof value === "object" && value !== null)
     for (const item of Object.values(value)) descriptorsIn(item, found);
@@ -32,13 +34,17 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
   return history.flatMap((turn, index) =>
     [turn.start, turn.finish].flatMap((line) => {
       const parts = LINE.exec(line);
+      // Stryker disable next-line ConditionalExpression: with no match parts[3] throws inside the try, which returns [] too
       if (parts === null) return [];
       const found: A2AFileDto[] = [];
+      // Stryker disable BlockStatement: a line that is no JSON leaves found empty, so an empty catch gives [] too
       try {
+        // Stryker disable next-line StringLiteral: group 3 always matches (maybe empty): the ?? default is never taken
         descriptorsIn(JSON.parse(parts[3] ?? ""), found);
       } catch {
         return []; // a line that is no JSON holds no descriptor
       }
+      // Stryker restore BlockStatement
       return found.flatMap((descriptor) => {
         const key = `${descriptor.fileId ?? ""}|${descriptor.url ?? ""}|${descriptor.sha256 ?? ""}`;
         if (seen.has(key)) return [];
@@ -46,6 +52,7 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
         return [
           {
             descriptor,
+            // Stryker disable next-line StringLiteral: groups 1 and 2 always match: the ?? defaults are never taken
             field: `turn ${String(index + 1)} ${parts[1] ?? "start"} ${parts[2] ?? ""}`,
             producer: "an earlier turn",
           },

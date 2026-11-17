@@ -43,6 +43,7 @@ interface ViewResult {
 
 /** A transcription as a file: the masked text, `text/plain`. */
 function transcriptFile(content: FileContent, text: string): FileContent {
+  // Stryker disable next-line StringLiteral: an empty encoding name is UTF-8 in Node
   const bytes = Buffer.from(text, "utf8");
   return {
     mediaType: "text/plain",

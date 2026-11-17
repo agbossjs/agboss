@@ -82,6 +82,7 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
       signal: context.signal,
     });
   } catch (error) {
+    // Stryker disable next-line StringLiteral: no code and an unknown key both read nothing in REFUSALS
     const refusal = REFUSALS[codeOf(error) ?? ""];
     if (refusal !== undefined) throw new ModelFileRefusedError({ refusal, cause: error });
     throw new ModelFileUnavailableError({
@@ -93,6 +94,7 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
 
 /** The bytes of a stored file of the context's task. */
 async function stored(file: A2AFileDto, context: FileReadContext): Promise<Uint8Array> {
+  // Stryker disable next-line StringLiteral: a stored source always has its fileId (fileSourceOf), so the ?? is never taken
   const key = { tenantId: context.tenantId, fileId: file.fileId ?? "" };
   const meta = await context.store.findMetadata(key);
   const bytes = meta?.ownerId === context.ownerId ? await context.store.findBytes(key) : undefined;
@@ -104,8 +106,10 @@ async function stored(file: A2AFileDto, context: FileReadContext): Promise<Uint8
 const sourced = (file: A2AFileDto, context: FileReadContext): Promise<Uint8Array> => {
   switch (fileSourceOf(file)) {
     case A2AFileSource.Url:
+      // Stryker disable next-line StringLiteral: a descriptor with no url is refused as an invalid url whatever text stands for it: same refusal, same message
       return downloaded(file.url ?? "", context);
     case A2AFileSource.Inline:
+      // Stryker disable next-line StringLiteral: an inline source always has its inline (the ?? is never taken)
       return Promise.resolve(new Uint8Array(Buffer.from(file.inline ?? "", "base64")));
     case A2AFileSource.Stored:
       return stored(file, context);

@@ -22,6 +22,7 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
 const isVariantElement = (element: unknown): element is VariantElement =>
   typeof element === "object" &&
   element !== null &&
+  // Stryker disable next-line ConditionalExpression: a non-string variant matches no DTO name: with or without the check the element gives no files
   typeof Reflect.get(element, "variant") === "string" &&
   "value" in element;
 
@@ -51,6 +52,7 @@ export function inputFilesOf(
     const record = scope[field.slot];
     if (field.isPassThrough || record === undefined) return [];
     if (field.isList) {
+      // Stryker disable next-line ArrayDeclaration: a stand-in string element holds no file in any shape: the same [] result as no element
       const items: readonly unknown[] = Array.isArray(record.value) ? record.value : [];
       const isOneOf = record.slot.startsWith("list:oneOf(");
       return items.flatMap((element, index) => {
@@ -64,8 +66,10 @@ export function inputFilesOf(
       });
     }
     const dto = dtoOfShape(field.shape, record.variant);
+    // Stryker disable next-line ConditionalExpression: a non-list field is a DTO, a historyOf or an optional DTO: dtoOfShape is never undefined for them
     return dto === undefined
-      ? []
+      ? // Stryker disable next-line ArrayDeclaration: unreachable arm: dtoOfShape is never undefined for a non-list field
+        []
       : filesOfValue(dto, record.value, field.name).map((found) => ({
           ...found,
           producer: record.producer,
