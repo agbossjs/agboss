@@ -116,8 +116,9 @@ values only on `Always`. Values that cannot be sent never leave a gap: where the
 and the redactor may not be told them the application does not start (`[files.redactor-values-withheld]`, naming
 both providers and the opt-in), and at run time a redaction with values it may not send, or with nothing at all
 to look for, fails closed (`FileRedactionFailedError`) — an unchanged re-encode is never passed off as redacted.
-A redacted copy is cached for the exact value set it was made for (a keyed digest of it, or a "kinds only"
-marker), in the state of one execution.
+A redacted copy is cached for the policies and the exact value set it was made for (one HMAC of both under the
+file-cache key, [Guards → the PII key hierarchy](Guards#the-pii-key-hierarchy), and a "kinds only" marker when no
+value is sent), in the state of one execution; a masked transcription by its policies' keyed hash.
 
 ## The redactor and the transcriber
 
@@ -162,7 +163,8 @@ returned by number: an agent that reads files only as `Redacted` or `Transcripti
 
 `agboss describe` prints each agent's files (`input → original (5 files, 5 MB each, 10 MB in all) · answer
 files: seen-in-visit`) and `describe --json` carries `AgentSnapshot.files`. The config hash covers the files
-settings and each policy's file action. A request shows a file as `{ kind, mediaType, sizeBytes, sha256 }` in
+settings, each policy's file action and the application's own `FileRedactor` and `FileTranscriber` by class name
+(#1269: another one is another configuration — a paused run is not resumed blindly under it). A request shows a file as `{ kind, mediaType, sizeBytes, sha256 }` in
 events, traces, records and cassettes — never its bytes ([Observability](Observability)); tests script
 `mockLlm(FileTranscriber)` and `mockLlm(FileRedactor)` ([Testing](Testing)). The examples are `invoice-workflow`,
 `kyc-workflow` and `audio-note-workflow` of `examples/flow-patterns`.

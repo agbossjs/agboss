@@ -44,6 +44,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly budgets?: ApplicationBudgets | undefined;
     readonly log?: FrameworkLog | undefined;
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
+    readonly ownFileRedactor?: Class | undefined;
+    readonly ownFileTranscriber?: Class | undefined;
     readonly tracing?: ExecutionTracing | undefined;
     // (undocumented)
     readonly turns: TurnRecords;
@@ -180,7 +182,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
     readonly hasFileStore?: boolean;
-    readonly hasOwnFileTranscriber?: boolean;
     readonly judges?: (services: WorkflowServices) => ReadonlyMap<string, JudgeInstance>;
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
@@ -194,6 +195,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly modelProviders: readonly ModelProviderType[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     readonly ownFileRedactor?: Class | undefined;
+    readonly ownFileTranscriber?: Class | undefined;
     readonly pii?: AssembledPii;
     // (undocumented)
     readonly prompts: AgentPrompts<TName>;
@@ -442,7 +444,7 @@ export function createAppWith(application: Class, options?: BuildApplicationOpti
 // @public
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
 
-// @public
+// @public (undocumented)
 export function createWorkflowDeps(bundle: AssembledWorkflow, options: BuildOptions, parts: WorkflowDepsParts): Promise<AppDeps>;
 
 // @public
@@ -1626,6 +1628,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "executionHistory".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "budgets".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "applicationName".
+// src/app/app-deps.ts - (ae-undocumented) Missing documentation for "createWorkflowDeps".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "threadId".

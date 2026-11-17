@@ -37,6 +37,16 @@ A disconnect no longer cancels a run: the task goes on, and `GetTask` / `Subscri
 A client resends an ambiguous accept only to an AGBoss peer, within the retention its card declares
 — never to a foreign peer.
 
+## PII tokens change once (#1269)
+
+Every use of the PII key now has a key of its own, derived by HKDF-SHA256
+([Guards → the PII key hierarchy](Guards#the-pii-key-hierarchy)). Tokens change with it: the same value
+has another `<email:…>` token under 0.1.1 than under 0.1.0, with the same `PII_PSEUDONYM_KEY`. Nothing
+to migrate in the stores — a paused execution's token map is read as it is, its 0.1.0 tokens still
+revealed, and its loop's masked texts are masked again — but a log or trace search that joins 0.1.0
+tokens with 0.1.1 ones finds no match across the upgrade. Redeploy every instance of an application
+together, as for A2A: during a rolling upgrade one value has two tokens (both revealed).
+
 ## Pauses — `withdraw` is gone, a channel hears every close
 
 0.1.1 adds a deadline to a pause, notices to channels and listeners, and one meaning per name. Two

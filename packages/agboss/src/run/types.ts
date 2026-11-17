@@ -15,6 +15,7 @@ import type { TurnRecords } from "../turns/index.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
+import type { Class } from "../components/injection.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
@@ -32,6 +33,10 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly tracing?: ExecutionTracing | undefined;
   /** Its application's model providers: a transport one (#385) is part of its `configHash`. */
   readonly modelProviders?: readonly ModelProviderType[] | undefined;
+  /** Its application's own `FileRedactor` (#899): part of its `configHash` (#1269). */
+  readonly ownFileRedactor?: Class | undefined;
+  /** Its application's own `FileTranscriber` (#899): part of its `configHash` (#1269). */
+  readonly ownFileTranscriber?: Class | undefined;
 }
 
 /**

@@ -8,7 +8,7 @@ import type { AgentLoopDeps } from "./deps.js";
 import { GuardrailSide } from "../../components/policy-decorators.js";
 import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
 import { runGuardrails } from "../../guardrails/runtime.js";
-import { maskCacheKey, maskedModelText } from "../../pii/model-boundary.js";
+import { maskedModelText } from "../../pii/model-boundary.js";
 import { modelReadingMaskOf, withModelReading } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -103,7 +103,7 @@ async function guardedInput(
     usage: [...masked.usage, ...seen.usage, ...passed.usage],
     decisions: passed.decisions,
     piiTokens: masked.tokens,
-    piiMasked: set === undefined ? {} : { [maskCacheKey(input, true)]: masked.text },
+    piiMasked: set === undefined ? {} : { [set.maskCacheKeyOf(input, true)]: masked.text },
   };
 }
 
@@ -144,8 +144,10 @@ async function inputFilesOf(
 }
 
 /** The texts of the files' pieces already masked: the model boundary has nothing to search in them (#899 §7). */
-const maskedPiecesOf = (files: FilePieces): Record<string, string> =>
-  Object.fromEntries(files.maskedTexts.map((text) => [maskCacheKey(text, true), text]));
+const maskedPiecesOf = (files: FilePieces, mask: FileMask | undefined): Record<string, string> =>
+  mask === undefined
+    ? {}
+    : Object.fromEntries(files.maskedTexts.map((text) => [mask.maskCacheKeyOf(text), text]));
 
 /** What the input's files add to the loop: their tally, their transcriptions, the numbered files the model saw (#899 §8). */
 const filesUpdateOf = (state: AgentLoopStateType, files: FilePieces): AgentLoopUpdate => ({
@@ -203,7 +205,7 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       messages,
       usage,
       piiTokens: { ...guarded.piiTokens, ...files.tokens },
-      piiMasked: { ...guarded.piiMasked, ...maskedPiecesOf(files) },
+      piiMasked: { ...guarded.piiMasked, ...maskedPiecesOf(files, mask) },
       guardrailDecisions: [...guarded.decisions],
       ...filesUpdateOf(state, files),
     };

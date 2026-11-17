@@ -6,7 +6,6 @@ import { ModelFileLimitError } from "../../files/file-errors.js";
 import { ModelFileLimit } from "../../files/model-files.js";
 import { fileMaskOf } from "../../files/file-mask.js";
 import { NO_FILES, filePiecesOf, type FileTally, type SeenFile } from "../../files/visit-files.js";
-import { maskCacheKey } from "../../pii/model-boundary.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import { loopPoliciesOf } from "./model-pii.js";
 import type { AsyncNode } from "../types.js";
@@ -149,7 +148,8 @@ async function fileMessagesOf(
     });
     messages.push(new HumanMessage({ content: contentWithPieces("", built.pieces) }));
     Object.assign(tokens, built.tokens);
-    for (const text of built.maskedTexts) piiMasked[maskCacheKey(text, true)] = text;
+    for (const text of built.maskedTexts)
+      if (mask !== undefined) piiMasked[mask.maskCacheKeyOf(text)] = text;
     seen.push(...seenOf(files));
   }
   return { messages, tally, seen, tokens, piiMasked };

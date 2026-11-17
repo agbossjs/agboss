@@ -1,4 +1,4 @@
-import { hasFileStore, hasOwnFileTranscriber, ownFileRedactorOf } from "../files/assemble-files.js";
+import { hasFileStore, ownFileRedactorOf, ownFileTranscriberOf } from "../files/assemble-files.js";
 import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
@@ -36,7 +36,7 @@ export function modelPartsOf(
   | "modelProviders"
   | "replyInterpreters"
   | "rerankers"
-  | "hasOwnFileTranscriber"
+  | "ownFileTranscriber"
   | "ownFileRedactor"
   | "hasFileStore"
 > {
@@ -45,7 +45,7 @@ export function modelPartsOf(
   return {
     arbiters,
     // the application lists its own `FileTranscriber` (#899): the built-in's model is no use then
-    hasOwnFileTranscriber: hasOwnFileTranscriber(owner?.providers),
+    ownFileTranscriber: ownFileTranscriberOf(owner?.providers),
     ownFileRedactor: ownFileRedactorOf(owner?.providers),
     hasFileStore: hasFileStore(owner?.providers),
     replyInterpreters,

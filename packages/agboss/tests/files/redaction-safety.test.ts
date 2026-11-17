@@ -5,7 +5,7 @@
  * answer still refuses. The execution's exact PII values reach a redaction model only where the provider
  * or the setting allows it.
  */
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, hkdfSync } from "node:crypto";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
 import { sha256Of } from "../../src/files/file-bytes.js";
@@ -304,7 +304,8 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
         mask: {
           policyHash: "h",
           redaction: { kinds, values, blocked: [], isModelChecked: true },
-          keyedDigestOf: () => "d",
+          redactionDigestOf: () => "d",
+          maskCacheKeyOf: () => "k",
           refusalForKind: () => Promise.resolve(undefined),
         },
       } as never,
@@ -347,17 +348,15 @@ describe("AC3: a redacted copy is cached for the exact values it was made for", 
         settings: { transcriptionMaxTokens: 100, redactionSendsValues },
       },
     }) as never;
-  /** A mask with the same policies (one hash) and the values it was given. */
-  const maskOf = (values: readonly string[], key = "pii-key") =>
-    ({
-      policyHash: "same-policies",
+  /** The mask of one set of policies (none) on `key`, with the values it was given (#1269: the real digest). */
+  const maskOf = (values: readonly string[], key = "pii-key") => {
+    const set = new PiiPolicySet([], key);
+    return {
+      policyHash: set.fingerprint,
       redaction: { kinds: [], values, blocked: [], isModelChecked: true },
-      keyedDigestOf: (texts: readonly string[]) =>
-        createHmac("sha256", key)
-          .update(JSON.stringify([...texts].sort()))
-          .digest("hex")
-          .slice(0, 32),
-    }) as never;
+      redactionDigestOf: (sent: readonly string[]) => set.redactionDigestOf(sent),
+    } as never;
+  };
 
   it("two value sets, one image, one set of policies: two keys; the same set in another order: one", () => {
     const a = redactedKeyOf(batchOf(true), content, maskOf(["+972-50-111-1111"]));
@@ -378,17 +377,26 @@ describe("AC3: a redacted copy is cached for the exact values it was made for", 
     expect(key).not.toBe(redactedKeyOf(batchOf(true), content, maskOf([value], "another-key")));
   });
 
-  it("the policy set's digest is an HMAC of the sorted values under its PII key, not a plain hash", () => {
+  it("#1269: the redaction digest is an HMAC of the policies and the sorted values under the file-cache key of the root, not a plain hash", () => {
     const texts = ["b", "a"];
-    const digest = new PiiPolicySet([], "key-one").keyedDigestOf(texts);
+    const digest = new PiiPolicySet([], "key-one").redactionDigestOf(texts);
+    const fileCacheKey = Buffer.from(
+      hkdfSync("sha256", "key-one", "agboss/pii-key-hierarchy", "agboss/files/cache-key/v2", 32),
+    );
 
     expect(digest).toBe(
+      createHmac("sha256", fileCacheKey)
+        .update(JSON.stringify([[], ["a", "b"]]))
+        .digest("hex")
+        .slice(0, 32),
+    );
+    expect(digest).not.toBe(new PiiPolicySet([], "key-two").redactionDigestOf(texts));
+    expect(digest).not.toBe(
       createHmac("sha256", "key-one")
         .update(JSON.stringify(["a", "b"]))
         .digest("hex")
         .slice(0, 32),
     );
-    expect(digest).not.toBe(new PiiPolicySet([], "key-two").keyedDigestOf(texts));
     expect(digest).not.toBe(
       createHash("sha256")
         .update(JSON.stringify(["a", "b"]))
