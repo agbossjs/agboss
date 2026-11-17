@@ -183,6 +183,8 @@ const SHARDS = {
       "src/a2a/a2a-task-store-rule.ts",
       // #810: the inbound mesh check — the audience first, then the signature, window and body
       "src/a2a/server/a2a-mesh-admission.ts",
+      // #1256: the slots of the fetches of files by url, across messages
+      "src/a2a/files/a2a-file-slots.ts",
     ],
   },
   // the A2A client (#809): the accept round trip's messageId and reconciliation by peer, which

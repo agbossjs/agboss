@@ -15,10 +15,9 @@ import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 import type { ServedSkill } from "./server/a2a-skills.js";
 import type { A2ADirectParts } from "./server/a2a-server-parts.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
-import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
-import { DEFAULT_FILE_FETCH_TIMEOUT } from "./files/a2a-file-options.js";
-import { fileFetchesOf, fileTransportOf } from "./files/a2a-file-seam.js";
+import { checkedFetchLimit } from "./files/a2a-file-slots.js";
+import { serverFilesOf } from "./files/a2a-server-files.js";
 
 /** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
 export interface A2AHttpListenerOptions<TStart extends Class> {
@@ -46,6 +45,18 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
   readonly maxBodySize?: Bytes;
   /** How long a file by `url` may take to fetch at a message's admission (#859): `seconds(10)`; at most 24 hours (`[a2a.timeout-invalid]`, #1141). */
   readonly fileFetchTimeout?: Milliseconds;
+  /**
+   * How many files by `url` the listener fetches at once, across all messages (#1256): 16 by default.
+   * A fetch past it waits in a queue of four per slot, its wait part of `fileFetchTimeout`; past the
+   * queue it is refused (`a2a.file-fetch-busy`). A whole number from 1 (`[a2a.file-fetch-limit-invalid]`).
+   */
+  readonly maxConcurrentFileFetches?: number;
+  /**
+   * How many of those one caller (a tenant's owner; callers with no owner share one bucket per tenant) holds at once (#1256): a quarter of `maxConcurrentFileFetches` by
+   * default (at least 1), with a share of the queue of four per slot; a tenant over its share is
+   * refused at once (`a2a.file-fetch-busy`), so one caller's flood leaves the rest their turn.
+   */
+  readonly maxConcurrentFileFetchesPerTenant?: number;
   /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request; at most 24 days (`[a2a.timeout-invalid]`, #1141). */
   readonly maxTaskDuration?: Milliseconds;
 }
@@ -133,14 +144,6 @@ function builtAppOf(app: A2AApp) {
     });
   return { mesh, control };
 }
-
-/** Where the listener's files are kept and how one by url is fetched (#859). */
-const serverFilesOf = (app: A2AApp, options: A2AHttpListenerOptions<Class>) => ({
-  store: app.resolve(A2AFileRepository),
-  transport: fileTransportOf(options),
-  timeout: options.fileFetchTimeout ?? DEFAULT_FILE_FETCH_TIMEOUT,
-  fetches: fileFetchesOf(options),
-});
 
 /** The options of an `@A2AExpose` (`exportsOf` checked it is one). */
 function exposeOptionsOf(expose: Class): A2AExposeOptions {
@@ -230,6 +233,8 @@ export function a2aHttpListener<TStart extends Class>(
   options: A2AHttpListenerOptions<TStart>,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   checkedListenerTimers(options);
+  checkedFetchLimit("maxConcurrentFileFetches", options.maxConcurrentFileFetches);
+  checkedFetchLimit("maxConcurrentFileFetchesPerTenant", options.maxConcurrentFileFetchesPerTenant);
   const resolver = callerResolverOf(app, options.callerResolver);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");

@@ -2,6 +2,7 @@ import type { A2AError } from "@a2a-js/sdk/errors";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Bytes, Milliseconds } from "../../units/index.js";
 import { invalidParams } from "../server/a2a-wire-errors.js";
+import type { FileFetchSlots } from "./a2a-file-slots.js";
 import {
   FileAddressDeniedError,
   type FileHttpResponse,
@@ -30,6 +31,10 @@ export interface FileFetch {
   readonly timeout: Milliseconds;
   /** The request's end: its connection closed. */
   readonly signal: AbortSignal;
+  /** The listener's slots (#1256): the fetch waits for one, within `timeout`; none: unbounded. */
+  readonly slots?: FileFetchSlots;
+  /** Whose fetch it is, for the slots' per-caller share (tenant and owner). */
+  readonly tenant?: string;
 }
 
 const refused = (code: string, message: string): A2AError => invalidParams(code, message);
@@ -114,7 +119,7 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
  * The bytes of a file by `url`, fetched as described above. The deadline and the request's end
  * settle the fetch themselves (#916): the fetch is raced against them and the signal then aborts
  * whatever is still open, so a transport that never answers — and ignores the signal — cannot hold
- * it past the timeout.
+ * it past the timeout. With `slots` (#1256) the wait for a slot is part of that time.
  */
 export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
   const timedOut = new AbortController();
@@ -133,7 +138,14 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
     if (signal.aborted) settle();
     else signal.addEventListener("abort", settle, { once: true });
   });
-  const fetched = bodyAt(fetch, signal);
+  const fetched =
+    fetch.slots?.run(
+      signal,
+      () => bodyAt(fetch, signal),
+      () => refused("a2a.file-fetch-busy", "the agent is fetching too many files now"),
+      // Stryker disable next-line StringLiteral: the key of a fetch with no tenant — any constant names the one shared caller
+      fetch.tenant ?? "",
+    ) ?? bodyAt(fetch, signal);
   fetched.catch(() => undefined); // when `ended` wins, the fetch's own failure is not unhandled
   try {
     return await Promise.race([fetched, ended]);

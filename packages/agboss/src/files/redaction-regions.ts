@@ -16,6 +16,9 @@ const MAX_PADDING_Y = 0.05;
 const MIN_PADDING_X_OF_HEIGHT = 0.25;
 const MAX_MIN_PADDING_X = 0.03;
 
+/** The most regions taken from one answer (#1257): more fails the redaction. */
+export const MAX_REGIONS = 200;
+
 /** A region the model named, validated: fractions of the image. */
 export interface Region {
   readonly target: string;
@@ -52,11 +55,22 @@ export class RegionsAnswerError extends Error {
   override name = "RegionsAnswerError";
 }
 
-/** The regions of the model's answer, each held to the rules: any one that breaks them fails the redaction. */
-export function regionsOf(text: string, known: ReadonlySet<string>): readonly Region[] {
+/**
+ * The regions of the model's answer, each held to the rules: any one that breaks them fails the
+ * redaction, and so does a list longer than `maxRegions` (#1257: the model is no bound of the work).
+ */
+export function regionsOf(
+  text: string,
+  known: ReadonlySet<string>,
+  maxRegions: number = MAX_REGIONS,
+): readonly Region[] {
   const answer = jsonOf(text);
   const list = isRecord(answer) ? answer.regions : undefined;
   if (!Array.isArray(list)) throw new RegionsAnswerError("the answer has no regions list");
+  if (list.length > maxRegions)
+    throw new RegionsAnswerError(
+      `the answer has ${String(list.length)} regions, more than the ${String(maxRegions)} taken`,
+    );
   return list.map((entry: unknown, index): Region => {
     const at = `region ${String(index + 1)} of ${String(list.length)}`;
     if (!isRecord(entry)) throw new RegionsAnswerError(`${at} is no object`);

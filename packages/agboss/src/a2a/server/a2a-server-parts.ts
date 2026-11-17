@@ -26,6 +26,7 @@ import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
 import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
 import type { FileFetches } from "../files/a2a-file-fetches.js";
+import type { FileFetchSlots } from "../files/a2a-file-slots.js";
 import type { FileTransport } from "../files/a2a-file-transport.js";
 import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct-message.repository.js";
 
@@ -73,6 +74,8 @@ export interface A2AServerFiles {
   readonly timeout: Milliseconds;
   /** The fetches in flight (#904): a concurrent duplicate of a message joins its file's fetch. */
   readonly fetches: FileFetches;
+  /** How many fetches run at once across messages (#1256). */
+  readonly slots: FileFetchSlots;
 }
 
 /** The admitted caller of one request, and the request's own end (its connection closed). */

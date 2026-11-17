@@ -608,6 +608,8 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
     readonly expose: Class;
     readonly fileFetchTimeout?: Milliseconds;
     readonly maxBodySize?: Bytes;
+    readonly maxConcurrentFileFetches?: number;
+    readonly maxConcurrentFileFetchesPerTenant?: number;
     readonly maxTaskDuration?: Milliseconds;
     readonly publicUrl: string;
 }
