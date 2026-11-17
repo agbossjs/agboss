@@ -5,7 +5,7 @@ import { InlineA2AFileRepository } from "../infrastructure/a2a-file.repository.j
 import { PiiKind } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
-import { originalPieces } from "./file-pieces.js";
+import { originalPieces, type MadeEntry } from "./file-pieces.js";
 import type { FileMask } from "./file-mask.js";
 import { valuesForRedactor } from "./redaction-values.js";
 import type { FileBatch } from "./visit-files.js";
@@ -99,8 +99,7 @@ export interface RedactedView {
   readonly pieces: ReturnType<typeof originalPieces>;
   readonly viewed: FileContent;
   /** The entry newly made for the cache, and the key it is kept under. */
-  readonly made?: string;
-  readonly cacheKey?: string;
+  readonly made?: MadeEntry;
   readonly usage: readonly UsageRecord[];
 }
 
@@ -152,14 +151,10 @@ export async function redactedViewOf(
   heading: string,
 ): Promise<RedactedView> {
   const { runtime, mask } = batch;
-  const shown = (
-    file: FileContent,
-    made?: { readonly entry: string; readonly key: string },
-    usage: readonly UsageRecord[] = [],
-  ) => ({
+  const shown = (file: FileContent, made?: MadeEntry, usage: readonly UsageRecord[] = []) => ({
     pieces: originalPieces(heading, file, runtime.maxResultSize),
     viewed: file,
-    ...(made === undefined ? {} : { made: made.entry, cacheKey: made.key }),
+    ...(made === undefined ? {} : { made }),
     usage,
   });
   if (mask === undefined) return shown(content);

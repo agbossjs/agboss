@@ -84,8 +84,8 @@ describe("what is kept, and where", () => {
 
     const view = await redactedViewOf(batch, original, HEADING);
 
-    expect(view.cacheKey).toBe(redactedKeyOf(batch, original, mask));
-    expect(JSON.parse(view.made ?? "")).toEqual({
+    expect(view.made?.key).toBe(redactedKeyOf(batch, original, mask));
+    expect(JSON.parse(view.made?.entry ?? "")).toEqual({
       mediaType: "image/png",
       sha256: copy.sha256,
       filename: "card.png",
@@ -103,7 +103,7 @@ describe("what is kept, and where", () => {
 
     const view = await redactedViewOf(batch, png(), HEADING);
 
-    expect(Object.keys(JSON.parse(view.made ?? "") as object).sort()).toEqual([
+    expect(Object.keys(JSON.parse(view.made?.entry ?? "") as object).sort()).toEqual([
       "inline",
       "mediaType",
       "sha256",
@@ -119,7 +119,7 @@ describe("what is kept, and where", () => {
     const kept = await redactedViewOf(redactTo(at), png(), HEADING);
     const error = await failureOf(redactedViewOf(redactTo(over), png(), HEADING));
 
-    expect(JSON.parse(kept.made ?? "")).toHaveProperty("inline");
+    expect(JSON.parse(kept.made?.entry ?? "")).toHaveProperty("inline");
     expect(error.agent).toBe(AGENT);
     expect(error.reason).toBe(
       "the redacted copy is 65537 bytes, over the 65536 an execution keeps without a file store",
@@ -138,7 +138,7 @@ describe("what is kept, and where", () => {
 
     const expectedId = `redacted-${createHash("sha256").update(`${OWNER}:${copy.sha256}`).digest("hex").slice(0, 40)}`;
     expect(expectedId).toHaveLength(49);
-    expect(JSON.parse(view.made ?? "")).toEqual({
+    expect(JSON.parse(view.made?.entry ?? "")).toEqual({
       mediaType: "image/png",
       sha256: copy.sha256,
       filename: "card.png",
@@ -173,7 +173,7 @@ describe("what is kept, and where", () => {
     const view = await redactedViewOf(batch, png(), HEADING);
 
     expect("filename" in (store.saved[0] ?? {})).toBe(false);
-    expect(Object.keys(JSON.parse(view.made ?? "") as object).sort()).toEqual([
+    expect(Object.keys(JSON.parse(view.made?.entry ?? "") as object).sort()).toEqual([
       "fileId",
       "mediaType",
       "sha256",
@@ -217,7 +217,7 @@ describe("a copy made once is read again, never made twice", () => {
     const batch = batchOf(
       runtimeOf(redactor),
       maskOf(),
-      { [first.cacheKey ?? ""]: first.made ?? "" },
+      { [first.made?.key ?? ""]: first.made?.entry ?? "" },
       () => {
         budgetChecks += 1;
       },
@@ -239,7 +239,7 @@ describe("a copy made once is read again, never made twice", () => {
     const redactor = countingRedactor();
     const first = await redactedViewOf(batchOf(runtimeOf(redactor), maskOf()), png(), HEADING);
     const batch = batchOf(runtimeOf(redactor), maskOf(), {
-      [first.cacheKey ?? ""]: first.made ?? "",
+      [first.made?.key ?? ""]: first.made?.entry ?? "",
     });
 
     const again = await redactedViewOf(batch, png(), HEADING);
@@ -256,7 +256,7 @@ describe("a copy made once is read again, never made twice", () => {
       HEADING,
     );
     const batch = batchOf(runtimeOf({ ...redactor, store }), maskOf(), {
-      [first.cacheKey ?? ""]: first.made ?? "",
+      [first.made?.key ?? ""]: first.made?.entry ?? "",
     });
 
     const again = await redactedViewOf(batch, png(PNG_BYTES, "card.png"), HEADING);
@@ -276,7 +276,7 @@ describe("a copy made once is read again, never made twice", () => {
       HEADING,
     );
     const batch = batchOf(runtimeOf({ ...redactor, store }), maskOf(), {
-      [first.cacheKey ?? ""]: first.made ?? "",
+      [first.made?.key ?? ""]: first.made?.entry ?? "",
     });
 
     const again = await redactedViewOf(batch, png(), HEADING);

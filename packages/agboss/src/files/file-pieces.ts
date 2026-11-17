@@ -10,6 +10,12 @@ import { isTextFormat } from "./file-needs.js";
  * as a part after it, a text as the transcription it is. Pure: what is sent is made here, nowhere else.
  */
 
+/** A cache entry newly made (a masked text, a redacted copy), and the key it is kept under. */
+export interface MadeEntry {
+  readonly entry: string;
+  readonly key: string;
+}
+
 /** One piece of a message: a text (a heading and what follows) or a file part. */
 export type FilePiece = FileTextPiece | ModelBlobPart;
 

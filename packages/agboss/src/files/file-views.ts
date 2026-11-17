@@ -7,6 +7,7 @@ import {
   ownTranscriptOf,
   textPiece,
   type FilePiece,
+  type MadeEntry,
 } from "./file-pieces.js";
 import { isTextFormat } from "./file-needs.js";
 import { FileView } from "./model-files.js";
@@ -35,16 +36,14 @@ interface ViewResult {
   readonly pieces: readonly FilePiece[];
   readonly viewed: FileContent;
   /** What was newly made for the cache (a masked text, a redacted copy), and the key it is kept under. */
-  readonly made?: string;
-  readonly cacheKey?: string;
+  readonly made?: MadeEntry;
   readonly tokens: PiiTokenMap;
   readonly usage: readonly UsageRecord[];
 }
 
 /** A transcription as a file: the masked text, `text/plain`. */
 function transcriptFile(content: FileContent, text: string): FileContent {
-  // Stryker disable next-line StringLiteral: an empty encoding name is UTF-8 in Node
-  const bytes = Buffer.from(text, "utf8");
+  const bytes = Buffer.from(text); // UTF-8, the default
   return {
     mediaType: "text/plain",
     ...(content.filename === undefined ? {} : { filename: content.filename }),
@@ -79,7 +78,7 @@ async function transcriptionOf(
         ? [textPiece(heading, text, runtime.maxResultSize)]
         : maskedTextPieces(heading, text, runtime.maxResultSize),
     viewed: transcriptFile(content, text),
-    ...(made === undefined ? {} : { made, cacheKey: key }),
+    ...(made === undefined ? {} : { made: { entry: made, key } }),
     tokens,
     usage,
   });

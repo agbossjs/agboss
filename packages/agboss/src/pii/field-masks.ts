@@ -39,7 +39,7 @@ export function tokenFieldMask(key: string, known: PiiTokenMap): TokenFieldMask 
 /** The type of a shape: a DTO, a wrapper — or what an input field reads. */
 export type ShapeOf = DtoClass | AnyWrapper;
 
-export function dtoOfShape(shape: ShapeOf, variant: string | undefined): DtoClass | undefined {
+export function dtoOfShape(shape: ShapeOf, variant: unknown): DtoClass | undefined {
   if (!isWrapper(shape)) return shape;
   switch (shape.kind) {
     case Wrapper.Optional:

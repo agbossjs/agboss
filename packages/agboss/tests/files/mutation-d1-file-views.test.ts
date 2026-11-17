@@ -117,9 +117,9 @@ describe("a transcription view: what the transcriber's call costs and leaves", (
 
     expect(calls.checked).toBe(1);
     expect(calls.transcribed).toEqual([content]);
-    expect(result.made).toBe("what the image says");
-    expect(result.cacheKey).toBe(transcriptKeyOf(runtime, content, ""));
-    expect(result.cacheKey).toBe(`${content.sha256}:tk:4096:`);
+    expect(result.made?.entry).toBe("what the image says");
+    expect(result.made?.key).toBe(transcriptKeyOf(runtime, content, ""));
+    expect(result.made?.key).toBe(`${content.sha256}:tk:4096:`);
     expect(result.usage).toEqual([usageOf("files:transcriber")]);
     expect(result.tokens).toEqual({});
   });
@@ -130,7 +130,7 @@ describe("a transcription view: what the transcriber's call costs and leaves", (
     const result = await viewOf(batch, image(), FileView.Transcription, "H", {});
 
     expect(result.usage).toEqual([]);
-    expect(result.made).toBe("what the image says");
+    expect(result.made?.entry).toBe("what the image says");
   });
 
   it("the file as the model saw it is the text, as text/plain, keeping the name; the pieces show it under the heading", async () => {
@@ -209,8 +209,8 @@ describe("a transcription view under masking", () => {
 
     const result = await viewOf(batch, image(), FileView.Transcription, "H", {});
 
-    expect(result.made).toBe("a [X]");
-    expect(result.cacheKey).toBe(`${image().sha256}:tk:4096:ph`);
+    expect(result.made?.entry).toBe("a [X]");
+    expect(result.made?.key).toBe(`${image().sha256}:tk:4096:ph`);
     expect(result.tokens).toEqual({ "[X]": "secret" });
     expect(result.usage).toEqual([usageOf("files:transcriber"), usageOf("pii")]);
     expect(result.pieces).toEqual([
@@ -226,7 +226,7 @@ describe("a transcription view under masking", () => {
 
     expect(calls.transcribed).toEqual([]);
     expect(calls.checked).toBe(0);
-    expect(result.made).toBe("a [X]");
+    expect(result.made?.entry).toBe("a [X]");
     expect(result.usage).toEqual([usageOf("pii")]);
     expect(result.viewed.mediaType).toBe("text/plain");
   });

@@ -195,9 +195,7 @@ async function gatherViews(
     gathered.viewed.push({ content: shown.viewed, heading });
     gathered.usage.push(...shown.usage);
     Object.assign(gathered.tokens, shown.tokens);
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: a view sets `made` and `cacheKey` together or neither (file-views.ts, redacted-view.ts)
-    if (shown.made !== undefined && shown.cacheKey !== undefined)
-      gathered.transcripts[shown.cacheKey] = shown.made;
+    if (shown.made !== undefined) gathered.transcripts[shown.made.key] = shown.made.entry;
   }
 }
 

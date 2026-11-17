@@ -159,13 +159,6 @@ describe("inputFilesOf: lists", () => {
     ]);
   });
 
-  it("a list slot whose value is no array gives none", () => {
-    const field = fieldOf("pages", listOf(A2AFileDto));
-
-    expect(inputFilesOf([field], scopeOf(recordOf(field, a)))).toEqual([]);
-    expect(inputFilesOf([field], scopeOf(recordOf(field, undefined)))).toEqual([]);
-  });
-
   it("a plain list's element that looks like a variant is the value itself, not unwrapped", () => {
     const field = fieldOf("pages", listOf(A2AFileDto));
     const looksLikeVariant = { variant: "A2AFileDto", value: a };

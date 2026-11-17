@@ -151,6 +151,8 @@ describe("a fetch that fails some way of its own is unavailable (download-failed
     ["an error whose metadata has no code", { metadata: {} }],
     ["an error whose code is no string", { metadata: { code: 5 } }],
     ["an error whose code is a string of another kind", { metadata: { code: "a2a.other" } }],
+    ["an error whose code is an inherited key of an object", { metadata: { code: "toString" } }],
+    ["an error whose code is the constructor key", { metadata: { code: "constructor" } }],
   ])("%s", async (_name, thrown) => {
     const failure = await failureOf(fileContentOf(download, failingWith(thrown)));
 
