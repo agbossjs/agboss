@@ -16,13 +16,6 @@ import type { SourceFile, FileRuntime } from "./visit-files.js";
 /** A turn's line: `start <name>: <json>` (the JSON to the end of the text: `[\s\S]*` is greedy). */
 const LINE = /^(?<side>start|finish) (?<name>[^:]+): (?<json>[\s\S]*)/u;
 
-/** The parts of a line that matched `LINE`: every group is in a match. */
-interface LineParts {
-  readonly side: string;
-  readonly name: string;
-  readonly json: string;
-}
-
 /** A JSON text's value; none for a text that is no JSON (it holds no descriptor). */
 function jsonOf(text: string): unknown {
   try {
@@ -51,9 +44,9 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
     [turn.start, turn.finish].flatMap((line) => {
       const match = LINE.exec(line);
       if (match === null) return [];
-      const parts = match.groups as unknown as LineParts; // every group is in a match
+      const parts = { ...match.groups }; // every group is in a match
       const found: A2AFileDto[] = [];
-      descriptorsIn(jsonOf(parts.json), found);
+      descriptorsIn(jsonOf(String(parts.json)), found);
       return found.flatMap((descriptor) => {
         const key = `${descriptor.fileId ?? ""}|${descriptor.url ?? ""}|${descriptor.sha256 ?? ""}`;
         if (seen.has(key)) return [];
@@ -61,7 +54,7 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
         return [
           {
             descriptor,
-            field: `turn ${String(index + 1)} ${parts.side} ${parts.name}`,
+            field: `turn ${String(index + 1)} ${String(parts.side)} ${String(parts.name)}`,
             producer: "an earlier turn",
           },
         ];
