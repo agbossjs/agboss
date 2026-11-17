@@ -12,7 +12,7 @@ import { sha256Of } from "../../src/files/file-bytes.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileView, ModelFiles, RedactionValues } from "../../src/files/model-files.js";
 import { redactedKeyOf } from "../../src/files/redacted-view.js";
-import { valuesForRedactor, withRedactionValues } from "../../src/files/redaction-values.js";
+import { valuesForRedactor } from "../../src/files/redaction-values.js";
 import {
   FileRedactionFailedError,
   ExecutionContext,
@@ -256,8 +256,20 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
 
   const builtIn = readerApplication({
     files: ModelFiles.of({ views: [FileView.Redacted], allowedMediaTypes: ["image/png"] }),
+    // the agent's own model is local/reader: the same vendor on the same provider
+    defaults: { files: { redactionModel: "local/redactor" } },
     piiPolicies: [HideCardsPolicy],
     executionContext: PersonContext,
+  });
+  const byDefault = readerApplication({
+    files: ModelFiles.of({ views: [FileView.Redacted], allowedMediaTypes: ["image/png"] }),
+    piiPolicies: [HideCardsPolicy],
+    executionContext: PersonContext,
+  });
+  it("the default redaction model (another vendor behind the same aggregator) is no same provider: no start", async () => {
+    const said = await startFailure(byDefault);
+
+    expect(said).toContain("files.redactor-values-withheld");
   });
   testWith(builtIn.Application)(
     "the built-in on the agent's own provider gets them in its request",
@@ -314,30 +326,7 @@ describe("AC3: the exact values reach a redactor only where allowed", () => {
     await expect(run).rejects.not.toThrow(NO_REDACTOR_CALL);
   });
 
-  it("a redactor on another provider than the agent's gets none: the setting is decided by the providers", () => {
-    const config = {
-      defaults: { models: {} },
-      agents: {
-        "a-agent": {
-          model: "m/agent",
-          files: { views: [FileView.Redacted], redactionValues: RedactionValues.SameProvider },
-        },
-      },
-    } as never;
-    const uses = [
-      { key: "agents.a-agent", model: "m/agent" },
-      { key: "files.redactor.a-agent", model: "m/redactor" },
-    ] as never;
-    const sendsWith = (providerOf: (use: { key: string }) => string): boolean | undefined => {
-      const resolved = withRedactionValues(config, uses, providerOf);
-      return (resolved.agents["a-agent"]?.files as { redactionSendsValues?: boolean } | undefined)
-        ?.redactionSendsValues;
-    };
-
-    expect(sendsWith(() => "openrouter")).toBe(true);
-    expect(sendsWith((use) => (use.key.startsWith("files") ? "other-cloud" : "openrouter"))).toBe(
-      false,
-    );
+  it("values go to a redactor only where the settings say (which provider is the same: redaction-provider-identity.test.ts)", () => {
     expect(valuesForRedactor({ redactionSendsValues: false }, [SECRET])).toEqual([]);
     expect(valuesForRedactor({}, [SECRET])).toEqual([]);
     expect(valuesForRedactor({ redactionSendsValues: true }, [SECRET])).toEqual([SECRET]);

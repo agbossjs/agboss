@@ -9,7 +9,11 @@ import { inspect } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
 import { FileRedactionFailedError } from "../../src/files/file-errors.js";
-import { MAX_INPUT_PIXELS, redacted } from "../../src/files/model-image-redactor-work.js";
+import {
+  MAX_INPUT_PIXELS,
+  REDACTOR_SYSTEM,
+  redacted,
+} from "../../src/files/model-image-redactor-work.js";
 import { boxOf, regionsOf } from "../../src/files/redaction-regions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
@@ -209,17 +213,50 @@ describe("AC3: the regions' rules and padding", () => {
     expect(region).toEqual({ target: "card-number", x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
   });
 
-  it("a box is padded by 10 % along the line and half its height above and below, clamped to the image", () => {
-    const box = boxOf({ target: "card-number", x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 200, 100);
-    expect([box.left, box.top]).toEqual([16, 0]);
-    expect(box.width).toBeGreaterThanOrEqual(48);
-    expect(box.width).toBeLessThanOrEqual(49);
-    // half a region's height above and below: 0.2 × 100 = 20 px → 10 px each way, clamped at the top edge
-    expect(box.height).toBeGreaterThanOrEqual(40);
-    expect(box.height).toBeLessThanOrEqual(41);
+  it("a box of a line is padded by 10 % along it and half its height above and below, clamped to the image", () => {
+    const box = boxOf({ target: "card-number", x: 0.1, y: 0.1, w: 0.5, h: 0.04 }, 1000, 1000);
+    expect([box.left, box.top]).toEqual([50, 80]);
+    // 10 % of 500 px each way
+    expect(box.width).toBeGreaterThanOrEqual(600);
+    expect(box.width).toBeLessThanOrEqual(601);
+    // half a region's height above and below: 0.04 × 1000 = 40 px → 20 px each way
+    expect(box.height).toBeGreaterThanOrEqual(80);
+    expect(box.height).toBeLessThanOrEqual(81);
     const edge = boxOf({ target: "card-number", x: 0.95, y: 0.95, w: 0.5, h: 0.5 }, 200, 100);
     expect(edge.left + edge.width).toBeLessThanOrEqual(200);
     expect(edge.top + edge.height).toBeLessThanOrEqual(100);
+    const corner = boxOf({ target: "card-number", x: 0, y: 0, w: 0.2, h: 0.02 }, 200, 100);
+    expect([corner.left, corner.top]).toEqual([0, 0]);
+  });
+});
+
+describe("AC3: the padding is bounded where it would wipe out the image, and floored where a short token would be clipped", () => {
+  it("a tall block pads at most 5 % of the image's height above and below; a line (up to 10 % tall) keeps its half line", () => {
+    const tall = boxOf({ target: "address", x: 0.1, y: 0.4, w: 0.5, h: 0.3 }, 1000, 1000);
+    // 0.3 tall + 0.05 above + 0.05 below = 0.4 of 1000 px
+    expect(tall.top).toBe(350);
+    expect(tall.height).toBeGreaterThanOrEqual(400);
+    expect(tall.height).toBeLessThanOrEqual(401);
+    const line = boxOf({ target: "card-number", x: 0.1, y: 0.5, w: 0.4, h: 0.1 }, 1000, 1000);
+    // half a line each way: 0.05
+    expect(line.top).toBe(450);
+    expect(line.height).toBeGreaterThanOrEqual(200);
+    expect(line.height).toBeLessThanOrEqual(201);
+  });
+
+  it("a short token (a CVV) is padded sideways by at least a quarter of its height, so a box a little off keeps no digit out", () => {
+    const cvv = boxOf({ target: "card-number", x: 0.5, y: 0.5, w: 0.025, h: 0.02 }, 1000, 1000);
+    // w × 10 % = 2.5 px would clip a digit; a quarter of the height is 5 px each way
+    expect(cvv.left).toBe(495);
+    expect(cvv.width).toBeGreaterThanOrEqual(35);
+    expect(cvv.width).toBeLessThanOrEqual(36);
+  });
+});
+
+describe("AC3: the redaction model is told to name the kind, so a blocked kind is never read as a value", () => {
+  it('a region that holds a listed kind carries the kind\'s name; "value" is only for a value that is none of the kinds', () => {
+    expect(REDACTOR_SYSTEM).toContain("kind's own name");
+    expect(REDACTOR_SYSTEM).toMatch(/"value" only when/u);
   });
 });
 

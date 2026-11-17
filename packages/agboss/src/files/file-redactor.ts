@@ -42,6 +42,11 @@ export interface RedactionResult {
 /**
  * The contract of a redactor: a project's own `extends FileRedactor`. `supports` is asked at start, on the
  * class, before any instance exists: it answers from the media type alone.
+ *
+ * One instance serves the whole application, every tenant and execution. An implementation must never
+ * cache a result by `file.sha256` alone: the same bytes redacted for other `targets`, other `values` or
+ * another `tenantId` are another result, and a hit across them hands one tenant's copy (or its absence of
+ * a redaction) to another. A cache of its own is keyed on the tenant, the targets and the values.
  */
 export abstract class FileRedactor {
   abstract supports(mediaType: string): boolean;

@@ -114,7 +114,7 @@ export async function modelsFor(
     priced: (config) =>
       withRedactionValues(withProviderPrices(config, directory), uses, (use) => {
         const resolution = directory.resolve(use);
-        return resolution.kind === "resolved" ? resolution.provider.options.name : undefined;
+        return resolution.kind === "resolved" ? resolution.provider : undefined;
       }),
     summary: modelSummaryOf(uses, directory),
   };

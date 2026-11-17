@@ -106,8 +106,11 @@ narrowed to what the models take. Where the provider cannot say, the call fails 
 PII never reads bytes: a file part is passed through the mask untouched.
 
 The execution's exact sensitive values (`sensitive` context fields) go to the redaction model with the kinds only
-where it is served by the same provider as the agent's own model — the data reaches that provider anyway
-(`defaults.files.redactionValues: RedactionValues.SameProvider`, the default); `Never` sends the kinds only,
+where it is the same provider as the agent's own model (`defaults.files.redactionValues:
+RedactionValues.SameProvider`, the default). "The same" is decided fail-closed: the same provider, or one on the
+same base URL with the same key field — never by a name; not when the two models are of different vendors behind
+one aggregator (the default OpenRouter serves `anthropic/…` and `google/…` alike), and not when the redaction
+provider's circuit breaker can fail over to another provider. In doubt it is not the same. `Never` sends the kinds only,
 `Always` is an explicit decision to send them wherever the redactor runs. A project's own redactor gets the
 values only on `Always`. Values that cannot be sent never leave a gap: where the contexts hold `sensitive` fields
 and the redactor may not be told them the application does not start (`[files.redactor-values-withheld]`, naming
@@ -150,7 +153,10 @@ before each call, and a copy is made once per execution for its file, redactor a
 Input guardrails and model judges see what the agent's model sees, files included; output guardrails see the
 files of the answer ([Guards](Guards)). `AnswerFiles.SeenInVisit` (default): an answer's file is `{ file: <n>
 }`, the number in the headings, mapped to the view the model saw; `AnswerFiles.Any`: the model's descriptors,
-a url only `https:` on `allowedFileOrigins`, a `fileId` only one this execution owns.
+a url only `https:` on `allowedFileOrigins`, a `fileId` only one this execution owns. Only an original can be
+returned by number: an agent that reads files only as `Redacted` or `Transcription` and answers with files is
+`[files.answer-file-unseen]`, and `AnswerFiles.Any` on an agent whose files a policy masks (without
+`FileView.Original`) is `[pii.original-file]` — the model could hand back the unmasked input.
 
 ## Seeing it
 

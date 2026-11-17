@@ -61,6 +61,32 @@ function typeProblems(files: ResolvedModelFiles): string[] {
 }
 
 /**
+ * `AnswerFiles.Any` where the policies mask an agent's files and it never sees an original: the model writes a
+ * stored `fileId` the root execution owns, and the unmasked input is one — so it could hand it back.
+ */
+function anyAnswerViolations(
+  name: string,
+  files: ResolvedModelFiles,
+  workflow: AssembledWorkflow,
+  masking: readonly { readonly name: string }[],
+): RuleViolation[] {
+  if (
+    files.answerFiles !== AnswerFiles.Any ||
+    files.views.includes(FileView.Original) ||
+    masking.length === 0 ||
+    !answersWithFiles(workflow.graph, name)
+  )
+    return [];
+  return [
+    violation(
+      "pii.original-file",
+      `${name}: AnswerFiles.Any lets its model return a file the execution holds, the unmasked original too, while ${masking.map((meta) => meta.name).join(", ")} mask its files — use the default answerFiles (files by number: a file it saw), set files: PiiFileAction.AllowOriginal on the policy, or exclude the policy`,
+      [name],
+    ),
+  ];
+}
+
+/**
  * What an agent's applying PII policies rule out (#899 §5): the original file unless every policy
  * lets it through, and a redacted view when a policy is a project's own detector — it reads text, so
  * no redactor can know what to black out.
@@ -85,6 +111,7 @@ function piiViolations(
         [name],
       ),
     );
+  found.push(...anyAnswerViolations(name, files, workflow, masking));
   const custom = policies.filter(isCustomPolicy);
   if (files.views.includes(FileView.Redacted) && custom.length > 0)
     found.push(
@@ -116,7 +143,7 @@ function agentViolations(
 
 /**
  * An agent whose answer has file fields hands back only files it saw (`AnswerFiles.SeenInVisit`, the
- * default), as the views its model saw: one it saw only as a transcription cannot be returned — and an
+ * default), as the views its model saw: one it saw only as a transcription or a redacted copy cannot be returned — and an
  * agent that reads no file saw none. `AnswerFiles.Any` (the developer's explicit decision) is checked
  * at run time instead.
  */
@@ -127,14 +154,16 @@ function answerFileViolations(
 ): RuleViolation[] {
   if (!answersWithFiles(workflow.graph, name)) return [];
   if (files?.answerFiles === AnswerFiles.Any) return [];
-  const isReturnable = files?.views.some((view) => view !== FileView.Transcription) === true;
+  // only the original is handed back (`seenPicker`): a redacted copy is no descriptor the framework holds,
+  // and returning the original in its place would carry the personal data the copy was made without
+  const isReturnable = files?.views.includes(FileView.Original) === true;
   if (isReturnable) return [];
   return [
     violation(
       "files.answer-file-unseen",
       files === undefined
         ? `${name}: its answer has file fields, but it reads no file — give it files: ModelFiles.of({ … }) (or answerFiles: AnswerFiles.Any, the model's own descriptors, checked at run time)`
-        : `${name}: its answer has file fields, but its only view of a file is its transcription — add FileView.Original (or Redacted), or set answerFiles: AnswerFiles.Any`,
+        : `${name}: its answer has file fields, but it never sees an original file (its views: transcription or redacted copy only), and only an original can be returned — add FileView.Original, or set answerFiles: AnswerFiles.Any`,
       [name],
     ),
   ];
