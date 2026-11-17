@@ -36,6 +36,7 @@ jobs:
             stream,
             store-bound,
             a2a-files,
+            files-pii,
           ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}

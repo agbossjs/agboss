@@ -4,6 +4,7 @@ import {
   stallBoundOf,
   keyTextRulesOf,
   settledSpendSaverOf,
+  policySetHashingOf,
 } from "../../scripts/stryker-ranges.mjs";
 
 /**
@@ -245,6 +246,17 @@ const SHARDS = {
     configFile: "vitest.mutation-a2a-files.config.ts",
     // the slots (#1256) are the a2a-server shard's
     mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
+  },
+  // #1269: the files for models (#899) — views, the redacted copy and its cache, the redactor's values and
+  // regions, answer and tool files, the start rules — and the PII key hierarchy: tokens, the policy set's
+  // hash, the redaction and mask cache keys
+  "files-pii": {
+    configFile: "vitest.mutation-files-pii.config.ts",
+    mutate: [
+      "src/files/*.ts",
+      "src/pii/{key-hierarchy,tokens}.ts",
+      policySetHashingOf("src/pii/policy-set.ts"),
+    ],
   },
 };
 
