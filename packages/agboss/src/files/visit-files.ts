@@ -138,12 +138,13 @@ function checkedDeclared(batch: FileBatch): void {
         actual: mediaType,
         allowed: settings.allowedMediaTypes.join(", "),
       });
-    // Stryker disable next-line ConditionalExpression: `undefined > n` is false, so the `!== undefined` guard changes nothing
-    if (descriptor.sizeBytes !== undefined && descriptor.sizeBytes > settings.maxFileSize)
+    // a size the descriptor declares (none declared: nothing to check before the read)
+    const declared = descriptor.sizeBytes ?? 0;
+    if (declared > settings.maxFileSize)
       throw new ModelFileLimitError({
         agent,
         limit: ModelFileLimit.MaxFileSize,
-        actual: descriptor.sizeBytes,
+        actual: declared,
         allowed: settings.maxFileSize,
       });
   }
@@ -246,10 +247,14 @@ export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
   return {
     ...rest,
     pieces,
-    maskedTexts: pieces.flatMap((piece) =>
-      // Stryker disable next-line ConditionalExpression: only a text piece has `isMasked` (a part never does), so `kind === "text"` adds nothing
-      piece.kind === "text" && piece.isMasked ? [piece.text] : [],
-    ),
+    maskedTexts: pieces.flatMap((piece) => {
+      switch (piece.kind) {
+        case "text":
+          return piece.isMasked === true ? [piece.text] : [];
+        default:
+          return [];
+      }
+    }),
     tally: { count: batch.tally.count + batch.files.length, bytes },
   };
 }

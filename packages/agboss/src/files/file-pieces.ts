@@ -117,6 +117,5 @@ export const ownTranscriptOf = (content: FileContent): string | undefined =>
 /** The bytes a piece adds to the call: a part's file, a text's UTF-8. */
 export const sizeOfPiece = (piece: FilePiece): number =>
   piece.kind === "text"
-    ? // Stryker disable next-line StringLiteral: Buffer.byteLength treats an unknown encoding ("") as utf8, the same count
-      Buffer.byteLength(piece.text, "utf8")
+    ? Buffer.byteLength(piece.text) // UTF-8, the default
     : Buffer.from(piece.data, "base64").byteLength;
