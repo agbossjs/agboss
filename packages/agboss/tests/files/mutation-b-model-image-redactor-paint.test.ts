@@ -11,16 +11,16 @@ import { seconds } from "../../src/units/index.js";
 
 const { broken } = vi.hoisted(() => ({ broken: new Error("vips: out of memory") }));
 
-/** sharp as it is, except the second read of an image — the one that paints — cannot composite. */
+/** sharp as it is, except painting — the read of the raw pixels — cannot be done. */
 vi.mock("sharp", async (importOriginal) => {
-  const actual = await importOriginal<{ default: (...args: unknown[]) => unknown }>();
+  const actual = await importOriginal<{ default: (...args: unknown[]) => object }>();
   const wrapped = (input: unknown, options?: unknown) => {
-    if (options !== undefined) return actual.default(input, options);
-    return {
-      composite: () => {
+    const real = actual.default(input, options);
+    return Object.assign(real, {
+      raw: () => {
         throw broken;
       },
-    };
+    });
   };
   return { ...actual, default: wrapped };
 });
