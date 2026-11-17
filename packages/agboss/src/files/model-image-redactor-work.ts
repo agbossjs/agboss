@@ -7,7 +7,13 @@ import { PiiKind, type PiiTarget } from "../pii/kinds.js";
 import { sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
 import type { RedactionResult, RedactOptions } from "./file-redactor.js";
-import { boxOf, regionsOf, RegionsAnswerError, type Region } from "./redaction-regions.js";
+import {
+  boxOf,
+  MAX_REGIONS,
+  regionsOf,
+  RegionsAnswerError,
+  type Region,
+} from "./redaction-regions.js";
 
 /**
  * What the built-in image redactor does (#899 §6), loaded with its first redaction: the image is turned
@@ -18,6 +24,14 @@ import { boxOf, regionsOf, RegionsAnswerError, type Region } from "./redaction-r
 
 /** The pixels of the largest image read (a decompression bomb is refused). */
 export const MAX_INPUT_PIXELS = 40e6;
+
+/** What one redaction is bound by (#1257); the constants above by default. */
+export interface RedactorLimits {
+  readonly maxPixels: number;
+  readonly maxRegions: number;
+}
+
+const DEFAULT_LIMITS: RedactorLimits = { maxPixels: MAX_INPUT_PIXELS, maxRegions: MAX_REGIONS };
 
 /** What the redaction model is told. */
 export const REDACTOR_SYSTEM = [
@@ -63,13 +77,22 @@ interface Upright {
 }
 
 /** The image upright (its EXIF orientation applied); a multi-frame image, an image too big or unreadable is refused. */
-async function uprightOf(sharp: Sharp, file: FileContent, agent: string): Promise<Upright> {
+async function uprightOf(
+  sharp: Sharp,
+  file: FileContent,
+  agent: string,
+  maxPixels: number,
+): Promise<Upright> {
   const failed = (reason: string, cause?: unknown) =>
     new FileRedactionFailedError({ agent, reason, cause });
   try {
-    const base = sharp(file.bytes, { limitInputPixels: MAX_INPUT_PIXELS });
-    const meta = await base.metadata();
+    // #1257: the header alone (no pixel decoded) says the size: read without the pixel cap so that the
+    // refusal says why, then decode under the cap
+    const meta = await sharp(file.bytes).metadata();
     if ((meta.pages ?? 1) > 1) throw failed("a multi-frame image cannot be redacted");
+    if (meta.width * meta.height > maxPixels)
+      throw failed(`the image has more than ${String(maxPixels)} pixels`);
+    const base = sharp(file.bytes, { limitInputPixels: maxPixels });
     const { data, info } = await base.rotate().toBuffer({ resolveWithObject: true });
     if (!FORMATS.has(info.format)) throw failed(`the image format ${info.format} is not redacted`);
     return { data, format: info.format, width: info.width, height: info.height };
@@ -86,6 +109,7 @@ async function regionsAsked(
   agent: string,
   image: Upright,
   options: RedactOptions,
+  maxRegions: number,
 ): Promise<{ readonly regions: readonly Region[]; readonly usage: UsageRecord }> {
   const kinds = options.targets.map(String);
   const known = new Set<string>([...kinds, ...(options.values.length > 0 ? ["value"] : [])]);
@@ -109,7 +133,7 @@ async function regionsAsked(
   }
   try {
     return {
-      regions: regionsOf(response.text, known),
+      regions: regionsOf(response.text, known, maxRegions),
       usage: recordUsage("files:redactor", binding.settings, response),
     };
   } catch (error) {
@@ -122,28 +146,33 @@ async function regionsAsked(
   }
 }
 
-/** The image with the regions painted black, in its own format and without metadata. */
+/**
+ * The image with the regions painted black, in its own format and without metadata. The pixels are
+ * decoded once into one buffer and every box is filled in it (#1257): memory is one full-size buffer
+ * however many regions there are, never one per region. An alpha channel is made opaque under a box.
+ */
 async function paintedOf(
   sharp: Sharp,
   image: Upright,
   regions: readonly Region[],
+  maxPixels: number,
 ): Promise<Buffer> {
-  const boxes = regions.map((region) => boxOf(region, image.width, image.height));
-  return sharp(image.data)
-    .composite(
-      boxes.map((box) => ({
-        input: {
-          create: {
-            width: box.width,
-            height: box.height,
-            channels: 3 as const,
-            background: "#000000",
-          },
-        },
-        left: box.left,
-        top: box.top,
-      })),
-    )
+  const { data, info } = await sharp(image.data, { limitInputPixels: maxPixels })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const hasAlpha = channels === 2 || channels === 4;
+  for (const region of regions) {
+    const box = boxOf(region, width, height);
+    for (let row = box.top; row < box.top + box.height; row += 1) {
+      const from = (row * width + box.left) * channels;
+      data.fill(0, from, from + box.width * channels);
+      if (hasAlpha)
+        for (let at = from + channels - 1; at < from + box.width * channels; at += channels)
+          data[at] = 255;
+    }
+  }
+  return sharp(data, { raw: { width, height, channels }, limitInputPixels: maxPixels })
     .toFormat(image.format as "png" | "jpeg" | "webp")
     .toBuffer();
 }
@@ -154,13 +183,14 @@ export async function redacted(
   agent: string,
   file: FileContent,
   options: RedactOptions,
+  limits: RedactorLimits = DEFAULT_LIMITS,
 ): Promise<RedactionResult> {
   const sharp = await sharpOf(agent);
-  const image = await uprightOf(sharp, file, agent);
-  const { regions, usage } = await regionsAsked(binding, agent, image, options);
+  const image = await uprightOf(sharp, file, agent, limits.maxPixels);
+  const { regions, usage } = await regionsAsked(binding, agent, image, options, limits.maxRegions);
   let bytes: Buffer;
   try {
-    bytes = await paintedOf(sharp, image, regions);
+    bytes = await paintedOf(sharp, image, regions, limits.maxPixels);
   } catch (cause) {
     throw new FileRedactionFailedError({
       agent,

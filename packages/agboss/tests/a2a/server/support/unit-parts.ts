@@ -3,6 +3,7 @@
 // and counted ids — every call recorded.
 import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js";
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
+import { fileSlotsOf } from "../../../../src/a2a/files/a2a-file-slots.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
 import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
@@ -153,6 +154,7 @@ export function unitParts(
       transport: undefined,
       timeout: seconds(10),
       fetches: new FileFetches(),
+      slots: fileSlotsOf(undefined, undefined),
     },
     // #860: no direct-reply skill here, no default skill
     direct: {

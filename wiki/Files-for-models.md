@@ -142,7 +142,7 @@ export class PresidioImageRedactor extends FileRedactor {
 
 `ModelImageRedactor` redacts png, jpeg and webp: the image is turned upright (its EXIF orientation applied),
 the model names the regions, a copy without metadata has them painted black, padded 10 %. A multi-frame
-image, an image over 40 megapixels, a model answer that is not strictly valid, any failure — fail closed.
+image, an image over 40 megapixels (its header says so: nothing is decoded), a model answer that is not strictly valid or names more than 200 regions, any failure — fail closed. All the regions are painted in one buffer: memory is one full-size image, however many regions there are (#1257).
 `sharp` is an **optional peer dependency** (`npm i sharp`); the built-in without it is a start error. A type no
 redactor `supports` is `[files.no-redactor]`. A redacted copy is kept in the file store when one is listed,
 else inline in the execution's state up to 64 KB (`[files.redacted-needs-store]` for limits that allow more).

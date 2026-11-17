@@ -5,6 +5,7 @@
  */
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import sharp from "sharp";
+import { crc32, deflateSync } from "node:zlib";
 import { inspect } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
@@ -14,9 +15,10 @@ import {
   REDACTOR_SYSTEM,
   redacted,
 } from "../../src/files/model-image-redactor-work.js";
-import { boxOf, regionsOf } from "../../src/files/redaction-regions.js";
+import { boxOf, MAX_REGIONS, regionsOf } from "../../src/files/redaction-regions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
+import { runNodeReporting } from "../helpers/process.js";
 
 const settings = {
   model: "test/redactor",
@@ -200,7 +202,7 @@ describe("AC3: everything that goes wrong fails closed, never the unredacted fil
     expect(
       (await failure(REGION, { mediaType: "image/png", bytes: bomb, sha256: sha256Of(bomb) }))
         .reason,
-    ).toContain("cannot be read");
+    ).toContain("more than 40000000 pixels");
   });
 });
 
@@ -296,4 +298,197 @@ describe("AC3: nothing the model wrote reaches an error, a log or a cause", () =
 
     expect(error.reason).toContain("region 2 of 2 names an unknown target");
   });
+});
+
+const pngChunk = (name: string, data: Buffer): Buffer => {
+  const type = Buffer.from(name);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([type, data])));
+  return Buffer.concat([length, type, data, crc]);
+};
+
+/** A PNG whose header claims `width` x `height` and whose data is 10 zero bytes: nothing like that many pixels to decode. */
+function headerOnlyPng(width: number, height: number): FileContent {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const bytes = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(Buffer.alloc(10))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  return { mediaType: "image/png", bytes, sha256: sha256Of(bytes) };
+}
+
+const regionsOfCount = (count: number): string =>
+  JSON.stringify({
+    regions: Array.from({ length: count }, (_, at) => ({
+      target: "card-number",
+      x: (at % 10) / 12,
+      y: 0.1,
+      w: 0.05,
+      h: 0.1,
+    })),
+  });
+
+describe("#1257: the work is bound by the image's header and the number of regions", () => {
+  it("the size in the header is checked before a pixel is decoded: a header alone is refused for its pixels", async () => {
+    const model = bindingAnswering(REGION);
+    const invoke = vi.spyOn(model.model, "invoke");
+
+    const error = await redacted(model, "reader-agent", headerOnlyPng(7000, 7000), OPTIONS).then(
+      () => undefined,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(FileRedactionFailedError);
+    expect((error as FileRedactionFailedError).reason).toContain("more than 40000000 pixels");
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("an image of exactly the limit is read; one pixel more is not", async () => {
+    const file = await imageOf();
+
+    const read = await redacted(bindingAnswering(REGION), "reader-agent", file, OPTIONS, {
+      maxPixels: 200 * 100,
+      maxRegions: MAX_REGIONS,
+    });
+    const refused = await redacted(bindingAnswering(REGION), "reader-agent", file, OPTIONS, {
+      maxPixels: 200 * 100 - 1,
+      maxRegions: MAX_REGIONS,
+    }).catch((thrown: unknown) => thrown);
+
+    expect(read.found).toEqual([PiiKind.CardNumber]);
+    expect(refused).toBeInstanceOf(FileRedactionFailedError);
+    expect((refused as FileRedactionFailedError).reason).toContain("more than 19999 pixels");
+  });
+
+  it("the cap on regions is 200: 200 are painted, 201 fail the redaction with their count and none of the answer", async () => {
+    expect(MAX_REGIONS).toBe(200);
+    const ok = await redacted(
+      bindingAnswering(regionsOfCount(MAX_REGIONS)),
+      "reader-agent",
+      await imageOf(),
+      OPTIONS,
+    );
+    const error = await failure(regionsOfCount(MAX_REGIONS + 1));
+
+    expect(ok.found).toEqual([PiiKind.CardNumber]);
+    expect(error.reason).toContain("201 regions, more than the 200 taken");
+  });
+
+  it("a limit given for the regions is the cap", async () => {
+    const error = await redacted(
+      bindingAnswering(regionsOfCount(3)),
+      "reader-agent",
+      await imageOf(),
+      OPTIONS,
+      { maxPixels: MAX_INPUT_PIXELS, maxRegions: 2 },
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(FileRedactionFailedError);
+    expect((error as FileRedactionFailedError).reason).toContain(
+      "3 regions, more than the 2 taken",
+    );
+  });
+
+  it("every region is painted in the one buffer: many boxes, each black, the rest of the image untouched", async () => {
+    const regions = Array.from({ length: 100 }, (_, at) => ({
+      target: "card-number",
+      x: (at % 10) / 10 + 0.02,
+      y: Math.floor(at / 10) / 10 + 0.02,
+      w: 0.03,
+      h: 0.03,
+    }));
+
+    const result = await redacted(
+      bindingAnswering(JSON.stringify({ regions })),
+      "reader-agent",
+      await imageOf(),
+      OPTIONS,
+    );
+
+    for (const region of [regions[0], regions[37], regions[99]])
+      expect(
+        await pixelAt(
+          result.file.bytes,
+          Math.floor((region?.x ?? 0) * 200) + 2,
+          Math.floor((region?.y ?? 0) * 100) + 1,
+        ),
+      ).toEqual([0, 0, 0]);
+    expect(await pixelAt(result.file.bytes, 199, 99)).toEqual([255, 255, 255]);
+  });
+
+  it("a box is black to its last pixel on every side and no further", async () => {
+    const file = await imageOf();
+    const region = { target: "card-number", x: 0.4, y: 0.3, w: 0.2, h: 0.2 };
+    const box = boxOf(region, 200, 100);
+    const answer = JSON.stringify({ regions: [region] });
+
+    const result = await redacted(bindingAnswering(answer), "reader-agent", file, OPTIONS);
+
+    const right = box.left + box.width;
+    const bottom = box.top + box.height;
+    for (const [x, y] of [
+      [box.left, box.top],
+      [right - 1, bottom - 1],
+      [box.left, bottom - 1],
+      [right - 1, box.top],
+    ] as const)
+      expect(await pixelAt(result.file.bytes, x, y)).toEqual([0, 0, 0]);
+    for (const [x, y] of [
+      [box.left - 1, box.top],
+      [right, bottom - 1],
+      [box.left, box.top - 1],
+      [right - 1, bottom],
+    ] as const)
+      expect(await pixelAt(result.file.bytes, x, y)).toEqual([255, 255, 255]);
+  });
+
+  it("an alpha channel is opaque under a box and kept elsewhere; grey stays grey", async () => {
+    const pixels = (_channels: 2 | 4, value: number[]) =>
+      Buffer.from(Array.from({ length: 20 * 20 }, () => value).flat());
+    const rgba = await sharp(pixels(4, [200, 10, 10, 0]), {
+      raw: { width: 20, height: 20, channels: 4 },
+    })
+      .png()
+      .toBuffer();
+    const grey = await sharp(pixels(2, [200, 255]), { raw: { width: 20, height: 20, channels: 2 } })
+      .png()
+      .toBuffer();
+    const answer = '{"regions":[{"target":"card-number","x":0.0,"y":0.0,"w":0.5,"h":0.5}]}';
+
+    for (const bytes of [rgba, grey]) {
+      const result = await redacted(
+        bindingAnswering(answer),
+        "reader-agent",
+        { mediaType: "image/png", bytes, sha256: sha256Of(bytes) },
+        OPTIONS,
+      );
+      const { data, info } = await sharp(result.file.bytes)
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const at = (x: number, y: number) => (y * info.width + x) * info.channels;
+      expect(data[at(2, 2)]).toBe(0);
+      expect(data[at(2, 2) + info.channels - 1]).toBe(255);
+      expect(data[at(19, 19) + info.channels - 1]).toBe(bytes === rgba ? 0 : 255);
+    }
+  });
+
+  it("a 40 MP image of 18 KiB with 200 model-given regions stays in one full-size buffer: peak memory under 700 MB", async () => {
+    const run = await runNodeReporting(
+      ["--import", "tsx", new URL("redactor-bound-process.ts", import.meta.url).pathname, "200"],
+      { env: process.env },
+    );
+    if (run.status !== 0) throw new Error(`the process failed:\n${run.stderr}`);
+
+    const { peakMb } = run.messages[0] as { peakMb: number };
+
+    // per region the redactor allocated a buffer of its box: 1392 MB for the same run before #1257
+    expect(peakMb).toBeLessThan(700);
+  }, 60_000);
 });
