@@ -19,7 +19,7 @@ export interface MaskedFileText {
 
 /** The masking in effect at one place: the policies' fingerprint keys what it keeps. */
 export interface FileMask {
-  /** `PiiPolicySet.fingerprint`: part of a masked transcription's cache key. */
+  /** `PiiPolicySet.fingerprint` (keyed, #1269): part of a masked transcription's cache key. */
   readonly policyHash: string;
   /** The tokens the execution has so far. */
   readonly known: PiiTokenMap;
@@ -27,8 +27,10 @@ export interface FileMask {
   readonly mask: (text: string, known: PiiTokenMap) => Promise<MaskedFileText>;
   /** What a redactor is asked to black out: the kinds the rules name and the execution's sensitive values. */
   readonly redaction: PiiPolicySet["redaction"];
-  /** A keyed digest of a list of texts (HMAC with the execution's PII key): a value set as a cache key names it. */
-  readonly keyedDigestOf: PiiPolicySet["keyedDigestOf"];
+  /** What a redacted copy is made for, keyed (#1269): the policies and the values the redactor is told. */
+  readonly redactionDigestOf: PiiPolicySet["redactionDigestOf"];
+  /** The key a masked text is kept under in the agent's loop (`piiMasked`), keyed (#1269). */
+  readonly maskCacheKeyOf: (text: string) => string;
   /** The refusal for a kind a redactor found, when a block rule names it. */
   readonly refusalForKind: PiiPolicySet["refusalForKind"];
 }
@@ -43,7 +45,8 @@ export function fileMaskOf(
     policyHash: set.fingerprint,
     known,
     redaction: set.redaction,
-    keyedDigestOf: (texts) => set.keyedDigestOf(texts),
+    redactionDigestOf: (sent) => set.redactionDigestOf(sent),
+    maskCacheKeyOf: (text) => set.maskCacheKeyOf(text, true),
     refusalForKind: (kind) => set.refusalForKind(kind),
     mask: async (text, tokens) => {
       const { masked, usage } = await set.mask(text, tokens, DetectionMode.WithModel);

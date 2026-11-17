@@ -2012,7 +2012,8 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   not set fails the start, naming the field (`testWith`: a fixed test key). Not set and not
   needed → a key of each root execution (#334: made at its start, kept in its checkpoint next to
   `piiTokens` and handed to its children — a resume, a failover or a recovery on another instance
-  gives one value the same token; another execution gives it another) and the warning
+  gives one value the same token; another execution gives it another — it roots its tokens only)
+  and the warning
   `[application.pii-instance-key]` (S94); logs and traces mask with a key of the instance.
   `piiKeyField` (#825, was `pseudonymKey`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
   field of the contract compiles, as `idempotencyKeyField` does —, and a key field that is also a
@@ -2020,7 +2021,11 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   `signingKey`, a `Secret` a listed class reads or another key field is
   `[application.pii-key-shared]` / `[application.idempotency-key-shared]`: a provider rotates its key
   routinely, and every token (every fingerprint) would change with it. The PII key makes tokens and
-  business-key handles only — never a fingerprint (Business idempotency keys below).
+  business-key handles only — never a fingerprint (Business idempotency keys below). It is a root
+  (#1269, Wiki → Guards → The PII key hierarchy): each use derives its own key by HKDF-SHA256 under a
+  label of its own (`agboss/pii/pseudonym/v2` the tokens', `…/policy-hash/v2`, `agboss/files/cache-key/v2`,
+  `…/mask-cache/v2`) and is an HMAC under it, never a plain hash; a digest kept in a checkpoint is under
+  the application's (or the instance's) key, never an execution's own.
 
 <!-- snippet-context
 import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "@agboss/core";

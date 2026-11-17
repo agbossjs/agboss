@@ -106,9 +106,9 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly pii?: AssembledPii;
   /** Its guardrails (#120): per agent and model router by side, their texts and models resolved. */
   readonly guardrails?: AssembledGuardrails;
-  /** The application lists its own `FileTranscriber` (#899): the built-in's model is no use then. */
-  readonly hasOwnFileTranscriber?: boolean;
-  /** The application's own `FileRedactor` (#899): the built-in's model is no use then; its `supports` answers at start. */
+  /** The application's own `FileTranscriber` (#899): the built-in's model is no use then; its class is in `configHash` (#1269). */
+  readonly ownFileTranscriber?: Class | undefined;
+  /** The application's own `FileRedactor` (#899): the built-in's model is no use then; its `supports` answers at start; its class is in `configHash` (#1269). */
   readonly ownFileRedactor?: Class | undefined;
   /** The application lists an `A2AFileRepository` that keeps files (#899 §7): not the inline default. */
   readonly hasFileStore?: boolean;

@@ -30,15 +30,16 @@ interface KeptRedacted {
 }
 
 /**
- * Where a redacted copy is cached: the bytes, the redactor, the model, the policies that decided what to hide
- * and the exact values the redactor was told to find — a keyed digest of the sorted set (never a plain
- * hash), or a fixed marker when only kinds are sent: a copy made for one set of values is never another's.
- * The cache is in one execution's state, so never across tenants or executions.
+ * Where a redacted copy is cached: the bytes, the redactor, the model, and one keyed digest (#1269: under
+ * the file-cache key of the application's root, never a plain hash and never the execution's own key) of
+ * the policies that decided what to hide and of the exact values the redactor was told to find, sorted —
+ * none when only kinds are sent, whatever the execution's values: a copy made for one set of values is
+ * never another's. The cache is in one execution's state, so never across tenants or executions.
  */
 export const redactedKeyOf = (batch: FileBatch, content: FileContent, mask: FileMask): string => {
   const sent = valuesForRedactor(batch.runtime.settings, mask.redaction.values);
-  const values = sent.length === 0 ? "kinds-only" : `values:${mask.keyedDigestOf(sent)}`;
-  return `redacted:${content.sha256}:${batch.runtime.redactorKey()}:${String(batch.runtime.settings.transcriptionMaxTokens)}:${mask.policyHash}:${values}`;
+  const told = sent.length === 0 ? "kinds-only" : "values";
+  return `redacted:${content.sha256}:${batch.runtime.redactorKey()}:${told}:${mask.redactionDigestOf(sent)}`;
 };
 
 const parsed = (kept: string): KeptRedacted => JSON.parse(kept) as KeptRedacted;

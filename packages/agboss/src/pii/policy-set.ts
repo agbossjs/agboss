@@ -1,4 +1,3 @@
-import { createHash, createHmac } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
 import { PiiActionKind, type MaskingPiiAction } from "./actions.js";
 import type { PiiKind } from "./kinds.js";
@@ -7,6 +6,7 @@ import { PiiRefusedError } from "./errors.js";
 import { maskedText, withoutOverlaps, type MaskedText, type PiiFinding } from "./masking.js";
 import { DetectionMode, type RuntimePiiPolicy } from "./runtime-policy.js";
 import type { PiiTokenMap } from "./tokens.js";
+import { PiiKeyPurpose, purposeDigestOf } from "./key-hierarchy.js";
 
 /**
  * The policies in effect at one place (an agent's or a router's model, the observability layer),
@@ -56,9 +56,15 @@ function valueFindings(text: string, values: readonly SensitiveValue[], key: str
 export class PiiPolicySet {
   constructor(
     readonly policies: readonly RuntimePiiPolicy[],
-    /** The HMAC key of tokens no policy key covers: sensitive fields and values. */
+    /** The root of the tokens no policy key covers: sensitive fields and values (an execution's own, #334). */
     readonly fieldKey: string,
     private readonly values: readonly SensitiveValue[] = [],
+    /**
+     * The root every other digest of this set is keyed under (#1269): the application's key, or the
+     * instance's — never an execution's own key, which its checkpoint keeps: a digest kept beside that key
+     * would be an oracle for whoever reads the checkpoint.
+     */
+    private readonly rootKey: string = fieldKey,
   ) {}
 
   /** Whether nothing is masked here. */
@@ -76,47 +82,64 @@ export class PiiPolicySet {
     );
   }
 
-  /**
-   * What this set masks with, as a short hash: its policies (their rules or action, model detection and
-   * file action), the execution's key and its sensitive values. A masked text kept for reuse (a file's
-   * transcription, #899 §7) is keyed by it, so it is never handed to a place that masks differently.
-   */
-  get fingerprint(): string {
-    const policies = this.policies.map(({ meta }) => ({
+  /** The policies as hashed: their rules or action, model detection and file action. */
+  private get hashedPolicies(): readonly unknown[] {
+    return this.policies.map(({ meta }) => ({
       name: meta.name,
       masks: isCustomPolicy(meta) ? meta.action : meta.rules,
       model: isCustomPolicy(meta) ? null : (meta.detectWithModel ?? null),
       files: meta.files ?? null,
     }));
-    const values = this.values.map(({ value, label, action }) => [label, value, action]);
-    const text = JSON.stringify([policies, this.fieldKey, values]);
-    return createHash("sha256").update(text).digest("hex").slice(0, 16);
   }
 
   /**
-   * A keyed digest (HMAC-SHA-256 with this set's key, never a plain hash: a key that names a value set must
-   * not be an oracle for the values) of a list of texts, sorted and joined: what a cache key says of them.
+   * What this set masks with, as a keyed hash (#1269: an HMAC under the policy-hash key of the root, so it
+   * is no oracle for its values): its policies, which token key it makes tokens with and its sensitive
+   * values. A masked text kept for reuse (a file's transcription, #899 §7) is keyed by it, so it is never
+   * handed to a place that masks differently.
    */
-  keyedDigestOf(texts: readonly string[]): string {
-    const sorted = JSON.stringify([...texts].sort());
-    return createHmac("sha256", this.fieldKey).update(sorted).digest("hex").slice(0, 32);
+  get fingerprint(): string {
+    const values = this.values.map(({ value, label, action }) => [label, value, action]);
+    const tokenKey = purposeDigestOf(this.fieldKey, PiiKeyPurpose.KeyId, "");
+    const text = JSON.stringify([this.hashedPolicies, tokenKey, values]);
+    return purposeDigestOf(this.rootKey, PiiKeyPurpose.PolicyHash, text).slice(0, 32);
+  }
+
+  /**
+   * What a redacted copy of a file is made for (#899 §7, #1269), as a keyed hash under the file-cache key
+   * of the root: the policies (the kinds asked for, the blocked ones) and the values the redactor was told,
+   * sorted — never the values it was not told, never a token key (a copy holds no token).
+   */
+  redactionDigestOf(sent: readonly string[]): string {
+    const text = JSON.stringify([this.hashedPolicies, [...sent].sort()]);
+    return purposeDigestOf(this.rootKey, PiiKeyPurpose.FileCache, text).slice(0, 32);
+  }
+
+  /**
+   * The key a masked text is kept under in an agent's loop (its `piiMasked` channel, #120): its role
+   * (`in` — what came in — or `out`) and its keyed digest under the mask-cache key of the root (#1269:
+   * never a plain hash of a text that holds personal data).
+   */
+  maskCacheKeyOf(text: string, isIncoming: boolean): string {
+    return `${isIncoming ? "in" : "out"}:${purposeDigestOf(this.rootKey, PiiKeyPurpose.MaskCache, text)}`;
   }
 
   /** The same policies with the sensitive values of one execution. */
   withValues(values: readonly SensitiveValue[]): PiiPolicySet {
     return values.length === 0
       ? this
-      : new PiiPolicySet(this.policies, this.fieldKey, [...this.values, ...values]);
+      : new PiiPolicySet(this.policies, this.fieldKey, [...this.values, ...values], this.rootKey);
   }
 
   /**
    * The same policies making their field tokens with an execution's own key (#334): the key of a
-   * root execution when the application sets none; none (an old checkpoint) keeps this set's.
+   * root execution when the application sets none; none (an old checkpoint) keeps this set's. Only the
+   * tokens change root: every other digest stays under this set's (#1269).
    */
   withFieldKey(key: string | null | undefined): PiiPolicySet {
     return key === null || key === undefined || key === this.fieldKey
       ? this
-      : new PiiPolicySet(this.policies, key, this.values);
+      : new PiiPolicySet(this.policies, key, this.values, this.rootKey);
   }
 
   /** Every policy's findings in `text`, applied; new tokens made against `known`. */

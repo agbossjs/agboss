@@ -1,8 +1,10 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { PiiKeyPurpose, purposeDigestOf } from "./key-hierarchy.js";
 
 /**
  * The tokens of `replaceWithToken()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
- * HMAC-SHA256 of the normalised value with the policy's `pseudonymKey`, so one value is one token
+ * HMAC-SHA256 of the normalised value under the pseudonym key derived from the policy's
+ * `pseudonymKey` (#1269: `PiiKeyPurpose.Pseudonym`, never the key itself), so one value is one token
  * everywhere. The token → value map is the execution's `piiTokens` channel (in its checkpoint);
  * only these tokens are revealed, `replaceWithKind()` / `replacePart()` are one-way.
  */
@@ -29,7 +31,7 @@ export function normalisedValue(label: string, value: string): string {
   return text.replace(/\s+/g, " ");
 }
 
-/** The HMAC-SHA256 of `text` under `key`, in hex: what a token, and a business key's handle, is made of. */
+/** The HMAC-SHA256 of `text` under `key`, in hex: a business key's handle and a fingerprint are made of it (never a token, #1269). */
 export const keyedDigestOf = (key: string, text: string): string =>
   createHmac("sha256", key).update(text).digest("hex");
 
@@ -38,7 +40,7 @@ export const keyedDigestOf = (key: string, text: string): string =>
  * value in `known` — one token per value within an execution.
  */
 export function tokenOf(label: string, value: string, key: string, known: PiiTokenMap): string {
-  const digest = keyedDigestOf(key, normalisedValue(label, value));
+  const digest = purposeDigestOf(key, PiiKeyPurpose.Pseudonym, normalisedValue(label, value));
   for (let length = SHORT; length < digest.length; length += 2) {
     const token = `<${label}:${digest.slice(0, length)}>`;
     const taken = known[token];

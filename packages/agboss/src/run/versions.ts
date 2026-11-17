@@ -18,6 +18,7 @@ import { stripFunctions } from "./strip-functions.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
+import { fileProcessorSnapshot } from "./file-snapshot.js";
 import type { Class } from "../components/injection.js";
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import {
@@ -63,7 +64,15 @@ function arbiterTexts(graph: RuntimeGraph) {
 /** What one workflow's snapshot is made of: its assembly (`AssembledWorkflow`) or its run deps. */
 export type SnapshotSource<TName extends string = string> = Pick<
   AgentExecutionDeps<TName>,
-  "config" | "prompts" | "graph" | "maxSteps" | "routers" | "compactions" | "modelProviders"
+  | "config"
+  | "prompts"
+  | "graph"
+  | "maxSteps"
+  | "routers"
+  | "compactions"
+  | "modelProviders"
+  | "ownFileRedactor"
+  | "ownFileTranscriber"
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
@@ -113,6 +122,8 @@ const ownSnapshot = <TName extends string>(
   ...toolInterceptorSnapshot(deps.toolInterceptors),
   // transport providers (#385): likewise
   ...transportSnapshot(deps.modelProviders),
+  // the application's own file redactor and transcriber (#1269): likewise
+  ...fileProcessorSnapshot(deps),
 });
 
 /**

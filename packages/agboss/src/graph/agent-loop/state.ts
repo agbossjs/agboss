@@ -170,7 +170,7 @@ export const AgentLoopState = Annotation.Root({
   invalidArguments: Annotation<number>({ reducer: add, default: () => 0 }),
   /** The execution's PII tokens (#120 S38): handed in, every new one added by key. */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
-  /** Texts this loop already masked for its model, by role and hash (`maskCacheKey`, #120). */
+  /** Texts this loop already masked for its model, by role and keyed digest (`PiiPolicySet.maskCacheKeyOf`, #120, #1269). */
   piiMasked: Annotation<Readonly<Record<string, string>>>({ reducer: merge, default: () => ({}) }),
   /** The execution's sensitive context values (#120 AC13), masked wherever they appear. */
   piiValues: Annotation<readonly SensitiveValue[]>({ reducer: replace, default: () => [] }),

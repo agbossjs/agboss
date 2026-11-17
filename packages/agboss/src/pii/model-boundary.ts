@@ -1,6 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { AIMessage, type BaseMessage, type MessageContent } from "@langchain/core/messages";
-import { createHash } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
 import type { PiiFinding } from "./masking.js";
 import type { PiiPolicySet } from "./policy-set.js";
@@ -19,14 +18,10 @@ import { revealedText, type PiiTokenMap } from "./tokens.js";
 
 /**
  * Texts already masked in this agent's loop (its `piiMasked` channel): the masked form by the role
- * and the hash of the text — the conversation is masked whole for every call, each text searched
- * (and its model detection paid) once.
+ * and the keyed digest of the text (`PiiPolicySet.maskCacheKeyOf`, #1269) — the conversation is
+ * masked whole for every call, each text searched (and its model detection paid) once.
  */
 export type PiiMaskCache = Readonly<Record<string, string>>;
-
-/** The cache key of a text: its role (`in` — what came in — or `out`) and its SHA-256. */
-export const maskCacheKey = (text: string, isIncoming: boolean): string =>
-  `${isIncoming ? "in" : "out"}:${createHash("sha256").update(text).digest("hex")}`;
 
 /** A request as the model sees it, the tokens it introduced, what a block rule matched and the cost. */
 export interface MaskedRequest {
@@ -53,7 +48,7 @@ class MaskingPass {
   ) {}
 
   async text(text: string, isIncoming: boolean): Promise<string> {
-    const key = maskCacheKey(text, isIncoming);
+    const key = this.set.maskCacheKeyOf(text, isIncoming);
     const hit = this.cache[key] ?? this.cached[key];
     if (hit !== undefined) return hit;
     const { masked, usage } = await this.set.mask(

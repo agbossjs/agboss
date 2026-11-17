@@ -77,7 +77,7 @@ export interface WorkflowModels {
   /** Its knowledge bases' model rerankers (#703), by `name` and `model`. */
   readonly rerankers?: readonly ModelNamingRouter[];
   /** The application lists its own `FileTranscriber` (#899): the built-in's model is no use then. */
-  readonly hasOwnFileTranscriber?: boolean;
+  readonly ownFileTranscriber?: unknown;
   /** The application lists its own `FileRedactor` (#899): the built-in's model is no use then. */
   readonly ownFileRedactor?: unknown;
   readonly modelProviders: readonly ModelProviderType[];
@@ -97,7 +97,7 @@ export function workflowModelUsesOf(
     interpreters: workflow.replyInterpreters,
     guardrails: guardrailUsesOf(workflow),
     rerankers: workflow.rerankers,
-    builtInFileModels: workflow.hasOwnFileTranscriber !== true,
+    builtInFileModels: workflow.ownFileTranscriber === undefined,
     builtInFileRedactor: workflow.ownFileRedactor === undefined,
   } satisfies Record<keyof ModelNamingComponents, unknown>;
   return modelUsesOf(workflow.config, workflow.routers, components);

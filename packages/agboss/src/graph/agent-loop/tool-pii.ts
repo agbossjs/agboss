@@ -4,7 +4,6 @@ import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
 import { PiiRefusedError } from "../../pii/errors.js";
 import type { PiiFinding } from "../../pii/masking.js";
-import { maskCacheKey } from "../../pii/model-boundary.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
 import { DetectionMode } from "../../pii/runtime-policy.js";
 import { mappedStringsAsync } from "../../pii/strings.js";
@@ -143,7 +142,7 @@ export async function closedResult(
   return {
     content,
     piiTokens: { ...fields.tokens, ...masked.tokens },
-    piiMasked: { [maskCacheKey(content, true)]: `${masked.text}${marker}` },
+    piiMasked: { [set.maskCacheKeyOf(content, true)]: `${masked.text}${marker}` },
     usage,
     isTruncated,
   };

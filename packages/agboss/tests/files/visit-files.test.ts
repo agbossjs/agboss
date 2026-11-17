@@ -82,7 +82,8 @@ describe("the redacted view of a type no redactor takes fails closed, before any
     known: {},
     mask: (text: string) => Promise.resolve({ text, tokens: {}, usage: [] }),
     redaction: { kinds: [], values: [], blocked: [], isModelChecked: true },
-    keyedDigestOf: () => "d",
+    redactionDigestOf: () => "d",
+    maskCacheKeyOf: () => "k",
     refusalForKind: () => Promise.resolve(undefined),
   };
 

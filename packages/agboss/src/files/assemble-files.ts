@@ -42,10 +42,12 @@ export interface FilesSources {
   readonly pii: Pick<AssembledPii, "byElement">;
 }
 
-/** Whether the application lists a `FileTranscriber` of its own (#899), not the built-in. */
-export const hasOwnFileTranscriber = (providers: readonly Provider[] | undefined): boolean =>
-  (providers ?? []).some(
-    (provider) =>
+/** The application's own `FileTranscriber` (#899), not the built-in: the listed class, when there is one. */
+export const ownFileTranscriberOf = (
+  providers: readonly Provider[] | undefined,
+): Class | undefined =>
+  (providers ?? []).find(
+    (provider): provider is Class =>
       typeof provider === "function" &&
       provider.prototype instanceof FileTranscriber &&
       provider !== ModelFileTranscriber,
