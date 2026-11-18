@@ -7,7 +7,14 @@ import { Cassette } from "../../src/testing/vcr-cassette.js";
 import { readCassette, CASSETTE_VERSION } from "../../src/testing/vcr-file.js";
 import { VcrChatModel } from "../../src/testing/vcr-chat-model.js";
 import { StreamAsker, clientOn } from "../models/streaming/streamed-client.js";
-import { plainOf, sseServer, streamOf, type SseServer } from "../models/streaming/sse-server.js";
+import {
+  plainOf,
+  sseServer,
+  streamOf,
+  type SseScript,
+  type SseServer,
+} from "../models/streaming/sse-server.js";
+import { UsageShape, streamWithUsage } from "../models/streaming/usage-shapes.js";
 
 /**
  * #1005: a VCR recording made over a streamed HTTP call keeps the cassette's version 2 format and
@@ -27,8 +34,12 @@ const hashes = { of: (key: string) => ({ component: key }), knows: () => true };
 const usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, cost: 0.0421 };
 
 /** One recorded call of the real client on a local server, streamed or plain. */
-async function recorded(file: string, streamed: boolean) {
-  const server = await sseServer([streamOf(["Hel", "lo"], usage)], plainOf("Hello", usage));
+async function recorded(
+  file: string,
+  streamed: boolean,
+  script: SseScript = streamOf(["Hel", "lo"], usage),
+) {
+  const server = await sseServer([script], plainOf("Hello", usage));
   servers.push(server);
   const real = await clientOn(server);
   const cassette = Cassette.recording(file, hashes);
@@ -84,5 +95,22 @@ describe("#1005: the VCR records a streamed HTTP call in the unchanged format", 
     });
     expect(streamed.response_metadata?.usage).toMatchObject({ cost: 0.0421 });
     expect(streamed.response_metadata?.finish_reason).toBe(plain.response_metadata?.finish_reason);
+  });
+
+  it("#1231: a recording of an OpenRouter stream (usage beside the last choice) keeps one cost and one host", async () => {
+    const file = join(dir, "openrouter-streamed.json");
+
+    await recorded(file, true, streamWithUsage(["Hel", "lo"], UsageShape.OnFinishChoice, usage));
+
+    const [interaction] = readCassette(file).interactions;
+    if (interaction?.kind !== "chat") throw new Error("a chat interaction");
+    expect(interaction.reply.content).toBe("Hello");
+    expect(interaction.reply.response_metadata?.usage).toMatchObject({
+      cost: 0.0421,
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      agboss_served_by: "Acme",
+    });
+    expect(interaction.reply.usage_metadata).toMatchObject({ input_tokens: 10, output_tokens: 5 });
   });
 });

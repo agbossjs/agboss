@@ -227,6 +227,8 @@ const SHARDS = {
     mutate: [
       "src/run/stream/*.ts",
       "src/models/{fallback-stream,calls/json-as-stream}.ts",
+      // #1231: a streamed call's usage taken once — the cost and the host every budget reads
+      "src/models/chat-openai.ts",
       "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
       ...stallBoundOf("src/models/calls/event-stream-guard.ts"),
     ],
