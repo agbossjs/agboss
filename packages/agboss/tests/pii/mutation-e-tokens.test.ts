@@ -95,6 +95,18 @@ describe("the policy set's hash covers each setting", () => {
     expect(files.redactionDigestOf([])).not.toBe(plain.redactionDigestOf([]));
   });
 
+  it("a policy with no model detection and no file action is hashed with both as null", () => {
+    const rules = [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())];
+    const hashed = [{ name: "cards-pii-policy", masks: rules, model: null, files: null }];
+
+    expect(plain.redactionDigestOf(["b", "a"])).toBe(
+      purposeDigestOf("root", PiiKeyPurpose.FileCache, JSON.stringify([hashed, ["a", "b"]])).slice(
+        0,
+        32,
+      ),
+    );
+  });
+
   it("a masked text's key says its role", () => {
     expect(plain.maskCacheKeyOf("t", true)).toMatch(/^in:[0-9a-f]{64}$/u);
     expect(plain.maskCacheKeyOf("t", false)).toMatch(/^out:[0-9a-f]{64}$/u);

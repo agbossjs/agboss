@@ -165,10 +165,10 @@ async function paintedOf(
     const box = boxOf(region, width, height);
     for (let row = box.top; row < box.top + box.height; row += 1) {
       const from = (row * width + box.left) * channels;
-      data.fill(0, from, from + box.width * channels);
+      const end = from + box.width * channels;
+      data.fill(0, from, end);
       if (hasAlpha)
-        for (let at = from + channels - 1; at < from + box.width * channels; at += channels)
-          data[at] = 255;
+        for (let pixel = from; pixel < end; pixel += channels) data[pixel + channels - 1] = 255;
     }
   }
   return sharp(data, { raw: { width, height, channels }, limitInputPixels: maxPixels })

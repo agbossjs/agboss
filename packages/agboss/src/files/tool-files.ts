@@ -154,7 +154,8 @@ export async function taskFilesOf(
   output: ToolOutput<unknown> | undefined,
 ): Promise<TaskFiles> {
   const read = await readToolFiles(deps, tool, task, output);
-  if (read.kind !== "read") return read.kind === "none" ? { usage: [] } : read.refused;
+  if (read.kind === "none") return { usage: [] };
+  if (read.kind === "refused") return read.refused;
   const { built } = read;
   const guarded = await guardedToolFiles(deps, task, built);
   const rest = { ...guarded, transcripts: built.transcripts, tokens: built.tokens };

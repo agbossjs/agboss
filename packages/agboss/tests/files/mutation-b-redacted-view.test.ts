@@ -231,7 +231,7 @@ describe("a copy made once is read again, never made twice", () => {
     expect({ ...again.viewed, bytes: 0 }).toEqual({ ...first.viewed, bytes: 0 });
     expect(again.viewed.filename).toBe("card.png");
     expect(again.viewed.sha256).toBe(sha256Of(again.viewed.bytes));
-    expect(again.made).toBeUndefined();
+    expect(again).not.toHaveProperty("made");
     expect(again.usage).toEqual([]);
   });
 

@@ -51,7 +51,7 @@ export const sha256Of = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
 /** The fetch's refusals by code — a `Map`: an inherited key (`toString`) of an object is no refusal. */
-const REFUSALS: ReadonlyMap<string | undefined, ModelFileRefusal> = new Map([
+const REFUSALS: ReadonlyMap<unknown, ModelFileRefusal> = new Map([
   ["a2a.file-origin-denied", ModelFileRefusal.OriginDenied],
   ["a2a.file-url-not-allowed", ModelFileRefusal.OriginDenied],
   ["a2a.file-address-denied", ModelFileRefusal.AddressDenied],
@@ -60,12 +60,12 @@ const REFUSALS: ReadonlyMap<string | undefined, ModelFileRefusal> = new Map([
 ]);
 
 /** The stable code of the fetch's refusal (an `A2AError`'s metadata). */
-function codeOf(error: unknown): string | undefined {
+function codeOf(error: unknown): unknown {
   const metadata: unknown =
     typeof error === "object" ? Reflect.get(error ?? {}, "metadata") : undefined;
-  const code: unknown =
-    typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "code") : undefined;
-  return typeof code === "string" ? code : undefined;
+  return typeof metadata === "object" && metadata !== null
+    ? Reflect.get(metadata, "code")
+    : undefined;
 }
 
 /** The bytes of a file by url, through the guarded fetch; its refusals as this module's errors. */

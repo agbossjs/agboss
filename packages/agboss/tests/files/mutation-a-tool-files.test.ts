@@ -20,7 +20,11 @@ import { NO_FILES, type FileRuntime } from "../../src/files/visit-files.js";
 import type { RuntimeGuardrail } from "../../src/guardrails/runtime.js";
 import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
+import { PiiAction } from "../../src/pii/actions.js";
+import { PiiKind } from "../../src/pii/kinds.js";
+import { pii, type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
+import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import type { AnyTool, ToolOutput } from "../../src/tools/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
@@ -418,6 +422,34 @@ describe("withFiles", () => {
     expect(result.closed.refusal?.name).toBe("GuardrailBlockedError");
     expect(result).not.toHaveProperty("refused");
     expect(result.files).toBeUndefined();
+  });
+
+  it("refuses the call whose transcription a block rule of the PII policies refuses, with the refusal", async () => {
+    const meta: PiiPolicyMeta = {
+      name: "blocking-pii-policy",
+      description: "blocks cards",
+      rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards." }))],
+      deps: [],
+    };
+    const blocking = new PiiPolicySet(
+      [runtimePolicyOf({ meta, instance: {}, key: "k" })],
+      "field-key",
+    );
+    const runtime = {
+      ...runtimeOf({ views: [FileView.Transcription] }),
+      transcribe: () => Promise.resolve({ text: "card 4242 4242 4242 4242" }),
+    };
+
+    const files = await taskFilesOf(
+      depsOf({ fileRuntime: runtime, pii: blocking }),
+      scanTool,
+      taskOf(),
+      okOf({ file: PDF }),
+    );
+
+    expect(files.refused?.error.name).toBe("PiiRefusedError");
+    expect(files.refused?.content).toContain("No cards.");
+    expect(files.files).toBeUndefined();
   });
 
   it("leaves a call without files as it was, its spend tallied", async () => {
