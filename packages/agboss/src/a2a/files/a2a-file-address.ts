@@ -1,4 +1,5 @@
 import { lookup as dnsLookup, type LookupAddress } from "node:dns";
+import { definedOf } from "../../infrastructure/clock.js";
 import { BlockList, isIP, type LookupFunction } from "node:net";
 
 /**
@@ -67,14 +68,28 @@ for (const [network, prefix] of IPV4_BLOCKED) {
 }
 for (const [network, prefix] of IPV6_BLOCKED) BLOCKED.addSubnet(network, prefix, "ipv6");
 
+/** `[::1]` as `::1`: the brackets of an IPv6 literal, both or none (a half is no literal's). */
+export const unbracketed = (address: string): string =>
+  address.startsWith("[") && address.endsWith("]") ? address.slice(1, -1) : address;
+
+/** The host of a URL as a connection takes it: an IPv6 literal without its brackets. */
+export const hostOf = (url: URL): string => unbracketed(url.hostname);
+
+/** An address without its zone (`fe80::1%eth0` is `fe80::1`). */
+export function withoutZone(address: string): string {
+  // Stryker disable next-line Regex: equivalent: `.*` runs to the end of an address (an IP text has no newline), so `$` adds nothing
+  return address.replace(/%.*$/, "");
+}
+
 /** An address as checked: no brackets, no zone (`fe80::1%eth0`). */
-const plainOf = (address: string): string => address.replace(/^\[|\]$/g, "").replace(/%.*$/, "");
+const plainOf = (address: string): string => withoutZone(unbracketed(address));
 
 /** Whether a file is never fetched from `address` (an IP literal). */
 export function isDeniedAddress(address: string): boolean {
   const plain = plainOf(address);
   const family = isIP(plain);
   if (family === 0) return true; // no address: never connected to
+  // Stryker disable next-line StringLiteral: equivalent: Node's `BlockList.check` reads any family but "ipv4" as IPv6
   return BLOCKED.check(plain, family === 4 ? "ipv4" : "ipv6");
 }
 
@@ -93,8 +108,11 @@ export type AddressLookup = (
   callback: (error: NodeJS.ErrnoException | null, addresses: readonly LookupAddress[]) => void,
 ) => void;
 
+/** `dns.lookup` as the module found it at load, as `net` and `tls` are (a later replacement is never asked). */
+const DNS_LOOKUP = dnsLookup;
+
 const systemLookup: AddressLookup = (hostname, callback) => {
-  dnsLookup(hostname, { all: true }, (error, addresses) => {
+  DNS_LOOKUP(hostname, { all: true }, (error, addresses) => {
     callback(error, addresses);
   });
 };
@@ -133,9 +151,17 @@ export function guardedLookupOf(
  */
 export function addressesOf(hostname: string, resolve?: AddressLookup): Promise<readonly string[]> {
   return new Promise((done, fail) => {
-    guardedLookupOf(resolve)(hostname, { all: true }, (error, answered) => {
-      if (error !== null) fail(error);
-      else done(typeof answered === "string" ? [answered] : answered.map(({ address }) => address));
+    let vetted: readonly string[] | undefined;
+    // the vetted addresses are told by `answered`, whatever the answer's form: no option asks for all
+    guardedLookupOf(resolve, (addresses) => {
+      vetted = addresses;
+    })(hostname, {}, (error) => {
+      if (error !== null) {
+        fail(error);
+        return;
+      }
+      // Stryker disable next-line StringLiteral: equivalent: the text of an invariant that holds is never read
+      done(definedOf(vetted, "a lookup that answered told the addresses it vetted"));
     });
   });
 }

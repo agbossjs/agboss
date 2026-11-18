@@ -58,6 +58,7 @@ function rebuilt(value: Plain, change: (item: unknown, key: string) => unknown):
   );
   for (const symbol of Object.getOwnPropertySymbols(value)) {
     const descriptor = Object.getOwnPropertyDescriptor(value, symbol);
+    // Stryker disable next-line ConditionalExpression: equivalent: an own symbol key always has a descriptor
     if (descriptor !== undefined) Object.defineProperty(copy, symbol, descriptor);
   }
   return copy;

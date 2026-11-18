@@ -161,6 +161,9 @@ describe("#1256: FileFetchSlots", () => {
     const refused = await settled(fetchedFile(fetchOf(held.transport, slots, "over")));
 
     expect(refused).toMatchObject({ code: "a2a.file-fetch-busy" });
+    await expect(fetchedFile(fetchOf(held.transport, slots, "over-again"))).rejects.toMatchObject({
+      message: "the agent is fetching too many files now",
+    });
     expect(held.asked).toEqual([`${ORIGIN}/a`]);
     held.answer(0);
     await turns();

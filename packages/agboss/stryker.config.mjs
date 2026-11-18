@@ -106,12 +106,7 @@ const SHARDS = {
   undo: {
     configFile: "vitest.mutation-undo.config.ts",
     mutate: [
-      "src/flow/runtime/compensation/undo.ts",
-      "src/flow/runtime/compensation/held-undo.ts",
-      "src/flow/runtime/compensation/registry.ts",
-      "src/flow/runtime/compensation/unwinding-marks.ts",
-      "src/flow/runtime/compensation/visit-entries.ts",
-      "src/flow/runtime/compensation/checkpoint-entries.ts",
+      "src/flow/runtime/compensation/{undo,held-undo,registry,unwinding-marks,visit-entries,checkpoint-entries}.ts",
     ],
   },
   // the unwinds (#633): a step's, a child's, a failed join's (#607) and the root's; never on a
@@ -244,6 +239,12 @@ const SHARDS = {
       "src/app/lease-abandon.ts",
       "src/app/lease-scope.ts",
     ],
+  },
+  // #1244: the A2A file fetch (SSRF guard, own connection, HTTP/1.1 parser: #1138), the files' options and scrub
+  "a2a-files": {
+    configFile: "vitest.mutation-a2a-files.config.ts",
+    // the slots (#1256) are the a2a-server shard's
+    mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
   },
 };
 

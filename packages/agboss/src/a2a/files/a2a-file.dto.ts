@@ -129,7 +129,6 @@ export function fileFieldsOf(dto: DtoClass): readonly A2AFileField[] {
   return fieldsOf(dto).flatMap((field) => {
     const { element } = field;
     if (element?.kind !== "dto" || !isFileDto(element.dto)) return [];
-    if (field.kind !== "nested" && field.kind !== "list-of") return [];
     return [{ name: field.name, isList: field.kind === "list-of", isOptional: field.optional }];
   });
 }

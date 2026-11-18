@@ -1,4 +1,5 @@
 import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { hostOf } from "./a2a-file-address.js";
 
 /**
  * The file fetch's own OpenTelemetry span (#1021). The request is the fetch's own HTTP/1.1 exchange
@@ -37,7 +38,7 @@ export function startFileFetchSpan(url: URL): FileFetchSpan {
     kind: SpanKind.CLIENT,
     attributes: {
       "http.request.method": "GET",
-      "server.address": url.hostname.replace(/^\[|\]$/g, ""),
+      "server.address": hostOf(url),
       "server.port": url.port === "" ? 443 : Number(url.port),
       "url.full": `${url.origin}${url.pathname}`,
     },

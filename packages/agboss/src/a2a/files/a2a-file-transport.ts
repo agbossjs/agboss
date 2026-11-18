@@ -1,5 +1,4 @@
-import { isIP } from "node:net";
-import { ADDRESS_DENIED, isDeniedAddress } from "./a2a-file-address.js";
+import { ADDRESS_DENIED } from "./a2a-file-address.js";
 import { connectionTo } from "./a2a-file-connect.js";
 import { exchangeOver, type FileExchange } from "./a2a-file-exchange.js";
 import { errorTypeOf, type FileFetchSpan, startFileFetchSpan } from "./a2a-file-span.js";
@@ -29,26 +28,18 @@ export class FileAddressDeniedError extends Error {
   override name = "FileAddressDeniedError";
 }
 
-/** A body cut by the deadline or the request's end: the error type an aborted request has. */
-const ABORTED = "ABORT_ERR";
-
 /**
  * The response, its span ended when the body closes (#1139): a read the fetch cancelled ends
  * it with the fetch's failure (none for a redirect or a refused status, whose status says it); a
  * body that did not arrive whole ends it with an error — `ABORT_ERR` when the deadline or the
  * request's end cut it, else the body's own error (`ECONNRESET` for a peer that reset it).
  */
-const responseOf = (
-  exchange: FileExchange,
-  span: FileFetchSpan,
-  signal: AbortSignal,
-): FileHttpResponse => {
+const responseOf = (exchange: FileExchange, span: FileFetchSpan): FileHttpResponse => {
   const { body } = exchange;
   let cancelled: { failure: string | undefined } | undefined;
   void exchange.ended.then(({ isComplete, error }) => {
     if (cancelled !== undefined) span.finished(cancelled.failure);
     else if (isComplete) span.finished();
-    else if (signal.aborted) span.finished(ABORTED);
     else span.finished(error === undefined ? "a2a.file-fetch-failed" : errorTypeOf(error));
   });
   return {
@@ -62,8 +53,7 @@ const responseOf = (
   };
 };
 
-const isDenied = (error: unknown): boolean =>
-  typeof error === "object" && error !== null && Reflect.get(error, "code") === ADDRESS_DENIED;
+const isDenied = (error: unknown): boolean => Reflect.get(Object(error), "code") === ADDRESS_DENIED;
 
 /**
  * The built-in transport: `https:` only, its own connection (`connectionTo`) and its own exchange
@@ -85,15 +75,12 @@ export const httpsFileTransport: FileTransport = (url, signal) => {
 };
 
 function sent(url: URL, signal: AbortSignal, span: FileFetchSpan): Promise<FileHttpResponse> {
-  // an IP literal is connected to without a lookup: checked here
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host) !== 0 && isDeniedAddress(host))
-    return Promise.reject(new FileAddressDeniedError());
+  // an IP literal has no lookup: `connectionTo` judges it (a denied one is refused before any socket)
   return connectionTo(url, signal).then(
     async ({ secure }) => {
       const exchange = await exchangeOver(secure, url, signal);
       span.responded(exchange.status);
-      return responseOf(exchange, span, signal);
+      return responseOf(exchange, span);
     },
     (error: unknown) => {
       throw isDenied(error) ? new FileAddressDeniedError() : error;

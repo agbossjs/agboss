@@ -21,9 +21,11 @@ export function finishDtosOf(
   workflows: readonly Class[],
 ): ReadonlyMap<string, DtoClass> {
   const part = workflowPartsOf(workflows).find((each) => each.nodes.includes(start));
+  // Stryker disable next-line ArrayDeclaration: equivalent: the start is one of the nodes of the part found for it
   const entries = (part?.nodes ?? []).flatMap((node): [string, DtoClass][] => {
     const finish = declarationOf(node);
-    if (finish?.kind !== NodeKind.Finish || typeof finish.options.output !== "function") return [];
+    // Stryker disable next-line OptionalChaining: equivalent: every node of a flow has a declaration
+    if (finish?.kind !== NodeKind.Finish) return [];
     return [[finish.options.name, finish.options.output]];
   });
   return new Map(entries);
@@ -38,6 +40,7 @@ function startSizeOf(
   const declaration = declarationOf(start);
   if (declaration?.kind !== NodeKind.Start) return 0;
   const { input } = declaration.options;
+  // Stryker disable next-line ConditionalExpression: equivalent: `fileFieldsOf` of what is no class holds no field
   const takes = typeof input === "function" && fileFieldsOf(input).length > 0;
   const gives = [...finishDtosOf(start, workflows).values()].some(
     (dto) => fileFieldsOf(dto).length > 0,
@@ -55,6 +58,7 @@ export function fileTierSizeOf(
     const meta = componentOf(expose);
     if (meta?.kind !== "a2a-expose") return [];
     return meta.meta.exports.map((start) => {
+      // Stryker disable next-line StringLiteral: equivalent: a start with no declaration gets size 0 whatever its name
       const name = declarationOf(start)?.options.name ?? "";
       const limits = fileLimitsOf(application, meta.meta.skills?.[name]?.files);
       return startSizeOf(start, workflows, limits);

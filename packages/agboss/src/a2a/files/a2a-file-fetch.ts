@@ -101,10 +101,11 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
       response.cancel();
       if (hop === MAX_REDIRECTS || response.location === undefined)
         throw refused("a2a.file-fetch-failed", "the file's url redirects too often");
+      // a Location no URL can be made of (with or without this one as its base) is a url that is none
       const next = URL.canParse(response.location, url.href)
-        ? new URL(response.location, url)
-        : undefined;
-      url = allowedUrlOf(next?.href ?? "", fetch.allowedOrigins, true);
+        ? new URL(response.location, url).href
+        : response.location;
+      url = allowedUrlOf(next, fetch.allowedOrigins, true);
       continue;
     }
     if (response.status < 200 || response.status > 299) {
@@ -114,6 +115,10 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
     return boundedBodyOf(response, fetch.maxBytes);
   }
 }
+
+/** The refusal of a fetch the deadline or the request's end cut. */
+const notInTime = (): A2AError =>
+  refused("a2a.file-fetch-failed", "the file could not be fetched in time");
 
 /**
  * The bytes of a file by `url`, fetched as described above. The deadline and the request's end
@@ -133,10 +138,11 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
   const signal = AbortSignal.any([fetch.signal, timedOut.signal]);
   const ended = new Promise<never>((_, reject) => {
     const settle = (): void => {
-      reject(refused("a2a.file-fetch-failed", "the file could not be fetched in time"));
+      reject(notInTime());
     };
     if (signal.aborted) settle();
-    else signal.addEventListener("abort", settle, { once: true });
+    // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and `settle` only rejects the promise, once
+    signal.addEventListener("abort", settle, { once: true });
   });
   const fetched =
     fetch.slots?.run(
@@ -146,12 +152,10 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
       // Stryker disable next-line StringLiteral: the key of a fetch with no tenant — any constant names the one shared caller
       fetch.tenant ?? "",
     ) ?? bodyAt(fetch, signal);
-  fetched.catch(() => undefined); // when `ended` wins, the fetch's own failure is not unhandled
   try {
     return await Promise.race([fetched, ended]);
   } catch (error) {
-    if (signal.aborted)
-      throw refused("a2a.file-fetch-failed", "the file could not be fetched in time");
+    if (signal.aborted) throw notInTime();
     throw error;
   } finally {
     done.abort();

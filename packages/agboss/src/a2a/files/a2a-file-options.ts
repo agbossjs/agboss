@@ -63,9 +63,11 @@ export const fileLimitsOf = (
 
 /** A media type as compared: its essence, lower case (`Text/Plain; charset=utf-8` → `text/plain`). */
 export const mediaTypeEssenceOf = (mediaType: string): string =>
+  // Stryker disable next-line StringLiteral: equivalent: `split` yields one element at least
   (mediaType.split(";", 1)[0] ?? "").trim().toLowerCase();
 
 const isWhole = (value: unknown, min: number): boolean =>
+  // Stryker disable next-line ConditionalExpression: equivalent: `Number.isInteger` is false for what is no number
   typeof value === "number" && Number.isInteger(value) && value >= min;
 
 /** An allowed origin is written as `new URL(…).origin` writes it, on `https:`. */

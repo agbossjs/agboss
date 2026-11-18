@@ -6,7 +6,10 @@ import {
   addressesOf,
   type AddressLookup,
   deniedError,
+  hostOf,
   isDeniedAddress,
+  unbracketed,
+  withoutZone,
 } from "./a2a-file-address.js";
 
 /**
@@ -34,9 +37,7 @@ const TLS_CONNECT = tlsConnect;
 
 /** An address as compared: no brackets, no zone, lower case, IPv4-mapped as the IPv4 it carries. */
 const canonicalOf = (address: string): string =>
-  address
-    .replace(/^\[|\]$/g, "")
-    .replace(/%.*$/, "")
+  withoutZone(unbracketed(address))
     .toLowerCase()
     .replace(/^::ffff:(?=\d+\.)/, "");
 
@@ -60,9 +61,6 @@ export function isExpectedPeer(
 /** How long one TCP connection may take; the fetch's own deadline (the signal) is the tighter bound. */
 const CONNECT_TIMEOUT = 10_000;
 
-/** Read on each call: TypeScript cannot narrow an abort that happens while a promise is awaited. */
-const isAborted = (signal: AbortSignal): boolean => signal.aborted;
-
 const abortedError = (): Error => new Error("the file fetch was aborted");
 
 /** `promise`, or a rejection as soon as `signal` aborts (a resolver that ignores it cannot hold the fetch). */
@@ -74,6 +72,7 @@ function racedWith<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       () => {
         reject(abortedError());
       },
+      // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and `reject` settles the promise once
       { once: true },
     );
     promise.then(resolve, reject);
@@ -90,7 +89,12 @@ const pinnedLookupOf =
   };
 
 /** A raw TCP socket connected to `address`, its remote address checked before anything is sent. */
-export function rawSocketTo(address: string, port: number, signal: AbortSignal): Promise<Socket> {
+export function rawSocketTo(
+  address: string,
+  port: number,
+  signal: AbortSignal,
+  connectTimeout: number = CONNECT_TIMEOUT,
+): Promise<Socket> {
   return new Promise((resolve, reject) => {
     // an abort that already fired is never seen by a listener added now: no socket is opened
     if (signal.aborted) {
@@ -98,12 +102,13 @@ export function rawSocketTo(address: string, port: number, signal: AbortSignal):
       return;
     }
     const socket = NET_CONNECT({ host: address, port, lookup: pinnedLookupOf(address) });
-    socket.setTimeout(CONNECT_TIMEOUT, () => {
+    socket.setTimeout(connectTimeout, () => {
       socket.destroy(new Error("the connection timed out"));
     });
     const onAbort = (): void => {
       socket.destroy(abortedError());
     };
+    // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and a destroyed socket is destroyed again harmlessly
     signal.addEventListener("abort", onAbort, { once: true });
     const onError = (error: Error): void => {
       signal.removeEventListener("abort", onAbort);
@@ -114,7 +119,8 @@ export function rawSocketTo(address: string, port: number, signal: AbortSignal):
       signal.removeEventListener("abort", onAbort);
       socket.off("error", onError);
       socket.setTimeout(0);
-      if (isExpectedPeer(socket.remoteAddress, new Set([address]), address)) resolve(socket);
+      // the address is an IP literal: it is the expected peer itself
+      if (isExpectedPeer(socket.remoteAddress, undefined, address)) resolve(socket);
       else {
         socket.destroy();
         reject(deniedError());
@@ -139,12 +145,13 @@ export async function connectionTo(
   signal: AbortSignal,
   resolve?: AddressLookup,
 ): Promise<Connection> {
-  const host = url.hostname.replace(/^\[|\]$/g, "");
+  const host = hostOf(url);
   const port = url.port === "" ? 443 : Number(url.port);
+  if (port < 1) throw new Error("the file's url has no usable port");
   const addresses = isIP(host) !== 0 ? [host] : await racedWith(addressesOf(host, resolve), signal);
-  let failure: unknown = new Error("the file's host has no address");
+  let failure: unknown; // `addressesOf` answers one address at least, or fails
   for (const address of addresses) {
-    // after an abort the loop does not go on to the next address
+    // after an abort the loop does not go on to the next address (a failure of the one that was aborted ends here)
     if (signal.aborted) throw abortedError();
     if (isDeniedAddress(address)) throw deniedError();
     try {
@@ -155,9 +162,12 @@ export async function connectionTo(
         host,
         ...(isIP(host) === 0 ? { servername: host } : {}),
       });
+      // an error before the exchange listens (two microtask hops on) must not be an uncaught one:
+      // the exchange's own listener takes over, and a close before a response is its failure
+      secure.on("error", () => undefined);
       return { secure, address };
     } catch (error) {
-      if (Reflect.get(Object(error), "code") === ADDRESS_DENIED || isAborted(signal)) throw error;
+      if (Reflect.get(Object(error), "code") === ADDRESS_DENIED) throw error;
       failure = error;
     }
   }

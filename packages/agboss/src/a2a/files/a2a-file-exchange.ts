@@ -68,12 +68,23 @@ function decoderOf(framing: Framing): Decoder {
   };
 }
 
+/** The most interim responses (`1xx`) one response may have. */
+const MAX_INTERIM = 4;
+
+/** The response whose head is in: its body stream, how the body ends and how its bytes are decoded. */
+interface Response {
+  readonly body: Readable;
+  readonly framing: Framing;
+  readonly decode: Decoder;
+}
+
 /** One response read from `secure`, settling the exchange's promise once. */
 class ResponseReader {
   private head: Buffer = Buffer.alloc(0);
-  private body: Readable | undefined;
-  private framing: Framing = { kind: "close" };
-  private decoder: Decoder = decoderOf(this.framing);
+  /** The bytes of the heads read so far: every interim head and the final one share `MAX_HEAD`. */
+  private headBytes = 0;
+  private interim = 0;
+  private response: Response | undefined;
   private complete = false;
 
   constructor(
@@ -84,49 +95,62 @@ class ResponseReader {
 
   readonly onData = (chunk: Buffer): void => {
     try {
-      if (this.body === undefined) this.readHead(chunk);
-      else this.feed(chunk);
+      if (this.response === undefined) this.readHead(chunk);
+      else this.feed(this.response, chunk);
     } catch (error) {
       this.fail(error);
     }
   };
 
   readonly onClose = (): void => {
-    if (this.body === undefined) this.fail(hangUpError());
-    else if (this.framing.kind === "close") this.finish();
+    const { response } = this;
+    if (response === undefined) this.fail(hangUpError());
+    else if (response.framing.kind === "close") this.finish(response.body);
     else this.fail(cutError());
   };
 
   /** A failure: the promise's before a response, the body's after it; the socket destroyed. */
   readonly fail = (error: unknown): void => {
     this.secure.destroy();
-    if (this.body === undefined) this.reject(error);
-    else if (!this.complete) this.body.destroy(error instanceof Error ? error : cutError());
+    const { response } = this;
+    if (response === undefined) this.reject(error);
+    else if (!this.complete) response.body.destroy(error instanceof Error ? error : cutError());
   };
 
-  /** An abort before the body is whole fails the exchange; after it, there is nothing to stop. */
+  /** An abort fails the exchange; once the body is whole (its socket destroyed) there is nothing to stop. */
   readonly onAbort = (): void => {
-    if (!this.complete) this.fail(abortedError());
+    this.fail(abortedError());
   };
 
   private readHead(chunk: Buffer): void {
     this.head = Buffer.concat([this.head, chunk]);
     for (;;) {
       const end = this.head.indexOf("\r\n\r\n");
-      if (end === -1 || end > MAX_HEAD) {
-        if (this.head.length > MAX_HEAD) throw malformedError("the head is too large");
-        return;
-      }
+      if (this.headBytes + (end === -1 ? this.head.length : end) > MAX_HEAD)
+        throw malformedError("the head is too large");
+      if (end === -1) return;
       const head = responseHeadOf(this.head.subarray(0, end).toString("latin1"));
+      this.headBytes += end;
       const rest = this.head.subarray(end + 4);
       if (head.status >= 200) {
+        // a 2xx with no length ends with its connection, which a truncation looks like: no file
+        if (head.status < 300 && head.framing.kind === "close")
+          throw malformedError("a body with no length");
         this.respond(head, rest);
         return;
       }
-      // an interim response (103 Early Hints) is skipped; a switch of protocols is not one a GET asks
-      if (head.status === 101) throw malformedError("a switch of protocols");
+      this.checkInterim(head);
       this.head = rest;
     }
+  }
+
+  /** An interim response (103 Early Hints) is skipped: few, empty, and never a switch of protocols. */
+  private checkInterim(head: ResponseHead): void {
+    if (head.status === 101) throw malformedError("a switch of protocols");
+    if (head.framing.kind === "chunked" || head.framing.kind === "length")
+      throw malformedError("an interim response with a body");
+    this.interim += 1;
+    if (this.interim > MAX_INTERIM) throw malformedError("too many interim responses");
   }
 
   private respond(head: ResponseHead, rest: Buffer): void {
@@ -144,28 +168,29 @@ class ResponseReader {
         resolve({ isComplete: this.complete, error: body.errored ?? undefined });
       });
     });
-    this.body = body;
-    this.framing = head.framing;
-    this.decoder = decoderOf(head.framing);
+    const response: Response = {
+      body,
+      framing: head.framing,
+      decode: decoderOf(head.framing),
+    };
+    this.response = response;
     this.resolve({ status: head.status, location: head.location, body, ended });
-    if (head.framing.kind === "none") this.finish();
-    else if (rest.length > 0) this.feed(rest);
+    if (head.framing.kind === "none") this.finish(body);
+    else this.feed(response, rest);
   }
 
-  private feed(chunk: Buffer): void {
-    const { body } = this;
-    if (this.complete || body === undefined) return; // bytes past the body's end are dropped
-    const isOver = this.decoder(chunk, (data) => {
-      if (!body.push(data)) this.secure.pause();
+  private feed(response: Response, chunk: Buffer): void {
+    const isOver = response.decode(chunk, (data) => {
+      if (!response.body.push(data)) this.secure.pause();
     });
-    if (isOver) this.finish();
+    if (isOver) this.finish(response.body);
   }
 
-  private finish(): void {
-    if (this.complete || this.body === undefined || this.body.destroyed) return;
+  /** The body's end read: its stream ends, and the socket is destroyed (`Connection: close`: never reused). */
+  private finish(body: Readable): void {
     this.complete = true;
-    this.body.push(null);
-    this.secure.destroy(); // `Connection: close`: the socket is never reused
+    body.push(null);
+    this.secure.destroy();
   }
 }
 
@@ -189,7 +214,8 @@ export function exchangeOver(
       signal.removeEventListener("abort", reader.onAbort);
     });
     try {
-      secure.write(requestHeadOf(url));
+      // Stryker disable next-line StringLiteral: equivalent: the head is visible ASCII (`requestHeadOf` checks it), one byte a character in any encoding
+      secure.write(Buffer.from(requestHeadOf(url), "latin1"));
     } catch (error) {
       reader.fail(error);
     }

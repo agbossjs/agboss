@@ -17,7 +17,7 @@ describe("#1138 the request", () => {
   it("H1 GET of the path and query, never the fragment; Host the url's; Connection: close", () => {
     expect(requestHeadOf(new URL("https://files.example.test:8443/a b.pdf?x=1&y=é#frag"))).toBe(
       "GET /a%20b.pdf?x=1&y=%C3%A9 HTTP/1.1\r\nHost: files.example.test:8443\r\n" +
-        "Accept: */*\r\nConnection: close\r\n\r\n",
+        "Accept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
     );
   });
 
@@ -32,9 +32,9 @@ describe("#1138 the request", () => {
 });
 
 describe("#1138 the response head", () => {
-  it("R1 the status, Location (the first one) and the framing", () => {
+  it("R1 the status, Location (one, or the same twice) and the framing", () => {
     expect(
-      responseHeadOf("HTTP/1.1 302 Found\r\nLocation: /a\r\nlocation: /b\r\nContent-Length: 0"),
+      responseHeadOf("HTTP/1.1 302 Found\r\nLocation: /a\r\nlocation: /a\r\nContent-Length: 0"),
     ).toEqual({ status: 302, location: "/a", framing: { kind: "none" } });
     expect(responseHeadOf("HTTP/1.0 200 OK\r\nContent-Length: 12")).toEqual({
       status: 200,
@@ -48,15 +48,16 @@ describe("#1138 the response head", () => {
     expect(responseHeadOf("HTTP/1.1 200").framing).toEqual({ kind: "close" });
   });
 
-  it("R3 Transfer-Encoding: chunked last wins over Content-Length; another last coding reads to the close", () => {
-    expect(
-      responseHeadOf("HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, Chunked\r\nContent-Length: 3")
-        .framing,
-    ).toEqual({ kind: "chunked" });
-    expect(
-      responseHeadOf("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: gzip")
-        .framing,
-    ).toEqual({ kind: "close" });
+  it("R3 Transfer-Encoding: a lone chunked is a chunked body; any other, or one beside a length, is refused (the review of #1241)", () => {
+    expect(responseHeadOf("HTTP/1.1 200 OK\r\nTransfer-Encoding: Chunked").framing).toEqual({
+      kind: "chunked",
+    });
+    for (const head of [
+      "HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, Chunked",
+      "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: gzip",
+      "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 3",
+    ])
+      expect(() => responseHeadOf(head), head).toThrow(malformed);
   });
 
   it("R4 204 and 304 have no body, whatever their headers say", () => {
