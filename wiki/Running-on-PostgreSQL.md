@@ -284,25 +284,34 @@ else stops.
   past `trustedUntil` aborts the execution's signal and hands the tree over, so a pod never moves a
   tree whose lease it could not renew.
 
-## The cancel's fence (#909)
+## The cancel's fence (#909, #1117)
 
-Migration `0032_execution_cancel_requests` adds `agboss_execution_cancel_requests` (the cancel's mark
-per tree: tenant, root, `requested_at`) — a table of its own, so run
-`agboss-postgres migrate` **with no instance of an older version running**, then start the version
-that writes it. The fence of [ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then: an older
-instance neither writes the mark nor reads it, so a tree it holds could commit an effect after a
-cancel that a newer instance requested. The mark is written
-by `PostgresExecutionLeaseRepository.requestCancel` and read by the fenced-effect and outbound-call
-stores in their own transactions, each under a pair of advisory locks of the tree's identity
-(namespace 909, beside the business key's 508): the cancel takes the exclusive one, so it waits for
-the tree's open fencing transactions; a fencing transaction takes the shared one after its lease and
-key checks and reads the committed mark. A long fenced `work` therefore delays a cancel of its tree,
-never the other way round.
+A tree's cancel mark is the column `cancel_requested_at` of the tree's own row in
+`agboss_execution_leases` (the row of `(tenant_id, root_execution_id)`, never a child's). Migration
+`0034_cancel_mark_on_lease_row` adds it, moves every mark of the earlier table
+`agboss_execution_cancel_requests` (migration `0032`) onto its tree's row and drops that table, in one
+transaction, written to rerun. A tree with no lease row yet gets a **seed row**: token 0, released,
+an empty holder, never held; the migration relaxes the token's check to `>= 0` for it. So the first
+`acquire` of such a tree is token 1, not a takeover. Run `agboss-postgres migrate` **with no instance
+of an earlier version running**, then start the version that writes it. The fence of
+[ADR-0030](ADR-0030-A-cancel-is-a-fence) holds only then: an earlier instance writes the dropped
+table, so a mark it wrote is lost, and it never reads the column, so a tree it holds could commit an
+effect after a cancel that a newer instance requested.
 
-A mark is **permanent** (#1117, [Guarantees](Guarantees) A18): no retention pass lifts it, not by age
-and not once the tree's lease is retired, because a still-live lease of a child of the cancelled tree
-would then write after the cancel. It is kept as the lease rows and the execution ids are, one per
-cancelled tree, never scanned, so size it as one row per cancelled tree.
+The mark is written by `PostgresExecutionLeaseRepository.requestCancel`, an upsert that sets it once
+(a repeat keeps the first time) and changes no lease, and read by `isCancelRequested` and by the
+fenced-effect and outbound-call stores in their own transactions. The fence is the lease row's lock,
+not an advisory lock: a fencing transaction reads the mark with `SELECT … FOR SHARE` on the root's
+row after its lease and key checks, and the cancel's upsert waits for every such share lock. So a
+write either holds the lock before the cancel (the cancel answers after that transaction ends) or
+reads the committed mark. A child's check inserts its root's seed row first when there is none, so
+there is always a row to lock. A long fenced `work` therefore delays a cancel of its tree, never the
+other way round.
+
+A mark is **permanent** (#1117, [Guarantees](Guarantees) A18): no retention pass, release, retire,
+take or takeover lifts it, because a still-live lease of a child of the cancelled tree would then
+write after the cancel. It lives as long as its lease row, which no pass deletes, so size it as one
+row per cancelled tree, never scanned.
 
 ## What the guarantees assume of PostgreSQL
 
