@@ -198,6 +198,18 @@ read of their thread gives them one.
   new version — or `mongodbSchemaSetup: SchemaSetup.MigrateOnStart` for a single instance. This is not a
   rolling upgrade: a Helm `pre-upgrade` or Argo CD `PreSync` Job runs while the old pods serve, so use
   it only for an upgrade that changes no schema ([Deploying on Kubernetes](Deploying-on-Kubernetes#upgrading-across-a-schema-change)).
+- **`migrate` and a start that migrates both refuse over live leases.** `migrate` (and
+  `migrateMongodb`), with migrations pending on an already migrated database, finds the execution
+  leases that are not released, finished or superseded and expire after the **server's** clock, and
+  fails with `MongoLiveLeasesError` (`mongodb.live-leases`: the count and up to 5 holders; nothing is
+  applied). A start with `SchemaSetup.MigrateOnStart` is held to the same rule (#1260): it waits for the
+  leases to lapse — twice the longest lease left, at least a minute and at most ten, polled each second on
+  the application's `Clock` — so a stopped single instance's own leases lapse and the start goes on; a
+  lease that is still live then (an old pod that keeps renewing) fails the start with the same error. A
+  database that is already current, or was never migrated, is not looked at. `--allow-live-leases` /
+  `allowLiveLeases: true` in the connection's settings / `mongodbAllowLiveLeases: true` in the
+  environment migrates over live leases, for an operator who accepts the risk. An idle old pod holds
+  no lease and is not seen.
 - **A new pod on a database that was not migrated does not start**: `MongoSchemaMissingError`,
   which names the command. Nothing is created by a start that checks (`SchemaSetup.Check`, the
   default), so the pods need no right to change the schema.
