@@ -108,7 +108,8 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
       url = allowedUrlOf(next, fetch.allowedOrigins, true);
       continue;
     }
-    if (response.status < 200 || response.status > 299) {
+    // only a 200 is the file: a 206 is part of one (no `Range` is ever sent), a 204 or a 201 has none
+    if (response.status !== 200) {
       response.cancel();
       throw refused("a2a.file-fetch-failed", "the file could not be fetched");
     }
