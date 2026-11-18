@@ -8,6 +8,7 @@ import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./ha
 import { ModelListCache, type ModelEntry } from "./model-list.js";
 import { CacheRetention, type PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
+import { usageOnceFetch } from "./usage-once.js";
 import { wireFetch, type CacheControl, type WirePlan } from "./wire.js";
 
 /** No provider-specific request fields: only `{}` fits. */
@@ -51,8 +52,12 @@ export abstract class OpenAiCompatibleProvider<
         streamUsage: true,
         configuration: {
           baseURL: connection.baseUrl,
-          fetch: this.responseFetch(
-            wireFetch(this.wirePlanOf(request), connection.fetch, connection.provider),
+          // a streamed answer's usage once (#1231), whatever a subclass reads of the answers: the
+          // client's fetch is the one boundary every copy of the client LangChain makes keeps
+          fetch: usageOnceFetch(
+            this.responseFetch(
+              wireFetch(this.wirePlanOf(request), connection.fetch, connection.provider),
+            ),
           ),
           defaultHeaders: { "X-Title": "AGBoss" },
         },

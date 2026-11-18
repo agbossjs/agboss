@@ -39,9 +39,9 @@ const withUsage = (event: Record<string, unknown>, usage: WireUsage): Record<str
   usage,
 });
 
-const finish = (delta: Record<string, unknown>): Record<string, unknown> => ({
+const finish = (delta: Record<string, unknown>, reason = "stop"): Record<string, unknown> => ({
   ...chunk({}, HOST),
-  choices: [{ index: 0, delta, finish_reason: "stop" }],
+  choices: [{ index: 0, delta, finish_reason: reason }],
 });
 
 const usageChunk = (usage: WireUsage): Record<string, unknown> => ({
@@ -63,16 +63,16 @@ function tokenEvents(tokens: readonly string[], shape: UsageShape, usage: WireUs
 }
 
 /** The chunks after the text: the finish and the usage, as `shape` sends them. */
-function tailEvents(shape: UsageShape, usage: WireUsage): unknown[] {
+function tailEvents(shape: UsageShape, usage: WireUsage, reason = "stop"): unknown[] {
   switch (shape) {
     case UsageShape.OnFinishChoice:
-      return [withUsage(finish({ role: "assistant", content: "" }), usage)];
+      return [withUsage(finish({ role: "assistant", content: "" }, reason), usage)];
     case UsageShape.OwnChunk:
-      return [finish({}), usageChunk(usage)];
+      return [finish({}, reason), usageChunk(usage)];
     case UsageShape.Repeated:
-      return [withUsage(finish({}), share(usage, 0.9)), usageChunk(usage)];
+      return [withUsage(finish({}, reason), share(usage, 0.9)), usageChunk(usage)];
     case UsageShape.Twice:
-      return [withUsage(finish({}), usage), usageChunk(usage)];
+      return [withUsage(finish({}, reason), usage), usageChunk(usage)];
   }
 }
 
@@ -91,6 +91,36 @@ export function streamWithUsage(
   };
 }
 
+/**
+ * A streamed tool call (#1231: a tool-bound agent's turn): the call's name, then its arguments in
+ * two pieces, then the finish (`tool_calls`) and the usage as `shape` sends them, then `[DONE]`.
+ */
+export function streamedToolCall(
+  name: string,
+  args: Readonly<Record<string, unknown>>,
+  shape: UsageShape,
+  usage: WireUsage = WIRE_USAGE,
+): SseScript {
+  const text = JSON.stringify(args);
+  const half = Math.floor(text.length / 2);
+  const call = (piece: Record<string, unknown>): Record<string, unknown> =>
+    chunk({ tool_calls: [{ index: 0, ...piece }] }, HOST);
+  const pieces = [
+    call({ id: "call-1", type: "function", function: { name, arguments: text.slice(0, half) } }),
+    call({ function: { arguments: text.slice(half) } }),
+  ];
+  return {
+    steps: [
+      sseEvents(chunk({ role: "assistant", content: null }, HOST)),
+      ...(shape === UsageShape.Repeated
+        ? pieces.map((piece, index) => withUsage(piece, share(usage, (index + 1) / 4)))
+        : pieces
+      ).map((event) => sseEvents(event)),
+      sseEvents(...tailEvents(shape, usage, "tool_calls"), "[DONE]"),
+    ],
+  };
+}
+
 /** The plain (not streamed) answer: the usage in the one response, the host beside it. */
 export const plainWithUsage = (text: string, usage: WireUsage = WIRE_USAGE): unknown => ({
   id: "c",
@@ -103,3 +133,34 @@ export const plainWithUsage = (text: string, usage: WireUsage = WIRE_USAGE): unk
 });
 
 export const WIRE_HOST = HOST;
+
+/** The plain (not streamed) answer that is one tool call: `name` with `args`, the usage beside it. */
+export const plainToolCallWithUsage = (
+  name: string,
+  args: Readonly<Record<string, unknown>>,
+  usage: WireUsage = WIRE_USAGE,
+): unknown => ({
+  id: "c",
+  object: "chat.completion",
+  created: 1,
+  model: "m",
+  provider: HOST,
+  choices: [
+    {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name, arguments: JSON.stringify(args) },
+          },
+        ],
+      },
+      finish_reason: "tool_calls",
+    },
+  ],
+  usage,
+});
