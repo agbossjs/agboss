@@ -160,7 +160,7 @@ async function paintedOf(
     .raw()
     .toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
-  const hasAlpha = channels === 2 || channels === 4;
+  const hasAlpha = channels === 4; // sharp reads a grey image with alpha as 4 channels, never 2
   for (const region of regions) {
     const box = boxOf(region, width, height);
     for (let row = box.top; row < box.top + box.height; row += 1) {

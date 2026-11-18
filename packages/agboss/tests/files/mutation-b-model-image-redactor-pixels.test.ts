@@ -91,4 +91,19 @@ describe("the painted box", () => {
     expect(painted).toBeGreaterThan(100);
     expect(painted).toBeLessThan(40 * 40);
   });
+
+  it("is plain black in an image with no alpha channel", async () => {
+    const model = new FakeListChatModel({ responses: [REGION] });
+
+    const copy = await redacted({ model, settings }, "a-agent", await imageOf(3), options());
+
+    const { data, info } = await sharp(copy.file.bytes).raw().toBuffer({ resolveWithObject: true });
+    expect(info.channels).toBe(3);
+    const pixels = Array.from({ length: data.length / 3 }, (_, at) => [
+      ...data.subarray(at * 3, at * 3 + 3),
+    ]);
+    const painted = pixels.filter((pixel) => pixel[0] !== 255);
+    expect(painted.length).toBeGreaterThan(100);
+    expect(painted.every((pixel) => pixel.every((channel) => channel === 0))).toBe(true);
+  });
 });
