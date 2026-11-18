@@ -64,7 +64,15 @@ observed of it ([Guards → Levels](Guards#levels)). What to check:
 | a queued `AnyInstance` child row | carries `piiPolicies` (its chain's policy names); a row without them is not readable, so finish or drain children queued by 0.1.0 before the upgrade (ADR-0034) |
 
 `agboss describe` shows each way's effective sets under `pii chains`; the start log says the same
-(`app.pii-policies`). A workflow's `configHash` does not change.
+(`app.pii-policies`). A child's own `configHash` does not change. **The `configHash` of a workflow
+that launches another changes once** when the application or the workflow itself lists a PII
+policy: its snapshot adds `handedDown`, the policies its children inherit, so an inherited policy's
+change is a change of the root. A tree of such a root paused or running before the upgrade is
+incompatible with it (`IncompatibleResumeError`, `recovery.incompatible`) unless the root's
+`onIncompatibleResume` says `"resume"` — as for any change of what its models read: the child now
+runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
+the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where
+neither the application nor a launching workflow lists a policy, keep their hash.
 
 ## Pauses — `withdraw` is gone, a channel hears every close
 

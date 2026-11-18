@@ -453,7 +453,12 @@ the models, never at observability. `agboss describe` prints each way's sets und
 (`chain-peek-workflow under chain-root-workflow: logs and traces masked by …; models by …;
 chain-peek-agent by … (excluded: root-secret-pii-policy by chain-peek-agent)`), and the start log
 says the same once (`app.pii-policies`). A workflow's config hash covers what it declares, never
-what it inherits on a way in. The policies in
+what it inherits on a way in; what it inherits is in the hash of the workflow that hands it down. A
+workflow that launches another workflow fingerprints the application's and its own `@Workflow`
+lists as `handedDown` — also when it has no agent or router of its own, such as an orchestrator
+root — and its root's hash covers every child's part (#336). So every policy in effect anywhere in
+a tree is in the root's `configHash`: a deploy that changes an inherited policy makes a tree paused
+inside the child `IncompatibleResumeError` unless the root's `onIncompatibleResume` accepts it. The policies in
 effect at each agent's and router's model — their rules and actions — are part of the workflow's
 config hash ([Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)): an
 `excludePiiPolicies` on one agent changes it. A declarative policy's `refusal(kind)` is checked on
