@@ -52,11 +52,19 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
    */
   readonly maxConcurrentFileFetches?: number;
   /**
-   * How many of those one caller (a tenant's owner; callers with no owner share one bucket per tenant) holds at once (#1256): a quarter of `maxConcurrentFileFetches` by
-   * default (at least 1), with a share of the queue of four per slot; a tenant over its share is
-   * refused at once (`a2a.file-fetch-busy`), so one caller's flood leaves the rest their turn.
+   * How many of those one tenant holds at once, however many owners it has (#1256, #1297): a quarter
+   * of `maxConcurrentFileFetches` by default (at least 1), with a share of the queue of four per
+   * slot; a tenant over its share is refused at once (`a2a.file-fetch-busy`), so one tenant's flood
+   * leaves the other tenants their turn.
    */
   readonly maxConcurrentFileFetchesPerTenant?: number;
+  /**
+   * How many of a tenant's fetches one owner of it holds at once (#1297; callers with no owner are
+   * one owner of their tenant): a quarter of the tenant's share by default (at least 1), with a share
+   * of the queue of four per slot; an owner over its share is refused at once
+   * (`a2a.file-fetch-busy`), so one owner's flood leaves the tenant's other owners their turn.
+   */
+  readonly maxConcurrentFileFetchesPerOwner?: number;
   /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request; at most 24 days (`[a2a.timeout-invalid]`, #1141). */
   readonly maxTaskDuration?: Milliseconds;
 }
@@ -235,6 +243,7 @@ export function a2aHttpListener<TStart extends Class>(
   checkedListenerTimers(options);
   checkedFetchLimit("maxConcurrentFileFetches", options.maxConcurrentFileFetches);
   checkedFetchLimit("maxConcurrentFileFetchesPerTenant", options.maxConcurrentFileFetchesPerTenant);
+  checkedFetchLimit("maxConcurrentFileFetchesPerOwner", options.maxConcurrentFileFetchesPerOwner);
   const resolver = callerResolverOf(app, options.callerResolver);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");

@@ -11,13 +11,15 @@ import {
   FileFetchSlots,
   callerKeyOf,
   fileSlotsOf,
+  tenantKeyOf,
+  type FileCaller,
 } from "../../../src/a2a/files/a2a-file-slots.js";
 import type { FileHttpResponse } from "../../../src/a2a/files/a2a-file-transport.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../../src/units/index.js";
 import { withFileTransport } from "../../../src/a2a/files/a2a-file-seam.js";
 import type { FileTransport } from "../../../src/a2a/files/a2a-file-transport.js";
-import { testWith } from "../../../src/testing/index.js";
+import { testWith, type A2AServerFixture } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
 import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
 import { FILE_ORIGIN, FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
@@ -71,7 +73,16 @@ const fetchOf = (
 
 /** Slots whose one caller may hold them all: only the global bounds count. */
 const slotsOf = (limit: number, queued: number): FileFetchSlots =>
-  new FileFetchSlots(limit, queued, { running: limit, queued });
+  new FileFetchSlots(limit, queued, { running: limit, queued }, { running: limit, queued });
+
+/** A share that never binds: the level under test is the other one. */
+const WIDE = { running: 1000, queued: 1000 };
+
+/** A caller of a tenant, with an owner or, with none, the tenant's anonymous one. */
+const callerOf = (tenant: string, owner?: string): FileCaller => ({
+  tenant: tenantKeyOf(tenant),
+  owner: callerKeyOf(tenant, owner),
+});
 
 const settled = async (work: Promise<unknown>): Promise<unknown> => {
   try {
@@ -223,13 +234,13 @@ describe("#1256: FileFetchSlots", () => {
     const reason = new Error("the request ended");
     const busy = () => new Error("busy");
 
-    void slots.run(new AbortController().signal, () => hold, busy, "");
-    const waiting = slots.run(closed.signal, () => Promise.resolve("never"), busy, "");
+    void slots.run(new AbortController().signal, () => hold, busy, callerOf(""));
+    const waiting = slots.run(closed.signal, () => Promise.resolve("never"), busy, callerOf(""));
     closed.abort(reason);
 
     await expect(waiting).rejects.toBe(reason);
     const next = new AbortController();
-    const queued = slots.run(next.signal, () => Promise.resolve("never"), busy, "");
+    const queued = slots.run(next.signal, () => Promise.resolve("never"), busy, callerOf(""));
     next.abort(reason);
     // its place was free: it waited (and ended with its signal), it was not refused as busy
     await expect(queued).rejects.toBe(reason);
@@ -237,9 +248,9 @@ describe("#1256: FileFetchSlots", () => {
 
   it("a tenant's flood takes its share only: over it, refused at once; another tenant still gets a slot", async () => {
     const held = heldTransport();
-    const slots = new FileFetchSlots(4, 8, { running: 1, queued: 2 });
+    const slots = new FileFetchSlots(4, 8, { running: 1, queued: 2 }, WIDE);
     const as = (tenant: string, name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant })));
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf(tenant) })));
 
     const flood = ["a1", "a2", "a3"].map((name) => as("acme", name));
     await turns();
@@ -261,9 +272,9 @@ describe("#1256: FileFetchSlots", () => {
 
   it("a waiter whose tenant is at its slots is passed over: the next tenant's fetch takes the freed slot", async () => {
     const held = heldTransport();
-    const slots = new FileFetchSlots(2, 8, { running: 1, queued: 8 });
+    const slots = new FileFetchSlots(2, 8, { running: 1, queued: 8 }, WIDE);
     const as = (tenant: string, name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant })));
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf(tenant) })));
 
     const all = [as("acme", "a1"), as("acme", "a2"), as("globex", "b1"), as("globex", "b2")];
     await turns();
@@ -282,9 +293,9 @@ describe("#1256: FileFetchSlots", () => {
 
   it("a freed slot with only capped waiters in line goes to none of them", async () => {
     const held = heldTransport();
-    const slots = new FileFetchSlots(2, 8, { running: 1, queued: 8 });
+    const slots = new FileFetchSlots(2, 8, { running: 1, queued: 8 }, WIDE);
     const as = (tenant: string, name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant })));
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf(tenant) })));
 
     const all = [as("acme", "a1"), as("globex", "b1"), as("acme", "a2")];
     await turns();
@@ -299,52 +310,152 @@ describe("#1256: FileFetchSlots", () => {
     expect(await Promise.all(all)).toEqual(Array(3).fill("fetched"));
   });
 
-  it("callers whose ids would join to one text are different callers, each with its own share", async () => {
+  it("owners whose ids would join to one text are different owners, each with its own share", async () => {
     const pairs = [
       [callerKeyOf("a/b", "c"), callerKeyOf("a", "b/c")],
       [callerKeyOf("anonymous:x", "o"), callerKeyOf("x", undefined)],
       [callerKeyOf("t", undefined), callerKeyOf("t", "anonymous")],
+      [callerKeyOf("t", undefined), callerKeyOf("t", "null")],
+      [callerKeyOf("t", undefined), callerKeyOf("t", "")],
+      [tenantKeyOf("t"), callerKeyOf("t", undefined)],
+      [tenantKeyOf("a/b"), tenantKeyOf("a")],
+      [tenantKeyOf("null"), tenantKeyOf("")],
     ] as const;
     for (const [one, other] of pairs) expect(one).not.toBe(other);
+    expect(tenantKeyOf("acme")).toBe('["acme"]');
+    expect(callerKeyOf("acme", "dana")).toBe('["acme","dana"]');
     const held = heldTransport();
-    const slots = new FileFetchSlots(4, 8, { running: 1, queued: 0 });
-    const as = (tenant: string, name: string) =>
-      fetchedFile(fetchOf(held.transport, slots, name, { tenant })).catch(() => undefined);
+    const slots = new FileFetchSlots(4, 8, WIDE, { running: 1, queued: 0 });
+    const as = (caller: FileCaller, name: string) =>
+      fetchedFile(fetchOf(held.transport, slots, name, { caller })).catch(() => undefined);
 
-    void as(callerKeyOf("a/b", "c"), "one");
-    void as(callerKeyOf("a", "b/c"), "other");
+    void as(callerOf("a/b", "c"), "one");
+    void as(callerOf("a", "b/c"), "other");
     await turns();
 
     expect(held.asked).toEqual([`${ORIGIN}/one`, `${ORIGIN}/other`]);
   });
 
-  it("the default share of a tenant is a quarter of the slots (at least one) and of the queue", async () => {
+  it("the default shares: a tenant holds a quarter of the slots, an owner a quarter of that (at least one); each with four queue places per slot", async () => {
     const held = heldTransport();
     const slots = fileSlotsOf(16, undefined);
-    const as = (name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant: "acme" })));
+    const as = (owner: string, name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme", owner) })),
+      );
 
-    const first = Array.from({ length: 4 + 16 }, (_, at) => as(`f${String(at)}`));
+    // 20 owners of one tenant, one fetch each: the tenant's 4 run, its 16 queue places fill, the next is refused
+    const first = Array.from({ length: 4 + 16 }, (_, at) => as(`o${String(at)}`, `f${String(at)}`));
     await turns();
-    const over = await as("over");
+    const over = await as("o99", "over");
 
     expect(held.asked).toHaveLength(4);
     expect(over).toMatchObject({ code: "a2a.file-fetch-busy" });
     expect(first).toHaveLength(20);
+    // one owner: its share is 1 running and 4 queued, in a tenant of 4
+    const owned = fileSlotsOf(16, undefined);
+    const alone = (name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, owned, name, { caller: callerOf("globex", "dana") })),
+      );
+    const dana = Array.from({ length: 1 + 4 }, (_, at) => alone(`d${String(at)}`));
+    await turns();
+    expect(held.asked).toHaveLength(5);
+    expect(await alone("d-over")).toMatchObject({ code: "a2a.file-fetch-busy" });
+    expect(dana).toHaveLength(5);
     const single = fileSlotsOf(1, undefined);
-    const only = fetchedFile(fetchOf(held.transport, single, "solo", { tenant: "t" })).catch(
-      () => undefined,
-    );
+    const only = fetchedFile(
+      fetchOf(held.transport, single, "solo", { caller: callerOf("t", "o") }),
+    ).catch(() => undefined);
     await turns();
     expect(held.asked.at(-1)).toBe(`${ORIGIN}/solo`);
     void only;
+  });
+
+  it("the tenant's share bounds the sum of its owners: 20 owners of one tenant never run more than the tenant's share, queue no more than its share, and another tenant still gets a slot", async () => {
+    const held = heldTransport();
+    const slots = fileSlotsOf(undefined, undefined); // 16 slots, 4 per tenant (queue 16), 1 per owner (queue 4)
+    const as = (tenant: string, owner: string, name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf(tenant, owner) })),
+      );
+
+    // 20 owners, 8 fetches each: 160 in all
+    const flood = Array.from({ length: 160 }, (_, at) =>
+      as("acme", `o${String(at % 20)}`, `a${String(at)}`),
+    );
+    await turns();
+    const other = as("globex", "g", "b1");
+    await turns();
+
+    // acme runs 4 (not 16) and queues 16 (not the listener's 64): the other 140 are refused at once
+    expect(held.asked.filter((url) => url.includes("/a"))).toHaveLength(4);
+    expect(held.asked).toContain(`${ORIGIN}/b1`);
+    expect(held.asked).toHaveLength(5);
+    const refused = await Promise.all(flood.slice(20));
+    expect(refused.filter((outcome) => outcome === "fetched")).toHaveLength(0);
+    expect(
+      refused.filter((outcome) => (outcome as { code: string }).code === "a2a.file-fetch-busy"),
+    ).toHaveLength(140);
+    held.answer(held.asked.indexOf(`${ORIGIN}/b1`));
+    expect(await other).toBe("fetched");
+  });
+
+  it("an owner's flood inside one tenant is bounded by the owner's share: its fetches past it are refused, its tenant's other owners still run", async () => {
+    const held = heldTransport();
+    const slots = fileSlotsOf(undefined, undefined); // tenant 4 (queue 16), owner 1 (queue 4)
+    const as = (owner: string, name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme", owner) })),
+      );
+
+    const flood = Array.from({ length: 8 }, (_, at) => as("dana", `d${String(at)}`));
+    await turns();
+    const refused = await Promise.all(flood.slice(5));
+    const eli = as("eli", "e1");
+    await turns();
+
+    // dana: 1 runs, 4 wait, the other 3 are refused although the tenant has 3 slots and 12 places left
+    expect(held.asked).toEqual([`${ORIGIN}/d0`, `${ORIGIN}/e1`]);
+    for (const outcome of refused) expect(outcome).toMatchObject({ code: "a2a.file-fetch-busy" });
+    held.answer(0);
+    held.answer(1);
+    await turns();
+    expect(await eli).toBe("fetched");
+  });
+
+  it("an anonymous caller is an owner of its own inside its tenant: the tenant's anonymous callers share one owner's share, and it takes from the tenant's share", async () => {
+    const held = heldTransport();
+    const slots = fileSlotsOf(16, 4, 2);
+    const as = (owner: string | undefined, name: string) =>
+      settled(
+        fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme", owner) })),
+      );
+
+    const anonymous = ["n1", "n2", "n3"].map((name) => as(undefined, name));
+    const named = ["x1", "x2", "x3"].map((name) => as("x", name));
+    await turns();
+
+    // 2 anonymous and 2 of x run (4 = the tenant's share); the third of each waits
+    expect(held.asked).toEqual([`${ORIGIN}/n1`, `${ORIGIN}/n2`, `${ORIGIN}/x1`, `${ORIGIN}/x2`]);
+    expect(slots.callers).toBe(2);
+    held.answer(0);
+    held.answer(1);
+    held.answer(2);
+    held.answer(3);
+    await turns();
+    held.answer(4);
+    held.answer(5);
+    expect(await Promise.all([...anonymous, ...named])).toEqual(Array(6).fill("fetched"));
+    expect(slots.callers).toBe(0);
+    expect(slots.tenants).toBe(0);
   });
 
   it("the global bounds hold across callers, each under its own share: slots, a handed-over slot, the queue", async () => {
     const held = heldTransport();
     const slots = slotsOf(2, 2);
     const as = (tenant: string, name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant })));
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf(tenant) })));
 
     const results = [as("a", "a1"), as("b", "b1"), as("c", "c1"), as("d", "d1")];
     await turns();
@@ -373,9 +484,9 @@ describe("#1256: FileFetchSlots", () => {
 
   it("a caller's share of the queue is given back when its waiters start: it can queue again", async () => {
     const held = heldTransport();
-    const slots = new FileFetchSlots(1, 10, { running: 1, queued: 2 });
+    const slots = new FileFetchSlots(1, 10, { running: 1, queued: 2 }, WIDE);
     const as = (name: string) =>
-      settled(fetchedFile(fetchOf(held.transport, slots, name, { tenant: "acme" })));
+      settled(fetchedFile(fetchOf(held.transport, slots, name, { caller: callerOf("acme") })));
 
     const first = [as("a1"), as("a2"), as("a3")];
     await turns();
@@ -476,6 +587,7 @@ describe("#1256: a tenant's share, over the wire", () => {
           callerResolver: BearerCallerResolver,
           maxConcurrentFileFetches: 8,
           maxConcurrentFileFetchesPerTenant: 3,
+          maxConcurrentFileFetchesPerOwner: 3,
         },
         transport,
       ),
@@ -500,10 +612,8 @@ describe("#1256: a tenant's share, over the wire", () => {
   });
 });
 
-describe("#1256: a caller's share is its owner's, not its tenant's", () => {
-  test("two owners of the default tenant: dana floods, eli still gets his slot", async ({
-    a2aServer,
-  }) => {
+describe("#1297: a tenant's share bounds the sum of its owners; an owner's share is inside it", () => {
+  const held = async (a2aServer: A2AServerFixture, limits: Record<string, number>) => {
     const script = scriptedTransport({ [`${FILE_ORIGIN}/a.pdf`]: { body: PDF } });
     let release = (): void => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -516,26 +626,62 @@ describe("#1256: a caller's share is its owner's, not its tenant's", () => {
     };
     const { url } = await a2aServer(
       withFileTransport(
-        {
-          expose: FilesA2AExpose,
-          callerResolver: BearerCallerResolver,
-          maxConcurrentFileFetches: 8,
-          maxConcurrentFileFetchesPerTenant: 1,
-        },
+        { expose: FilesA2AExpose, callerResolver: BearerCallerResolver, ...limits },
         transport,
       ),
     );
     const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
-    const send = (owner: string, id: string) =>
+    const send = (tenant: string | undefined, owner: string, id: string) =>
       rpc(url, "SendMessage", fileMessage(id, parts), {
-        headers: { authorization: `Bearer ${owner}` },
+        headers: {
+          authorization: `Bearer ${owner}`,
+          ...(tenant === undefined ? {} : { "x-tenant": tenant }),
+        },
       });
+    return {
+      script,
+      release: () => {
+        release();
+      },
+      send,
+    };
+  };
+
+  test("five owners of acme, a tenant share of 2: two fetch, the others of acme wait, globex's owner still fetches", async ({
+    a2aServer,
+  }) => {
+    const { script, release, send } = await held(a2aServer, {
+      maxConcurrentFileFetches: 8,
+      maxConcurrentFileFetchesPerTenant: 2,
+    });
 
     const sends = [
-      send("dana", "d-1"),
-      send("dana", "d-2"),
-      send("dana", "d-3"),
-      send("eli", "e-1"),
+      ...["o1", "o2", "o3", "o4", "o5"].map((owner, at) => send("acme", owner, `a-${String(at)}`)),
+      send("globex", "g1", "g-1"),
+    ];
+    await until(() => script.asked.length >= 3, "two of acme's and globex's fetches started");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(script.asked).toHaveLength(3);
+    release();
+    await Promise.all(sends);
+
+    expect(script.asked).toHaveLength(6);
+  });
+
+  test("one owner of acme, an owner share of 1 in a tenant of 4: dana floods, eli of the same tenant still gets his slot", async ({
+    a2aServer,
+  }) => {
+    const { script, release, send } = await held(a2aServer, {
+      maxConcurrentFileFetches: 8,
+      maxConcurrentFileFetchesPerTenant: 4,
+      maxConcurrentFileFetchesPerOwner: 1,
+    });
+
+    const sends = [
+      send(undefined, "dana", "d-1"),
+      send(undefined, "dana", "d-2"),
+      send(undefined, "dana", "d-3"),
+      send(undefined, "eli", "e-1"),
     ];
     await until(() => script.asked.length >= 2, "dana's and eli's fetches started");
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -549,7 +695,7 @@ describe("#1256: a caller's share is its owner's, not its tenant's", () => {
 
 describe("#1256: maxConcurrentFileFetches is checked when the listener is made", () => {
   const listener =
-    (value: unknown, perTenant?: unknown): (() => unknown) =>
+    (value: unknown, perTenant?: unknown, perOwner?: unknown): (() => unknown) =>
     () =>
       a2aHttpListener(
         {} as never,
@@ -559,6 +705,7 @@ describe("#1256: maxConcurrentFileFetches is checked when the listener is made",
           publicUrl: "https://x.test",
           maxConcurrentFileFetches: value,
           maxConcurrentFileFetchesPerTenant: perTenant,
+          maxConcurrentFileFetchesPerOwner: perOwner,
         } as never,
       );
 
@@ -570,6 +717,10 @@ describe("#1256: maxConcurrentFileFetches is checked when the listener is made",
     for (const value of [0, 2.5, "3"])
       expect(listener(undefined, value)).toThrow(
         /\[a2a.file-fetch-limit-invalid\].*maxConcurrentFileFetchesPerTenant/u,
+      );
+    for (const value of [0, 2.5, "3"])
+      expect(listener(undefined, undefined, value)).toThrow(
+        /\[a2a.file-fetch-limit-invalid\].*maxConcurrentFileFetchesPerOwner/u,
       );
   });
 });

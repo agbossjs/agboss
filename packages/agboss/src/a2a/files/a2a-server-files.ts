@@ -11,6 +11,7 @@ interface FileFetchOptions {
   readonly fileFetchTimeout?: Milliseconds;
   readonly maxConcurrentFileFetches?: number;
   readonly maxConcurrentFileFetchesPerTenant?: number;
+  readonly maxConcurrentFileFetchesPerOwner?: number;
 }
 
 /** Where the listener's files are kept and how one by url is fetched (#859): bound by time (#859) and by slots (#1256). */
@@ -19,5 +20,9 @@ export const serverFilesOf = (app: A2AApp, options: FileFetchOptions): A2AServer
   transport: fileTransportOf(options),
   timeout: options.fileFetchTimeout ?? DEFAULT_FILE_FETCH_TIMEOUT,
   fetches: fileFetchesOf(options),
-  slots: fileSlotsOf(options.maxConcurrentFileFetches, options.maxConcurrentFileFetchesPerTenant),
+  slots: fileSlotsOf(
+    options.maxConcurrentFileFetches,
+    options.maxConcurrentFileFetchesPerTenant,
+    options.maxConcurrentFileFetchesPerOwner,
+  ),
 });
