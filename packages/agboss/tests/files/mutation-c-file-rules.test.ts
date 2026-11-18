@@ -358,7 +358,14 @@ describe("the rules read the PII policies of the workflows' agents", () => {
     if (workflow === undefined) throw new Error("no workflow");
     const name = nameOf(app.Agent);
     const { pii: listed, ...unlisted } = workflow;
-    const base = listed ?? { observability: [], classes: [], detectors: [] };
+    const base = listed ?? {
+      observability: [],
+      model: [],
+      excludes: { workflow: [], byElement: new Map() },
+      chains: [],
+      classes: [],
+      detectors: [],
+    };
     const withMap = (byElement: Map<string, readonly (new () => object)[]>) => ({
       ...workflow,
       pii: { ...base, byElement },
