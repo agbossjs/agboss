@@ -5,7 +5,10 @@
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { ModelFailure } from "../../../src/models/index.js";
+import { failureOfError } from "../../../src/models/model-failure.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
+import { seconds } from "../../../src/units/index.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { ScriptedBedrockClient } from "../transport/bedrock-provider.fixture.js";
@@ -68,6 +71,52 @@ describe("#1125: a stream that stalls after its first tokens", { timeout: 30_000
       " two",
       "discarded",
     ]);
+    expect(events.at(-1)).toMatchObject({ kind: "discarded", reason: "stream-broken" });
+    await app.close();
+  });
+
+  // a provider that sends only `:` comments after its first content is as quiet as one that sends nothing
+  it("a comment every second after the first tokens does not keep the stream alive: it fails as a timeout, no retry", async () => {
+    const stop = new Gate();
+    class CountingClock extends VirtualClock {
+      advances = 0;
+      override advance(duration: Parameters<VirtualClock["advance"]>[0]): Promise<void> {
+        this.advances += 1;
+        return super.advance(duration);
+      }
+    }
+    const clock = new CountingClock();
+    const server = await sseServer([
+      {
+        steps: [
+          sseEvents(chunk({ content: "One " })),
+          { kind: "comments", clock, every: seconds(1), until: stop },
+        ],
+      },
+    ]);
+    servers.push(server);
+    const app = await transportApp(StreamApplication, {
+      client: new ScriptedBedrockClient([]),
+      send: server.send,
+      clock,
+    });
+    const events: ExecutionStreamEvent[] = [];
+
+    const failure = await advanceUntilSettled(
+      clock,
+      execute(app, ChatStart, { text: "hi" }, { onStream: (event) => events.push(event) }),
+    ).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    stop.open();
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failureOfError((failure as Error).cause)).toBe(ModelFailure.Timeout); // the agent step failed with the stall
+    // the provider's bound is 30 s, a step is a second: not at the first comment, not never (they go on for ever)
+    expect(clock.advances).toBeGreaterThanOrEqual(30);
+    expect(clock.advances).toBeLessThanOrEqual(34);
+    expect(server.requests).toHaveLength(1); // text was out: no retry
     expect(events.at(-1)).toMatchObject({ kind: "discarded", reason: "stream-broken" });
     await app.close();
   });

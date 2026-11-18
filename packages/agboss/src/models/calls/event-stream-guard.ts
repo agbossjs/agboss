@@ -70,20 +70,35 @@ async function peek(
   }
 }
 
-/** One read of the body under the stall bound: the idle timer counts only while this waits for the provider. */
+/** How long the body has been quiet: waiting for the provider since the last progress (#1125). */
+interface Quiet {
+  waited: number;
+}
+
+/**
+ * One read of the body under the stall bound: the idle timer counts only while this waits for the
+ * provider, and a read that brings no progress (a `:` comment) does not restart it: what is left of
+ * the bound is what `quiet` has not used.
+ */
 async function readWithin(
   reader: Reader,
   idle: Idle | undefined,
+  quiet: Quiet,
 ): Promise<Awaited<ReturnType<Reader["read"]>>> {
   if (idle === undefined) return await reader.read();
-  const timer = timeoutOn(idle.clock, idle.timeout, () => new StreamStalledError(idle.timeout));
+  const left = idle.timeout - quiet.waited;
+  const stall = (): StreamStalledError => new StreamStalledError(idle.timeout);
+  const timer = timeoutOn(idle.clock, Math.max(0, left) as Milliseconds, stall);
   const stalled = new Promise<never>((_resolve, reject) => {
     timer.signal.addEventListener("abort", () => {
       reject(timer.signal.reason as StreamStalledError); // what the timer aborted with, made above
     });
   });
+  const startedAt = idle.clock.monotonicNow();
   try {
-    return await Promise.race([reader.read(), stalled]);
+    const result = await Promise.race([reader.read(), stalled]);
+    quiet.waited += idle.clock.monotonicNow() - startedAt;
+    return result;
   } catch (error) {
     // a stalled provider's connection is closed; on a body that failed by itself it is a no-op
     await reader.cancel(error).catch(() => undefined);
@@ -101,6 +116,7 @@ function replayed(
 ): ReadableStream<Uint8Array> {
   const queue = [...read];
   const scanner = new EventScanner();
+  const quiet: Quiet = { waited: 0 };
   let ended = false;
   let told = false;
   const tell = async (end: StreamEnd): Promise<void> => {
@@ -109,7 +125,9 @@ function replayed(
     await watch.settle(end);
   };
   const seen = async (chunk: Uint8Array): Promise<void> => {
-    for (const signal of scanner.push(chunk)) {
+    const signals = scanner.push(chunk);
+    if (scanner.progressed) quiet.waited = 0; // only data restarts the stall bound; a comment does not
+    for (const signal of signals) {
       if (signal.kind === "end") ended = true;
       if (signal.kind === "error") await tell(signal.failure === undefined ? "ignored" : "failed");
     }
@@ -119,7 +137,9 @@ function replayed(
       try {
         const next = queue.shift();
         const { done, value } =
-          next === undefined ? await readWithin(reader, watch?.idle) : { done: false, value: next };
+          next === undefined
+            ? await readWithin(reader, watch?.idle, quiet)
+            : { done: false, value: next };
         if (done) {
           await tell(ended ? "completed" : "failed");
           if (ended || watch === undefined) controller.close();

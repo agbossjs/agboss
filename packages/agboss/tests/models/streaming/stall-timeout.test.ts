@@ -154,6 +154,83 @@ describe("#1125 AC1: a streamed answer is bounded between its chunks", () => {
     expect(await breaker.isOpen()).toBe(true); // one failure (threshold 1)
   });
 
+  // a provider that goes on writing `:` comments (a proxy's keep-alive, a hung one) after its first content
+  // is as quiet as one that writes nothing: only data restarts the bound
+  it("comments after the first content do not restart the bound: a comment every second fails as a timeout at it", async () => {
+    const clock = new VirtualClock();
+    const seen: { calls: number; cancelled?: number } = { calls: 0 };
+    const comments: Step[] = Array.from({ length: 60 }, () => ({
+      after: 1000,
+      text: ": keep-alive\n\n",
+    }));
+    const { call } = clientOf(
+      clock,
+      streamingFetch(clock, [{ after: 0, text: delta("One") }, ...comments], seen),
+    );
+
+    const outcome = failureOf(call());
+    let settled = false;
+    void outcome.then(() => {
+      settled = true;
+    });
+    for (let second = 0; second < 19; second += 1) await clock.advance(seconds(1));
+    expect(settled).toBe(false); // 19 s of comments: still inside the 20 s bound
+    const failure = await advanceUntil(clock, outcome, seconds(1), 3); // and out of it by the 22nd second at the latest
+
+    expect(failure).toBeInstanceOf(StreamStalledError);
+    expect(failureOfError(failure)).toBe(ModelFailure.Timeout);
+    expect(seen.cancelled).toBe(1);
+    expect(seen.calls).toBe(1);
+  });
+
+  it("a comment line sent in pieces is no progress either", async () => {
+    const clock = new VirtualClock();
+    const { call } = clientOf(
+      clock,
+      streamingFetch(
+        clock,
+        [
+          { after: 0, text: delta("One") },
+          ...Array.from({ length: 12 }, () => ({ after: 1000, text: ":" })), // the comment goes on and on, no newline
+          { after: 1000, text: "\n\n" },
+          ...Array.from({ length: 60 }, () => ({ after: 1000, text: ": again\n\n" })),
+        ],
+        { calls: 0 },
+      ),
+    );
+
+    const failure = await advanceUntil(clock, failureOf(call()), seconds(1), 25);
+
+    expect(failure).toBeInstanceOf(StreamStalledError);
+  });
+
+  it("data after comments restarts the bound: comments 10 s apart, then a data chunk, then more, all succeed", async () => {
+    const clock = new VirtualClock();
+    const seen = { calls: 0 };
+    const quiet = { after: 10_000, text: ": ping\n\n" };
+    const { call } = clientOf(
+      clock,
+      streamingFetch(
+        clock,
+        [
+          { after: 0, text: delta("One") },
+          quiet,
+          { after: 9_000, text: delta("two") }, // 19 s after the first content, in time: the bound restarts here
+          quiet,
+          { after: 9_000, text: delta("three") }, // 19 s after the second
+          quiet,
+          { after: 9_000, text: finish + frame("[DONE]") },
+        ],
+        seen,
+      ),
+    );
+
+    const text = await advanceUntil(clock, call(), seconds(1), 80);
+
+    expect(text).toContain('"three"');
+    expect(seen.calls).toBe(1);
+  });
+
   it("the clock counts between chunks, not the whole answer: 4 chunks 15 s apart under a 20 s timeout succeed", async () => {
     const clock = new VirtualClock();
     const seen = { calls: 0 };

@@ -71,6 +71,8 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
   fx(root.PiiDetectionFailedError, { message: "it went wrong", ...paid }),
   fx(root.RouterFailedError, { nodeId: "triage-router", visitNumber: 1 }),
   fx(root.RouterDecisionError, { nodeId: "triage-router", visitNumber: 1, reason: "no route" }),
+  fx(rag.RagFts5UnavailableError, { message: "this Node has no FTS5" }),
+  fx(rag.RagIndexVersionError, { message: "the index is of a later version" }),
   fx(rag.RerankFailedError, { rag: "faq-rag", reranker: "llm-reranker", ...paid }),
   fx(root.LimitExceededError, { key: "maxSteps", limit: 3, actual: 4, ...lost }),
   fx(root.BudgetExceededError, {

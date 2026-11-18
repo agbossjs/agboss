@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { Clock } from "../../../src/infrastructure/clock.js";
+import type { Milliseconds } from "../../../src/units/index.js";
 import type { ProviderFetch } from "../../../src/models/resilient-fetch.js";
 
 /** A real server on 127.0.0.1 that answers chat completions with server-sent events (#1005). */
@@ -19,6 +21,13 @@ export class Gate {
 export type SseStep =
   | { readonly kind: "events"; readonly events: readonly unknown[] }
   | { readonly kind: "wait"; readonly gate: Gate }
+  /** A `:` comment every `every` on `clock` until `until` opens: a provider that keeps the socket busy and says nothing (#1125). */
+  | {
+      readonly kind: "comments";
+      readonly clock: Clock;
+      readonly every: Milliseconds;
+      readonly until: Gate;
+    }
   | { readonly kind: "cut" }
   | { readonly kind: "end" };
 
@@ -106,11 +115,27 @@ const body = (request: IncomingMessage): Promise<Record<string, unknown>> =>
 const frame = (event: unknown): string =>
   `data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`;
 
+async function comment(
+  step: Extract<SseStep, { kind: "comments" }>,
+  response: ServerResponse,
+): Promise<void> {
+  const stop = new AbortController();
+  void step.until.opened.then(() => {
+    stop.abort();
+  });
+  const stopped = (): boolean => stop.signal.aborted || response.destroyed;
+  while (!stopped()) {
+    await step.clock.sleep(step.every, stop.signal);
+    if (!stopped()) response.write(": keep-alive\n\n");
+  }
+}
+
 async function play(script: SseScript, response: ServerResponse): Promise<void> {
   response.writeHead(script.status ?? 200, { "content-type": "text/event-stream" });
   for (const step of script.steps) {
     if (step.kind === "wait") await step.gate.opened;
     if (step.kind === "events") for (const each of step.events) response.write(frame(each));
+    if (step.kind === "comments") await comment(step, response);
     if (step.kind === "cut") return void response.destroy();
     if (step.kind === "end") return void response.end();
     await new Promise((resolve) => setImmediate(resolve));
