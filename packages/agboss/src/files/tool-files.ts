@@ -75,8 +75,7 @@ export interface TaskFiles {
 
 /** What a file read of a tool's result gave, or why the call is refused. */
 type ToolFilesRead =
-  | { readonly kind: "read"; readonly built: ToolFilesBuilt | undefined }
-  | { readonly kind: "refused"; readonly refused: TaskFiles };
+  { readonly built: ToolFilesBuilt | undefined } | { readonly refusal: TaskFiles };
 
 /** The read files, and whether the input guardrails check them (`guardToolResultFiles`). */
 type ToolFilesBuilt = FilePieces & {
@@ -105,11 +104,11 @@ async function readToolFiles(
         if (budget !== undefined) deps.budgets.check(budget.usage, budget.path, budget.loop);
       },
     });
-    return { kind: "read", built };
+    return { built };
   } catch (error) {
     if (!(error instanceof PiiRefusedError)) throw error;
     const refused = { content: refusedCall(error.refusal), error };
-    return { kind: "refused", refused: { usage: error.usage, refused } };
+    return { refusal: { usage: error.usage, refused } };
   }
 }
 
@@ -153,7 +152,7 @@ export async function taskFilesOf(
   output: ToolOutput<unknown> | undefined,
 ): Promise<TaskFiles> {
   const read = await readToolFiles(deps, tool, task, output);
-  if (read.kind === "refused") return read.refused;
+  if ("refusal" in read) return read.refusal;
   const { built } = read;
   if (built === undefined) return { usage: [] };
   const guarded = await guardedToolFiles(deps, task, built);
