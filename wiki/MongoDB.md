@@ -218,19 +218,9 @@ read of their thread gives them one.
 
 Each row is a test against the server's own fail points (`tests/integration/retries.test.ts`).
 
-## A fenced work must finish well under the bound (#1334)
+## A long fenced work can cost the tree its lease (#1334)
 
-A fenced effect's transaction writes the tree's lease document, and a child's writes its root's, so
-the root's lease renewal, a single-document write, waits for any open fenced transaction of its tree.
-MongoDB has no command-timeout option of its own (PostgreSQL's is `postgresCommandTimeoutMs`): the
-renewal is bounded by the core's store-call bound ([a store call that never answers](Several-instances#a-store-call-that-never-answers-928)),
-and a transaction by the server's `transactionLifetimeLimitSeconds` (60 s by default). A fenced
-`work`, the root's or any child's, must therefore finish **well under those**, in practice within a
-few seconds. A renewal that waits past its bound fails with `StoreCallTimeoutError`, an unknown
-outcome, and the tree's holder is abandoned as at expiry: the tree is recovered by another instance
-after its lease lapses. Safety holds: every fence stands and nothing is charged twice; what is lost
-is liveness, one TTL of it. Keep a fenced `work` to its database writes and do the slow part, a call
-to another system, outside it.
+A fenced effect's transaction writes the tree's lease document, and a child's writes its root's, so every lease renewal of the root, a single-document write, sent while a fenced `work` is open waits for its transaction. The core bounds a background or checkpoint renewal at 5 s (`RENEW_BOUND`) and a timed-out one is an ordinary store error: the holder goes on. Renewals tick every 7.5 s of a 30 s lease and the holder trusts the lease 29 s after the last confirmed one, so two failed ticks in a row are survived ([a store call that never answers](Several-instances#a-store-call-that-never-answers-928), [Guarantees](Guarantees) P8). A work, the root's or any child's, that blocks every renewal for about three ticks (roughly 20 s or more) costs the tree its lease: the holder stops at its fence and the tree is recovered by another instance once the lease lapses. Safety holds: every fence stands and nothing is charged twice; what is lost is liveness, up to one lease. A leased call that waits on the same document (`fence.renewNow()` before an outbound send, a write of the root's own under its lease) hands the tree over: MongoDB has no command-timeout option, so it ends at the time the holder still trusts its lease. The server's `transactionLifetimeLimitSeconds` (60 s by default) aborts a longer work. Keep a fenced `work` to its database writes, short, and do the slow part, a call to another system, outside it.
 
 ## A stop against a quiet server
 
