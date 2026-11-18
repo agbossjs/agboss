@@ -113,3 +113,27 @@ describe("#1125: what is progress of a stream and what is only its upkeep", () =
     expect(progressOf(frame(delta("a")) + ": a\n")).toEqual([true]);
   });
 });
+
+describe("#1329: the scanner reads an event's data lines as one payload", () => {
+  const signalsOf = (...parts: string[]) => {
+    const scanner = new EventScanner();
+    return parts.flatMap((part) => scanner.push(encoder.encode(part)));
+  };
+
+  it("an {error} cut over two data lines is the error, not nothing", () => {
+    expect(signalsOf('data: {"error":\ndata: {"code": 429, "message": "slow"}}\n\n')).toEqual([
+      { kind: "error", message: "slow", failure: ModelFailure.RateLimited },
+    ]);
+  });
+
+  it.each([
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+  ])("content cut over two data lines (%s) is content, at its blank line", (_name, end) => {
+    const text = `data: {"choices":${end}data: [{"delta": {"content": "x"}}]}${end}`;
+
+    expect(signalsOf(text)).toEqual([]);
+    expect(signalsOf(text, end)).toEqual([{ kind: "content" }]);
+    expect(signalsOf(text.slice(0, 20), text.slice(20) + end)).toEqual([{ kind: "content" }]);
+  });
+});

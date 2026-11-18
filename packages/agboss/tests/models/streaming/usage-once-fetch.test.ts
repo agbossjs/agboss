@@ -250,3 +250,153 @@ describe("#1231: usageOnceFetch", () => {
     expect(text).toBe(parts.join(""));
   });
 });
+
+describe("#1329: usageOnceFetch reads an event, not a line", () => {
+  const report = { id: "g", provider: "Acme", choices: [choice("", "stop")], usage: USAGE };
+  /** The event's JSON cut over two `data:` lines, just before its `usage`. */
+  const cutOver = (end: string): string => {
+    const json = JSON.stringify(report);
+    const at = json.indexOf(',"usage"') + 1;
+    return `data: ${json.slice(0, at)}${end}data: ${json.slice(at)}${end}${end}`;
+  };
+  const expected = [
+    { id: "g", provider: "Acme", choices: [choice("", "stop")] },
+    { id: "g", provider: "Acme", choices: [], usage: USAGE },
+    "[DONE]",
+  ];
+
+  it.each([
+    ["LF", "\n"],
+    ["CRLF", "\r\n"],
+    ["CR", "\r"],
+  ])("a usage event cut over two data lines (%s) gives its usage once", async (_name, end) => {
+    const { text } = await bodyOf([cutOver(end), `data: [DONE]${end}${end}`]);
+
+    expect(eventsOf(text.replaceAll("\r\n", "\n").replaceAll("\r", "\n"))).toEqual(expected);
+    expect(text.split('"usage"')).toHaveLength(2);
+  });
+
+  it("the cut event is the same event wherever the body's chunks cut it", async () => {
+    const whole = `${cutOver("\r\n")}data: [DONE]\r\n\r\n`;
+    for (let cut = 1; cut < whole.length; cut += 1) {
+      const { text } = await bodyOf([whole.slice(0, cut), whole.slice(cut)]);
+
+      expect(eventsOf(text.replaceAll("\r\n", "\n"))).toEqual(expected);
+    }
+  });
+
+  it("a cut event with no blank line at the end of the body gives its usage, once, after it", async () => {
+    const { text } = await bodyOf([cutOver("\n").slice(0, -1)]);
+
+    expect(text.split("\n\n").filter((part) => part !== "")).toHaveLength(2);
+    expect(eventsOf(text)).toEqual(expected.slice(0, 2));
+  });
+
+  it("a [DONE] with fields of its own keeps them, after the usage that comes before it", async () => {
+    const { text } = await bodyOf([cutOver("\n"), "event: done\ndata: [DONE]\n\n"]);
+
+    expect(eventsOf(text)).toEqual(expected);
+    expect(text.endsWith("\n\nevent: done\ndata: [DONE]\n\n")).toBe(true);
+  });
+
+  it("two data lines that join to `[DO\\nNE]` are no [DONE]: the usage waits for the body's end", async () => {
+    const { text } = await bodyOf([cutOver("\n"), "data: [DO\ndata: NE]\n\n"]);
+
+    expect(text).toBe(data(expected[0]) + "data: [DO\ndata: NE]\n\n" + data(expected[1]));
+  });
+
+  it("a payload that is no JSON, cut or not, passes as it came", async () => {
+    const parts = [
+      "data: not\ndata: json\n\n",
+      'data: {"usage":\ndata: {broken}\n\n',
+      "data: [DONE]\n\n",
+    ];
+    const { text } = await bodyOf(parts);
+
+    expect(text).toBe(parts.join(""));
+  });
+});
+
+describe("#1329: a last event cut mid-JSON, with no blank line, is no usage", () => {
+  it("it passes as it came and records nothing; the usage held before it still comes, once, after", async () => {
+    const full = data({ id: "g", choices: [choice("", "stop")], usage: USAGE });
+    const cut = 'data: {"id": "g", "choices": [],\ndata: "usage": {"cost": 0.5, "prompt_to';
+
+    const { text } = await bodyOf([full, cut]);
+
+    expect(text).toBe(
+      data({ id: "g", choices: [choice("", "stop")] }) +
+        cut +
+        "\n\n" +
+        data({ id: "g", choices: [], usage: USAGE }),
+    );
+  });
+
+  it("with no usage before it, the body is the body as it came", async () => {
+    const parts = [data({ id: "g", choices: [choice("Hi")] }), 'data: {"usage":\ndata: {"cost": 1'];
+
+    expect((await bodyOf(parts)).text).toBe(parts.join(""));
+  });
+
+  it("the same event, whole, is read: its usage is the call's", async () => {
+    const { text } = await bodyOf([
+      'data: {"id": "g", "choices": [],\ndata: "usage": {"cost": 0.5}}',
+    ]);
+
+    expect(eventsOf(text)).toEqual([
+      { id: "g", choices: [] },
+      { id: "g", choices: [], usage: { cost: 0.5 } },
+    ]);
+  });
+});
+
+describe("#1329: several events in one chunk, blanks around [DONE]", () => {
+  it("events that come in one chunk go out in order, each ended", async () => {
+    const chunk = `${data({ id: "g", choices: [choice("a")], usage: USAGE })}: note\n\n${data("[DONE]")}`;
+
+    const { text } = await bodyOf([chunk]);
+
+    expect(text).toBe(
+      data({ id: "g", choices: [choice("a")] }) +
+        ": note\n\n" +
+        data({ id: "g", choices: [], usage: USAGE }) +
+        data("[DONE]"),
+    );
+  });
+
+  it("a [DONE] with blanks around it is a [DONE]", async () => {
+    const { text } = await bodyOf([
+      data({ id: "g", choices: [choice("", "stop")], usage: USAGE }),
+      "data:  [DONE]  \n\n",
+    ]);
+
+    expect(text).toBe(
+      data({ id: "g", choices: [choice("", "stop")] }) +
+        data({ id: "g", choices: [], usage: USAGE }) +
+        "data:  [DONE]  \n\n",
+    );
+  });
+});
+
+describe("#1329: the body's last event is ended by a `\\r` that waited", () => {
+  it("a usage event ended by a last lone CR gives its usage once after it, no blank event between", async () => {
+    const event = JSON.stringify({ id: "g", choices: [choice("", "stop")], usage: USAGE });
+
+    const { text } = await bodyOf([`data: ${event}\r\r`]);
+
+    expect(text).toBe(
+      data({ id: "g", choices: [choice("", "stop")] }) +
+        data({ id: "g", choices: [], usage: USAGE }),
+    );
+  });
+});
+
+describe("#1329: a character cut at the body's very end", () => {
+  it("comes out as the replacement character, in the event it ended", async () => {
+    const bytes = new TextEncoder().encode("data: é");
+
+    const { text } = await bodyOf([bytes.slice(0, bytes.length - 1)]);
+
+    expect(text).toBe("data: �");
+  });
+});

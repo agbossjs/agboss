@@ -1,3 +1,4 @@
+import { EventReader } from "../event-stream-lines.js";
 import { failureOfStatus, ModelFailure } from "../model-failure.js";
 
 /**
@@ -82,9 +83,9 @@ function signalsOfData(payload: string): StreamSignal[] {
   }
 }
 
-/** Reads a stream's bytes as events: the signals of every complete `data:` line, a partial line kept. */
+/** Reads a stream's bytes as events: the signals of every complete event's payload (its `data:` lines joined, #1329), a partial one kept. */
 export class EventScanner {
-  #pending = "";
+  readonly #events = new EventReader();
   readonly #decoder = new TextDecoder();
   /** The kind of the line being read: `undefined` until its first character. */
   #line: "comment" | "field" | undefined;
@@ -103,13 +104,9 @@ export class EventScanner {
   push(bytes: Uint8Array): StreamSignal[] {
     const text = this.#decoder.decode(bytes, { stream: true });
     this.#progressed = this.#progressOf(text);
-    this.#pending += text;
-    const lines = this.#pending.split("\n");
-    this.#pending = lines.pop() ?? "";
-    return lines.flatMap((line) => {
-      if (!line.startsWith("data:")) return [];
-      return signalsOfData(line.slice("data:".length).trim());
-    });
+    return this.#events
+      .push(text)
+      .flatMap((event) => (event.data === undefined ? [] : signalsOfData(event.data.trim())));
   }
 
   #progressOf(text: string): boolean {

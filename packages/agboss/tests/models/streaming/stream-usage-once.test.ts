@@ -16,6 +16,7 @@ import {
   WIRE_HOST,
   WIRE_USAGE,
   plainWithUsage,
+  streamWithSplitUsage,
   streamWithUsage,
 } from "./usage-shapes.js";
 
@@ -32,11 +33,14 @@ afterEach(async () => {
 });
 
 /** One run on a stream of `shape` (or a plain call): its spend and its ledger. */
-async function runOn(shape: UsageShape | "plain", application = StreamOpenRouterApplication) {
-  const script = streamWithUsage(
-    ["Hello", " there"],
-    shape === "plain" ? UsageShape.OwnChunk : shape,
-  );
+async function runOn(
+  shape: UsageShape | "plain" | "split",
+  application = StreamOpenRouterApplication,
+) {
+  const script =
+    shape === "split"
+      ? streamWithSplitUsage(["Hello", " there"])
+      : streamWithUsage(["Hello", " there"], shape === "plain" ? UsageShape.OwnChunk : shape);
   const server = await sseServer([script], plainWithUsage("Hello there"));
   servers.push(server);
   const ledger = new SeenLedger();
@@ -88,6 +92,21 @@ describe("#1231: a streamed call records the wire's usage once", () => {
       expect(streamed.done.spend).toEqual(plain.done.spend);
     },
   );
+});
+
+describe("#1329: one event's JSON cut over two data lines is one event", () => {
+  it("the cost is the wire's, once, and the host is kept — as a plain call records", async () => {
+    const split = await runOn("split");
+    const plain = await runOn("plain");
+
+    expect(split.stream).toBe(true);
+    expect(split.done.output).toEqual({ text: "Hello there" });
+    expect(split.done.spend.trace).toEqual([expect.objectContaining(WIRE_RECORD)]);
+    expect(split.done.spend.totalUsd).toBeCloseTo(WIRE_USAGE.cost ?? 0, 12);
+    expect(split.ledger.entries).toEqual([expect.objectContaining(WIRE_RECORD)]);
+    expect(split.ledger.charged).toEqual([WIRE_USAGE.cost]);
+    expect(split.done.spend).toEqual(plain.done.spend);
+  });
 });
 
 /** An execution may spend 1.5 calls' worth: one call fits, a call counted twice does not. */
