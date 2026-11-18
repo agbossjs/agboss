@@ -137,3 +137,35 @@ describe("#1329: the scanner reads an event's data lines as one payload", () => 
     expect(signalsOf(text.slice(0, 20), text.slice(20) + end)).toEqual([{ kind: "content" }]);
   });
 });
+
+describe("#1329: the scanner at the body's end", () => {
+  const scan = (...parts: string[]) => {
+    const scanner = new EventScanner();
+    const pushed = parts.flatMap((part) => scanner.push(encoder.encode(part)));
+    return { pushed, finished: scanner.finish() };
+  };
+
+  it("a last event with one line end, or none, is read whole at the end, never before", () => {
+    const content = 'data: {"choices": [{"delta": {"content": "x"}}]}';
+
+    expect(scan(`${content}\n`)).toEqual({ pushed: [], finished: [{ kind: "content" }] });
+    expect(scan(content)).toEqual({ pushed: [], finished: [{ kind: "content" }] });
+    expect(scan('data: {"error":{"code":429,"message":"slow"}}\n').finished).toEqual([
+      { kind: "error", message: "slow", failure: ModelFailure.RateLimited },
+    ]);
+  });
+
+  it("an event cut over two data lines is read as one at the end", () => {
+    expect(scan('data: {"error":\ndata: {"message": "m"}}').finished).toEqual([
+      { kind: "error", message: "m", failure: ModelFailure.ServerError },
+    ]);
+  });
+
+  it("nothing is left after a blank line, nor of a cut JSON, a comment or a field", () => {
+    expect(scan(frame(delta("a"))).finished).toEqual([]);
+    expect(scan('data: {"choices": [').finished).toEqual([]);
+    expect(scan(": keep-alive\n").finished).toEqual([]);
+    expect(scan("event: ping").finished).toEqual([]);
+    expect(scan().finished).toEqual([]);
+  });
+});

@@ -109,6 +109,15 @@ export class EventScanner {
       .flatMap((event) => (event.data === undefined ? [] : signalsOfData(event.data.trim())));
   }
 
+  /**
+   * The signals of the last event when the body ends without its blank line — whole, as every event
+   * is read: a servers' last event may end with one line end (the clients read it, #1329).
+   */
+  finish(): StreamSignal[] {
+    const event = this.#events.finish();
+    return event?.data === undefined ? [] : signalsOfData(event.data.trim());
+  }
+
   #progressOf(text: string): boolean {
     let progressed = false;
     const parts = text.split("\n");

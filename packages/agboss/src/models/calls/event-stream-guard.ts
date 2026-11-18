@@ -61,7 +61,7 @@ async function peek(
   let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) return { read, signal: undefined };
+    if (done) return { read, signal: scanner.finish()[0] };
     read.push(value);
     size += value.byteLength;
     const [signal] = scanner.push(value);
@@ -108,15 +108,9 @@ async function readWithin(
   }
 }
 
-/** The body: what was read, then the rest; the watcher's `onChunk` / `onEnd` see every chunk and the end. */
-function replayed(
-  reader: Reader,
-  read: readonly Uint8Array[],
-  watch: Watch | undefined,
-): ReadableStream<Uint8Array> {
-  const queue = [...read];
+/** What reads a guarded body's signals: whether it said it was complete, and the call's fate told once. */
+function trackerOf(watch: Watch | undefined, quiet: Quiet) {
   const scanner = new EventScanner();
-  const quiet: Quiet = { waited: 0 };
   let ended = false;
   let told = false;
   const tell = async (end: StreamEnd): Promise<void> => {
@@ -124,14 +118,34 @@ function replayed(
     told = true;
     await watch.settle(end);
   };
-  const seen = async (chunk: Uint8Array): Promise<void> => {
-    const signals = scanner.push(chunk);
-    if (scanner.progressed) quiet.waited = 0; // only data restarts the stall bound; a comment does not
+  const react = async (signals: readonly StreamSignal[]): Promise<void> => {
     for (const signal of signals) {
       if (signal.kind === "end") ended = true;
       if (signal.kind === "error") await tell(signal.failure === undefined ? "ignored" : "failed");
     }
   };
+  return {
+    tell,
+    isEnded: () => ended,
+    async seen(chunk: Uint8Array): Promise<void> {
+      const signals = scanner.push(chunk);
+      if (scanner.progressed) quiet.waited = 0; // only data restarts the stall bound; a comment does not
+      await react(signals);
+    },
+    // a last event the server ended with one line end, or none (#1329)
+    finished: () => react(scanner.finish()),
+  };
+}
+
+/** The body: what was read, then the rest; the watcher's `onChunk` / `onEnd` see every chunk and the end. */
+function replayed(
+  reader: Reader,
+  read: readonly Uint8Array[],
+  watch: Watch | undefined,
+): ReadableStream<Uint8Array> {
+  const queue = [...read];
+  const quiet: Quiet = { waited: 0 };
+  const track = trackerOf(watch, quiet);
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
@@ -141,20 +155,21 @@ function replayed(
             ? await readWithin(reader, watch?.idle, quiet)
             : { done: false, value: next };
         if (done) {
-          await tell(ended ? "completed" : "failed");
-          if (ended || watch === undefined) controller.close();
+          await track.finished();
+          await track.tell(track.isEnded() ? "completed" : "failed");
+          if (track.isEnded() || watch === undefined) controller.close();
           else controller.error(new EventStreamError("the stream ended before it was complete"));
           return;
         }
-        await seen(value);
+        await track.seen(value);
         controller.enqueue(value);
       } catch (error) {
-        await tell(watch?.aborted() === true ? "ignored" : "failed");
+        await track.tell(watch?.aborted() === true ? "ignored" : "failed");
         controller.error(error);
       }
     },
     async cancel(reason) {
-      await tell(ended ? "completed" : "ignored");
+      await track.tell(track.isEnded() ? "completed" : "ignored");
       await reader.cancel(reason);
     },
   });

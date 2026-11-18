@@ -146,3 +146,56 @@ describe("#1005: the guard", () => {
     expect(await textOf(guard.response)).toBe(comment + frame(delta("a")) + frame(finish));
   });
 });
+
+describe("#1329: the guard reads the last event of a body that ends without its blank line", () => {
+  const rateLimit = 'data: {"error":{"code":429,"message":"slow"}}\n';
+
+  it("a body whose only event is an {error} ended by one line end is that failure, retryable", async () => {
+    const { guard, ends } = await guarded([rateLimit]);
+
+    expect(guard.failure).toBe(ModelFailure.RateLimited);
+    expect(guard.watched).toBe(false);
+    expect(ends).toEqual([]);
+  });
+
+  it("the same, cut over two data lines and ended by the body", async () => {
+    const { guard } = await guarded(['data: {"error":\ndata: {"code":429,"message":"slow"}}']);
+
+    expect(guard.failure).toBe(ModelFailure.RateLimited);
+  });
+
+  it("a complete answer whose finish event ends in one line end is complete: read whole, completed", async () => {
+    const parts = [frame(delta("Hi")), 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n'];
+    const { guard, ends } = await guarded(parts);
+
+    expect(await textOf(guard.response)).toBe(parts.join(""));
+    expect(ends).toEqual(["completed"]);
+  });
+
+  it("[DONE] ended by the body alone is the end too", async () => {
+    const { guard, ends } = await guarded([frame(delta("Hi")), "data: [DONE]"]);
+
+    expect(await textOf(guard.response)).toContain("[DONE]");
+    expect(ends).toEqual(["completed"]);
+  });
+
+  it("an {error} after content, ended by one line end, is told failed", async () => {
+    const { guard, ends } = await guarded([frame(delta("Hi")), rateLimit]);
+
+    await expect(textOf(guard.response)).rejects.toThrow(EventStreamError);
+    expect(ends).toEqual(["failed"]);
+  });
+
+  it("a last event cut mid-JSON is no signal: the body is unfinished, as before", async () => {
+    await expect(guarded(['data: {"error":{"code":429,"mess'])).rejects.toThrow(
+      "the stream ended before any content",
+    );
+    const { guard, ends } = await guarded([
+      frame(delta("Hi")),
+      'data: {"choices":[{"delta":{},"fin',
+    ]);
+
+    await expect(textOf(guard.response)).rejects.toThrow("the stream ended before it was complete");
+    expect(ends).toEqual(["failed"]);
+  });
+});
