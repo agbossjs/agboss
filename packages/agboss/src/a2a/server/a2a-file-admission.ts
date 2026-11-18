@@ -1,6 +1,6 @@
 import type { A2AFileDto } from "../files/a2a-file.dto.js";
 import { fetchedFile } from "../files/a2a-file-fetch.js";
-import { callerKeyOf } from "../files/a2a-file-slots.js";
+import { callerKeyOf, tenantKeyOf } from "../files/a2a-file-slots.js";
 import { isOfMediaType } from "../files/a2a-media-check.js";
 import { httpsFileTransport } from "../files/a2a-file-transport.js";
 import { isInlineFileStore } from "../../infrastructure/a2a-file.repository.js";
@@ -81,8 +81,8 @@ function bytesReaderOf(
         clock: parts.clock,
         timeout: parts.files.timeout,
         slots: parts.files.slots,
-        // the share is the caller's: tenant and owner; no owner, one bucket of the tenant's anonymous callers
-        tenant: callerKeyOf(tenantId, ownerId),
+        // two shares (#1297): the tenant's, and the owner's inside it; no owner, the tenant's one anonymous owner
+        caller: { tenant: tenantKeyOf(tenantId), owner: callerKeyOf(tenantId, ownerId) },
         signal,
       });
     const found =

@@ -2,7 +2,7 @@ import type { A2AError } from "@a2a-js/sdk/errors";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Bytes, Milliseconds } from "../../units/index.js";
 import { invalidParams } from "../server/a2a-wire-errors.js";
-import type { FileFetchSlots } from "./a2a-file-slots.js";
+import type { FileCaller, FileFetchSlots } from "./a2a-file-slots.js";
 import {
   FileAddressDeniedError,
   type FileHttpResponse,
@@ -33,8 +33,8 @@ export interface FileFetch {
   readonly signal: AbortSignal;
   /** The listener's slots (#1256): the fetch waits for one, within `timeout`; none: unbounded. */
   readonly slots?: FileFetchSlots;
-  /** Whose fetch it is, for the slots' per-caller share (tenant and owner). */
-  readonly tenant?: string;
+  /** Whose fetch it is, for the slots' shares (#1297): the keys of its tenant and of its owner inside it. */
+  readonly caller?: FileCaller;
 }
 
 const refused = (code: string, message: string): A2AError => invalidParams(code, message);
@@ -149,8 +149,8 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
       signal,
       () => bodyAt(fetch, signal),
       () => refused("a2a.file-fetch-busy", "the agent is fetching too many files now"),
-      // Stryker disable next-line StringLiteral: the key of a fetch with no tenant — any constant names the one shared caller
-      fetch.tenant ?? "",
+      // Stryker disable next-line ObjectLiteral,StringLiteral: a fetch with no caller — any constants name the one shared caller
+      fetch.caller ?? { tenant: "", owner: "" },
     ) ?? bodyAt(fetch, signal);
   try {
     return await Promise.race([fetched, ended]);
