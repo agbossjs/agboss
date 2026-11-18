@@ -1,10 +1,5 @@
 import process from "node:process";
-import {
-  audienceRefusalOf,
-  stallBoundOf,
-  keyTextRulesOf,
-  settledSpendSaverOf,
-} from "../../scripts/stryker-ranges.mjs";
+import * as ranges from "../../scripts/stryker-ranges.mjs";
 
 /**
  * Mutation testing of the payment-relevant modules (#533 item 3, AC3; #626): every mutant is killed
@@ -68,7 +63,7 @@ const SHARDS = {
       "src/infrastructure/fenced-effect-errors.ts",
       "src/infrastructure/issued-keys.ts",
       // `keyTextRuleOf` and its rules, not the error classes around them
-      keyTextRulesOf("src/core/errors.ts"),
+      ranges.keyTextRulesOf("src/core/errors.ts"),
       "src/app/outbound-calls.ts",
       // #795: how far a notSent() is trusted, and the superseded attempt's error
       "src/app/outbound-call-contract.ts",
@@ -136,7 +131,7 @@ const SHARDS = {
       "src/finops/ledger-mark.ts",
       "src/infrastructure/cost-ledger.repository.ts",
       "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
-      settledSpendSaverOf("src/app/settled-spend-checkpointer.ts"),
+      ranges.settledSpendSaverOf("src/app/settled-spend-checkpointer.ts"),
     ],
   },
   // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
@@ -200,7 +195,7 @@ const SHARDS = {
       // #810: the call's charges, once across passes; the echo of the mesh
       "src/a2a/client/a2a-charges.ts",
       "src/a2a/client/a2a-echo.ts",
-      audienceRefusalOf("src/mesh/mesh-verification.ts"),
+      ranges.audienceRefusalOf("src/mesh/mesh-verification.ts"),
     ],
   },
   // #860: the direct replies — one run per message, a resend or a duplicate served the kept reply,
@@ -225,7 +220,7 @@ const SHARDS = {
       // #1231: a streamed call's usage taken once — the cost and the host every budget reads
       "src/models/chat-openai.ts",
       "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
-      ...stallBoundOf("src/models/calls/event-stream-guard.ts"),
+      ...ranges.stallBoundOf("src/models/calls/event-stream-guard.ts"),
     ],
   },
   // #1069: the store-call bound (#928) — no call waits for ever on a store —, its outcome
@@ -246,6 +241,10 @@ const SHARDS = {
     // the slots (#1256) are the a2a-server shard's
     mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
   },
+  // #1269: the files for models (#899) — views, the redacted copy and its cache, the redactor's values and
+  // regions, answer and tool files, the start rules — and the PII key hierarchy: tokens, the policy set's
+  // hash, the redaction and mask cache keys
+  "files-pii": ranges.filesPiiShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

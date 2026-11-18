@@ -25,7 +25,7 @@ const vendorOf = (model: string): string | undefined =>
 function isSameServerAndKey(a: RegisteredModelProvider, b: RegisteredModelProvider): boolean {
   const [x, y] = [a.options, b.options];
   return (
-    isHttpProvider(x) &&
+    // y is HTTP (a string base URL) and x has the same base URL: x is HTTP too
     isHttpProvider(y) &&
     x.apiKey !== undefined &&
     x.apiKey === y.apiKey &&

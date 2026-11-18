@@ -4,7 +4,7 @@ import { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { elementProducerOf } from "../flow/runtime/scope.js";
-import type { ScopeRecords, VariantElement } from "../flow/runtime/records.js";
+import type { ScopeRecords } from "../flow/runtime/records.js";
 import { dtoOfShape } from "../pii/field-masks.js";
 import type { SourceFile } from "./visit-files.js";
 
@@ -19,11 +19,11 @@ const isFileDto = (dto: DtoClass): boolean =>
 const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
 
-const isVariantElement = (element: unknown): element is VariantElement =>
-  typeof element === "object" &&
-  element !== null &&
-  typeof Reflect.get(element, "variant") === "string" &&
-  "value" in element;
+/** An element of a `listOf(oneOf(…))` value; its `variant` is only compared with the DTO names. */
+const isVariantElement = (
+  element: unknown,
+): element is { readonly variant: unknown; readonly value: unknown } =>
+  typeof element === "object" && element !== null && "variant" in element && "value" in element;
 
 /** The descriptors of one value of `dto`, each with the name it is shown under. */
 export function filesOfValue(
@@ -42,6 +42,19 @@ export function filesOfValue(
   });
 }
 
+/** The files of one value (of an element of a list), each produced by `producer`; none for a variant that names no DTO. */
+function filesOfField(
+  field: ResolvedField,
+  variant: unknown,
+  value: unknown,
+  producer: SourceFile["producer"],
+): readonly SourceFile[] {
+  const dto = dtoOfShape(field.shape, variant);
+  return dto === undefined
+    ? []
+    : filesOfValue(dto, value, field.name).map((found) => ({ ...found, producer }));
+}
+
 /** The source files of a node's input fields, in declaration order. */
 export function inputFilesOf(
   fields: readonly ResolvedField[],
@@ -50,25 +63,13 @@ export function inputFilesOf(
   return fields.flatMap((field) => {
     const record = scope[field.slot];
     if (field.isPassThrough || record === undefined) return [];
-    if (field.isList) {
-      const items: readonly unknown[] = Array.isArray(record.value) ? record.value : [];
-      const isOneOf = record.slot.startsWith("list:oneOf(");
-      return items.flatMap((element, index) => {
-        const { variant, value } =
-          isOneOf && isVariantElement(element) ? element : { variant: undefined, value: element };
-        const dto = dtoOfShape(field.shape, variant);
-        const producer = elementProducerOf(record, index);
-        return dto === undefined
-          ? []
-          : filesOfValue(dto, value, field.name).map((found) => ({ ...found, producer }));
-      });
-    }
-    const dto = dtoOfShape(field.shape, record.variant);
-    return dto === undefined
-      ? []
-      : filesOfValue(dto, record.value, field.name).map((found) => ({
-          ...found,
-          producer: record.producer,
-        }));
+    if (!field.isList) return filesOfField(field, record.variant, record.value, record.producer);
+    const isOneOf = record.slot.startsWith("list:oneOf(");
+    // a list slot holds an array (records.ts)
+    return (record.value as readonly unknown[]).flatMap((element, index) => {
+      const { variant, value } =
+        isOneOf && isVariantElement(element) ? element : { variant: undefined, value: element };
+      return filesOfField(field, variant, value, elementProducerOf(record, index));
+    });
   });
 }

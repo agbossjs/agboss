@@ -36,7 +36,7 @@ export async function toolFilesOf(
     readonly mask?: FileMask | undefined;
     readonly beforeModelCall: () => void;
   },
-): Promise<(FilePieces & { readonly sources: readonly SourceFile[] }) | undefined> {
+): Promise<ToolFilesBuilt | undefined> {
   const runtime = deps.fileRuntime;
   if (runtime?.settings.sources.includes(FileSource.ToolResults) !== true) return undefined;
   const dto = dtoOf(tool.output);
@@ -54,7 +54,7 @@ export async function toolFilesOf(
     mask: run.mask,
     beforeModelCall: run.beforeModelCall,
   });
-  return { ...built, sources: files };
+  return { ...built, sources: files, isGuarded: runtime.settings.guardToolResultFiles };
 }
 
 /** What a tool call's files add to its task: its stored files, the transcriptions made, the spend. */
@@ -75,11 +75,13 @@ export interface TaskFiles {
 
 /** What a file read of a tool's result gave, or why the call is refused. */
 type ToolFilesRead =
-  | { readonly kind: "none" }
-  | { readonly kind: "read"; readonly built: ToolFilesBuilt }
-  | { readonly kind: "refused"; readonly refused: TaskFiles };
+  { readonly built: ToolFilesBuilt | undefined } | { readonly refusal: TaskFiles };
 
-type ToolFilesBuilt = FilePieces & { readonly sources: readonly SourceFile[] };
+/** The read files, and whether the input guardrails check them (`guardToolResultFiles`). */
+type ToolFilesBuilt = FilePieces & {
+  readonly sources: readonly SourceFile[];
+  readonly isGuarded: boolean;
+};
 
 /**
  * The call's files read before the task ends: the visit's budgets and file limits are checked before any
@@ -102,11 +104,11 @@ async function readToolFiles(
         if (budget !== undefined) deps.budgets.check(budget.usage, budget.path, budget.loop);
       },
     });
-    return built === undefined ? { kind: "none" } : { kind: "read", built };
+    return { built };
   } catch (error) {
     if (!(error instanceof PiiRefusedError)) throw error;
     const refused = { content: refusedCall(error.refusal), error };
-    return { kind: "refused", refused: { usage: error.usage, refused } };
+    return { refusal: { usage: error.usage, refused } };
   }
 }
 
@@ -120,8 +122,7 @@ async function guardedToolFiles(
   built: ToolFilesBuilt,
 ): Promise<Pick<TaskFiles, "usage" | "decisions" | "refused">> {
   const guardrails = deps.guardrails ?? [];
-  if (deps.fileRuntime?.settings.guardToolResultFiles !== true || guardrails.length === 0)
-    return { usage: built.usage };
+  if (!built.isGuarded || guardrails.length === 0) return { usage: built.usage };
   const set = deps.pii?.withValues(task.piiValues ?? []).withFieldKey(task.piiKey);
   const { guardedFilesOf } = await lazyLoad(import("./guarded-files.js"));
   const seen = await guardedFilesOf(built.viewed, deps.agent.maxResultSize, fileMaskOf(set, {}));
@@ -151,9 +152,9 @@ export async function taskFilesOf(
   output: ToolOutput<unknown> | undefined,
 ): Promise<TaskFiles> {
   const read = await readToolFiles(deps, tool, task, output);
-  if (read.kind === "none") return { usage: [] };
-  if (read.kind === "refused") return read.refused;
+  if ("refusal" in read) return read.refusal;
   const { built } = read;
+  if (built === undefined) return { usage: [] };
   const guarded = await guardedToolFiles(deps, task, built);
   const rest = { ...guarded, transcripts: built.transcripts, tokens: built.tokens };
   return guarded.refused === undefined

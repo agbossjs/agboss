@@ -10,6 +10,12 @@ import { isTextFormat } from "./file-needs.js";
  * as a part after it, a text as the transcription it is. Pure: what is sent is made here, nowhere else.
  */
 
+/** A cache entry newly made (a masked text, a redacted copy), and the key it is kept under. */
+export interface MadeEntry {
+  readonly entry: string;
+  readonly key: string;
+}
+
 /** One piece of a message: a text (a heading and what follows) or a file part. */
 export type FilePiece = FileTextPiece | ModelBlobPart;
 
@@ -117,5 +123,5 @@ export const ownTranscriptOf = (content: FileContent): string | undefined =>
 /** The bytes a piece adds to the call: a part's file, a text's UTF-8. */
 export const sizeOfPiece = (piece: FilePiece): number =>
   piece.kind === "text"
-    ? Buffer.byteLength(piece.text, "utf8")
+    ? Buffer.byteLength(piece.text) // UTF-8, the default
     : Buffer.from(piece.data, "base64").byteLength;

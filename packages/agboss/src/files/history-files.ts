@@ -13,7 +13,18 @@ import type { SourceFile, FileRuntime } from "./visit-files.js";
  * shown as its descriptor, `(removed)`.
  */
 
-const LINE = /^(start|finish) ([^:]+): ([\s\S]*)$/u;
+/** A turn's line: `start <name>: <json>` (the JSON to the end of the text: `[\s\S]*` is greedy). */
+const LINE = /^(?<side>start|finish) (?<name>[^:]+): (?<json>[\s\S]*)/u;
+
+/** A JSON text's value; none for a text that is no JSON (it holds no descriptor). */
+function jsonOf(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    // not JSON: no value
+  }
+  return undefined;
+}
 
 /** Every file descriptor in a JSON value, at any depth. */
 function descriptorsIn(value: unknown, found: A2AFileDto[]): void {
@@ -21,8 +32,8 @@ function descriptorsIn(value: unknown, found: A2AFileDto[]): void {
     found.push(value);
     return;
   }
-  if (Array.isArray(value)) for (const item of value) descriptorsIn(item, found);
-  else if (typeof value === "object" && value !== null)
+  // an array's values are its items, in order
+  if (typeof value === "object" && value !== null)
     for (const item of Object.values(value)) descriptorsIn(item, found);
 }
 
@@ -31,14 +42,11 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
   const seen = new Set<string>();
   return history.flatMap((turn, index) =>
     [turn.start, turn.finish].flatMap((line) => {
-      const parts = LINE.exec(line);
-      if (parts === null) return [];
+      const match = LINE.exec(line);
+      if (match === null) return [];
+      const parts = { ...match.groups }; // every group is in a match
       const found: A2AFileDto[] = [];
-      try {
-        descriptorsIn(JSON.parse(parts[3] ?? ""), found);
-      } catch {
-        return []; // a line that is no JSON holds no descriptor
-      }
+      descriptorsIn(jsonOf(String(parts.json)), found);
       return found.flatMap((descriptor) => {
         const key = `${descriptor.fileId ?? ""}|${descriptor.url ?? ""}|${descriptor.sha256 ?? ""}`;
         if (seen.has(key)) return [];
@@ -46,7 +54,7 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
         return [
           {
             descriptor,
-            field: `turn ${String(index + 1)} ${parts[1] ?? "start"} ${parts[2] ?? ""}`,
+            field: `turn ${String(index + 1)} ${String(parts.side)} ${String(parts.name)}`,
             producer: "an earlier turn",
           },
         ];

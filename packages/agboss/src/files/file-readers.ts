@@ -42,9 +42,8 @@ interface Reading {
   readonly files: ResolvedModelFiles;
 }
 
-/** Several agents' readings of one model as one reader; none for no reading. */
-function readerOf(readings: readonly Reading[]): FileReader | undefined {
-  if (readings.length === 0) return undefined;
+/** Several agents' readings of one model as one reader (the map holds a list only once it has one). */
+function readerOf(readings: readonly Reading[]): FileReader {
   const seen = new Set<string>();
   const needs = readings.flatMap(({ files }) =>
     needsOf(files).filter((need) => {
@@ -80,12 +79,7 @@ export function guardrailReadersOf(
     if (answersWithFiles(graph, agent))
       for (const guardrail of guards.output) add(guardrail.name, { agent, files });
   }
-  return new Map(
-    [...readings].flatMap(([name, list]) => {
-      const reader = readerOf(list);
-      return reader === undefined ? [] : [[name, reader] as const];
-    }),
-  );
+  return new Map([...readings].map(([name, list]) => [name, readerOf(list)] as const));
 }
 
 /** What each judge reads: everything the model read of the files of the agents it judges. */
@@ -97,10 +91,5 @@ export function judgeReadersOf(config: AgentsConfigOf<string>): ReadonlyMap<stri
     for (const judge of settings.judges ?? [])
       readings.set(judge, [...(readings.get(judge) ?? []), { agent, files }]);
   }
-  return new Map(
-    [...readings].flatMap(([name, list]) => {
-      const reader = readerOf(list);
-      return reader === undefined ? [] : [[name, reader] as const];
-    }),
-  );
+  return new Map([...readings].map(([name, list]) => [name, readerOf(list)] as const));
 }

@@ -138,11 +138,13 @@ function checkedDeclared(batch: FileBatch): void {
         actual: mediaType,
         allowed: settings.allowedMediaTypes.join(", "),
       });
-    if (descriptor.sizeBytes !== undefined && descriptor.sizeBytes > settings.maxFileSize)
+    // a size the descriptor declares (none declared: nothing to check before the read)
+    const declared = descriptor.sizeBytes ?? 0;
+    if (declared > settings.maxFileSize)
       throw new ModelFileLimitError({
         agent,
         limit: ModelFileLimit.MaxFileSize,
-        actual: descriptor.sizeBytes,
+        actual: declared,
         allowed: settings.maxFileSize,
       });
   }
@@ -193,8 +195,7 @@ async function gatherViews(
     gathered.viewed.push({ content: shown.viewed, heading });
     gathered.usage.push(...shown.usage);
     Object.assign(gathered.tokens, shown.tokens);
-    if (shown.made !== undefined && shown.cacheKey !== undefined)
-      gathered.transcripts[shown.cacheKey] = shown.made;
+    if (shown.made !== undefined) gathered.transcripts[shown.made.key] = shown.made.entry;
   }
 }
 
@@ -244,9 +245,14 @@ export async function filePiecesOf(batch: FileBatch): Promise<FilePieces> {
   return {
     ...rest,
     pieces,
-    maskedTexts: pieces.flatMap((piece) =>
-      piece.kind === "text" && piece.isMasked ? [piece.text] : [],
-    ),
+    maskedTexts: pieces.flatMap((piece) => {
+      switch (piece.kind) {
+        case "text":
+          return piece.isMasked === true ? [piece.text] : [];
+        default:
+          return [];
+      }
+    }),
     tally: { count: batch.tally.count + batch.files.length, bytes },
   };
 }

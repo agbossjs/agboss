@@ -33,7 +33,8 @@ export function needsOf(files: ResolvedModelFiles): readonly InputNeed[] {
   return files.views.flatMap((view) =>
     files.allowedMediaTypes.filter(hasModelForm).flatMap((mediaType) => {
       const kind = kindOfView(mediaType, view);
-      const key = `${kind}:${view === FileView.Transcription ? "t" : mediaType}`;
+      // a transcription reads every type as one text: one need of its kind; a raw type is its own
+      const key = view === FileView.Transcription ? kind : `${kind}:${mediaType}`;
       if (seen.has(key)) return [];
       seen.add(key);
       return [{ kind, mediaType, view }];

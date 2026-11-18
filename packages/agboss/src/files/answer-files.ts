@@ -30,7 +30,8 @@ function mappedField(field: FieldSpec, held: unknown, map: FileMapper): unknown 
   const one = (item: unknown): unknown =>
     isFileDto(element.dto) ? map(item) : mapFileFields(element.dto, item, map);
   if (field.kind === "list-of") return Array.isArray(held) ? held.map(one) : held;
-  return field.kind === "nested" ? one(held) : held;
+  // a field with a DTO element is `list-of` (above) or `nested` (decorators.ts)
+  return one(held);
 }
 
 /** The DTO's value with every file replaced by `map(file)`, at any depth: nested DTOs and lists of them. */
@@ -159,12 +160,12 @@ export function withPickedFiles(dto: DtoClass, schema: JsonSchema): JsonSchema {
   for (const field of fieldsOf(dto)) {
     const { element } = field;
     if (element?.kind !== "dto" || !hasFileAtAnyDepth(element.dto)) continue;
-    if (field.kind === "nested" || field.kind === "list-of")
-      replaced[field.name] = pickedSchemaOf(
-        properties[field.name],
-        element.dto,
-        field.kind === "list-of",
-      );
+    // a field with a DTO element is `nested` or `list-of` (decorators.ts)
+    replaced[field.name] = pickedSchemaOf(
+      properties[field.name],
+      element.dto,
+      field.kind === "list-of",
+    );
   }
   return { ...schema, properties: replaced };
 }

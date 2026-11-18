@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { A2AFileSource, fileSourceOf, type A2AFileDto } from "../a2a/files/a2a-file.dto.js";
+import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
@@ -50,21 +50,22 @@ export interface FileReadContext {
 export const sha256Of = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
-const REFUSALS: Readonly<Record<string, ModelFileRefusal>> = {
-  "a2a.file-origin-denied": ModelFileRefusal.OriginDenied,
-  "a2a.file-url-not-allowed": ModelFileRefusal.OriginDenied,
-  "a2a.file-address-denied": ModelFileRefusal.AddressDenied,
-  "a2a.file-url-invalid": ModelFileRefusal.UrlInvalid,
-  "a2a.file-too-large": ModelFileRefusal.TooLarge,
-};
+/** The fetch's refusals by code — a `Map`: an inherited key (`toString`) of an object is no refusal. */
+const REFUSALS: ReadonlyMap<unknown, ModelFileRefusal> = new Map([
+  ["a2a.file-origin-denied", ModelFileRefusal.OriginDenied],
+  ["a2a.file-url-not-allowed", ModelFileRefusal.OriginDenied],
+  ["a2a.file-address-denied", ModelFileRefusal.AddressDenied],
+  ["a2a.file-url-invalid", ModelFileRefusal.UrlInvalid],
+  ["a2a.file-too-large", ModelFileRefusal.TooLarge],
+]);
 
 /** The stable code of the fetch's refusal (an `A2AError`'s metadata). */
-function codeOf(error: unknown): string | undefined {
+function codeOf(error: unknown): unknown {
   const metadata: unknown =
     typeof error === "object" ? Reflect.get(error ?? {}, "metadata") : undefined;
-  const code: unknown =
-    typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "code") : undefined;
-  return typeof code === "string" ? code : undefined;
+  return typeof metadata === "object" && metadata !== null
+    ? Reflect.get(metadata, "code")
+    : undefined;
 }
 
 /** The bytes of a file by url, through the guarded fetch; its refusals as this module's errors. */
@@ -82,7 +83,7 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
       signal: context.signal,
     });
   } catch (error) {
-    const refusal = REFUSALS[codeOf(error) ?? ""];
+    const refusal = REFUSALS.get(codeOf(error));
     if (refusal !== undefined) throw new ModelFileRefusedError({ refusal, cause: error });
     throw new ModelFileUnavailableError({
       reason: ModelFileUnavailableReason.DownloadFailed,
@@ -92,8 +93,8 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
 }
 
 /** The bytes of a stored file of the context's task. */
-async function stored(file: A2AFileDto, context: FileReadContext): Promise<Uint8Array> {
-  const key = { tenantId: context.tenantId, fileId: file.fileId ?? "" };
+async function stored(fileId: string, context: FileReadContext): Promise<Uint8Array> {
+  const key = { tenantId: context.tenantId, fileId };
   const meta = await context.store.findMetadata(key);
   const bytes = meta?.ownerId === context.ownerId ? await context.store.findBytes(key) : undefined;
   if (bytes === undefined)
@@ -101,15 +102,13 @@ async function stored(file: A2AFileDto, context: FileReadContext): Promise<Uint8
   return bytes;
 }
 
+/** The bytes by the descriptor's one source (`fileSourceOf`'s order: a stored id, inline bytes, a url). */
 const sourced = (file: A2AFileDto, context: FileReadContext): Promise<Uint8Array> => {
-  switch (fileSourceOf(file)) {
-    case A2AFileSource.Url:
-      return downloaded(file.url ?? "", context);
-    case A2AFileSource.Inline:
-      return Promise.resolve(new Uint8Array(Buffer.from(file.inline ?? "", "base64")));
-    case A2AFileSource.Stored:
-      return stored(file, context);
-  }
+  if (file.fileId !== undefined) return stored(file.fileId, context);
+  if (file.inline !== undefined)
+    return Promise.resolve(new Uint8Array(Buffer.from(file.inline, "base64")));
+  // a descriptor has one source (checked when it came in); none reads as an invalid url, refused
+  return downloaded(String(file.url), context);
 };
 
 /**

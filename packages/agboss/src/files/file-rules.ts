@@ -96,11 +96,12 @@ function piiViolations(
   files: ResolvedModelFiles,
   workflow: AssembledWorkflow,
 ): RuleViolation[] {
-  const policies = (workflow.pii?.byElement.get(name) ?? []).flatMap((cls) => {
-    const meta = piiPolicyMetaOf(cls);
-    return meta === undefined ? [] : [meta];
-  });
-  if (policies.length === 0) return [];
+  // no policies: nothing below finds anything (each rule needs a policy)
+  const policies =
+    workflow.pii?.byElement
+      .get(name)
+      ?.map((cls) => piiPolicyMetaOf(cls))
+      .filter((meta) => meta !== undefined) ?? [];
   const found: RuleViolation[] = [];
   const masking = policies.filter((meta) => fileActionOf(meta) !== PiiFileAction.AllowOriginal);
   if (files.views.includes(FileView.Original) && masking.length > 0)

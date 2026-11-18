@@ -22,14 +22,16 @@ import { FileSource, FileView } from "./model-files.js";
 function ownTakes(workflow: AssembledWorkflow, mediaType: string): boolean {
   const own = workflow.ownFileRedactor;
   if (own === undefined) return BUILT_IN_REDACTED_TYPES.includes(mediaType);
+  let takes = false;
   try {
     const supports: unknown = Reflect.get(own.prototype as object, "supports");
-    return (
-      typeof supports === "function" && Reflect.apply(supports, own.prototype, [mediaType]) === true
-    );
+    // a `supports` that is no function throws here too: taken as taking nothing
+    takes =
+      Reflect.apply(supports as (type: string) => unknown, own.prototype, [mediaType]) === true;
   } catch {
-    return false; // asked on the class, with no instance: a `supports` that needs one takes nothing
+    // asked on the class, with no instance: a `supports` that needs one takes nothing
   }
+  return takes;
 }
 
 /** `[files.history-needs-store]`: an earlier turn keeps no bytes, only a descriptor — a file store holds the bytes. */

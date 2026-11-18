@@ -60,3 +60,29 @@ export function stallBoundOf(file) {
   };
   return [rangeFrom("export class StreamStalledError"), rangeFrom("async function readWithin(")];
 }
+
+/**
+ * The hashing of `PiiPolicySet` in `file` as a Stryker range (#1269): from its hashed policies to the end
+ * of `withFieldKey`, found by name — the masking around it is the boundary's, not the key hierarchy's.
+ */
+export function policySetHashingOf(file) {
+  const lines = readFileSync(new URL(file, PACKAGE), "utf8").split("\n");
+  const start = lines.findIndex((line) => line.startsWith("  /** The policies as hashed"));
+  const method = lines.findIndex((line) => line.startsWith("  withFieldKey("));
+  const end = method + lines.slice(method).indexOf("  }");
+  if (start < 0 || method < start || end < method)
+    throw new Error(`${file}: the policy set's hashing not found`);
+  return `${file}:${String(start + 1)}-${String(end + 1)}`;
+}
+
+/** The `files-pii` shard (#1269) of `stryker.config.mjs`: its tests and the files they kill. */
+export function filesPiiShard() {
+  return {
+    configFile: "vitest.mutation-files-pii.config.ts",
+    mutate: [
+      "src/files/*.ts",
+      "src/pii/{key-hierarchy,tokens}.ts",
+      policySetHashingOf("src/pii/policy-set.ts"),
+    ],
+  };
+}

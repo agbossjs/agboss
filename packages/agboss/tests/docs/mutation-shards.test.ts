@@ -20,11 +20,16 @@ const shardsOfWorkflow = (workflow: string): string[] => {
     .filter((name) => name !== "");
 };
 
-/** The shard names `stryker.config.mjs` defines: the keys of its `SHARDS` object, at two spaces. */
+/**
+ * The shard names `stryker.config.mjs` defines: the keys of its `SHARDS` object, at two spaces — an
+ * object, or one a function of `stryker-ranges.mjs` builds (`ranges.filesPiiShard()`, #1269).
+ */
 const shardsOfStryker = (config: string): string[] => {
   const body = /const SHARDS = \{\n([\s\S]*?)\n\};\n/.exec(config)?.[1];
   if (body === undefined) throw new Error("no `const SHARDS = { … };` in stryker.config.mjs");
-  return [...body.matchAll(/^ {2}"?([\w-]+)"?: \{$/gm)].map((found) => found[1] ?? "");
+  return [...body.matchAll(/^ {2}"?([\w-]+)"?: (?:\{|ranges\.\w+\(\),)$/gm)].map(
+    (found) => found[1] ?? "",
+  );
 };
 
 const sorted = (names: readonly string[]): string[] => [...names].sort();
@@ -54,9 +59,9 @@ describe("#1186: the readers", () => {
     ).toEqual(["a", "b-c"]);
     expect(
       shardsOfStryker(
-        'const SHARDS = {\n  // note\n  a: {\n    x: 1,\n  },\n  "b-c": {\n  },\n};\n',
+        'const SHARDS = {\n  // note\n  a: {\n    x: 1,\n  },\n  "b-c": {\n  },\n  "d-e": ranges.dShard(),\n};\n',
       ),
-    ).toEqual(["a", "b-c"]);
+    ).toEqual(["a", "b-c", "d-e"]);
   });
 
   it("refuse a file where they find no list, so a renamed key cannot pass as an empty equal list", () => {
