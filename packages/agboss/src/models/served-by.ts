@@ -6,6 +6,7 @@
  */
 
 import { SERVED_BY_FIELD } from "../finops/served-by.js";
+import { rewrittenLines } from "./event-stream-lines.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -44,27 +45,10 @@ function streamedLine(line: string, memory: StreamMemory): string {
   }
 }
 
-/** A streamed body, line by line (a line may span chunks). */
+/** A streamed body with the host in each usage, line by line. */
 function streamedBody(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
   const memory: StreamMemory = {};
-  let pending = "";
-  return body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        pending += decoder.decode(chunk, { stream: true });
-        const lines = pending.split("\n");
-        pending = lines.pop() ?? "";
-        for (const line of lines)
-          controller.enqueue(encoder.encode(`${streamedLine(line, memory)}\n`));
-      },
-      flush(controller) {
-        pending += decoder.decode();
-        if (pending !== "") controller.enqueue(encoder.encode(streamedLine(pending, memory)));
-      },
-    }),
-  );
+  return rewrittenLines(body, { line: (line) => streamedLine(line, memory), end: () => "" });
 }
 
 /** The answer with its host copied into its usage; an error or a body that is no completion untouched. */

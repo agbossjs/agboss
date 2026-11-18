@@ -5,10 +5,12 @@ import {
   PiiPolicy,
   TenantContext,
   TokenLimit,
+  Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   pii,
+  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -47,13 +49,38 @@ export class VerdictFinish {}
 })
 export class VerdictStart {}
 
+/** What the tool agent's tool is asked (#1231). */
+export class LookupRequest {
+  @Text({ prompt: "what to look up" })
+  query!: string;
+}
+
+/** What the tool agent's tool answers. */
+export class LookupFound {
+  @Text()
+  found!: string;
+}
+
+@WorkflowStart({
+  name: "lookup-workflow-start",
+  description: "A question the tool agent answers",
+  input: WorkflowStartTextDto,
+})
+export class LookupStart {}
+
+/** The name of the tool agent's tool on the desk of `prefix`. */
+export const lookupToolOf = (prefix: string): string => `${prefix}-lookup-tool`;
+
 /** A desk's workflows and its text agent (for `mockLlm`). */
 export interface BedrockDesk {
   readonly workflows: readonly Class[];
   readonly textAgent: Class;
 }
 
-/** A text workflow and a verdict workflow (a DTO agent: its answer tool) on a model. */
+/**
+ * A text workflow, a verdict workflow (a DTO agent: its answer tool) and a lookup workflow (an
+ * agent with a tool, #1231) on a model.
+ */
 export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Agent({ name: `${prefix}-agent`, description: "Answers", prompt: "Answer the message.", model })
   class TextAgent {}
@@ -66,6 +93,27 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     output: VerdictDto,
   })
   class VerdictAgent {}
+
+  @Tool({
+    name: lookupToolOf(prefix),
+    description: "Looks a thing up",
+    input: LookupRequest,
+    output: LookupFound,
+  })
+  class LookupTool implements ToolHandler<LookupRequest, LookupFound> {
+    run({ query }: LookupRequest): Promise<LookupFound> {
+      return Promise.resolve({ found: `found ${query}` });
+    }
+  }
+
+  @Agent({
+    name: `${prefix}-lookup-agent`,
+    description: "Answers, looking things up",
+    prompt: "Answer the message; look things up when you need to.",
+    model,
+    tools: [LookupTool],
+  })
+  class LookupAgent {}
 
   @Workflow({
     name: `${prefix}-workflow`,
@@ -89,7 +137,15 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   })
   class VerdictWorkflow {}
 
-  return { workflows: [TextWorkflow, VerdictWorkflow], textAgent: TextAgent };
+  @Workflow({
+    name: `${prefix}-lookup-workflow`,
+    version: "1.0.0",
+    flow: [start(LookupStart).returns(WorkflowStartTextDto).toAgent(LookupAgent).toFinish(Reply)],
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  })
+  class LookupWorkflow {}
+
+  return { workflows: [TextWorkflow, VerdictWorkflow, LookupWorkflow], textAgent: TextAgent };
 }
 
 @PiiPolicy({
