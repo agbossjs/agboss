@@ -1295,7 +1295,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
   `retire` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
   `claimExecutionId` — #591: every execution id handed out, kept once, never removed —,
-  `requestCancel` — #909: the tree's durable cancel mark, the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); a no-op on Redis),
+  `requestCancel` — #909: the tree's durable cancel mark, the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); on Redis, which writes no mark of its own, a delegation to the durable lease store under `EXECUTION_ID_STORE`, #1152 and #1198),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted

@@ -343,12 +343,36 @@ row per cancelled tree, never scanned.
 
 ## When a COMMIT's outcome is unknown (#1017)
 
-A COMMIT, or a single write outside a transaction, is classified by whitelist. It is a definite failure (the error as it is; the step fails, its undo may run) only when the error proves nothing was applied:
+A COMMIT, or a single write outside a transaction, is classified by whitelist. It is a definite failure (the error as it is; the step fails, its undo may run) only when the error proves nothing was applied. Two kinds of error do:
 
-- pg never sent it: "Client has encountered a connection error and is not queryable", "Client was closed and is not queryable";
-- the server answered that it aborted it (an ErrorResponse of class 09, 21, 22, 23, 25, 2F, 38, 40 but 40003, 42, 44, P0 — e.g. 23505 of a deferred constraint at COMMIT, 40001, 40P01, 25P02).
+- **pg never sent it**: "Client has encountered a connection error and is not queryable", "Client was closed and is not queryable" (these two messages, compared whole; pg-pool's "Connection terminated due to connection timeout" is not one of them). This holds for any statement.
+- **The server answered that it aborted it**: an ErrorResponse of **severity `ERROR`**, of one statement, whose SQLSTATE class is one of the known ones:
 
-Everything else is `StoreOutcomeUnknownError` (source `transport`): every other SQLSTATE (08007, 08P01, XX000, 53100, 53200, 57P01, 58030, …), a socket, TLS or stream error, pg's framing errors, an error without a code. Under a lease the holder then hands the tree over and the next holder reconciles. A command timeout (57014, "Query read timeout") is `StoreCallTimeoutError`. A statement inside a transaction before its COMMIT, and a read, are never unknown: the transaction rolls back.
+  | class | name | example |
+  | --- | --- | --- |
+  | 09 | triggered_action_exception | a trigger raised |
+  | 21 | cardinality_violation | an `ON CONFLICT DO UPDATE` that touches a row twice |
+  | 22 | data_exception | a value out of range |
+  | 23 | integrity_constraint_violation | 23505, also a deferred constraint at COMMIT |
+  | 25, **except 25P03 and 25P04** | invalid_transaction_state | 25P02, 25006 |
+  | 2F | sql_routine_exception | |
+  | 38 | external_routine_exception | |
+  | 40, **except 40003** | transaction_rollback | 40001, 40P01 |
+  | 42 | syntax_error_or_access_rule_violation | a missing table or privilege |
+  | 44 | with_check_option_violation | |
+  | P0 | plpgsql_error | `RAISE`, `ASSERT` |
+
+  25P03 (idle_in_transaction_session_timeout) and 25P04 (transaction_timeout) end the session from a timer, possibly after the commit record is durable; 40003 (statement_completion_unknown) says so by its name. They are unknown, although their class is listed.
+
+Everything else is `StoreOutcomeUnknownError` (source `transport`): every other SQLSTATE (08007, 08P01, XX000, 53100, 53200, 57P01, 58030, …), a socket, TLS or stream error, pg's framing errors, an error without a code, and anything that is not a `pg.DatabaseError`. Under a lease the holder then hands the tree over and the next holder reconciles.
+
+- **Only `ERROR` severity is known.** A `FATAL` or `PANIC` of a listed class (for example 23505 with severity `FATAL`, which is what a pooler's synthetic error looks like) ends the session and is not the server's word that the transaction rolled back: it is unknown, and the connection is ended and never handed out again. Every later statement on it, `PostgresSaver`'s `ROLLBACK` included, rejects with the same unknown outcome.
+- **The one-statement rule.** A server error is known only when the statement is one statement that cannot commit inside itself. A `CALL` or a `DO` may `COMMIT` inside itself before it raises, and so may a string of several statements (`;` with more after it): their server error, whatever its class, is unknown. The two "not queryable" errors stay known, because nothing was written to the socket.
+- A command timeout (57014, "Query read timeout") is `StoreCallTimeoutError`, whatever the statement. A statement inside a transaction before its COMMIT, and a read, are never unknown: the transaction rolls back.
+
+## A fenced work must finish well under the command timeout (#1334)
+
+Every fenced write holds its tree's root lease row for its whole transaction: `FOR SHARE` for a child's (the cancel's fence, above), `FOR UPDATE` on its own row for the root's. The root's lease renewal takes that row `FOR UPDATE`, under the command timeout (`postgresCommandTimeoutMs`, default 10 s), so it waits for the work. A fenced `work`, the root's or any child's, must therefore finish **well under `postgresCommandTimeoutMs`**. When it stays busy past that, the root's renewal fails with `StoreCallTimeoutError`, an unknown outcome ([a store call that never answers](Several-instances#a-store-call-that-never-answers-928)), and the tree's holder is abandoned as at expiry: the tree is recovered by another instance after its lease lapses. Safety holds: every fence stands and nothing is charged twice. What is lost is liveness, one TTL of it. Measured: a child's work busy for 3 s delays the root's renewal by 3 s; one busy for 12 s times it out after 10 s. A work that idles inside the transaction is ended earlier, by `postgresIdleInTransactionTimeoutMs`. Keep a fenced `work` to its database writes and do the slow part (a call to another system) outside it, or raise `postgresCommandTimeoutMs` (100 to 30 000 ms) above the longest work, remembering that it bounds every command.
 
 ## How the stores are proved
 

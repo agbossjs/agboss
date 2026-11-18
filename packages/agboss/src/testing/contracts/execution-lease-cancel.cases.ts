@@ -27,8 +27,10 @@ async function takenBy(store: ExecutionLeaseRepository): Promise<ExecutionLease>
  * The cancel mark of a tree (#909, `requestCancel`): durable once it resolves, idempotent, and no
  * lease operation — the holder keeps its lease, renews it and releases it, a free lease is taken as
  * before, a tree with no lease yet is marked. What the mark fences is the fencing stores' contract
- * (`fencedEffectContract`, `outboundCallContract`); a coordination store that keeps no fencing
- * stores (Redis) passes these cases by resolving and writing nothing.
+ * (`fencedEffectContract`, `outboundCallContract`). A coordination store that keeps no fencing
+ * stores (Redis) writes no mark of its own: its `requestCancel` and `isCancelRequested` go to the
+ * durable lease store under `EXECUTION_ID_STORE` (#1152, #1198), and it passes these cases because
+ * that store writes and answers the mark, never by resolving and writing nothing.
  */
 export const LEASE_CANCEL_CASES: readonly ContractCase<ExecutionLeaseRepository>[] = [
   {
