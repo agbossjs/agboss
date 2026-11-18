@@ -80,6 +80,22 @@ function piiMetasOf(pii: FingerprintDeps["pii"], element: string): readonly PiiP
   return classes.flatMap((cls) => piiPolicyMetaOf(cls) ?? []);
 }
 
+/**
+ * What a workflow hands down to the children it launches (#1150): the application's and its own
+ * `@Workflow` lists as declared (its observability set, none inherited — an ancestor's are in the
+ * ancestor's hash), each once by name in order. A child's models read them, but the child's own
+ * hash covers only what it declares, so the launching workflow's hash must cover them — also when
+ * it has no agent or router whose fingerprint would.
+ */
+export function handedDownPiiOf(pii: FingerprintDeps["pii"]): readonly PiiPolicyFingerprint[] {
+  if (pii === undefined) return [];
+  const metas =
+    "policiesOf" in pii
+      ? pii.declared.observed.policies.map((policy) => policy.meta)
+      : pii.observability.flatMap((cls) => piiPolicyMetaOf(cls) ?? []);
+  return metas.map(piiPolicyFingerprint);
+}
+
 /** An action as plain data: a `replacePart({ pattern })` regular expression as its text. */
 const actionFingerprint = (action: AnyPiiAction): Readonly<Record<string, unknown>> =>
   "part" in action && action.part.pattern !== undefined

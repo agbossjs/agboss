@@ -19,6 +19,7 @@ import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
 import { fileProcessorSnapshot } from "./file-snapshot.js";
+import { handedDownSnapshot } from "./pii-snapshot.js";
 import type { Class } from "../components/injection.js";
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import {
@@ -124,6 +125,8 @@ const ownSnapshot = <TName extends string>(
   ...transportSnapshot(deps.modelProviders),
   // the application's own file redactor and transcriber (#1269): likewise
   ...fileProcessorSnapshot(deps),
+  // what it hands down to its children (#1150): only a workflow that launches one and has a list
+  ...handedDownSnapshot(deps),
 });
 
 /**
