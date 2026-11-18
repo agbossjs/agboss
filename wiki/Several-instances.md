@@ -508,6 +508,16 @@ const { status, result } = await this.fencedEffects.runOnce(
   kept, so `work` writes **only** through `transaction` and does nothing else: no call to another
   system (that is [`OutboundCalls`](#calls-that-leave-the-system-505)), nothing sent, logged or
   counted outside it. On SQLite, in memory and on PostgreSQL it runs once per call.
+- **`work` must finish well under the store's command timeout** (#1334), the root's or any
+  child's. A fenced write holds its tree's lease rows locked for its whole transaction, and the
+  root's lease renewal waits for them: on PostgreSQL under `postgresCommandTimeoutMs` (default
+  10 s, [Running on PostgreSQL](Running-on-PostgreSQL#a-fenced-work-must-finish-well-under-the-command-timeout-1334)),
+  on MongoDB, which has no such option, under the core's call bound and the server's
+  `transactionLifetimeLimitSeconds` of 60 s ([MongoDB](MongoDB#a-fenced-work-must-finish-well-under-the-bound-1334)).
+  A work that stays busy longer makes the root's renewal time out with an unknown outcome
+  ([a store call that never answers](#a-store-call-that-never-answers-928)): the tree's holder is
+  abandoned and the tree is recovered after the lease's TTL. Safety holds, every fence stands; the
+  cost is liveness. Do the slow part of a step outside the work.
 - **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
   its result or its error) — a map of the calls in flight, never component state. Across instances
   the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.

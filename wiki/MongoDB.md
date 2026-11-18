@@ -118,12 +118,32 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   older instance writes afterwards has none.
 - **A write whose outcome is unknown** (#1017) — the driver sends a lost `commitTransaction` and a
   retryable write once more, and the server answers the retry from its transaction number: after one
-  reset the real outcome is learned and nothing is unknown. A commit that is still unknown after it
-  (`UnknownTransactionCommitResult`, or a transport error), and a lease write that still fails as a
-  transport or write concern error, rejects with `StoreOutcomeUnknownError` (source `Transport`):
-  under a lease the holder hands the tree over, the next one reads what was left, and the work is
-  never run again for it. Fault scenario 23 asks that one reset leaves the charge applied once with
-  no hand-over, 23b that a reset which persists across the retry hands over and replays.
+  reset the real outcome is learned and nothing is unknown. What still fails is read by whitelist:
+  every single-command write of every store outside a transaction (not only a lease's), and every
+  transaction's commit. A write inside a transaction is left as it is: its commit decides. Only an
+  error that proves the write was not applied is known and rethrown as it is; every other one
+  rejects with `StoreOutcomeUnknownError` (source `Transport`): under a lease the holder hands the
+  tree over, the next one reads what was left, and the work is never run again for it. The client's
+  `socketTimeoutMS` is forced to 300 s, so that a retry always falls inside the server's receipt of
+  the first attempt.
+  - **Known codes of a server reply** (a `MongoServerError`): 2 (BadValue), 9 (FailedToParse), 14
+    (TypeMismatch) and 40 (ConflictingUpdateOperators), the refusals of a command's form, for every
+    write; and 112 (WriteConflict), 121 (DocumentValidationFailure), 11000, 11001 and 12582
+    (duplicate key), the replies about one document, for a write of one document.
+  - **`updateMany` and `deleteMany`** are not atomic, the documents before the failing one stay
+    written: their per-document replies (112, 121, 11000, 11001, 12582) are unknown; only 2, 9, 14
+    and 40 are known.
+  - **A bulk write** is known only when every one of its per-operation errors is a known code, none of
+    its operations was applied, and it met no write concern error.
+  - **Every commit error is unknown**, whatever it says (`NoSuchTransaction` 251, a transient label, a
+    transport error, a write concern error): the driver retries a commit by itself, so the error
+    seen is the last attempt's, and the first may have committed.
+  - **Unknown, so**: a transport error or timeout, a pool or selection error, a write concern error,
+    `NotWritablePrimary` and every other code (`Unauthorized` 13 too), a bulk write that failed as a
+    whole, an error with no code. A read is never classified.
+
+  Fault scenario 23 asks that one reset leaves the charge applied once with no hand-over, 23b that a
+  reset which persists across the retry hands over and replays.
 - **A reassigned pause** (#946) — `reassignByTenantIdAndPauseId` is one transaction: the old pause is
   closed `Cancelled` / `Reassigned` by the compare-and-set of an answer's (pending, its deadline after
   `at`: of two racing reassignments, or one and an answer, one applies) and the replacement is
@@ -197,6 +217,20 @@ read of their thread gives them one.
 | a single-document write whose reply was lost | retries it once; the server answers the first outcome | no epoch counted twice; an id kept is told `true` |
 
 Each row is a test against the server's own fail points (`tests/integration/retries.test.ts`).
+
+## A fenced work must finish well under the bound (#1334)
+
+A fenced effect's transaction writes the tree's lease document, and a child's writes its root's, so
+the root's lease renewal, a single-document write, waits for any open fenced transaction of its tree.
+MongoDB has no command-timeout option of its own (PostgreSQL's is `postgresCommandTimeoutMs`): the
+renewal is bounded by the core's store-call bound ([a store call that never answers](Several-instances#a-store-call-that-never-answers-928)),
+and a transaction by the server's `transactionLifetimeLimitSeconds` (60 s by default). A fenced
+`work`, the root's or any child's, must therefore finish **well under those**, in practice within a
+few seconds. A renewal that waits past its bound fails with `StoreCallTimeoutError`, an unknown
+outcome, and the tree's holder is abandoned as at expiry: the tree is recovered by another instance
+after its lease lapses. Safety holds: every fence stands and nothing is charged twice; what is lost
+is liveness, one TTL of it. Keep a fenced `work` to its database writes and do the slow part, a call
+to another system, outside it.
 
 ## A stop against a quiet server
 
