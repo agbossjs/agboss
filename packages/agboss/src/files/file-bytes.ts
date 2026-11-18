@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
+import type { FileCaller, FileFetchSlots } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
 import type { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
@@ -45,6 +46,10 @@ export interface FileReadContext {
   readonly fetchTimeout: Milliseconds;
   /** The largest file: a download is cut at it. */
   readonly maxFileSize: Bytes;
+  /** The application's slots for fetches by url (shared with its A2A listeners); none: unbounded. */
+  readonly slots?: FileFetchSlots;
+  /** Whose read it is, for the slots' shares: its tenant and its owner inside it. */
+  readonly caller?: FileCaller;
 }
 
 export const sha256Of = (bytes: Uint8Array): string =>
@@ -81,6 +86,8 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
       clock: context.clock,
       timeout: context.fetchTimeout,
       signal: context.signal,
+      slots: context.slots,
+      caller: context.caller,
     });
   } catch (error) {
     const refusal = REFUSALS.get(codeOf(error));

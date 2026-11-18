@@ -1,4 +1,6 @@
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "../a2a/files/a2a-file-options.js";
+import { appFileSlotsOf } from "../a2a/files/a2a-file-pool.js";
+import { callerKeyOf, tenantKeyOf } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
 import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
@@ -54,8 +56,9 @@ function executionOf() {
 function readContextOf(deps: GraphDeps<string>, settings: ResolvedModelFiles): FileReadContext {
   const execution = executionOf();
   const limits = contextMeshSettingsOf(execution.tenant.application)?.a2aFiles;
+  const store = deps.container.get(A2AFileRepository);
   return {
-    store: deps.container.get(A2AFileRepository),
+    store,
     tenantId: execution.tenant.tenantId,
     ownerId: rootFactsOf(execution).executionId,
     signal: execution.signal,
@@ -65,6 +68,12 @@ function readContextOf(deps: GraphDeps<string>, settings: ResolvedModelFiles): F
     fetchTimeout: DEFAULT_FILE_FETCH_TIMEOUT,
     // the settings hold a plain number of bytes: dividing by 1,024 is exact, `kilobytes` multiplies back
     maxFileSize: kilobytes(settings.maxFileSize / 1024),
+    // the fetch's slots are the application's, shared with its A2A listeners, with the listener's keys (#1297)
+    slots: appFileSlotsOf(store),
+    caller: {
+      tenant: tenantKeyOf(execution.tenant.tenantId),
+      owner: callerKeyOf(execution.tenant.tenantId, execution.ownerId),
+    },
   };
 }
 

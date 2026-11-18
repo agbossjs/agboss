@@ -1,6 +1,9 @@
 /** #1269: what an agent's loop reads its files with: the execution's read context, its thread owners, its transcriber and redactor. */
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
+import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
+import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
+import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "../../src/a2a/files/a2a-file-options.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
@@ -44,8 +47,12 @@ function depsOf(
     redactors?: Map<string, unknown>;
   } = {},
 ) {
+  // the application's file store: one of its own for every deps, as an application has one
+  const store = {};
   return {
-    container: { get: (token: Token) => instances.get(token) },
+    container: {
+      get: (token: Token) => (token === A2AFileRepository ? store : instances.get(token)),
+    },
     registry: {
       fileTranscribers: extra.transcribers ?? new Map(),
       fileRedactors: extra.redactors ?? new Map(),
@@ -127,6 +134,21 @@ describe("#1269: the read context", () => {
     expect(context.fetchTimeout).toBe(DEFAULT_FILE_FETCH_TIMEOUT);
     expect(context.tenantId).toBe(testFrame().execution.tenant.tenantId);
     expect(context.ownerId).toBe(testFrame().execution.executionId);
+  });
+
+  it("a download takes the application's fetch slots, under its tenant's and its thread owner's keys (#1312)", async () => {
+    const deps = depsOf(new Map());
+    const store = (deps as { container: { get: (token: Token) => object } }).container.get(
+      A2AFileRepository,
+    );
+    const context = await inFrame(() => Promise.resolve(runtimeOf(deps).context()));
+    const { execution } = testFrame();
+
+    expect(context.slots).toBe(appFileSlotsOf(store));
+    expect(context.caller).toEqual({
+      tenant: tenantKeyOf(execution.tenant.tenantId),
+      owner: callerKeyOf(execution.tenant.tenantId, execution.ownerId),
+    });
   });
 
   it("the deps' clock and the application's file origins are the context's", async () => {

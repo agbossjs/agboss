@@ -219,12 +219,10 @@ describe("#1244 redirects", () => {
 });
 
 describe("#1244 the status", () => {
-  it("S1 200 and 299 are a file; 199, 300, 304, 404 and 500 are not, their read cancelled", async () => {
-    for (const status of [200, 204, 299]) {
-      const { transport } = scripted({ "*": { status, chunks: [bytes(1)] } });
-      expect(await fetched(transport), String(status)).toEqual(bytes(1));
-    }
-    for (const status of [100, 199, 300, 304, 404, 500]) {
+  it("S1 only 200 is a file: any other status, a 2xx too (201, 204, 206, 299), is refused, its read cancelled (#1312)", async () => {
+    const { transport } = scripted({ "*": { status: 200, chunks: [bytes(1)] } });
+    expect(await fetched(transport)).toEqual(bytes(1));
+    for (const status of [100, 199, 201, 203, 204, 205, 206, 299, 300, 304, 404, 500]) {
       const { transport, cancels } = scripted({ "*": { status, chunks: [bytes(1)] } });
       await expect(fetched(transport), String(status)).rejects.toMatchObject(
         refusal("a2a.file-fetch-failed", "the file could not be fetched"),
