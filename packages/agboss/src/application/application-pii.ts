@@ -53,7 +53,7 @@ const noDetection = (): ModelDetection => () =>
  */
 export interface ApplicationPiiMask extends ObservabilityMask {
   /** The union grows by a built workflow's observability policies. */
-  readonly withWorkflow: (pii: Pick<PiiRuntime, "workflowPolicies"> | undefined) => void;
+  readonly withWorkflow: (pii: Pick<PiiRuntime, "observed"> | undefined) => void;
 }
 
 /** One set of every policy of `sets`, each once (by name), on the first set's field key. */
@@ -76,7 +76,11 @@ export function applicationPiiMaskOf(
   const classes = assembled.piiPolicies;
   const created = resolveListed(application, options, classes);
   const instances = new Map(classes.map((cls, index) => [cls, created[index]]));
-  const pii = { byElement: new Map(), observability: classes, classes, detectors: [] };
+  const excludes = { workflow: [], byElement: new Map() };
+  const pii = {
+    ...{ byElement: new Map(), observability: classes, model: classes, excludes, chains: [] },
+    ...{ classes, detectors: [] },
+  };
   const own = piiRuntimeOf(pii, {
     resolve: (cls) => instances.get(cls),
     processEnv: parts.processEnv,
@@ -84,7 +88,7 @@ export function applicationPiiMaskOf(
     contexts: parts.contexts,
     fieldKey: parts.fieldKey,
   });
-  const sets: PiiPolicySet[] = [own.workflowPolicies];
+  const sets: PiiPolicySet[] = [own.observed];
   let mask = own.observability;
   return {
     value: (data) => mask.value(data),
@@ -92,7 +96,8 @@ export function applicationPiiMaskOf(
     traceData: (data) => mask.traceData(data),
     withWorkflow: (workflow) => {
       if (workflow === undefined) return;
-      sets.push(workflow.workflowPolicies);
+      // its observability set: never less for a workflow's excludes (#1150)
+      sets.push(workflow.observed);
       mask = observabilityMaskOf(unionOf(sets), parts.contexts);
     },
   };

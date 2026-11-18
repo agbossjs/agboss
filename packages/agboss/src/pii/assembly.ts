@@ -1,6 +1,12 @@
 import type { Class } from "../components/injection.js";
 import type { RuleViolation } from "../graph/rule-error.js";
-import { effectivePiiPolicies, type PiiElement } from "./effective-policies.js";
+import {
+  effectivePiiPolicies,
+  type PiiChainSets,
+  type PiiElement,
+  type PiiExcludes,
+} from "./effective-policies.js";
+import type { InheritedPii } from "./inheritance.js";
 import { isCustomPolicy } from "./pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "./policy-checks.js";
 
@@ -16,6 +22,12 @@ export interface AssembledPii {
   readonly byElement: ReadonlyMap<string, readonly Class[]>;
   /** The application's and the workflow's lists: logs, traces, events and the record. */
   readonly observability: readonly Class[];
+  /** A model of no element (a reply interpreter, a compaction): less the workflow's excludes (#1150). */
+  readonly model: readonly Class[];
+  /** What the workflow and each element remove at the models (#1150): ancestors' policies too. */
+  readonly excludes: PiiExcludes;
+  /** The sets on each static way into the workflow as a child (#1150): `agboss describe`. */
+  readonly chains: readonly PiiChainSets[];
   /** Every policy class of the workflow. */
   readonly classes: readonly Class[];
   /** The policies with `detectWithModel`. */
@@ -35,18 +47,33 @@ const detectorsOf = (classes: readonly Class[]): PiiDetectorUse[] =>
     return [{ name: meta.name, model: meta.detectWithModel }];
   });
 
+/** What one workflow's PII policies are assembled from (#120, #1150). */
+export interface PiiSources {
+  readonly workflowName: string;
+  readonly application: readonly Class[];
+  readonly workflow: readonly Class[];
+  readonly workflowExcludes?: readonly Class[] | undefined;
+  readonly elements: readonly PiiElement[];
+  readonly inherited?: readonly InheritedPii[] | undefined;
+}
+
 /** The PII policies of one workflow from its levels (`@Application` → `@Workflow` → elements). */
-export function piiAssemblyOf(
-  workflowName: string,
-  application: readonly Class[],
-  workflow: readonly Class[],
-  elements: readonly PiiElement[],
-): PiiAssembly {
-  const effective = effectivePiiPolicies({ application, workflow, workflowName, elements });
+export function piiAssemblyOf(sources: PiiSources): PiiAssembly {
+  const effective = effectivePiiPolicies({
+    application: sources.application,
+    workflow: sources.workflow,
+    workflowName: sources.workflowName,
+    elements: sources.elements,
+    workflowExcludes: sources.workflowExcludes ?? [],
+    inherited: sources.inherited ?? [],
+  });
   return {
     pii: {
       byElement: effective.byElement,
       observability: effective.observability,
+      model: effective.model,
+      excludes: effective.excludes,
+      chains: effective.chains,
       classes: effective.classes,
       detectors: detectorsOf(effective.classes),
     },

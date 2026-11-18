@@ -1,3 +1,4 @@
+import { maskedTreeRecordOf, treeMasksFor } from "./record-masks.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
@@ -185,6 +186,7 @@ function historyRecordOf(
 
 /** The tree's record with the pauses its tree resolved, masked like its traces. */
 async function maskedRecordOf(
+  deps: AppDeps,
   keeper: ExecutionHistoryKeeper,
   record: ExecutionHistoryRecord,
 ): Promise<ExecutionHistoryRecord> {
@@ -203,8 +205,10 @@ async function maskedRecordOf(
     // its calls that left the system (#505), masked with the record: results and failure texts too
     ...(calls === undefined ? {} : { outboundCalls: calls.map(shownCallOf) }),
   };
-  // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden
-  const masked = (await keeper.mask.traceData(answered)) as typeof answered;
+  // the mask keeps the shape: every string masked, the contexts' sensitive fields hidden — the
+  // root's own by its mask, each child's part by its chain's (#1150)
+  const masks = treeMasksFor(deps, record.executionId, record.children);
+  const masked = await maskedTreeRecordOf(answered, masks, record.executionId, "traceData");
   // the audit log's rows were masked when they were written (#501)
   const auditLog = await keeper.auditLog?.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
     record.tenantId,
@@ -227,7 +231,7 @@ export async function keepExecutionRecord(
   try {
     const values = await checkpointStateOf(deps, state);
     const record = historyRecordOf(deps, keeper, state, values, end);
-    await keeper.repository.save(await maskedRecordOf(keeper, record));
+    await keeper.repository.save(await maskedRecordOf(deps, keeper, record));
   } catch (error) {
     const text = `the history of execution ${state.runId} could not be saved: ${String(error)}`;
     deps.log.warn("execution-history.failed", text, {

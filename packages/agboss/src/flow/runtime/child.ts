@@ -23,6 +23,7 @@ import type { ExecutionGraph } from "./build.js";
 import { refuseBeyondMaxDepth } from "./recursion-launch.js";
 import { reentryOf } from "./child-reentry.js";
 import { childEndOf } from "./child-own-thread.js";
+import { workflowChainOf } from "../../tracing/workflow-chain.js";
 import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
 import { remoteSiteOf } from "./remote/remote-child-site.js";
 import type { ChildInitialState } from "./remote/remote-child-run.js";
@@ -138,7 +139,8 @@ async function runChild(
     ...eventOf(parent.frame, ended),
     finish: recordOfNode(ended.records, last.finish),
   };
-  await parent.deps.observer?.onExecutionEnd({ ...event, spend: record.spend });
+  // the child's event, masked by its own chain like its steps' (#1150)
+  await child.deps.observer?.onExecutionEnd({ ...event, spend: record.spend });
   return { state: last, usage };
 }
 
@@ -192,7 +194,8 @@ export function childRunner(
     const run = childRunOf(config, frame, entered.identity, input, child.deps.pii?.observability);
     const ended = endedChildOf(child, frame, entered, entry.start.name, input);
     if (child.isRecursive) refuseBeyondMaxDepth(deps.graph, frame, ended, state.path);
-    if (entered.isNew) await deps.observer?.onExecutionStart(eventOf(frame, ended));
+    // the child's event, masked by its own chain like its steps' (#1150)
+    if (entered.isNew) await child.deps.observer?.onExecutionStart(eventOf(frame, ended));
     const childConfig = childConfigOf(config, run, ended);
     const initial = initialOf(state, entry, input, entered);
     const undo = { child, run, checkpointer, budgets: pass.budgets };
@@ -235,6 +238,8 @@ function childConfigOf(
       rootExecutionId: identity.rootExecutionId,
       workflowName: workflow.name,
       workflowVersion: workflow.version,
+      // the workflows its spans are masked by: its chain's (#1150, `trace-router.ts`)
+      workflowChain: workflowChainOf(config?.metadata, workflow.name),
       depth: child.depth,
       ...(identity.itemIndex === undefined ? {} : { itemIndex: identity.itemIndex }),
     },

@@ -47,6 +47,25 @@ revealed, and its loop's masked texts are masked again — but a log or trace se
 tokens with 0.1.1 ones finds no match across the upgrade. Redeploy every instance of an application
 together, as for A2A: during a rolling upgrade one value has two tokens (both revealed).
 
+## PII — a child workflow is masked by its chain (#1150)
+
+A behaviour change from 0.1.0 (#120 AC11): a child workflow was masked by the application's and
+its own `@Workflow({ piiPolicies })` only — never its parent's — so a value its parent masks reached
+the child's models and traces as it is. In 0.1.1 a child is masked by the union of its chain: the
+application's, the root's, every ancestor's and its own lists, at its models and in everything
+observed of it ([Guards → Levels](Guards#levels)). What to check:
+
+| 0.1.0 | 0.1.1 |
+| --- | --- |
+| a child's agents and routers read the values its parent's `@Workflow` policies mask | they read them masked; where one must see a value, `excludePiiPolicies: [ParentPolicy]` on that agent or router, or `@Workflow({ excludePiiPolicies })` on the child for all its models — observability stays masked |
+| an ancestor's rule and the child's may differ for one kind | `[pii.conflicting-rules]` at assembly, naming the way (`… (under root-workflow)`): make the lists agree |
+| an `excludePiiPolicies` naming an ancestor's policy | allowed; one no way into the workflow inherits is still `[pii.exclude-not-inherited]` |
+| a child's spans, events, records, outbound calls and pause notices by its own lists (an `AnyInstance` child's spans by the root's) | by its chain's, wherever it runs; the root's record parts by the root's only |
+| a queued `AnyInstance` child row | carries `piiPolicies` (its chain's policy names); a row without them is not readable, so finish or drain children queued by 0.1.0 before the upgrade (ADR-0034) |
+
+`agboss describe` shows each way's effective sets under `pii chains`; the start log says the same
+(`app.pii-policies`). A workflow's `configHash` does not change.
+
 ## Pauses — `withdraw` is gone, a channel hears every close
 
 0.1.1 adds a deadline to a pause, notices to channels and listeners, and one meaning per name. Two

@@ -76,6 +76,8 @@ describe("#261 AC6: the standard fields of LangGraph and of the trace exporter c
       threadId: "t-1",
       workflowName: "bed-request-workflow",
       workflowVersion: "1.0.0",
+      // the workflows its spans are masked by (#1150): a root's own
+      workflowChain: '["bed-request-workflow"]',
     });
     expect(config.tags).toEqual(["tenant:acme", "bed-request-workflow"]);
   });

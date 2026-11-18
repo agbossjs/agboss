@@ -1,5 +1,6 @@
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { maskedRecordOf, runResultOf } from "./result.js";
+import { maskedPendingOf } from "./record-masks.js";
 import { executionEventAt, observeLeg } from "./run-events.js";
 import { leasedDeps } from "./tree-ends.js";
 import type { HeldPass, TreeCall, TreeMoveParts, TreePass, TreeState } from "./tree-move-types.js";
@@ -30,13 +31,15 @@ export function observedPass(
     const run = await live.track(state, AbortSignal.any(caller), (signal) => pass(moving, signal));
     await paused.settle(run);
     const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
-    return maskedRecordOf(result, deps.pii?.observability);
+    return maskedRecordOf(result, deps);
   };
   return observeLeg(
     deps.observer,
     executionEventAt(state, deps),
     () => heldAtTheEnd(held, leg),
     () => undo.compensations ?? [],
+    // a child's pause in the root's event: masked by the child's chain too (#1150)
+    (pending) => maskedPendingOf(deps, pending),
   );
 }
 

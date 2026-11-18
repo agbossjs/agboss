@@ -2004,7 +2004,12 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   an answer fails the execution (`PiiRefusedError`, `pii.refused`), in tool arguments or a result it
   rejects that call. Scope, checkpoint and every step's code hold real values; the token map is
   the state's `piiTokens` channel. Logs, traces, events and `result.record` are masked by the
-  application's and the workflow's lists, whatever an element excludes. A `sensitive` action on a
+  application's and the workflow's lists, whatever an element excludes. A child workflow (#1150) is
+  masked by its chain — the application's, the root's, every ancestor's and its own `@Workflow`
+  lists — at its models and in everything observed of it (an `AnyInstance` child by the policy
+  names its launch carries; an unknown name fails it); `excludePiiPolicies` on an agent, a router or
+  the child's `@Workflow` removes an inherited one at the models only; assembly checks exclusions
+  and `[pii.conflicting-rules]` on every static way in, `agboss describe` prints `pii chains`. A `sensitive` action on a
   DTO or a context field (masking actions only) applies to that field.
   `@Application({ piiKeyField: "piiPseudonymKey" })` names a `Secret` field of the environment:
   the HMAC key of sensitive fields, project detectors and policies without their own key — one

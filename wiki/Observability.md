@@ -454,8 +454,16 @@ Every event an observer gets, every line of the framework's log, every span a tr
 `result.record` are masked by the PII policies of the application and of the workflow (#120 AC7) —
 always the whole list: an agent's or a router's `excludePiiPolicies` changes only what its own
 model reads. It is the workflow **of that run** (#1130): a run of a workflow that lists a policy is
-masked by it whatever the application's other workflows list (a child's steps by the child's own
-workflow); a run is never masked by another workflow's list. What belongs to no one run — the
+masked by it whatever the application's other workflows list; a run is never masked by another
+workflow's list. A child's run is masked by its **chain** (#1150): the application's, the root's,
+every ancestor's and its own lists — its spans (each step's `workflowChain` metadata names the
+chain; a chain naming a workflow the application does not trace, or one that is unreadable, is
+masked by every workflow's mask), its log, every event of it (its own start, end and error
+included), its record in the root's `result.record.children` and kept history, its pause answers
+in the root's `record.pauses`, its pending pauses in the root's `onExecutionPause`, its outbound
+calls and its pause notices — on its parent's instance or any other. The root's own fields are
+masked by the root's chain only: a policy only a child lists masks the child's part, never the
+root's ([Guards → Levels](Guards#levels)). What belongs to no one run — the
 application's own log (an observer's failure, a startup line) and its audit log — is masked by the
 union of the application's and every workflow's policies, as is a span that names none of its
 application's workflows: fail closed, never weaker than any run's own mask

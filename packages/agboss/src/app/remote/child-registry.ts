@@ -15,6 +15,8 @@ import { seconds, type Milliseconds } from "../../units/index.js";
 import { LeaseTakeoverReason } from "../../infrastructure/execution-audit-log.repository.js";
 import type { LeaseTake } from "../execution-leases.js";
 import type { BuiltApp } from "../create-app.js";
+import type { RuntimePiiPolicy } from "../../pii/runtime-policy.js";
+import { inChainOf } from "../pii-chain.js";
 
 const WATCH_EVERY: Milliseconds = seconds(10);
 
@@ -88,6 +90,24 @@ export interface ChildRegistry {
   readonly workflowOf: (name: string) => Class | undefined;
   /** The class of a node of a workflow, by its id (`critic-agent#2` → `critic-agent`). */
   readonly componentOf: (workflow: string, nodeId: string) => Class | undefined;
+  /**
+   * The PII policies of the application by their `@PiiPolicy` names (#1150): what a queued child
+   * inherits; a name no workflow of this application lists throws `UnknownPiiPolicyError`.
+   */
+  readonly piiPoliciesNamed: (names: readonly string[]) => readonly RuntimePiiPolicy[];
+  /**
+   * A queued child's own deps under the policies its launch names (#1150), its own children chained
+   * in turn; a name this application does not know throws `UnknownPiiPolicyError`.
+   */
+  readonly chainedDepsOf: (
+    child: GraphDeps<string>,
+    piiPolicies: readonly string[],
+  ) => GraphDeps<string>;
+}
+
+/** A queued child names a PII policy this instance's application does not have (#1150). */
+export class UnknownPiiPolicyError extends Error {
+  override name = "UnknownPiiPolicyError";
 }
 
 /** A copy's node id without its copy number. */
@@ -104,13 +124,36 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
       if (child !== undefined) visit(child);
     }
   };
-  for (const workflow of workflows) visit(workflow.deps);
+  // each workflow's own deps first (#1150): a child found below a parent is chained by that parent
+  for (const workflow of workflows) byName.set(workflow.deps.config.name, workflow.deps);
+  for (const workflow of workflows) {
+    for (const node of workflow.deps.graph.nodes.values()) {
+      if (node.kind !== NodeKind.Workflow || isThisWorkflow(node.component)) continue;
+      const child = workflow.deps.childDepsOf?.(node.component);
+      if (child !== undefined) visit(child);
+    }
+  }
   const roots = new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow]));
+  const piiPoliciesNamed = (names: readonly string[]): readonly RuntimePiiPolicy[] =>
+    names.map((name) => {
+      for (const deps of byName.values()) {
+        const policy = deps.pii?.declared.policyNamed(name);
+        if (policy !== undefined) return policy;
+      }
+      throw new UnknownPiiPolicyError(
+        `the PII policy ${name} of a queued child's chain is not a policy of this application: the child is not run unmasked`,
+      );
+    });
   return {
     rootOf: (name) => roots.get(name),
     depsOf: (name) => byName.get(name),
     workflowOf: (name) => byName.get(name)?.graph.type,
     componentOf: (workflow, nodeId) =>
       byName.get(workflow)?.graph.nodes.get(baseNodeId(nodeId))?.component,
+    piiPoliciesNamed,
+    chainedDepsOf: (child, names) =>
+      inChainOf(child, piiPoliciesNamed(names), (workflow) =>
+        [...byName.values()].find((deps) => deps.graph.type === workflow),
+      ),
   };
 }

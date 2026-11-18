@@ -15,6 +15,7 @@ import { componentOf } from "../components/metadata.js";
 import { hasSensitiveFields } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
+import { piiChainTexts } from "../describe/pii-policies.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
 import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
@@ -227,5 +228,8 @@ export function logStart(
       log.info("app.worst-case", worstCaseLine(worst));
     }
   }
+  // the PII policies a child inherits on each way into it, and every exclusion (#1150)
+  for (const workflow of workflows)
+    for (const text of piiChainTexts(workflow)) log.info("app.pii-policies", text);
   for (const warning of warnings) log.warn("app.warning", warning);
 }

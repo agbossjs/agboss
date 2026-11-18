@@ -11,7 +11,7 @@ import { Application } from "../../src/application/application.js";
 import type { AgentStartEvent } from "../../src/core/observability.js";
 import { Injectable, type OnAgentStart } from "../../src/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { replyWith } from "../../src/testing/index.js";
+import { replyWith, routeTo } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -25,6 +25,18 @@ import {
   PiiStart,
   PiiWorkflow,
 } from "./pii.fixture.js";
+import { requestText } from "./boundary.helpers.js";
+import { WORKFLOW_ATTRIBUTE, WORKFLOW_CHAIN_ATTRIBUTE } from "../../src/tracing/trace-router.js";
+import {
+  CHILD_SECRET,
+  ChainApplication,
+  ChainChildAgent,
+  ChainFarRootStart,
+  ChainOpenRootStart,
+  ChainRootStart,
+  ROOT_SECRET,
+  TEXT,
+} from "./chain.fixture.js";
 
 /** What every Langfuse span processor of the process exported (kept past its shutdown). */
 const exported = vi.hoisted(() => ({
@@ -219,5 +231,69 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     expect(workflowsAt(LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["pii-workflow"]);
     expect(workflowsAt(OTHER_LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["open-workflow"]);
     expect(exportedText()).not.toContain(EMPLOYEE_ID);
+  });
+});
+
+/** The spans of one workflow (by its `workflowName`), as text. */
+const spansOf = (workflow: string): string =>
+  spans()
+    .filter((span) => span.attributes["langfuse.observation.metadata.workflowName"] === workflow)
+    .map((span) => JSON.stringify(span.attributes))
+    .join("\n");
+
+const chainAppOf = (book: ScriptBook) =>
+  createAppWith(ChainApplication, {
+    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
+    gateway: createScriptedGateway(book),
+  });
+
+describe("#1150: a child's spans are masked by its chain", () => {
+  it("AC3 spans: a child in its parent's step — its spans by the root's and its own policies; the root's by its own only", async () => {
+    const book = new ScriptBook();
+    book.scriptOf("router:chain-child-router").thenReturn(routeTo(ChainChildAgent));
+    book.scriptOf("agent:chain-child-agent").thenReturn(replyWith(`done ${CHILD_SECRET}`));
+    const app = await chainAppOf(book);
+
+    await execute(app, ChainRootStart, { text: TEXT });
+    await app.close();
+
+    const child = spansOf("chain-child-workflow");
+    expect(child).toContain("chain-child-agent");
+    expect(child).not.toContain(ROOT_SECRET);
+    expect(child).not.toContain(CHILD_SECRET);
+    // the root's own spans: masked by its own chain — the child's policy is not the root's
+    expect(spansOf("chain-root-workflow")).not.toContain(ROOT_SECRET);
+    expect(spansOf("chain-root-workflow")).toContain(CHILD_SECRET);
+  });
+
+  it("AC4 spans: an AnyInstance child's spans name the child and its chain (bug 1) — never the root's mask alone", async () => {
+    const book = new ScriptBook();
+    book.scriptOf("agent:chain-far-agent").thenReturn(replyWith(`done ${CHILD_SECRET}`));
+    const app = await chainAppOf(book);
+
+    await execute(app, ChainFarRootStart, { text: TEXT });
+    await app.close();
+
+    const child = spansOf("chain-far-workflow");
+    expect(child).toContain("chain-far-agent");
+    const chains = spans()
+      .filter((span) => span.attributes[WORKFLOW_ATTRIBUTE] === "chain-far-workflow")
+      .map((span) => span.attributes[WORKFLOW_CHAIN_ATTRIBUTE]);
+    expect(new Set(chains)).toEqual(new Set(['["chain-root-workflow","chain-far-workflow"]']));
+    expect(child).not.toContain(ROOT_SECRET);
+    expect(child).not.toContain(CHILD_SECRET);
+  });
+
+  it("AC2 spans: an exclusion never reaches the traces — the agent's model saw the value, its spans never", async () => {
+    const book = new ScriptBook();
+    book.scriptOf("agent:chain-open-agent").thenReturn(replyWith("done"));
+    const app = await chainAppOf(book);
+
+    await execute(app, ChainOpenRootStart, { text: TEXT });
+    await app.close();
+
+    expect(requestText(book.scriptOf("agent:chain-open-agent").onlyRequest)).toContain(ROOT_SECRET);
+    expect(spansOf("chain-open-workflow")).toContain("chain-open-agent");
+    expect(spansOf("chain-open-workflow")).not.toContain(ROOT_SECRET);
   });
 });

@@ -75,6 +75,10 @@ export async function observeLeg(
   event: ExecutionEvent,
   leg: () => Promise<ExecutionOutput>,
   compensationsOf: () => readonly CompensationRecord[] = () => [],
+  /** What the pause event shows of the pending pauses: a child's masked by its chain (#1150). */
+  shownPending: (pending: ExecutionOutput["pending"]) => Promise<ExecutionOutput["pending"]> = (
+    pending,
+  ) => Promise.resolve(pending),
 ): Promise<ExecutionOutput> {
   let result: ExecutionOutput;
   try {
@@ -88,7 +92,7 @@ export async function observeLeg(
   }
   // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
   if (result.status === ExecutionStatus.Paused && result.pending.length > 0)
-    await observer.onExecutionPause({ ...event, pending: result.pending });
+    await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
   else if (result.finish !== undefined)
     await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;

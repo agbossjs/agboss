@@ -13,6 +13,7 @@ import type { PauseRecord } from "../infrastructure/pause-record.js";
 import { PiiPolicySet } from "../pii/policy-set.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { AppDeps } from "./app-deps.js";
+import { ownDepsOf } from "./own-deps.js";
 import {
   contextsOf,
   pauseFrameOf,
@@ -56,7 +57,8 @@ export interface ReplyAnsweringParts {
   /** The frame of the pause's execution and waiting step. */
   readonly frameOf: (pause: PauseRecord, state: TreeState) => Promise<FrameSpec>;
   /** What the interpreter's model reads through: the policies and the execution's tokens. */
-  readonly piiOf: (state: TreeState) => ReplyPii;
+  /** The policies the paused execution's interpreter reads through: its workflow's chain (#1150). */
+  readonly piiOf: (state: TreeState, pause: PauseRecord) => ReplyPii;
 }
 
 /** The tree's budgets as the reading counts them: none without the application's budgets. */
@@ -74,9 +76,10 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
   tracing: deps.tracing,
   treeStateOf: (rootExecutionId) => treeStateOf(deps, rootExecutionId),
   frameOf: async (pause, state) => pauseFrameOf(deps, pause, await pauseTreeOf(deps, pause, state)),
-  piiOf: (state) => {
+  piiOf: (state, pause) => {
     const known = state.piiTokens ?? {};
-    const { pii } = deps;
+    // the paused execution's workflow under its chain (#1150), never the root's lists alone
+    const { pii } = ownDepsOf(deps, pause.workflow);
     if (pii === undefined) return { policies: new PiiPolicySet([], ""), known };
     const sensitive = pii.contextValuesOf(contextsOf(state, DEFAULT_TENANT.tenantId));
     // the tree's key (#334): the root's and its children's, one value one token
@@ -104,7 +107,7 @@ export function replyAnsweringOf(parts: ReplyAnsweringParts, reader: ReplyReader
     };
     const callbacks = parts.tracing?.callbacks(trace) ?? [];
     const frame = await parts.frameOf(pause, state);
-    const pii = parts.piiOf(state);
+    const pii = parts.piiOf(state, pause);
     const call = { pause, reply, validate, beforeModelCall, callbacks, frame, pii };
     const reading = await reader(call);
     await meter?.record(reading.usage);

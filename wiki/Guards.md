@@ -427,9 +427,33 @@ reused — the conversation is masked again, in the new tokens, so one model cal
 `excludePiiPolicies` on an agent or a router removes an inherited one for its own model and tools
 (excluding one that is not inherited is `[pii.exclude-not-inherited]`). After adding up, two
 policies with different actions for one kind are `[pii.conflicting-rules]`, naming the kind, the
-actions and the policies — no "strictest wins". A child workflow gets its own workflow's lists over
-the application's, never its parent's. Logs, traces, events and `result.record` are always masked
-by the application's and the workflow's lists ([Observability](Observability)). The policies in
+actions and the policies — no "strictest wins". Logs, traces, events and `result.record` are
+always masked by the application's and the workflow's lists ([Observability](Observability)).
+
+**A child workflow under its chain (#1150).** A child is masked by the union of its chain's lists —
+the application's, the root's, every ancestor's and its own `@Workflow({ piiPolicies })` (an agent's
+or a router's own list is never inherited) — at its models (its agents, model routers, rerankers,
+judges and arbiters, the reply interpreters of its pauses) and at its observability (spans, logs,
+events, its part of `result.record` and of the kept history, its outbound calls, its pause
+notices). A parent hands its child real values (the model boundary reveals them), so without the
+chain a value the parent masks would reach the child's models and traces as it is. The chain is the
+run's own: the same child under a root that does not list a policy is not masked by it. A child
+queued for any instance carries the names of its chain's policies with its launch; the instance
+that runs it masks it with its application's policies of those names, and a name it does not know
+fails the child (`UnknownPiiPolicyError`) — never runs it unmasked. Where a policy gets in the way,
+it is removed **at the models only**: `excludePiiPolicies` on an agent or a router may name an
+inherited ancestor's policy, and `@Workflow({ excludePiiPolicies })` on a child removes one for every
+model of that workflow (its agents, routers, reply interpreters, compactions). Observability always
+masks with the whole chain — an exclusion never reaches a trace. Assembly checks every static way
+into a child (`.toWorkflow`, `.toParallelWorkflows`, `route`): an exclusion that names no policy of
+the application, its workflow or a workflow that launches it is `[pii.exclude-not-inherited]`; an
+ancestor's rule that conflicts with the child's is `[pii.conflicting-rules]` naming the way
+(`cc-child-workflow (under cc-root-workflow): email is …`) — an exclusion resolves a conflict at
+the models, never at observability. `agboss describe` prints each way's sets under `pii chains`
+(`chain-peek-workflow under chain-root-workflow: logs and traces masked by …; models by …;
+chain-peek-agent by … (excluded: root-secret-pii-policy by chain-peek-agent)`), and the start log
+says the same once (`app.pii-policies`). A workflow's config hash covers what it declares, never
+what it inherits on a way in. The policies in
 effect at each agent's and router's model — their rules and actions — are part of the workflow's
 config hash ([Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)): an
 `excludePiiPolicies` on one agent changes it. A declarative policy's `refusal(kind)` is checked on

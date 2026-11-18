@@ -5,7 +5,8 @@ import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { ExecutionOutput } from "./types.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
-import { NO_OBSERVABILITY_MASK, type ObservabilityMask } from "../pii/observability-mask.js";
+import { NO_OBSERVABILITY_MASK } from "../pii/observability-mask.js";
+import { maskedEntries, maskedTreeRecordOf, treeMasksFor, type TreeDeps } from "./record-masks.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/index.js";
 
@@ -60,39 +61,50 @@ export function runResultOf(
   };
 }
 
-/** The result with its record masked by the workflow's observability policies (#120 AC7). */
+/**
+ * The result with its record masked (#120 AC7): the root's own fields by its workflow's
+ * observability policies, each child's record by its own chain's (#1150).
+ */
 export async function maskedRecordOf(
   result: ExecutionOutput,
-  mask: ObservabilityMask | undefined,
+  deps: TreeDeps | undefined,
 ): Promise<ExecutionOutput> {
-  if (result.record === undefined) return result;
-  // the mask keeps the record's shape: every string masked, nothing else changed; no policies, still
-  // no file bytes (#899 §0)
-  const shown = await (mask ?? NO_OBSERVABILITY_MASK).value(result.record);
-  return { ...result, record: shown as ExecutionRecord };
+  const { record } = result;
+  if (record === undefined) return result;
+  // no deps at all: no policies, still no file bytes (#899 §0)
+  if (deps === undefined)
+    return { ...result, record: (await NO_OBSERVABILITY_MASK.value(record)) as typeof record };
+  const masks = treeMasksFor(deps, result.executionId, record.children);
+  // the mask keeps the record's shape: every string masked, nothing else changed; no policies,
+  // still no file bytes (#899 §0)
+  return {
+    ...result,
+    record: await maskedTreeRecordOf(record, masks, result.executionId, "value"),
+  };
 }
 
 /**
  * A result with its record's `pauses` (#267 S107) and each child's (S124 c): how each pause of its
  * tree was resolved, from the execution records — the permanent log, whatever the pause records'
- * retention removed — in the order they were asked, masked by the application's PII policies like
- * the rest of the record. A child's are the pauses its own steps asked, in `result.children` and
- * `result.record.children` alike; the log is read only when one of them is reported.
+ * retention removed — in the order they were asked, masked by the PII policies of the execution
+ * that asked each (#1150: a child's by its chain's) like the rest of the record. A child's are the
+ * pauses its own steps asked, in `result.children` and `result.record.children` alike; the log is
+ * read only when one of them is reported.
  */
 export async function withPauseAnswers(
   result: ExecutionOutput,
-  deps: Pick<AgentExecutionDeps<string>, "pause" | "pii">,
+  deps: Pick<AgentExecutionDeps<string>, "pause"> & TreeDeps,
 ): Promise<ExecutionOutput> {
   const { record } = result;
   const log = deps.pause?.answers;
   if ((record === undefined && result.children.length === 0) || log === undefined) return result;
-  const mask = deps.pii?.observability;
   const answers = await log.findPauseAnswersByTenantIdAndRootExecutionId(
     result.tenantId,
     result.executionId,
   );
+  const masks = treeMasksFor(deps, result.executionId, record?.children ?? result.children);
   // the mask keeps the shape: every string masked, nothing else changed
-  const masked = (await (mask ?? NO_OBSERVABILITY_MASK).value(answers)) as typeof answers;
+  const masked = await maskedEntries(answers, masks, "value");
   return withAnswers(result, masked);
 }
 

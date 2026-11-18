@@ -1,6 +1,7 @@
 import type { AttributeValue, Context } from "@opentelemetry/api";
 import type { ReadableSpan, Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
 import type { TraceMask } from "./types.js";
+import { chainNamesOf } from "./workflow-chain.js";
 
 /**
  * The one span processor of the process's Langfuse provider (#1130). Langfuse's LangChain handler
@@ -9,9 +10,10 @@ import type { TraceMask } from "./types.js";
  * started it (`starting`), or to its parent's — so it is exported only through its own
  * application's processor — and masked when it ends:
  *
- * - by the masks of the workflow it belongs to — the `workflowName` every step's LangChain
- *   metadata carries (a child's own workflow for a child's steps): exactly that run's policies;
- * - when its application has no route of that workflow (a missing name), by every route of its
+ * - by the masks of every workflow of its chain — the `workflowChain` every step's LangChain
+ *   metadata carries (#1150: a child's root, ancestors and own workflow; a span without it, by its
+ *   `workflowName`): exactly that run's policies, its ancestors' included;
+ * - when its application has no route of one of them (a missing name), by every route of its
  *   application in turn — the union, fail closed.
  *
  * A route that leaves keeps its mask for the spans started under it; a span whose processor has
@@ -23,6 +25,9 @@ import type { TraceMask } from "./types.js";
 
 /** The span attribute Langfuse writes a step's `metadata.workflowName` to. */
 export const WORKFLOW_ATTRIBUTE = "langfuse.observation.metadata.workflowName";
+
+/** The span attribute Langfuse writes a step's `metadata.workflowChain` to (#1150). */
+export const WORKFLOW_CHAIN_ATTRIBUTE = "langfuse.observation.metadata.workflowChain";
 
 /** What an attribute shows when its mask failed: never its value. */
 export const MASK_FAILED = "<masked: the PII mask failed>";
@@ -210,13 +215,29 @@ export class TraceRouter implements SpanProcessor {
     });
   }
 
-  /** Its own workflow's masks in its application; else that application's union; a span of no route: every route's. */
+  /**
+   * The masks of every workflow of its chain in its application (#1150: a child's spans by its
+   * ancestors' policies too); that application's union when any of them has no route there; a span
+   * of no route: every route's.
+   */
   masksOf(span: ReadableSpan, route: Route | undefined): readonly TraceMask[] {
     if (route === undefined)
       return masksOfRoutes([...this.owners.values()].flatMap((owner) => owner.routes));
     const workflow = span.attributes[WORKFLOW_ATTRIBUTE];
-    const own = route.owner.routes.filter((each) => each.workflow === workflow);
-    return masksOfRoutes(own.length > 0 ? own : route.owner.routes);
+    const written = span.attributes[WORKFLOW_CHAIN_ATTRIBUTE];
+    // a chain written but unreadable names no one: the union (fail closed)
+    const chain =
+      written === undefined
+        ? typeof workflow === "string"
+          ? [workflow]
+          : []
+        : (chainNamesOf(written) ?? []);
+    const routes = route.owner.routes;
+    const ofChain = [...new Set(chain)].map((name) =>
+      routes.filter((each) => each.workflow === name),
+    );
+    const isKnown = ofChain.length > 0 && ofChain.every((own) => own.length > 0);
+    return masksOfRoutes(isKnown ? [...new Set(ofChain.flat())] : routes);
   }
 
   private async maskInPlace(span: ReadableSpan, masks: readonly TraceMask[]): Promise<void> {

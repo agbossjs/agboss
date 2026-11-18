@@ -86,10 +86,61 @@ export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly Desc
 const ruleText = (rule: DescribedPiiRule): string =>
   `${rule.target}: ${rule.action}${rule.refusal === undefined ? "" : ` · refusal: ${rule.refusal}`}`;
 
-/** `pii policies` — one line per policy; `pii policies none` without one. */
+const policyNames = (classes: readonly Class[]): string =>
+  classes.map((cls) => piiPolicyMetaOf(cls)?.name ?? cls.name).join(", ") || "none";
+
+/** What each element and the workflow exclude at their models (#1150), as text. */
+function excludedText(bundle: AssembledWorkflow): string {
+  const pii = bundle.pii;
+  if (pii === undefined) return "";
+  const parts = [
+    ...(pii.excludes.workflow.length === 0
+      ? []
+      : [`${policyNames(pii.excludes.workflow)} by the workflow`]),
+    ...[...pii.excludes.byElement].flatMap(([element, classes]) =>
+      classes.length === 0 ? [] : [`${policyNames(classes)} by ${element}`],
+    ),
+  ];
+  return parts.length === 0 ? "" : ` (excluded: ${parts.join("; ")})`;
+}
+
+/**
+ * The effective sets of a workflow on each static way into it (#1150) and what is excluded where:
+ * what `agboss describe` prints and the start logs, one text per way (a root-only workflow with an
+ * exclusion: one for itself).
+ */
+export function piiChainTexts(bundle: AssembledWorkflow): string[] {
+  const pii = bundle.pii;
+  if (pii === undefined) return [];
+  const excluded = excludedText(bundle);
+  const name = bundle.config.name;
+  const own =
+    excluded === ""
+      ? []
+      : [
+          `${name}: logs and traces masked by ${policyNames(pii.observability)}; models by ${policyNames(pii.model)}${excluded}`,
+        ];
+  // a way that inherits nothing has the workflow's own sets: nothing to say of it
+  const inheriting = pii.chains.filter(
+    (chain) => policyNames(chain.observability) !== policyNames(pii.observability),
+  );
+  const chains = inheriting.map((chain) => {
+    const elements = [...chain.byElement]
+      .filter(([, classes]) => policyNames(classes) !== policyNames(chain.model))
+      .map(([element, classes]) => `; ${element} by ${policyNames(classes)}`)
+      .join("");
+    return `${name} under ${chain.path.join(" → ")}: logs and traces masked by ${policyNames(chain.observability)}; models by ${policyNames(chain.model)}${elements}${excluded}`;
+  });
+  return [...own, ...chains];
+}
+
+/** `pii policies` — one line per policy; `pii policies none` without one; then each chain (#1150). */
 export function piiPolicyLines(bundle: AssembledWorkflow): string[] {
   const policies = describedPiiPoliciesOf(bundle);
-  if (policies.length === 0) return ["pii policies none"];
+  const chains = piiChainTexts(bundle);
+  const chainLines =
+    chains.length === 0 ? [] : ["pii chains", ...chains.map((line) => `  ${line}`)];
+  if (policies.length === 0) return ["pii policies none", ...chainLines];
   return [
     "pii policies",
     ...policies.map((policy) => {
@@ -99,5 +150,6 @@ export function piiPolicyLines(bundle: AssembledWorkflow): string[] {
       const on = policy.elements.join(", ") || "none";
       return `  ${policy.name} — ${policy.rules.map(ruleText).join(", ")}${model} · on ${on}${logs}`;
     }),
+    ...chainLines,
   ];
 }

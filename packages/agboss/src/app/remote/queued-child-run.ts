@@ -27,9 +27,10 @@ import { drainRun, outcomeError } from "../../run/execute.js";
 import { hasGraphEnded } from "../../run/graph-end.js";
 import { continuedExecutionBudgets, recorder } from "../../run/run-budgets.js";
 import { piiKeysOf, streamConfig } from "../../run/stream-config.js";
+import { queuedChildMetadataOf } from "../../tracing/workflow-chain.js";
 import type { AppDeps } from "../app-deps.js";
 import type { ChildRegistry } from "./child-registry.js";
-import { resumedSpendOf } from "./queued-child-spend.js";
+import { interruptIdsOf, resumedSpendOf } from "./queued-child-spend.js";
 import { cancelledOf, type AnnouncedPass, type ClaimedChild } from "./child-end-event.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../../flow/runtime/state.js";
 
@@ -85,7 +86,7 @@ function runContextOf(
     // the child's own lease (#471): its steps fence with it, never its parent's
     lease,
     tree: { parent, itemIndex: run.initial.child.itemIndex },
-    // what its steps store is masked by its own workflow's policies (#505)
+    // what its steps store is masked by its chain's policies (#505, #1150)
     observability: pii?.observability,
     ...piiKeysOf(pii),
     fingerprintKeys,
@@ -116,17 +117,11 @@ function childStreamConfig(
       executionId: context.runId,
       parentExecutionId: initial.child.parentExecutionId,
       rootExecutionId: initial.child.rootExecutionId,
+      // its spans are the child's, masked by its chain's policies (#1150), never the root's alone
+      ...queuedChildMetadataOf(childDeps.config, run.parent),
     },
   };
 }
-
-/** Interrupt ids waiting on `before`. */
-const interruptIdsOf = (
-  before: Awaited<ReturnType<ExecutionGraph["getState"]>>,
-): readonly string[] =>
-  before.tasks.flatMap((task) =>
-    task.interrupts.flatMap((each) => (each.id === undefined ? [] : [each.id])),
-  );
 
 /** How a pass left the child: resting at a pause, or ended with its last state. */
 interface StreamedPass {
@@ -220,12 +215,13 @@ export async function runQueuedChild(
         `${row.workflow} (of ${row.rootWorkflow}) is not a workflow of this application`,
       );
     const rootDeps = leasedDeps(root.deps, lease);
-    const childDeps = leasedGraphDeps(rawChildDeps, lease);
     const run = await decodedRun(parts.serde, row.run);
+    // under its chain's policies, by the names its launch carries (#1150): an unknown one throws
+    const chained = parts.registry.chainedDepsOf(rawChildDeps, run.piiPolicies);
+    const childDeps = leasedGraphDeps(chained, lease);
     claimed = { deps: childDeps, row, run };
-    // its steps store what they store masked by the child workflow's own policies (#505)
-    const { pii, fingerprintKeys } = rawChildDeps;
-    const site = { signal, lease, pii, fingerprintKeys };
+    // its steps store what they store masked by the child's chain of policies (#505, #1150)
+    const site = { signal, lease, pii: chained.pii, fingerprintKeys: chained.fingerprintKeys };
     const context = runContextOf(run, row, parts.registry, rootDeps, site);
     const { rests, last } = await streamed(childDeps, rootDeps, row, run, context);
     if (rests) return { end: { status: ExecutionRecordStatus.Paused } };
