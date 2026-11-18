@@ -1,4 +1,4 @@
-import { chunk, sseEvents, type SseScript } from "./sse-server.js";
+import { RawEvent, chunk, sseEvents, type SseScript } from "./sse-server.js";
 
 /**
  * #1231: the shapes in which real providers send a streamed answer's usage. A provider reports it
@@ -164,3 +164,30 @@ export const plainToolCallWithUsage = (
   ],
   usage,
 });
+
+/**
+ * One event whose JSON is cut over two `data:` lines, just before `before` (the SSE spec joins the
+ * lines of an event with a newline: the payload is the same JSON; #1329), ended with `end`.
+ */
+export const splitEvent = (event: unknown, before: string, end = "\n\n"): RawEvent => {
+  const json = JSON.stringify(event);
+  const at = json.indexOf(`,"${before}"`) + 1;
+  return new RawEvent(`data: ${json.slice(0, at)}\ndata: ${json.slice(at)}${end}`);
+};
+
+/** OpenRouter's stream whose last chunk (the finish choice with the usage) is cut over two `data:` lines (#1329). */
+export function streamWithSplitUsage(
+  tokens: readonly string[],
+  usage: WireUsage = WIRE_USAGE,
+): SseScript {
+  return {
+    steps: [
+      sseEvents(chunk({ role: "assistant", content: "" }, HOST)),
+      ...tokens.map((token) => sseEvents(chunk({ content: token }, HOST))),
+      sseEvents(
+        splitEvent(withUsage(finish({ role: "assistant", content: "" }), usage), "usage"),
+        "[DONE]",
+      ),
+    ],
+  };
+}

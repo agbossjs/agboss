@@ -6,24 +6,37 @@
  */
 
 import { SERVED_BY_FIELD } from "../finops/served-by.js";
-import { rewrittenLines } from "./event-stream-lines.js";
+import { rewrittenEvents, type Replacement } from "./event-stream-lines.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** A completion with its host in its `usage`; anything else as it is. `named` — the host an earlier chunk named. */
-function withHost(completion: unknown, named?: string): unknown {
-  if (!isRecord(completion)) return completion;
-  const { provider, usage } = completion;
-  const host = typeof provider === "string" ? provider : named;
-  if (host === undefined || !isRecord(usage)) return completion;
-  return { ...completion, usage: { ...usage, [SERVED_BY_FIELD]: host } };
+// Stryker disable BlockStatement: an empty catch returns `undefined` too — the same answer
+/** `text` parsed, or `undefined` when it is no JSON (a `[DONE]`, a server's own line: says no host). */
+function parsed(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
+// Stryker restore BlockStatement
 
-/** The host a streamed chunk names, if it does. */
+/** The host a completion or a streamed chunk names, if it does. */
 function hostOf(chunk: unknown): string | undefined {
   const provider = isRecord(chunk) ? chunk.provider : undefined;
   return typeof provider === "string" && provider !== "" ? provider : undefined;
+}
+
+/**
+ * A completion with its host in its `usage` — the very value when it names none and no earlier chunk
+ * did (`named`), or has no `usage` to carry it; anything that is no completion as it is.
+ */
+function withHost(completion: unknown, named?: string): unknown {
+  if (!isRecord(completion) || !isRecord(completion.usage)) return completion;
+  const host = hostOf(completion) ?? named;
+  if (host === undefined) return completion;
+  return { ...completion, usage: { ...completion.usage, [SERVED_BY_FIELD]: host } };
 }
 
 /** What a streamed answer remembers of its chunks: the last host any of them named (#1005). */
@@ -31,43 +44,39 @@ interface StreamMemory {
   host?: string;
 }
 
-/** One `data: {…}` line of a streamed answer with the host in its usage (the usage chunk may name none). */
-function streamedLine(line: string, memory: StreamMemory): string {
-  if (!line.startsWith("data:")) return line;
-  const payload = line.slice("data:".length).trim();
-  if (payload === "" || payload === "[DONE]") return line;
-  try {
-    const chunk: unknown = JSON.parse(payload);
-    memory.host = hostOf(chunk) ?? memory.host;
-    return `data: ${JSON.stringify(withHost(chunk, memory.host))}`;
-  } catch {
-    return line;
-  }
+/** One streamed event with the host in its usage (the usage chunk may name none); none to add → as it came. */
+function streamedEvent(payload: string, memory: StreamMemory): Replacement | undefined {
+  const chunk = parsed(payload);
+  memory.host = hostOf(chunk) ?? memory.host;
+  const named = withHost(chunk, memory.host);
+  return named === chunk ? undefined : [JSON.stringify(named)];
 }
 
-/** A streamed body with the host in each usage, line by line. */
+/** A streamed body with the host in each usage, event by event. */
 function streamedBody(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
   const memory: StreamMemory = {};
-  return rewrittenLines(body, { line: (line) => streamedLine(line, memory), end: () => "" });
+  return rewrittenEvents(body, {
+    data: (payload) => streamedEvent(payload, memory),
+    end: () => [],
+  });
 }
 
 /** The answer with its host copied into its usage; an error or a body that is no completion untouched. */
 async function servedResponse(response: Response): Promise<Response> {
-  if (!response.ok || response.body === null) return response;
-  const type = response.headers.get("content-type") ?? "";
+  const type = response.headers.get("content-type");
+  if (!response.ok || response.body === null || type === null) return response;
+  const isStream = type.includes("text/event-stream");
+  if (!isStream && !type.includes("json")) return response;
   // the body is read and rewritten: its length and encoding headers no longer describe it
   const headers = new Headers(response.headers);
   headers.delete("content-length");
   headers.delete("content-encoding");
   const init = { status: response.status, statusText: response.statusText, headers };
-  if (type.includes("text/event-stream")) return new Response(streamedBody(response.body), init);
-  if (!type.includes("json")) return response;
+  if (isStream) return new Response(streamedBody(response.body), init);
   const text = await response.text();
-  try {
-    return new Response(JSON.stringify(withHost(JSON.parse(text))), init);
-  } catch {
-    return new Response(text, init);
-  }
+  const completion = parsed(text);
+  const named = withHost(completion);
+  return new Response(named === completion ? text : JSON.stringify(named), init);
 }
 
 /** A client whose completions carry the host that served them in their `usage`. */

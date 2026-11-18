@@ -13,6 +13,7 @@ export default defineConfig({
     include: [
       "tests/stream/**/*.test.ts",
       "tests/models/streaming/*.test.ts",
+      "tests/models/openrouter-routing.test.ts",
       "tests/a2a/server/{a2a-sse-*,a2a-subscriber-queue*,a2a-artifact-view*,a2a-local-runs*,a2a-stream*}.test.ts",
     ],
   },

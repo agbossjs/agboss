@@ -150,6 +150,133 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
     expect(text).toContain("data: [DONE]");
   });
 
+  it("a streamed chunk cut over two data lines (#1329): the host is copied into its usage as for one line", async () => {
+    const chunks =
+      'data: {"provider": "Fireworks",\r\ndata: "choices": [], "usage": {"cost": 0.002}}\r\n\r\n' +
+      "data: [DONE]\r\n\r\n";
+    const response = await servedByFetch(answered(chunks, "text/event-stream"))("http://x");
+
+    expect(await response.text()).toBe(
+      'data: {"provider":"Fireworks","choices":[],"usage":{"cost":0.002,"agboss_served_by":"Fireworks"}}\n\n' +
+        "data: [DONE]\r\n\r\n",
+    );
+  });
+
+  it("a last streamed event cut mid-JSON with no blank line names no host: it passes as it came", async () => {
+    const cut = 'data: {"provider": "Fireworks",\ndata: "choices": [], "usage": {"cost": 0.0';
+    const response = await servedByFetch(answered(cut, "text/event-stream"))("http://x");
+
+    expect(await response.text()).toBe(cut);
+  });
+
+  it("a last streamed event whole but for its blank line carries the host", async () => {
+    const whole = 'data: {"provider": "Fireworks",\ndata: "choices": [], "usage": {"cost": 0.002}}';
+    const response = await servedByFetch(answered(whole, "text/event-stream"))("http://x");
+
+    expect(await response.text()).toBe(
+      'data: {"provider":"Fireworks","choices":[],"usage":{"cost":0.002,"agboss_served_by":"Fireworks"}}',
+    );
+  });
+
+  /** The answer of `body` as `type` through the fetch: its response and its text. */
+  const served = async (body: string | null, type: string | null, init: ResponseInit = {}) => {
+    const headers = new Headers(init.headers);
+    if (type !== null) headers.set("content-type", type);
+    // bytes, not a string: a string body gives the response a `text/plain` type of its own
+    const bytes = body === null ? null : new TextEncoder().encode(body);
+    const send: ProviderFetch = () => Promise.resolve(new Response(bytes, { ...init, headers }));
+    const response = await servedByFetch(send)("http://x");
+    return { response, text: await response.text() };
+  };
+
+  describe("#1329: what names no host, or has no usage to carry it, is the bytes it came as", () => {
+    const withUsage = '{"provider": "Fireworks", "usage": {"cost": 1}}';
+    it.each([
+      ["a completion with a host and no usage", '{"provider": "Fireworks", "choices": []}'],
+      ["a completion with a usage and no host", '{"choices": [], "usage": {"cost": 1}}'],
+      ["a usage that is no object", '{"provider": "Fireworks", "usage": null}'],
+      ["a host that is no text", '{"provider": 5, "usage": {"cost": 1}}'],
+      ["an empty host", '{"provider": "", "usage": {"cost": 1}}'],
+      ["a null", "null"],
+      ["a list", '[{"provider": "Fireworks", "usage": {}}]'],
+      ["a text", '"Fireworks"'],
+      ["no JSON", '{"provider": "Fireworks", "usage": '],
+    ])("%s, as a JSON answer and as a streamed event", async (_name, body) => {
+      const plain = await served(body, "application/json");
+      const streamed = await served(`data: ${body}\n\n`, "text/event-stream");
+
+      expect(plain.text).toBe(body);
+      expect(streamed.text).toBe(`data: ${body}\n\n`);
+    });
+
+    it("a streamed [DONE], an empty event and a comment pass as they came", async () => {
+      const body = ": hi\n\ndata:\n\ndata: [DONE]\n\n";
+
+      expect((await served(body, "text/event-stream")).text).toBe(body);
+    });
+
+    it("an empty host on a chunk keeps the host an earlier chunk named", async () => {
+      const { text } = await served(
+        'data: {"provider": "Fireworks", "choices": []}\n\ndata: {"provider": "", "usage": {"cost": 1}}\n\n',
+        "text/event-stream",
+      );
+
+      expect(text).toContain('"usage":{"cost":1,"agboss_served_by":"Fireworks"}');
+    });
+
+    it("a host that is no text names none: an earlier chunk's stays", async () => {
+      const { text } = await served(
+        'data: {"provider": "Fireworks"}\n\ndata: {"provider": 5, "usage": {"cost": 1}}\n\n',
+        "text/event-stream",
+      );
+
+      expect(text).toContain('"agboss_served_by":"Fireworks"');
+    });
+
+    it("a streamed payload with blanks around it is read", async () => {
+      const { text } = await served(`data:   ${withUsage}  \n\n`, "text/event-stream");
+
+      expect(text).toContain('"agboss_served_by":"Fireworks"');
+    });
+  });
+
+  describe("#1329: which answers are read at all", () => {
+    const body = '{"provider": "Fireworks", "usage": {"cost": 1}}';
+
+    it("an error, an answer of no type and an answer that is no JSON nor events are as they came", async () => {
+      const headers = { "content-length": String(body.length) };
+      const error = await served(body, "application/json", { status: 500, headers });
+      const untyped = await served(body, null, { headers });
+      const text = await served(body, "text/plain", { headers });
+
+      for (const answer of [error, untyped, text]) {
+        expect(answer.text).toBe(body);
+        expect(answer.response.headers.get("content-length")).toBe(String(body.length));
+      }
+    });
+
+    it("an answer without a body is as it came", async () => {
+      const { response } = await served(null, "application/json", { status: 204 });
+
+      expect(response.body).toBeNull();
+      expect(response.status).toBe(204);
+    });
+
+    it("a JSON answer that is read has no length nor encoding of the old body, keeps its status", async () => {
+      const { response, text } = await served(body, "application/json", {
+        status: 200,
+        statusText: "Fine",
+        headers: { "content-length": "9", "content-encoding": "gzip", "x-id": "r" },
+      });
+
+      expect(text).toContain('"agboss_served_by":"Fireworks"');
+      expect(response.headers.get("content-length")).toBeNull();
+      expect(response.headers.get("content-encoding")).toBeNull();
+      expect(response.headers.get("x-id")).toBe("r");
+      expect(response.statusText).toBe("Fine");
+    });
+  });
+
   it("an answer that names no host, or an error, is left as it is", async () => {
     const plain = await servedByFetch(answered(completion("ok", 0.001).body, "application/json"))(
       "http://x",

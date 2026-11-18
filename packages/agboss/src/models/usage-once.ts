@@ -1,4 +1,4 @@
-import { withRewrittenEvents, type LineRewrite } from "./event-stream-lines.js";
+import { withRewrittenEvents, type EventRewrite, type Replacement } from "./event-stream-lines.js";
 
 /**
  * #1231: a streamed answer's usage, once — taken where the chat client reads the wire.
@@ -34,27 +34,33 @@ function parsed(payload: string): unknown {
 // Stryker restore BlockStatement
 
 /** The rewrite of one streamed body: the last usage held back, given once. */
-function usageOnce(): LineRewrite {
+function usageOnce(): EventRewrite {
   let held: Record<string, unknown> | undefined;
-  const release = (): string => {
-    if (held === undefined) return "";
-    const event = `data: ${JSON.stringify(held)}\n\n`;
+  const release = (): string | undefined => {
+    // Stryker disable next-line ConditionalExpression: `JSON.stringify(undefined)` is `undefined` too
+    if (held === undefined) return undefined;
+    const event = JSON.stringify(held);
     held = undefined;
     return event;
   };
   return {
-    line(line) {
-      if (!line.startsWith("data:")) return line;
-      const payload = line.slice("data:".length).trim();
-      if (payload === DONE) return `${release()}${line}`;
-      const chunk = parsed(payload);
-      if (!isRecord(chunk) || !("usage" in chunk)) return line;
+    data(payload): Replacement | undefined {
+      const text = payload.trim();
+      if (text === DONE) {
+        const usage = release();
+        return usage === undefined ? undefined : [usage, payload];
+      }
+      const chunk = parsed(text);
+      if (!isRecord(chunk) || !("usage" in chunk)) return undefined;
       const { usage, ...rest } = chunk;
       // the last report is the call's (a provider may send a running one on earlier chunks)
       if (isRecord(usage)) held = { ...rest, choices: [], usage };
-      return `data: ${JSON.stringify(rest)}`;
+      return [JSON.stringify(rest)];
     },
-    end: release,
+    end() {
+      const usage = release();
+      return usage === undefined ? [] : [usage];
+    },
   };
 }
 

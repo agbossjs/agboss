@@ -112,8 +112,15 @@ const body = (request: IncomingMessage): Promise<Record<string, unknown>> =>
     });
   });
 
+/** An event written as these exact bytes (a provider that cuts one JSON over several `data:` lines, #1329). */
+export class RawEvent {
+  constructor(readonly text: string) {}
+}
+
 const frame = (event: unknown): string =>
-  `data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`;
+  event instanceof RawEvent
+    ? event.text
+    : `data: ${typeof event === "string" ? event : JSON.stringify(event)}\n\n`;
 
 async function comment(
   step: Extract<SseStep, { kind: "comments" }>,
