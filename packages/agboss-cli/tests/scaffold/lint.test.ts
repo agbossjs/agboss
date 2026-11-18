@@ -4,6 +4,12 @@
  * component with `this.x = …` outside its constructor, direct time in it and a flow chain with two
  * calls on one line fail it, each with the rule named. Generated inside the monorepo (its installed
  * dependencies); a real `npm install` is the manual check.
+ *
+ * #1330: typescript-eslint 8.73 added `no-unsafe-class-instance-assignment` to `strictTypeChecked`,
+ * which flags an object literal where a DTO class is the parameter type: the documented call shape,
+ * so the config turns it off. The test lints that shape with the typescript-eslint the monorepo has
+ * installed; on one older than 8.73 it cannot go red (the rule is absent), which the PR's scratch
+ * run with 8.73.0 covers.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -109,5 +115,32 @@ describe("#388: agboss create ships a working ESLint config", () => {
     rmSync(join(project, path));
 
     expect(lint.ok, lint.out).toBe(true);
+  }, 60_000);
+
+  it("#1330: an object literal where a DTO class is the parameter type, and an AppEnvironment literal, lint clean", () => {
+    const path = "src/literal-for-class.ts";
+    write(
+      path,
+      [
+        "export class Start {",
+        "  text!: string;",
+        "}",
+        "",
+        "export function execute(dto: Start): string {",
+        "  return dto.text;",
+        "}",
+        "",
+        'export const text: string = execute({ text: "hi" });',
+        "",
+      ].join("\n"),
+    );
+
+    const lint = lintOf(project);
+    rmSync(join(project, path));
+
+    expect(lint.ok, lint.out).toBe(true);
+    expect(read("eslint.config.js")).toContain(
+      '"@typescript-eslint/no-unsafe-class-instance-assignment": "off"',
+    );
   }, 60_000);
 });
