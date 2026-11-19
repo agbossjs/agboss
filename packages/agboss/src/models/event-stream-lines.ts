@@ -16,6 +16,18 @@ export interface EventRewrite {
   end(): readonly string[];
 }
 
+/** The most one event may hold before its blank line (its raw text, in bytes): past it the body is no stream to buffer. */
+export const MAX_EVENT_BYTES = 16 * 1024 * 1024;
+
+/** A body's event grew past `MAX_EVENT_BYTES` without ending: failed, the body's text is not in its message. */
+export class EventTooLargeError extends Error {
+  override name = "EventTooLargeError";
+
+  constructor() {
+    super(`a streamed event is larger than ${String(MAX_EVENT_BYTES)} bytes`);
+  }
+}
+
 /** A line with the terminator that ends it. */
 const LINE = /[^\r\n]*(?:\r\n|\n|\r)/y;
 
@@ -45,11 +57,22 @@ export class EventReader {
   #pending = "";
   #raw = "";
   #lines: string[] = [];
+  /** The bytes of the event being read: its lines read and the text that waits. */
+  #held = 0;
 
-  /** The events `text` completed (each ended by its blank line). */
+  /**
+   * The events `text` completed (each ended by its blank line).
+   * @throws EventTooLargeError when the event being read holds more than `MAX_EVENT_BYTES`.
+   */
   push(text: string): ParsedEvent[] {
     this.#pending += text;
-    return this.#read(false);
+    this.#held += Buffer.byteLength(text);
+    const events = this.#read(false);
+    // an event ended: what is held is only what follows it, small, counted anew
+    if (events.length > 0)
+      this.#held = Buffer.byteLength(this.#raw) + Buffer.byteLength(this.#pending);
+    if (this.#held > MAX_EVENT_BYTES) throw new EventTooLargeError();
+    return events;
   }
 
   /** What the body's end completes: the last line, whose end may be a `\r` that waited; its event, cut when it has no blank line. */

@@ -75,7 +75,8 @@ function signalsOfEvent(event: unknown): StreamSignal[] {
 
 /** The signals of one `data:` payload. */
 function signalsOfData(payload: string): StreamSignal[] {
-  if (payload === "[DONE]") return [END];
+  // as the OpenAI client reads it: a payload that starts with it, never a trimmed one
+  if (payload.startsWith("[DONE]")) return [END];
   try {
     return signalsOfEvent(JSON.parse(payload));
   } catch {
@@ -106,7 +107,7 @@ export class EventScanner {
     this.#progressed = this.#progressOf(text);
     return this.#events
       .push(text)
-      .flatMap((event) => (event.data === undefined ? [] : signalsOfData(event.data.trim())));
+      .flatMap((event) => (event.data === undefined ? [] : signalsOfData(event.data)));
   }
 
   /**
@@ -115,7 +116,7 @@ export class EventScanner {
    */
   finish(): StreamSignal[] {
     const event = this.#events.finish();
-    return event?.data === undefined ? [] : signalsOfData(event.data.trim());
+    return event?.data === undefined ? [] : signalsOfData(event.data);
   }
 
   #progressOf(text: string): boolean {

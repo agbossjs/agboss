@@ -98,9 +98,10 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
   for (let hop = 0; ; hop += 1) {
     const response = await responseOf(fetch, url, signal);
     if (REDIRECTS.has(response.status)) {
-      response.cancel();
-      if (hop === MAX_REDIRECTS || response.location === undefined)
-        throw refused("a2a.file-fetch-failed", "the file's url redirects too often");
+      const stops = hop === MAX_REDIRECTS || response.location === undefined;
+      // a hop that goes on is no failure of the fetch; one that stops it ends the span as an error (#1021)
+      response.cancel(stops ? "a2a.file-fetch-failed" : undefined);
+      if (stops) throw refused("a2a.file-fetch-failed", "the file's url redirects too often");
       // a Location no URL can be made of (with or without this one as its base) is a url that is none
       const next = URL.canParse(response.location, url.href)
         ? new URL(response.location, url).href
@@ -110,7 +111,7 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
     }
     // only a 200 is the file: a 206 is part of one (no `Range` is ever sent), a 204 or a 201 has none
     if (response.status !== 200) {
-      response.cancel();
+      response.cancel(String(response.status)); // the span ends as an error: the file was refused (#1021)
       throw refused("a2a.file-fetch-failed", "the file could not be fetched");
     }
     return boundedBodyOf(response, fetch.maxBytes);

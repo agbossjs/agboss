@@ -48,6 +48,17 @@ describe("#1138 the response head", () => {
     expect(responseHeadOf("HTTP/1.1 200").framing).toEqual({ kind: "close" });
   });
 
+  it("R2b a 200 with a Content-Range is malformed (a part of a file); a 206 or a 404 with one is judged by its status, not here", () => {
+    expect(() =>
+      responseHeadOf("HTTP/1.1 200 OK\r\nContent-Range: bytes 0-4/9\r\nContent-Length: 5"),
+    ).toThrow(/Content-Range/);
+    expect(
+      responseHeadOf("HTTP/1.1 206 Partial\r\nContent-Range: bytes 0-4/9\r\nContent-Length: 5")
+        .status,
+    ).toBe(206);
+    expect(responseHeadOf("HTTP/1.1 200 OK\r\nContent-Length: 5").status).toBe(200);
+  });
+
   it("R3 Transfer-Encoding: a lone chunked is a chunked body; any other, or one beside a length, is refused (the review of #1241)", () => {
     expect(responseHeadOf("HTTP/1.1 200 OK\r\nTransfer-Encoding: Chunked").framing).toEqual({
       kind: "chunked",

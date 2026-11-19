@@ -89,4 +89,11 @@ describe("#1312 the status of a file", () => {
       FAILED,
     );
   });
+
+  it("T6 a 200 that carries a Content-Range is a part of a file, refused, none of its words in the refusal", async () => {
+    const outcome = await fetchedAfter(
+      "HTTP/1.1 200 OK\r\nContent-Range: bytes 0-10/SECRET-100\r\nContent-Length: 11\r\n\r\nSECRET-BODY",
+    );
+    expect(outcome).toEqual(FAILED);
+  });
 });

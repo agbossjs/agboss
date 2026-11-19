@@ -167,7 +167,8 @@ describe("#1244 redirects", () => {
       refusal("a2a.file-fetch-failed", "the file's url redirects too often"),
     );
     expect(four.asked).toHaveLength(4);
-    expect(four.cancels).toEqual([undefined, undefined, undefined, undefined]);
+    // the hops that go on are no failure; the one that stops the fetch ends its span as an error (#1021)
+    expect(four.cancels).toEqual([undefined, undefined, undefined, "a2a.file-fetch-failed"]);
   });
 
   it("D3 a redirect with no Location is `redirects too often`", async () => {
@@ -175,7 +176,7 @@ describe("#1244 redirects", () => {
     await expect(fetched(transport)).rejects.toMatchObject(
       refusal("a2a.file-fetch-failed", "the file's url redirects too often"),
     );
-    expect(cancels).toEqual([undefined]);
+    expect(cancels).toEqual(["a2a.file-fetch-failed"]);
   });
 
   it("D4 a target on another origin, another scheme, with a user, or no url at all is refused as a redirect", async () => {
@@ -227,7 +228,8 @@ describe("#1244 the status", () => {
       await expect(fetched(transport), String(status)).rejects.toMatchObject(
         refusal("a2a.file-fetch-failed", "the file could not be fetched"),
       );
-      expect(cancels, String(status)).toEqual([undefined]);
+      // the read is cancelled with the status: that ends the fetch's span as an error (#1021)
+      expect(cancels, String(status)).toEqual([String(status)]);
     }
   });
 });

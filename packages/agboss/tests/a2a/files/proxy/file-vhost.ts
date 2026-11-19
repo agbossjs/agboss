@@ -2,10 +2,12 @@
 // HTTP request it receives and every TCP connection made to it. A child process trusts it through
 // `NODE_EXTRA_CA_CERTS` (`trust`). Paths (#1139): `/big` sends 100 KB, `/slow` a status line then
 // one body byte per 100 ms, `/cut` a status line and part of the body, then a reset,
-// `/redirect?to=<url>` a 302 to that url, `/garbage` a head no HTTP parser takes (#1138); any
+// `/partial` a 206 and `/empty` a 204 (#1021: a refused status), `/ranged` a 200 that carries a
+// `Content-Range`, `/redirect?to=<url>` a 302 to that url, `/garbage` a head no HTTP parser takes (#1138); any
 // other path a small PDF.
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import type { ServerResponse } from "node:http";
 import { createServer, type Server } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +28,23 @@ export interface Vhost {
 }
 
 const REDIRECT = "/redirect?to=";
+/** A path's whole answer: its status, its `Content-Range` and its body (#1021). */
+const ANSWERS: Record<string, readonly [number, string | undefined, string]> = {
+  "/partial": [206, "bytes 0-4/100", "%PDF-"],
+  "/empty": [204, undefined, ""],
+  "/ranged": [200, "bytes 0-14/100", "%PDF-1.4 a file"],
+};
+
+/** Whether `url` has a whole answer of its own (`ANSWERS`): given. */
+function answeredAlone(url: string | undefined, response: ServerResponse): boolean {
+  const answer = url === undefined ? undefined : ANSWERS[url];
+  if (answer === undefined) return false;
+  const [status, range, body] = answer;
+  response.statusCode = status;
+  if (range !== undefined) response.setHeader("content-range", range);
+  response.end(body);
+  return true;
+}
 
 export async function startVhost(host: string): Promise<Vhost> {
   const directory = await mkdtemp(join(tmpdir(), "agboss-vhost-"));
@@ -46,8 +65,9 @@ export async function startVhost(host: string): Promise<Vhost> {
   server.on("request", (request, response) => {
     requests.push(request.url ?? "");
     headers.push({ ...request.headers });
-    response.statusCode = 200;
     response.setHeader("content-type", "application/pdf");
+    if (answeredAlone(request.url, response)) return;
+    response.statusCode = 200;
     if (request.url === "/big") response.end(Buffer.alloc(100 * 1024, 0x41));
     else if (request.url === "/slow") {
       response.flushHeaders();
