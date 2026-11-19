@@ -126,6 +126,8 @@ export function responseHeadOf(text: string): ResponseHead {
   const headers = headersOf(lines);
   const code = Number(status);
   if (code >= 200 && code < 300) checkNotEncoded(headers);
+  // a 200 is the whole file: a `Content-Range` says a part of one (a cache that mislabelled it)
+  if (code === 200 && headers.has("content-range")) throw malformedError("Content-Range");
   return { status: code, location: locationOf(headers), framing: framingOf(code, headers) };
 }
 

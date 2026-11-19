@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventScanner } from "../../../src/models/calls/event-stream.js";
+import { EventTooLargeError, MAX_EVENT_BYTES } from "../../../src/models/event-stream-lines.js";
 import { ModelFailure } from "../../../src/models/model-failure.js";
 
 const encoder = new TextEncoder();
@@ -15,6 +16,16 @@ describe("#1005: the scanner reads what a provider's events say", () => {
     const scanner = new EventScanner();
     return parts.flatMap((part) => scanner.push(encoder.encode(part)));
   };
+
+  it("a payload is what follows `data:` less one space, as the client reads it: [DONE] is where it starts", () => {
+    expect(signalsOf("data:[DONE]\n\n")).toEqual([{ kind: "end" }]);
+    expect(signalsOf("data: [DONE] \n\n")).toEqual([{ kind: "end" }]);
+    expect(signalsOf("data:  [DONE]\n\n")).toEqual([]);
+  });
+
+  it("an event of the scanner past its bound fails, as the guard reads it", () => {
+    expect(() => signalsOf(`data: ${"x".repeat(MAX_EVENT_BYTES)}`)).toThrow(EventTooLargeError);
+  });
 
   it("content, a finish and [DONE]; a role chunk, a usage chunk and a comment say nothing", () => {
     expect(

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EventReader, rewrittenEvents } from "../../../src/models/event-stream-lines.js";
+import {
+  EventReader,
+  EventTooLargeError,
+  MAX_EVENT_BYTES,
+  rewrittenEvents,
+} from "../../../src/models/event-stream-lines.js";
 
 /**
  * #1329: an event of a server-sent-events body is its lines up to a blank line, and its `data:`
@@ -199,5 +204,71 @@ describe("#1329: a body rewritten by event", () => {
 
       expect(out).toBe("data: AB\ndata: CD\n\n");
     }
+  });
+});
+
+describe("the bytes buffered for one event are bounded", () => {
+  const line = `data: ${"x".repeat(1019)}\n`; // 1,026 bytes
+
+  it("an event up to MAX_EVENT_BYTES is read; one byte more fails with the typed error, no text in it", () => {
+    const fits = new EventReader();
+    // exactly MAX_EVENT_BYTES: `data: ` (6), the value, and its line end (1)
+    expect(fits.push(`data: ${"a".repeat(MAX_EVENT_BYTES - 7)}\n`)).toEqual([]);
+    expect(fits.push("\n")[0]?.ended).toBe(true);
+
+    const over = new EventReader();
+    expect(over.push(`data: ${"SECRET".repeat(100)}\n`)).toEqual([]);
+    let failure: unknown;
+    try {
+      for (let held = 0; held <= MAX_EVENT_BYTES; held += line.length) over.push(line);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(EventTooLargeError);
+    expect((failure as Error).name).toBe("EventTooLargeError");
+    expect((failure as Error).message).toBe(
+      `a streamed event is larger than ${String(MAX_EVENT_BYTES)} bytes`,
+    );
+    expect((failure as Error).message).not.toContain("SECRET");
+  });
+
+  it("one line with no end counts too, and bytes count, not characters", () => {
+    expect(() => new EventReader().push("data: " + "é".repeat(MAX_EVENT_BYTES / 2))).toThrow(
+      EventTooLargeError,
+    );
+    expect(() => new EventReader().push("data: " + "a".repeat(MAX_EVENT_BYTES))).toThrow(
+      EventTooLargeError,
+    );
+  });
+
+  it("events that end are not held: a body of many events is no more than its biggest", () => {
+    const reader = new EventReader();
+    const one = `data: ${"y".repeat(1_000_000)}\n\n`;
+    for (let at = 0; at < 40; at += 1) expect(reader.push(one)).toHaveLength(1);
+    // what follows an event's blank line in the same text counts for the next event
+    expect(reader.push(`${one}data: ${"z".repeat(MAX_EVENT_BYTES - 100)}`)).toHaveLength(1);
+  });
+
+  it("what waits after an event that ended in the same text counts for the next one", () => {
+    const reader = new EventReader();
+
+    expect(() => reader.push(`data: a\n\ndata: ${"x".repeat(MAX_EVENT_BYTES)}`)).toThrow(
+      EventTooLargeError,
+    );
+  });
+
+  it("one byte past the bound fails where the bound itself is read", () => {
+    expect(() => new EventReader().push(`data: ${"a".repeat(MAX_EVENT_BYTES - 6)}`)).not.toThrow();
+    expect(() => new EventReader().push(`data: ${"a".repeat(MAX_EVENT_BYTES - 5)}`)).toThrow(
+      EventTooLargeError,
+    );
+  });
+
+  it("a rewritten body fails with the typed error, as the stream's own", async () => {
+    const body = streamOf(`data: ${"q".repeat(MAX_EVENT_BYTES + 1)}`);
+
+    await expect(
+      textOf(rewrittenEvents(body, { data: () => undefined, end: () => [] })),
+    ).rejects.toBeInstanceOf(EventTooLargeError);
   });
 });

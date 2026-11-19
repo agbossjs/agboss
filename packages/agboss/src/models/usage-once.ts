@@ -45,12 +45,12 @@ function usageOnce(): EventRewrite {
   };
   return {
     data(payload): Replacement | undefined {
-      const text = payload.trim();
-      if (text === DONE) {
+      // as the OpenAI client reads it: the payload starts with it (no trimming, so ` [DONE]` is none)
+      if (payload.startsWith(DONE)) {
         const usage = release();
         return usage === undefined ? undefined : [usage, payload];
       }
-      const chunk = parsed(text);
+      const chunk = parsed(payload);
       if (!isRecord(chunk) || !("usage" in chunk)) return undefined;
       const { usage, ...rest } = chunk;
       // the last report is the call's (a provider may send a running one on earlier chunks)

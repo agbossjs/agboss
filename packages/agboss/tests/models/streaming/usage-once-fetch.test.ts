@@ -364,16 +364,16 @@ describe("#1329: several events in one chunk, blanks around [DONE]", () => {
     );
   });
 
-  it("a [DONE] with blanks around it is a [DONE]", async () => {
+  it("a [DONE] with blanks after it is a [DONE], as the client reads it", async () => {
     const { text } = await bodyOf([
       data({ id: "g", choices: [choice("", "stop")], usage: USAGE }),
-      "data:  [DONE]  \n\n",
+      "data: [DONE]  \n\n",
     ]);
 
     expect(text).toBe(
       data({ id: "g", choices: [choice("", "stop")] }) +
         data({ id: "g", choices: [], usage: USAGE }) +
-        "data:  [DONE]  \n\n",
+        "data: [DONE]  \n\n",
     );
   });
 });
@@ -398,5 +398,15 @@ describe("#1329: a character cut at the body's very end", () => {
     const { text } = await bodyOf([bytes.slice(0, bytes.length - 1)]);
 
     expect(text).toBe("data: �");
+  });
+
+  it("[DONE] is the payload as it is: with a second space before it, it is no [DONE] and the usage waits for the end", async () => {
+    const { text } = await bodyOf([
+      data({ id: "c1", choices: [choice("a")], usage: USAGE }),
+      "data:  [DONE]\n\n",
+    ]);
+
+    // the line is passed as it came; the usage is given after it, at the body's end
+    expect(text.indexOf("data:  [DONE]")).toBeLessThan(text.indexOf('"usage"'));
   });
 });

@@ -148,3 +148,26 @@ describe("#1139: a fetch that fails after a 2xx status line ends its span with a
     30_000,
   );
 });
+
+describe("#1021: a fetch the status refuses ends its span with an error", () => {
+  it.each([
+    ["a 206, a part of a file", "/partial", 206, "206"],
+    ["a 204, no file", "/empty", 204, "204"],
+    ["a 200 that carries a Content-Range", "/ranged", undefined, undefined],
+  ])(
+    "AC2 %s: refused, one CLIENT span that ends ERROR",
+    async (_, path, status, type) => {
+      const fetched = await fetchedUnder(path, "span");
+
+      expect(fetched.outcome).toBe("a2a.file-fetch-failed");
+      expect(fetched.spans).toHaveLength(1);
+      const [span] = fetched.spans;
+      expect(span?.attributes["http.response.status_code"]).toBe(status);
+      expect(span?.status).toBe(ERROR);
+      if (type !== undefined) expect(span?.attributes["error.type"]).toBe(type);
+      else expect(span?.attributes["error.type"]).toBeDefined();
+      expect(fetched.lingering).toBe(false);
+    },
+    30_000,
+  );
+});
