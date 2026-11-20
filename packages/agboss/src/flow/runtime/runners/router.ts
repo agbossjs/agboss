@@ -110,7 +110,7 @@ function shownRequest(
  * Spend counted at the call, like an agent's (#1090): in the ledger and marked before it reaches
  * the state, so no checkpoint write holds spend the ledger lacks, and an exhausted budget stops here.
  */
-const counterOf =
+export const counterOf =
   (budgets: BudgetMeter, spent: readonly UsageRecord[], path: readonly string[]) =>
   (records: readonly UsageRecord[]): readonly UsageRecord[] => {
     const kept = budgets.tally(records, path);

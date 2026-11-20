@@ -155,7 +155,7 @@ export function reportMadeAtOf(
 }
 
 /** The charge under the call's own ledger identity, when it has one (#810). */
-const withLedgerKey = (
+export const withLedgerKey = (
   spent: UsageRecord,
   identity: RunReportIdentity | undefined,
   report: MeshRunReport | undefined,
@@ -174,7 +174,7 @@ const withLedgerKey = (
  * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less
  * what the call was charged already (#809: an A2A call charges its price when it is accepted).
  */
-function chargeOf(
+export function chargeOf(
   report: MeshRunReport | undefined,
   contract: ContractPrice | undefined,
   alreadyCharged: number,

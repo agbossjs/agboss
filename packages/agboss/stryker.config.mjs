@@ -240,21 +240,17 @@ export const SHARDS = {
   // #1069: the store-call bound (#928) — no call waits for ever on a store —, its outcome
   // classification, the per-step iterator bound and the command-timeout count, SQLite's own
   // classification of an unknown outcome (#1017), the lease's abandon and scope
-  "store-bound": {
-    configFile: "vitest.mutation-store-bound.config.ts",
-    mutate: [
-      "src/app/store-call-{bound,kind,outcome}.ts",
-      "src/infrastructure/sqlite/sqlite-{outcome,write-sql}.ts",
-      "src/app/lease-abandon.ts",
-      "src/app/lease-scope.ts",
-    ],
-  },
+  "store-bound": ranges.storeBoundShard(),
   // #1244: the A2A file fetch (SSRF guard, own connection, HTTP/1.1 parser: #1138), the files' options and scrub
   "a2a-files": ranges.a2aFilesShard(),
   // #1269: the files for models (#899) — views, the redacted copy and its cache, the redactor's values and
   // regions, answer and tool files, the start rules — and the PII key hierarchy: tokens, the policy set's
   // hash, the redaction and mask cache keys
   "files-pii": ranges.filesPiiShard(),
+  // the money, fence and cancel rules the completeness test of #1356 found in no shard (#1356)
+  "money-runtime": ranges.moneyRuntimeShard(),
+  "cancel-stores": ranges.cancelStoresShard(),
+  "mesh-charge": ranges.meshChargeShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";
