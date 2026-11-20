@@ -2,6 +2,7 @@ import { z } from "zod";
 import { PauseClosedReason } from "../pause-record.js";
 import type { StoredMailbox } from "../pause-mailboxes.js";
 import { PauseNoticeKind } from "../pause-notices.js";
+import { definedOf } from "../clock.js";
 import { parsedStoredJson } from "../stored-step.js";
 
 /** The `pause_notices` table (#935) and how its rows read: validated on the way out. */
@@ -49,8 +50,18 @@ export function toMailbox(row: unknown): StoredMailbox {
     isDead: r.is_dead === 1,
     ...(r.head_written_at === null ? {} : { headWrittenAt: r.head_written_at }),
     ...(r.problem === null ? {} : { problem: r.problem }),
-    ...(r.claim_token === null || r.claimed_until === null
+    ...(r.claim_token === null
       ? {}
-      : { claim: { token: r.claim_token, until: new Date(r.claimed_until) } }),
+      : {
+          claim: {
+            token: r.claim_token,
+            until: new Date(
+              definedOf(
+                r.claimed_until ?? undefined,
+                "a mailbox claimed under a token is claimed until a time",
+              ),
+            ),
+          },
+        }),
   };
 }

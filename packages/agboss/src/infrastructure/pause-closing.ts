@@ -4,6 +4,7 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "./pause-record.js";
+import { NEVER } from "./pause-scans.js";
 
 /**
  * Why and when a pause closed (#935, #910): the reasons an error and a notice say, derived from the
@@ -49,9 +50,7 @@ export function closedReasonOf(pause: PauseRecord): PauseClosedReason {
  */
 export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedReason | undefined {
   if (pause.status !== PauseStatus.Pending) return closedReasonOf(pause);
-  return pause.expiresAt !== undefined && pause.expiresAt <= now.toISOString()
-    ? PauseClosedReason.Expired
-    : undefined;
+  return (pause.expiresAt ?? NEVER) <= now.toISOString() ? PauseClosedReason.Expired : undefined;
 }
 
 /**

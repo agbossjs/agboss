@@ -60,16 +60,19 @@ function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | 
   if (kind === PauseNoticeKind.Extended && hookOverridden(sender, "onPauseExtended"))
     return (sources) => {
       const event = channelExtendedOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseExtended?.(event) ?? Promise.resolve());
     };
   if (kind === PauseNoticeKind.Expiring && hookOverridden(sender, "onPauseExpiring"))
     return (sources) => {
       const event = channelExpiringOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseExpiring?.(event) ?? Promise.resolve());
     };
   if (kind === PauseNoticeKind.JoinFailed && hookOverridden(sender, "onPauseJoinFailed"))
     return (sources) => {
       const event = channelJoinFailedOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseJoinFailed?.(event) ?? Promise.resolve());
     };
   return undefined;
@@ -79,11 +82,13 @@ function channelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undef
   if (kind === PauseNoticeKind.Closed && hookOverridden(sender, "onPauseClosed"))
     return async (sources) => {
       const event = await channelClosedOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return () => sender.onPauseClosed?.(event) ?? Promise.resolve();
     };
   if (kind === PauseNoticeKind.AnswerNotTaken && hookOverridden(sender, "onPauseAnswerNotTaken"))
     return async (sources) => {
       const event = await channelNotTakenOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return () => sender.onPauseAnswerNotTaken?.(event) ?? Promise.resolve();
     };
   return laterChannelHook(sender, kind);
@@ -95,16 +100,19 @@ function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): H
   if (kind === PauseNoticeKind.Extended && handler.onPauseExtended !== undefined)
     return async (sources) => {
       const event = await listenerExtendedOf(sources, allowAnswering);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseExtended?.(event) ?? Promise.resolve();
     };
   if (kind === PauseNoticeKind.Expiring && handler.onPauseExpiring !== undefined)
     return async (sources) => {
       const event = await listenerExpiringOf(sources, allowAnswering);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseExpiring?.(event) ?? Promise.resolve();
     };
   if (kind === PauseNoticeKind.JoinFailed && handler.onPauseJoinFailed !== undefined)
     return async (sources) => {
       const event = await listenerJoinFailedOf(sources, allowAnswering);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseJoinFailed?.(event) ?? Promise.resolve();
     };
   return undefined;
@@ -125,6 +133,7 @@ function listenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): Hook |
   if (kind === PauseNoticeKind.AnswerNotTaken && handler.onPauseAnswerNotTaken !== undefined)
     return async (sources) => {
       const event = await listenerNotTakenOf(sources, allowAnswering);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseAnswerNotTaken?.(event) ?? Promise.resolve();
     };
   return laterListenerHook(listener, kind);

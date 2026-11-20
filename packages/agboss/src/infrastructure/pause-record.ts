@@ -329,10 +329,14 @@ export const cancelledPause = (
 });
 
 /** Whether a resolved record's retention is over: `Taken` or `Cancelled`, resolved before `cutoff`. */
-export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean =>
-  (pause.status === PauseStatus.Taken || pause.status === PauseStatus.Cancelled) &&
-  pause.resolvedAt !== undefined &&
-  pause.resolvedAt < cutoff.toISOString();
+export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean => {
+  const before = cutoff.toISOString();
+  // a record with no time of its own is no older than the cutoff
+  return (
+    (pause.status === PauseStatus.Taken || pause.status === PauseStatus.Cancelled) &&
+    (pause.resolvedAt ?? before) < before
+  );
+};
 
 /** Writes how a pause was resolved into its tree's execution records (the log loads on first use). */
 export const logPauseAnswer = async (

@@ -26,6 +26,8 @@ const CLAIM_FOR: Milliseconds = seconds(60);
 const RENEW_EVERY: Milliseconds = waitOf(CLAIM_FOR / 3);
 /** The bound of one renewal: below `RENEW_EVERY`, so the next tick finds it settled. */
 const RENEW_BOUND: Milliseconds = seconds(5);
+// Stryker disable next-line StringLiteral: a renewal that timed out is swallowed and tried again: nothing reads what it said
+const RENEWAL_TIMED_OUT = new Error("a claim renewal timed out");
 /** The longest pause between two attempts. */
 const MAX_BACKOFF: Milliseconds = seconds(300);
 
@@ -43,6 +45,7 @@ export interface DeliveryParts extends ReceiveParts {
 
 /** A pause the delivery cannot read (removed, or of no workflow of this instance). */
 class PauseUnreadableError extends Error {
+  // Stryker disable next-line StringLiteral: only the class is read (`problemOf`), the error never leaves the delivery
   override name = "PauseUnreadableError";
 }
 
@@ -61,6 +64,7 @@ export const backoffAfter = (attempts: number): Milliseconds =>
 /** The delivery of one instance. */
 export class PauseNoticeDelivery {
   #looking: Promise<void> | undefined;
+  // Stryker disable next-line BooleanLiteral: every look starts by clearing it, so what it starts as is never read
   #again = false;
 
   constructor(private readonly parts: DeliveryParts) {}
@@ -152,7 +156,8 @@ export class PauseNoticeDelivery {
     for (;;) {
       await clock.sleep(RENEW_EVERY, stop);
       if (stop.aborted) return;
-      const timer = timeoutOn(clock, RENEW_BOUND, () => new Error("a claim renewal timed out"));
+      // Stryker disable next-line ArrowFunction: a renewal that timed out is swallowed and tried again: nothing reads its reason
+      const timer = timeoutOn(clock, RENEW_BOUND, () => RENEWAL_TIMED_OUT);
       const bound = new Promise<never>((_resolve, reject) => {
         timer.signal.addEventListener("abort", () => {
           reject(timer.signal.reason as Error);
@@ -189,16 +194,23 @@ export class PauseNoticeDelivery {
   /** Tells the receiver the head notice of the claim. */
   async #head(claim: PauseNoticeClaim): Promise<void> {
     const { mailbox } = claim;
-    const notice = mailbox.notices.at(mailbox.delivered);
-    if (notice === undefined) return;
-    const pause = await this.parts.pauses.findByTenantIdAndPauseId(
-      mailbox.tenantId,
-      mailbox.pauseId,
-    );
-    const deps = pause === undefined ? undefined : await this.parts.rootOf(pause);
-    if (pause === undefined || deps === undefined)
-      throw new PauseUnreadableError(`pause ${mailbox.pauseId} is not readable here`);
-    await receive(this.parts, deps, { recipient: mailbox.recipient, pause, notice });
+    // the head: the first notice no receiver acknowledged — none when everything is delivered
+    for (const notice of mailbox.notices.slice(mailbox.delivered, mailbox.delivered + 1)) {
+      const pause = await this.parts.pauses.findByTenantIdAndPauseId(
+        mailbox.tenantId,
+        mailbox.pauseId,
+      );
+      const readable =
+        pause === undefined ? undefined : { pause, deps: await this.parts.rootOf(pause) };
+      if (readable?.deps === undefined)
+        // Stryker disable next-line StringLiteral: the message is never read: a failure is coded, never told (`problemOf`)
+        throw new PauseUnreadableError(`pause ${mailbox.pauseId} is not readable here`);
+      await receive(this.parts, readable.deps, {
+        recipient: mailbox.recipient,
+        pause: readable.pause,
+        notice,
+      });
+    }
   }
 
   /** A failed attempt: retried after a growing pause, or set aside when the head is too old. */

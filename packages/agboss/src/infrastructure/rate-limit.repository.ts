@@ -103,6 +103,7 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
   /** The key's slots whose lease has not expired. */
   #validSlots(key: string): readonly RateLimitLease[] {
     const now = this.clock.now();
+    // Stryker disable next-line ArrayDeclaration: a stray string in the list has no expiry, so the filter drops it
     return (this.database.rateLimitSlots.get(key) ?? []).filter((slot) => slot.expiresAt > now);
   }
 
@@ -145,9 +146,10 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
     limit?: number,
   ): Promise<number | undefined> {
     const now = this.clock.now().getTime();
+    // Stryker disable next-line ArrayDeclaration: a stray string in the list has no time, so the window drops it
     const kept = insideWindow(this.database.rateLimitWindows.get(key) ?? [], now, window);
     const total = totalOf(kept) + amount;
-    if (limit !== undefined && total > limit) {
+    if (total > (limit ?? Number.POSITIVE_INFINITY)) {
       this.database.rateLimitWindows.set(key, kept);
       return Promise.resolve(undefined);
     }
@@ -168,6 +170,9 @@ export class InMemoryRateLimitRepository extends RateLimitRepository {
 
   pausedUntil(key: string): Promise<Date | undefined> {
     const stored = this.database.rateLimitPauses.get(key);
-    return Promise.resolve(stored !== undefined && stored > this.clock.now() ? stored : undefined);
+    // a key that was never paused has no end: `NaN`, which is after no moment
+    return Promise.resolve(
+      Number(stored?.getTime()) > this.clock.now().getTime() ? stored : undefined,
+    );
   }
 }
