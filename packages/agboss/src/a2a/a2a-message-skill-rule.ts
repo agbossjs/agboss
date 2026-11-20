@@ -132,8 +132,9 @@ function effectProblem(cls: Class): SkillProblem | undefined {
 function nodeProblems(node: Class): SkillProblem[] {
   const declared = declarationOf(node);
   const name = declared?.options.name ?? node.name;
+  const agentTools = declared?.kind === NodeKind.Agent ? declared.options.tools : undefined;
   // Stryker disable next-line ArrayDeclaration: a text in place of no tools is no tool, no problem
-  const tools = declared?.kind === NodeKind.Agent ? (declared.options.tools ?? []) : [];
+  const tools = agentTools ?? [];
   return [
     ...[kindProblem(node, name)].flatMap((problem) => problem ?? []),
     ...tools.flatMap((tool) => toolProblems(name, tool)),

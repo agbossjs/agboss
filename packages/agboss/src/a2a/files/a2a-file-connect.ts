@@ -67,14 +67,10 @@ const abortedError = (): Error => new Error("the file fetch was aborted");
 function racedWith<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) reject(abortedError());
-    signal.addEventListener(
-      "abort",
-      () => {
-        reject(abortedError());
-      },
-      // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and `reject` settles the promise once
-      { once: true },
-    );
+    // an abort fires once, and `reject` settles the promise once
+    signal.addEventListener("abort", () => {
+      reject(abortedError());
+    });
     promise.then(resolve, reject);
   });
 }
@@ -108,8 +104,8 @@ export function rawSocketTo(
     const onAbort = (): void => {
       socket.destroy(abortedError());
     };
-    // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and a destroyed socket is destroyed again harmlessly
-    signal.addEventListener("abort", onAbort, { once: true });
+    // an abort fires once, and a destroyed socket is destroyed again harmlessly
+    signal.addEventListener("abort", onAbort);
     const onError = (error: Error): void => {
       signal.removeEventListener("abort", onAbort);
       reject(error);

@@ -78,8 +78,8 @@ export class SystemClock extends Clock {
         timer = setTimeout(wait, Math.min(left, MAX_TIMER_DELAY));
         timer.unref();
       };
-      // Stryker disable next-line ObjectLiteral,BooleanLiteral: an abort event fires once, and `done` removes the listener itself either way
-      signal?.addEventListener("abort", done, { once: true });
+      // an abort event fires once, and `done` removes the listener itself either way
+      signal?.addEventListener("abort", done);
       wait();
     });
   }

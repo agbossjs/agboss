@@ -4,7 +4,7 @@ import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import type { DtoClass } from "../../dto/types.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
-import { fileFieldsOf } from "./a2a-file.dto.js";
+import { fileFieldsOf, inputClassOf } from "./a2a-file.dto.js";
 import { fileLimitsOf, type A2AFileOptions } from "./a2a-file-options.js";
 
 /**
@@ -39,9 +39,8 @@ function startSizeOf(
 ): number {
   const declaration = declarationOf(start);
   if (declaration?.kind !== NodeKind.Start) return 0;
-  const { input } = declaration.options;
-  // Stryker disable next-line ConditionalExpression: equivalent: `fileFieldsOf` of what is no class holds no field
-  const takes = typeof input === "function" && fileFieldsOf(input).length > 0;
+  const input = inputClassOf(declaration.options.input);
+  const takes = input !== undefined && fileFieldsOf(input).length > 0;
   const gives = [...finishDtosOf(start, workflows).values()].some(
     (dto) => fileFieldsOf(dto).length > 0,
   );

@@ -101,8 +101,9 @@ export class HeldLease extends ReportingLease implements HeldExecutionLease {
     this.#fence = new LeaseFence(this.clock, start, this.#lost, tree.rootExecutionId);
     this.#holder = new FencedHolders(this.scopeKey, this.fenced.bind(this));
     this.#holder.hold(initial.token);
-    // Stryker disable next-line CallExpression,StringLiteral,ObjectLiteral,BooleanLiteral: the abort event fires once and its holder is forgotten at the release as well; a fenced write of a lost holder's token only aborts what is aborted already
-    this.#lost.signal.addEventListener("abort", this.#holder.forget, { once: true });
+    // the abort event fires once (`forget` is the same either way)
+    // Stryker disable next-line StringLiteral: its holder is forgotten at the release as well; a fenced write of a lost holder's token only aborts what is aborted already
+    this.#lost.signal.addEventListener("abort", this.#holder.forget);
     const working = AbortSignal.any([this.#stopped.signal, this.#lost.signal]);
     taking.heldLeases?.hold(working);
     void renewInBackground(this.clock, working, () => this.renew());

@@ -59,12 +59,17 @@ const bodyOf = (response: Response): Promise<unknown> =>
     .json()
     .catch(() => undefined);
 
+/** A request's body as text: itself when it is a string, nothing for bytes, a form or a stream. */
+export const bodyTextOf = (body: unknown): string | undefined =>
+  typeof body === "string" ? body : undefined;
+
 /** Whether a request is a JSON-RPC one (its body names `jsonrpc`), else an HTTP+JSON one. */
 function isJsonRpcRequest(init: RequestInit | undefined): boolean {
-  // Stryker disable next-line ConditionalExpression,StringLiteral: JSON.parse refuses a body that is no text too — the guard types it
-  if (typeof init?.body !== "string") return false;
+  const text = bodyTextOf(init?.body);
   try {
-    const body: unknown = JSON.parse(init.body);
+    // a body that is no text (bytes, a form, a stream) is no JSON-RPC
+    // Stryker disable next-line StringLiteral: no text is no JSON, as is any text that is none
+    const body: unknown = JSON.parse(text ?? "");
     return isRecord(body) && "jsonrpc" in body;
   } catch {
     return false; // no JSON body (the card, an HTTP+JSON GET): not JSON-RPC

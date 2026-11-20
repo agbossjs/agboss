@@ -63,7 +63,9 @@ function headersOf(lines: readonly string[]): Map<string, string[]> {
     const match = HEADER_LINE.exec(line);
     if (match === null) throw malformedError("a header line");
     // Stryker disable next-line StringLiteral: equivalent: both groups take part in every match, the defaults never apply
-    const [, name = "", value = ""] = match;
+    const name = match[1] ?? "";
+    // Stryker disable next-line StringLiteral: equivalent: both groups take part in every match, the defaults never apply
+    const value = match[2] ?? "";
     const key = name.toLowerCase();
     headers.set(key, [...(headers.get(key) ?? []), value]);
   }
@@ -119,8 +121,9 @@ function checkNotEncoded(headers: ReadonlyMap<string, readonly string[]>): void 
 /** The head of a response: its text (latin1) up to, not including, the blank line that ends it. */
 export function responseHeadOf(text: string): ResponseHead {
   if (text.includes("\0")) throw malformedError("a NUL in the head");
+  const [first, ...lines] = text.split("\r\n");
   // Stryker disable next-line StringLiteral: equivalent: `split` yields one element at least
-  const [statusLine = "", ...lines] = text.split("\r\n");
+  const statusLine = first ?? "";
   const status = STATUS_LINE.exec(statusLine)?.[1];
   if (status === undefined) throw malformedError("the status line");
   const headers = headersOf(lines);

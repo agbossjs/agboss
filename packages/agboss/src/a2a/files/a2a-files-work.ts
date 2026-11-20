@@ -82,8 +82,14 @@ async function bytesOf(
       throw new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.ByReference });
     case A2AFileSource.Inline:
       return new Uint8Array(
-        // Stryker disable next-line StringLiteral: equivalent: the text of an invariant that holds is never read
-        Buffer.from(definedOf(file.inline, "an inline file has its bytes"), "base64"),
+        Buffer.from(
+          definedOf(
+            file.inline,
+            // Stryker disable next-line StringLiteral: equivalent: the text of an invariant that holds is never read
+            "an inline file has its bytes",
+          ),
+          "base64",
+        ),
       );
     case A2AFileSource.Stored: {
       const key = {
