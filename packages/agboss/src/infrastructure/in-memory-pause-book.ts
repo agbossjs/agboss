@@ -4,6 +4,7 @@ import {
   appendedMailbox,
   claimedMailbox,
   hasNoticeOf,
+  isClaimedAt,
   isDueAt,
   isHeldBy,
   isLive,
@@ -16,6 +17,7 @@ import {
   setAsideMailbox,
   type PlannedNotice,
   type StoredMailbox,
+  type WrittenMailbox,
 } from "./pause-mailboxes.js";
 import type {
   PauseNoticeClaim,
@@ -66,8 +68,9 @@ export class InMemoryPauseBook {
   ): PauseRecord | undefined {
     const key = JSON.stringify([tenantId, pauseId]);
     const stored = this.#pauses.get(key);
-    const change = stored === undefined ? undefined : plan(stored.pause);
-    if (stored === undefined || change === undefined) return undefined;
+    if (stored === undefined) return undefined;
+    const change = plan(stored.pause);
+    if (change === undefined) return undefined;
     this.#pauses.set(key, { ...stored, pause: change.pause });
     this.#append(change.pause, change.notices);
     if (change.inserted !== undefined) this.insert(change.inserted);
@@ -154,8 +157,7 @@ export class InMemoryPauseBook {
 
   ack(claim: PauseNoticeClaim, at: Date): PauseNoticeClaim | undefined {
     const held = this.#held(claim);
-    const until = held?.[1].claim?.until;
-    if (held === undefined || until === undefined || until <= at) return undefined;
+    if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const acknowledged = acknowledgedMailbox(held[1], at);
     this.#mailboxes.set(held[0], acknowledged);
     return acknowledged.claim === undefined
@@ -165,15 +167,10 @@ export class InMemoryPauseBook {
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
     const held = this.#held(claim);
-    const until = held?.[1].claim?.until;
-    if (held === undefined || until === undefined || until <= at) return undefined;
+    if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const renewed = renewedMailbox(held[1], new Date(at.getTime() + claimFor));
     this.#mailboxes.set(held[0], renewed);
-    return {
-      mailbox: mailboxOf(renewed),
-      token: claim.token,
-      until: renewed.claim?.until ?? until,
-    };
+    return { mailbox: mailboxOf(renewed), token: claim.token, until: renewed.claim.until };
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {
@@ -196,8 +193,8 @@ export class InMemoryPauseBook {
     limit: number,
   ): readonly SetAsideMailbox[] {
     const stale = [...this.#mailboxes.values()]
-      .filter((box) => isStaleAt(box, writtenBefore, at))
-      .sort((a, b) => compareText(a.headWrittenAt ?? "", b.headWrittenAt ?? ""))
+      .filter((box): box is WrittenMailbox => isStaleAt(box, writtenBefore, at))
+      .sort((a, b) => compareText(a.headWrittenAt, b.headWrittenAt))
       .slice(0, limit);
     for (const box of stale)
       this.#mailboxes.set(

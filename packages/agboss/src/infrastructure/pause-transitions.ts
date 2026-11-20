@@ -21,6 +21,7 @@ import {
   PauseClosedReason,
   PauseExpiryBound,
 } from "./pause-record.js";
+import { NEVER } from "./pause-scans.js";
 
 /**
  * Every transition of a pause as a pure function (#935, #910 rules 1–8): the record a change makes
@@ -73,14 +74,11 @@ export const closing = (
 
 /** Whether a pending pause takes an answer at `at`: no deadline, or one after it (I2). */
 export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
-  pause.status === PauseStatus.Pending &&
-  (pause.expiresAt === undefined || pause.expiresAt > at.toISOString());
+  pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) > at.toISOString();
 
 /** Whether a pending pause's deadline is at or before `at`. */
 const isDueAt = (pause: PauseRecord, at: Date): boolean =>
-  pause.status === PauseStatus.Pending &&
-  pause.expiresAt !== undefined &&
-  pause.expiresAt <= at.toISOString();
+  pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
 
 /** `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2). */
 export function resolveChange(
@@ -162,10 +160,13 @@ export function extendChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseChange | undefined {
-  const now = at.toISOString();
-  if (!isOpenAt(pause, at) || pause.expiresAt === undefined || extension.expiresAt <= now)
-    return undefined;
-  if (pause.expiresAt !== extension.previousExpiresAt || extension.expiresAt <= pause.expiresAt)
+  if (!isOpenAt(pause, at)) return undefined;
+  // from the deadline the caller read — a pause with none has no deadline to move —, to a later one: an
+  // open pause's deadline is after `at`, so a later one is never a past time (I3)
+  if (
+    pause.expiresAt !== extension.previousExpiresAt ||
+    extension.expiresAt <= extension.previousExpiresAt
+  )
     return undefined;
   return {
     pause: {
@@ -176,7 +177,7 @@ export function extendChange(
     },
     notices: noticesOf(recipients, PauseNoticeKind.Extended, at, {
       expiresAt: extension.expiresAt,
-      previousExpiresAt: pause.expiresAt,
+      previousExpiresAt: extension.previousExpiresAt,
     }),
   };
 }
@@ -197,7 +198,7 @@ export function remindChange(
 
 /** The instant of a record's time text; a record stored before `askedAt` (empty) is the epoch. */
 function instantOf(text: string | undefined): Date {
-  const instant = new Date(text ?? "");
+  const instant = new Date(text ?? 0);
   return Number.isNaN(instant.getTime()) ? new Date(0) : instant;
 }
 

@@ -138,3 +138,64 @@ export function fencedReachShard() {
     ],
   };
 }
+
+/**
+ * The `pauses` shard (#1356) of `stryker.config.mjs`: the built-in in-memory pause store (#265, #267, #941, #946,
+ * #1099): its transitions and their closers, the mailboxes of notices and their order, the scans, the
+ * reassignment and the record's kind.
+ */
+export function pausesShard() {
+  return {
+    configFile: "vitest.mutation-pauses.config.ts",
+    mutate: [
+      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-transitions}.ts",
+      "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
+    ],
+  };
+}
+
+/**
+ * The `pauses-sqlite` shard (#1356) of `stryker.config.mjs`: the built-in SQLite pause store: its schema and
+ * migrations, the row statements of each transition, the notices' rows, the scans and the reassignment.
+ */
+export function pausesSqliteShard() {
+  return {
+    configFile: "vitest.mutation-pauses-sqlite.config.ts",
+    mutate: ["src/infrastructure/sqlite/sqlite-pause-*.ts"],
+  };
+}
+
+/**
+ * The `pause-notices` shard (#1356) of `stryker.config.mjs`: the delivery of a pause's notices to its channel
+ * (#940): the claim and its renewal, the retry and the set-aside, the receiving side and the call.
+ */
+export function pauseNoticesShard() {
+  return {
+    configFile: "vitest.mutation-pause-notices.config.ts",
+    mutate: ["src/app/pause-notice-*.ts"],
+  };
+}
+
+/**
+ * The `rate-limits` shard (#1356) of `stryker.config.mjs`: the built-in rate limit stores — the slots a
+ * provider's calls hold across instances, the windows and the pauses after a 429 — and the policy they apply.
+ */
+export function rateLimitsShard() {
+  return {
+    configFile: "vitest.mutation-rate-limits.config.ts",
+    mutate: [
+      "src/infrastructure/rate-limit.repository.ts",
+      "src/infrastructure/sqlite/sqlite-rate-limit.repository.ts",
+      "src/models/policies/rate-limit-policy.ts",
+    ],
+  };
+}
+
+/** The `a2a-files` shard (#1244) of `stryker.config.mjs`: the A2A file fetch, the files' options and scrub (moved here, #1356). */
+export function a2aFilesShard() {
+  return {
+    configFile: "vitest.mutation-a2a-files.config.ts",
+    // the slots (#1256) are the a2a-server shard's
+    mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
+  };
+}

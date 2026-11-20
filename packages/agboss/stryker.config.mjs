@@ -141,6 +141,11 @@ export const SHARDS = {
   cancel: ranges.cancelShard(),
   // the fenced effects a component injects, the fence a step reads, the components that reach a fencing service (#1356)
   "fenced-reach": ranges.fencedReachShard(),
+  // the built-in pause stores, their notices and the rate limits (#1356)
+  pauses: ranges.pausesShard(),
+  "pauses-sqlite": ranges.pausesSqliteShard(),
+  "pause-notices": ranges.pauseNoticesShard(),
+  "rate-limits": ranges.rateLimitsShard(),
   // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
   // status by compare-and-set, sticky terminal states, pages, the sweep), the reserved execution id,
   // the cancel of one tree and its durable state, the task projection and its read repair
@@ -245,11 +250,7 @@ export const SHARDS = {
     ],
   },
   // #1244: the A2A file fetch (SSRF guard, own connection, HTTP/1.1 parser: #1138), the files' options and scrub
-  "a2a-files": {
-    configFile: "vitest.mutation-a2a-files.config.ts",
-    // the slots (#1256) are the a2a-server shard's
-    mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
-  },
+  "a2a-files": ranges.a2aFilesShard(),
   // #1269: the files for models (#899) — views, the redacted copy and its cache, the redactor's values and
   // regions, answer and tool files, the start rules — and the PII key hierarchy: tokens, the policy set's
   // hash, the redaction and mask cache keys

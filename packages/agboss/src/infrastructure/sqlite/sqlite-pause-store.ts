@@ -217,8 +217,9 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   ): PauseRecord | undefined {
     return this.connection.transaction(() => {
       const current = this.pauses.findById(tenantId, pauseId);
-      const change = current === undefined ? undefined : plan(current);
-      if (current === undefined || change === undefined) return undefined;
+      if (current === undefined) return undefined;
+      const change = plan(current);
+      if (change === undefined) return undefined;
       oneRowChanged(this.pauses.write(change.pause, current.status) ? 1 : 0);
       this.notices.append(change.pause, change.notices);
       return change.pause;

@@ -17,19 +17,14 @@ import {
   assertPauseFilter,
   compareText,
   assertScanLimit,
+  firstByTime,
   matchesFilter,
+  NEVER,
   pageOf,
   seqOfCursor,
   type SequencedPause,
+  type Timed,
 } from "./pause-scans.js";
-
-/** Pauses ordered by the time at `field`, then tenant and id: the deadline scans' order. */
-const byTimeOf =
-  (field: "expiresAt" | "remindAt" | "askedAt") =>
-  (a: PauseRecord, b: PauseRecord): number =>
-    compareText(a[field] ?? "", b[field] ?? "") ||
-    compareText(a.tenantId, b.tenantId) ||
-    compareText(a.pauseId, b.pauseId);
 
 /** Whether a pause at `time` comes after the keyset `after` in `(time, tenantId, pauseId)` order. */
 const isPast = (
@@ -72,14 +67,15 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
-    const due = this.pauses().filter(
-      (pause) =>
-        pause.status === PauseStatus.Pending &&
-        pause.expiresAt !== undefined &&
-        pause.expiresAt <= at.toISOString() &&
-        (after === undefined || isPast(after, pause.expiresAt, pause)),
-    );
-    return Promise.resolve(due.sort(byTimeOf("expiresAt")).slice(0, limit));
+    const due = this.pauses().flatMap((pause): Timed[] => {
+      const time = pause.expiresAt ?? NEVER;
+      return pause.status === PauseStatus.Pending &&
+        time <= at.toISOString() &&
+        (after === undefined || isPast(after, time, pause))
+        ? [{ time, pause }]
+        : [];
+    });
+    return Promise.resolve(firstByTime(due, limit));
   }
 
   async findPendingByRemindAtBefore(
@@ -88,14 +84,15 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
-    const due = this.pauses().filter(
-      (pause) =>
-        pause.status === PauseStatus.Pending &&
-        pause.remindAt !== undefined &&
-        pause.remindAt <= at.toISOString() &&
-        (after === undefined || isPast(after, pause.remindAt, pause)),
-    );
-    return Promise.resolve(due.sort(byTimeOf("remindAt")).slice(0, limit));
+    const due = this.pauses().flatMap((pause): Timed[] => {
+      const time = pause.remindAt ?? NEVER;
+      return pause.status === PauseStatus.Pending &&
+        time <= at.toISOString() &&
+        (after === undefined || isPast(after, time, pause))
+        ? [{ time, pause }]
+        : [];
+    });
+    return Promise.resolve(firstByTime(due, limit));
   }
 
   async findPendingUnsentReassignedBefore(
@@ -105,15 +102,16 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
   ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
     const before = cutoff.toISOString();
-    const unsent = this.pauses().filter(
-      (pause) =>
-        pause.status === PauseStatus.Pending &&
-        !pause.isSent &&
-        pause.reassignedFrom !== undefined &&
-        pause.askedAt < before &&
-        (after === undefined || isPast(after, pause.askedAt, pause)),
+    const unsent = this.pauses().flatMap((pause): Timed[] =>
+      pause.status === PauseStatus.Pending &&
+      !pause.isSent &&
+      pause.reassignedFrom !== undefined &&
+      pause.askedAt < before &&
+      (after === undefined || isPast(after, pause.askedAt, pause))
+        ? [{ time: pause.askedAt, pause }]
+        : [],
     );
-    return Promise.resolve(unsent.sort(byTimeOf("askedAt")).slice(0, limit));
+    return Promise.resolve(firstByTime(unsent, limit));
   }
 
   async findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {
@@ -144,9 +142,8 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     after?: string,
   ): Promise<PausePage> {
     assertScanLimit(limit);
-    return Promise.resolve(
-      this.#pageAfter(after, limit, ({ pause }) => this.#isRemovable(pause, cutoff)),
-    );
+    const isRemovable = this.#removableAt(cutoff);
+    return Promise.resolve(this.#pageAfter(after, limit, ({ pause }) => isRemovable(pause)));
   }
 
   deleteByResolvedAtBefore(cutoff: Date): Promise<void> {
@@ -204,18 +201,19 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
 
   /** What the retention removes: closed before `cutoff`, no live mailbox. */
   #removable(cutoff: Date): PauseRecord[] {
-    return this.pauses().filter((pause) => this.#isRemovable(pause, cutoff));
+    const isRemovable = this.#removableAt(cutoff);
+    return this.pauses().filter(isRemovable);
   }
 
-  /** Closed before `cutoff`, no live mailbox, and no replacement of it still stored (#946). */
-  #isRemovable(pause: PauseRecord, cutoff: Date): boolean {
-    const replacement =
-      pause.reassignedTo === undefined
-        ? undefined
-        : this.book.find(pause.tenantId, pause.reassignedTo);
-    return (
-      isExpiredPause(pause, cutoff) && !this.book.hasLiveMailbox(pause) && replacement === undefined
-    );
+  /** Whether a pause is closed before `cutoff`, with no live mailbox and no replacement of it still stored (#946). */
+  #removableAt(cutoff: Date): (pause: PauseRecord) => boolean {
+    const keyOf = (tenantId: string, pauseId: string | undefined): string =>
+      JSON.stringify([tenantId, pauseId]);
+    const stored = new Set(this.pauses().map((one) => keyOf(one.tenantId, one.pauseId)));
+    return (pause) =>
+      isExpiredPause(pause, cutoff) &&
+      !this.book.hasLiveMailbox(pause) &&
+      !stored.has(keyOf(pause.tenantId, pause.reassignedTo));
   }
 
   /** The first page, after the cursor, of the pauses `wanted` selects, in insertion order. */

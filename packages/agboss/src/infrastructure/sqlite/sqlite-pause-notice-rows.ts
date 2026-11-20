@@ -6,6 +6,7 @@ import {
   appendedMailbox,
   claimedMailbox,
   hasNoticeOf,
+  isClaimedAt,
   isHeldBy,
   isLive,
   mailboxOf,
@@ -132,8 +133,7 @@ export class SqlitePauseNoticeRows {
 
   ack(claim: PauseNoticeClaim, at: Date): PauseNoticeClaim | undefined {
     const held = this.held(claim);
-    const until = held?.claim?.until;
-    if (held === undefined || until === undefined || until <= at) return undefined;
+    if (held === undefined || !isClaimedAt(held, at)) return undefined;
     const acknowledged = acknowledgedMailbox(held, at);
     this.put(acknowledged);
     return acknowledged.claim === undefined
@@ -143,15 +143,10 @@ export class SqlitePauseNoticeRows {
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
     const held = this.held(claim);
-    const until = held?.claim?.until;
-    if (held === undefined || until === undefined || until <= at) return undefined;
+    if (held === undefined || !isClaimedAt(held, at)) return undefined;
     const renewed = renewedMailbox(held, new Date(at.getTime() + claimFor));
     this.put(renewed);
-    return {
-      mailbox: mailboxOf(renewed),
-      token: claim.token,
-      until: renewed.claim?.until ?? until,
-    };
+    return { mailbox: mailboxOf(renewed), token: claim.token, until: renewed.claim.until };
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {

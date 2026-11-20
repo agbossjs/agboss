@@ -44,8 +44,16 @@ export const hasUndelivered = (mailbox: PauseMailbox): boolean =>
 export const isLive = (mailbox: PauseMailbox): boolean =>
   !mailbox.isDead && hasUndelivered(mailbox);
 
+/** A mailbox with a claim on it. */
+export type ClaimedMailbox = StoredMailbox & {
+  readonly claim: { readonly token: string; readonly until: Date };
+};
+
+/** A mailbox whose head was written: what a stale look takes. */
+export type WrittenMailbox = StoredMailbox & { readonly headWrittenAt: string };
+
 /** Whether a claim is held at `at`. */
-const isClaimedAt = (mailbox: StoredMailbox, at: Date): boolean =>
+export const isClaimedAt = (mailbox: StoredMailbox, at: Date): mailbox is ClaimedMailbox =>
   mailbox.claim !== undefined && mailbox.claim.until > at;
 
 /** Whether `claimNoticesDue(at)` may claim it. */
@@ -53,11 +61,15 @@ export const isDueAt = (mailbox: StoredMailbox, at: Date): boolean =>
   isLive(mailbox) && mailbox.nextAttemptAt <= at && !isClaimedAt(mailbox, at);
 
 /** Whether `setAsideStaleNoticesBefore(writtenBefore, at)` takes it. */
-export const isStaleAt = (mailbox: StoredMailbox, writtenBefore: Date, at: Date): boolean =>
-  isLive(mailbox) &&
-  mailbox.headWrittenAt !== undefined &&
-  mailbox.headWrittenAt < writtenBefore.toISOString() &&
-  !isClaimedAt(mailbox, at);
+export const isStaleAt = (
+  mailbox: StoredMailbox,
+  writtenBefore: Date,
+  at: Date,
+): mailbox is WrittenMailbox => {
+  const cutoff = writtenBefore.toISOString();
+  // a mailbox with no head written is no older than the cutoff
+  return isLive(mailbox) && (mailbox.headWrittenAt ?? cutoff) < cutoff && !isClaimedAt(mailbox, at);
+};
 
 /**
  * `planned` appended to its mailbox (created when absent, due at once). The head (V3.1): an append
@@ -134,10 +146,13 @@ export function acknowledgedMailbox(mailbox: StoredMailbox, at: Date): StoredMai
 }
 
 /** The mailbox with its claim held until `until` at the latest (the claim only ever grows). */
-export const renewedMailbox = (mailbox: StoredMailbox, until: Date): StoredMailbox =>
-  mailbox.claim === undefined || mailbox.claim.until >= until
+export function renewedMailbox(mailbox: ClaimedMailbox, until: Date): ClaimedMailbox;
+export function renewedMailbox(mailbox: StoredMailbox, until: Date): StoredMailbox;
+export function renewedMailbox(mailbox: StoredMailbox, until: Date): StoredMailbox {
+  return mailbox.claim === undefined || mailbox.claim.until >= until
     ? mailbox
     : { ...mailbox, claim: { token: mailbox.claim.token, until } };
+}
 
 /** The mailbox after a failed attempt: one more, due at `nextAttemptAt`, the claim released. */
 export const retriedMailbox = (

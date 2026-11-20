@@ -93,6 +93,7 @@ export function migratePauses(connection: SqliteConnection): void {
   const columns = connection.columnsOf("pauses");
   migrateBeforeDeadlines(connection, columns);
   // the table is rebuilt or altered above: a file that had no `channel` column gets it
+  // Stryker disable next-line StringLiteral: a file with a channel column has the deadline columns too, and the check inside is the one that decides
   if (columns.length > 0 && !columns.includes("channel")) {
     if (!connection.columnsOf("pauses").includes("expires_at"))
       connection.database.exec(PAUSE_EXPIRY_MIGRATION);
@@ -159,7 +160,10 @@ export function preparePauseTables(connection: SqliteConnection): void {
     else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
     migratePauses(connection);
   });
+  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
   connection.ensureSchema("paused_executions", PAUSED_RUNS_SCHEMA);
+  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
   connection.ensureSchema("pauses", PAUSES_SCHEMA);
+  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
   connection.ensureSchema("pause_notices", NOTICES_SCHEMA);
 }

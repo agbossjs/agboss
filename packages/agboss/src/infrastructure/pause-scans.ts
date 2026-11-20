@@ -1,3 +1,4 @@
+import { definedOf } from "./clock.js";
 import type { PauseFilter, PausePage } from "./pause-notices.js";
 import type { PauseRecord } from "./pause-record.js";
 
@@ -7,6 +8,9 @@ import type { PauseRecord } from "./pause-record.js";
  * monotonic insertion sequence, never a position in a list, so a removal between two pages skips
  * nothing (V10.2).
  */
+
+/** A time text after every instant: the deadline of a pause that has none. */
+export const NEVER = "\uffff";
 
 /** The largest page a scan returns. */
 export const MAX_SCAN_LIMIT = 1000;
@@ -29,7 +33,7 @@ export const matchesFilter = (pause: PauseRecord, filter: PauseFilter): boolean 
   filter.statuses.includes(pause.status) &&
   (filter.channel === undefined || pause.channel === filter.channel) &&
   (filter.expiresBefore === undefined ||
-    (pause.expiresAt !== undefined && pause.expiresAt < filter.expiresBefore.toISOString()));
+    (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString());
 
 /** Text order by code unit — SQLite's binary collation — never the locale's. */
 export const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -52,12 +56,34 @@ export interface SequencedPause {
   readonly seq: number;
 }
 
+/** The cursor that continues after the last of a page that more follow. */
+const cursorAfter = (page: readonly SequencedPause[]): string =>
+  // Stryker disable next-line StringLiteral: a page that more follow is not empty (its limit is from 1), so the text is never thrown
+  cursorOfSeq(definedOf(page.at(-1), "a page that more follow is not empty").seq);
+
 /** The page of the first `limit` of `ordered`; `next` only when more follow. */
 export function pageOf(ordered: readonly SequencedPause[], limit: number): PausePage {
   const page = ordered.slice(0, limit);
-  const last = page.at(-1);
   return {
     pauses: page.map((one) => one.pause),
-    ...(ordered.length > limit && last !== undefined ? { next: cursorOfSeq(last.seq) } : {}),
+    ...(ordered.length > limit ? { next: cursorAfter(page) } : {}),
   };
 }
+
+/** A pause with the time a scan reads on it. */
+export interface Timed {
+  readonly time: string;
+  readonly pause: PauseRecord;
+}
+
+/** The first `limit` pauses by their time, then tenant and id: the deadline scans' order. */
+export const firstByTime = (timed: readonly Timed[], limit: number): PauseRecord[] =>
+  [...timed]
+    .sort(
+      (a, b) =>
+        compareText(a.time, b.time) ||
+        compareText(a.pause.tenantId, b.pause.tenantId) ||
+        compareText(a.pause.pauseId, b.pause.pauseId),
+    )
+    .slice(0, limit)
+    .map(({ pause }) => pause);

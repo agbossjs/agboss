@@ -42,7 +42,9 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
+    // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
     connection.ensureSchema("rate_limit_slots", SCHEMA);
+    // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
     connection.ensureSchema("rate_limit_windows", WINDOWS_SCHEMA);
   }
 
@@ -112,7 +114,7 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
           .get(key),
       );
       const next = (counted.total ?? 0) + amount;
-      if (limit !== undefined && next > limit) return undefined;
+      if (next > (limit ?? Number.POSITIVE_INFINITY)) return undefined;
       if (amount !== 0) {
         database
           .prepare("INSERT INTO rate_limit_window_entries VALUES (?, ?, ?)")
@@ -144,10 +146,9 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     const row = this.connection.database
       .prepare("SELECT paused_until FROM rate_limit_pauses WHERE pause_key = ?")
       .get(key);
-    const until = row === undefined ? undefined : Pause.parse(row).paused_until;
-    return Promise.resolve(
-      until !== undefined && until > this.clock.now().getTime() ? new Date(until) : undefined,
-    );
+    if (row === undefined) return Promise.resolve(undefined);
+    const until = Pause.parse(row).paused_until;
+    return Promise.resolve(until > this.clock.now().getTime() ? new Date(until) : undefined);
   }
 }
 
