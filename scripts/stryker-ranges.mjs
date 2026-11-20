@@ -108,3 +108,33 @@ export function spendShard() {
     ],
   };
 }
+
+/**
+ * The `cancel` shard (#1356) of `stryker.config.mjs`: the cancel of a thread and of a resting tree (its durable
+ * mark, a paused tree's undo and end, the sweep of a request that died half way, a request on another instance)
+ * and what a lease reports and releases when it is lost, released or taken over.
+ */
+export function cancelShard() {
+  return {
+    configFile: "vitest.mutation-takeover.config.ts",
+    mutate: [
+      "src/app/cancel-{marks,paused,requests,resting,thread}.ts",
+      "src/app/{lease-lost,lease-releases,lease-reporting}.ts",
+    ],
+  };
+}
+
+/**
+ * The `fenced-reach` shard (#1356) of `stryker.config.mjs`: the fenced effects a component injects (#890), the
+ * execution's fence a step reads and the components that reach a fencing service.
+ */
+export function fencedReachShard() {
+  return {
+    configFile: "vitest.mutation-fenced-reach.config.ts",
+    mutate: [
+      "src/app/fenced-effects.ts",
+      "src/flow/context/execution-fence.ts",
+      "src/components/container/fenced-reach.ts",
+    ],
+  };
+}

@@ -35,10 +35,6 @@ export async function isMarkedAlive(
   state: TreeState,
 ): Promise<boolean> {
   if (!(await isCancelMarked(parts.leases, treeOf(state)))) return false;
-  try {
-    const record = await rootRecordOf(parts.deps, state);
-    return record !== undefined && ALIVE.includes(record.status);
-  } catch {
-    return false;
-  }
+  const record = await rootRecordOf(parts.deps, state).catch(() => undefined);
+  return record !== undefined && ALIVE.includes(record.status);
 }

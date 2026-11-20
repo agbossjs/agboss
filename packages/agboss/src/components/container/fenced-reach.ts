@@ -53,7 +53,7 @@ export function tokenClassesOf(providers: readonly unknown[]): TokenClasses {
   return (token) => {
     const values = valued.get(token) ?? [];
     if (typeof token !== "function") return values;
-    const extending = listed.filter((cls) => cls !== token && cls.prototype instanceof token);
+    const extending = listed.filter((cls) => cls.prototype instanceof token);
     return [token, ...extending, ...values];
   };
 }

@@ -137,6 +137,10 @@ export const SHARDS = {
   },
   // spend (#1356): what a call or a service cost and which usage counts, the budget's rules and the run's budgets
   spend: ranges.spendShard(),
+  // cancel and lost leases (#1356): the cancel of a thread and of a resting tree, what a lease reports and releases
+  cancel: ranges.cancelShard(),
+  // the fenced effects a component injects, the fence a step reads, the components that reach a fencing service (#1356)
+  "fenced-reach": ranges.fencedReachShard(),
   // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
   // status by compare-and-set, sticky terminal states, pages, the sweep), the reserved execution id,
   // the cancel of one tree and its durable state, the task projection and its read repair

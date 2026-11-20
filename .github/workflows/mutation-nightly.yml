@@ -30,6 +30,8 @@ jobs:
             unwind,
             money,
             spend,
+            cancel,
+            fenced-reach,
             a2a-tasks,
             a2a-server,
             a2a-client,
