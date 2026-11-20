@@ -52,6 +52,7 @@ export function unrecordedOf<TRecord extends UsageRecord>(
 export async function drainRecordingUsage<TState extends HasUsage>(
   states: AsyncIterable<TState>,
   record: (records: readonly UsageRecord[]) => Promise<void>,
+  // Stryker disable next-line ArrayDeclaration: a default of one string reads as the key of a record with no field at all, which no usage record is
   alreadyRecorded: readonly UsageRecord[] = [],
 ): Promise<TState> {
   let last: TState | undefined;

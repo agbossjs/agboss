@@ -25,7 +25,7 @@ const shardsOfWorkflow = (workflow: string): string[] => {
  * object, or one a function of `stryker-ranges.mjs` builds (`ranges.filesPiiShard()`, #1269).
  */
 const shardsOfStryker = (config: string): string[] => {
-  const body = /const SHARDS = \{\n([\s\S]*?)\n\};\n/.exec(config)?.[1];
+  const body = /(?:export )?const SHARDS = \{\n([\s\S]*?)\n\};\n/.exec(config)?.[1];
   if (body === undefined) throw new Error("no `const SHARDS = { … };` in stryker.config.mjs");
   return [...body.matchAll(/^ {2}"?([\w-]+)"?: (?:\{|ranges\.\w+\(\),)$/gm)].map(
     (found) => found[1] ?? "",

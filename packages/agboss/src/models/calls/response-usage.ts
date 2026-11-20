@@ -35,6 +35,7 @@ export function releasedAtBodyEnd(
   }
   const reader: ReadableStreamDefaultReader<Uint8Array> = source.getReader();
   const decoder = new TextDecoder();
+  // Stryker disable next-line StringLiteral: a stray text before the body holds no usage field, so `tokensIn` reads the same
   let tail = "";
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {

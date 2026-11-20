@@ -9,7 +9,7 @@ import type { AppDeps } from "../app-deps.js";
 /** Spend already in the ledger when a paused child is continued (`pausedLoopsOf` + reply calls). */
 export async function resumedSpendOf(
   graph: ExecutionGraph,
-  rootDeps: AppDeps,
+  rootDeps: Pick<AppDeps, "pause">,
   row: QueuedChildExecution,
   thread: string,
   flowUsage: readonly UsageRecord[],

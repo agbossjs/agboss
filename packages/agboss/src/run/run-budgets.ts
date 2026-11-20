@@ -246,4 +246,6 @@ export function recorder(
 /** The workflow's graph to read an execution's checkpoint with (no pass moves on it). */
 export const readingGraphOf = <TName extends string>(
   deps: AgentExecutionDeps<TName>,
-): ExecutionGraph => executionGraphOf(deps, { budgets: unbudgeted().meter });
+): ExecutionGraph =>
+  // Stryker disable next-line ObjectLiteral: the graph only reads checkpoints, and no pass steps on it, so its meter is never read
+  executionGraphOf(deps, { budgets: unbudgeted().meter });
