@@ -30,6 +30,7 @@ export async function cancelledPaused(
   // a cancel of one execution (#807) holds that tree's lease and ends that run only — never
   // another run of its thread, paused before the look or since
   const tree = { ...thread, runId: runId ?? found.run.runId };
+  // Stryker disable next-line LogicalOperator: only the ids of this state are read before the end below, which reads the version of the run it finds again
   const startedVersion = found.run.startedVersion ?? deps.config.version;
   // the mark first (#909): from here on no effect of the tree but its undo's is accepted; and the
   // tree key (#1073), the one request an expiry's holder or a lease taken over reads

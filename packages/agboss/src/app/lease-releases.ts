@@ -18,6 +18,11 @@ export interface ReleaseWatch {
 const watchers = new Map<string, Set<AbortController>>();
 
 export const leaseReleases = {
+  /** How many trees a call watches now: a watch that is closed leaves none (for the tests). */
+  get watched(): number {
+    return watchers.size;
+  },
+
   /** Wakes every call watching the tree `key`. */
   notify(key: string): void {
     watchers.get(key)?.forEach((watcher) => {

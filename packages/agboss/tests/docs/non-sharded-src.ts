@@ -602,19 +602,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ]),
   ...reviewed("units of time and size", ["src/units/**"]),
   ...reviewed("the workflow's entry: exports", ["src/workflow.ts"]),
-  ...reviewed("takeover and cancel: sharded by #1356's second pull request", [
-    "src/app/cancel-marks.ts",
-    "src/app/cancel-paused.ts",
-    "src/app/cancel-requests.ts",
-    "src/app/cancel-resting.ts",
-    "src/app/cancel-thread.ts",
-    "src/app/fenced-effects.ts",
-    "src/app/lease-lost.ts",
-    "src/app/lease-releases.ts",
-    "src/app/lease-reporting.ts",
-    "src/components/container/fenced-reach.ts",
-    "src/flow/context/execution-fence.ts",
-  ]),
   ...reviewed(
     "the built-in pause stores, their notices and the rate limits: sharded by #1356's third pull request",
     [

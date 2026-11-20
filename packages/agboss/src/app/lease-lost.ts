@@ -83,21 +83,26 @@ export function leaseTakenWhileYieldedError(rootExecutionId: string): ExecutionL
 export const scopeKeyOf = (tenantId: string, leaseExecutionId: string): string =>
   `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}`;
 
+/** `decodeURIComponent(text)`; `null` for a text with a malformed escape. */
+const decodedOf = (text: string): string | null => {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return null;
+  }
+};
+
 /** The tenant and execution of a scope key; `undefined` for a text that is not one. */
 export function scopeOfKey(
   scopeKey: string,
 ): { readonly tenantId: string; readonly leaseExecutionId: string } | undefined {
   const parts = scopeKey.split(":");
   if (parts.length !== 2) return undefined;
-  const [tenant = "", execution = ""] = parts;
-  try {
-    return {
-      tenantId: decodeURIComponent(tenant),
-      leaseExecutionId: decodeURIComponent(execution),
-    };
-  } catch {
-    return undefined;
-  }
+  const [tenant, execution] = parts as [string, string];
+  const tenantId = decodedOf(tenant);
+  const leaseExecutionId = decodedOf(execution);
+  if (tenantId === null || leaseExecutionId === null) return undefined;
+  return { tenantId, leaseExecutionId };
 }
 
 /** What an external write that was refused knows: the scope it wrote for and the tokens. */
@@ -178,7 +183,7 @@ export class ExecutionFencedError extends ExecutionLeaseLostError {
  * by a take the refusing system did not see yet. Never a claim that another instance holds it.
  */
 function fencedReasonOf({ token, observedToken }: FencedWriteRefusal): string {
-  if (observedToken !== undefined && observedToken > token)
+  if ((observedToken ?? Number.NEGATIVE_INFINITY) > token)
     return `the external system saw token ${String(observedToken)} — a newer take of the lease: this instance stops, the holder of token ${String(observedToken)} continues the execution`;
   const seen =
     observedToken === undefined
