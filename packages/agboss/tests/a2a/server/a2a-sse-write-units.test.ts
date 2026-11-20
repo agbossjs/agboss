@@ -125,6 +125,19 @@ describe("writeSse", () => {
     expect(res.destroyed).toBe(true);
   });
 
+  it("a clock whose sleep fails does not cut the reader (#1353)", async () => {
+    class FailingClock extends VirtualClock {
+      override sleep(): Promise<void> {
+        return Promise.reject(new Error("the clock failed"));
+      }
+    }
+    const res = new Response();
+    res.accepts = false;
+
+    expect(await writeSse(res, "x", new FailingClock())).toBe(true);
+    expect(res.destroyed).toBe(false);
+  });
+
   it("a reader that drains just before the timeout is not cut", async () => {
     const res = new Response();
     res.accepts = false;

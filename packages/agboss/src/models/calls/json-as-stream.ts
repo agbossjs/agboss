@@ -12,13 +12,17 @@ import { EventStreamError } from "./event-stream-guard.js";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** A request's body as text: itself when it is a string, nothing for bytes, a form or a stream. */
+export const bodyTextOf = (body: unknown): string | undefined =>
+  typeof body === "string" ? body : undefined;
+
 /** Whether a request asks for a stream (its JSON body says `stream: true`). */
 export function wantsStream(init: RequestInit | undefined): boolean {
-  const body = init?.body;
-  // Stryker disable next-line ConditionalExpression: no other body is JSON that says `stream: true` (`JSON.parse` reads it as text)
-  if (typeof body !== "string") return false;
+  const text = bodyTextOf(init?.body);
   try {
-    const parsed: unknown = JSON.parse(body);
+    // a body that is no string (bytes, a form, a stream) is no JSON that asks for a stream
+    // Stryker disable next-line StringLiteral: no text is no JSON, as is any text that is none
+    const parsed: unknown = JSON.parse(text ?? "");
     return isRecord(parsed) && parsed.stream === true;
   } catch {
     return false;
@@ -74,15 +78,14 @@ const asEvents = (events: readonly unknown[]): string =>
     .join("");
 
 /** A body's JSON, `undefined` when it is none. */
-// Stryker disable BlockStatement: an emptied `catch` leaves the function returning the `undefined` it returns
 function parsedOf(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
-    return undefined;
+    // no JSON: the `undefined` below
   }
+  return undefined;
 }
-// Stryker restore BlockStatement
 
 /**
  * A `200` answer to a streamed request that is not an event stream, as an event stream.

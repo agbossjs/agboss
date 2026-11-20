@@ -128,8 +128,11 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         "SELECT 1 FROM cost_ledger_entries WHERE ledger_id = ?",
       );
       const expired = expiredEntriesOf(entries, prunedBefore, (id) => held.get(id) !== undefined);
-      // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
-      if (expired.length > 0 && prunedBefore !== undefined) {
+      if (
+        expired.length > 0 &&
+        // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
+        prunedBefore !== undefined
+      ) {
         refused = new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore });
         return;
       }

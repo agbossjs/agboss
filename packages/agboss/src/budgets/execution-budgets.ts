@@ -302,7 +302,7 @@ export class BudgetMeter implements BudgetCheck {
    * reach `record` later.
    */
   takeRecordedElsewhere(records: readonly UsageRecord[]): Promise<void> {
-    // Stryker disable next-line ConditionalExpression: without budgets a take-in reads no counter and nothing reads what it counts
+    // without budgets nothing is taken in: a deadline's error carries the caller's spend only
     if (this.records.length === 0) return Promise.resolve();
     return this.#inTurn(async () => {
       await this.#takeIn(this.#ids.uncounted(records, true));

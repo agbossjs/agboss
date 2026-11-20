@@ -8,19 +8,16 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
  * around it is not delayed: any other character flushes the candidate as it was written.
  */
 
-/**
- * A buffer of two characters or more that is still a prefix of a token (`<` alone is never tested).
- * Its start anchor never decides: the buffer is a held candidate plus a character, and a candidate
- * held matched this pattern, so the only `<` it has is its first.
- */
-// Stryker disable next-line Regex: the anchor cannot differ here, see above
+/** A buffer of two characters or more that is still a prefix of a token (`<` alone is never tested). */
 const PREFIX = /^<[a-z][a-z0-9-]*(?::[0-9a-f]{0,64})?$/;
-/**
- * A complete token. Its anchors never decide: a candidate that was held matched `PREFIX`, so it
- * starts with its only `<`, and ends with the `>` just read.
- */
-// Stryker disable next-line Regex: the anchors cannot differ here, see above
+/** A complete token, its label captured. */
 const COMPLETE = /^<([a-z][a-z0-9-]*):[0-9a-f]{6,64}>$/;
+
+/** Whether `text` is still a prefix of a token (the anchors are the whole text's, tested apart from the reader). */
+export const isTokenPrefix = (text: string): boolean => PREFIX.test(text);
+
+/** The label of `text` when it is a complete token, whole. */
+export const tokenLabelOf = (text: string): string | undefined => COMPLETE.exec(text)?.[1];
 /** The longest candidate held: `<` + a label + `:` + 64 hex digits + `>`, with room for the label. */
 const LONGEST = 96;
 
@@ -50,12 +47,12 @@ export class Unmasker {
       return "";
     }
     const next = this.#held + character;
-    const label = COMPLETE.exec(next)?.[1];
+    const label = tokenLabelOf(next);
     if (label !== undefined) {
       this.#held = "";
       return this.tokens[next] ?? `<${label}>`;
     }
-    if (next.length <= LONGEST && PREFIX.test(next)) {
+    if (next.length <= LONGEST && isTokenPrefix(next)) {
       this.#held = next;
       return "";
     }

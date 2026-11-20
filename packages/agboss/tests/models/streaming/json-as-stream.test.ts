@@ -3,6 +3,7 @@ import { EventScanner } from "../../../src/models/calls/event-stream.js";
 import {
   eventStreamOfJson,
   readAsStream,
+  bodyTextOf,
   wantsStream,
 } from "../../../src/models/calls/json-as-stream.js";
 
@@ -22,6 +23,18 @@ const framesOf = async (response: Response): Promise<unknown[]> =>
       return data === "[DONE]" ? data : (JSON.parse(data) as unknown);
     });
 
+describe("bodyTextOf", () => {
+  it("is a string body itself, and nothing for any other", () => {
+    expect(bodyTextOf("")).toBe("");
+    expect(bodyTextOf('{"stream":true}')).toBe('{"stream":true}');
+    expect(bodyTextOf(undefined)).toBeUndefined();
+    expect(bodyTextOf(null)).toBeUndefined();
+    expect(bodyTextOf(new Uint8Array([1]))).toBeUndefined();
+    expect(bodyTextOf(new Blob(["x"]))).toBeUndefined();
+    expect(bodyTextOf(new URLSearchParams("a=b"))).toBeUndefined();
+  });
+});
+
 describe("wantsStream", () => {
   it.each([
     ['{"stream":true}', true],
@@ -37,6 +50,10 @@ describe("wantsStream", () => {
     expect(wantsStream(undefined)).toBe(false);
     expect(wantsStream({})).toBe(false);
     expect(wantsStream({ body: new Uint8Array([1]) })).toBe(false);
+    // bytes that spell a streamed request are still no string: none asks for a stream
+    expect(wantsStream({ body: new TextEncoder().encode('{"stream":true}') })).toBe(false);
+    expect(wantsStream({ body: new Blob(['{"stream":true}']) })).toBe(false);
+    expect(wantsStream({ body: new URLSearchParams("stream=true") })).toBe(false);
   });
 });
 

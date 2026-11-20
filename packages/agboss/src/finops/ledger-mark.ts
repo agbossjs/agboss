@@ -137,6 +137,11 @@ export function writtenLedgerIdOf(record: object): string | undefined {
   return mark?.state === LedgerState.Written ? mark.ledgerId : undefined;
 }
 
+/** The ledger ids of the records a pass wrote (`LedgerState.Written`), in order; a record of no id names none. */
+export function writtenLedgerIdsOf(records: readonly object[]): string[] {
+  return records.map(writtenLedgerIdOf).filter((ledgerId) => ledgerId !== undefined);
+}
+
 const MARK_FIELDS = ["ledger", "isRecordedElsewhere", "ledgerId", "madeAt"] as const;
 
 /** The fields of where the ledger holds a record, and the spend's identity across passes (#810). */

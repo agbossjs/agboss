@@ -1,7 +1,7 @@
 /** #1007 AC1, AC2: the unmask state machine, at every split point, on code text and on made-up tokens. */
 import { describe, expect, it } from "vitest";
 import type { PiiTokenMap } from "../../src/pii/tokens.js";
-import { Unmasker } from "../../src/run/stream/unmask.js";
+import { isTokenPrefix, tokenLabelOf, Unmasker } from "../../src/run/stream/unmask.js";
 
 const TOKEN = "<email:9cf08e>";
 const KNOWN = { [TOKEN]: "alice@example.com", "<user-id:0a1b2c3d>": "u-17" };
@@ -149,5 +149,58 @@ describe("#1048: the bounds of a held candidate", () => {
     unmask.push("<x");
     expect(unmask.end()).toBe("<x");
     expect(unmask.end()).toBe("");
+  });
+});
+
+describe("#1353: the token patterns, on their own", () => {
+  const hex = (count: number): string => "0123456789abcdef".repeat(5).slice(0, count);
+
+  it.each(["<a", "<ab", "<a1-b", "<a:", "<a:0", "<a:0f9", `<a-b:${hex(64)}`])(
+    "%s is still a prefix of a token",
+    (text) => {
+      expect(isTokenPrefix(text)).toBe(true);
+    },
+  );
+
+  it.each([
+    ["no start before the `<`", "x<a"],
+    ["no text after the hex digits", "<a:12!"],
+    ["a label that starts with a digit", "<1a"],
+    ["a label that starts with a capital", "<Ab"],
+    ["a character a label has none of", "<a_b"],
+    ["a capital in a label's tail", "<aB"],
+    ["a character that is no hex digit", "<a:zz"],
+    ["a capital hex digit", "<a:AB"],
+    ["more than 64 hex digits", `<a:${hex(65)}`],
+    ["a second colon", "<a:12:34"],
+    ["a closed token", "<a:123456>"],
+  ])("%s: %s is no prefix", (_why, text) => {
+    expect(isTokenPrefix(text)).toBe(false);
+  });
+
+  it.each([
+    ["<email:9cf08e>", "email"],
+    ["<user-id:0a1b2c>", "user-id"],
+    ["<k9:0a1b2c3d4e5f>", "k9"],
+    [`<a:${hex(64)}>`, "a"],
+    [`<a:${hex(6)}>`, "a"],
+  ])("%s is a token of kind %s", (text, label) => {
+    expect(tokenLabelOf(text)).toBe(label);
+  });
+
+  it.each([
+    ["no start before the `<`", "x<a:123456>"],
+    ["no text after the `>`", "<a:123456>x"],
+    ["a label that starts with a digit", "<1a:123456>"],
+    ["a label that starts with a capital", "<Ab:123456>"],
+    ["a character a label has none of", "<a_b:123456>"],
+    ["a capital in a label's tail", "<aB:123456>"],
+    ["five hex digits", "<a:12345>"],
+    ["more than 64 hex digits", `<a:${hex(65)}>`],
+    ["a character that is no hex digit", "<a:12345g>"],
+    ["a capital hex digit", "<a:12345A>"],
+    ["no colon", "<a123456>"],
+  ])("%s: %s is no token", (_why, text) => {
+    expect(tokenLabelOf(text)).toBeUndefined();
   });
 });

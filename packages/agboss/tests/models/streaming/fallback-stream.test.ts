@@ -8,7 +8,12 @@ import { AIMessageChunk, HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { EventStreamError } from "../../../src/models/calls/event-stream-guard.js";
 import { ModelCost } from "../../../src/models/cost.js";
-import { markedChunk, streamedAnswer, type Told } from "../../../src/models/fallback-stream.js";
+import {
+  markedChunk,
+  presentFields,
+  streamedAnswer,
+  type Told,
+} from "../../../src/models/fallback-stream.js";
 import { usd } from "../../../src/units/index.js";
 
 class Tokens extends BaseCallbackHandler {
@@ -151,5 +156,17 @@ describe("markedChunk", () => {
     expect(marked.usage_metadata).toBeUndefined();
     expect(marked.tool_calls).toEqual([]);
     expect(marked.text).toBe("t");
+  });
+});
+
+describe("presentFields (#1353)", () => {
+  it("drops the fields that are undefined and keeps the others, falsy ones too", () => {
+    const fields = presentFields({ a: 1, b: undefined, c: 0, d: "", e: false, f: null });
+    expect(fields).toStrictEqual({ a: 1, c: 0, d: "", e: false, f: null });
+    expect("b" in fields).toBe(false);
+  });
+
+  it("gives nothing for fields that are all undefined", () => {
+    expect(presentFields({ a: undefined })).toStrictEqual({});
   });
 });

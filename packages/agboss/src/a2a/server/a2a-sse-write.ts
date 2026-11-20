@@ -43,7 +43,7 @@ export async function writeSse(res: ServerResponse, chunk: string, clock: Clock)
   });
   const timeout = clock.sleep(SSE_DRAIN_TIMEOUT, stop.signal).then(
     () => false,
-    // Stryker disable next-line ArrowFunction,BooleanLiteral: the sleep is cancelled only after the race is decided; the value of that rejection is never read
+    // a sleep that fails is no timeout: the reader is not cut for it
     () => true,
   );
   const drained = await Promise.race([gone, timeout]);

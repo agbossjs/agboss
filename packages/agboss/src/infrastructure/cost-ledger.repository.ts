@@ -241,8 +241,11 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     const { prunedBefore } = this.#mark;
     const mark = Number.isFinite(prunedBefore) ? new Date(prunedBefore) : undefined;
     const expired = expiredEntriesOf(entries, mark, isHeld);
-    // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
-    if (expired.length > 0 && mark !== undefined)
+    if (
+      expired.length > 0 &&
+      // Stryker disable next-line ConditionalExpression: an expired entry needs a mark — `expiredEntriesOf` names none without one; the check only narrows its type
+      mark !== undefined
+    )
       return Promise.reject(
         new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: mark }),
       );
