@@ -57,6 +57,7 @@ import {
 } from "../../../src/a2a/client/a2a-origins.js";
 import {
   A2ANetworkError,
+  bodyTextOf,
   HttpStatusError,
   sdkClientOf,
   wireFetchOf,
@@ -1052,5 +1053,17 @@ describe("the outcome's edges", () => {
       agent: "a",
       taskId: "t-1",
     });
+  });
+});
+
+describe("bodyTextOf (#1353)", () => {
+  it("is a string body itself, and nothing for any other", () => {
+    expect(bodyTextOf("")).toBe("");
+    expect(bodyTextOf('{"jsonrpc":"2.0"}')).toBe('{"jsonrpc":"2.0"}');
+    expect(bodyTextOf(undefined)).toBeUndefined();
+    expect(bodyTextOf(null)).toBeUndefined();
+    expect(bodyTextOf(new Uint8Array([1]))).toBeUndefined();
+    expect(bodyTextOf(new Blob(["x"]))).toBeUndefined();
+    expect(bodyTextOf(new URLSearchParams("a=b"))).toBeUndefined();
   });
 });

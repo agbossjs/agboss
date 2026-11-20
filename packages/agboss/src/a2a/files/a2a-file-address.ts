@@ -77,20 +77,22 @@ export const hostOf = (url: URL): string => unbracketed(url.hostname);
 
 /** An address without its zone (`fe80::1%eth0` is `fe80::1`). */
 export function withoutZone(address: string): string {
-  // Stryker disable next-line Regex: equivalent: `.*` runs to the end of an address (an IP text has no newline), so `$` adds nothing
   return address.replace(/%.*$/, "");
 }
 
 /** An address as checked: no brackets, no zone (`fe80::1%eth0`). */
 const plainOf = (address: string): string => withoutZone(unbracketed(address));
 
+/** The family name of an IPv6 address for `BlockList.check`. */
+// Stryker disable next-line StringLiteral: equivalent: Node's `BlockList.check` reads any family but "ipv4" as IPv6
+const IPV6 = "ipv6";
+
 /** Whether a file is never fetched from `address` (an IP literal). */
 export function isDeniedAddress(address: string): boolean {
   const plain = plainOf(address);
   const family = isIP(plain);
   if (family === 0) return true; // no address: never connected to
-  // Stryker disable next-line StringLiteral: equivalent: Node's `BlockList.check` reads any family but "ipv4" as IPv6
-  return BLOCKED.check(plain, family === 4 ? "ipv4" : "ipv6");
+  return BLOCKED.check(plain, family === 4 ? "ipv4" : IPV6);
 }
 
 /** Why a lookup refused: its error's code. */

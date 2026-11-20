@@ -4,7 +4,8 @@ import * as ranges from "../../scripts/stryker-ranges.mjs";
 /**
  * Mutation testing of the payment-relevant modules (#533 item 3, AC3; #626): every mutant is killed
  * by a test or justified in writing where it stands (a `Stryker disable` comment naming only the
- * mutators whose every mutant on its line is equivalent, with the reason, #619; an invariant is
+ * mutator whose one mutant on the next line is equivalent, with the reason, #619, #1353: `scripts/stryker-disables.mjs`
+ * fails a disable that hides two, none, or sits in a range; an invariant is
  * read with `definedOf`, not an `if` whose other side never runs). The score is gated
  * in CI (`thresholds.break`). The modules are split in shards, one CI job each (#626: a cold run of
  * one set took about 50 min): `MUTATION_SHARD` picks one — its modules, the tests that kill them

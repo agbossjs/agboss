@@ -52,9 +52,8 @@ export function utf8Of(bytes: Uint8Array): string | undefined {
 const isText = (bytes: Uint8Array): boolean => utf8Of(bytes) !== undefined;
 
 function isJson(bytes: Uint8Array): boolean {
-  const text = utf8Of(bytes);
-  // Stryker disable next-line ConditionalExpression: equivalent: `JSON.parse(undefined)` throws, and the catch answers false too
-  if (text === undefined) return false;
+  // Stryker disable next-line StringLiteral: equivalent: text that is none is no JSON, as `""` is none
+  const text = utf8Of(bytes) ?? "";
   try {
     JSON.parse(text);
     return true;

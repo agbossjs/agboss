@@ -62,13 +62,16 @@ export const fileLimitsOf = (
 ): A2AFileLimits => ({ ...DEFAULT_A2A_FILE_LIMITS, ...application, ...skill });
 
 /** A media type as compared: its essence, lower case (`Text/Plain; charset=utf-8` → `text/plain`). */
-export const mediaTypeEssenceOf = (mediaType: string): string =>
+export const mediaTypeEssenceOf = (mediaType: string): string => {
+  const [essence] = mediaType.split(";", 1);
   // Stryker disable next-line StringLiteral: equivalent: `split` yields one element at least
-  (mediaType.split(";", 1)[0] ?? "").trim().toLowerCase();
+  return (essence ?? "").trim().toLowerCase();
+};
 
-const isWhole = (value: unknown, min: number): boolean =>
-  // Stryker disable next-line ConditionalExpression: equivalent: `Number.isInteger` is false for what is no number
-  typeof value === "number" && Number.isInteger(value) && value >= min;
+/** Whether `value` is a whole number: false for what is no number at all. */
+const isInteger = (value: unknown): value is number => Number.isInteger(value);
+
+const isWhole = (value: unknown, min: number): boolean => isInteger(value) && value >= min;
 
 /** An allowed origin is written as `new URL(…).origin` writes it, on `https:`. */
 const isHttpsOrigin = (entry: string): boolean =>

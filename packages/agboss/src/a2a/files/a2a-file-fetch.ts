@@ -122,6 +122,15 @@ async function bodyAt(fetch: FileFetch, signal: AbortSignal): Promise<Uint8Array
 const notInTime = (): A2AError =>
   refused("a2a.file-fetch-failed", "the file could not be fetched in time");
 
+/** The caller of a fetch that names none: one shared by all of them, whatever its constants. */
+// Stryker disable next-line ObjectLiteral: any value names the one shared caller
+const SHARED_CALLER = {
+  // Stryker disable next-line StringLiteral: any constant names the one shared caller
+  tenant: "",
+  // Stryker disable next-line StringLiteral: any constant names the one shared caller
+  owner: "",
+};
+
 /**
  * The bytes of a file by `url`, fetched as described above. The deadline and the request's end
  * settle the fetch themselves (#916): the fetch is raced against them and the signal then aborts
@@ -143,16 +152,15 @@ export async function fetchedFile(fetch: FileFetch): Promise<Uint8Array> {
       reject(notInTime());
     };
     if (signal.aborted) settle();
-    // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent: an abort fires once, and `settle` only rejects the promise, once
-    signal.addEventListener("abort", settle, { once: true });
+    // an abort fires once, and `settle` only rejects the promise, once
+    signal.addEventListener("abort", settle);
   });
   const fetched =
     fetch.slots?.run(
       signal,
       () => bodyAt(fetch, signal),
       () => refused("a2a.file-fetch-busy", "the agent is fetching too many files now"),
-      // Stryker disable next-line ObjectLiteral,StringLiteral: a fetch with no caller — any constants name the one shared caller
-      fetch.caller ?? { tenant: "", owner: "" },
+      fetch.caller ?? SHARED_CALLER,
     ) ?? bodyAt(fetch, signal);
   try {
     return await Promise.race([fetched, ended]);

@@ -3,6 +3,7 @@ import { Integer, ListOf, MediaType, Nested, Text, Url } from "../../dto/decorat
 import { fieldsOf } from "../../dto/metadata.js";
 import { crossFieldRule } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
+import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js";
 import { PiiAction } from "../../pii/actions.js";
 
 /**
@@ -123,6 +124,10 @@ export interface A2AFileField {
 
 const isFileDto = (dto: DtoClass): boolean =>
   dto === A2AFileDto || dto.prototype instanceof A2AFileDto;
+
+/** The DTO class a start takes as its input; `undefined` for a list or a map of fields, which hold no file field of their own. */
+export const inputClassOf = (input: WorkflowStartInput): DtoClass | undefined =>
+  typeof input === "function" ? input : undefined;
 
 /** The fields of a DTO that hold files, in declaration order; none for a DTO without. */
 export function fileFieldsOf(dto: DtoClass): readonly A2AFileField[] {

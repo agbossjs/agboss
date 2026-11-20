@@ -44,13 +44,16 @@ export function admittedRequestOf(body: unknown): AdmittedRequest | undefined {
   if (!isObject(body)) return undefined;
   const { method, params } = body;
   const operation = Object.values(A2AOperation).find((known) => known === method);
-  // Stryker disable next-line ConditionalExpression: an unknown method's lookup throws below, and is caught to the same `undefined`
-  if (operation === undefined || !isObject(params)) return undefined;
-  // Stryker disable BlockStatement: an empty catch answers the same `undefined`
+  if (
+    !isObject(params) ||
+    // Stryker disable next-line ConditionalExpression: an unknown method's lookup throws below, and is caught to the same `undefined`
+    operation === undefined
+  )
+    return undefined;
   try {
     return { operation, taskId: TASK_ID_OF[operation](params) };
   } catch {
-    return undefined; // the transport's own decode fails the same way: its error answers
+    // the transport's own decode fails the same way: its error answers
   }
-  // Stryker restore BlockStatement
+  return undefined;
 }
