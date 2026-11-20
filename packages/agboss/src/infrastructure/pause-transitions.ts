@@ -160,12 +160,19 @@ export function extendChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseChange | undefined {
-  if (!isOpenAt(pause, at)) return undefined;
-  // from the deadline the caller read — a pause with none has no deadline to move —, to a later one: an
-  // open pause's deadline is after `at`, so a later one is never a past time (I3)
+  // a pause with no deadline gets none, and one that is not open takes no extension (I3)
+  if (
+    !isOpenAt(pause, at) ||
+    // Stryker disable next-line ConditionalExpression: the floors below hold a time of the pause's own, and no extension is after `undefined`, so a pause with no deadline is refused there too
+    pause.expiresAt === undefined
+  )
+    return undefined;
+  // from the deadline the caller read, to a time after it and after `at`: never to a past time (I3), never
+  // earlier or equal (#1099) — one comparison against both floors
+  const floors = [pause.expiresAt, at.toISOString()];
   if (
     pause.expiresAt !== extension.previousExpiresAt ||
-    extension.expiresAt <= extension.previousExpiresAt
+    !floors.every((floor) => extension.expiresAt > floor)
   )
     return undefined;
   return {
@@ -177,7 +184,7 @@ export function extendChange(
     },
     notices: noticesOf(recipients, PauseNoticeKind.Extended, at, {
       expiresAt: extension.expiresAt,
-      previousExpiresAt: extension.previousExpiresAt,
+      previousExpiresAt: pause.expiresAt,
     }),
   };
 }
