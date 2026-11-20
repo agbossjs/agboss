@@ -98,8 +98,8 @@ export class EventReader {
       if (!last && whole.endsWith("\r") && at + whole.length === this.#pending.length) break;
       at += whole.length;
       this.#raw += whole;
-      // Stryker disable next-line Regex: a line holds no line end before its own, the first run is the last
-      const content = whole.replace(/[\r\n]+$/, "");
+      // a line holds no line end before its own: the content is what comes before the first
+      const content = whole.slice(0, whole.search(/[\r\n]/));
       if (content === "") events.push(this.#take(true));
       else this.#lines.push(content);
     }

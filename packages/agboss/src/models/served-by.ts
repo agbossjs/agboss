@@ -11,16 +11,15 @@ import { rewrittenEvents, type Replacement } from "./event-stream-lines.js";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-// Stryker disable BlockStatement: an empty catch returns `undefined` too — the same answer
 /** `text` parsed, or `undefined` when it is no JSON (a `[DONE]`, a server's own line: says no host). */
 function parsed(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
-    return undefined;
+    // no JSON: the `undefined` below
   }
+  return undefined;
 }
-// Stryker restore BlockStatement
 
 /** The host a completion or a streamed chunk names, if it does. */
 function hostOf(chunk: unknown): string | undefined {

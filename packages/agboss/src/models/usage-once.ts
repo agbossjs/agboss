@@ -22,24 +22,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const DONE = "[DONE]";
 
-// Stryker disable BlockStatement: an empty catch returns `undefined` too — the same answer
 /** `payload` parsed, or `undefined` when it is no JSON (a server's own line, says nothing of usage). */
 function parsed(payload: string): unknown {
   try {
     return JSON.parse(payload);
   } catch {
-    return undefined;
+    // no JSON: the `undefined` below
   }
+  return undefined;
 }
-// Stryker restore BlockStatement
 
 /** The rewrite of one streamed body: the last usage held back, given once. */
 function usageOnce(): EventRewrite {
   let held: Record<string, unknown> | undefined;
   const release = (): string | undefined => {
-    // Stryker disable next-line ConditionalExpression: `JSON.stringify(undefined)` is `undefined` too
-    if (held === undefined) return undefined;
-    const event = JSON.stringify(held);
+    // nothing held: `JSON.stringify(undefined)` is `undefined`, the answer of no report
+    const event: string | undefined = JSON.stringify(held);
     held = undefined;
     return event;
   };

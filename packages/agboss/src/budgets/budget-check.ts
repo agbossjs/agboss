@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ledgerMarkOf, writtenLedgerIdOf } from "../finops/ledger-mark.js";
+import { ledgerMarkOf, writtenLedgerIdOf, writtenLedgerIdsOf } from "../finops/ledger-mark.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { BudgetExceededError } from "../graph/limits.js";
@@ -234,11 +234,7 @@ export class LedgerIds {
 
   /** Counts the ids of `records`. */
   count(records: readonly UsageRecord[]): void {
-    for (const record of records) {
-      const ledgerId = writtenLedgerIdOf(record);
-      // Stryker disable next-line ConditionalExpression: an absent id kept is never asked for
-      if (ledgerId !== undefined) this.#counted.add(ledgerId);
-    }
+    for (const ledgerId of writtenLedgerIdsOf(records)) this.#counted.add(ledgerId);
   }
 
   /**

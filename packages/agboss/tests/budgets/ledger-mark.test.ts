@@ -17,6 +17,7 @@ import {
   withLedgerMarkRead,
   withoutLedgerMarks,
   writtenLedgerIdOf,
+  writtenLedgerIdsOf,
 } from "../../src/finops/ledger-mark.js";
 import { buildCostReport, recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import {
@@ -133,6 +134,21 @@ describe("#817 AC3: a record kept before 0.1.1 reads as the same state", () => {
       madeAt: new Date(0),
     });
     expect(writtenLedgerIdOf(legacy({ isRecordedElsewhere: true, ledgerId: "p:8" }))).toBe("p:8");
+  });
+
+  it("writtenLedgerIdsOf names the ids of the written records only, in order (#1353)", () => {
+    const written = (ledgerId: string): UsageRecord => ({
+      ...paid(1),
+      ledger: { state: LedgerState.Written, ledgerId, madeAt: NOW },
+    });
+    const elsewhere: UsageRecord = { ...paid(1), ledger: { state: LedgerState.RecordedElsewhere } };
+
+    expect(writtenLedgerIdsOf([written("p:1"), paid(1), elsewhere, written("p:2")])).toEqual([
+      "p:1",
+      "p:2",
+    ]);
+    expect(writtenLedgerIdsOf([paid(1), elsewhere])).toEqual([]);
+    expect(writtenLedgerIdsOf([])).toEqual([]);
   });
 
   it("a field of before of another kind fails closed — never read as not in the ledger, never as recorded elsewhere without its id", () => {

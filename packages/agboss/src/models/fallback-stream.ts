@@ -14,6 +14,18 @@ export interface Told {
 }
 
 /**
+ * `fields` without those set to `undefined`: a config or a message takes a field that is absent, and
+ * one that is `undefined` is not the same value (a key that is present, a `"id" in message`).
+ */
+export function presentFields<T extends Record<string, unknown>>(
+  fields: T,
+): { [K in keyof T]?: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as {
+    [K in keyof T]?: Exclude<T[K], undefined>;
+  };
+}
+
+/**
  * One streamed call (untraced: the fallback model's run is the call's): its tokens go to the run
  * as they come — the run's stream hears them — and the whole answer is returned.
  */
@@ -26,8 +38,7 @@ export async function streamedAnswer(
 ): Promise<AIMessageChunk> {
   const stream = await model.stream(messages, {
     callbacks: [],
-    // Stryker disable next-line ConditionalExpression: a `signal` of `undefined` is no signal for the config
-    ...(signal === undefined ? {} : { signal }),
+    ...presentFields({ signal }),
   });
   let answer: AIMessageChunk | undefined;
   for await (const chunk of stream) {
@@ -53,10 +64,7 @@ export function markedChunk(
     tool_calls: answer.tool_calls ?? [],
     additional_kwargs: answer.additional_kwargs,
     response_metadata: answer.response_metadata,
-    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
-    ...(answer.usage_metadata === undefined ? {} : { usage_metadata: answer.usage_metadata }),
-    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
-    ...(answer.id === undefined ? {} : { id: answer.id }),
+    ...presentFields({ usage_metadata: answer.usage_metadata, id: answer.id }),
   });
   const marked = markedFallbackMessage(whole, model, cost);
   return new AIMessageChunk({
@@ -65,9 +73,6 @@ export function markedChunk(
     tool_calls: whole.tool_calls ?? [],
     additional_kwargs: whole.additional_kwargs,
     response_metadata: marked.response_metadata,
-    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
-    ...(whole.usage_metadata === undefined ? {} : { usage_metadata: whole.usage_metadata }),
-    // Stryker disable next-line ConditionalExpression: a field set to `undefined` is none for a message
-    ...(whole.id === undefined ? {} : { id: whole.id }),
+    ...presentFields({ usage_metadata: whole.usage_metadata, id: whole.id }),
   });
 }
