@@ -86,3 +86,25 @@ export function filesPiiShard() {
     ],
   };
 }
+
+/**
+ * The `spend` shard (#1356) of `stryker.config.mjs`: what a call or a service cost and which usage counts — the
+ * usage record and its multiset key (counted once), the cost of a call and of a service, the usage a checkpoint
+ * restores and a response reports, the spend of a queued child, the budget's rules, periods and deadline, and
+ * the run's budgets.
+ */
+export function spendShard() {
+  return {
+    configFile: "vitest.mutation-spend.config.ts",
+    mutate: [
+      "src/finops/{record-stream,usage,cost-source,cost-category,fallback-mark,served-by}.ts",
+      "src/app/restored-usage.ts",
+      "src/app/remote/queued-child-spend.ts",
+      "src/models/calls/response-usage.ts",
+      "src/models/cost.ts",
+      "src/components/spend-recorder.ts",
+      "src/budgets/{budget,budget-period,budget-rules,execution-deadline}.ts",
+      "src/run/run-budgets.ts",
+    ],
+  };
+}

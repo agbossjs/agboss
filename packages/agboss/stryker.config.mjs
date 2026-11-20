@@ -12,7 +12,7 @@ import * as ranges from "../../scripts/stryker-ranges.mjs";
  * and its own incremental file (`reports/stryker-incremental-<shard>.json`, cached by CI per shard).
  * Locally: `MUTATION_SHARD=<shard> npm run test:mutation` (3 workers at most).
  */
-const SHARDS = {
+export const SHARDS = {
   // the leases, the holder's fence, the held lease and the store's clock (#533). #1242: split from
   // `fencing-effects` — one shard of both took past its CI limit cold, and each static mutant reruns
   // every test of its shard, so two shards over one test set halve the wall time
@@ -135,6 +135,8 @@ const SHARDS = {
       ranges.settledSpendSaverOf("src/app/settled-spend-checkpointer.ts"),
     ],
   },
+  // spend (#1356): what a call or a service cost and which usage counts, the budget's rules and the run's budgets
+  spend: ranges.spendShard(),
   // the A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
   // status by compare-and-set, sticky terminal states, pages, the sweep), the reserved execution id,
   // the cancel of one tree and its durable state, the task projection and its read repair

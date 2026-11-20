@@ -130,12 +130,14 @@ export class ModelCostError extends Error {
   override name = "ModelCostError";
 }
 
+const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value);
+
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
 export function reportedCostOf(message: UsageCarrier): number | undefined {
   const usage = message.response_metadata?.usage;
   const cost =
     typeof usage === "object" && usage !== null && "cost" in usage ? usage.cost : undefined;
-  return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : undefined;
+  return isFiniteNumber(cost) && cost >= 0 ? cost : undefined;
 }
 
 /**

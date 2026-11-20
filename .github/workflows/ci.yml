@@ -208,6 +208,7 @@ jobs:
             undo,
             unwind,
             money,
+            spend,
             a2a-tasks,
             a2a-server,
             a2a-client,

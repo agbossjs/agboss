@@ -25,10 +25,7 @@ const workflowNameOf = (workflow: Class): string => {
 };
 
 const declared = (budgets: readonly Class[]): readonly BudgetMeta[] =>
-  budgets.flatMap((budget) => {
-    const meta = budgetOf(budget);
-    return meta === undefined ? [] : [meta];
-  });
+  budgets.map(budgetOf).filter((meta) => meta !== undefined);
 
 /** `[budget.duplicate-execution-budget]`: two own execution budgets for one workflow. */
 function duplicateOwn(application: string, execution: readonly BudgetMeta[]): RuleViolation[] {
@@ -103,6 +100,7 @@ function scopeRequired(
 }
 
 export function budgetRuleViolations(application: BudgetedApplication): RuleViolation[] {
+  // Stryker disable next-line ArrayDeclaration: a stray string in the list has no scope and no workflow, so every filter below drops it
   const metas = declared(application.budgets ?? []);
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
   const defaults = execution.filter((meta) => meta.workflow === undefined);

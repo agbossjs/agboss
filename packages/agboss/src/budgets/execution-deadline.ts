@@ -47,7 +47,7 @@ export class DeadlineExceededError extends LimitExceededError {
       actual: deadline,
       path,
       spentUsd,
-      ...(usage === undefined ? {} : { usage }),
+      usage: usage ?? [],
       cause,
       message: `the execution ran past its deadline of ${String(seconds)} s (at ${deadlineAt})`,
       details: { deadline, deadlineAt },
@@ -57,9 +57,12 @@ export class DeadlineExceededError extends LimitExceededError {
   }
 }
 
+/** Whether `delay` is a delay: a finite number — none, `NaN` and `Infinity` are not. */
+const isDelay = (delay: number | undefined): delay is number => Number.isFinite(delay);
+
 /** The deadline of a new execution started now, of `delay`; `undefined` without one. */
 export function deadlineFrom(now: Date, delay: number | undefined): ExecutionDeadline | undefined {
-  if (delay === undefined || !Number.isFinite(delay)) return undefined;
+  if (!isDelay(delay)) return undefined;
   const deadline = Math.max(0, Math.round(delay)) as Milliseconds;
   return { at: new Date(now.getTime() + deadline).toISOString(), deadline };
 }
