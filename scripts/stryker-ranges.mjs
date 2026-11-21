@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { URL } from "node:url";
+import { methodsOf } from "./stryker-ranges-ledger.mjs";
 
 /** The Stryker ranges of `packages/agboss/stryker.config.mjs`: a part of a file found by name, not by a fixed line range. */
 
@@ -83,6 +84,8 @@ export function filesPiiShard() {
       "src/files/*.ts",
       "src/pii/{key-hierarchy,tokens}.ts",
       policySetHashingOf("src/pii/policy-set.ts"),
+      // the spend of the policies' model detectors, taken up by a search and carried by a refusal
+      ...methodsOf("src/pii/policy-set.ts", "mask", "refusalError"),
     ],
   };
 }

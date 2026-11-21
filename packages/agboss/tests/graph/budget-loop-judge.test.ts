@@ -10,10 +10,18 @@ import { QualityGateError } from "../../src/graph/errors.js";
 import { agentStreamOf } from "../../src/run/stream/agent-stream.js";
 import { carriedRecordsOf } from "../../src/flow/runtime/carried-records.js";
 import { meteredModel } from "../../src/graph/agent-loop/judge-model.js";
+import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
+import { AgentFailedError } from "../../src/graph/errors.js";
+import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
 vi.mock("../../src/graph/agent-loop/judge-model.js", () => ({ meteredModel: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/judge-files.js", () => ({
   judgedFilesOf: vi.fn(() => Promise.resolve({ files: [], pieces: [], usage: [] })),
+}));
+vi.mock("../../src/flow/observers/execution-event.js", () => ({
+  reportNodeEvent: vi.fn((work: (base: object) => unknown) =>
+    Promise.resolve(work({ base: true })).then(() => undefined),
+  ),
 }));
 vi.mock("../../src/run/stream/agent-stream.js", () => ({ agentStreamOf: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({
@@ -53,7 +61,10 @@ const judgeOf = (name: string, verdict: { passed: boolean; reason?: string }) =>
   handler: { judge: vi.fn(() => Promise.resolve(verdict)) },
 });
 
-function setup(judges: object[], options: { maxRetries?: unknown; unset?: true } = {}) {
+function setup(
+  judges: object[],
+  options: { maxRetries?: unknown; unset?: true; observer?: object } = {},
+) {
   const tally = vi.fn((records: readonly UsageRecord[], _path?: readonly string[]) =>
     records.map((r) => ({ ...r, tallied: true })),
   );
@@ -72,13 +83,17 @@ function setup(judges: object[], options: { maxRetries?: unknown; unset?: true }
       answerTools: { tools: [], isList: false, hasVariants: false },
     },
     budgets: { tally },
-    observer: undefined,
+    observer: options.observer,
   };
   return { node: makeJudgeNode(deps as never), tally };
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(reportNodeEvent).mockImplementation((work: (base: never) => unknown) =>
+    Promise.resolve(work({ base: true } as never)).then(() => undefined),
+  );
+  vi.mocked(judgedFilesOf).mockResolvedValue({ files: [], pieces: [], usage: [] });
 });
 
 describe("#1366: the quality gate counts what the judges cost", () => {
@@ -239,5 +254,72 @@ describe("#1366: what a rejection retracts and carries", () => {
 
     expect(out).toEqual({});
     expect(tally).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1366: the spend of the files the judges read, and of a judge that broke", () => {
+  it("what reading the files the judges are shown cost is counted with their models', before them", async () => {
+    const { node, tally } = setup([judgeOf("j1", { passed: true })]);
+    vi.mocked(judgedFilesOf).mockResolvedValue({
+      files: [],
+      pieces: [],
+      usage: [record(0.125, "files")],
+    });
+
+    await node(stateOf(), undefined);
+
+    expect(tally.mock.calls[0]?.[0].map((u) => u.caller)).toEqual(["files", "judge"]);
+  });
+
+  it("a judge that broke fails the agent with the loop's spend, the files' and its model's so far", async () => {
+    const broke = {
+      name: "j1",
+      handler: { judge: vi.fn(() => Promise.reject(new Error("model down"))) },
+    };
+    const { node } = setup([broke]);
+    vi.mocked(judgedFilesOf).mockResolvedValue({
+      files: [],
+      pieces: [],
+      usage: [record(0.125, "files")],
+    });
+
+    const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AgentFailedError);
+    expect((failure as AgentFailedError).usage.map((u) => u.caller)).toEqual([
+      "loop",
+      "files",
+      "judge",
+    ]);
+    expect((failure as AgentFailedError).cause).toEqual(new Error("model down"));
+  });
+
+  it("the observer hears each judge start with the reply and end with its verdict", async () => {
+    const onJudgeStart = vi.fn();
+    const onJudgeEnd = vi.fn();
+    const { node } = setup([judgeOf("j1", { passed: false, reason: "too long" })], {
+      observer: { onJudgeStart, onJudgeEnd },
+    });
+
+    await node(stateOf(), undefined);
+
+    expect(onJudgeStart).toHaveBeenCalledWith({
+      base: true,
+      name: "j1",
+      agentName: "alpha",
+      input: "the reply",
+    });
+    expect(onJudgeEnd).toHaveBeenCalledWith({
+      base: true,
+      name: "j1",
+      agentName: "alpha",
+      update: { passed: false, reason: "too long" },
+    });
+  });
+
+  it("a gate with no observer is heard by none, and passes", async () => {
+    const { node } = setup([judgeOf("j1", { passed: true })]);
+
+    await expect(node(stateOf(), undefined)).resolves.toBeDefined();
   });
 });

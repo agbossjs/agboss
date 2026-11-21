@@ -1,11 +1,17 @@
+import type { UsageRecord } from "../../finops/usage.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
+import { OutputInvalidError } from "./errors.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { NodeOutcome } from "./node-runner.js";
 import { writeAndOutdate, type OutdatingCascade } from "./outdating.js";
 import { builtFromOf, type RuntimeProvenance } from "./provenance.js";
 import type { OutdatedValueRecord, ScopeRecords } from "./records.js";
+import { RouterDecisionError } from "./router-error.js";
 import { recordsOfWrites } from "./scope.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
+import { visitNumberOf } from "./step-frame.js";
+import type { VisitDeps } from "./visit.js";
+import { recordOfNode } from "./workflow-keys.js";
 
 /**
  * What a visit's way out writes (#271): its values, each built from what the step read (provenance),
@@ -49,4 +55,34 @@ export function visitWrite(
     cascades: result.cascades,
     scope: result.scope,
   };
+}
+
+/** What a node gave with all that the visit spent: its own usage and what its code paid services. */
+export type SpentOutcome = NodeOutcome & { readonly usage: readonly UsageRecord[] };
+
+/** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
+export function exitOf(
+  node: RuntimeNode,
+  state: ExecutionStateType,
+  outcome: SpentOutcome,
+  deps: VisitDeps,
+): FlowEdge | undefined {
+  const { exits } = node;
+  if (outcome.route !== undefined) {
+    const route = exits.routes.get(outcome.route);
+    if (route !== undefined) return route;
+    const visit = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
+    const step = { ...visit, component: recordOfNode(deps, node.id) };
+    const reason = `"${outcome.route}" is not one of its routes`;
+    throw new RouterDecisionError({ ...step, reason, usage: outcome.usage });
+  }
+  if (exits.cases.size > 0) {
+    const variant = outcome.value?.variant ?? "";
+    const branch = exits.cases.get(variant);
+    if (branch !== undefined) return branch;
+    throw new OutputInvalidError({
+      message: `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
+    });
+  }
+  return exits.next;
 }

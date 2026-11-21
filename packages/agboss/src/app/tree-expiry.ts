@@ -70,8 +70,8 @@ async function isResting(parts: TreeMoveParts, state: TreeState, turnId: string)
   return false;
 }
 
-/** The statuses of a root that ended (text: a record's status may be compared with them). */
-const ENDED: readonly string[] = [
+/** The statuses of a root that ended (text: a record's status, or none, may be compared with them). */
+const ENDED: readonly (string | undefined)[] = [
   ExecutionRecordStatus.Answered,
   ExecutionRecordStatus.Failed,
   ExecutionRecordStatus.Guarded,
@@ -87,12 +87,15 @@ export async function endedByRun(
   parts: Pick<TreeMoveParts, "deps">,
   turnId: string,
 ): Promise<boolean> {
-  // a record that is not read is no end of the run: the read's failure is answered here, never in the check below
-  const record = await parts.deps.turns.byIds([turnId]).then(
-    ([found]) => found,
-    () => undefined,
-  );
-  return record !== undefined && ENDED.includes(record.status);
+  // any failure of the read is answered here, a synchronous throw of a store too (node:sqlite throws), whatever
+  // the read gives: the drain's error stays the one the look raises
+  try {
+    const [record] = await parts.deps.turns.byIds([turnId]);
+    // Stryker disable next-line OptionalChaining: equivalent: without a record `record.status` throws a TypeError, which the catch below answers `false`, as the missing record does
+    return ENDED.includes(record?.status);
+  } catch {
+    return false;
+  }
 }
 
 /** The drain of the pass an expiry started; a run that ended or was handed over is its outcome, not a failure. */

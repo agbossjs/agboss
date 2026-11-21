@@ -144,8 +144,8 @@ export class PiiPolicySet {
 
   /** Every policy's findings in `text`, applied; new tokens made against `known`. */
   async mask(text: string, known: PiiTokenMap, mode: DetectionMode): Promise<MaskedSearch> {
-    if (this.isEmpty || text === "")
-      return { masked: { text, tokens: {}, blocked: [] }, usage: [] };
+    // an empty text is searched by nobody: no model detector is asked, so nothing is spent
+    if (text === "") return { masked: { text, tokens: {}, blocked: [] }, usage: [] };
     const searches = await Promise.all(this.policies.map((policy) => policy.find(text, mode)));
     const findings = [
       ...searches.flatMap((search) => search.findings),

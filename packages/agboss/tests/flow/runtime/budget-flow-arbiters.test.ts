@@ -371,3 +371,75 @@ describe("#1366: what is wrong with an arbiter is said", () => {
     );
   });
 });
+
+describe("#1366: a code arbiter, and a launch decided while it works", () => {
+  const causeOf = async (chain: object[], deps: never): Promise<string> => {
+    const failure = await judgeAnswer(chain as never, site, deps).catch((e: unknown) => e);
+    return ((failure as ArbiterError).cause as Error).message;
+  };
+
+  it("the method of the agent that answered is the one asked, whatever the order of the methods", async () => {
+    const other = { agentName: "other-agent" };
+    const asked: string[] = [];
+    const arbiter = {
+      name: "code-arbiter",
+      declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
+      methods: [
+        { agent: other, method: "fromOther" },
+        { agent: Agent, method: "fromSkills" },
+      ],
+      instance: {
+        fromOther: () => {
+          asked.push("other");
+          return false;
+        },
+        fromSkills: (answer: unknown) => {
+          asked.push(JSON.stringify(answer));
+          return true;
+        },
+      },
+    };
+    const { deps } = depsOf({});
+
+    const out = await judgeAnswer([step(arbiter)] as never, site, deps);
+
+    expect(asked).toEqual(['{"score":7}']);
+    expect(out.isAccepted).toBe(true);
+  });
+
+  it("an arbiter with no method for the agent, or whose method is none, says so", async () => {
+    const { deps } = depsOf({});
+    const noMethod = { ...codeArbiter("a-arbiter", () => true), methods: [] };
+    const notAFunction = { ...codeArbiter("b-arbiter", () => true), instance: { fromSkills: 1 } };
+    const noInstance = { ...codeArbiter("c-arbiter", () => true), instance: undefined };
+
+    expect(await causeOf([step(noMethod)], deps)).toBe("no @OnAnswer method for skills-agent");
+    expect(await causeOf([step(notAFunction)], deps)).toBe("fromSkills is not a method");
+    expect(await causeOf([step(noInstance)], deps)).toBe("fromSkills is not a method");
+    expect(await causeOf([step(codeArbiter("d-arbiter", () => "yes"))], deps)).toBe(
+      "fromSkills returned yes, not true or false",
+    );
+  });
+
+  it("a launch decided before its code arbiter ends: the arbiter is not accepted, and it cost nothing", async () => {
+    const controller = new AbortController();
+    const arbiter = codeArbiter("slow-arbiter", () => new Promise(() => undefined));
+    const { deps } = depsOf({}, { signal: controller.signal });
+    const waiting = judgeAnswer([step(arbiter)] as never, site, deps);
+
+    controller.abort();
+
+    expect(await waiting).toEqual({ isAccepted: false, rejectedBy: [], usage: [] });
+  });
+
+  it("a launch decided before the check starts abandons it, spending nothing", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const judge = vi.fn(() => true);
+    const { deps } = depsOf({}, { signal: controller.signal });
+
+    const out = await judgeAnswer([step(codeArbiter("a-arbiter", judge))] as never, site, deps);
+
+    expect(out).toEqual({ isAccepted: false, rejectedBy: [], usage: [] });
+  });
+});

@@ -393,13 +393,23 @@ describe("#1366: the stop of the instance", () => {
     const second = new AbortController();
     runs.stopBy(first.signal);
     runs.stopBy(second.signal);
-    const waiting = runs.untilAbandoned(new Promise<never>(() => undefined));
+    // every outcome of the waiting caller is collected: a second deadline would settle it early, a second time
+    const outcomes: unknown[] = [];
+    const waiting = runs
+      .untilAbandoned(new Promise<never>(() => undefined))
+      .catch((error: unknown) => {
+        outcomes.push(error);
+      });
 
     second.abort();
     await turn();
+    await turn();
+    expect(outcomes).toEqual([]);
     first.abort();
+    await waiting;
 
-    await expect(waiting).rejects.toBeInstanceOf(ApplicationStoppingError);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0]).toBeInstanceOf(ApplicationStoppingError);
   });
 
   it("a caller waiting for a run is told the run is given up once the stop's end passes, and the run's late outcome is dropped", async () => {

@@ -22,6 +22,8 @@ import { recordBranchLostPasses } from "../../../src/flow/runtime/lost-pass-reco
 import { checkVisit } from "../../../src/flow/runtime/limits.js";
 import { failedVisitOf, visitStepsOf } from "../../../src/flow/runtime/visit-step.js";
 import { reportBranch } from "../../../src/flow/runtime/launch/launch-report.js";
+import { withQuorumDeadline } from "../../../src/flow/runtime/launch/branch-view.js";
+import { compensationsOfBranch } from "../../../src/flow/compensation.js";
 
 vi.mock("../../../src/flow/runtime/launch/branch-view.js", () => ({
   branchLaunchOf: vi.fn(() => ({
@@ -498,5 +500,40 @@ describe("#1366: a branch cancelled before it ran keeps what it spent", () => {
     await node(stateOf() as never, undefined);
 
     expect(reportBranch).toHaveBeenCalledOnce();
+  });
+});
+
+describe("#1366: what a branch is bounded by and opens as it ends", () => {
+  it("a branch of a quorum runs under its quorum's deadline, moved by the time its branches waited in the queue", async () => {
+    const quorum = {
+      queued: { excluded: () => 40 },
+      ready: Promise.resolve(),
+      withdrawal: { during: (work: () => unknown) => work() },
+    };
+    const { node } = setup({ live: liveOf({ quorum }) });
+
+    await node(stateOf() as never, undefined);
+
+    expect(vi.mocked(withQuorumDeadline).mock.calls[0]?.[1]).toBe(1000);
+    expect(vi.mocked(withQuorumDeadline).mock.calls[0]?.[2]).toBe(40);
+  });
+
+  it("a branch of no quorum has no deadline and no wait to exclude", async () => {
+    const { node } = setup();
+
+    await node(stateOf() as never, undefined);
+
+    expect(vi.mocked(withQuorumDeadline).mock.calls[0]?.[1]).toBeUndefined();
+    expect(vi.mocked(withQuorumDeadline).mock.calls[0]?.[2]).toBe(0);
+  });
+
+  it("an undoable branch opens its entry on its launch and its value as it ends", async () => {
+    const { node } = setup();
+
+    await node(stateOf() as never, undefined);
+
+    expect(vi.mocked(compensationsOfBranch).mock.calls[0]?.[0]).toMatchObject({
+      branch: { launchId: "L1", value: { x: 1 } },
+    });
   });
 });

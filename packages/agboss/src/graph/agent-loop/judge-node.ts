@@ -110,9 +110,6 @@ function judgedInputOf(
   };
 }
 
-/** A verdict as the step's record keeps it (#395 C3). */
-const NO_SEEN: JudgedFiles = { files: [], pieces: [], usage: [] };
-
 /** The files the judges read, read on the first judged answer: the judges of files are rare (#205). */
 async function judgedFilesOfLazily(
   state: AgentLoopStateType,
@@ -122,6 +119,7 @@ async function judgedFilesOfLazily(
   return judgedFilesOf(state, deps);
 }
 
+/** A verdict as the step's record keeps it (#395 C3). */
 const verdictRecordOf = (
   judge: string,
   attempt: number,
@@ -146,12 +144,12 @@ async function rejectionsOf(
   deps: AgentLoopDeps,
   text: string,
   spent: { readonly usage: UsageRecord[]; readonly verdicts: JudgeVerdictRecord[] },
+  judges: NonNullable<AgentLoopDeps["agent"]["judges"]>,
 ): Promise<JudgeRejection[]> {
   const agent = deps.agent.name;
   const rejected: JudgeRejection[] = [];
-  const judges = deps.agent.judges ?? [];
-  // the files its model read, read again pinned (#899 §3, §8): once for every judge, if one is asked
-  const seen = judges.length === 0 ? NO_SEEN : await judgedFilesOfLazily(state, deps);
+  // the files its model read, read again pinned (#899 §3, §8): once for every judge, asked only when one is
+  const seen = await judgedFilesOfLazily(state, deps);
   spent.usage.push(...seen.usage);
   for (const judge of judges) {
     const input = judgedInputOf(state, deps, judge, text, seen.files);
@@ -198,7 +196,13 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     if (judges.length === 0 || state.reply === null) return {};
     const judged: UsageRecord[] = [];
     const verdicts: JudgeVerdictRecord[] = [];
-    const rejected = await rejectionsOf(state, deps, state.reply, { usage: judged, verdicts });
+    const rejected = await rejectionsOf(
+      state,
+      deps,
+      state.reply,
+      { usage: judged, verdicts },
+      judges,
+    );
     // counted at once (#338), in the ledger at once (#727)
     const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };

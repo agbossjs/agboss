@@ -86,6 +86,7 @@ async function byCode(arbiter: ArbiterClass, site: JudgedAnswer, deps: ArbiterDe
   if (typeof judge !== "function") throw new TypeError(`${method.method} is not a method`);
   const work = Promise.resolve().then((): unknown => Reflect.apply(judge, instance, [site.answer]));
   const passed = await untilDecided(work, deps.signal);
+  // Stryker disable next-line BooleanLiteral: equivalent: a launch decided meanwhile ends the chain whatever this arbiter said (`judgeAnswer` reads the signal first)
   if (passed === ABANDONED) return { passed: false, usage: [] };
   if (typeof passed !== "boolean")
     throw new TypeError(`${method.method} returned ${String(passed)}, not true or false`);

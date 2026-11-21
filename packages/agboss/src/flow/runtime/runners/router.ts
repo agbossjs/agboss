@@ -20,6 +20,7 @@ import type { PiiPolicySet } from "../../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 import { RecursionDecider } from "../../analyse/recursion.js";
 import { unreadyRoutesOf } from "../soft-stop.js";
+import { definedOf } from "../../../infrastructure/clock.js";
 
 /** What the router's model reads, masked — and of it the input message (what its guardrails check). */
 interface MaskedRouterInput extends MaskedModelText {
@@ -71,8 +72,11 @@ async function maskedInputOf(
     .withFieldKey(boundary.pii.key);
   const known = { ...state.piiTokens, ...boundary.pii.tokens };
   const { texts, masked } = await maskedTexts(set, isGuarded ? parts : [parts.join("\n\n")], known);
-  const input = isGuarded ? (texts[texts.length - 1] ?? "") : masked.text;
-  return { ...masked, input, tokens: { ...boundary.pii.tokens, ...masked.tokens } };
+  const tokens = { ...boundary.pii.tokens, ...masked.tokens };
+  // the input message is the last text masked: the only one, as a whole, of a router without guardrails
+  // Stryker disable next-line StringLiteral: equivalent: the invariant's text only names it in the error nobody reaches
+  const input = definedOf(texts[texts.length - 1], "a router masks its input message last");
+  return { ...masked, input, tokens };
 }
 
 /** The router's input guardrails (#120) on its masked input message: their spend and decisions. */

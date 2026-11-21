@@ -33,8 +33,8 @@ export interface PausedLoop {
   readonly usage: readonly UsageRecord[];
 }
 
-/** An agent loop's checkpoint as the step it waits in. */
-const loopOf = (state: AgentLoopStateType): PausedLoop => ({
+/** An agent loop's checkpoint as the step it waits in (exported for its unit test, #1366). */
+export const loopOf = (state: AgentLoopStateType): PausedLoop => ({
   usage: state.usage.slice(state.from.usage),
 });
 

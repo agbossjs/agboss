@@ -127,7 +127,7 @@ function callReportOf(
  */
 export interface RunReportIdentity {
   readonly id: string;
-  readonly executionId?: string;
+  readonly executionId?: string | undefined;
   /** When the caller's accept of the call was stored (ISO 8601): the entry's earliest date. */
   readonly notBefore: string;
   /** The caller's own time now, on its `Clock`: the entry's latest date. */
@@ -147,9 +147,9 @@ export function reportMadeAtOf(
 ): string {
   const now = identity.now.getTime();
   const lower = Date.parse(identity.notBefore);
-  // a lower bound that is no date, or past now, leaves only now: fail closed to the caller's time
-  const floor = Number.isNaN(lower) || lower > now ? now : lower;
-  const issued = issuedAt === undefined ? Number.NaN : Date.parse(issuedAt);
+  // a lower bound that is no date leaves only now: fail closed to the caller's time (one past now is clamped below)
+  const floor = Number.isNaN(lower) ? now : lower;
+  const issued = Date.parse(String(issuedAt));
   const dated = Number.isNaN(issued) ? now : Math.min(now, Math.max(floor, issued));
   return new Date(dated).toISOString();
 }

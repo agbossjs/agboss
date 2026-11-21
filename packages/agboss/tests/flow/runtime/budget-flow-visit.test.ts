@@ -12,6 +12,12 @@ import { checkVisit } from "../../../src/flow/runtime/limits.js";
 import { caught } from "../../../src/flow/runtime/visit-failure.js";
 import { inTreeSlot } from "../../../src/flow/runtime/step-frame.js";
 import { visitNode } from "../../../src/flow/runtime/visit.js";
+import { RouterDecisionError } from "../../../src/flow/runtime/router-error.js";
+import { OutputInvalidError } from "../../../src/flow/runtime/errors.js";
+import { visitNumberOf } from "../../../src/flow/runtime/step-frame.js";
+import { recordOfNode } from "../../../src/flow/runtime/workflow-keys.js";
+import { recordsOf } from "../../../src/flow/runtime/node-runner.js";
+import { sidePathAfter } from "../../../src/flow/runtime/limits.js";
 
 vi.mock("../../../src/flow/runtime/limits.js", () => ({
   checkVisit: vi.fn(),
@@ -39,7 +45,8 @@ vi.mock("../../../src/flow/compensation.js", () => ({
   compensationsOfVisit: vi.fn(() => Promise.resolve({})),
   compensationsOfHeldVisit: vi.fn(() => Promise.resolve({})),
 }));
-vi.mock("../../../src/flow/runtime/visit-write.js", () => ({
+vi.mock("../../../src/flow/runtime/visit-write.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/visit-write.js")>()),
   visitWrite: vi.fn(() => ({ update: {}, outdated: [], cascades: [] })),
 }));
 vi.mock("../../../src/flow/runtime/visit-step.js", () => ({
@@ -56,6 +63,7 @@ vi.mock("../../../src/flow/runtime/launch/launch-report.js", () => ({ reportTrun
 vi.mock("../../../src/flow/runtime/scope.js", () => ({ readInput: vi.fn(() => ({ fields: {} })) }));
 vi.mock("../../../src/flow/runtime/lost-pass-records.js", () => ({ recordLostPasses: vi.fn() }));
 vi.mock("../../../src/flow/context/frame.js", () => ({
+  currentFrame: vi.fn(),
   runInFrame: vi.fn((_frame: unknown, work: () => unknown) => work()),
 }));
 vi.mock("../../../src/core/run-context.js", () => ({
@@ -398,5 +406,156 @@ describe("#1366: what a visit reports", () => {
     )(stateOf(), undefined);
 
     expect(reportTruncation).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1366: the spend of a router whose decision names no route of its own", () => {
+  it("is the decision error's spend: the router's call and what its code paid services, handled as the failure's", async () => {
+    const { deps } = setup([record(0.125, "service")]);
+    vi.mocked(caught).mockReturnValue({ usage: [] });
+    const runner = vi.fn(() =>
+      Promise.resolve({ read: [], route: "nowhere", usage: [record(0.5, "router")] }),
+    );
+
+    await visitNode(node as never, runner as never, deps as never)(stateOf(), undefined);
+
+    const failure = vi.mocked(caught).mock.calls[0]?.[2];
+    expect(failure).toBeInstanceOf(RouterDecisionError);
+    expect((failure as RouterDecisionError).usage).toEqual([
+      record(0.5, "router"),
+      record(0.125, "service"),
+    ]);
+    expect((failure as RouterDecisionError).message).toContain(
+      '"nowhere" is not one of its routes',
+    );
+  });
+
+  it("a route the node has is taken: no failure, and the spend goes on with the visit", async () => {
+    const { deps } = setup();
+    const routed = {
+      ...node,
+      exits: { ...node.exits, routes: new Map([["yes", { to: "yes-node" }]]) },
+    };
+    const runner = vi.fn(() =>
+      Promise.resolve({ read: [], route: "yes", usage: [record(0.5, "router")] }),
+    );
+
+    const out = await visitNode(
+      routed as never,
+      runner as never,
+      deps as never,
+    )(stateOf(), undefined);
+
+    expect(caught).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ next: "yes-node" });
+  });
+});
+
+describe("#1366: the way out of a visit, and what the visit writes", () => {
+  const casesNode = (cases: [string, object][]) => ({
+    ...node,
+    exits: { ...node.exits, cases: new Map(cases) },
+  });
+  const run = async (n: object, outcome: object, deps: object) => {
+    const caughtError: unknown[] = [];
+    vi.mocked(caught).mockImplementation((_d: unknown, _v: unknown, error: unknown) => {
+      caughtError.push(error);
+      return {};
+    });
+    const out = await visitNode(
+      n as never,
+      vi.fn(() => Promise.resolve(outcome)) as never,
+      deps as never,
+    )(stateOf(), undefined);
+    return { out, error: caughtError[0] };
+  };
+
+  it("an answer no route of the router names fails the visit as the step's decision: its node, its visit and its record", async () => {
+    const { deps } = setup();
+    vi.mocked(visitNumberOf).mockReturnValue(3);
+    vi.mocked(recordOfNode).mockReturnValue({ name: "n", kind: "router" } as never);
+
+    const { error } = await run(node, { read: [], route: "nowhere" }, deps);
+
+    expect(error).toBeInstanceOf(RouterDecisionError);
+    expect(error).toMatchObject({ nodeId: "n", visitNumber: 3 });
+    expect((error as RouterDecisionError).component).toMatchObject({ name: "n" });
+    expect(vi.mocked(recordOfNode).mock.calls[0]?.[1]).toBe("n");
+  });
+
+  it("a variant its switch has a case for leaves by it", async () => {
+    const { deps } = setup();
+    const withCases = casesNode([["A", { to: "case-a" }]]);
+
+    const { out } = await run(withCases, { read: [], value: { variant: "A" } }, deps);
+
+    expect(out).toMatchObject({ next: "case-a" });
+  });
+
+  it("a variant it has none for, or no class at all, fails the visit with what the switch lacks", async () => {
+    const withCases = casesNode([["A", { to: "case-a" }]]);
+    const unknown = await run(withCases, { read: [], value: { variant: "Z" } }, setup().deps);
+    const none = await run(withCases, { read: [] }, setup().deps);
+
+    expect(unknown.error).toBeInstanceOf(OutputInvalidError);
+    expect((unknown.error as Error).message).toBe(
+      "n gave Z, which its switch has no caseOf(…) for",
+    );
+    expect((none.error as Error).message).toBe(
+      "n gave no class, which its switch has no caseOf(…) for",
+    );
+  });
+
+  it("a node that gave a variant but has no switch leaves by its one next step", async () => {
+    const { deps } = setup();
+
+    const { out } = await run(node, { read: [], value: { variant: "A" } }, deps);
+
+    expect(out).toMatchObject({ next: "after" });
+  });
+
+  it("a finish ends the execution on its node with its output; a node that is none writes neither", async () => {
+    const finished = await run(
+      node,
+      { read: [], finish: { output: { text: "done" } } },
+      setup().deps,
+    );
+    const plain = await run(node, { read: [] }, setup().deps);
+
+    expect(finished.out).toMatchObject({ finish: "n", output: { text: "done" } });
+    expect("finish" in plain.out).toBe(false);
+    expect("output" in plain.out).toBe(false);
+  });
+
+  it("the transcriptions of the files a node read are kept, and none when it read none", async () => {
+    const withFiles = await run(node, { read: [], fileTranscripts: { f: "t" } }, setup().deps);
+    const without = await run(node, { read: [] }, setup().deps);
+
+    expect(withFiles.out.fileTranscripts).toEqual({ f: "t" });
+    expect("fileTranscripts" in without.out).toBe(false);
+  });
+
+  it("the visit's records are the outcome's, and its side path is read from the node it moves to", async () => {
+    const { deps } = setup();
+    vi.mocked(recordsOf).mockReturnValue({ usage: [record(0.5, "records")] } as never);
+    vi.mocked(sidePathAfter).mockReturnValue({ sidePath: ["s"] } as never);
+
+    const { out } = await run(node, { read: [] }, deps);
+
+    expect(out.usage).toEqual([record(0.5, "records")]);
+    expect(out).toMatchObject({ sidePath: ["s"] });
+    expect(vi.mocked(sidePathAfter).mock.calls[0]?.[2]).toBe("after");
+  });
+
+  it("a launch's own next step is no side path of the visit", async () => {
+    const { deps } = setup();
+    vi.mocked(launchFor).mockReturnValue({ launch: { maxItems: 1 } } as never);
+    vi.mocked(launchEdgeOf).mockReturnValue({ to: "x" } as never);
+    vi.mocked(launchTicketOf).mockReturnValue({ launchId: "L" } as never);
+    vi.mocked(nextOfLaunch).mockReturnValue("<launch>");
+
+    await run(node, { read: [] }, deps);
+
+    expect(vi.mocked(sidePathAfter).mock.calls[0]?.[2]).toBeUndefined();
   });
 });

@@ -203,6 +203,25 @@ describe("#1366: whether the run ended by its own outcome", () => {
     byIds.mockRejectedValue(new Error("the store is down"));
     expect(await endedByRun(parts, "turn-1")).toBe(false);
   });
+
+  it("a read that throws before it returns a promise (node:sqlite does): no end, the throw is answered here (#1375)", async () => {
+    const { parts, byIds } = partsOf();
+    byIds.mockImplementation(() => {
+      throw new Error("SQLITE_BUSY");
+    });
+
+    await expect(endedByRun(parts, "turn-1")).resolves.toBe(false);
+  });
+
+  it.each([
+    ["a null record", [null]],
+    ["no list of records", undefined],
+  ])("a read that gives %s: no end, never a rejection (#1375)", async (_name, read) => {
+    const { parts, byIds } = partsOf();
+    byIds.mockResolvedValue(read as never);
+
+    await expect(endedByRun(parts, "turn-1")).resolves.toBe(false);
+  });
 });
 
 describe("#1366: the expiry look's move", () => {
@@ -373,6 +392,21 @@ describe("#1366: the expiry look's move", () => {
     byIds.mockResolvedValue([record(ExecutionRecordStatus.Paused)]);
     const hooks = hooksOf();
     const failure = new Error("the store failed");
+    hooks.drained.mockRejectedValue(failure);
+    due();
+
+    await expect(expiredMove(parts, hooks as never, interrupted, {})).rejects.toBe(failure);
+
+    expect((lease as { release: () => void }).release).toHaveBeenCalledOnce();
+  });
+
+  it("a drain that failed while the store's read throws synchronously (SQLite): the drain's failure is the look's, not the read's (#1375)", async () => {
+    const { parts, lease, byIds } = partsOf();
+    byIds.mockResolvedValueOnce([record(ExecutionRecordStatus.Paused)]).mockImplementation(() => {
+      throw new Error("SQLITE_BUSY");
+    });
+    const hooks = hooksOf();
+    const failure = new Error("the drain failed");
     hooks.drained.mockRejectedValue(failure);
     due();
 

@@ -15,12 +15,19 @@ import {
   maskedRequest,
   outgoingMove,
 } from "../../src/graph/agent-loop/model-pii.js";
+import { AgentFailedError } from "../../src/graph/errors.js";
 import { LimitExceededError } from "../../src/graph/limits.js";
 import { attemptOf } from "../../src/graph/agent-loop/answer-stream.js";
+import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
 vi.mock("../../src/graph/agent-loop/answer-stream.js", async (original) => ({
   ...(await original<typeof import("../../src/graph/agent-loop/answer-stream.js")>()),
   attemptOf: vi.fn(),
+}));
+vi.mock("../../src/flow/observers/execution-event.js", () => ({
+  reportNodeEvent: vi.fn((work: (base: object) => unknown) =>
+    Promise.resolve(work({ base: true })),
+  ),
 }));
 vi.mock("../../src/flow/runtime/answer-tools.js", () => ({ toolBindingOf: vi.fn(() => ({})) }));
 vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({
@@ -103,6 +110,9 @@ function setup(options: { modelCalls?: number; toolCalls?: number; isExhausted?:
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(reportNodeEvent).mockImplementation((work: (base: never) => unknown) =>
+    Promise.resolve(work({ base: true } as never)).then(() => undefined),
+  );
 });
 
 describe("#1366: the check before a model call", () => {
@@ -462,5 +472,106 @@ describe("#1366: what the move asks for", () => {
     await node(stateOf({ piiTokens: { a: "1" } }), undefined);
 
     expect(vi.mocked(attemptOf).mock.calls[0]?.[3]).toBeUndefined();
+  });
+});
+
+describe("#1366: the spend of a call that broke", () => {
+  it("fails the agent with the loop's spend and what masking the request cost: the call itself is unknown", async () => {
+    const { node, invoke, attempt } = setup();
+    invoke.mockRejectedValue(new Error("provider down"));
+
+    const failure = await node(stateOf(), undefined).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AgentFailedError);
+    expect((failure as AgentFailedError).usage).toEqual([
+      record(0.5, "loop"),
+      record(0.125, "mask"),
+    ]);
+    expect((failure as AgentFailedError).cause).toEqual(new Error("provider down"));
+    expect(attempt.discard).toHaveBeenCalledWith("stream-broken");
+  });
+
+  it("a call that broke is not tallied here: the failure carries its spend to the ledger", async () => {
+    const { node, invoke, budgets } = setup();
+    invoke.mockRejectedValue(new Error("provider down"));
+
+    await node(stateOf(), undefined).catch(() => undefined);
+
+    expect(budgets.tally).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1366: what the observer hears of a model call", () => {
+  it("the start: the model, the agent and what was sent, without the instructions", async () => {
+    const { deps } = setup();
+    const onModelStart = vi.fn();
+    const withObserver = makeModelNode({
+      ...deps,
+      observer: { onModelStart, onModelEnd: vi.fn() },
+    } as never);
+
+    await withObserver(stateOf(), undefined);
+
+    expect(onModelStart).toHaveBeenCalledWith({
+      base: true,
+      modelName: "m",
+      callerName: "alpha",
+      rawPayload: [new HumanMessage("hi")],
+    });
+  });
+
+  it("the end: the text, the tokens and their sum, and the cost of the call", async () => {
+    const { deps, invoke } = setup();
+    invoke.mockResolvedValue(
+      new AIMessage({
+        content: "answer",
+        usage_metadata: { input_tokens: 10, output_tokens: 4, total_tokens: 14 },
+        response_metadata: { usage: { cost: 0.25 } },
+      }),
+    );
+    const onModelEnd = vi.fn();
+    const withObserver = makeModelNode({
+      ...deps,
+      observer: { onModelStart: vi.fn(), onModelEnd },
+    } as never);
+
+    await withObserver(stateOf(), undefined);
+
+    expect(onModelEnd).toHaveBeenCalledWith({
+      base: true,
+      model: "m",
+      callerName: "alpha",
+      rawContent: "answer",
+      usage: { promptTokens: 10, completionTokens: 4, totalTokens: 14 },
+      calculatedCost: 0.25,
+    });
+  });
+
+  it("an agent with no observer is heard by none, and the call goes on", async () => {
+    const { node } = setup();
+
+    await expect(node(stateOf(), undefined)).resolves.toMatchObject({ modelCalls: 1 });
+  });
+
+  it("a call that broke tells the end to nobody; its text is retracted, once the failure is made", async () => {
+    const { deps, invoke } = setup();
+    invoke.mockRejectedValue(new Error("provider down"));
+    const onModelEnd = vi.fn();
+    const withObserver = makeModelNode({
+      ...deps,
+      observer: { onModelStart: vi.fn(), onModelEnd },
+    } as never);
+
+    await withObserver(stateOf(), undefined).catch(() => undefined);
+
+    expect(onModelEnd).not.toHaveBeenCalled();
+  });
+
+  it("the text of a call that went through is held no longer", async () => {
+    const { node, attempt } = setup();
+
+    await node(stateOf(), undefined);
+
+    expect(attempt.end).toHaveBeenCalledOnce();
   });
 });
