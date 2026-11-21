@@ -257,6 +257,13 @@ export const SHARDS = {
   "once-state": ranges.onceStateShard(),
   "once-child": ranges.onceChildShard(),
   "once-mesh": ranges.onceMeshShard(),
+  // the fence, lease and cancel rules the completeness test of #1356 found in no shard (#1366)
+  "fence-checkpoint": ranges.fenceCheckpointShard(),
+  "fence-tree": ranges.fenceTreeShard(),
+  "fence-workers": ranges.fenceWorkersShard(),
+  "fence-config": ranges.fenceConfigShard(),
+  "cancel-x-runs": ranges.cancelRunsShard(),
+  "cancel-x-pauses": ranges.cancelPausesShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";
