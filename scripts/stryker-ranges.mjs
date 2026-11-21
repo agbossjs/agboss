@@ -199,3 +199,5 @@ export function a2aFilesShard() {
     mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
   };
 }
+
+export * from "./stryker-ranges-money.mjs";

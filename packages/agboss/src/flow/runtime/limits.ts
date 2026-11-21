@@ -138,10 +138,12 @@ function checkSteps(
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
   const visits = (state.visits[node.id] ?? 0) + 1;
-  if (node.maxVisits !== undefined && visits > node.maxVisits) {
+  // a node with no `maxVisits` is held to none
+  const maxVisits = node.maxVisits ?? Number.POSITIVE_INFINITY;
+  if (visits > maxVisits) {
     throw new VisitsLimitExceededError({
       component: plainRecordOf(site.component),
-      maxVisits: node.maxVisits,
+      maxVisits,
       path,
       spentUsd: spent,
     });

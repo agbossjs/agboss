@@ -1,0 +1,19 @@
+import { defineConfig } from "vitest/config";
+
+/**
+ * The tests Stryker runs on the money rules of the flow runtime (#1356, shard `money-runtime` of
+ * `stryker.config.mjs`): which visits the budgets check, a service's and a router's spend counted at once, a
+ * child's own spend and its failure, the ledger ids of lost passes, the spend a failure carries and a paused
+ * run's spend. One process, no nested vitest and no pods.
+ */
+export default defineConfig({
+  test: {
+    expect: { requireAssertions: true },
+    setupFiles: ["./src/testing/setup.ts"],
+    include: [
+      "tests/flow/runtime/money-runtime-units.test.ts",
+      "tests/errors/recorded-error.test.ts",
+      "tests/finops/lost-passes.test.ts",
+    ],
+  },
+});

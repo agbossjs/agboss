@@ -80,7 +80,7 @@ export interface A2ACharged {
  * The ledger identity of a call's price (#810), dated by its accept as stored (a `Date` at the
  * ledger's boundary, #817: one that is no date is refused there, nothing added).
  */
-const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
+export const priceLedgerKeyOf = (charged: A2ACharged): LedgerKey => ({
   id: `a2a:${charged.messageId}:price`,
   madeAt: new Date(charged.acceptedAt),
 });
