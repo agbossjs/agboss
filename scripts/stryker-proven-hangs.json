@@ -55,15 +55,6 @@
   },
   {
     "shard": "money",
-    "file": "src/budgets/budget.ts",
-    "mutator": "BlockStatement",
-    "replacement": "{}",
-    "anchor": "export function Budget<const TDeps extends readonly Token[] = []>(options: BudgetOptions<TDeps>) {",
-    "kind": "runtime-error",
-    "reason": "the decorator's body is removed: '(0, decorators[i]) is not a function' while the test files load, outside any test: counted as an error, not a kill; run alone: the same"
-  },
-  {
-    "shard": "money",
     "file": "src/budgets/execution-budgets.ts",
     "mutator": "EqualityOperator",
     "replacement": "records.length !== 0",
