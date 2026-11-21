@@ -105,7 +105,6 @@ function shownRequest(
   deps: GraphDeps<string>,
 ): RouteRequest {
   const hidden = unreadyRoutesOf(deps.graph, node.id, RecursionDecider.ModelRouter);
-  if (hidden.length === 0) return request;
   const options = request.options.filter((option) => !hidden.includes(option.name));
   return { ...request, options };
 }

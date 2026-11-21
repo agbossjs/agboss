@@ -15,11 +15,19 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/flow/runtime/money-runtime-units.test.ts",
+      "tests/flow/runtime/money-runtime-side-path.test.ts",
+      "tests/flow/runtime/money-runtime-router.test.ts",
+      "tests/flow/runtime/money-runtime-execute.test.ts",
+      "tests/flow/runtime/money-runtime-records.test.ts",
+      "tests/run/money-runtime-paused.test.ts",
       // a limit that is no count is a bound of 0 (#1373)
       "tests/graph/count-limit.test.ts",
       "tests/flow/runtime/money-runtime-spend-units.test.ts",
       "tests/errors/recorded-error.test.ts",
       "tests/finops/lost-passes.test.ts",
+      // the spend of the loops a pause leaves, found in the checkpoints of a run that waits (src/run/paused.ts)
+      "tests/pause.test.ts",
+      "tests/run/ledger-run-finish.test.ts",
     ],
   },
 });

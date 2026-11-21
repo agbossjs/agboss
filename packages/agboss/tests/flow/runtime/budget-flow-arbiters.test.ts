@@ -16,7 +16,9 @@ vi.mock("../../../src/flow/decorators/arbiter.js", () => ({
   answerMethodsOf: vi.fn((arbiter: { methods?: unknown }) => arbiter.methods ?? []),
 }));
 vi.mock("../../../src/flow/decorators/declaration.js", () => ({
-  declarationOf: vi.fn((agent: { agentName: string }) => ({ options: { name: agent.agentName } })),
+  declarationOf: vi.fn((agent: { agentName?: string }) =>
+    agent.agentName === undefined ? undefined : { options: { name: agent.agentName } },
+  ),
 }));
 
 const record = (costUsd: number, caller = "arbiter"): UsageRecord => ({
@@ -441,5 +443,117 @@ describe("#1366: a code arbiter, and a launch decided while it works", () => {
     const out = await judgeAnswer([step(codeArbiter("a-arbiter", judge))] as never, site, deps);
 
     expect(out).toEqual({ isAccepted: false, rejectedBy: [], usage: [] });
+  });
+});
+
+describe("#1366: the names an arbiter and its agent go by", () => {
+  it("an agent that declares no name is known by its class's name", async () => {
+    class PlainAgent {
+      readonly plain = true;
+    }
+    const arbiter = {
+      name: "code-arbiter",
+      declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
+      methods: [{ agent: PlainAgent, method: "fromPlain" }],
+      instance: { fromPlain: () => true },
+    };
+    const { deps } = depsOf({});
+
+    const out = await judgeAnswer(
+      [step(arbiter)] as never,
+      { node: "PlainAgent", answer: 1 },
+      deps,
+    );
+
+    expect(out.isAccepted).toBe(true);
+  });
+
+  it("a rejection names the arbiter by its declared name, not its class's", async () => {
+    const arbiter = {
+      name: "ClassName",
+      declaration: { options: { decidedBy: "code", name: "declared-name" } },
+      methods: [{ agent: Agent, method: "fromSkills" }],
+      instance: { fromSkills: () => false },
+    };
+    const { deps } = depsOf({});
+
+    const out = await judgeAnswer([step(arbiter)] as never, site, deps);
+
+    expect(out.rejectedBy).toEqual(["declared-name"]);
+  });
+
+  it("a class that is no arbiter is named by its class's name in the error", async () => {
+    const { deps } = depsOf({});
+
+    const failure = await judgeAnswer([step({ name: "PlainClass" })] as never, site, deps).catch(
+      (e: unknown) => e,
+    );
+
+    expect(failure).toMatchObject({ arbiter: "PlainClass" });
+  });
+});
+
+describe("#1366: a code arbiter's method, and the launch deciding while it works", () => {
+  const codeWith = (instance: unknown) => ({
+    name: "code-arbiter",
+    declaration: { options: { decidedBy: "code", name: "code-arbiter" } },
+    methods: [{ agent: Agent, method: "fromSkills" }],
+    instance,
+  });
+  const causeOf = async (arbiter: object): Promise<string> => {
+    const { deps } = depsOf({});
+    const failure = await judgeAnswer([step(arbiter)] as never, site, deps).catch(
+      (e: unknown) => e,
+    );
+    return ((failure as Error).cause as Error).message;
+  };
+
+  it.each([
+    ["an instance that is not there", undefined],
+    ["an instance that is null", null],
+    ["a method that is no function", { fromSkills: 5 }],
+  ])("%s says the method is none", async (_why, instance) => {
+    expect(await causeOf(codeWith(instance))).toBe("fromSkills is not a method");
+  });
+
+  it("a launch decided before the check ends the chain at once, whatever the check does", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const hanging = codeWith({ fromSkills: () => new Promise<never>(() => undefined) });
+    const { deps } = depsOf({}, { signal: controller.signal });
+
+    const out = await judgeAnswer([step(hanging)] as never, site, deps);
+
+    expect(out).toEqual({ isAccepted: false, rejectedBy: [], usage: [] });
+  });
+
+  it("a launch decided while the check works ends the chain at once, and the check's own end is still handled", async () => {
+    const controller = new AbortController();
+    const hanging = codeWith({
+      fromSkills: () => {
+        queueMicrotask(() => {
+          controller.abort();
+        });
+        return new Promise<never>(() => undefined);
+      },
+    });
+    const { deps } = depsOf({}, { signal: controller.signal });
+
+    const out = await judgeAnswer([step(hanging)] as never, site, deps);
+
+    expect(out).toEqual({ isAccepted: false, rejectedBy: [], usage: [] });
+  });
+
+  it("waits on the launch's signal once, and lets go of it when the check has answered", async () => {
+    const controller = new AbortController();
+    const added = vi.spyOn(controller.signal, "addEventListener");
+    const removed = vi.spyOn(controller.signal, "removeEventListener");
+    const { deps } = depsOf({}, { signal: controller.signal });
+
+    await judgeAnswer([step(codeWith({ fromSkills: () => true }))] as never, site, deps);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(added).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
+    expect(removed).toHaveBeenCalledWith("abort", added.mock.calls[0]?.[1]);
   });
 });

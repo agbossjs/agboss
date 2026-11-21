@@ -252,6 +252,21 @@ describe("#1366: the reader of a tree's pauses", () => {
     });
   });
 
+  it("labels the reading with the pause's id: a reply the interpreter declines says which pause it was for", async () => {
+    const { call } = callOf();
+    vi.mocked(readByCode).mockResolvedValue({ kind: "declined", reason: "unclear", usage: [] });
+    const reader = replyReaderOf({ ...parts, interpreters: [interpreterOf(undefined)] } as never);
+
+    const out = await reader({
+      ...(call as object),
+      pause: { pauseId: "p9", channel: "ch", ask: {} },
+    } as never);
+
+    expect((out as { error: Error }).error.message).toBe(
+      "pause p9: boss-reply-interpreter could not read the reply — unclear",
+    );
+  });
+
   it("a channel with no interpreter is refused, naming the pause and the channel", async () => {
     const { call } = callOf();
     const reader = replyReaderOf({ ...parts, interpreters: [] } as never);

@@ -1,31 +1,4 @@
 // The shards of #1356 whose rules are declarations or lines of files with other code (split from stryker-ranges.mjs for max-lines, re-exported by it).
-import { readFileSync } from "node:fs";
-
-const PACKAGE = new URL("../packages/agboss/", import.meta.url);
-
-/**
- * The top-level declarations `names` of `file` as Stryker ranges (#1356), found by name: from the declaration's
- * own line to its last line — through the blank lines inside it —, which is the line before the next thing at
- * column 0 that is neither a closing bracket nor the declaration's own (a comment, another declaration), so a
- * file's rules are mutated without the rest of it and a fixed line range never moves with the code above.
- */
-export function declarationsOf(file, ...names) {
-  const lines = readFileSync(new URL(file, PACKAGE), "utf8").split("\n");
-  return names.map((name) => {
-    const head = new RegExp(
-      `^(?:export )?(?:default )?(?:async )?(?:function\\*? |const |class )${name}\\b`,
-    );
-    const start = lines.findIndex((line) => head.test(line));
-    if (start < 0) throw new Error(`${file}: ${name} not found`);
-    let end = start;
-    for (let next = start + 1; next < lines.length; next += 1) {
-      const line = lines[next] ?? "";
-      if (/^[^\s})\]]/.test(line)) break;
-      if (line.trim() !== "") end = next;
-    }
-    return `${file}:${String(start + 1)}-${String(end + 1)}`;
-  });
-}
 
 /** The `store-bound` shard (#1069) of `stryker.config.mjs`, moved here (#1356). */
 export function storeBoundShard() {
@@ -61,61 +34,17 @@ export function moneyRuntimeShard() {
 
 /** The limits a visit checks, a child's own spend and a router's spend counted at the call. */
 const limitsChildAndRouterSpend = () => [
-  ...declarationsOf(
-    "src/flow/runtime/limits.ts",
-    "isWorkingNode",
-    "isBudgeted",
-    "checkSteps",
-    "checkVisit",
-    "countedServiceSpend",
-  ),
-  ...declarationsOf(
-    "src/flow/runtime/child-exit.ts",
-    "ownUsageOf",
-    "withSpend",
-    "isRecordedAs",
-    "childFailureOf",
-    "childRecordOf",
-  ),
-  ...declarationsOf(
-    "src/flow/runtime/runners/router.ts",
-    "maskedTexts",
-    "maskedInputOf",
-    "guardedInput",
-    "counterOf",
-    "spendOf",
-    "routerRunner",
-  ),
+  "src/flow/runtime/limits.ts",
+  "src/flow/runtime/child-exit.ts",
+  "src/flow/runtime/runners/router.ts",
 ];
 
 /** The lost passes' records, what a visit reports, the spend a failure carries and a run's drain of it. */
 const lostPassAndRunSpend = () => [
-  ...declarationsOf(
-    "src/flow/runtime/lost-pass-records.ts",
-    "unknownLedgerIdOf",
-    "unknownCostRecordsOf",
-    "lostPassesOf",
-    "isLostPasses",
-    "lostTokensOfTask",
-    "callsModel",
-    "recordLostPasses",
-    "recordBranchLostPasses",
-  ),
-  ...declarationsOf(
-    "src/flow/runtime/node-runner.ts",
-    "recordsOf",
-    "unrecordedSpendOf",
-    "reportingOf",
-  ),
-  ...declarationsOf(
-    "src/run/execute.ts",
-    "runningOutcome",
-    "failedOutcome",
-    "statesOnly",
-    "unrecordedSpendOf",
-    "drainRun",
-  ),
-  ...declarationsOf("src/run/paused.ts", "loopOf", "pausedUsageOf"),
+  "src/flow/runtime/lost-pass-records.ts",
+  "src/flow/runtime/node-runner.ts",
+  "src/run/execute.ts",
+  "src/run/paused.ts",
 ];
 
 /**
@@ -127,17 +56,8 @@ export function cancelStoresShard() {
   return {
     configFile: "vitest.mutation-cancel-stores.config.ts",
     mutate: [
-      ...declarationsOf(
-        "src/infrastructure/in-memory-database.ts",
-        "checkInMemoryCancel",
-        "prunedFencedBefore",
-        "prunedCallsBefore",
-      ),
-      ...declarationsOf(
-        "src/infrastructure/sqlite/sqlite-connection.ts",
-        "markedCancelRequested",
-        "checkSqliteCancel",
-      ),
+      "src/infrastructure/in-memory-database.ts",
+      "src/infrastructure/sqlite/sqlite-connection.ts",
       "src/infrastructure/sqlite/sqlite-lease-schema.ts",
     ],
   };
@@ -150,24 +70,6 @@ export function cancelStoresShard() {
 export function meshChargeShard() {
   return {
     configFile: "vitest.mutation-mesh-charge.config.ts",
-    mutate: [
-      ...declarationsOf(
-        "src/mesh/mesh-report.ts",
-        "withLedgerKey",
-        "chargeOf",
-        "reportMadeAtOf",
-        "callReportOf",
-        "takeRunReport",
-      ),
-      ...declarationsOf(
-        "src/a2a/client/a2a-mesh-seam.ts",
-        "priceLedgerKeyOf",
-        "chargePrice",
-        "chargedBy",
-        "settledBy",
-        "settleReport",
-        "reportIdentityOf",
-      ),
-    ],
+    mutate: ["src/mesh/mesh-report.ts", "src/a2a/client/a2a-mesh-seam.ts"],
   };
 }

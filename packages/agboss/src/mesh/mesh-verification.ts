@@ -65,10 +65,12 @@ export function signatureRefusalOf(
 ): MeshRefusalCode | undefined {
   if (read.signed === undefined || !isSignedBy(read.signed, key))
     return MeshRefusalCode.SignatureInvalid;
+  // Stryker disable next-line StringLiteral: equivalent: an envelope with no date is no date either way: `Date.parse` reads both texts as NaN
   const issuedAt = Date.parse(read.envelope.issuedAt ?? "");
   const lifetime = millisecondsOf(read.envelope.expiresIn);
   if (Number.isNaN(issuedAt) || lifetime === undefined) return MeshRefusalCode.EnvelopeExpired;
   const at = now.getTime();
-  const isValid = issuedAt - CLOCK_TOLERANCE <= at && at <= issuedAt + lifetime + CLOCK_TOLERANCE;
-  return isValid ? undefined : MeshRefusalCode.EnvelopeExpired;
+  // outside the window is the one thing refused, so a date or a lifetime that is no number never passes: it is refused above
+  const isOutside = at < issuedAt - CLOCK_TOLERANCE || at > issuedAt + lifetime + CLOCK_TOLERANCE;
+  return isOutside ? MeshRefusalCode.EnvelopeExpired : undefined;
 }

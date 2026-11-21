@@ -1,6 +1,6 @@
 // The `budget-*` shards of #1366: the functions that refuse a step, a call or a reply for a budget, and count the spend a
 // refusal travels with — in files with other code (split from stryker-ranges.mjs for max-lines).
-import { declarationsOf } from "./stryker-ranges-money.mjs";
+import { wholeFile } from "./stryker-ranges-whole.mjs";
 
 /**
  * The `budget-loop` shard (#1366): an agent's loop and its budgets — the check before each model call and the one
@@ -12,46 +12,24 @@ export function budgetLoopShard() {
   return {
     configFile: "vitest.mutation-budget-loop.config.ts",
     mutate: [
-      // the checks around a model call, the model call with the spend a failure of it carries, the limits and the
-      // exhausted signal; the tools' definitions and the call's ids are not budget rules
-      ...declarationsOf(
-        "src/graph/agent-loop/model-node.ts",
-        "withExhausted",
-        "observedCall",
-        "checkBudget",
-        "checkSpent",
-        "checkModelCalls",
-        "makeModelNode",
-      ),
-      // a tool's own spend counted the moment it is reported, the signal of its call, the spend of its arguments'
-      // guardrail and of closing its result, and the update that carries it to the loop
-      ...declarationsOf(
-        "src/graph/agent-loop/tools-node.ts",
-        "guardedCall",
-        "runTask",
-        "endedTaskOf",
-      ),
-      // the check before a file's model call, and the input's spend counted at once
-      ...declarationsOf(
-        "src/graph/agent-loop/input-node.ts",
-        "guardedInput",
-        "inputFilesOf",
-        "makeInputNode",
-      ),
-      // the checks before a question is asked, the spend a question's expiry or a failed ask carries and the
-      // interpreter's spend
-      ...declarationsOf(
-        "src/graph/agent-loop/approval-node.ts",
-        "approvalOf",
-        "expiryOf",
-        "askedOrFailed",
-        "checkBeforeAsking",
-        "askQuestion",
-      ),
-      // the tool-call limit an agent runs under, a value that is no count read as 0 (#1373)
-      ...declarationsOf("src/graph/agent-loop/limits.ts", "resolveAgentLimits"),
-      // the judges' spend counted at once and what a rejection carries
-      ...declarationsOf("src/graph/agent-loop/judge-node.ts", "rejectionsOf", "makeJudgeNode"),
+      "src/graph/agent-loop/model-node.ts",
+      "src/graph/agent-loop/tools-node.ts",
+      "src/graph/agent-loop/input-node.ts",
+      "src/graph/agent-loop/approval-node.ts",
+      "src/graph/agent-loop/limits.ts",
+      // what a judge reads of the answer is left out: it is not spend, and its checks are those of the answer's shape
+      ...wholeFile("src/graph/agent-loop/judge-node.ts", {
+        answeredClassesOf:
+          "names the class each value of the answer was given with, by the position of its answer tool: no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        classAt:
+          "picks one item's class out of that list: no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        itemValuesOf:
+          "takes the values out of a list answer's items for the judge: no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        listClassOf:
+          "names the one class a list judge reads its items as: no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        judgedInputOf:
+          "shapes the input one judge reads (the answer, its class, the task, the attempt number and the visit's tool calls, as the judge's own handler sees them): no limit is checked and no spend is counted there",
+      }),
       "src/graph/agent-loop/mesh-call.ts",
     ],
   };
@@ -66,34 +44,11 @@ export function budgetFlowShard() {
   return {
     configFile: "vitest.mutation-budget-flow.config.ts",
     mutate: [
-      // the edge a visit leaves by, and the spend of a router whose decision names no route of its own
-      ...declarationsOf("src/flow/runtime/visit-write.ts", "exitOf"),
-      ...declarationsOf(
-        "src/flow/runtime/visit.ts",
-        "failedCompensations",
-        "withOwnCompensations",
-        "succeeded",
-        "visitNode",
-      ),
-      ...declarationsOf(
-        "src/flow/runtime/launch/branch-view.ts",
-        "branchStateOf",
-        "budgetStopOf",
-        "withBudgetStop",
-        "branchFrameOf",
-      ),
-      ...declarationsOf(
-        "src/flow/runtime/launch/arbiters.ts",
-        "byCode",
-        "byModel",
-        "judgeOnce",
-        "judgeAnswer",
-      ),
-      ...declarationsOf(
-        "src/flow/runtime/runners/answer-guard.ts",
-        "answerFilesViewed",
-        "guardedAnswer",
-      ),
+      "src/flow/runtime/visit-write.ts",
+      "src/flow/runtime/visit.ts",
+      "src/flow/runtime/launch/branch-view.ts",
+      "src/flow/runtime/launch/arbiters.ts",
+      "src/flow/runtime/runners/answer-guard.ts",
     ],
   };
 }
@@ -105,9 +60,6 @@ export function budgetFlowShard() {
 export function budgetReplyShard() {
   return {
     configFile: "vitest.mutation-budget-reply.config.ts",
-    mutate: [
-      ...declarationsOf("src/app/reply-answer.ts", "treeMeterOf", "replyAnsweringOf"),
-      ...declarationsOf("src/channels/reply-reading.ts", "byModel", "readReplyBy"),
-    ],
+    mutate: ["src/app/reply-answer.ts", "src/channels/reply-reading.ts"],
   };
 }

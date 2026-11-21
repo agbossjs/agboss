@@ -23,6 +23,7 @@ export default defineConfig({
       "tests/index.test.ts",
       "tests/run/ledger-run-continue.test.ts",
       "tests/run/ledger-run-pass.test.ts",
+      "tests/run/ledger-run-errors.test.ts",
       "tests/run/ledger-run-finish.test.ts",
     ],
   },

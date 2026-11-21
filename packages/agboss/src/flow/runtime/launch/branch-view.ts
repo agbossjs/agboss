@@ -94,8 +94,8 @@ export function withQuorumDeadline(
 ): ExecutionStateType {
   if (deadlineAt === undefined) return state;
   const own = new Date(deadlineAt + queuedFor).toISOString();
-  const outer = state.contexts.quorumDeadlineAt;
-  const quorumDeadlineAt = outer !== undefined && outer < own ? outer : own;
+  // the earlier of the two (an ISO text sorts as its instant): an inner quorum never outlasts the one around it
+  const [quorumDeadlineAt = own] = [own, state.contexts.quorumDeadlineAt ?? own].sort();
   return { ...state, contexts: { ...state.contexts, quorumDeadlineAt } };
 }
 

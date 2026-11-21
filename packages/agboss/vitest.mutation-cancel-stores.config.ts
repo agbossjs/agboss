@@ -14,6 +14,10 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/infrastructure/cancel-stores-units.test.ts",
+      "tests/infrastructure/in-memory-database-units.test.ts",
+      "tests/infrastructure/sqlite/sqlite-connection-units.test.ts",
+      // the SQLite connection (sqlite-connection.ts is mutated whole): its busy retry, its options, its schema helpers
+      "tests/infrastructure/sqlite/{sqlite-connection,sqlite-path,sqlite-instances,sqlite-schema-version}.test.ts",
       "tests/infrastructure/sqlite/sqlite-cancel-mark-migration.test.ts",
       "tests/infrastructure/sqlite/sqlite-cancel-child.test.ts",
     ],

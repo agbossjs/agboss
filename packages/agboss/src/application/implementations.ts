@@ -45,7 +45,7 @@ export interface ImplementationChoice {
 
 /** The classes among the listed providers (values bound with `provide(…)` are not implementations). */
 const listedClasses = (providers: readonly Provider[]): readonly Class[] =>
-  providers.flatMap((provider) => (typeof provider === "function" ? [provider] : []));
+  providers.filter((provider): provider is Class => typeof provider === "function");
 
 /** Each contract with its implementation, in the order of the built-in defaults. */
 export function implementationsOf(providers: readonly Provider[]): readonly ImplementationChoice[] {

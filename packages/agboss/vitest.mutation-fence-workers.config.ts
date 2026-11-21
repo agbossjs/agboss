@@ -14,6 +14,7 @@ export default defineConfig({
     include: [
       "tests/app/fence-workers-units.test.ts",
       "tests/app/fence-child-workers-units.test.ts",
+      "tests/app/fence-workers-step-frame.test.ts",
       "tests/app/{child-claim-room,child-end-once,child-failure-once,child-lease-refused,child-queue-wake,finished-child-claim,lost-claim-reclaim,remote-child-wake,remote-child-yield}.test.ts",
     ],
   },

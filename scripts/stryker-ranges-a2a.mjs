@@ -1,5 +1,4 @@
 // The old inline shards of `stryker.config.mjs`, as functions like the newer groups' (#1376): the A2A tasks, server, client and direct replies, and the stream.
-import { audienceRefusalOf, stallBoundOf } from "./stryker-ranges.mjs";
 
 /**
  * The A2A tasks (#807): the task store in memory and in SQLite (one execution per message, a
@@ -75,7 +74,7 @@ export function a2aClientShard() {
       // #810: the call's charges, once across passes; the echo of the mesh
       "src/a2a/client/a2a-charges.ts",
       "src/a2a/client/a2a-echo.ts",
-      audienceRefusalOf("src/mesh/mesh-verification.ts"),
+      "src/mesh/mesh-verification.ts",
     ],
   };
 }
@@ -112,7 +111,7 @@ export function streamShard() {
       // records (`served-by`) and the events both read
       "src/models/{chat-openai,usage-once,event-stream-lines,served-by}.ts",
       "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
-      ...stallBoundOf("src/models/calls/event-stream-guard.ts"),
+      "src/models/calls/event-stream-guard.ts",
     ],
   };
 }

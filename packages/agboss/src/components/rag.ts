@@ -61,18 +61,20 @@ export interface RagRerankSetting {
   readonly onFailure: RerankFailurePolicy;
 }
 
-/** The `@Reranker` meta of a knowledge base's `rerank.by`; none without `rerank`. */
-const rerankerMetaOf = (meta: RagMeta) => {
-  const found = meta.rerank === undefined ? undefined : componentOf(meta.rerank.by);
-  return found?.kind === "reranker" ? found.meta : undefined;
+/** A knowledge base's `rerank` and the `@Reranker` meta of its `rerank.by`; none without `rerank`, or when `by` is no reranker. */
+const rerankedBy = (meta: RagMeta) => {
+  const { rerank } = meta;
+  if (rerank === undefined) return undefined;
+  const found = componentOf(rerank.by);
+  return found?.kind === "reranker" ? { rerank, reranker: found.meta } : undefined;
 };
 
 /** A knowledge base's reranking for describe and `configHash` (#703). */
 const rerankSettingOf = (meta: RagMeta): { readonly rerank?: RagRerankSetting } => {
-  const reranker = rerankerMetaOf(meta);
-  if (meta.rerank === undefined || reranker === undefined) return {};
-  const { candidates, onFailure = RerankFailurePolicy.Fallback } = meta.rerank;
-  return { rerank: { reranker: reranker.name, candidates, onFailure } };
+  const reranked = rerankedBy(meta);
+  if (reranked === undefined) return {};
+  const { candidates, onFailure = RerankFailurePolicy.Fallback } = reranked.rerank;
+  return { rerank: { reranker: reranked.reranker.name, candidates, onFailure } };
 };
 
 /** An agent's knowledge bases as config entries (describe, profiles, `configHash`; #796: tenancy). */
@@ -99,7 +101,7 @@ export const rerankerModelsOf = (
   [
     ...new Map(
       rags.flatMap((cls) => {
-        const reranker = rerankerMetaOf(ragMeta(cls));
+        const reranker = rerankedBy(ragMeta(cls))?.reranker;
         if (reranker === undefined || reranker.decidedBy === DecidedBy.Code) return [];
         return [[reranker.name, reranker.model ?? DEFAULT_RERANKER_MODEL] as const];
       }),
@@ -135,19 +137,18 @@ export function boundRerankerOf(
   instance: (cls: Class) => unknown,
   services: WorkflowServices,
 ): BoundReranker | undefined {
-  const reranker = rerankerMetaOf(meta);
-  const { rerank } = meta;
-  if (rerank === undefined || reranker === undefined) return undefined;
-  const { name } = reranker;
+  const reranked = rerankedBy(meta);
+  if (reranked === undefined) return undefined;
+  const { rerank, reranker } = reranked;
   const model = reranker.model ?? DEFAULT_RERANKER_MODEL;
-  const message = `[reranker.no-model-gateway] ${name}: no model gateway here`;
+  const message = `[reranker.no-model-gateway] ${reranker.name}: no model gateway here`;
   const binding = () => {
     if (services.rerankModel === undefined) throw new ComponentError({ message });
-    return services.rerankModel(name, model);
+    return services.rerankModel(reranker.name, model);
   };
   return {
     rag: meta.name,
-    reranker: name,
+    reranker: reranker.name,
     candidates: rerank.candidates,
     onFailure: rerank.onFailure ?? RerankFailurePolicy.Fallback,
     source:
@@ -224,6 +225,7 @@ export function contextSources(
   return new Map(
     agents.map((agent) => [
       agent.name,
+      // Stryker disable next-line ArrayDeclaration: equivalent: a text in the place of no bindings is no binding of the context mode, the filter drops it
       (agent.rag ?? [])
         .filter((binding) => binding.mode === RagMode.Context)
         .map((binding) => {

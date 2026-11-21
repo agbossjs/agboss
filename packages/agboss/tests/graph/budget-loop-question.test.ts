@@ -258,6 +258,42 @@ describe("#1366: what the question costs", () => {
   });
 });
 
+describe("#1366: what is wrong with a question's arguments is said", () => {
+  it("every issue is named by its path and its reason, in the order they were found, and no value", async () => {
+    const made = setup();
+    vi.mocked(awaitingApproval).mockReturnValue([{ ...call, args: { secret: "x" } }] as never);
+    const tool = {
+      name: "ask-tool",
+      channel: "ch",
+      question: {},
+      input: {
+        safeParse: () => ({
+          success: false,
+          error: {
+            issues: [
+              { path: ["q"], message: "Required" },
+              { path: ["to", 0], message: "Expected string" },
+            ],
+          },
+        }),
+      },
+    };
+    const deps = {
+      agent: { name: "alpha", tools: [tool] },
+      budgets: made.budgets,
+      approval: { requestAnswer: made.requestAnswer },
+    };
+
+    const out = await makeApprovalNode(deps as never)(stateOf(), undefined);
+
+    expect(out).toEqual({
+      questionAnswers: {
+        c1: { tool: "ask-tool", problem: "invalid input: q: Required; to[0]: Expected string" },
+      },
+    });
+  });
+});
+
 describe("#1366: a pause that expired fails the step with the spend so far", () => {
   it("its failure is built from the pause, the step, the execution's spend, the loop's, the path and the budgets", async () => {
     const made = setup();

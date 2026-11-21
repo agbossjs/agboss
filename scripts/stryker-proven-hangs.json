@@ -45,15 +45,6 @@
     "reason": "the move is never taken out of the in-flight set, so settled() awaits it for ever (a loop of microtasks, as above); run alone with a limit of 600 s it did not finish"
   },
   {
-    "shard": "cancel-x-runs",
-    "file": "src/app/live-runs.ts",
-    "mutator": "ConditionalExpression",
-    "replacement": "false",
-    "anchor": "if (this.#stopDeadline !== undefined) return;",
-    "kind": "runtime-error",
-    "reason": "the guard of a second stop is always false: stopBy() runs twice and the test process crashes ('Cannot convert object to primitive NaN', 'Test runner crashed' twice), which Stryker counts as an error, not a kill; run alone: the same"
-  },
-  {
     "shard": "pause-notices",
     "file": "src/app/pause-notice-delivery.ts",
     "mutator": "BlockStatement",
@@ -88,5 +79,32 @@
     "anchor": "result.then(undefined, () => undefined);",
     "kind": "runtime-error",
     "reason": "the rejection of the work's promise is left unhandled: Node ends the test process ('Test runner crashed' twice), which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "ledger-branch",
+    "file": "src/flow/runtime/launch/branch-runner.ts",
+    "mutator": "ObjectLiteral",
+    "replacement": "{}",
+    "anchor": "...settled.update,",
+    "kind": "wall-clock",
+    "reason": "a branch node that returns nothing never joins its launch: a launch test that runs the whole graph does not end, and vitest's testTimeout does not end it; run alone with a limit of 300 s (25 x the shard's whole run) the shard's tests did not finish; a run in which a unit test of the node fails first reads the mutant as Killed (told, not failed)"
+  },
+  {
+    "shard": "ledger-retention",
+    "file": "src/components/rag.ts",
+    "mutator": "OptionalChaining",
+    "replacement": "rerankedBy(ragMeta(cls)).reranker",
+    "anchor": "rerankedBy(ragMeta(cls))?.reranker",
+    "kind": "runtime-error",
+    "reason": "a knowledge base that does not rerank has no reranker to read: `tests/rag/tenant-isolation.test.ts` builds its application outside any test, and the assembly reads the reranker of such a base as undefined, a TypeError the test process reports outside a test run ('An error occurred outside of a test run'), which Stryker counts as an error, not a kill; the unit test of `rerankerModelsOf` (`tests/rag/ledger-rag-meta.test.ts`) fails on it; run alone: the same"
+  },
+  {
+    "shard": "ledger-retention",
+    "file": "src/components/rag.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "reranker === undefined || reranker.decidedBy",
+    "kind": "runtime-error",
+    "reason": "the check that a base has a reranker is always false: the assembly of an application with a knowledge base that does not rerank reads `reranker.decidedBy` of undefined while `tests/rag/tenant-isolation.test.ts` builds it outside any test, an error Stryker counts as an error, not a kill; the unit test of `rerankerModelsOf` (`tests/rag/ledger-rag-meta.test.ts`) fails on it; run alone: the same"
   }
 ]

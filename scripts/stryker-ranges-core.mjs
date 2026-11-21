@@ -1,5 +1,4 @@
 // The old inline shards of `stryker.config.mjs`, as functions like the newer groups' (#1376): the fence, the outbound call, recovery, undo and the money meter.
-import { keyTextRulesOf, settledSpendSaverOf } from "./stryker-ranges.mjs";
 
 /**
  * The leases, the holder's fence, the held lease and the store's clock (#533). #1242: split from
@@ -69,8 +68,8 @@ export function keysAndCallsShard() {
       "src/infrastructure/fenced-effect-fingerprint.ts",
       "src/infrastructure/fenced-effect-errors.ts",
       "src/infrastructure/issued-keys.ts",
-      // `keyTextRuleOf` and its rules, not the error classes around them
-      keyTextRulesOf("src/core/errors.ts"),
+      // the key text rules every id passes, and the error classes around them
+      "src/core/errors.ts",
       "src/app/outbound-calls.ts",
       // #795: how far a notSent() is trusted, and the superseded attempt's error
       "src/app/outbound-call-contract.ts",
@@ -151,7 +150,7 @@ export function moneyShard() {
       "src/finops/ledger-mark.ts",
       "src/infrastructure/cost-ledger.repository.ts",
       "src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts",
-      settledSpendSaverOf("src/app/settled-spend-checkpointer.ts"),
+      "src/app/settled-spend-checkpointer.ts",
     ],
   };
 }

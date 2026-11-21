@@ -53,7 +53,7 @@ const asResponse = (source: Response, body: ReadableStream<Uint8Array>): Respons
   });
 
 /** Reads until the first signal; the bytes read and that signal (`undefined`: the body ended without one). */
-async function peek(
+export async function peek(
   reader: Reader,
 ): Promise<{ readonly read: Uint8Array[]; readonly signal: StreamSignal | undefined }> {
   const scanner = new EventScanner();
