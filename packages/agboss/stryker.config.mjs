@@ -268,6 +268,10 @@ export const SHARDS = {
   "ledger-branch": ranges.ledgerBranchShard(),
   "ledger-a2a-client": ranges.ledgerA2aClientShard(),
   "ledger-retention": ranges.ledgerRetentionShard(),
+  // the budget refusals (#1366): an agent's loop, the flow's visits and launches, the reading of a reply
+  "budget-loop": ranges.budgetLoopShard(),
+  "budget-flow": ranges.budgetFlowShard(),
+  "budget-reply": ranges.budgetReplyShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

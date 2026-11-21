@@ -53,6 +53,7 @@ export async function answerFilesViewed(
     mask: context.mask,
     beforeModelCall: () => {
       const { state } = context;
+      // Stryker disable next-line OptionalChaining: the files are read only with the reading's runtime, so a reading is there
       context.reading?.budgets.check(state.usage, [...state.path, name], result.usage);
     },
   });

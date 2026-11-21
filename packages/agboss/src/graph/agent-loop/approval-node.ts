@@ -166,6 +166,7 @@ const askedOf = (state: AgentLoopStateType, tool: AnyTool): number =>
 
 /** The checks before a question is asked: its `maxVisits`, the budgets, the holder's fence. */
 function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool: AnyTool): void {
+  // Stryker disable next-line OptionalChaining: only a question role's call is checked here, and a question role has its `question`
   const maxVisits = tool.question?.maxVisits;
   const spent = totalCost(state.usage);
   if (maxVisits !== undefined && askedOf(state, tool) >= maxVisits)

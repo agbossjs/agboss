@@ -172,10 +172,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "holds replyAnsweringOf (checks the budget before the reply model call and records the usage of the reading; a bug skips the check or loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/reply-answer.ts"],
-  ),
-  ...reviewed(
     "the application's declaration, rules and description: build-time checks, no runtime guarantee",
     [
       "src/application/a2a-expiries.ts",
@@ -272,10 +268,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "holds readByModel (collects masking and call usage into every outcome incl. declined; a bug loses spend of a paid call) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/channels/reply-reader.ts"],
-  ),
-  ...reviewed(
-    "holds byModel (calls beforeModelCall (the budget check) before any model read of a reply); readReplyBy (returns the usage also when the reply is unreadable; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/channels/reply-reading.ts"],
   ),
   ...reviewed("the compaction of a thread's history: no money decision", ["src/compaction/**"]),
   ...reviewed("the components' decorators, assembly and injection: wiring, no money decision", [
@@ -487,10 +479,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "holds judge (merges masking usage with the decision usage of the arbiter call; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/arbiter-model.ts"],
   ),
-  ...reviewed(
-    "holds byModel (runs the budget check before an arbiter model call and keeps its usage); judgeAnswer (accumulates arbiter usage across the chain and stops on abort) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/arbiters.ts"],
-  ),
   ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/branch-quorum.ts",
     "src/flow/runtime/launch/branch-schedule.ts",
@@ -515,10 +503,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/launch/router-decision.ts",
     "src/flow/runtime/launch/runtime-launch.ts",
   ]),
-  ...reviewed(
-    "holds branchStateOf (adds sibling spend to the usage a branch sees for budget checks; a bug lets branches overspend); branchFrameOf (counts service spend of a branch and wires the budget stop signal); budgetStopOf (derives the budget-exhausted stop for branches) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/branch-view.ts"],
-  ),
   ...reviewed(
     "holds decideOnChatModel (keeps the call usage also when parsing the answer fails; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/launch-decider.ts"],
@@ -554,14 +538,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/runners/question.ts",
     "src/flow/runtime/runners/start.ts",
   ]),
-  ...reviewed(
-    "holds answerFilesViewed (runs the budget check before each model call on answer files and returns their usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/runners/answer-guard.ts"],
-  ),
-  ...reviewed(
-    "holds visitNode (adds reported service usage to the outcome usage and checks limits per visit; a bug loses spend); withOwnCompensations (merges the compensation usage into the failed visit update) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/visit.ts"],
-  ),
   ...reviewed("types of the flow DSL: declarations, no runtime guarantee", ["src/flow/types/**"]),
   ...reviewed("the agent loop's graph wiring: no spend, lease or cancel decision of its own", [
     "src/graph/agent-definitions.ts",
@@ -599,28 +575,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/types.ts",
   ]),
   ...reviewed(
-    "holds checkBeforeAsking (runs the budget check and asserts the lease before asking a question); askQuestion (adds the reply usage of an answered question to the loop usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/approval-node.ts"],
-  ),
-  ...reviewed(
     "adapts the pause seam to tool approval and question calls and passes the answer usage on",
     ["src/graph/agent-loop/approval.ts"],
-  ),
-  ...reviewed(
-    "holds inputFilesOf (checks the budget before each model call on input files); makeInputNode (tallies knowledge, guardrail and file usage through the budget) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/input-node.ts"],
-  ),
-  ...reviewed(
-    "holds makeJudgeNode (tallies judge usage and carries it into the quality gate error); rejectionsOf (accumulates judge model usage per call) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/judge-node.ts"],
-  ),
-  ...reviewed(
-    "holds toolMeshCallOf (derives the remaining budget and deadline passed to a remote peer; a bug lets the peer spend beyond the budget) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/mesh-call.ts"],
-  ),
-  ...reviewed(
-    "holds makeModelNode (checks the budget and the cancel before and after the call, tallies usage and enforces toolCalls and modelCalls limits); checkSpent (checks the budget including the spend of the current turn) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/model-node.ts"],
   ),
   ...reviewed(
     "holds outgoingMove (keeps masking and answer-check usage in the update also for an invalid answer; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
@@ -629,10 +585,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "holds closedResult (carries the PII detection usage also on refusal; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/graph/agent-loop/tool-pii.ts"],
-  ),
-  ...reviewed(
-    "holds runTask (checks the cancel, tallies reportCost and reportUsage of a tool through the budget); endedTaskOf (adds the closed-result usage to the tool usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/tools-node.ts"],
   ),
   ...reviewed("step and agent error classes that carry the usage of a failed step", [
     "src/graph/errors.ts",
@@ -1098,4 +1050,26 @@ export const PARTLY_SHARDED_SRC: Readonly<Record<string, string>> = {
     "ran checks the branch's visit (checkVisit is mutated in money-runtime) and runs its node in a frame, and branchNode wires the branch into the graph: no spend is counted there; the three that count a branch's spend are mutated",
   "src/components/rag.ts":
     "the rest of the file declares knowledge bases, checks their classes, reads their tenant and settings and binds their rerankers: no spend is reported there; the search tool's cost and the reranker's records are mutated",
+  "src/graph/agent-loop/model-node.ts":
+    "toolDefinitionsOf, callModel, withCallIds and observedCall build the request's tools, make the call, name its tool calls and tell the observer: no budget rule; the checks, the limits, the exhausted signal and the tallies of the node are mutated",
+  "src/graph/agent-loop/tools-node.ts":
+    "guardedCall, recordOf, the task's end and the stored result shape a call's result and its record: no budget rule; runTask, which tallies the spend the moment it is reported and holds the call's signal, is mutated",
+  "src/graph/agent-loop/input-node.ts":
+    "formatDecisionsForAgent, guardedInput and the files' update shape the request and run its guardrails: no budget rule; the files' check before a model call and the input's spend counted at once are mutated",
+  "src/graph/agent-loop/approval-node.ts":
+    "the approval node, its channel failures and the ask's validation decide who is asked and how: no budget rule; the checks before a question is asked, its interpreter's spend and an expiry's spend are mutated",
+  "src/graph/agent-loop/judge-node.ts":
+    "the judges' input, their calls and the retry prompt shape what a judge reads: no budget rule; the node that counts the judges' spend at once and carries it in a rejection is mutated",
+  "src/flow/runtime/visit.ts":
+    "exitOf, launchedBy and succeeded choose a visit's way out and write its value: no budget rule; the visit's limits, its spend and its owed undo's are mutated",
+  "src/flow/runtime/launch/branch-view.ts":
+    "a branch's ticket, launch, state and scheduler view are bookkeeping of the launch: no budget rule; the exhausted signal a branch watches and the spend its code reports are mutated",
+  "src/flow/runtime/launch/arbiters.ts":
+    "untilDecided and byCode run a code arbiter, which spends nothing: no budget rule; the model arbiter's check before its call, its spend and the chain's order are mutated",
+  "src/flow/runtime/runners/answer-guard.ts":
+    "the context type of the answer's guardrails is the only code left out: no budget rule",
+  "src/app/reply-answer.ts":
+    "replyAnsweringPartsOf reads the tree's state, frame and PII from the app: no budget rule; the meter the reading is counted in and the check, the record and the refusal are mutated",
+  "src/channels/reply-reading.ts":
+    "replyReaderOf finds the interpreter of a pause's channel: no budget rule; a model interpreter's check before its call and the spend every outcome carries are mutated",
 };
