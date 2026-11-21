@@ -1,3 +1,4 @@
+import { isCountLimit, shownLimit } from "../../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind } from "../../ast.js";
 import type { FlowNode } from "../flow-graph.js";
@@ -78,4 +79,54 @@ export function optionsRules(context: AnalysisContext): readonly RuleViolation[]
     }),
   );
   return [...spreads, ...factoryExports(modules)];
+}
+
+/**
+ * `[limits.count-invalid]` (#1373): the count limits of a workflow's components are whole numbers from 0 —
+ * `maxVisits` of an agent, a router and a question step, `maxToolCalls` and `maxRetries` of an agent, and
+ * `defaults.tools.maxToolCalls` (`maxSteps` is `stepsRules`'). A `NaN` or a word would make every comparison false and
+ * the limit never fire, so a build that counted it as a bound would be wrong; the run time reads the same value as a
+ * bound of 0 (`countBoundOf`), so the two agree and fail closed. A message names the value by its kind, never by its
+ * text.
+ */
+
+/** The violation of one field, when its value is set and is no count. */
+function problemOf(
+  owner: string,
+  field: string,
+  value: unknown,
+  example: string,
+): readonly RuleViolation[] {
+  if (value === undefined || isCountLimit(value)) return [];
+  const message =
+    `${owner}: ${field} is ${shownLimit(value)}, not a whole number from 0 — ` +
+    `${example} sets it; leave it out for no limit`;
+  return [violation("limits.count-invalid", message, [owner])];
+}
+
+export function countLimitRules(context: AnalysisContext): readonly RuleViolation[] {
+  const nodes = [...context.graph.nodes.values()].flatMap((node) => {
+    const { declaration } = node;
+    if (declaration.kind === NodeKind.Agent)
+      return [
+        ...problemOf(node.name, "maxVisits", declaration.options.maxVisits, "maxVisits: 3"),
+        ...problemOf(
+          node.name,
+          "maxToolCalls",
+          declaration.options.maxToolCalls,
+          "maxToolCalls: 10",
+        ),
+        ...problemOf(node.name, "maxRetries", declaration.options.maxRetries, "maxRetries: 2"),
+      ];
+    if (declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question)
+      return problemOf(node.name, "maxVisits", declaration.options.maxVisits, "maxVisits: 3");
+    return [];
+  });
+  const defaults = problemOf(
+    context.workflow.name,
+    "defaults.tools.maxToolCalls",
+    context.workflow.defaults?.tools?.maxToolCalls,
+    "maxToolCalls: 10",
+  );
+  return [...nodes, ...defaults];
 }

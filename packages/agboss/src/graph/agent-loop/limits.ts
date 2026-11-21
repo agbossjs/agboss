@@ -1,4 +1,5 @@
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { countBoundOf } from "../count-limit.js";
 import { LimitExceededError } from "../limits.js";
 import { loopUsage, type AgentLoopStateType } from "./state.js";
 
@@ -30,7 +31,10 @@ export function resolveAgentLimits(
   agentMaxToolCalls: number | undefined,
   defaultMaxToolCalls: number | undefined,
 ): ResolvedAgentLimits {
-  const toolCalls = agentMaxToolCalls ?? defaultMaxToolCalls;
+  const set = [agentMaxToolCalls, defaultMaxToolCalls].find((value) => value !== undefined);
+  // a value that is no count (untyped code, parsed JSON) is a bound of 0: assembly refuses it
+  // (`[limits.count-invalid]`, #1373), and a call that got past still stops at the first tool call
+  const toolCalls = set === undefined ? undefined : countBoundOf(set);
   return {
     limits: { ...DEFAULT_AGENT_LIMITS, ...(toolCalls === undefined ? {} : { toolCalls }) },
     defaulted: toolCalls === undefined ? ["modelCalls", "toolCalls"] : ["modelCalls"],

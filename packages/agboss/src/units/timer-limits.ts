@@ -1,3 +1,4 @@
+import { shownLimit } from "../graph/count-limit.js";
 import { UnitError, type Milliseconds } from "./index.js";
 
 /**
@@ -37,7 +38,9 @@ export function timerProblemOf(
   value: number,
   max: Milliseconds,
 ): string | undefined {
-  if (Number.isNaN(value)) return `${field} is NaN, not a duration`;
+  // a value that is no number (untyped code, parsed JSON) is no duration either, and is named by its kind (#1373)
+  if (typeof value !== "number" || Number.isNaN(value))
+    return `${field} is ${shownLimit(value)}, not a duration`;
   if (value <= max) return undefined;
   return `${field} is ${String(value)} ms, above its largest of ${shownCap(max)} (${String(max)} ms) — a longer timer would fire at once`;
 }

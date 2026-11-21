@@ -168,6 +168,75 @@ describe("#1356: the limits of a visit", () => {
     expect(error).toMatchObject({ maxVisits: 0, visits: 1, path: ["start", "clerk"] });
   });
 
+  it.each([
+    ["NaN", Number.NaN],
+    ["a word", "five"],
+    ["an object", { visits: 5 }],
+    ["an array", []],
+    ["a negative number", -1],
+    ["a fraction", 1.5],
+    ["a number as text", "2"],
+    ["true", true],
+    ["infinity", Number.POSITIVE_INFINITY],
+  ])(
+    "#1373: refuses a node whose maxVisits is %s on its first visit, with a bound of 0 (an agent, a router and a question)",
+    async (_kind, value) => {
+      const { limits, calls } = limitsOf();
+
+      for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Question]) {
+        const bad = {
+          id: "clerk",
+          kind,
+          component: Object,
+          maxVisits: value,
+        } as never;
+
+        const error = await caught(() => visit(stateOf(), bad, limits));
+
+        expect(error).toBeInstanceOf(VisitsLimitExceededError);
+        expect(error).toMatchObject({ maxVisits: 0, visits: 1, path: ["start", "clerk"] });
+        expect((error as Error).message).not.toContain("five");
+      }
+      expect(calls).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["NaN", Number.NaN],
+    ["a word", "five"],
+    ["an object", { steps: 5 }],
+    ["null", null],
+    ["a negative number", -1],
+    ["a fraction", 1.5],
+    ["infinity", Number.POSITIVE_INFINITY],
+  ])(
+    "#1373: a maxSteps that is %s is a bound of 0: the first step is refused, and the error names no text",
+    async (_kind, value) => {
+      const { limits } = limitsOf(value as never);
+
+      for (const kind of [NodeKind.Agent, NodeKind.Router]) {
+        const error = await caught(() => visit(stateOf(), node("clerk", kind), limits));
+
+        expect(error).toBeInstanceOf(StepsLimitExceededError);
+        expect(error).toMatchObject({ maxSteps: 0, steps: 1, path: ["start", "clerk"] });
+        expect((error as Error).message).not.toContain("five");
+      }
+      await expect(visit(stateOf(), node("act", NodeKind.Action), limits)).resolves.toBe(false);
+    },
+  );
+
+  it("#1373: a maxSteps of 0 refuses the first step too, and one of 3 lets the third step through", async () => {
+    const zero = limitsOf(0).limits;
+    const three = limitsOf(3).limits;
+
+    expect(
+      await caught(() => visit(stateOf(), node("clerk", NodeKind.Agent), zero)),
+    ).toBeInstanceOf(StepsLimitExceededError);
+    await expect(visit(stateOf({ steps: 2 }), node("clerk", NodeKind.Agent), three)).resolves.toBe(
+      true,
+    );
+  });
+
   it("holds a question to its own maxVisits, and an action or a start to none", async () => {
     const { limits } = limitsOf();
     const state = stateOf({ visits: { ask: 3, act: 3, begin: 3 } });

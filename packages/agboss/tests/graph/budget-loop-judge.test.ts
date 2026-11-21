@@ -53,7 +53,7 @@ const judgeOf = (name: string, verdict: { passed: boolean; reason?: string }) =>
   handler: { judge: vi.fn(() => Promise.resolve(verdict)) },
 });
 
-function setup(judges: object[], options: { maxRetries?: number } = {}) {
+function setup(judges: object[], options: { maxRetries?: unknown; unset?: true } = {}) {
   const tally = vi.fn((records: readonly UsageRecord[], _path?: readonly string[]) =>
     records.map((r) => ({ ...r, tallied: true })),
   );
@@ -66,7 +66,9 @@ function setup(judges: object[], options: { maxRetries?: number } = {}) {
     agent: {
       name: "alpha",
       judges,
-      maxRetries: options.maxRetries ?? 1,
+      ...(options.unset === true
+        ? {}
+        : { maxRetries: "maxRetries" in options ? options.maxRetries : 1 }),
       answerTools: { tools: [], isList: false, hasVariants: false },
     },
     budgets: { tally },
@@ -153,6 +155,32 @@ describe("#1366: the quality gate counts what the judges cost", () => {
 
     await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(QualityGateError);
   });
+
+  it("#1373: an agent with no `maxRetries` set is allowed no retry", async () => {
+    const { node } = setup([judgeOf("j1", { passed: false, reason: "no" })], { unset: true });
+
+    await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(QualityGateError);
+  });
+
+  it.each([
+    ["NaN", Number.NaN],
+    ["a word", "five"],
+    ["an object", { retries: 5 }],
+    ["null", null],
+    ["a negative number", -1],
+    ["a fraction", 1.5],
+  ])(
+    "#1373: a `maxRetries` that is %s is no retry, never endless ones: the first rejection fails",
+    async (_kind, value) => {
+      const { node } = setup([judgeOf("j1", { passed: false, reason: "no" })], {
+        maxRetries: value,
+      });
+
+      await expect(node(stateOf({ retries: 0 }), undefined)).rejects.toBeInstanceOf(
+        QualityGateError,
+      );
+    },
+  );
 
   it("every judge runs even when one rejects: all their spend is counted", async () => {
     const { node, tally } = setup(

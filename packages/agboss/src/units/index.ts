@@ -2,6 +2,7 @@
  * `@agboss/core/units` — values with units, so a limit reads as what it is: `usd(0.5)`,
  * `seconds(30)`, `minutes(5)`, `kilobytes(64)`. Each value is checked once here and carries its unit in its type.
  */
+import { shownLimit } from "../graph/count-limit.js";
 import type { Brand } from "../types/brand.js";
 import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
 
@@ -32,7 +33,10 @@ export class UnitError extends RangeError {
 
 function nonNegative(amount: number, unit: string): number {
   if (!Number.isFinite(amount) || amount < 0) {
-    throw new UnitError({ message: `${unit} must be a finite number ≥ 0, got ${String(amount)}` });
+    // a number is printed, anything else by its kind: what was passed may be stored text (#1373)
+    throw new UnitError({
+      message: `${unit} must be a finite number ≥ 0, got ${shownLimit(amount)}`,
+    });
   }
   return amount;
 }
@@ -75,7 +79,7 @@ export interface WorkingDuration {
 function working(amount: number, unit: string, size: number): WorkingDuration {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new UnitError({
-      message: `${unit} must be a positive finite number, got ${String(amount)}`,
+      message: `${unit} must be a positive finite number, got ${shownLimit(amount)}`,
     });
   }
   return Object.freeze({ [workingDuration]: (amount * size) as Milliseconds });

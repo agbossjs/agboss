@@ -131,6 +131,8 @@ export type RuleCode =
   | "limits.max-steps-below-worst-case"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"
+  // a maxSteps, maxVisits, maxToolCalls or maxRetries that is no whole number from 0 (#1373)
+  | "limits.count-invalid"
   | "agent.dynamic-options"
   | "model.no-tool-calling"
   // type generation (#272 PR 3), reported by `src/flow/types`

@@ -151,6 +151,38 @@ describe("#1366: the checks before a question is asked", () => {
     expect(made.requestAnswer).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["NaN", Number.NaN],
+    ["a word", "five"],
+    ["an object", { limit: 5 }],
+    ["null", null],
+    ["a negative number", -1],
+    ["a fraction", 1.5],
+  ])(
+    "#1373: a `maxVisits` that is %s is a bound of 0 — the first question is refused, and the error names no text",
+    async (_kind, value) => {
+      const made = setup({ maxVisits: value as never });
+
+      const failure = await made.node(stateOf(), undefined).catch((e: unknown) => e);
+
+      expect(failure).toBeInstanceOf(VisitsLimitExceededError);
+      expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: 1.5 });
+      expect((failure as Error).message).not.toContain("five");
+      expect(made.check).not.toHaveBeenCalled();
+      expect(made.requestAnswer).not.toHaveBeenCalled();
+    },
+  );
+
+  it("#1373: a `maxVisits` of 0 refuses the first question as well, and a whole number holds as it is", async () => {
+    const zero = setup({ maxVisits: 0 });
+    const three = setup({ maxVisits: 3 });
+
+    await expect(zero.node(stateOf(), undefined)).rejects.toMatchObject({ maxVisits: 0 });
+    await three.node(stateOf(), undefined);
+
+    expect(three.requestAnswer).toHaveBeenCalledOnce();
+  });
+
   it("the role's earlier answers count, another role's do not, and one fewer than the limit is allowed", async () => {
     const made = setup({ maxVisits: 2 });
     const state = stateOf({

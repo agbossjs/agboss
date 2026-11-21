@@ -7,7 +7,8 @@ import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
+import { ChannelOf } from "../../src/channels/channel-handler.js";
+import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { questionRoleOf } from "../../src/channels/discovery.js";
 import { questionToolOf } from "../../src/components/runtime.js";
 import type { Class } from "../../src/components/injection.js";
@@ -24,6 +25,8 @@ import { RefundApprovalChannel } from "./approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
 import { start } from "../flow/fixtures/paths.js";
+import { ApproverAnswerDto } from "../flow/fixtures/question-tools.fixture.js";
+import { PurchaseQuestionDto } from "../flow/fixtures/questions.fixture.js";
 import {
   ApproverQuestion,
   BuyerWorkflowFinish,
@@ -137,5 +140,61 @@ describe("#712: the question tool on its own", () => {
       kind: "error",
       message: expect.stringContaining("asked only inside"),
     });
+  });
+});
+
+describe("#1373: the maxVisits of a question role an agent asks as a tool is a whole number from 0", () => {
+  let roles = 0;
+  /** A question role with the given `maxVisits`, listed in an agent's tools. */
+  const roleWith = (maxVisits: unknown): Class => {
+    roles += 1;
+    @ChannelRole({
+      name: `limited-${String(roles)}-question`,
+      description: "Asks",
+      ask: PurchaseQuestionDto,
+      answer: ApproverAnswerDto,
+      answerer: PauseAnswerer.ThreadOwner,
+      ...(maxVisits === undefined ? {} : { maxVisits: maxVisits as never }),
+    })
+    abstract class LimitedQuestion extends ChannelOf<LimitedQuestion> {}
+    return buyingApplication(`limited-${String(roles)}`, [LimitedQuestion], []);
+  };
+
+  const violationsOf = async (application: Class) => {
+    const error: unknown = await applicationOf(application).then(
+      () => undefined,
+      (thrown: unknown) => thrown,
+    );
+    if (!(error instanceof GraphRuleError)) throw new Error("expected a GraphRuleError");
+    return error.violations;
+  };
+
+  it.each([
+    ["NaN", Number.NaN, "NaN"],
+    ["a word", "five", "a string"],
+    ["an object", { limit: 5 }, "an object"],
+    ["null", null, "null"],
+    ["a negative number", -1, "-1"],
+    ["a fraction", 1.5, "1.5"],
+  ])(
+    "%s fails assembly, the message naming the role and the kind of the value",
+    async (_kind, value, shown) => {
+      const found = (await violationsOf(roleWith(value))).filter(
+        (one) => one.code === "limits.count-invalid",
+      );
+
+      expect(found).toHaveLength(1);
+      expect(found[0]?.message).toBe(
+        `channel role limited-${String(roles)}-question: maxVisits is ${shown}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
+      );
+      expect(found[0]?.nodes).toEqual([`limited-${String(roles)}-question`]);
+    },
+  );
+
+  it("0, a whole number and no limit are fine", async () => {
+    for (const value of [0, 3, undefined])
+      expect((await violationsOf(roleWith(value))).map((one) => one.code)).not.toContain(
+        "limits.count-invalid",
+      );
   });
 });

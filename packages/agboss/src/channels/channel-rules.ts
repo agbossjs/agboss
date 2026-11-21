@@ -3,6 +3,7 @@ import { isWorkingDuration } from "../units/index.js";
 import { amountOf, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
+import { isCountLimit, shownLimit } from "../graph/count-limit.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOf, isQuestionRole } from "./channel-role.decorator.js";
 import { replyInterpreterViolations } from "./discovery.js";
@@ -141,6 +142,25 @@ function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   });
 }
 
+/**
+ * `[limits.count-invalid]` (#1373): a question role's `maxVisits`, which also bounds the questions
+ * an agent asks through it as a tool, is a whole number from 0; the value is named by its kind only.
+ */
+function maxVisitsViolations(uses: readonly ChannelUse[]): RuleViolation[] {
+  return rolesOf(uses).flatMap(({ options }) => {
+    if (!isQuestionRole(options)) return [];
+    const { maxVisits } = options;
+    if (maxVisits === undefined || isCountLimit(maxVisits)) return [];
+    return [
+      violation(
+        "limits.count-invalid",
+        `channel role ${options.name}: maxVisits is ${shownLimit(maxVisits)}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
+        [options.name],
+      ),
+    ];
+  });
+}
+
 /** Whether `value` is a positive finite duration, plain or working (a reminder may be shorter than a deadline may be). */
 export const isRemindBefore = (value: unknown): value is TimeSpan =>
   isSpanBetween(value, Number.MIN_VALUE);
@@ -187,6 +207,7 @@ export function channelRuleViolations(
     ...wrongToolViolations(uses),
     ...implementationViolations(uses, modules),
     ...replyInterpreterViolations(uses),
+    ...maxVisitsViolations(uses),
     ...expiresInViolations(uses),
     ...remindBeforeViolations(uses),
     ...workingTimeViolations(uses, modules, defaultCalendar),

@@ -71,7 +71,8 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
 
   findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined> {
     const record = this.database.meshRequests.get(meshRequestKeyOf(key));
-    return Promise.resolve(record === undefined ? undefined : structuredClone(record));
+    // structuredClone(undefined) is undefined: a key that is not kept finds nothing
+    return Promise.resolve(structuredClone(record));
   }
 
   saveResponse(key: MeshRequestKey, response: unknown): Promise<void> {
