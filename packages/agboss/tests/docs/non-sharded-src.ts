@@ -21,7 +21,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/a2a/a2a-extension-uris.ts",
     "src/a2a/a2a-http.ts",
     "src/a2a/a2a-nested-file-rule.ts",
-    "src/a2a/a2a-rules.ts",
     "src/a2a/a2a-security.ts",
     "src/a2a/index.ts",
   ]),
@@ -1045,6 +1044,8 @@ export const PARTLY_SHARDED_SRC: Readonly<Record<string, string>> = {
     "the rest is the limits' types and defaults, and the error of a crossed limit: nothing is counted or refused there; resolveAgentLimits, which settles the tool-call limit, is mutated (#1373)",
   "src/a2a/client/a2a-client.ts":
     "the rest of the client reads the card, the files and the task, and translates errors: no price is charged or settled there; #call, which charges, is mutated",
+  "src/a2a/a2a-rules.ts":
+    "the rest are the assembly rules of an application's contracts (names, exposes, targets, files): no price is decided there; priceProblemOf, checkedPrice and priceViolations, which refuse a price that is no amount (#1382), are mutated",
   "src/infrastructure/retention-sweep.ts":
     "setAsideUnknown sets notices aside and reports them: no row of money is removed there; the removal of every kind of rows, the ledger's too, is mutated",
   "src/run/finish.ts":

@@ -10,6 +10,6 @@ export default defineConfig({
     hookTimeout: 20_000,
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
-    include: ["tests/a2a/client/ledger-a2a-client-units.test.ts"],
+    include: ["tests/a2a/client/ledger-a2a-client-units.test.ts", "tests/a2a/a2a-price.test.ts"],
   },
 });

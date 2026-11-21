@@ -97,11 +97,14 @@ const NOTHING: A2AMeshSigned = { metadata: {}, serviceParameters: {} };
  * call's own ledger identity (#810): a pass that replays the accept charges the same entry.
  */
 function chargePrice(call: A2AMeshCall, price: Usd | undefined, charged: A2ACharged): void {
-  if (price === undefined || price <= 0) return;
+  if (price === undefined) return;
+  // a price that is no amount (negative, NaN, Infinity) throws before anything is charged (#1382)
+  const cost = usd(price);
+  if (cost === 0) return;
   const service = `a2a:${call.application ?? call.agent}`;
   const ledgerKey = priceLedgerKeyOf(charged);
   currentFrame()?.services.reportUsage?.({
-    ...serviceUsageOf({ service, cost: usd(price) }),
+    ...serviceUsageOf({ service, cost }),
     ledgerKey,
   });
 }
@@ -168,7 +171,7 @@ function settleReport(
     bodyHash,
     // the price is charged at the accept: what is owed now is the report's spend above it, whichever peer signed it
     undefined,
-    price ?? 0,
+    usd(price ?? 0),
     reportIdentityOf(charged),
   );
   if (!isReported) recordUnreported(application, answer, taskId);

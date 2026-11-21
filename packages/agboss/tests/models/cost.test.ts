@@ -92,3 +92,46 @@ describe("AC6: limits per run use the providers' cost", () => {
     });
   });
 });
+
+describe("#1382: a price table holds finite prices from 0", () => {
+  const table = (field: string, value: unknown) => ({
+    "local/llama": { inputPerMillion: usd(1), outputPerMillion: usd(2), [field]: value } as never,
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, "five", null, {}])(
+    "a %s price is refused, naming the model and the field",
+    (value) => {
+      for (const field of ["inputPerMillion", "outputPerMillion", "cachedInputPerMillion"]) {
+        expect(() => ModelCost.fromPrices(table(field, value))).toThrow(
+          new RegExp(`ModelCost.fromPrices: local/llama.${field} must be a finite number`),
+        );
+      }
+    },
+  );
+
+  it("names a value by its kind, never its text", () => {
+    let message = "";
+    try {
+      ModelCost.fromPrices(table("inputPerMillion", "sk-secret-text"));
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).not.toContain("sk-secret");
+    expect(() => ModelCost.fromPrices(table("inputPerMillion", "sk-secret-text"))).toThrow(
+      /got a string/,
+    );
+    expect(() => ModelCost.fromPrices(table("inputPerMillion", -1))).toThrow(/got -1/);
+  });
+
+  it("takes 0 and an absent cached price", () => {
+    const cost = ModelCost.fromPrices({
+      "a/b": { inputPerMillion: usd(0), outputPerMillion: usd(0) },
+      "c/d": { inputPerMillion: usd(1), outputPerMillion: usd(2), cachedInputPerMillion: usd(0) },
+    });
+    expect(priceOf(cost, "c/d")).toEqual({
+      inputPerMTok: 1,
+      outputPerMTok: 2,
+      cacheReadPerMTok: 0,
+    });
+  });
+});

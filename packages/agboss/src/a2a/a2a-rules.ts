@@ -1,11 +1,12 @@
 import type { ApplicationOptions } from "../application/application.js";
 import type { Class, Provider } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
+import { ComponentError, componentOf } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { hasKindSuffix, kindSuffixProblem, NameKind } from "../flow/names.js";
+import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { A2AAgentMeta } from "./a2a-decorator.js";
 
@@ -125,6 +126,35 @@ function targetFinishesViolations(meta: A2AAgentMeta, where: string): RuleViolat
   );
 }
 
+/**
+ * An A2A contract's price (#1382) is a finite number of dollars from 0 (`usd(...)`), or none. Anything else
+ * — `NaN`, `Infinity`, a negative number, a word, `null`, an object — reaches a contract from untyped code,
+ * a config file or parsed JSON; a negative one is not charged at the accept and is added to the settle's
+ * charge, a `NaN` one throws after the peer accepted the task. `[a2a.price-invalid]` refuses it at assembly
+ * (`@A2AAgent`) and, before anything is sent, at the call (a client built with a `contract`). The message names
+ * the value by its kind, never by its text. Why `price` is no price a contract can hold: none when it is one
+ * (or none is set).
+ */
+export const priceProblemOf = (price: unknown): string | undefined =>
+  price === undefined || (isFiniteNumber(price) && price >= 0)
+    ? undefined
+    : `price is ${shownLimit(price)}, not a finite number of dollars from 0 — usd(...) sets it; leave it out for no price`;
+
+/** Refuses a contract's `price` that is no finite number from 0, before the call sends or charges anything. */
+export function checkedPrice(agent: string, price: unknown): void {
+  const problem = priceProblemOf(price);
+  if (problem !== undefined)
+    throw new ComponentError({ message: `[a2a.price-invalid] ${agent}: ${problem}` });
+}
+
+/** `[a2a.price-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */
+function priceViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
+  const problem = priceProblemOf(meta.price);
+  return problem === undefined
+    ? []
+    : [violation("a2a.price-invalid", `${meta.name}'s ${problem}`, [where])];
+}
+
 function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
   return providersOf(options).flatMap((cls): RuleViolation[] => {
@@ -135,6 +165,7 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
     return [
       ...contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where),
       ...targetFinishesViolations(meta.meta, where),
+      ...priceViolations(meta.meta, where),
     ];
   });
 }

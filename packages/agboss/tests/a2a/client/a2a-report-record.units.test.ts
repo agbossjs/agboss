@@ -17,7 +17,7 @@ import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
 import { encodeRunReport, takeRunReport } from "../../../src/mesh/mesh-report.js";
 import { rememberContextMeshSettings, type MeshSettings } from "../../../src/mesh/mesh-settings.js";
 import { VirtualClock } from "../../../src/testing/index.js";
-import { hours, usd } from "../../../src/units/index.js";
+import { hours, UnitError, usd } from "../../../src/units/index.js";
 import { scripts, SdkAgent } from "./support/sdk-agent.js";
 
 const PEER = "peer-application";
@@ -164,6 +164,24 @@ async function settled(
     })),
   };
 }
+
+describe("#1382: a settle at a price that is no amount charges nothing and throws", () => {
+  it.each([-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "a price of %s with a report of $3 is not charged above it",
+    async (price) => {
+      await expect(
+        settled(taskOf(TaskState.TASK_STATE_COMPLETED, signedReport(3)), true, { price }),
+      ).rejects.toThrow(UnitError);
+    },
+  );
+
+  it("a price of 0 settles the report whole", async () => {
+    const out = await settled(taskOf(TaskState.TASK_STATE_COMPLETED, signedReport(3)), true, {
+      price: 0,
+    });
+    expect(out.charged).toBe(3);
+  });
+});
 
 describe("#844: a meshed call's settle says when no report was verified", () => {
   it("AC1: a completed task with no report: charged nothing above the price, recorded report: false", async () => {

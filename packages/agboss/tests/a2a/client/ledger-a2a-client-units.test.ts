@@ -132,6 +132,38 @@ describe("#1366: a call charges the peer's price at the accept and settles after
     expect(settledPeerOf).toHaveBeenCalledWith(made.activation, made.accepted, "peer-app");
   });
 
+  it.each([-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY, "five", null])(
+    "#1382: a price of %s is refused before the card is read, the accept sent or anything charged",
+    async (price) => {
+      const made = setup();
+      const client = new A2AClient({
+        url: "https://peer.example",
+        contract: { price: price as never, application: "peer-app" },
+      });
+
+      await expect(client.send("hi")).rejects.toThrow(
+        /^\[a2a\.price-invalid\] A2AClient: price is /,
+      );
+
+      expect(made.cards.wireOf).not.toHaveBeenCalled();
+      expect(accept).not.toHaveBeenCalled();
+      expect(made.activation.charge).not.toHaveBeenCalled();
+      expect(made.activation.settle).not.toHaveBeenCalled();
+    },
+  );
+
+  it("#1382: a price of 0 is a price: the call goes through", async () => {
+    const made = setup();
+    const client = new A2AClient({
+      url: "https://peer.example",
+      contract: { price: usd(0), application: "peer-app" },
+    });
+
+    await client.send("hi");
+
+    expect(made.activation.charge).toHaveBeenCalledOnce();
+  });
+
   it("an accept that stored no time is dated now", async () => {
     const made = setup();
     made.accepted.acceptedAt = undefined as never;

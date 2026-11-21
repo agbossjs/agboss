@@ -2,6 +2,7 @@ import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
 import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
 import { nestedFileFieldsOf } from "../files/a2a-file.dto.js";
 import type { A2AReceivedFile } from "./a2a-client-files.js";
+import { checkedPrice } from "../a2a-rules.js";
 import { ComponentError, componentOf } from "../../components/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -144,9 +145,14 @@ export function checkedCallTimeout(agent: string, timeout: number | undefined): 
     throw new ComponentError({ message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}` });
 }
 
-/** A call's `key` and `timeout`, checked before anything is sent; the key. */
-export function checkedCall(agent: string, call: A2AClientCall): string | undefined {
+/** A call's `key` and `timeout` and its contract's `price`, checked before anything is sent or charged; the key. */
+export function checkedCall(
+  agent: string,
+  call: A2AClientCall,
+  price: unknown,
+): string | undefined {
   checkedCallTimeout(agent, call.timeout);
+  checkedPrice(agent, price);
   return checkedCallKey(agent, call.key);
 }
 

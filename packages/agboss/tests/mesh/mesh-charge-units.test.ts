@@ -17,7 +17,7 @@ import type { UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { chargeOf, withLedgerKey } from "../../src/mesh/mesh-report.js";
 import { testFrame } from "../helpers/frame.js";
-import { usd } from "../../src/units/index.js";
+import { UnitError, usd } from "../../src/units/index.js";
 
 const ACCEPTED = "2026-11-04T12:00:00.000Z";
 const NOW = new Date("2026-11-04T12:05:00.000Z");
@@ -53,6 +53,15 @@ describe("#1356: what the calling step is charged for a call", () => {
     expect(chargeOf(report("-1"), contract(2), 0)).toEqual({ application: "peer", cost: 2 });
   });
 
+  it("is nothing when no application can be charged, however much is owed", () => {
+    const anonymous = { ...(report("3") as object), issuer: undefined } as never;
+    expect(chargeOf(anonymous, undefined, 0)).toBeUndefined();
+    const unnamed = { application: undefined, price: usd(2) } as never;
+    expect(chargeOf(anonymous, unnamed, 0)).toBeUndefined();
+    expect(chargeOf(anonymous, contract(2), 0)).toEqual({ application: "contract-app", cost: 3 });
+    expect(chargeOf(undefined, unnamed, 0)).toBeUndefined();
+  });
+
   it("is less what the call was charged already, and nothing at or below it", () => {
     expect(chargeOf(undefined, contract(2), 1)).toEqual({ application: "contract-app", cost: 1 });
     expect(chargeOf(undefined, contract(2), 2)).toBeUndefined();
@@ -62,8 +71,30 @@ describe("#1356: what the calling step is charged for a call", () => {
 
   it("is nothing when there is nothing to charge — no report and no contract, or a report of no spend", () => {
     expect(chargeOf(undefined, undefined, 0)).toBeUndefined();
-    expect(chargeOf(undefined, undefined, -1)).toBeUndefined();
     expect(chargeOf(report("0"), undefined, 0)).toBeUndefined();
+  });
+});
+
+describe("#1382: a price or a charge that is no amount throws, never counts", () => {
+  const bad = [-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY];
+
+  it.each(bad)(
+    "a contract price of %s is a UnitError, not a charge of %s above the report",
+    (price) => {
+      expect(() => chargeOf(report("3"), { application: "a", price } as never, 0)).toThrow(
+        UnitError,
+      );
+      expect(() => chargeOf(undefined, { application: "a", price } as never, 0)).toThrow(UnitError);
+    },
+  );
+
+  it.each(bad)("a call already charged %s is a UnitError, not a charge raised by it", (charged) => {
+    expect(() => chargeOf(report("3"), undefined, charged)).toThrow(UnitError);
+    expect(() => chargeOf(undefined, contract(2), charged)).toThrow(UnitError);
+  });
+
+  it("a price of 0 and a charge of 0 are amounts", () => {
+    expect(chargeOf(report("3"), contract(0), 0)).toEqual({ application: "peer", cost: 3 });
   });
 });
 
@@ -134,6 +165,24 @@ describe("#1356: a call's price", () => {
   it("is charged under the agent's name when the call names no application", async () => {
     expect((await chargedFor(0.5, undefined))[0]?.model).toBe("a2a:billing");
   });
+
+  it.each([-1, -0.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "a price of %s is refused with a UnitError before anything is charged (#1382)",
+    async (price) => {
+      const reported: UsageRecord[] = [];
+      const frame = {
+        ...testFrame(),
+        services: { reportUsage: (usage: UsageRecord) => reported.push(usage) },
+      };
+      await expect(
+        runInFrame(frame, () => {
+          AGBOSS_MESH.activate(card, peer, call("partner")).charge(price as never, charged);
+          return Promise.resolve();
+        }),
+      ).rejects.toThrow(UnitError);
+      expect(reported).toEqual([]);
+    },
+  );
 
   it("is no charge at no price, or a price of 0", async () => {
     expect(await chargedFor(undefined, "partner")).toEqual([]);
