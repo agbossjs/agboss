@@ -553,7 +553,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/judge-model.ts",
     "src/graph/agent-loop/judge-points.ts",
     "src/graph/agent-loop/judge-reading.ts",
-    "src/graph/agent-loop/limits.ts",
     "src/graph/agent-loop/loop-graph.ts",
     "src/graph/agent-loop/loop-records.ts",
     "src/graph/agent-loop/memory-view.ts",
@@ -613,7 +612,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the health report: read-only", ["src/health/**"]),
   ...reviewed("the exports", ["src/index.ts"]),
   ...reviewed(
-    "the in-memory stores of records, history, audit, trees and files, and their helpers: no spend, lease or cancel state",
+    "the in-memory stores of history, audit and files, and their helpers: no spend, lease or cancel state",
     [
       "src/infrastructure/a2a-file.repository.ts",
       "src/infrastructure/child-execution-queue.repository.ts",
@@ -621,13 +620,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/infrastructure/execution-history-export.ts",
       "src/infrastructure/execution-history.repository.ts",
       "src/infrastructure/execution-id-store.ts",
-      "src/infrastructure/execution-record.repository.ts",
-      "src/infrastructure/execution-tree.repository.ts",
       "src/infrastructure/expiry.ts",
       "src/infrastructure/in-memory-a2a-file.repository.ts",
       "src/infrastructure/local-disk-a2a-file.repository.ts",
       "src/infrastructure/logger.ts",
-      "src/infrastructure/mesh-request.repository.ts",
       "src/infrastructure/orphan-pauses.ts",
       "src/infrastructure/recovery.ts",
       "src/infrastructure/store-call-timeout.ts",
@@ -666,18 +662,34 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the pause store's abstract contract and its types: the stores that implement it are the `pauses` and `pauses-sqlite` shards'",
     ["src/infrastructure/paused-execution.repository.ts"],
   ),
+  ...reviewed(
+    "the execution tree's key store (#265): an insert-if-absent and a read of keys under a tree's root — the cancel request, " +
+      "the child-failure announcement's claim, the undo-done marks (#1374). The holder writes the claim and the marks under its " +
+      "held lease, which is the fence (the lease store's mark, mutated in `fencing` and `sqlite-stores`), and a cancel writes " +
+      "that mark before its request; the store itself decides only whether a key is there already",
+    [
+      "src/infrastructure/execution-tree.repository.ts",
+      "src/infrastructure/sqlite/sqlite-execution-tree.repository.ts",
+    ],
+  ),
+  ...reviewed(
+    "the execution record store's wrapper over the turns' store: one method per `TurnStore` call, no rule of its own. " +
+      "The compare-and-set of a turn's status (`completeIfStatus`, which of a resume, an expiry and a holder's end writes a " +
+      "paused turn's outcome) and the thread's create are `src/turns/**`, which is not mutated either (#1374 follow-up)",
+    [
+      "src/infrastructure/execution-record.repository.ts",
+      "src/infrastructure/sqlite/sqlite-execution-record.repository.ts",
+    ],
+  ),
   ...reviewed("the S3 file store: a store of no spend, lease or cancel state", [
     "src/infrastructure/s3/**",
   ]),
   ...reviewed(
-    "the SQLite stores of records, history, audit, trees and the queue: no spend, lease or cancel state",
+    "the SQLite stores of history, ids and the queue, and the schema version: no spend, lease or cancel state",
     [
       "src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-history.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-ids.ts",
-      "src/infrastructure/sqlite/sqlite-execution-record.repository.ts",
-      "src/infrastructure/sqlite/sqlite-execution-tree.repository.ts",
-      "src/infrastructure/sqlite/sqlite-mesh-request.repository.ts",
       "src/infrastructure/sqlite/sqlite-schema-version.ts",
     ],
   ),
@@ -1030,6 +1042,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
  * a shard mutates whole.
  */
 export const PARTLY_SHARDED_SRC: Readonly<Record<string, string>> = {
+  "src/graph/agent-loop/limits.ts":
+    "the rest is the limits' types and defaults, and the error of a crossed limit: nothing is counted or refused there; resolveAgentLimits, which settles the tool-call limit, is mutated (#1373)",
   "src/a2a/client/a2a-client.ts":
     "the rest of the client reads the card, the files and the task, and translates errors: no price is charged or settled there; #call, which charges, is mutated",
   "src/infrastructure/retention-sweep.ts":

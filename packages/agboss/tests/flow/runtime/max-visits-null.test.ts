@@ -1,10 +1,11 @@
 /**
- * #1365: a `maxVisits: null` (options from untyped code or parsed JSON) is a bound to both the build-time
- * analysis and the run-time guard: the analysis does not report the cycle it closes, and the run refuses
- * the node on its first visit. The two agree, and fail closed.
+ * #1365, #1373: a `maxVisits: null` (options from untyped code or parsed JSON) is a bound of 0 to both the
+ * build-time analysis and the run-time guard: the analysis does not report the cycle it closes as unbounded, the
+ * build refuses the value itself (`[limits.count-invalid]`), and a run that got past it refuses the node on its
+ * first visit. The two agree, and fail closed.
  */
 import { describe, expect, it, vi } from "vitest";
-import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
@@ -72,13 +73,18 @@ class NullBoundReviewAgent {}
 })
 class NullBoundLoopWorkflow {}
 
-describe("#1365: maxVisits null, at build time and at run time", () => {
-  it("build time: the analysis counts null as a bound, so the cycle it closes is not reported", () => {
-    expect(checkWorkflow(NullBoundLoopWorkflow).errors).toEqual([]);
+describe("#1365, #1373: maxVisits null, at build time and at run time", () => {
+  it("build time: null is a bound, so the cycle it closes is not reported — and the value itself is refused", () => {
+    const { errors } = checkWorkflow(NullBoundLoopWorkflow);
+
+    expect(errors.map((found) => found.code)).toEqual(["limits.count-invalid"]);
+    expect(errors[0]?.message).toContain("maxVisits is null, not a whole number from 0");
   });
 
   it("run time: the node the analysis counted as bounded is refused on its first visit", async () => {
-    const graph = runtimeGraphOf(analyseWorkflow(NullBoundLoopWorkflow), [], NullBoundLoopWorkflow);
+    const { analysis } = checkWorkflow(NullBoundLoopWorkflow);
+    if (analysis === undefined) throw new Error("no analysis");
+    const graph = runtimeGraphOf(analysis, [], NullBoundLoopWorkflow);
     const node = graph.nodes.get("null-bound-edit-agent");
     if (node === undefined) throw new Error("no null-bound-edit-agent node");
     const limits = {

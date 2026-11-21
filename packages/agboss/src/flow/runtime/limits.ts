@@ -1,6 +1,7 @@
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import type { ErrorRecord } from "../../core/error-record.js";
+import { countBoundOf } from "../../graph/count-limit.js";
 import { LimitExceededError, StepsLimitExceededError } from "../../graph/limits.js";
 import { NodeKind } from "../ast.js";
 import { CompensationEntryStatus } from "../compensation.js";
@@ -125,14 +126,6 @@ const isBudgeted = (state: ExecutionStateType, node: RuntimeNode): boolean => {
 };
 
 /**
- * The visits a node's `maxVisits` allows: none of it is no bound; a `null` (options from untyped code or
- * parsed JSON) is a bound of 0, so the first visit is refused (fail closed) — as the analysis counts it,
- * a bound, and not as a missing one (#1365).
- */
-const visitBoundOf = (maxVisits: number | null | undefined): number =>
-  maxVisits === null ? 0 : (maxVisits ?? Number.POSITIVE_INFINITY);
-
-/**
  * Throws the limit a visit would cross: its visits, and — of an agent or a router (`isStep`) — the
  * steps.
  */
@@ -146,7 +139,7 @@ function checkSteps(
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
   const visits = (state.visits[node.id] ?? 0) + 1;
-  const maxVisits = visitBoundOf(node.maxVisits);
+  const maxVisits = countBoundOf(node.maxVisits);
   if (visits > maxVisits) {
     throw new VisitsLimitExceededError({
       component: plainRecordOf(site.component),
@@ -155,11 +148,13 @@ function checkSteps(
       spentUsd: spent,
     });
   }
-  if (isStep && state.steps + 1 > limits.maxSteps) {
+  // a `maxSteps` that is no count (`NaN`: every comparison with it is false) is a bound of 0 (#1373)
+  const maxSteps = countBoundOf(limits.maxSteps);
+  if (isStep && state.steps + 1 > maxSteps) {
     const record = { ...site.workflow, startedVersion: startedVersionOf(state, site.workflow) };
     throw new StepsLimitExceededError({
       workflow: record,
-      maxSteps: limits.maxSteps,
+      maxSteps,
       path,
       spentUsd: spent,
     });

@@ -12,6 +12,8 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/flow/runtime/money-runtime-units.test.ts",
+      // a limit that is no count is a bound of 0 (#1373)
+      "tests/graph/count-limit.test.ts",
       "tests/errors/recorded-error.test.ts",
       "tests/finops/lost-passes.test.ts",
     ],

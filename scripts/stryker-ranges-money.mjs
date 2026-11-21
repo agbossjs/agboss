@@ -61,6 +61,8 @@ export function moneyRuntimeShard() {
         "checkVisit",
         "countedServiceSpend",
       ),
+      // a limit that is no count is a bound of 0 (#1373)
+      "src/graph/count-limit.ts",
       ...declarationsOf(
         "src/flow/runtime/child-exit.ts",
         "ownUsageOf",

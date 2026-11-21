@@ -20,6 +20,34 @@ describe("AC7: limits per call of the agent — modelCalls and toolCalls", () =>
     expect(resolveAgentLimits(2, 8).limits.toolCalls).toBe(2);
   });
 
+  it.each([
+    ["NaN", Number.NaN],
+    ["a word", "five"],
+    ["an object", { limit: 5 }],
+    ["null", null],
+    ["a negative number", -1],
+    ["a fraction", 1.5],
+  ])(
+    "#1373: a maxToolCalls that is %s, the agent's own or the default's, is a bound of 0 — never no bound",
+    (_kind, value) => {
+      const bad = value as never;
+
+      expect(resolveAgentLimits(bad, undefined)).toEqual({
+        limits: { modelCalls: 12, toolCalls: 0 },
+        defaulted: ["modelCalls"],
+      });
+      expect(resolveAgentLimits(undefined, bad).limits.toolCalls).toBe(0);
+      expect(resolveAgentLimits(bad, 8).limits.toolCalls).toBe(0);
+      expect(resolveAgentLimits(8, bad).limits.toolCalls).toBe(8);
+    },
+  );
+
+  it("#1373: a maxToolCalls of 0 stays 0, and a whole number stays itself", () => {
+    expect(resolveAgentLimits(0, 8).limits.toolCalls).toBe(0);
+    expect(resolveAgentLimits(undefined, 0).limits.toolCalls).toBe(0);
+    expect(resolveAgentLimits(7, undefined).limits.toolCalls).toBe(7);
+  });
+
   it("toolCalls hit exactly at the last allowed call is allowed", async () => {
     const h = harness({
       moves: [callTools(read("a", "a.ts")), callTools(read("b", "b.ts")), replyWith("ok")],

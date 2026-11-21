@@ -15,6 +15,7 @@ import {
 } from "./state.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { DtoValidationError, pathOf } from "../../dto/errors.js";
+import { countBoundOf } from "../count-limit.js";
 import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { VisitsLimitExceededError } from "../../flow/runtime/errors.js";
@@ -169,10 +170,11 @@ function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool:
   // Stryker disable next-line OptionalChaining: only a question role's call is checked here, and a question role has its `question`
   const maxVisits = tool.question?.maxVisits;
   const spent = totalCost(state.usage);
-  if (maxVisits !== undefined && askedOf(state, tool) >= maxVisits)
+  // a limit that is no count is a bound of 0, as in the flow's own guard (#1373)
+  if (maxVisits !== undefined && askedOf(state, tool) >= countBoundOf(maxVisits))
     throw new VisitsLimitExceededError({
       component: toolRecordOf(tool),
-      maxVisits,
+      maxVisits: countBoundOf(maxVisits),
       path: state.flowPath,
       spentUsd: spent,
     });

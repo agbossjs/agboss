@@ -33,6 +33,8 @@ export function budgetLoopShard() {
         "checkBeforeAsking",
         "askQuestion",
       ),
+      // the tool-call limit an agent runs under, a value that is no count read as 0 (#1373)
+      ...declarationsOf("src/graph/agent-loop/limits.ts", "resolveAgentLimits"),
       // the judges' spend counted at once and what a rejection carries
       ...declarationsOf("src/graph/agent-loop/judge-node.ts", "makeJudgeNode"),
       "src/graph/agent-loop/mesh-call.ts",

@@ -26,10 +26,18 @@ export function onceChildShard() {
   };
 }
 
-/** The `once-mesh` shard (#1366): an outbound call's envelope and a trusted MCP call that runs once. */
+/**
+ * The `once-mesh` shard (#1366): an outbound call's envelope and a trusted MCP call that runs once — with the stores
+ * whose `saveIfAbsent` is that once-only claim (#1374): in SQLite it is the whole guarantee, no lease stands behind it.
+ */
 export function onceMeshShard() {
   return {
     configFile: "vitest.mutation-once-mesh.config.ts",
-    mutate: ["src/mesh/outbound-mesh.ts", "src/mcp/mcp-dedupe.ts"],
+    mutate: [
+      "src/mesh/outbound-mesh.ts",
+      "src/mcp/mcp-dedupe.ts",
+      "src/infrastructure/mesh-request.repository.ts",
+      "src/infrastructure/sqlite/sqlite-mesh-request.repository.ts",
+    ],
   };
 }

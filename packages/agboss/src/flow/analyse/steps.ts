@@ -1,4 +1,5 @@
 import { STEPS_PER_WORKING_NODE, StepsLimitExceededError } from "../../graph/limits.js";
+import { isCountLimit, shownLimit } from "../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind, type ErrorClass } from "../ast.js";
 import type { ComponentName } from "../registry.js";
@@ -151,6 +152,14 @@ function defaultViolations(graph: FlowGraph): readonly RuleViolation[] {
 export function stepsRules(context: AnalysisContext): readonly RuleViolation[] {
   const { maxSteps, name } = context.workflow;
   if (maxSteps === undefined) return defaultViolations(context.graph);
+  // `NaN`, a word, `null`, a negative or fractional number (#1373): no comparison with it holds, so it bounds nothing —
+  // and the run reads it as a bound of 0
+  if (!isCountLimit(maxSteps)) {
+    const message =
+      `${name} has maxSteps: ${shownLimit(maxSteps)}, not a whole number of steps from 0 — ` +
+      "@Workflow({ maxSteps: 12 }) sets it; leave it out for the default";
+    return [violation("limits.count-invalid", message, [name])];
+  }
   const counted = [...context.graph.nodes.values()].some((node) => weightOf(node) > 0);
   if (counted) return boundViolations(context.graph, maxSteps);
   const message =

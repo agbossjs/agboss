@@ -1,3 +1,4 @@
+import { countBoundOf, isCountLimit } from "../../graph/count-limit.js";
 import { StepsLimitExceededError } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
@@ -74,7 +75,9 @@ function maxVisitsOf(node: FlowNode | undefined): number | undefined {
     declaration?.kind !== NodeKind.Question
   )
     return undefined;
-  return declaration.options.maxVisits;
+  const { maxVisits } = declaration.options;
+  // a value that is no count is a bound of 0, as at run time (#1373)
+  return maxVisits === undefined ? undefined : countBoundOf(maxVisits);
 }
 
 /** The edges a path of steps follows: a launch's own edges count on its join. */
@@ -217,7 +220,8 @@ const takesStepsLimit = (graph: FlowGraph): boolean =>
 export function worstCaseStepsWarnings(context: AnalysisContext): readonly RuleViolation[] {
   const { maxSteps } = context.workflow;
   const { graph } = context;
-  if (maxSteps === undefined || takesStepsLimit(graph)) return [];
+  // a `maxSteps` that is no count is refused by `stepsRules`
+  if (maxSteps === undefined || !isCountLimit(maxSteps) || takesStepsLimit(graph)) return [];
   return graph.starts.flatMap((start) => {
     const worst = boundedStepsFrom(graph, start);
     if (worst === undefined || worst.most <= maxSteps) return [];

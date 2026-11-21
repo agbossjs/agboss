@@ -32,7 +32,7 @@ import { limitHandlerRules } from "./rules/limit-handlers.js";
 import { dtoCycleRules } from "./rules/dto-cycles.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
-import { optionsRules } from "./rules/options.js";
+import { countLimitRules, optionsRules } from "./rules/options.js";
 import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
 import { quorumRules } from "./rules/quorum.js";
@@ -83,6 +83,7 @@ const RULES: readonly FlowRule[] = [
   graphRules,
   placementRules,
   cycleRules,
+  countLimitRules,
   switchRules,
   textAgentRules,
   judgeReplyRules,

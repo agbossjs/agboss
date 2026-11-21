@@ -12,7 +12,8 @@ import {
   type ExecutionKeys,
 } from "../budgets/execution-budgets.js";
 import type { Class } from "../components/injection.js";
-import { usd } from "../units/index.js";
+import { UnitError, usd } from "../units/index.js";
+import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { BudgetScope } from "../budgets/budget.js";
 import { isSpendExhausted } from "../budgets/budget-check.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
@@ -112,6 +113,19 @@ export const inStartFrame =
     runInFrame(startFrameOf(deps, start, deps.lease), work);
 
 /**
+ * A `maxSpend()` that gave no finite amount of dollars from 0 — `NaN`, a word, an object, a negative
+ * number — would never be reached by any spend (every comparison with `NaN` is false): the execution
+ * is refused before its first step, whatever the handler's source (a database, a file). The message
+ * names the budget, never the value (#1373).
+ */
+function checkMaxSpend(budget: string, amount: unknown): void {
+  if (isFiniteNumber(amount) && amount >= 0) return;
+  throw new UnitError({
+    message: `${budget}: maxSpend() must return a finite number of dollars from 0 (usd(...)), it gave ${shownLimit(amount)}`,
+  });
+}
+
+/**
  * Opens the budgets of a new execution: `maxSpend()` of each read once (in `inFrame`, where the
  * execution's `ExecutionContext` can be read) and kept in the ledger as the last known limit, then
  * every counter read — one exhausted rejects the execution before its first step.
@@ -127,6 +141,7 @@ async function openBudgets(
   for (const { type, meta } of budgetsOfExecution(application.budgets, workflow)) {
     const handler = application.resolve(type);
     const maxSpend = await inFrame(() => Promise.resolve(handler.maxSpend()));
+    checkMaxSpend(meta.name, maxSpend);
     const record: ExecutionBudgetRecord = {
       budget: { name: meta.name },
       scope: meta.scope,

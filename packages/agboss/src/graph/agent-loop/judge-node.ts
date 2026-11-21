@@ -21,6 +21,7 @@ import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 import type { FileContent } from "../../files/file-bytes.js";
+import { countBoundOf } from "../count-limit.js";
 import type { JudgedFiles } from "./judge-files.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
@@ -190,7 +191,9 @@ export const retryPrompt = (rejected: readonly JudgeRejection[]): string =>
  * sends its reason back to the model for a retry; after `maxRetries` retries → `QualityGateError`.
  */
 export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  const { name: agent, judges = [], maxRetries = 0 } = deps.agent;
+  const { name: agent, judges = [] } = deps.agent;
+  // a value that is no count (untyped code, parsed JSON) is 0 retries, never endless ones (#1373)
+  const maxRetries = deps.agent.maxRetries === undefined ? 0 : countBoundOf(deps.agent.maxRetries);
   return async (state, config) => {
     if (judges.length === 0 || state.reply === null) return {};
     const judged: UsageRecord[] = [];
