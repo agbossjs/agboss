@@ -40,6 +40,23 @@ export const TIMEOUTS_MS = {
   "store-bound": 80_000,
   "a2a-files": 160_000,
   "files-pii": 170_000,
+  "once-state": 60_000,
+  "once-child": 110_000,
+  "once-mesh": 60_000,
+  "fence-checkpoint": 60_000,
+  "fence-tree": 60_000,
+  "fence-workers": 60_000,
+  "fence-config": 60_000,
+  "cancel-x-runs": 60_000,
+  "cancel-x-pauses": 60_000,
+  "ledger-run": 60_000,
+  "ledger-memory": 60_000,
+  "ledger-branch": 70_000,
+  "ledger-a2a-client": 60_000,
+  "ledger-retention": 60_000,
+  "budget-loop": 120_000,
+  "budget-flow": 80_000,
+  "budget-reply": 60_000,
 };
 
 /**
