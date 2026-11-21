@@ -39,6 +39,7 @@ function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadl
   const call = frame.services.meshCall;
   // a tool call's, else the step's own (#810: an action's remote call passes its budget down too)
   const left = call === undefined ? frame.services.remainingBudget?.() : call.remainingBudget();
+  // Stryker disable next-line StringLiteral: equivalent: `Date.parse` of any text that is no date is NaN, as of the empty one
   const deadlineAt = call?.deadlineAt.getTime() ?? Date.parse(frame.execution.deadline?.at ?? "");
   return {
     ...(left === undefined ? {} : { budget: { remaining: amountOf(left), currency: "USD" } }),
@@ -99,6 +100,7 @@ export function outboundMeshOfHash(bodyHash: string, audience?: string): Outboun
   if (built === undefined) return undefined;
   const envelope = audience === undefined ? built : { ...built, audience };
   const root = rootFactsOf(frame.execution);
+  // Stryker disable next-line OptionalChaining: equivalent: `envelopeOf` answered `undefined` above for a root without `mesh`, so it is there
   const traceId = root.mesh?.traceId ?? hexOf(root.executionId, TRACE_ID_LENGTH);
   const spanId = hexOf(frame.step.idempotencyKey, SPAN_ID_LENGTH);
   // #809 security: signed only when addressed — an envelope with no audience is a claim anyone
@@ -119,11 +121,11 @@ export function currentCallChainOf(): MeshEnvelope["callChain"] | undefined {
   return rootFactsOf(frame.execution).mesh?.chain;
 }
 
-const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/;
+// the trace id is not all zeros (the lookahead): `traceparent` makes that one invalid
+const TRACEPARENT_PATTERN = /^00-(?!0{32}-)([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/;
 
 /** The trace id of a W3C `traceparent` (version 00, not all zeros); `undefined` otherwise. */
 export function traceIdOf(traceparent: unknown): string | undefined {
   if (typeof traceparent !== "string") return undefined;
-  const traceId = TRACEPARENT_PATTERN.exec(traceparent.trim())?.[1];
-  return traceId === undefined || /^0+$/.test(traceId) ? undefined : traceId;
+  return TRACEPARENT_PATTERN.exec(traceparent.trim())?.[1];
 }

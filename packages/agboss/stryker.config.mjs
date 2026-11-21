@@ -251,6 +251,12 @@ export const SHARDS = {
   "money-runtime": ranges.moneyRuntimeShard(),
   "cancel-stores": ranges.cancelStoresShard(),
   "mesh-charge": ranges.meshChargeShard(),
+  // what is counted once in a child's execution: the channels of the two states, a child's step in its parent,
+  // a child on any instance and its queued pass, the end its worker announces; an outbound call's envelope and
+  // a trusted MCP call that runs once (#1366)
+  "once-state": ranges.onceStateShard(),
+  "once-child": ranges.onceChildShard(),
+  "once-mesh": ranges.onceMeshShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

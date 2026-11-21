@@ -200,16 +200,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "holds childEndEventOf (child spend is the usage after the inherited prefix; a wrong slice double counts the parent spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/remote/child-end-event.ts"],
-  ),
-  ...reviewed(
     "holds #run (claimed child runs only under a held tree lease and is requeued if none is taken); #executeClaimed (aborts the child when its tree cancel is found and releases the lease at the end); #reclaim (takes over a running child lease and requeues; a bug runs one child on two instances) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/app/remote/child-workers.ts"],
-  ),
-  ...reviewed(
-    "holds streamed (continues the child budget from the recorded spend (initial or resumed usage); a bug resets or doubles the spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/remote/queued-child-run.ts"],
   ),
   ...reviewed(
     "holds replyAnsweringOf (checks the budget before the reply model call and records the usage of the reading; a bug skips the check or loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
@@ -548,10 +540,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/child-failure.ts"],
   ),
   ...reviewed(
-    "holds childRunner (takes inheritedUsage as the parent usage length so the child counts only its own spend); runChild (takes the child own usage and records it; a bug double counts parent spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/child.ts"],
-  ),
-  ...reviewed(
     "holds judge (merges masking usage with the decision usage of the arbiter call; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/arbiter-model.ts"],
   ),
@@ -626,10 +614,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/remote/remote-failure.ts",
   ]),
   ...reviewed(
-    "holds recordedElsewhere (marks the child own usage RecordedElsewhere so the parent does not charge it twice); remoteChildEndOf (hands the recorded-elsewhere usage to the budget meter after the child ends) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/remote/remote-child.ts"],
-  ),
-  ...reviewed(
     "holds routerFailureOf (keeps the spent usage plus the failed outcome usage in the router error; a bug loses spend of a failed router) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/router-error.ts"],
   ),
@@ -645,10 +629,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "holds answerFilesViewed (runs the budget check before each model call on answer files and returns their usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/runners/answer-guard.ts"],
-  ),
-  ...reviewed(
-    "holds ExecutionState.usage (the usage channel reducer appends; a replace reducer would lose earlier spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/state.ts"],
   ),
   ...reviewed(
     "holds stepFrameAt (builds the step idempotencyKey and passes the lease and signal into the frame; a bug breaks the dedupe key or fencing); inTreeSlot (enters the lease step and takes the tree and instance slots around a step); takeSlots (throws a cancelled error when the slot wait is aborted) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
@@ -721,10 +701,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "holds outgoingMove (keeps masking and answer-check usage in the update also for an invalid answer; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/graph/agent-loop/model-pii.ts"],
-  ),
-  ...reviewed(
-    "holds loopUsage (slices the loop own usage by from.usage so inherited spend is not charged twice) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/agent-loop/state.ts"],
   ),
   ...reviewed(
     "holds closedResult (carries the PII detection usage also on refusal; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
@@ -871,7 +847,34 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/llm/decision-response.ts"],
   ),
   ...reviewed("the loader of an application's sources: tooling", ["src/loader/**"]),
-  ...reviewed("the MCP client and server wiring: no money decision", ["src/mcp/**"]),
+  ...reviewed(
+    "the MCP exports and the `@McpExpose` declaration: re-exports and a decorator that records its options",
+    ["src/mcp/index.ts", "src/mcp/mcp-expose.decorator.ts"],
+  ),
+  ...reviewed(
+    "holds inMcpCallFrame (the call id is the client's `_meta.callId` and the execution id follows it, so a repeated call gets the same step idempotencyKey; a bug makes a repeat a new call to every fenced effect under it) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
+    ["src/mcp/mcp-call-frame.ts"],
+  ),
+  ...reviewed(
+    "holds the hop and signature refusals of an MCP call (admitMcpCall: a chain through this application's own tool or as long as maxMeshHops, a bad signature, a replayed envelope, a body that is not the one signed, an audience that is not this application; which peer is trusted, so that its calls are deduplicated) - not mutated: only the end-to-end runs test it (`tests/mcp/mcp-mesh*.test.ts`), no unit shard; listed for the reviewer (#1366)",
+    ["src/mcp/mcp-mesh-gate.ts"],
+  ),
+  ...reviewed(
+    "holds runReportMetaOf (signs the spend of the execution and its id into the report a trusted caller charges from, bound to its bodyHash; a wrong figure charges the caller too much or nothing) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
+    ["src/mcp/mcp-run-report.ts"],
+  ),
+  ...reviewed(
+    "the MCP server's sessions and transports: the order of its call path (the mesh gate, then the deduplication of `once-mesh`, then the run) is tested end to end only; the rules themselves are in the files beside it",
+    ["src/mcp/mcp-service.ts"],
+  ),
+  ...reviewed(
+    "the MCP server's text helpers: tool schemas, a result's and an error's text, a decision's JSON, the SSE transport; the mesh limit an error result carries is tested end to end; no spend, lease or cancel logic",
+    ["src/mcp/mcp-service-helpers.ts"],
+  ),
+  ...reviewed(
+    "the MCP server's tool list and the handler of each tool (a start's execute, resume_workflow's resume, an exported tool's call): it passes the run's result on and attaches the report of `mcp-run-report.ts`; it counts nothing itself",
+    ["src/mcp/mcp-tool-registry.ts"],
+  ),
   ...reviewed("the memory store of a thread: no money decision", ["src/memory/**"]),
   ...reviewed(
     "the mesh envelope, keys and options: the audience check is sharded, the rest is wire format",
@@ -894,10 +897,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/mesh/mesh-start.ts",
       "src/mesh/mesh-wire.ts",
     ],
-  ),
-  ...reviewed(
-    "holds claimsOf (puts the remaining budget and deadline into the mesh envelope sent to the peer); outboundMeshOfHash (sends the step idempotencyKey to the peer for dedupe; a bug allows a double charge on retry) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/mesh/outbound-mesh.ts"],
   ),
   ...reviewed("the metrics: read-only", [
     "src/metrics/held-lease-tally.ts",

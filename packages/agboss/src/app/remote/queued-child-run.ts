@@ -153,7 +153,7 @@ async function passRunOf(
 }
 
 /** Streams the child's graph on its own thread; whether it rests at a pause. */
-async function streamed(
+export async function streamed(
   childDeps: GraphDeps<string>,
   rootDeps: AppDeps,
   row: QueuedChildExecution,
@@ -171,6 +171,7 @@ async function streamed(
   if (!isExecutionState(before.values)) {
     const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, initial.usage);
     const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
+    // Stryker disable next-line ArrayDeclaration: equivalent: the recorder only pushes into the list, and nothing here reads it
     const record = recorder(budgets.meter, []);
     return passRunOf(graph, config, initial, (states) => drainRun(states, record, initial.usage));
   }
@@ -188,6 +189,7 @@ async function streamed(
     : before.values.usage;
   const budgets = await continuedExecutionBudgets(rootDeps, initial.budgets, spent);
   const graph = executionGraphOf(childDeps, { budgets: budgets.meter });
+  // Stryker disable next-line ArrayDeclaration: equivalent: the recorder only pushes into the list, and nothing here reads it
   const record = recorder(budgets.meter, []);
   const input = isResuming ? new Command({ resume }) : null;
   return passRunOf(graph, config, input, (states) => drainRun(states, record, spent));
