@@ -66,6 +66,7 @@ function parentFrame(node: RuntimeNode): Frame {
 function valueOf(child: ChildGraph, state: ExecutionStateType): NodeOutcome["value"] {
   const finish = child.deps.graph.nodes.get(state.finish)?.declaration;
   const output = finish?.kind === NodeKind.Finish ? finish.options.output : undefined;
+  // Stryker disable next-line ArrayDeclaration: equivalent: a list of one output is no choice of several (`outputs.length > 1`), as the empty one
   const outputs = childWorkflowOf(child.workflow.type)?.outputs ?? [];
   const isOneOf = outputs.length > 1 && output !== undefined;
   return isOneOf ? { value: state.output, variant: output.name } : { value: state.output };
