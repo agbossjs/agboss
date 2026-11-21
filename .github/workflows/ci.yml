@@ -268,6 +268,13 @@ jobs:
       - name: Mutation testing of the CLI's stream path
         if: matrix.shard == 'stream'
         run: npm run test:mutation -w @agboss/cli
+      # #1367: a Timeout counts as killed, and a survivor whose run outlasts Stryker's limit reads as one:
+      # timeoutMS is above each shard's whole run (stryker.config.mjs), so a Timeout left must be a proven hang
+      - name: No Timeout that is not a proven hang (#1367)
+        run: node scripts/stryker-timeouts.mjs packages/agboss/reports/mutation/${{ matrix.shard }}.json
+      - name: No Timeout that is not a proven hang, the CLI's stream path (#1367)
+        if: matrix.shard == 'stream'
+        run: node scripts/stryker-timeouts.mjs packages/agboss-cli/reports/mutation/cli-stream.json
       - if: always()
         uses: actions/upload-artifact@v4
         with:

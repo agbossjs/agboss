@@ -1,0 +1,758 @@
+[
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-accept.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let made = 1; ; made += 1) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-accept.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "try { return await attempt();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-accept.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "} catch (error) { if (made >= attempts || !isAmbiguous(error)) throw error;",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-accept.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (made >= attempts || !isAmbiguous(error)) throw error;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-accept.ts",
+    "mutator": "LogicalOperator",
+    "replacement": "made >= attempts && !isAmbiguous(error)",
+    "anchor": "if (made >= attempts || !isAmbiguous(error)) throw error;",
+    "kind": "hit-limit",
+    "reason": "LogicalOperator -> made >= attempts && !isAmbiguous(error): the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-origins.ts",
+    "mutator": "ArrayDeclaration",
+    "replacement": "[\"Stryker was here\"]",
+    "anchor": "allowed: readonly string[] = [],",
+    "kind": "runtime-error",
+    "reason": "the default list of allowed origins holds 'Stryker was here', which is no origin: the client's constructor throws (a2a.allowed-origin-invalid) while a test file loads, outside any test, which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-transport.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let redirects = 0; ; redirects += 1) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-wire-errors.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "for (let current = error; causes.length < MAX_CAUSES && current instanceof Error;) {",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-client",
+    "file": "src/a2a/client/a2a-wire-errors.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let current = error; causes.length < MAX_CAUSES && current instanceof Error;) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/a2a-message-skill-rule.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (seen.has(dep)) continue;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/a2a-message-skill-rule.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "seen.add(dep); if (isEffect(dep)) return dep;",
+    "kind": "hit-limit",
+    "reason": "CallExpression -> ;: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/server/a2a-direct-reply.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { caller.signal.throwIfAborted();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/server/a2a-direct-reply.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "caller.signal.throwIfAborted();",
+    "kind": "hit-limit",
+    "reason": "CallExpression -> ;: the statement that advances or bounds the loop around it is removed, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/server/a2a-direct-reply.ts",
+    "mutator": "AssignmentOperator",
+    "replacement": "made -= 1",
+    "anchor": "for (let made = 0; made < ROUNDS; made += 1) {",
+    "kind": "hit-limit",
+    "reason": "AssignmentOperator -> made -= 1: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-direct",
+    "file": "src/a2a/server/a2a-forged-files.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let seen = 0; ; seen += 1) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file-connect.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "socket.destroy(); reject(deniedError());",
+    "kind": "runtime-error",
+    "reason": "a denied socket is left open: the test process crashes ('Cannot convert object to primitive value' in the runner, 'Test runner crashed'), which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file-exchange.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { const end = this.head.indexOf(\"\\r\\n\\r\\n\");",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file-fetch.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let hop = 0; ; hop += 1) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file-http.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { if (this.state === \"data\") {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file.dto.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (seen.has(element.dto)) return [];",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file.dto.ts",
+    "mutator": "ArrayDeclaration",
+    "replacement": "[]",
+    "anchor": "return filesBelow(element.dto, `${path}.`, new Set([...seen, element.dto]));",
+    "kind": "hit-limit",
+    "reason": "ArrayDeclaration -> []: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-stream.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "if (!isPending && !waits.queued.isWaiting) return task;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-stream.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "waits.queued.isWaiting",
+    "anchor": "if (!isPending && !waits.queued.isWaiting) return task;",
+    "kind": "hit-limit",
+    "reason": "BooleanLiteral -> waits.queued.isWaiting: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-stream.ts",
+    "mutator": "LogicalOperator",
+    "replacement": "!isPending || !waits.queued.isWaiting",
+    "anchor": "if (!isPending && !waits.queued.isWaiting) return task;",
+    "kind": "hit-limit",
+    "reason": "LogicalOperator -> !isPending || !waits.queued.isWaiting: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-stream.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (!isEnd(current, options.end, options.answered ?? 0) && !signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-stream.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (queued.isDropped) return;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-server",
+    "file": "src/a2a/server/a2a-task-wait.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (!isAtRest(current, answered) && !signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-tasks",
+    "file": "src/a2a/server/a2a-server-parts.ts",
+    "mutator": "AssignmentOperator",
+    "replacement": "attempt -= 1",
+    "anchor": "for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {",
+    "kind": "hit-limit",
+    "reason": "AssignmentOperator -> attempt -= 1: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-tasks",
+    "file": "src/a2a/tasks/a2a-task-projection.ts",
+    "mutator": "AssignmentOperator",
+    "replacement": "attempt -= 1",
+    "anchor": "for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {",
+    "kind": "hit-limit",
+    "reason": "AssignmentOperator -> attempt -= 1: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-tasks",
+    "file": "src/a2a/tasks/task-changes.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "true",
+    "anchor": "this.#isChanged = false;",
+    "kind": "hit-limit",
+    "reason": "BooleanLiteral -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "cancel",
+    "file": "src/app/lease-releases.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "wait: async (retry, signal) => {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { await clock.sleep(RENEW_EVERY, working);",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (working.aborted || state.isLost) return;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { const { left } = fence;",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (!(left > 0)) { fence.expire();",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "if (!(left > 0)) { fence.expire();",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "left >= 0",
+    "anchor": "if (!(left > 0)) { fence.expire();",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> left >= 0: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "if (!(left > 0)) { fence.expire();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fencing",
+    "file": "src/app/lease-fence.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (working.aborted) return;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "files-pii",
+    "file": "src/files/model-image-redactor-work.ts",
+    "mutator": "AssignmentOperator",
+    "replacement": "pixel -= channels",
+    "anchor": "for (let pixel = from; pixel < end; pixel += channels) data[pixel + channels - 1] = 255;",
+    "kind": "hit-limit",
+    "reason": "AssignmentOperator -> pixel -= channels: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "files-pii",
+    "file": "src/pii/tokens.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let length = SHORT; ; length += 2) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "files-pii",
+    "file": "src/pii/tokens.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (isFree || length === digest.length) return token;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "money",
+    "file": "src/budgets/execution-budgets.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "records.length !== 0",
+    "anchor": "if (records.length === 0) return;",
+    "kind": "wall-clock",
+    "reason": "in every full run of the money shard (3 cold runs: 2 locally, 1 on CI) the mutant outlasts the limit of 180 s and is ended by Stryker's time limit; alone, or with the budgets' files only, it is Killed in 4 s by 'the child held on its worker within 4000 ms of real time': a hang that depends on the rest of the shard's mutants, not yet understood (agbossjs/agboss follow-up, see the PR)"
+  },
+  {
+    "shard": "money",
+    "file": "src/budgets/execution-budgets.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (records.length === 0) return;",
+    "kind": "wall-clock",
+    "reason": "in every full run of the money shard (3 cold runs: 2 locally, 1 on CI) the mutant outlasts the limit of 180 s and is ended by Stryker's time limit; alone, or with the budgets' files only, it is Killed in 4 s by 'the child held on its worker within 4000 ms of real time': a hang that depends on the rest of the shard's mutants, not yet understood (agbossjs/agboss follow-up, see the PR)"
+  },
+  {
+    "shard": "pause-notices",
+    "file": "src/app/pause-notice-delivery.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "this.#looking = this.#kicked().finally(() => {",
+    "kind": "wall-clock",
+    "reason": "the callback that clears #looking is removed, so settled() awaits the same settled promise for ever: a loop of microtasks that no timer, vitest's or Stryker's, can end, and whose mutated callback runs once, so Stryker's hit counter never reaches its limit; run alone with a limit of 643 s (3 x the shard's 85 s on CI, and more) it did not finish, only Stryker's time limit ended it"
+  },
+  {
+    "shard": "pause-notices",
+    "file": "src/app/pause-notice-delivery.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "true",
+    "anchor": "this.#again = false;",
+    "kind": "hit-limit",
+    "reason": "BooleanLiteral -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pause-notices",
+    "file": "src/app/pause-notice-delivery.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { await clock.sleep(RENEW_EVERY, stop);",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pause-notices",
+    "file": "src/app/pause-notice-delivery.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (stop.aborted) return;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pause-notices",
+    "file": "src/app/pause-notice-delivery.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (claim !== undefined) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pauses",
+    "file": "src/infrastructure/in-memory-pause-queries.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "pause.status === PauseStatus.Pending &&",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pauses",
+    "file": "src/infrastructure/in-memory-pause-queries.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "(after === undefined || isPast(after, pause.askedAt, pause))",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "pauses",
+    "file": "src/infrastructure/pause-log-repair.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "after === undefined",
+    "anchor": "} while (after !== undefined);",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> after === undefined: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "rate-limits",
+    "file": "src/models/policies/rate-limit-policy.ts",
+    "mutator": "MethodExpression",
+    "replacement": "limits.some(limit => limit === undefined)",
+    "anchor": "if (limits.every((limit) => limit === undefined)) {",
+    "kind": "runtime-error",
+    "reason": "some() instead of every() makes a policy that sets a limit throw its 'needs maxConcurrentCalls or perMinute' error while a test file loads (rate-limit-429.test.ts), outside any test: counted as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "spend",
+    "file": "src/budgets/budget.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "export function Budget<const TDeps extends readonly Token[] = []>(options: BudgetOptions<TDeps>) {",
+    "kind": "runtime-error",
+    "reason": "the decorator's body is removed: '(0, decorators[i]) is not a function' while the test files load, outside any test: counted as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "sqlite-stores",
+    "file": "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "result.then(undefined, () => undefined);",
+    "kind": "runtime-error",
+    "reason": "the rejection of the work's promise is left unhandled: Node ends the test process ('Test runner crashed' twice), which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "store-bound",
+    "file": "src/app/store-call-bound.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { let step: IteratorResult<T>;",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "store-bound",
+    "file": "src/app/store-call-bound.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (step.done === true) return;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-sse-write.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { const tick = new AbortController();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-sse-write.ts",
+    "mutator": "ArrowFunction",
+    "replacement": "() => undefined",
+    "anchor": "const winner = await Promise.race([pending.then((value) => ({ value })), idle]);",
+    "kind": "hit-limit",
+    "reason": "ArrowFunction -> () => undefined: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-sse-write.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (winner !== undefined) return winner.value;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-sse-write.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "winner === undefined",
+    "anchor": "if (winner !== undefined) return winner.value;",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> winner === undefined: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "from <= text.length",
+    "anchor": "for (let from = 0; from < text.length;) {",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> from <= text.length: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let from = 0; from < text.length;) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "ArithmeticOperator",
+    "replacement": "from - SUBSCRIBER_CHUNK_CHARS",
+    "anchor": "let to = Math.min(from + SUBSCRIBER_CHUNK_CHARS, text.length);",
+    "kind": "hit-limit",
+    "reason": "ArithmeticOperator -> from - SUBSCRIBER_CHUNK_CHARS: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "if (to < text.length && isHighSurrogate(text.charCodeAt(to - 1))) to -= 1;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "to <= text.length",
+    "anchor": "if (to < text.length && isHighSurrogate(text.charCodeAt(to - 1))) to -= 1;",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> to <= text.length: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "get isDropped(): boolean {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/a2a/server/a2a-subscriber-queue.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "this.#dropped",
+    "anchor": "return !this.#dropped && this.#events.length === 0;",
+    "kind": "hit-limit",
+    "reason": "BooleanLiteral -> this.#dropped: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/models/event-stream-lines.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { LINE.lastIndex = at;",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/models/event-stream-lines.ts",
+    "mutator": "AssignmentOperator",
+    "replacement": "at -= whole.length",
+    "anchor": "at += whole.length; this.#raw += whole;",
+    "kind": "hit-limit",
+    "reason": "AssignmentOperator -> at -= whole.length: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "stream",
+    "file": "src/run/stream/unmask.ts",
+    "mutator": "StringLiteral",
+    "replacement": "\"Stryker was here!\"",
+    "anchor": "this.#held = \"\"; return flushed + this.#read(character);",
+    "kind": "hit-limit",
+    "reason": "StringLiteral -> \"Stryker was here!\": the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/execution-leases.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { signal?.throwIfAborted();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/execution-leases.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "try { const held = await take(tree, why);",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/execution-leases.ts",
+    "mutator": "ArrowFunction",
+    "replacement": "() => undefined",
+    "anchor": "await watch.wait((waiting) => clock.sleep(RETRY_EVERY, waiting), signal);",
+    "kind": "hit-limit",
+    "reason": "ArrowFunction -> () => undefined: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/handed-over.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "pending.length >= 0",
+    "anchor": "while (pending.length > 0) {",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> pending.length >= 0: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/handed-over.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (pending.length > 0) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/handed-over.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (seen.has(next)) continue;",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/app/handed-over.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "seen.add(next); if (next instanceof type) return next;",
+    "kind": "hit-limit",
+    "reason": "CallExpression -> ;: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "MethodExpression",
+    "replacement": "mergedEntries(site.known, mirrored)",
+    "anchor": "return mergedEntries(site.known, mirrored)",
+    "kind": "hit-limit",
+    "reason": "MethodExpression -> mergedEntries(site.known, mirrored): the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "site.covers(entry) && entry.status === CompensationEntryStatus.Open && !done.has(entry.key),",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (let open = openNow(site, done); open.length > 0; open = openNow(site, done)) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "open.length >= 0",
+    "anchor": "for (let open = openNow(site, done); open.length > 0; open = openNow(site, done)) {",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> open.length >= 0: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (const entry of open) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "unwind",
+    "file": "src/flow/runtime/compensation/unwind.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "done.add(entry.key);",
+    "kind": "hit-limit",
+    "reason": "CallExpression -> ;: the statement that advances or bounds the loop around it is removed, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  }
+]
