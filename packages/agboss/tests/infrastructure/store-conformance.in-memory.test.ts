@@ -9,6 +9,7 @@ import process from "node:process";
 import { describe } from "vitest";
 import { fencedEffectContract, storeConformance } from "../../src/testing/contracts/index.js";
 import { inMemoryStores } from "./contracts/core-store-sets.js";
+import { runsSubset, storesOfShard } from "./contracts/mutation-subset.js";
 import { inMemoryFencedEffects } from "./contracts/fenced-effect-stores.js";
 import { inMemoryTarget } from "./contracts/store-kinds.js";
 
@@ -24,9 +25,14 @@ if (!Number.isInteger(depth) || depth < 9)
 
 describe("#526 AC2: the core's in-memory stores pass storeConformance", () => {
   // #533: in memory a schedule costs microseconds, so the explorer looks deeper than its default
-  storeConformance({ name: "in-memory", stores: inMemoryStores(), interleavings: { depth } });
-  fencedEffectContract({
-    ...inMemoryTarget(inMemoryFencedEffects(true)),
-    name: "in-memory, writes that wait",
+  storeConformance({
+    name: "in-memory",
+    stores: storesOfShard(inMemoryStores()),
+    interleavings: { depth },
   });
+  if (!runsSubset())
+    fencedEffectContract({
+      ...inMemoryTarget(inMemoryFencedEffects(true)),
+      name: "in-memory, writes that wait",
+    });
 });

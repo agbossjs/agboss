@@ -1,5 +1,6 @@
 import process from "node:process";
 import * as ranges from "../../scripts/stryker-ranges.mjs";
+import { timeoutOf } from "../../scripts/stryker-timeouts-ms.mjs";
 
 /**
  * Mutation testing of the payment-relevant modules (#533 item 3, AC3; #626): every mutant is killed
@@ -291,7 +292,9 @@ export default {
   reporters: ["clear-text", "progress", "json"],
   jsonReporter: { fileName: `reports/mutation/${shard}.json` },
   thresholds: { high: 100, low: 95, break: 100 },
-  timeoutMS: 20000,
+  // #1367: timeoutFactor x the covering tests' net time + timeoutMS is above 3 x the whole run (stryker-timeouts-ms.mjs)
+  timeoutMS: timeoutOf(shard),
+  timeoutFactor: 3,
   // #1242: the initial run of a shard's tests under coverage, bounded by Stryker at 5 min unless set:
   // the fencing and keys-and-calls dry runs took up to 4 min 46 s on a slow runner and failed there
   // at exactly 5 min (#1207, #1138), with no test hung. 10 min keeps a hang bounded and a slow runner green.

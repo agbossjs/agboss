@@ -6,10 +6,11 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    // a hang of an async test is vitest's to end (the mutant is then Killed), never Stryker's Timeout (#1367)
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     expect: { requireAssertions: true },
     setupFiles: ["./src/testing/setup.ts"],
-    // only the pause store contract of the conformance run, and every case of the other files
-    testNamePattern: String.raw`paused execution contract|^(?!.*pass storeConformance)`,
     include: [
       "tests/infrastructure/store-conformance.in-memory.test.ts",
       "tests/infrastructure/{pause-rules-units,pause-mailboxes-units,pause-transitions-units,pause-store-units,pause-mailbox-store-units,recovery-log-repair,orphan-pauses,orphan-wakes,pause-record-kind,stored-pause-reading,recovery-wake-order}.test.ts",

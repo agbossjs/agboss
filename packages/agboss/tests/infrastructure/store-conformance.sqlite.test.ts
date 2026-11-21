@@ -6,12 +6,13 @@
 import { describe } from "vitest";
 import { storeConformance } from "../../src/testing/contracts/index.js";
 import { sqliteStores } from "./contracts/core-store-sets.js";
+import { storesOfShard } from "./contracts/mutation-subset.js";
 
 describe("#526 AC2: the core's SQLite stores pass storeConformance", () => {
   // #533: a schedule on SQLite opens a file and two connections, so the explorer looks 5 steps deep
   storeConformance({
     name: "SQLite",
-    stores: sqliteStores(),
+    stores: storesOfShard(sqliteStores()),
     interleavings: { depth: 5, walks: 50 },
   });
 });
