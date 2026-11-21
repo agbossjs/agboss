@@ -53,8 +53,9 @@ export async function storedCompaction<TName extends string>(
   write: CompactionWrite,
 ): Promise<Compacted | undefined> {
   const [first] = write.due;
-  const last = write.due.at(-1);
-  if (first === undefined || last === undefined) return undefined;
+  if (first === undefined) return undefined;
+  // a list with a first record has a last one: it is the first when the list has one record
+  const last = write.due.at(-1) ?? first;
   const { tenantId, threadId } = run;
   await deps.turns.addSummary({
     tenantId,

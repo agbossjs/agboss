@@ -17,7 +17,11 @@ export interface MemoryAfterTurn extends MemoryUpdate {
 /** The agents' own strategies (`@Agent({ memoryStrategy })`), each instance once. */
 const agentStrategiesOf = <TName extends string>(
   deps: AgentExecutionDeps<TName>,
-): BaseMemoryStrategy[] => [...new Set(deps.memory?.values() ?? [])];
+): BaseMemoryStrategy[] => {
+  // Stryker disable next-line ArrayDeclaration: a string in the list has no `updateMemory`, and the update skips a strategy with none
+  const strategies = deps.memory?.values() ?? [];
+  return [...new Set(strategies)];
+};
 
 const NOTHING_COMPACTED: CompactionOutcome = { usage: [], compacted: [] };
 

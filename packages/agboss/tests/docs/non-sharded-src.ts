@@ -53,10 +53,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "holds #call (charges the peer price on accept and settles after the wait, skipping the charge on a refused call; a wrong order or branch bills too much or nothing) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/a2a/client/a2a-client.ts"],
-  ),
-  ...reviewed(
     "error classes and enums of the A2A client for failed, canceled, interrupted and deadline tasks",
     ["src/a2a/client/a2a-task-errors.ts"],
   ),
@@ -326,10 +322,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/components/container/registrations.ts",
   ]),
   ...reviewed(
-    "holds searchTool (reports retrieval cost and rerank usage of a search; a bug loses or double counts spend); reportRerankUsage (reports each rerank record once, falling back to reportCost; a bug double counts or loses it) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/components/rag.ts"],
-  ),
-  ...reviewed(
     "registers the tool and router factories and the spend recorder in the container; wiring",
     ["src/components/runtime.ts"],
   ),
@@ -523,10 +515,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/launch/router-decision.ts",
     "src/flow/runtime/launch/runtime-launch.ts",
   ]),
-  ...reviewed(
-    "holds answeredEnd (collects outcome, arbiter and service usage of a branch into state and sibling spend); ended (records unrecorded spend of a failed branch and aborts the launch; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/branch-runner.ts"],
-  ),
   ...reviewed(
     "holds branchStateOf (adds sibling spend to the usage a branch sees for budget checks; a bug lets branches overspend); branchFrameOf (counts service spend of a branch and wires the budget stop signal); budgetStopOf (derives the budget-exhausted stop for branches) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/branch-view.ts"],
@@ -725,10 +713,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the pause store's abstract contract and its types: the stores that implement it are the `pauses` and `pauses-sqlite` shards'",
     ["src/infrastructure/paused-execution.repository.ts"],
-  ),
-  ...reviewed(
-    "holds removeExpired (computes the cutoff and deletes old ledger, fenced effect and outbound call rows; a wrong cutoff drops entries early and allows a double charge) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/infrastructure/retention-sweep.ts"],
   ),
   ...reviewed("the S3 file store: a store of no spend, lease or cancel state", [
     "src/infrastructure/s3/**",
@@ -1058,40 +1042,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/run/waiting-pauses.ts",
   ]),
   ...reviewed(
-    "holds maskedTextOf (records the PII detection usage in the budget meter) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/compaction-parts.ts"],
-  ),
-  ...reviewed(
-    "holds compactDue (stops compacting when the budget left minus the spent usage is zero); summaryCall (records the usage of each summary call in the meter) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/compaction.ts"],
-  ),
-  ...reviewed(
-    "holds continueAgent (continues the budget from the usage stored in the checkpoint; a bug resets or double counts spend after recovery) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/continue-agent.ts"],
-  ),
-  ...reviewed(
-    "holds continueRun (opens the continued budgets from the recorded spend and records failed outcome usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/continue-run.ts"],
-  ),
-  ...reviewed(
     "holds maskedInputOf (collects the masking usage of a custom compaction; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/run/custom-compaction.ts"],
-  ),
-  ...reviewed(
-    "holds stoppedState (records only the usage not yet recorded when the run pauses; a bug double counts or loses spend); outcomeOf (sets the turn cost as the total of the usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/finish.ts"],
-  ),
-  ...reviewed(
-    "holds updateMemoryAfter (computes the budget left for each strategy and records the memory usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/memory.ts"],
-  ),
-  ...reviewed(
-    "holds pausedRun (rebuilds the spent usage of a resumed run from the paused loops and the taken answers usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/resume-agent.ts"],
-  ),
-  ...reviewed(
-    "holds runOnce (opens the execution budgets, records usage through the meter and keeps spent on failure) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/run-agent.ts"],
   ),
   ...reviewed("the store assemblies: wiring", [
     "src/stores/contract-types.ts",
@@ -1118,3 +1070,32 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("units of time and size", ["src/units/**"]),
   ...reviewed("the workflow's entry: exports", ["src/workflow.ts"]),
 ]);
+
+/**
+ * A file a shard mutates only in the functions that decide money (a range of `scripts/stryker-ranges.mjs`, #1366),
+ * with the reason the rest of it is not mutated: the file is in no shard whole, so it is not in `NON_SHARDED_SRC`.
+ * `tests/docs/mutation-shard-coverage.test.ts` fails a name here that no shard mutates by a range, or that
+ * a shard mutates whole.
+ */
+export const PARTLY_SHARDED_SRC: Readonly<Record<string, string>> = {
+  "src/a2a/client/a2a-client.ts":
+    "the rest of the client reads the card, the files and the task, and translates errors: no price is charged or settled there; #call, which charges, is mutated",
+  "src/infrastructure/retention-sweep.ts":
+    "setAsideUnknown sets notices aside and reports them: no row of money is removed there; the removal of every kind of rows, the ledger's too, is mutated",
+  "src/run/finish.ts":
+    "pathOf, traceUrlOf, originDataOf and assertEnded only shape the result or refuse a graph that did not end: no spend is recorded there; the turn's cost and the paused loops' spend are mutated",
+  "src/run/run-agent.ts":
+    "executeAgent and runOpenedAgent only name runOnce, turnBaseOf and startedAtOf shape the turn's header and its start time: no spend is recorded there; runOnce and the failure's record are mutated",
+  "src/run/continue-run.ts":
+    "the rest is the types of a continued run and its pass: no code runs there; continueRun is mutated",
+  "src/run/continue-agent.ts":
+    "NothingToRecoverError is an error class and START_CHANNEL a name: no spend is decided there; what recovery reads of the checkpoint and continues from is mutated",
+  "src/run/resume-agent.ts":
+    "NotPausedError, UnknownPauseError and PauseAnswererError are error classes: no spend is decided there; the spend a resume starts from and its pass are mutated",
+  "src/run/compaction.ts":
+    "asTurns, callerOf, dueOf and inputOf decide which turns are summarised and what the model reads: the summary's text, no spend; the calls, their records, the stored cost and the budget left are mutated",
+  "src/flow/runtime/launch/branch-runner.ts":
+    "ran checks the branch's visit (checkVisit is mutated in money-runtime) and runs its node in a frame, and branchNode wires the branch into the graph: no spend is counted there; the three that count a branch's spend are mutated",
+  "src/components/rag.ts":
+    "the rest of the file declares knowledge bases, checks their classes, reads their tenant and settings and binds their rerankers: no spend is reported there; the search tool's cost and the reranker's records are mutated",
+};

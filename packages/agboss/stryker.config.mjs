@@ -261,6 +261,13 @@ export const SHARDS = {
   "fence-config": ranges.fenceConfigShard(),
   "cancel-x-runs": ranges.cancelRunsShard(),
   "cancel-x-pauses": ranges.cancelPausesShard(),
+  // the ledger written (#1366): how a run's spend reaches the ledger and its turn, the spend of a thread's memory,
+  // of one branch of a launch, the price of an A2A call and the retention's cut of the ledger
+  "ledger-run": ranges.ledgerRunShard(),
+  "ledger-memory": ranges.ledgerMemoryShard(),
+  "ledger-branch": ranges.ledgerBranchShard(),
+  "ledger-a2a-client": ranges.ledgerA2aClientShard(),
+  "ledger-retention": ranges.ledgerRetentionShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

@@ -7,7 +7,7 @@ import { readdirSync } from "node:fs";
 import { join, matchesGlob } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runProcess } from "../helpers/process.js";
-import { NON_SHARDED_SRC } from "./non-sharded-src.js";
+import { NON_SHARDED_SRC, PARTLY_SHARDED_SRC } from "./non-sharded-src.js";
 
 const pkg = new URL("../../", import.meta.url).pathname;
 
@@ -83,8 +83,22 @@ describe("#1356: the mutation shards cover src/", () => {
     expect(empty).toEqual([]);
   });
 
+  it("a file mutated only in part is mutated by a range, is in no shard whole and says why the rest is not (#1366)", async () => {
+    const shards = await shardPatterns;
+    const real = new Set(sources);
+    const bad = Object.keys(PARTLY_SHARDED_SRC).filter(
+      (file) =>
+        !real.has(file) ||
+        !shards.some((pattern) => pattern.startsWith(`${file}:`)) ||
+        shards.includes(file) ||
+        reviewedAs(file).length > 0,
+    );
+
+    expect(bad).toEqual([]);
+  });
+
   it("every reason says something, in one line", () => {
-    const bad = Object.entries(NON_SHARDED_SRC).filter(
+    const bad = [...Object.entries(NON_SHARDED_SRC), ...Object.entries(PARTLY_SHARDED_SRC)].filter(
       ([, reason]) => reason.trim().length < 10 || reason.includes("\n"),
     );
 

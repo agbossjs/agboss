@@ -165,7 +165,7 @@ export async function summaryOf(
 }
 
 /** A model's compaction of the records due: its summary written, revealed and stored. */
-async function compactWithModel<TName extends string>(
+export async function compactWithModel<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   compaction: ModelCompactionInUse,
   run: CompactionRun,
