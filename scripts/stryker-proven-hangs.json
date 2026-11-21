@@ -279,6 +279,114 @@
     "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
   },
   {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "this.#inFlight.delete(running);",
+    "kind": "wall-clock",
+    "reason": "the run is never removed from the in-flight set, so settled() awaits the same settled promises for ever: a loop of microtasks that no timer, vitest's or Stryker's, can end, and whose mutated statement runs once per run, so Stryker's hit counter never reaches its limit; run alone with a limit of 600 s (3 x the shard's whole run on CI, and more) it did not finish"
+  },
+  {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "} finally { this.#inFlight.delete(move);",
+    "kind": "wall-clock",
+    "reason": "the finally block of moving() is removed: the move is never taken out of the in-flight set, so settled() awaits it for ever (a loop of microtasks, as above); run alone with a limit of 600 s it did not finish"
+  },
+  {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "CallExpression",
+    "replacement": ";",
+    "anchor": "this.#inFlight.delete(move);",
+    "kind": "wall-clock",
+    "reason": "the move is never taken out of the in-flight set, so settled() awaits it for ever (a loop of microtasks, as above); run alone with a limit of 600 s it did not finish"
+  },
+  {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "this.#inFlight.size >= 0",
+    "anchor": "while (this.#inFlight.size > 0) await Promise.allSettled([...this.#inFlight]);",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> this.#inFlight.size >= 0: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "ArrayDeclaration",
+    "replacement": "[]",
+    "anchor": "while (this.#inFlight.size > 0) await Promise.allSettled([...this.#inFlight]);",
+    "kind": "hit-limit",
+    "reason": "ArrayDeclaration -> []: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "cancel-x-runs",
+    "file": "src/app/live-runs.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (this.#stopDeadline !== undefined) return;",
+    "kind": "runtime-error",
+    "reason": "the guard of a second stop is always false: stopBy() runs twice and the test process crashes ('Cannot convert object to primitive NaN', 'Test runner crashed' twice), which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (!this.#stopped.signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "LogicalOperator",
+    "replacement": "this.#asked > 0 || !this.#stopped.signal.aborted",
+    "anchor": "while (this.#asked > 0 && !this.#stopped.signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "LogicalOperator -> this.#asked > 0 || !this.#stopped.signal.aborted: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "this.#asked >= 0",
+    "anchor": "while (this.#asked > 0 && !this.#stopped.signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "EqualityOperator -> this.#asked >= 0: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "while (this.#asked > 0 && !this.#stopped.signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "ConditionalExpression -> true: the loop's guard or counter is changed so that it never reaches its end, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (this.#asked > 0 && !this.#stopped.signal.aborted) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "fence-workers",
+    "file": "src/app/remote/child-workers.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "while (!this.#stopped.signal.aborted && this.#room() > 0) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
     "shard": "fencing",
     "file": "src/app/lease-fence.ts",
     "mutator": "BlockStatement",
@@ -394,6 +502,33 @@
     "anchor": "if (records.length === 0) return;",
     "kind": "wall-clock",
     "reason": "in every full run of the money shard (3 cold runs: 2 locally, 1 on CI) the mutant outlasts the limit of 180 s and is ended by Stryker's time limit; alone, or with the budgets' files only, it is Killed in 4 s by 'the child held on its worker within 4000 ms of real time': a hang that depends on the rest of the shard's mutants, not yet understood (agbossjs/agboss follow-up, see the PR)"
+  },
+  {
+    "shard": "once-child",
+    "file": "src/flow/runtime/remote/remote-child.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { site.signal.throwIfAborted();",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "once-child",
+    "file": "src/flow/runtime/remote/remote-child.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "try { row = await queue.findByTenantIdAndExecutionId(site.tenantId, site.executionId);",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "once-child",
+    "file": "src/flow/runtime/remote/remote-child.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "for (;;) { const seen = await waitedRow(site, isRequeued);",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop's body is removed: nothing in it can end the loop, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
   },
   {
     "shard": "pause-notices",
