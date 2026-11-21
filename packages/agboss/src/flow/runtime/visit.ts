@@ -192,6 +192,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
   return async (state, config) => {
     let ranAsStep = false;
     // whether the visit's limits passed (#675): a limit thrown before held it back
+    // Stryker disable next-line ObjectLiteral: a flag that is not set reads as false, as the one set to false does
     const limitsChecked = { isDone: false };
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
