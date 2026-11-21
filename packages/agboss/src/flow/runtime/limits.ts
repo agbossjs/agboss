@@ -125,6 +125,14 @@ const isBudgeted = (state: ExecutionStateType, node: RuntimeNode): boolean => {
 };
 
 /**
+ * The visits a node's `maxVisits` allows: none of it is no bound; a `null` (options from untyped code or
+ * parsed JSON) is a bound of 0, so the first visit is refused (fail closed) — as the analysis counts it,
+ * a bound, and not as a missing one (#1365).
+ */
+const visitBoundOf = (maxVisits: number | null | undefined): number =>
+  maxVisits === null ? 0 : (maxVisits ?? Number.POSITIVE_INFINITY);
+
+/**
  * Throws the limit a visit would cross: its visits, and — of an agent or a router (`isStep`) — the
  * steps.
  */
@@ -138,8 +146,7 @@ function checkSteps(
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
   const visits = (state.visits[node.id] ?? 0) + 1;
-  // a node with no `maxVisits` is held to none
-  const maxVisits = node.maxVisits ?? Number.POSITIVE_INFINITY;
+  const maxVisits = visitBoundOf(node.maxVisits);
   if (visits > maxVisits) {
     throw new VisitsLimitExceededError({
       component: plainRecordOf(site.component),

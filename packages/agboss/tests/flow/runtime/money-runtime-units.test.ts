@@ -153,6 +153,21 @@ describe("#1356: the limits of a visit", () => {
     ).toBeInstanceOf(VisitsLimitExceededError);
   });
 
+  it("#1365: refuses a node whose maxVisits is null on its first visit, with a bound of 0", async () => {
+    const { limits } = limitsOf();
+    const nullBound = {
+      id: "clerk",
+      kind: NodeKind.Agent,
+      component: Object,
+      maxVisits: null,
+    } as never;
+
+    const error = await caught(() => visit(stateOf(), nullBound, limits));
+
+    expect(error).toBeInstanceOf(VisitsLimitExceededError);
+    expect(error).toMatchObject({ maxVisits: 0, visits: 1, path: ["start", "clerk"] });
+  });
+
   it("holds a question to its own maxVisits, and an action or a start to none", async () => {
     const { limits } = limitsOf();
     const state = stateOf({ visits: { ask: 3, act: 3, begin: 3 } });
