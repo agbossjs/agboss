@@ -12,7 +12,8 @@
 //     last resort, every one costs a whole limit in each cold run), `runtime-error` or `compile-error` — and a reason.
 //     Never by the mutant's id, which a run numbers afresh, or its line, which an edit moves;
 //   - both ways: a bad mutant that matches no entry fails, and an entry of the report's shard that matches no
-//     mutant is stale and fails (`--partial` skips that half for a run of part of a shard).
+//     mutant, or a Survived one, is stale and fails (one whose mutant was Killed this time is told, not failed: a hit-limit loop is
+//     ended by Stryker's count or by a test that fails first, and the two race); `--partial` skips that half for a run of part of a shard.
 // Self-contained: the list is a JSON file beside the script, `--hangs <file>` names another. The stores copy both as they are.
 // `node scripts/stryker-timeouts.mjs [--partial] [--hangs <file>] <report.json> [...]` checks Stryker JSON reports
 // (reporters: json); a report's shard is its file's name without `.json`.
@@ -53,6 +54,13 @@ const isReport = (report) =>
   typeof report === "object" &&
   report.files !== null &&
   typeof report.files === "object";
+
+/** The line a mutant starts on and the next one, trimmed: an anchor too short to be its own (`try {`) takes the line below. */
+const textOf = (lines, line) =>
+  [lines[line - 1], lines[line]]
+    .map((one) => (one ?? "").trim())
+    .join(" ")
+    .trim();
 
 /** What a mutant that is neither killed, survived nor ignored is, as an entry's `kind`; `undefined` for the others. */
 function kindOf(mutant) {
@@ -95,6 +103,44 @@ const describeBad = (found) =>
   `${found.file}:${String(found.line)}: ${found.mutant.status} (${found.kind}) of a ${found.mutant.mutatorName} mutant -> ${String(found.mutant.replacement)}` +
   `${found.mutant.statusReason === undefined ? "" : ` [${String(found.mutant.statusReason)}]`}; line: ${found.text}`;
 
+/**
+ * The entries of `shard` that no mutant of the report matches: stale. An entry whose mutant is there but Killed
+ * is not: whether a hit-limit loop is ended by Stryker's count or by a test that fails first is a race between
+ * the two (the same shard ran both ways in two cold runs), so it is told in the output, never failed.
+ */
+function staleOf(name, shard, report, hangs, bad) {
+  const identity = (hang, found) =>
+    hang.shard === shard &&
+    hang.file === found.file &&
+    hang.mutator === found.mutator &&
+    hang.replacement === found.replacement &&
+    found.text.includes(hang.anchor);
+  const all = Object.entries(report.files).flatMap(([file, { mutants, source }]) => {
+    const lines = typeof source === "string" ? source.split("\n") : [];
+    return mutants.map((mutant) => ({
+      file,
+      mutator: mutant.mutatorName,
+      replacement: String(mutant.replacement),
+      status: mutant.status,
+      text: textOf(lines, mutant.location.start.line),
+    }));
+  });
+  const problems = [];
+  for (const hang of hangs) {
+    if (hang.shard !== shard || bad.some((found) => matches(hang, shard, found))) continue;
+    const there = all.filter((found) => identity(hang, found));
+    if (there.length === 0 || there.some((found) => found.status === "Survived"))
+      problems.push(
+        `${name}: PROVEN_HANGS has ${hang.file} ${hang.mutator} -> ${hang.replacement} (${hang.kind}, "${hang.anchor}") that matches ${there.length === 0 ? "no mutant" : "a Survived mutant"} of this report: stale, remove it`,
+      );
+    else
+      console.log(
+        `${name}: note: ${hang.file} "${hang.anchor}" (${hang.kind}) was ${there[0].status} in this run, not ended as listed`,
+      );
+  }
+  return problems;
+}
+
 /** The problems of one report of `shard`: its unjustified mutants, and (unless `partial`) the entries of the shard that match none. */
 function auditReport(name, shard, report, hangs, partial) {
   if (!isReport(report)) return [`${name}: not a Stryker JSON report (no "files")`];
@@ -105,12 +151,7 @@ function auditReport(name, shard, report, hangs, partial) {
       (found) =>
         `${name}: ${describeBad(found)}. A survivor reads as a Timeout when its run outlasts the limit: run it alone with a limit of 3 x the shard's run; if it survives, kill it with a test; if it still does not finish, add it to PROVEN_HANGS (shard ${shard}) with the reason; an error is a mutant no test judged: find out why`,
     );
-  if (!partial)
-    for (const hang of hangs)
-      if (hang.shard === shard && !bad.some((found) => matches(hang, shard, found)))
-        problems.push(
-          `${name}: PROVEN_HANGS has ${hang.file} ${hang.mutator} -> ${hang.replacement} (${hang.kind}, "${hang.anchor}") that matches no mutant of this report: stale, remove it`,
-        );
+  if (!partial) problems.push(...staleOf(name, shard, report, hangs, bad));
   return problems;
 }
 

@@ -166,18 +166,26 @@ describe("scripts/stryker-timeouts.mjs", () => {
     expect(run.said).toContain("Timeout (hit-limit)");
   });
 
-  it("fails an entry of the report's shard that matches no mutant: stale; leaves another shard's entry", async () => {
-    const files = {
-      "src/loop.ts": { source: LOOP, mutants: [mutant("3", "BlockStatement", 2, "Killed")] },
-    };
+  it("fails an entry that matches no mutant of its shard, or a Survived one: stale; tells of a Killed one", async () => {
+    const at = (status: string): Record<string, FileReport> => ({
+      "src/loop.ts": { source: LOOP, mutants: [mutant("3", "BlockStatement", 2, status)] },
+    });
 
-    const own = await checked(files, [HANG]);
-    const other = await checked(files, [{ ...HANG, shard: "other" }]);
-    const partial = await checked(files, [HANG], "leases", ["--partial"]);
+    const gone = await checked({ "src/loop.ts": { source: LOOP, mutants: [] } }, [HANG]);
+    const survived = await checked(at("Survived"), [HANG]);
+    const killed = await checked(at("Killed"), [HANG]);
+    const other = await checked(at("Killed"), [{ ...HANG, shard: "other" }]);
+    const partial = await checked(at("Survived"), [HANG], "leases", ["--partial"]);
 
-    expect(own.code).toBe(1);
-    expect(own.said).toMatch(
-      /PROVEN_HANGS has src\/loop\.ts BlockStatement -> \{\} \(hit-limit, "retry\(\);"\).*stale/,
+    expect(gone.code).toBe(1);
+    expect(gone.said).toMatch(
+      /PROVEN_HANGS has src\/loop\.ts BlockStatement -> \{\} \(hit-limit, "retry\(\);"\) that matches no mutant.*stale/,
+    );
+    expect(survived.code).toBe(1);
+    expect(survived.said).toContain("matches a Survived mutant");
+    expect(killed.code).toBe(0);
+    expect(killed.said).toMatch(
+      /note: src\/loop\.ts "retry\(\);" \(hit-limit\) was Killed in this run/,
     );
     expect(other.code).toBe(0);
     expect(partial.code).toBe(0);
@@ -260,7 +268,7 @@ describe("scripts/stryker-timeouts.mjs", () => {
 });
 
 describe("#1367: the mutation configs", () => {
-  it("every shard has a timeoutMS of 60 s or more, a timeoutFactor is set, and each entry names a shard", async () => {
+  it("every shard has a timeoutMS of 120 s or more, a timeoutFactor is set, and each entry names a shard", async () => {
     const run = await runProcess(
       "node",
       [
@@ -284,7 +292,7 @@ describe("#1367: the mutation configs", () => {
 
     expect(Object.keys(timeouts).sort()).toEqual([...shards].sort());
     for (const [shard, ms] of Object.entries(timeouts))
-      expect(ms, shard).toBeGreaterThanOrEqual(60_000);
+      expect(ms, shard).toBeGreaterThanOrEqual(120_000);
     expect(factor).toBeGreaterThanOrEqual(3);
   });
 

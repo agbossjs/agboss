@@ -163,6 +163,15 @@
   },
   {
     "shard": "a2a-files",
+    "file": "src/a2a/files/a2a-file-fetch.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "if (size > maxBytes) {",
+    "kind": "hit-limit",
+    "reason": "BlockStatement -> {}: the loop around it loses the step that ends it, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "a2a-files",
     "file": "src/a2a/files/a2a-file-http.ts",
     "mutator": "BlockStatement",
     "replacement": "{}",
@@ -484,6 +493,15 @@
     "anchor": "if (isFree || length === digest.length) return token;",
     "kind": "hit-limit",
     "reason": "ConditionalExpression -> false: the exit of the loop around it is never taken, so it spins; Stryker's hit limit (100 x the dry run's hits) ended it"
+  },
+  {
+    "shard": "money",
+    "file": "src/budgets/budget.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "export function Budget<const TDeps extends readonly Token[] = []>(options: BudgetOptions<TDeps>) {",
+    "kind": "runtime-error",
+    "reason": "the decorator's body is removed: '(0, decorators[i]) is not a function' while the test files load, outside any test: counted as an error, not a kill; run alone: the same"
   },
   {
     "shard": "money",
