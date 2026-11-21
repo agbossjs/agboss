@@ -119,7 +119,9 @@ function setup(options: { capacity?: unknown; held?: unknown[] } = {}) {
     saveIfAbsent: vi.fn(() => Promise.resolve(true)),
   };
   const held = options.held ?? [];
-  const leases = { tryHold: vi.fn(() => Promise.resolve(held.shift())) };
+  const leases = {
+    tryHold: vi.fn((_tree: unknown, _take: unknown) => Promise.resolve(held.shift())),
+  };
   const log = { warn: vi.fn() };
   const interruption = new AbortController();
   const { clock, sleeps } = clockOf();
