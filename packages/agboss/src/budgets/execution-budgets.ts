@@ -121,6 +121,11 @@ export class BudgetMeter implements BudgetCheck {
    */
   async #read(): Promise<ReadonlyMap<string, number>> {
     await this.#writeUnwritten();
+    return this.#readCounters();
+  }
+
+  /** The counters of `#read`, without the write of unwritten spend before it. */
+  async #readCounters(): Promise<ReadonlyMap<string, number>> {
     const now = this.clock.now();
     const values = new Map<string, number>();
     for (const record of this.records) {
@@ -204,21 +209,32 @@ export class BudgetMeter implements BudgetCheck {
    */
   async #write(records: readonly LedgerEntry[]): Promise<void> {
     await this.#save(records);
-    const values = await this.#read();
+    this.#commit(records, await this.#read());
+  }
+
+  /** `records` written and counted, with `values` read after the write. */
+  #commit(records: readonly LedgerEntry[], values: ReadonlyMap<string, number>): void {
     this.#recorded += totalCost(records);
     this.#tallied = [...unrecordedOf(this.#tallied, records)];
     this.#snapshot = { values, recorded: this.#recorded };
   }
 
-  /** Writes the tallied spend whose write failed; throws when it fails again. */
+  /**
+   * Writes the tallied spend whose write failed; throws when it fails again. It reads the counters
+   * without `#read`'s first write of unwritten spend: this is that write, and a read that called it
+   * again would loop for ever, in microtasks no timer or test timeout ends (#1379).
+   */
   async #writeUnwritten(): Promise<void> {
     const records = this.#unwritten;
     if (records.length === 0) return;
     this.#unwritten = [];
-    await this.#write(records).catch((error: unknown) => {
+    try {
+      await this.#save(records);
+      this.#commit(records, await this.#readCounters());
+    } catch (error) {
       this.#unwritten.push(...records);
       throw error;
-    });
+    }
   }
 
   tally(records: readonly UsageRecord[], path: readonly string[] = []): readonly UsageRecord[] {
@@ -258,14 +274,18 @@ export class BudgetMeter implements BudgetCheck {
     return this.#inTurn(() => this.#writeUnwritten());
   }
 
-  /** What the execution may still spend now: the least any of its budgets has left. */
-  remaining(): number {
+  /** The least any budget has left when the execution has spent `spent` (`Infinity` without budgets). */
+  #leastLeft(spent: number): number {
     const now = this.clock.now();
-    const spent = this.#executionSpent();
     return Math.min(
       ...this.records.map((record) => record.maxSpend - this.#spentOf(record, spent, now)),
       Number.POSITIVE_INFINITY,
     );
+  }
+
+  /** What the execution may still spend now: the least any of its budgets has left. */
+  remaining(): number {
+    return this.#leastLeft(this.#executionSpent());
   }
 
   /**
@@ -273,15 +293,7 @@ export class BudgetMeter implements BudgetCheck {
    * left, plus what it spent before this pass (`Infinity` without budgets).
    */
   budgetUsd(): number {
-    const now = this.clock.now();
-    return (
-      Math.min(
-        ...this.records.map(
-          (record) => record.maxSpend - this.#spentOf(record, this.spentBefore, now),
-        ),
-        Number.POSITIVE_INFINITY,
-      ) + this.spentBefore
-    );
+    return this.#leastLeft(this.spentBefore) + this.spentBefore;
   }
 
   /**
