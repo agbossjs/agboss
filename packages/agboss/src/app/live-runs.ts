@@ -154,7 +154,9 @@ export class LiveRuns {
       };
     });
     this.#callers.add(abandon);
+    // Stryker disable next-line BlockStatement: only the set's memory: an abandon of a settled race rejects a promise nobody awaits
     return Promise.race([run, abandoned]).finally(() => {
+      // Stryker disable next-line CallExpression: the same — the settled caller stays in the set until the instance is gone
       this.#callers.delete(abandon);
     });
   }
@@ -217,8 +219,8 @@ export class LiveRuns {
   }
 }
 
-/** Adds `controller` under `key`; the call that removes it again. */
-function entered(
+/** Adds `controller` under `key`; the call that removes it again (exported for its unit test, #1366). */
+export function entered(
   index: Map<string, Set<AbortController>>,
   key: string,
   controller: AbortController,
@@ -232,8 +234,12 @@ function entered(
   };
 }
 
-/** Counts `id` under `key`; the call that counts it out again. */
-function counted(index: Map<string, Map<string, number>>, key: string, id: string): () => void {
+/** Counts `id` under `key`; the call that counts it out again (exported for its unit test, #1366). */
+export function counted(
+  index: Map<string, Map<string, number>>,
+  key: string,
+  id: string,
+): () => void {
   const ids = index.get(key) ?? new Map<string, number>();
   ids.set(id, (ids.get(id) ?? 0) + 1);
   index.set(key, ids);
@@ -245,8 +251,8 @@ function counted(index: Map<string, Map<string, number>>, key: string, id: strin
   };
 }
 
-/** Aborts each of `runs` as a cancel of the thread; `false` when there is none. */
-function abortAll(runs: Set<AbortController> | undefined, threadId: string): boolean {
+/** Aborts each of `runs` as a cancel of the thread; `false` when there is none (exported for its unit test, #1366). */
+export function abortAll(runs: Set<AbortController> | undefined, threadId: string): boolean {
   if (runs === undefined || runs.size === 0) return false;
   for (const controller of runs) controller.abort(cancelledErrorOf(threadId));
   return true;

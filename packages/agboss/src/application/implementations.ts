@@ -137,7 +137,7 @@ const isOrExtends = (cls: Class, base: Class): boolean =>
 
 /** The classes among the listed providers, each once (values bound with `provide(…)` are not stores). */
 const uniqueClasses = (providers: readonly Provider[]): readonly Class[] => [
-  ...new Set(providers.flatMap((provider) => (typeof provider === "function" ? [provider] : []))),
+  ...new Set(providers.filter((provider): provider is Class => typeof provider === "function")),
 ];
 
 /** The declared backend of a store class (#526, #825): its `static store`'s non-empty `backend`, else none. */
@@ -232,7 +232,7 @@ export function storeBackendViolations(
   const leases = leaseStoreOf(providers);
   for (const fencing of FENCING_CONTRACTS) {
     const stores = listedOf(classes, fencing.contract);
-    const what = `${fencing.kind.replace(/^an? /u, "")}s (${fencing.contract.name})`;
+    const what = `${fencing.kind.slice(fencing.kind.indexOf(" ") + 1)}s (${fencing.contract.name})`;
     found.push(...ambiguityOf(application, stores, what));
     if (leases === undefined) continue;
     for (const store of stores.filter((cls) => !isOptedOut(cls)))

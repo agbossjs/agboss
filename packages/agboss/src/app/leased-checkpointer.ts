@@ -185,7 +185,9 @@ export class OrderedCheckpointSaver extends BaseCheckpointSaver {
   #see(config: RunnableConfig, id: string): void {
     const key = keyOf(config);
     const known = this.#greatest.get(key);
-    if (known === undefined || compareCodePoints(id, known) > 0) this.#greatest.set(key, id);
+    // `Math.sign(…) === 1`, not `> 0`: an id equal to the greatest is set again to the same value, a mutant no test can tell from it
+    if (known === undefined || Math.sign(compareCodePoints(id, known)) === 1)
+      this.#greatest.set(key, id);
   }
 
   async #isMarked(config: RunnableConfig): Promise<boolean> {

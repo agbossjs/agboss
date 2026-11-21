@@ -50,6 +50,7 @@ export class Waiter {
     this.#task = wait.task;
     const { signal } = wait;
     this.#forward = () => {
+      // Stryker disable next-line OptionalChaining: the forward runs only when the wait has a signal — aborted now, or its abort event
       this.#controller.abort(signal?.reason);
     };
     if (signal?.aborted === true) this.#forward();

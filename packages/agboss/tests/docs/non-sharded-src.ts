@@ -60,10 +60,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "error classes and enums of the A2A client for failed, canceled, interrupted and deadline tasks",
     ["src/a2a/client/a2a-task-errors.ts"],
   ),
-  ...reviewed(
-    "holds #canceled (sends the remote cancel when the deadline hits and classifies its outcome; a bug leaves the remote task running and spending) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/a2a/client/a2a-waiter.ts"],
-  ),
   ...reviewed("the A2A file fetch's helpers", ["src/a2a/files/a2a-file-slots.ts"]),
   ...reviewed(
     "the A2A server's cards, auth and glue: the accept, cancel and stream rules are sharded",
@@ -153,22 +149,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/execution-history.ts"],
   ),
   ...reviewed(
-    "holds LeasedCheckpointSaver.put (renews the lease before every checkpoint write so a stale holder cannot write); LeasedCheckpointSaver.putWrites (same renew-before-write fence for pending writes) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/leased-checkpointer.ts"],
-  ),
-  ...reviewed(
-    "holds abortAll (aborts every live run of a thread or tree with the cancelled error; a bug lets a cancelled tree keep running); abortExecution (selects the runs of one tree to cancel; a wrong key leaves cancelled runs alive) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/live-runs.ts"],
-  ),
-  ...reviewed(
-    "holds heldAtTheEnd (asserts the lease is still held after the leg, on success and on error; a bug returns the result of a stale holder) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/observed-pass.ts"],
-  ),
-  ...reviewed(
-    "holds closeOrphanTreeOf (takes the tree lease before ending an orphan tree and routes paused ones to the cancel path; a bug lets two holders end it) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/orphan-tree.ts"],
-  ),
-  ...reviewed(
     "the pause's application-side wiring: the pause transitions themselves are the pause stores'",
     [
       "src/app/pause-answerer.ts",
@@ -181,10 +161,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/app/pause-reassignment.ts",
       "src/app/paused-runs.ts",
     ],
-  ),
-  ...reviewed(
-    "holds expirePauses (stops expiring pauses once a cancel is requested, checked before and after the handler; a bug expires pauses of a cancelled tree) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/pause-expiry.ts"],
   ),
   ...reviewed(
     "maps pause records to channel and listener notice events and delivery ids; no spend, lease or cancel enforcement",
@@ -200,20 +176,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "holds #run (claimed child runs only under a held tree lease and is requeued if none is taken); #executeClaimed (aborts the child when its tree cancel is found and releases the lease at the end); #reclaim (takes over a running child lease and requeues; a bug runs one child on two instances) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/remote/child-workers.ts"],
-  ),
-  ...reviewed(
     "holds replyAnsweringOf (checks the budget before the reply model call and records the usage of the reading; a bug skips the check or loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/app/reply-answer.ts"],
-  ),
-  ...reviewed(
-    "holds isCancel (recognises a cancel anywhere in the cause chain to choose the pause resolution); endOfRecord (rebuilds the cancelled error from a stored stop reason; a bug treats a cancelled tree as failed) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/tree-end-pauses.ts"],
-  ),
-  ...reviewed(
-    "holds expiredMove (takes the tree lease before an expiry move and releases it when nothing is planned; a bug lets a stale or second holder move the tree) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/tree-expiry.ts"],
   ),
   ...reviewed(
     "the application's declaration, rules and description: build-time checks, no runtime guarantee",
@@ -266,17 +230,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "builds the application instance and its workflows and starts the components; wiring only",
     ["src/application/create-app.ts"],
   ),
-  ...reviewed(
-    "holds pairViolations (checks the fencing store and the lease store share one backend; a miss lets a taken-over holder still write or double charge); storeBackendViolations (runs the pairing check for every fencing store not opted out of the lease check) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/application/implementations.ts"],
-  ),
   ...reviewed("creates the observer manager, the metrics and the audit writer of an application", [
     "src/application/observers.ts",
   ]),
-  ...reviewed(
-    "holds retentionProblem (requires ledger, fenced effect and outbound call retention above the lease; a bug allows entries to expire before a takeover and double charge) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/application/retention.ts"],
-  ),
   ...reviewed(
     "builds the assembly warnings (in-memory stores, opt-out of the lease check) and the start log lines",
     ["src/application/start-log.ts"],
@@ -536,20 +492,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/build.ts"],
   ),
   ...reviewed(
-    "holds assertAnnouncing (asserts the lease is held before announcing a child end, recording a hand-over; a bug lets a stale holder announce); keptForParent (reports failed child usage to the parent and records it in the budget after a failed compensation; a bug loses child spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/child-failure.ts"],
-  ),
-  ...reviewed(
     "holds judge (merges masking usage with the decision usage of the arbiter call; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/arbiter-model.ts"],
   ),
   ...reviewed(
     "holds byModel (runs the budget check before an arbiter model call and keeps its usage); judgeAnswer (accumulates arbiter usage across the chain and stops on abort) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/launch/arbiters.ts"],
-  ),
-  ...reviewed(
-    "holds passThroughStops (turns a hand-over or an aborted signal into a cancelled or handed-over stop; a bug lets a cancelled or stale branch go on); failedStatusOf (maps cancel, expiry and failure of a branch to its status) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/branch-end.ts"],
   ),
   ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/branch-quorum.ts",
@@ -599,14 +547,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "orders waiters of a slot queue by depth, age and closing branches; a scheduling order, no limit is checked here",
     ["src/flow/runtime/launch/slot-queue.ts"],
   ),
-  ...reviewed(
-    "holds withdrawBranchPauses (withdraws the pending pauses of cancelled branches; a bug leaves pauses answerable after the branch is cancelled) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/withdrawn-pauses.ts"],
-  ),
-  ...reviewed(
-    "holds pauseStep (throws on an aborted signal before send and before the interrupt; a bug sends or waits for a cancelled step); settledAnswer (a cancelled or withdrawn pause throws; a resolved one is marked taken only if not aborted, and channel-decided answers carry no usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/pause.ts"],
-  ),
   ...reviewed("the remote child's steps: wiring beside the sharded A2A client and queue", [
     "src/flow/runtime/remote/remote-child-run.ts",
     "src/flow/runtime/remote/remote-child-signals.ts",
@@ -629,10 +569,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "holds answerFilesViewed (runs the budget check before each model call on answer files and returns their usage) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
     ["src/flow/runtime/runners/answer-guard.ts"],
-  ),
-  ...reviewed(
-    "holds stepFrameAt (builds the step idempotencyKey and passes the lease and signal into the frame; a bug breaks the dedupe key or fencing); inTreeSlot (enters the lease step and takes the tree and instance slots around a step); takeSlots (throws a cancelled error when the slot wait is aborted) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/step-frame.ts"],
   ),
   ...reviewed(
     "holds visitNode (adds reported service usage to the outcome usage and checks limits per visit; a bug loses spend); withOwnCompensations (merges the compensation usage into the failed visit update) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",

@@ -18,6 +18,7 @@ import type { QueuedChildParts } from "./queued-child-run.js";
 import { announcePass } from "./child-end-event.js";
 import { ChildQueueWatch } from "./child-queue-watch.js";
 import { LookPacing, requeueIfStillClaimed } from "./look-pacing.js";
+import { releasedUnlessUsed, requeuedOf } from "./pre-held.js";
 
 /**
  * The claims of one application instance (#333 PR 2, PR 4, S5, S7, S9): it claims queued children
@@ -217,8 +218,7 @@ class Workers implements ChildWorkers {
       const take = childTakeOf(this.parts.queue, current, true);
       const lease = await this.parts.leases.tryHold(tree, take);
       if (lease === undefined) return;
-      const queuedAt = this.parts.clock.now();
-      const requeued = { ...current, status: ExecutionRecordStatus.Queued, queuedAt };
+      const requeued = requeuedOf(current, this.parts.clock.now());
       // the claim moved on since the take (#520): the lease goes back, never held unused
       if (!(await this.parts.queue.saveIfAbsent(requeued))) {
         await lease.release();
@@ -227,7 +227,7 @@ class Workers implements ChildWorkers {
       this.#preHeld.set(key, lease);
       await this.#look(true);
       // #720: kept for this look's own claim only — a child it did not start gets its lease back
-      if (this.#preHeld.get(key) === lease && this.#preHeld.delete(key)) await lease.release();
+      await releasedUnlessUsed(this.#preHeld, key, lease);
     } finally {
       this.#reclaiming.delete(key);
     }
