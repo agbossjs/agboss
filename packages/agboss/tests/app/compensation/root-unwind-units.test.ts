@@ -22,6 +22,7 @@ import {
   UNWINDING_KEY,
 } from "../../../src/flow/runtime/compensation/unwinding-marks.js";
 import { recordToolCost } from "../../../src/finops/usage.js";
+import { systemClock } from "../../../src/infrastructure/clock.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
@@ -241,6 +242,21 @@ describe("#633: a tree with an undo", () => {
     expect(unwindAsked().known).toEqual([]);
     expect(unwindAsked().timeout).toBe(COMPENSATION_TIMEOUT);
     expect(unwindAsked().undoSiteOf(entryOf("x")).execution.ownerId).toBeUndefined();
+  });
+
+  it("#1367: the undo's timeouts run on the application's clock, the system clock when it has none", async () => {
+    const own = depsOf({ nodes: [undoable] });
+    const bare = depsOf({ nodes: [undoable] });
+    Object.assign(bare.deps, { clock: undefined });
+
+    await unwoundTree(own.deps, STATE, call());
+    const withClock = unwindAsked().clock;
+    mocks.unwound.mockClear();
+    await unwoundTree(bare.deps, STATE, call());
+
+    expect(withClock).toBe(own.deps.clock);
+    expect(withClock).not.toBe(systemClock);
+    expect(unwindAsked().clock).toBe(systemClock);
   });
 
   it("budgets but none kept in the checkpoint: the spend is written to none", async () => {
