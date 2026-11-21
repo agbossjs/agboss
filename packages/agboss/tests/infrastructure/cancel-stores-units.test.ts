@@ -8,6 +8,7 @@ import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import {
   checkInMemoryCancel,
   InMemoryDatabase,
+  prunedCallsBefore,
   prunedFencedBefore,
   treeKeyOf,
   type ExecutionLeaseRow,
@@ -101,6 +102,28 @@ describe("#1356: the retention of the fenced effects", () => {
 
     expect([...database.fencedEffectResults.keys()]).toEqual(["edge"]);
     expect([...database.fencedEffectMarks.keys()]).toEqual(["edge"]);
+  });
+});
+
+describe("#1366: the retention of the in-memory outbound calls", () => {
+  const callEnded = (endedAt: number | undefined) => ({ endedAt }) as never;
+
+  it("removes the intents ended before the cut with their place in the order, keeps the one at it, the later and the pending", () => {
+    const database = new InMemoryDatabase();
+    for (const [row, endedAt] of [
+      ["old", 9],
+      ["edge", 10],
+      ["later", 11],
+      ["pending", undefined],
+    ] as const) {
+      database.outboundCalls.set(row, callEnded(endedAt));
+      database.outboundCallOrder.set(row, 1);
+    }
+
+    prunedCallsBefore(database, 10);
+
+    expect([...database.outboundCalls.keys()]).toEqual(["edge", "later", "pending"]);
+    expect([...database.outboundCallOrder.keys()]).toEqual(["edge", "later", "pending"]);
   });
 });
 

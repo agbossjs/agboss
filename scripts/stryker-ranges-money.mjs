@@ -5,8 +5,9 @@ const PACKAGE = new URL("../packages/agboss/", import.meta.url);
 
 /**
  * The top-level declarations `names` of `file` as Stryker ranges (#1356), found by name: from the declaration's
- * own line to the line before the next top-level one (a comment, a declaration or a blank line at column 0),
- * so a file's rules are mutated without the rest of it and a fixed line range never moves with the code above.
+ * own line to its last line — through the blank lines inside it —, which is the line before the next thing at
+ * column 0 that is neither a closing bracket nor the declaration's own (a comment, another declaration), so a
+ * file's rules are mutated without the rest of it and a fixed line range never moves with the code above.
  */
 export function declarationsOf(file, ...names) {
   const lines = readFileSync(new URL(file, PACKAGE), "utf8").split("\n");
@@ -17,14 +18,11 @@ export function declarationsOf(file, ...names) {
     const start = lines.findIndex((line) => head.test(line));
     if (start < 0) throw new Error(`${file}: ${name} not found`);
     let end = start;
-    while (
-      end + 1 < lines.length &&
-      lines[end + 1] !== "" &&
-      !/^(?:\/\*\*|\/\/|export |const |function |async |interface |type |class )/.test(
-        lines[end + 1] ?? "",
-      )
-    )
-      end += 1;
+    for (let next = start + 1; next < lines.length; next += 1) {
+      const line = lines[next] ?? "";
+      if (/^[^\s})\]]/.test(line)) break;
+      if (line.trim() !== "") end = next;
+    }
     return `${file}:${String(start + 1)}-${String(end + 1)}`;
   });
 }
@@ -53,35 +51,72 @@ export function moneyRuntimeShard() {
   return {
     configFile: "vitest.mutation-money-runtime.config.ts",
     mutate: [
-      ...declarationsOf(
-        "src/flow/runtime/limits.ts",
-        "isWorkingNode",
-        "isBudgeted",
-        "checkSteps",
-        "checkVisit",
-        "countedServiceSpend",
-      ),
       // a limit that is no count is a bound of 0 (#1373)
       "src/graph/count-limit.ts",
-      ...declarationsOf(
-        "src/flow/runtime/child-exit.ts",
-        "ownUsageOf",
-        "withSpend",
-        "isRecordedAs",
-        "childFailureOf",
-      ),
-      ...declarationsOf("src/flow/runtime/runners/router.ts", "counterOf"),
-      ...declarationsOf(
-        "src/flow/runtime/lost-pass-records.ts",
-        "unknownLedgerIdOf",
-        "unknownCostRecordsOf",
-      ),
-      ...declarationsOf("src/flow/runtime/node-runner.ts", "unrecordedSpendOf"),
-      ...declarationsOf("src/run/execute.ts", "statesOnly", "unrecordedSpendOf", "drainRun"),
-      ...declarationsOf("src/run/paused.ts", "pausedUsageOf"),
+      ...limitsChildAndRouterSpend(),
+      ...lostPassAndRunSpend(),
     ],
   };
 }
+
+/** The limits a visit checks, a child's own spend and a router's spend counted at the call. */
+const limitsChildAndRouterSpend = () => [
+  ...declarationsOf(
+    "src/flow/runtime/limits.ts",
+    "isWorkingNode",
+    "isBudgeted",
+    "checkSteps",
+    "checkVisit",
+    "countedServiceSpend",
+  ),
+  ...declarationsOf(
+    "src/flow/runtime/child-exit.ts",
+    "ownUsageOf",
+    "withSpend",
+    "isRecordedAs",
+    "childFailureOf",
+    "childRecordOf",
+  ),
+  ...declarationsOf(
+    "src/flow/runtime/runners/router.ts",
+    "maskedTexts",
+    "maskedInputOf",
+    "guardedInput",
+    "counterOf",
+    "spendOf",
+    "routerRunner",
+  ),
+];
+
+/** The lost passes' records, what a visit reports, the spend a failure carries and a run's drain of it. */
+const lostPassAndRunSpend = () => [
+  ...declarationsOf(
+    "src/flow/runtime/lost-pass-records.ts",
+    "unknownLedgerIdOf",
+    "unknownCostRecordsOf",
+    "lostPassesOf",
+    "isLostPasses",
+    "lostTokensOfTask",
+    "callsModel",
+    "recordLostPasses",
+    "recordBranchLostPasses",
+  ),
+  ...declarationsOf(
+    "src/flow/runtime/node-runner.ts",
+    "recordsOf",
+    "unrecordedSpendOf",
+    "reportingOf",
+  ),
+  ...declarationsOf(
+    "src/run/execute.ts",
+    "runningOutcome",
+    "failedOutcome",
+    "statesOnly",
+    "unrecordedSpendOf",
+    "drainRun",
+  ),
+  ...declarationsOf("src/run/paused.ts", "loopOf", "pausedUsageOf"),
+];
 
 /**
  * The `cancel-stores` shard (#1356): the cancel fence of the in-memory and SQLite stores (#909, #1117) — the
@@ -96,6 +131,7 @@ export function cancelStoresShard() {
         "src/infrastructure/in-memory-database.ts",
         "checkInMemoryCancel",
         "prunedFencedBefore",
+        "prunedCallsBefore",
       ),
       ...declarationsOf(
         "src/infrastructure/sqlite/sqlite-connection.ts",
@@ -115,8 +151,23 @@ export function meshChargeShard() {
   return {
     configFile: "vitest.mutation-mesh-charge.config.ts",
     mutate: [
-      ...declarationsOf("src/mesh/mesh-report.ts", "withLedgerKey", "chargeOf"),
-      ...declarationsOf("src/a2a/client/a2a-mesh-seam.ts", "priceLedgerKeyOf", "chargePrice"),
+      ...declarationsOf(
+        "src/mesh/mesh-report.ts",
+        "withLedgerKey",
+        "chargeOf",
+        "reportMadeAtOf",
+        "callReportOf",
+        "takeRunReport",
+      ),
+      ...declarationsOf(
+        "src/a2a/client/a2a-mesh-seam.ts",
+        "priceLedgerKeyOf",
+        "chargePrice",
+        "chargedBy",
+        "settledBy",
+        "settleReport",
+        "reportIdentityOf",
+      ),
     ],
   };
 }

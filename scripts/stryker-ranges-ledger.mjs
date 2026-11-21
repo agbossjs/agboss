@@ -89,6 +89,7 @@ export function ledgerBranchShard() {
       ...declarationsOf(
         "src/flow/runtime/launch/branch-runner.ts",
         "answeredEnd",
+        "ran",
         "ended",
         "runBranch",
       ),

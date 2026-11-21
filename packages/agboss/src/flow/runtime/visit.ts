@@ -1,5 +1,4 @@
 import { extractRunContext } from "../../core/run-context.js";
-import type { FlowEdge } from "../analyse/flow-graph.js";
 import { runInFrame } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { checkVisit, isWorkingNode, sidePathAfter, type ExecutionLimits } from "./limits.js";
@@ -21,19 +20,11 @@ import type { Class } from "../../components/injection.js";
 import type { StepEntries } from "./step-entries.js";
 import { LimitExceededError } from "../../graph/limits.js";
 import type { Clock } from "../../infrastructure/clock.js";
-import { OutputInvalidError } from "./errors.js";
-import { RouterDecisionError } from "./router-error.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
-import {
-  startedVersionOf,
-  stepFrameOf,
-  visitNumberOf,
-  type StepFrameDeps,
-  inTreeSlot,
-} from "./step-frame.js";
+import { startedVersionOf, stepFrameOf, type StepFrameDeps, inTreeSlot } from "./step-frame.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
-import { visitWrite, type VisitWrite } from "./visit-write.js";
+import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-write.js";
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
@@ -42,7 +33,6 @@ import { reportTruncation } from "./launch/launch-report.js";
 import type { LaunchTicket } from "./launch/records.js";
 import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
-import { recordOfNode } from "./workflow-keys.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 import { recordLostPasses } from "./lost-pass-records.js";
 
@@ -97,33 +87,6 @@ function withOwnCompensations(
   return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
 }
 
-/** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
-function exitOf(
-  node: RuntimeNode,
-  state: ExecutionStateType,
-  outcome: NodeOutcome,
-  deps: VisitDeps,
-): FlowEdge | undefined {
-  const { exits } = node;
-  if (outcome.route !== undefined) {
-    const route = exits.routes.get(outcome.route);
-    if (route !== undefined) return route;
-    const visit = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
-    const step = { ...visit, component: recordOfNode(deps, node.id) };
-    const reason = `"${outcome.route}" is not one of its routes`;
-    throw new RouterDecisionError({ ...step, reason, usage: outcome.usage ?? [] });
-  }
-  if (exits.cases.size > 0) {
-    const variant = outcome.value?.variant ?? "";
-    const branch = exits.cases.get(variant);
-    if (branch !== undefined) return branch;
-    throw new OutputInvalidError({
-      message: `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
-    });
-  }
-  return exits.next;
-}
-
 /** A launch a visit took: its graph launch and the ticket of its branches (#273). */
 interface Launched {
   readonly launch: RuntimeLaunch;
@@ -134,7 +97,7 @@ interface Launched {
 interface Succeeded {
   readonly update: ExecutionStateUpdate;
   readonly write: VisitWrite;
-  readonly launched?: Launched;
+  readonly launched: Launched | undefined;
 }
 
 /** The launch a visit takes, with the ticket of its branches; none for a visit that launches nothing. */
@@ -160,7 +123,7 @@ function launchedBy(
 function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
-  outcome: NodeOutcome,
+  outcome: SpentOutcome,
   deps: VisitDeps,
   at: VisitAt,
 ): Succeeded {
@@ -181,7 +144,7 @@ function succeeded(
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
     stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };
-  return { update, write, ...(launched === undefined ? {} : { launched }) };
+  return { update, write, launched };
 }
 
 /**

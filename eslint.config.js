@@ -83,8 +83,6 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-class-instance-assignment": "off",
     },
   },
-  // the table of the mutation shards (#1366): one entry per shard, its length is the number of shards
-  { files: ["packages/agboss/stryker.config.mjs"], rules: { "max-lines": "off" } },
   {
     files: ["packages/agboss/src/routers/**/*.ts"],
     rules: {

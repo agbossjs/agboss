@@ -275,7 +275,7 @@ describe("#1366: the request the input step builds", () => {
   it("the guardrails' decisions and spend, and what was masked, are kept with the files'", async () => {
     const { node, tally } = setup({ withRuntime: true, guardrails: ["g"] });
     vi.mocked(loopPoliciesOf).mockReturnValue({
-      maskCacheKeyOf: (text: string) => `key:${text}`,
+      maskCacheKeyOf: (text: string, isIncoming: boolean) => `key:${text}:${String(isIncoming)}`,
     } as never);
     vi.mocked(maskedModelText).mockResolvedValue({
       text: "masked",
@@ -298,7 +298,7 @@ describe("#1366: the request the input step builds", () => {
     const out = await node(stateOf({ inputFiles: [file] }), undefined);
 
     expect(out.guardrailDecisions).toEqual(["d1"]);
-    expect(out.piiMasked).toEqual({ "key:hello": "masked", "file:x": "x" });
+    expect(out.piiMasked).toEqual({ "key:hello:true": "masked", "file:x": "x" });
     expect(out.piiTokens).toEqual({ t: "1", f: "1" });
     expect(tally.mock.calls[0]?.[0].map((u) => u.caller)).toEqual([
       "rag",
@@ -314,7 +314,7 @@ describe("#1366: the request the input step builds", () => {
   });
 
   it("without PII policies the input is read as it is and nothing is masked", async () => {
-    const { node } = setup({ guardrails: ["g"] });
+    const { node, tally } = setup({ guardrails: ["g"] });
     vi.mocked(guardedFilesOf).mockResolvedValue({ files: [], usage: [] });
     vi.mocked(runGuardrails).mockResolvedValue({ usage: [], decisions: [] });
 
@@ -323,5 +323,7 @@ describe("#1366: the request the input step builds", () => {
     expect(maskedModelText).not.toHaveBeenCalled();
     expect(out.piiMasked).toEqual({});
     expect(vi.mocked(runGuardrails).mock.calls[0]?.[1]).toMatchObject({ text: "hello" });
+    // what the guardrails and the views cost is all the input spends of its own, besides the knowledge
+    expect(tally.mock.calls[0]?.[0].map((u) => u.caller)).toEqual(["rag"]);
   });
 });

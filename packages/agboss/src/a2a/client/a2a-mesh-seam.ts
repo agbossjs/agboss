@@ -106,13 +106,25 @@ function chargePrice(call: A2AMeshCall, price: Usd | undefined, charged: A2AChar
   });
 }
 
+/** The price charged at the accept: the same with the mesh and without it. */
+const chargedBy =
+  (call: A2AMeshCall): A2AMeshActivation["charge"] =>
+  (price, charged) => {
+    chargePrice(call, price, charged);
+  };
+
+/** The meshed call's end: its signed spend settled above the price. */
+const settledBy =
+  (call: A2AMeshCall): A2AMeshActivation["settle"] =>
+  (answer, price, charged) => {
+    settleReport(call, answer, price, charged);
+  };
+
 /** No mesh: the core protocol only, said in the peer. */
 const withoutMesh = (peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation => ({
   peer: { ...peer, mesh: false },
   sign: () => NOTHING,
-  charge: (price, charged) => {
-    chargePrice(call, price, charged);
-  },
+  charge: chargedBy(call),
   settle: () => undefined,
 });
 
@@ -149,13 +161,13 @@ function settleReport(
   const { bodyHash, taskId } = charged;
   if (bodyHash === undefined) return;
   const application = call.application ?? call.agent;
-  const contract = price === undefined ? undefined : { application, price };
   const isReported = takeRunReport(
     "a2a",
     // #860: a direct reply's report rides its message's metadata as a task's does
     meshReportTextOf(answer),
     bodyHash,
-    contract,
+    // the price is charged at the accept: what is owed now is the report's spend above it, whichever peer signed it
+    undefined,
     price ?? 0,
     reportIdentityOf(charged),
   );
@@ -165,7 +177,7 @@ function settleReport(
 /** What makes a call's report its own (#810): its ledger id, its task, the caller's window. */
 const reportIdentityOf = (charged: A2ACharged): RunReportIdentity => ({
   id: `a2a:${charged.messageId}:report`,
-  ...(charged.taskId === undefined ? {} : { executionId: charged.taskId }),
+  executionId: charged.taskId,
   // dated inside the caller's own window, never by the peer's word alone
   notBefore: charged.acceptedAt,
   now: charged.now,
@@ -218,12 +230,8 @@ function withMesh(peer: A2ARemotePeer, call: A2AMeshCall): A2AMeshActivation {
         bodyHash: hash,
       };
     },
-    charge: (price, charged) => {
-      chargePrice(call, price, charged);
-    },
-    settle: (answer, price, charged) => {
-      settleReport(call, answer, price, charged);
-    },
+    charge: chargedBy(call),
+    settle: settledBy(call),
   };
 }
 

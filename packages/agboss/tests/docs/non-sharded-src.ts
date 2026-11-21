@@ -467,7 +467,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/runtime/tool-keys.ts",
       "src/flow/runtime/visit-failure.ts",
       "src/flow/runtime/visit-step.ts",
-      "src/flow/runtime/visit-write.ts",
       "src/flow/runtime/workflow-keys.ts",
     ],
   ),
@@ -1061,29 +1060,71 @@ export const PARTLY_SHARDED_SRC: Readonly<Record<string, string>> = {
   "src/run/compaction.ts":
     "asTurns, callerOf, dueOf and inputOf decide which turns are summarised and what the model reads: the summary's text, no spend; the calls, their records, the stored cost and the budget left are mutated",
   "src/flow/runtime/launch/branch-runner.ts":
-    "ran checks the branch's visit (checkVisit is mutated in money-runtime) and runs its node in a frame, and branchNode wires the branch into the graph: no spend is counted there; the three that count a branch's spend are mutated",
+    "branchNode wires the branch into the graph and BranchRun, BranchEnd are types: no spend is counted there; what a branch that ran, answered, failed or was cancelled before it ran writes of spend is mutated",
   "src/components/rag.ts":
     "the rest of the file declares knowledge bases, checks their classes, reads their tenant and settings and binds their rerankers: no spend is reported there; the search tool's cost and the reranker's records are mutated",
   "src/graph/agent-loop/model-node.ts":
-    "toolDefinitionsOf, callModel, withCallIds and observedCall build the request's tools, make the call, name its tool calls and tell the observer: no budget rule; the checks, the limits, the exhausted signal and the tallies of the node are mutated",
+    "toolDefinitionsOf, callModel and withCallIds build the request's tools, make the call and name its tool calls: no spend is recorded, forwarded or dropped there; the checks, the limits, the exhausted signal, the tallies and the model call with the spend its failure carries are mutated",
   "src/graph/agent-loop/tools-node.ts":
-    "guardedCall, recordOf, the task's end and the stored result shape a call's result and its record: no budget rule; runTask, which tallies the spend the moment it is reported and holds the call's signal, is mutated",
+    "recordOf only shapes a call's record: no spend is decided there; the call's guards and the spend of its arguments and result, the spend a tool reports and what the task stores are mutated",
   "src/graph/agent-loop/input-node.ts":
-    "formatDecisionsForAgent, guardedInput and the files' update shape the request and run its guardrails: no budget rule; the files' check before a model call and the input's spend counted at once are mutated",
+    "formatDecisionsForAgent, the pieces' masking and the files' update shape the request and the update: no spend is decided there; the guardrails' and views' spend, the files' check before a model call and the input's spend counted at once are mutated",
   "src/graph/agent-loop/approval-node.ts":
-    "the approval node, its channel failures and the ask's validation decide who is asked and how: no budget rule; the checks before a question is asked, its interpreter's spend and an expiry's spend are mutated",
+    "the approval node's wiring, its question's validation and the visit counts decide who is asked: no spend is decided there; the approval's and the question's spend, the checks before a question and the failures that carry the loop's spend are mutated",
   "src/graph/agent-loop/judge-node.ts":
-    "the judges' input, their calls and the retry prompt shape what a judge reads: no budget rule; the node that counts the judges' spend at once and carries it in a rejection is mutated",
+    "the judges' input, the verdict's record and the retry prompt shape what a judge reads: no spend is decided there; the node that counts the judges' spend at once and carries it in a rejection and the spend of a judge that broke are mutated",
+  "src/flow/runtime/visit-write.ts":
+    "visitWrite writes a visit's values to the scope and outdates what they make stale: no spend is decided there; the edge a visit leaves by and the spend of a router whose decision names no route are mutated",
   "src/flow/runtime/visit.ts":
-    "exitOf, launchedBy and succeeded choose a visit's way out and write its value: no budget rule; the visit's limits, its spend and its owed undo's are mutated",
+    "launchedBy chooses the launch a visit took and its ticket: no spend is decided there; the visit's limits, what its success writes, its spend and its owed undo's are mutated",
   "src/flow/runtime/launch/branch-view.ts":
-    "a branch's ticket, launch, state and scheduler view are bookkeeping of the launch: no budget rule; the exhausted signal a branch watches and the spend its code reports are mutated",
+    "a branch's ticket, launch, scheduler view and its quorum deadline are bookkeeping of the launch: no spend is decided there; the state a branch runs on with its siblings' spend, the exhausted signal a branch watches and the spend its code reports are mutated",
   "src/flow/runtime/launch/arbiters.ts":
-    "untilDecided and byCode run a code arbiter, which spends nothing: no budget rule; the model arbiter's check before its call, its spend and the chain's order are mutated",
+    "the names of agents and arbiters, the method lookup and the wait for the launch's decision spend nothing: no spend is decided there; a code arbiter's result, the model arbiter's check before its call, its spend and the chain's order are mutated",
   "src/flow/runtime/runners/answer-guard.ts":
     "the context type of the answer's guardrails is the only code left out: no budget rule",
   "src/app/reply-answer.ts":
     "replyAnsweringPartsOf reads the tree's state, frame and PII from the app: no budget rule; the meter the reading is counted in and the check, the record and the refusal are mutated",
   "src/channels/reply-reading.ts":
     "replyReaderOf finds the interpreter of a pause's channel: no budget rule; a model interpreter's check before its call and the spend every outcome carries are mutated",
+  "src/a2a/client/a2a-mesh-seam.ts":
+    "the mesh's types, the envelope's signing, the card's extension, the loop refusal and the record of a call without a report decide what is sent and said, never an amount: no spend is decided there; the price's charge, the signed report's settle and the ledger identities of both are mutated",
+  "src/flow/runtime/child-exit.ts":
+    "EndedChild and ChildFailure are types, ownRecordsOf copies the child's path, calls and steps into its record: no spend is decided there; the child's own spend, its record's cost, a failure's spend and how it reaches the parent are mutated",
+  "src/flow/runtime/node-runner.ts":
+    "the node outcome's and the runner's types and lazyQuestionRunner, which loads a runner on its first visit: no spend is decided there; what a visit's records and its code's services report and the spend a failure carries are mutated",
+  "src/flow/runtime/runners/router.ts":
+    "requestOf and shownRequest build the options a router's model reads: no spend is decided there; the masking, the guardrails and the decision counted at the call, the spend a failure carries and the launch's decision are mutated",
+  "src/flow/runtime/lost-pass-records.ts":
+    "LostPasses, TakeoverRow and LostPassSite are types: no spend is decided there; which passes were lost, which step records them, their records of unknown cost and their ledger ids are mutated",
+  "src/mesh/mesh-report.ts":
+    "the report's schema, its signing and its verification decide whether a report is trusted, never an amount: nothing is charged there; the charge, its date, its ledger identity and the report that is taken are mutated",
+  "src/pii/policy-set.ts":
+    "the set's fingerprints and hashes are the key hierarchy's (mutated by the first range); maskNow, redaction and refusalForKind mask a log line, tell a redactor what to black out and refuse a file's kind: no model detector's spend is taken up there; a search's spend and a blocked finding's refusal are mutated",
+  "src/run/execute.ts":
+    "the turn's base, the finish's context, the error's text and recordFailure's write of a failed record shape the record: no spend is decided there; the cost of a running or a failed turn, the spend a failure carries and the drain of it are mutated",
+  "src/run/paused.ts":
+    "the namespaces, the snapshot's reading and the search of paused loops find where a loop waits: no spend is decided there; a loop's own spend and what a paused run has spent are mutated",
+  "src/flow/runtime/limits.ts":
+    "the side path's records, isOwedUndo and the limits' type decide where a visit goes, not what it spent: no spend is decided there; the checks of steps and visits, which visits the budgets check and a service's spend counted at once are mutated",
+  "src/app/settled-spend-checkpointer.ts":
+    "the argument types of the saver's methods are the only code left out: no code runs there; the saver that holds a checkpoint until the pass's spend is in the ledger is mutated",
+  "src/application/implementations.ts":
+    "the listing of the application's implementations is the describe's and the assembly's text: no money, fence or cancel rule is decided there; the choice of the fencing implementations is mutated",
+  "src/application/retention.ts":
+    "the field tables, the old and the moved names and their problems are the retention option's own validation: no row is removed there; the defaults the sweeps cut by and the assembled retentions are mutated",
+  "src/core/errors.ts":
+    "the framework's error classes and their options carry codes and text: no rule is decided there; the key text rules every id passes are mutated",
+  "src/flow/runtime/pause.ts":
+    "the pause's channel and question types and the errors of a withdrawn pause or a channel that failed: no cancel rule is decided there; the cancel of a pause at its channel and its withdrawal are mutated",
+  "src/flow/runtime/step-frame.ts":
+    "the frame's identity, the mesh's facts and the step's id shape what a step reads of its execution: no fence or cancel rule is decided there; the slot a step takes in its tree and the fence it reads are mutated",
+  "src/infrastructure/in-memory-database.ts":
+    "the in-memory rows, their key helpers and the tokens of the infrastructure are plain data: no fence or cancel rule is decided there; the cancel check and the retention of fenced effects' and outbound calls' rows are mutated",
+  "src/infrastructure/sqlite/sqlite-connection.ts":
+    "opening the database, the WAL switch, the schema helpers and the implementations' list are the connection's own: no cancel rule is decided there; the cancel mark and its check on the lease row are mutated",
+  "src/mesh/mesh-verification.ts":
+    "the refusal codes and their texts and the signature's refusal are the mesh check's own: nothing is charged there; the audience's refusal is mutated",
+  "src/models/calls/event-stream-guard.ts":
+    "the guard's stream types, its peek, its tracker and its replay read the events: no timeout rule is decided there; the stall bound of a streamed answer is mutated",
 };

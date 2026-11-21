@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { countedServiceSpend } from "../../../src/flow/runtime/limits.js";
-import { branchFrameOf } from "../../../src/flow/runtime/launch/branch-view.js";
+import { branchFrameOf, branchStateOf } from "../../../src/flow/runtime/launch/branch-view.js";
 import { readInput } from "../../../src/flow/runtime/scope.js";
 import { stepFrameAt } from "../../../src/flow/runtime/step-frame.js";
 
@@ -162,5 +162,35 @@ describe("#1366: the branch's own signal and the spend it reports", () => {
       copyNumber: 2,
       itemIndex: 3,
     });
+  });
+});
+
+describe("#1366: the state one branch runs on", () => {
+  const state = {
+    runId: "run-1",
+    scope: { kept: true },
+    visits: { n: 5, other: 1 },
+    steps: 9,
+    usage: [record(1, "before"), record(0.5, "loop")],
+  };
+  const ticket = { node: "n", visitNumber: 3, stepsBefore: 4, itemIndex: undefined };
+  const launch = { launch: { items: undefined } };
+
+  it("is the execution's at the launch, the node one visit back, the steps before it, and the siblings' spend after the execution's", () => {
+    const view = branchStateOf(state as never, launch as never, ticket as never, [
+      record(0.25, "sibling"),
+    ]);
+
+    expect(view.visits).toEqual({ n: 2, other: 1 });
+    expect(view.steps).toBe(4);
+    expect(view.usage.map((u) => u.caller)).toEqual(["before", "loop", "sibling"]);
+    expect(view.scope).toEqual({ kept: true });
+    expect(view.runId).toBe("run-1");
+  });
+
+  it("a branch with no sibling that ended yet spends only the execution's", () => {
+    const view = branchStateOf(state as never, launch as never, ticket as never, []);
+
+    expect(view.usage).toEqual(state.usage);
   });
 });
