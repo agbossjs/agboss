@@ -42,10 +42,12 @@ export async function duePausesOf(
     tree.tenantId,
     tree.runId,
   );
+  if (records === undefined) return [];
   const at = now.toISOString();
-  return (records ?? []).filter(
+  return records.filter(
     (pause) =>
       pause.status === PauseStatus.Pending &&
+      // Stryker disable next-line ConditionalExpression: `undefined <= at` is false, so a pause with no deadline is left out below too; the check only narrows its type
       pause.expiresAt !== undefined &&
       pause.expiresAt <= at,
   );
@@ -115,10 +117,12 @@ async function askedChannel(
 /** The channel that sent `pause`; `undefined` when a deploy removed it (its pause expires as `fail()`). */
 function senderOf(parts: TreeMoveParts, pause: PauseRecord): ChannelSender | undefined {
   try {
+    // Stryker disable next-line OptionalChaining: a workflow with no channels throws on the call, and the catch below answers the same `undefined`
     return ownDepsOf(parts.deps, pause.workflow).channelOf?.(pause.channel).sender;
   } catch {
-    return undefined;
+    // a channel a deploy removed: no sender
   }
+  return undefined;
 }
 
 /** What the expiry of one pause records: none from a bound that is not its own, else its channel's decision. */
@@ -131,6 +135,7 @@ async function expiryOf(
   if (bound === PauseExpiryBound.RunDeadline || bound === PauseExpiryBound.Quorum) return FAILED;
   const sender = senderOf(parts, pause);
   if (sender?.onPauseExpired === undefined) return FAILED;
+  // Stryker disable next-line OptionalChaining: the handler is there — `sender.onPauseExpired` was checked above; the call only narrows its type
   return askedChannel(parts, (ask) => sender.onPauseExpired?.(ask), pause, interruption);
 }
 

@@ -100,9 +100,8 @@ async function undoneChild(
   },
 ): Promise<{ readonly thrown: unknown; readonly compensations: readonly CompensationRecord[] }> {
   const { child } = parent.undo;
-  const own = (run.last?.compensations ?? []).filter(
-    (entry) => entry.executionId === ended.identity.executionId,
-  );
+  const held = run.last?.compensations ?? [];
+  const own = held.filter((entry) => entry.executionId === ended.identity.executionId);
   if (!hasUndoableActions(child.deps.graph))
     return { thrown, compensations: compensationRecordsOf(own) };
   const { unwoundChild } = await lazyLoad(import("./compensation/child-unwind.js"));
@@ -114,7 +113,7 @@ async function undoneChild(
       config: run.config,
       checkpointer: parent.undo.checkpointer,
       budgets: parent.undo.budgets,
-      last: run.last?.compensations ?? [],
+      last: held,
       error: run.error,
     },
     thrown,

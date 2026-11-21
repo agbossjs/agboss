@@ -87,12 +87,12 @@ export async function endedByRun(
   parts: Pick<TreeMoveParts, "deps">,
   turnId: string,
 ): Promise<boolean> {
-  try {
-    const [record] = await parts.deps.turns.byIds([turnId]);
-    return record !== undefined && ENDED.includes(record.status);
-  } catch {
-    return false;
-  }
+  // a record that is not read is no end of the run: the read's failure is answered here, never in the check below
+  const record = await parts.deps.turns.byIds([turnId]).then(
+    ([found]) => found,
+    () => undefined,
+  );
+  return record !== undefined && ENDED.includes(record.status);
 }
 
 /** The drain of the pass an expiry started; a run that ended or was handed over is its outcome, not a failure. */

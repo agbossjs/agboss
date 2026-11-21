@@ -165,6 +165,7 @@ const takesSlot = (node: RuntimeNode): boolean =>
 function subtreesOf(line: readonly ExecutionFacts[], treeCap: number): readonly SubtreeCap[] {
   const subtrees: SubtreeCap[] = [];
   let enclosing = treeCap;
+  // Stryker disable next-line MethodExpression: the root's own cap is the tree's (`enclosing`), never below it: it is passed over whether or not it is sliced off
   for (const member of line.slice(1)) {
     const own = declaredMaxConcurrentExecutionsOf(member.workflow.type);
     if (own === undefined || own >= enclosing) continue;
