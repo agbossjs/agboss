@@ -249,6 +249,18 @@ describe("#1356: an extension of a deadline (#1099)", () => {
     expect(extend(pending({ expiresAt: T11 }), "2026-11-20T11:00:00.001Z")).toBeDefined();
   });
 
+  it("a pause with no deadline gets none, whatever the change names as the deadline it moves from — or omits", () => {
+    const none = pending();
+    // a caller that leaves `previousExpiresAt` out at runtime (a JS caller, a deserialised change)
+    const missing = { expiresAt: T12 } as never;
+
+    expect(extendChange(none, missing, AT, RECIPIENTS)).toBeUndefined();
+    expect(
+      extendChange(none, { expiresAt: T12, previousExpiresAt: "" }, AT, RECIPIENTS),
+    ).toBeUndefined();
+    expect(extend(none, T12, T11)).toBeUndefined();
+  });
+
   it("not a pause that is closed, or has no deadline, or whose deadline passed", () => {
     expect(extend(pending({ status: PauseStatus.Resolved, expiresAt: T11 }), T12)).toBeUndefined();
     expect(extend(pending(), T12, T11)).toBeUndefined();
