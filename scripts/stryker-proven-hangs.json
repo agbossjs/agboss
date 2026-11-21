@@ -54,24 +54,6 @@
     "reason": "the guard of a second stop is always false: stopBy() runs twice and the test process crashes ('Cannot convert object to primitive NaN', 'Test runner crashed' twice), which Stryker counts as an error, not a kill; run alone: the same"
   },
   {
-    "shard": "money",
-    "file": "src/budgets/execution-budgets.ts",
-    "mutator": "EqualityOperator",
-    "replacement": "records.length !== 0",
-    "anchor": "if (records.length === 0) return;",
-    "kind": "wall-clock",
-    "reason": "in every full run of the money shard (3 cold runs: 2 locally, 1 on CI) the mutant outlasts the limit of 180 s and is ended by Stryker's time limit; alone, or with the budgets' files only, it is Killed in 4 s by 'the child held on its worker within 4000 ms of real time': a hang that depends on the rest of the shard's mutants, not yet understood (agbossjs/agboss follow-up, see the PR)"
-  },
-  {
-    "shard": "money",
-    "file": "src/budgets/execution-budgets.ts",
-    "mutator": "ConditionalExpression",
-    "replacement": "false",
-    "anchor": "if (records.length === 0) return;",
-    "kind": "wall-clock",
-    "reason": "in every full run of the money shard (3 cold runs: 2 locally, 1 on CI) the mutant outlasts the limit of 180 s and is ended by Stryker's time limit; alone, or with the budgets' files only, it is Killed in 4 s by 'the child held on its worker within 4000 ms of real time': a hang that depends on the rest of the shard's mutants, not yet understood (agbossjs/agboss follow-up, see the PR)"
-  },
-  {
     "shard": "pause-notices",
     "file": "src/app/pause-notice-delivery.ts",
     "mutator": "BlockStatement",
