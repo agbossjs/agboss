@@ -260,8 +260,10 @@ jobs:
           path: |
             packages/agboss/reports/stryker-incremental-${{ matrix.shard }}.json
             packages/agboss-cli/reports/stryker-incremental-cli-stream.json
-          key: stryker-${{ matrix.shard }}-${{ github.sha }}
-          restore-keys: stryker-${{ matrix.shard }}-
+          # #1367: the limits and the vitest configs are in the key: an incremental run keeps the Timeouts a run
+          # under other limits made (a survivor read as one), so a change of them runs every shard cold
+          key: stryker-${{ matrix.shard }}-${{ hashFiles('packages/agboss/stryker.config.mjs', 'scripts/stryker-timeouts-ms.mjs', 'packages/agboss/vitest.mutation*.config.ts') }}-${{ github.sha }}
+          restore-keys: stryker-${{ matrix.shard }}-${{ hashFiles('packages/agboss/stryker.config.mjs', 'scripts/stryker-timeouts-ms.mjs', 'packages/agboss/vitest.mutation*.config.ts') }}-
       - name: Mutation testing of the shard (break below 100 % killed or justified)
         run: npm run test:mutation -w @agboss/core
       # #1048: `agboss run`'s stream path (the CLI's own stryker config), beside the stream shard

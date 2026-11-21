@@ -5,15 +5,20 @@
 // the score never shows it (agbossjs/mongodb#103: half of a shard's sampled Timeouts survived alone). `RuntimeError` and
 // `CompileError` are left out of the score altogether: a shard whose mutants all errored still reads 100 %. The
 // shards' config sets the limit above the whole run, so what is still a Timeout did not finish, and this check fails
-// a report that holds a Timeout, a RuntimeError or a CompileError that nobody justified:
-//   - an entry of `PROVEN_HANGS` (scripts/stryker-proven-hangs.json, a JSON array) names the mutant by its shard, file, mutator,
-//     replacement, an anchor (a snippet of the mutated line, or of it and the next: a short one such as `try {` takes the line below) and a kind — `hit-limit` (Stryker counted the loop's
-//     hits past its limit: no wait), `wall-clock` (the limit of time ended it: a loop Stryker cannot count; the
-//     last resort, every one costs a whole limit in each cold run), `runtime-error` or `compile-error` — and a reason.
-//     Never by the mutant's id, which a run numbers afresh, or its line, which an edit moves;
-//   - both ways: a bad mutant that matches no entry fails, and an entry of the report's shard that matches no
-//     mutant, or a Survived one, is stale and fails (one whose mutant was Killed this time is told, not failed: a hit-limit loop is
-//     ended by Stryker's count or by a test that fails first, and the two race); `--partial` skips that half for a run of part of a shard.
+// a report that holds a Timeout of the clock, a RuntimeError or a CompileError that nobody justified:
+//   - a Timeout Stryker ended by its hit limit ("Hit limit reached": the mutated code ran 100 x as often as in the dry
+//     run, a loop that does not end) never waited on a time limit, so it cannot be a survivor that ran too long: it is
+//     counted and told, not listed. Whether it shows as one or as Killed depends on the race between Stryker's count
+//     and a test that fails first (the same shard ran both ways in two cold runs), so a list of them would flake;
+//   - an entry of `PROVEN_HANGS` (scripts/stryker-proven-hangs.json, a JSON array) names any other mutant by its
+//     shard, file, mutator, replacement, an anchor (a snippet of the mutated line, or of it and the next: a short one such
+//     as `try {` takes the line below) and a kind — `wall-clock` (the time limit ended it: a loop Stryker cannot count,
+//     such as a `settled()` that awaits a settled promise for ever; run alone with 3 x the shard's run it still did not
+//     finish), `runtime-error` or `compile-error` — and a reason. Never by the mutant's id, which a run numbers afresh,
+//     or its line, which an edit moves;
+//   - both ways: a mutant that matches no entry fails, and an entry of the report's shard that matches no mutant, or a
+//     Survived one, is stale and fails (one whose mutant was Killed this time is told, not failed); `--partial` skips
+//     that half for a run of part of a shard.
 // Self-contained: the list is a JSON file beside the script, `--hangs <file>` names another. The stores copy both as they are.
 // `node scripts/stryker-timeouts.mjs [--partial] [--hangs <file>] <report.json> [...]` checks Stryker JSON reports
 // (reporters: json); a report's shard is its file's name without `.json`.
@@ -23,7 +28,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_HANGS = join(here, "stryker-proven-hangs.json");
-const KINDS = ["hit-limit", "wall-clock", "runtime-error", "compile-error"];
+const KINDS = ["wall-clock", "runtime-error", "compile-error"];
 const FIELDS = ["shard", "file", "mutator", "replacement", "anchor", "kind", "reason"];
 const identityOf = (hang) =>
   JSON.stringify([hang.shard, hang.file, hang.mutator, hang.replacement, hang.anchor, hang.kind]);
@@ -81,12 +86,7 @@ function badMutantsOf(report) {
       const kind = kindOf(mutant);
       if (kind === undefined) return [];
       const line = mutant.location.start.line;
-      // the line and the next one: an anchor too short to be its own (`try {`) takes the line below
-      const text = [lines[line - 1], lines[line]]
-        .map((one) => (one ?? "").trim())
-        .join(" ")
-        .trim();
-      return [{ file, mutant, kind, line, text }];
+      return [{ file, mutant, kind, line, text: textOf(lines, line) }];
     });
   });
 }
@@ -105,8 +105,8 @@ const describeBad = (found) =>
 
 /**
  * The entries of `shard` that no mutant of the report matches: stale. An entry whose mutant is there but Killed
- * is not: whether a hit-limit loop is ended by Stryker's count or by a test that fails first is a race between
- * the two (the same shard ran both ways in two cold runs), so it is told in the output, never failed.
+ * is not: a loop of wall-clock hangs ended by the time limit this run may be ended by a test the next, so it is told in
+ * the output, never failed.
  */
 function staleOf(name, shard, report, hangs, bad) {
   const identity = (hang, found) =>
@@ -144,7 +144,13 @@ function staleOf(name, shard, report, hangs, bad) {
 /** The problems of one report of `shard`: its unjustified mutants, and (unless `partial`) the entries of the shard that match none. */
 function auditReport(name, shard, report, hangs, partial) {
   if (!isReport(report)) return [`${name}: not a Stryker JSON report (no "files")`];
-  const bad = badMutantsOf(report);
+  const found = badMutantsOf(report);
+  const counted = found.filter((one) => one.kind === "hit-limit");
+  if (counted.length > 0)
+    console.log(
+      `${name}: ${String(counted.length)} Timeouts of Stryker's hit limit (loops that do not end), not listed`,
+    );
+  const bad = found.filter((one) => one.kind !== "hit-limit");
   const problems = bad
     .filter((found) => !hangs.some((hang) => matches(hang, shard, found)))
     .map(

@@ -84,12 +84,12 @@ const HANG = {
   mutator: "BlockStatement",
   replacement: "{}",
   anchor: "retry();",
-  kind: "hit-limit",
+  kind: "wall-clock",
   reason: "the retry loop's body is {}: the loop never ends",
 };
-/** The loop's mutant, as a Timeout Stryker's hit limit ended, on the loop's second line. */
+/** The loop's mutant, as a Timeout the time limit ended, on the loop's second line. */
 const hung = (line = 2, id = "3"): Record<string, FileReport> => ({
-  "src/loop.ts": { source: LOOP, mutants: [mutant(id, "BlockStatement", line, "Timeout", HIT)] },
+  "src/loop.ts": { source: LOOP, mutants: [mutant(id, "BlockStatement", line, "Timeout")] },
 });
 
 describe("scripts/stryker-timeouts.mjs", () => {
@@ -116,23 +116,27 @@ describe("scripts/stryker-timeouts.mjs", () => {
 
     expect(run.code).toBe(1);
     expect(run.said).toMatch(
-      /src\/loop\.ts:2: Timeout \(hit-limit\) of a BlockStatement mutant -> \{\} \[Hit limit reached \(1000\/100\)\]; line: retry\(\);/,
+      /src\/loop\.ts:2: Timeout \(wall-clock\) of a BlockStatement mutant -> \{\}; line: retry\(\);/,
     );
     expect(run.said).toContain("run it alone with a limit of 3 x the shard's run");
   });
 
-  it("calls a Timeout with no hit limit a wall-clock one", async () => {
+  it("counts a Timeout of Stryker's hit limit and lists none: a loop ended by its count races a test that fails first", async () => {
     const files = {
-      "src/loop.ts": { source: LOOP, mutants: [mutant("3", "BlockStatement", 2, "Timeout")] },
+      "src/loop.ts": { source: LOOP, mutants: [mutant("3", "BlockStatement", 2, "Timeout", HIT)] },
     };
 
-    const unlisted = await checked(files, []);
-    const asHit = await checked(files, [HANG]);
-    const listed = await checked(files, [{ ...HANG, kind: "wall-clock" }]);
+    const run = await checked(files, []);
+    const listed = await checked(files, [{ ...HANG, kind: "hit-limit" }]);
 
-    expect(unlisted.said).toContain("Timeout (wall-clock)");
-    expect(asHit.code).toBe(1);
-    expect(listed.code).toBe(0);
+    expect(run.code).toBe(0);
+    expect(run.said).toContain(
+      "1 Timeouts of Stryker's hit limit (loops that do not end), not listed",
+    );
+    expect(listed.code).toBe(1);
+    expect(listed.said).toContain(
+      'kind "hit-limit" is none of wall-clock, runtime-error, compile-error',
+    );
   });
 
   it("passes a Timeout on the list, wherever its line and id are now", async () => {
@@ -140,7 +144,7 @@ describe("scripts/stryker-timeouts.mjs", () => {
       {
         "src/loop.ts": {
           source: `// moved down\n// by an edit\n${LOOP}`,
-          mutants: [mutant("912", "BlockStatement", 4, "Timeout", HIT)],
+          mutants: [mutant("912", "BlockStatement", 4, "Timeout")],
         },
       },
       [HANG],
@@ -156,14 +160,14 @@ describe("scripts/stryker-timeouts.mjs", () => {
     ["another mutator", { ...HANG, mutator: "StringLiteral" }],
     ["another replacement", { ...HANG, replacement: "false" }],
     ["another anchor", { ...HANG, anchor: "somethingElse();" }],
-    ["another kind", { ...HANG, kind: "wall-clock" }],
+    ["another kind", { ...HANG, kind: "runtime-error" }],
   ])("fails a Timeout whose %s is the one listed", async (_name, entry) => {
     const run = await checked({ ...hung(), "src/other.ts": { source: "x\n", mutants: [] } }, [
       entry,
     ]);
 
     expect(run.code).toBe(1);
-    expect(run.said).toContain("Timeout (hit-limit)");
+    expect(run.said).toContain("Timeout (wall-clock)");
   });
 
   it("fails an entry that matches no mutant of its shard, or a Survived one: stale; tells of a Killed one", async () => {
@@ -179,13 +183,13 @@ describe("scripts/stryker-timeouts.mjs", () => {
 
     expect(gone.code).toBe(1);
     expect(gone.said).toMatch(
-      /PROVEN_HANGS has src\/loop\.ts BlockStatement -> \{\} \(hit-limit, "retry\(\);"\) that matches no mutant.*stale/,
+      /PROVEN_HANGS has src\/loop\.ts BlockStatement -> \{\} \(wall-clock, "retry\(\);"\) that matches no mutant.*stale/,
     );
     expect(survived.code).toBe(1);
     expect(survived.said).toContain("matches a Survived mutant");
     expect(killed.code).toBe(0);
     expect(killed.said).toMatch(
-      /note: src\/loop\.ts "retry\(\);" \(hit-limit\) was Killed in this run/,
+      /note: src\/loop\.ts "retry\(\);" \(wall-clock\) was Killed in this run/,
     );
     expect(other.code).toBe(0);
     expect(partial.code).toBe(0);
