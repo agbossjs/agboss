@@ -14,7 +14,7 @@ import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
 import type { AgentExecutionOutput, AgentExecutionDeps, ExecutionData } from "./types.js";
 
 /** The Turn of an execution: a finished one's finish line (S8), a paused one waits. */
-function outcomeOf(
+export function outcomeOf(
   state: ExecutionStateType,
   usage: readonly UsageRecord[],
   paused: boolean,
@@ -29,6 +29,13 @@ function outcomeOf(
     costUsd: totalCost(usage),
   };
 }
+
+/** The finish and the output of a run that ended at a finish node: none for a paused one. */
+export const endOf = (
+  state: ExecutionStateType,
+  paused: boolean,
+): Pick<AgentExecutionOutput, "finish" | "output"> =>
+  paused || state.finish === "" ? {} : { finish: state.finish, output: state.output };
 
 /** The visited nodes; a paused execution waits in an agent whose visit has not finished yet. */
 const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): readonly string[] => {
@@ -127,7 +134,7 @@ export async function finishRun<TName extends string>(
       steps: state.stepRecords,
       ...originDataOf(state),
     },
-    ...(paused || state.finish === "" ? {} : { finish: state.finish, output: state.output }),
+    ...endOf(state, paused),
     pending,
     ...traceUrlOf(ctx.deps, ctx.base.threadId),
     ...((ctx.compacted ?? []).length === 0 ? {} : { compacted: ctx.compacted }),

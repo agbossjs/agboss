@@ -129,6 +129,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       remove: sources.ledger?.deleteByMadeAtBefore.bind(sources.ledger),
       retention: sources.ledgerEntryRetention,
     },
+    // Stryker disable next-line ArrayDeclaration: an entry that is a string has no `remove`, and `removeExpired` skips an entry with none
     ...(sources.expiries ?? []),
   ];
 };
