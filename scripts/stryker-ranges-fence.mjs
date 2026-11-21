@@ -1,6 +1,14 @@
 // The shards of #1366 (fence, lease and cancel) whose rules are declarations of files with other code (split from stryker-ranges.mjs for max-lines, re-exported by it).
 import { declarationsOf } from "./stryker-ranges-money.mjs";
 
+/** The `takeover` shard of `stryker.config.mjs`, moved here to keep that file under its line limit (#1366). */
+export function takeoverShard() {
+  return {
+    configFile: "vitest.mutation-takeover.config.ts",
+    mutate: ["src/app/lease-yields.ts", "src/app/execution-leases.ts", "src/app/handed-over.ts"],
+  };
+}
+
 /**
  * The `fence-checkpoint` shard (#1366, #1165): the checkpoint a holder writes only after it renewed its lease,
  * the checkpoint that is the latest of its thread after a clock step back, and the leg that is announced only

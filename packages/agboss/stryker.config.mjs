@@ -79,10 +79,7 @@ export const SHARDS = {
   // the holder's side of a takeover (#633): a lease yielded only while every caller waits and no
   // step runs (#471), a release that waits for its attempts (#508), the takes and their reports
   // (#501, #520), a hand-over that is not a failure (P5)
-  takeover: {
-    configFile: "vitest.mutation-takeover.config.ts",
-    mutate: ["src/app/lease-yields.ts", "src/app/execution-leases.ts", "src/app/handed-over.ts"],
-  },
+  takeover: ranges.takeoverShard(),
   // recovery (#633): the sweep, a root taken over, finished work (#520), an end heard once (#562,
   // #596, #597), a tree's moves
   recovery: {
