@@ -78,6 +78,7 @@ export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMe
   const given = calls.map((call) => call.id ?? "");
   const isRepeated = (id: string): boolean => given.indexOf(id) !== given.lastIndexOf(id);
   const toolCalls = calls.map((call, index) => {
+    // Stryker disable next-line StringLiteral: equivalent: `given` holds an entry for every call, so the empty text is never read
     const id = given[index] ?? "";
     if (id === "") {
       const position = `${String(state.flowPath.length)}:${String(turn)}:${String(index)}`;
@@ -96,7 +97,7 @@ export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMe
   return new AIMessage({
     content: response.content,
     tool_calls: toolCalls,
-    ...(invalid.length === 0 ? {} : { invalid_tool_calls: invalid }),
+    invalid_tool_calls: invalid,
   });
 }
 

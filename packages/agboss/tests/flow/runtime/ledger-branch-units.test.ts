@@ -22,7 +22,7 @@ import { recordBranchLostPasses } from "../../../src/flow/runtime/lost-pass-reco
 import { checkVisit } from "../../../src/flow/runtime/limits.js";
 import { failedVisitOf, visitStepsOf } from "../../../src/flow/runtime/visit-step.js";
 import { reportBranch } from "../../../src/flow/runtime/launch/launch-report.js";
-import { withQuorumDeadline } from "../../../src/flow/runtime/launch/branch-view.js";
+import { branchVisitOf, withQuorumDeadline } from "../../../src/flow/runtime/launch/branch-view.js";
 import { compensationsOfBranch } from "../../../src/flow/compensation.js";
 
 vi.mock("../../../src/flow/runtime/launch/branch-view.js", () => ({
@@ -425,6 +425,26 @@ describe("#1366: a branch that failed carries the spend its error holds and its 
     await node(stateOf() as never, undefined);
 
     expect(failedVisitOf).toHaveBeenCalledWith(undefined, expect.any(Error), []);
+  });
+
+  it("a branch that failed before its visit was checked counted no step and opened no entry: that is what its visit is built from", async () => {
+    vi.mocked(failedStatusOf).mockReturnValue(BranchStatus.Failed);
+    const { branchFrameOf } = await import("../../../src/flow/runtime/launch/branch-view.js");
+    vi.mocked(branchFrameOf).mockImplementation(() => {
+      throw new Error("no frame");
+    });
+    const { node } = setup();
+
+    await node(stateOf() as never, undefined);
+
+    const visit = vi.mocked(branchVisitOf).mock.calls[0]?.[0];
+    expect(visit).toMatchObject({
+      ranAsStep: false,
+      compensations: [],
+      services: [],
+      children: [],
+    });
+    expect(visit?.piiTokens).toEqual({});
   });
 });
 

@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { removeExpired, type RetentionSources } from "../../src/infrastructure/retention-sweep.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { removeClosedPauses } from "../../src/infrastructure/pause-log-repair.js";
 
 vi.mock("../../src/infrastructure/pause-log-repair.js", () => ({ removeClosedPauses: vi.fn() }));
@@ -113,6 +114,22 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toBe("pause.notice-recipient-unknown");
     expect(warn.mock.calls[0]?.[2]).toEqual({ tenantId: "tenant-1" });
+    expect(warn.mock.calls[0]?.[1]).toBe(
+      `the notices of pause ${pauseKeyOf("tenant-1", "p1")} to slack were set aside: no instance knows that receiver`,
+    );
+  });
+
+  it("with no log the notices are set aside all the same, and nothing is reported", async () => {
+    const { sources, pauses } = sourcesOf();
+    pauses.setAsideStaleNoticesBefore.mockResolvedValue([
+      { tenantId: "tenant-1", pauseId: "p1", recipient: "slack" },
+    ] as never);
+    const { done, report } = sweep(sources);
+
+    await expect(done).resolves.toBeUndefined();
+
+    expect(pauses.setAsideStaleNoticesBefore).toHaveBeenCalledOnce();
+    expect(report).not.toHaveBeenCalled();
   });
 
   it("the project's own kinds of rows come after, each with its retention", async () => {

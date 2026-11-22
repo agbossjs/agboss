@@ -15,7 +15,12 @@ export default defineConfig({
     include: [
       "tests/mesh/mesh-charge-units.test.ts",
       "tests/mesh/report-made-at.test.ts",
+      "tests/mesh/mesh-report-verify.test.ts",
       "tests/a2a/client/a2a-report-record.units.test.ts",
+      // the mesh a call rides (a2a-mesh-seam.ts): its envelope, the loop and the required-mesh refusals, end to end
+      "tests/a2a/client/a2a-client-mesh.units.test.ts",
+      "tests/a2a/client/mesh-charge-seam.test.ts",
+      "tests/a2a/mesh/*.test.ts",
     ],
   },
 });

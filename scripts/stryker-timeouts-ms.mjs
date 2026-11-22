@@ -27,7 +27,8 @@ export const TIMEOUTS_MS = {
   spend: 220_000,
   cancel: 170_000,
   "fenced-reach": 120_000,
-  pauses: 120_000,
+  // 240 s: a mutant of the page cursor makes every paging test loop until vitest ends it (20 s each, 8 covering tests, #1366)
+  pauses: 240_000,
   "pauses-sqlite": 120_000,
   "pause-notices": 180_000,
   "rate-limits": 120_000,

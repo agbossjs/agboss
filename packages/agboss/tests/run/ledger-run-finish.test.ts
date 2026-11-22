@@ -199,6 +199,17 @@ describe("#1366: a finished run's turn", () => {
     expect(out.traceUrl).toBe("https://trace/thread-1");
   });
 
+  it("a request that came from no trusted peer, or through no mesh, carries no origin", async () => {
+    const untrusted = setup();
+    const unmeshed = setup();
+
+    const first = await finishRun(untrusted.ctx, stateOf({ contexts: { mesh: {} } }));
+    const second = await finishRun(unmeshed.ctx, stateOf({ contexts: {} }));
+
+    expect(Object.keys(first.data)).not.toContain("origin");
+    expect(Object.keys(second.data)).not.toContain("origin");
+  });
+
   it("is refused when its graph stopped at no finish and waits for nothing: never recorded as answered", async () => {
     const { ctx, append } = setup();
 

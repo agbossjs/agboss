@@ -192,15 +192,17 @@ const hintOf = (...fields: readonly string[]): string =>
   `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 
 /** A retention renamed before 0.1.1 (#889): refused naming its new name, never a silent default. */
-const RENAMED: Readonly<Record<string, string>> = {
-  leaseEvents: "the audit log's rows are kept for retention.auditLog",
-};
+const RENAMED: ReadonlyMap<string, string> = new Map([
+  ["leaseEvents", "the audit log's rows are kept for retention.auditLog"],
+]);
 
 /** Why a field `retentionViolations` does not know is refused: renamed, or a typo. */
-const unknownFieldProblem = (field: string): string =>
-  Object.hasOwn(RENAMED, field)
-    ? `.${field} is renamed: ${RENAMED[field] ?? ""}`
-    : `.${field} is not a retention (${RETENTION_FIELDS.join(", ")})`;
+const unknownFieldProblem = (field: string): string => {
+  const renamed = RENAMED.get(field);
+  return renamed === undefined
+    ? `.${field} is not a retention (${RETENTION_FIELDS.join(", ")})`
+    : `.${field} is renamed: ${renamed}`;
+};
 
 /**
  * `@Application({ retention })` (#834): an object of the known fields only (a typo is not a silent
@@ -239,7 +241,7 @@ function fileRetentionViolations(
 }
 
 /** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */
-const isPlainObject = (value: unknown): value is object =>
+export const isPlainObject = (value: unknown): value is object =>
   typeof value === "object" &&
   value !== null &&
   [Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null);

@@ -7,29 +7,38 @@ import { readdirSync } from "node:fs";
 import { join, matchesGlob } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runProcess } from "../helpers/process.js";
-import { NON_SHARDED_SRC, PARTLY_SHARDED_SRC } from "./non-sharded-src.js";
+import { NON_SHARDED_SRC } from "./non-sharded-src.js";
 
 const pkg = new URL("../../", import.meta.url).pathname;
 
-/** The `mutate` lists of every shard, as `stryker.config.mjs` (and `stryker-ranges.mjs`) build them. */
-async function mutateOfShards(): Promise<Record<string, readonly string[]>> {
+/** What `stryker.config.mjs` and `stryker-ranges.mjs` build: each shard's `mutate` list, and the declarations left out of a file mutated whole but for them. */
+interface ShardsRead {
+  readonly shards: Record<string, readonly string[]>;
+  readonly plumbing: Record<string, Record<string, string>>;
+}
+
+async function readShards(): Promise<ShardsRead> {
   const run = await runProcess(
     "node",
     [
       "--input-type=module",
       "-e",
       "const { SHARDS } = await import(process.argv[1]);" +
-        "console.log(JSON.stringify(Object.fromEntries(Object.entries(SHARDS).map(([name, shard]) => [name, shard.mutate]))));",
+        "const { PLUMBING } = await import(process.argv[2]);" +
+        "const shards = Object.fromEntries(Object.entries(SHARDS).map(([name, shard]) => [name, shard.mutate]));" +
+        "console.log(JSON.stringify({ shards, plumbing: PLUMBING }));",
       join(pkg, "stryker.config.mjs"),
+      join(pkg, "../../scripts/stryker-ranges-whole.mjs"),
     ],
     { cwd: pkg },
   );
   if (run.status !== 0) throw new Error(`stryker.config.mjs: ${run.stderr}`);
-  return JSON.parse(run.stdout) as Record<string, readonly string[]>;
+  return JSON.parse(run.stdout) as ShardsRead;
 }
 
 /** The shards are read once: the read starts a process. */
-const shardPatterns = mutateOfShards().then((shards) => Object.values(shards).flat());
+const shardsRead = readShards();
+const shardPatterns = shardsRead.then(({ shards }) => Object.values(shards).flat());
 
 const sourcesOf = (dir: string): string[] =>
   readdirSync(join(pkg, dir), { withFileTypes: true }).flatMap((entry) =>
@@ -83,10 +92,11 @@ describe("#1356: the mutation shards cover src/", () => {
     expect(empty).toEqual([]);
   });
 
-  it("a file mutated only in part is mutated by a range, is in no shard whole and says why the rest is not (#1366)", async () => {
+  it("a file mutated but for named declarations is mutated by ranges, in no shard whole, and says why each one left out is plumbing (#1366)", async () => {
+    const { plumbing } = await shardsRead;
     const shards = await shardPatterns;
     const real = new Set(sources);
-    const bad = Object.keys(PARTLY_SHARDED_SRC).filter(
+    const bad = Object.keys(plumbing).filter(
       (file) =>
         !real.has(file) ||
         !shards.some((pattern) => pattern.startsWith(`${file}:`)) ||
@@ -97,8 +107,19 @@ describe("#1356: the mutation shards cover src/", () => {
     expect(bad).toEqual([]);
   });
 
+  it("a declaration left out of a mutated file has a reason that says what it is not: money, a limit, a deadline, a step, a fence or a cancel (#1366)", async () => {
+    const { plumbing } = await shardsRead;
+    const bad = Object.entries(plumbing).flatMap(([file, left]) =>
+      Object.entries(left)
+        .filter(([, reason]) => reason.trim().length < 20 || reason.includes("\n"))
+        .map(([name]) => `${file}: ${name}`),
+    );
+
+    expect(bad).toEqual([]);
+  });
+
   it("every reason says something, in one line", () => {
-    const bad = [...Object.entries(NON_SHARDED_SRC), ...Object.entries(PARTLY_SHARDED_SRC)].filter(
+    const bad = Object.entries(NON_SHARDED_SRC).filter(
       ([, reason]) => reason.trim().length < 10 || reason.includes("\n"),
     );
 

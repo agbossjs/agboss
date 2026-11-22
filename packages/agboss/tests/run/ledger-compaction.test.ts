@@ -7,6 +7,13 @@ import { AIMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CompactionError } from "../../src/compaction/errors.js";
 import { CompactionStrategy } from "../../src/compaction/compaction.decorator.js";
+import { TurnLimit } from "../../src/config/types.js";
+import {
+  CURRENT_SUMMARY_HEADING,
+  EARLIER_TURNS_HEADING,
+  TURNS_TO_ADD_HEADING,
+  TURNS_TO_COMPACT_HEADING,
+} from "../../src/prompts/compaction.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { summaryOf, compactDue, compactWithModel } from "../../src/run/compaction.js";
 import { compactWithHandler } from "../../src/run/custom-compaction.js";
@@ -334,5 +341,81 @@ describe("#1366: a compaction that stored nothing", () => {
     const out = await compactWithModel(deps, compaction(), run, due);
 
     expect(out).toStrictEqual({ usage: [expect.objectContaining({ costUsd: 0.25 })] });
+  });
+});
+
+describe("#1366: which turns are due, and what the compaction's model reads", () => {
+  const inputOf = (invoke: { mock: { calls: unknown[][] } }): string =>
+    (invoke.mock.calls[0]?.[0] as { text: string }[])[1]?.text ?? "";
+
+  it("a window that keeps every turn leaves none due: nothing is read or asked", async () => {
+    const { deps, run, invoke, turns } = setup([], { due: 4 });
+    const uncovered = await turns.uncovered();
+    const filter = vi.fn(
+      (...args: Parameters<typeof uncovered.filter>) =>
+        Array.prototype.filter.apply(uncovered, args) as typeof uncovered,
+    );
+    turns.uncovered.mockResolvedValue(Object.assign([...uncovered], { filter }));
+    const plan = { compactions: [compaction({ window: TurnLimit.ALL })] } as never;
+
+    const out = await compactDue(deps, plan, run);
+
+    expect(out).toEqual({ usage: [], compacted: [] });
+    expect(filter).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(turns.addSummary).not.toHaveBeenCalled();
+  });
+
+  it("a queue's model reads the turns before the first due one as context, then the due ones", async () => {
+    const { deps, run, invoke, turns } = setup([answer("s", 0.25)]);
+    turns.before.mockResolvedValue([turnOf("t0", "earlier")] as never);
+
+    await compactDue(deps, { compactions: [compaction()] } as never, run);
+
+    expect(turns.before).toHaveBeenCalledWith("tenant-1", "thread-1", "t1", 2);
+    expect(inputOf(invoke)).toBe(
+      `${EARLIER_TURNS_HEADING}\nstart chat: "earlier"\nfinish done: "earlier"\n\n${TURNS_TO_COMPACT_HEADING}\nstart chat: "t1"\nfinish done: "t1"\n\nstart chat: "t2"\nfinish done: "t2"`,
+    );
+  });
+
+  it("a queue with no turns before the due ones reads only those", async () => {
+    const { deps, run, invoke } = setup([answer("s", 0.25)]);
+
+    await compactDue(deps, { compactions: [compaction()] } as never, run);
+
+    expect(inputOf(invoke).startsWith(TURNS_TO_COMPACT_HEADING)).toBe(true);
+  });
+
+  it("a single summary's model reads the summary so far and the turns to add, and is told it is the one it continues", async () => {
+    const { deps, run, invoke, turns } = setup([answer("s", 0.25)]);
+    const current = { id: "s1", text: "so far", fromTurnId: "t0", toTurnId: "t0" };
+    turns.latestSummaries.mockResolvedValue([current] as never);
+    const single = compaction({ strategy: CompactionStrategy.SingleSummary });
+
+    await compactDue(deps, { compactions: [single] } as never, run);
+
+    expect(turns.latestSummaries).toHaveBeenCalledWith("tenant-1", "thread-1", "notes", 1);
+    expect(turns.before).not.toHaveBeenCalled();
+    expect(inputOf(invoke)).toBe(
+      `${CURRENT_SUMMARY_HEADING}\nso far\n\n${TURNS_TO_ADD_HEADING}\nstart chat: "t1"\nfinish done: "t1"\n\nstart chat: "t2"\nfinish done: "t2"`,
+    );
+  });
+
+  it("a single summary with none yet says so", async () => {
+    const { deps, run, invoke } = setup([answer("s", 0.25)]);
+    const single = compaction({ strategy: CompactionStrategy.SingleSummary });
+
+    await compactDue(deps, { compactions: [single] } as never, run);
+
+    expect(inputOf(invoke).startsWith(`${CURRENT_SUMMARY_HEADING}\n(none yet)\n\n`)).toBe(true);
+  });
+
+  it("due turns that are none are asked of no earlier ones: the model reads the heading only", async () => {
+    const { deps, run, turns, invoke } = setup([answer("s", 0.25)]);
+
+    await compactWithModel(deps, compaction(), run, []);
+
+    expect(turns.before).not.toHaveBeenCalled();
+    expect(inputOf(invoke)).toBe(`${TURNS_TO_COMPACT_HEADING}\n`);
   });
 });

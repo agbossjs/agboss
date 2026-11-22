@@ -31,6 +31,7 @@ export interface MaskedSearch {
 
 function valueFindings(text: string, values: readonly SensitiveValue[], key: string): PiiFinding[] {
   return values.flatMap((sensitive) => {
+    // Stryker disable next-line ArrayDeclaration: equivalent: a text in the place of no findings is dropped as no finding (it has no range)
     const found: PiiFinding[] = [];
     if (sensitive.value.length < 2) return found;
     for (

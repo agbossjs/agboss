@@ -82,6 +82,9 @@ function dueOf(
   return due.length < compaction.turnsBetweenCompactions ? [] : due;
 }
 
+// Stryker disable next-line ArrayDeclaration: equivalent: what is no turn is dropped when the turns are read (`toTurns`), so a text in the place of none reads as none
+const NO_TURNS: readonly Turn[] = [];
+
 /** What the compaction's model reads, in full (before masking). */
 async function inputOf<TName extends string>(
   deps: AgentExecutionDeps<TName>,
@@ -93,6 +96,7 @@ async function inputOf<TName extends string>(
   const { tenantId, threadId } = run;
   if (compaction.strategy === CompactionStrategy.SingleSummary) {
     const [current] = await deps.turns.latestSummaries(tenantId, threadId, compaction.name, 1);
+    // Stryker disable next-line StringLiteral: equivalent: a single summary's text has no earlier turns, whatever this holds
     const parts = { earlier: "", due: asTurns(due) };
     if (current === undefined) return { text: summaryInputTextOf(compaction.strategy, parts) };
     return {
@@ -102,7 +106,7 @@ async function inputOf<TName extends string>(
   }
   const previous =
     first === undefined
-      ? []
+      ? NO_TURNS
       : await deps.turns.before(tenantId, threadId, first.id, compaction.turnsBetweenCompactions);
   return {
     text: summaryInputTextOf(compaction.strategy, {

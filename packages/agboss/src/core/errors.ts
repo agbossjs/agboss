@@ -49,7 +49,7 @@ export class AGBossError extends Error {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = new.target.name;
     this.code = new.target.code;
-    if (options.details !== undefined) this.details = options.details;
+    this.details = options.details;
   }
 }
 

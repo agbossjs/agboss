@@ -1,5 +1,4 @@
 // The shards of #1366 (fence, lease and cancel) whose rules are declarations of files with other code (split from stryker-ranges.mjs for max-lines, re-exported by it).
-import { declarationsOf } from "./stryker-ranges-money.mjs";
 
 /** The `takeover` shard of `stryker.config.mjs`, moved here to keep that file under its line limit (#1366). */
 export function takeoverShard() {
@@ -46,17 +45,7 @@ export function fenceWorkersShard() {
     mutate: [
       "src/app/remote/child-workers.ts",
       "src/app/remote/pre-held.ts",
-      ...declarationsOf(
-        "src/flow/runtime/step-frame.ts",
-        "stepFrameAt",
-        "takesSlot",
-        "subtreesOf",
-        "closesBranch",
-        "claimAt",
-        "cancelledWaiting",
-        "takeSlots",
-        "inTreeSlot",
-      ),
+      "src/flow/runtime/step-frame.ts",
     ],
   };
 }
@@ -68,33 +57,7 @@ export function fenceWorkersShard() {
 export function fenceConfigShard() {
   return {
     configFile: "vitest.mutation-fence-config.config.ts",
-    mutate: [
-      ...declarationsOf(
-        "src/application/implementations.ts",
-        "FENCING_CONTRACTS",
-        "CORE_LEASE_STORES",
-        "isOrExtends",
-        "uniqueClasses",
-        "backendOf",
-        "isOptedOut",
-        "storeOn",
-        "ambiguityOf",
-        "describedBackend",
-        "pairViolations",
-        "storeBackendViolations",
-        "listedOf",
-        "leaseStoreOf",
-        "hasTwoListed",
-        "notAtomicStoresOf",
-      ),
-      ...declarationsOf(
-        "src/application/retention.ts",
-        "ABOVE_THE_LEASE",
-        "MAX_RETENTION",
-        "retentionProblem",
-        "retentionViolations",
-      ),
-    ],
+    mutate: ["src/application/implementations.ts", "src/application/retention.ts"],
   };
 }
 
@@ -124,16 +87,7 @@ export function cancelPausesShard() {
       "src/app/pause-expiry.ts",
       "src/app/tree-end-pauses.ts",
       "src/flow/runtime/launch/withdrawn-pauses.ts",
-      ...declarationsOf(
-        "src/flow/runtime/pause.ts",
-        "sentBy",
-        "sendOnce",
-        "isDecidedByChannel",
-        "withoutAnswer",
-        "settledAnswer",
-        "openedPause",
-        "pauseStep",
-      ),
+      "src/flow/runtime/pause.ts",
     ],
   };
 }

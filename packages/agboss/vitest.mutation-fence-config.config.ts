@@ -13,7 +13,9 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/application/fence-config-units.test.ts",
+      "tests/application/implementations-units.test.ts",
       "tests/application/retention.test.ts",
+      "tests/application/retention-units.test.ts",
       "tests/application/store-backend-hints.test.ts",
       "tests/describe-application.test.ts",
     ],

@@ -216,6 +216,7 @@ type CheckedAsk =
  */
 function askOf(tool: AnyTool, args: Readonly<Record<string, unknown>>): CheckedAsk {
   const parsed = tool.input.safeParse(args);
+  // Stryker disable next-line StringLiteral: equivalent: the kind is only ever compared with "invalid", so any other text is the valid one
   if (parsed.success) return { kind: "valid", value: parsed.data as Record<string, unknown> };
   const issues = parsed.error.issues.map((issue) => `${pathOf(issue.path)}: ${issue.message}`);
   return { kind: "invalid", problem: `invalid input: ${issues.join("; ")}` };

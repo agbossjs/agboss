@@ -1,26 +1,6 @@
 // The `ledger-*` shards of #1366: the functions that write money — a spend into the ledger, a turn's cost, a
 // retention's cut of the ledger — in files with other code (split from stryker-ranges.mjs for max-lines).
-import { readFileSync } from "node:fs";
-import { declarationsOf } from "./stryker-ranges-money.mjs";
-
-const PACKAGE = new URL("../packages/agboss/", import.meta.url);
-
-/**
- * The methods `names` (`#call`, `execute`) of the class in `file` as Stryker ranges, found by name: from the
- * method's line to its closing brace at the class's indent, so a method is mutated without the rest of the
- * class and a fixed range never moves with the code above.
- */
-export function methodsOf(file, ...names) {
-  const lines = readFileSync(new URL(file, PACKAGE), "utf8").split("\n");
-  return names.map((name) => {
-    const head = new RegExp(`^ {2}(?:(?:public|protected|private|static|async) )*${name}[(<]`);
-    const start = lines.findIndex((line) => head.test(line));
-    if (start < 0) throw new Error(`${file}: method ${name} not found`);
-    const end = start + lines.slice(start).indexOf("  }");
-    if (end < start) throw new Error(`${file}: the end of method ${name} not found`);
-    return `${file}:${String(start + 1)}-${String(end + 1)}`;
-  });
-}
+import { wholeFile } from "./stryker-ranges-whole.mjs";
 
 /**
  * The `ledger-run` shard (#1366): how a run's spend reaches the ledger and its turn — the spend the run records
@@ -33,21 +13,15 @@ export function ledgerRunShard() {
     configFile: "vitest.mutation-ledger-run.config.ts",
     mutate: [
       // the turn's cost and its status, the spend of the paused loops recorded now, the run's end
-      ...declarationsOf("src/run/finish.ts", "outcomeOf", "endOf", "stoppedState", "finishRun"),
+      "src/run/finish.ts",
       // the spend a run records as it is made, and the spend a failed run's record carries
-      ...declarationsOf("src/run/run-agent.ts", "runOnce", "failureRecorded"),
+      "src/run/run-agent.ts",
       // one more pass: the spend before it is not recorded again, a failure's record carries the whole
-      ...declarationsOf("src/run/continue-run.ts", "continueRun"),
+      "src/run/continue-run.ts",
       // the spend a recovery starts from: the checkpoint's usage, or the first task's input
-      ...declarationsOf(
-        "src/run/continue-agent.ts",
-        "isInitialUnapplied",
-        "withInitial",
-        "initialOf",
-        "continueAgent",
-      ),
+      "src/run/continue-agent.ts",
       // the spend a resume starts from: every paused loop's and the free-text replies' (#267)
-      ...declarationsOf("src/run/resume-agent.ts", "pausedRun", "resumeAgent"),
+      "src/run/resume-agent.ts",
     ],
   };
 }
@@ -65,14 +39,7 @@ export function ledgerMemoryShard() {
       "src/run/compaction-parts.ts",
       // the model call and its record, the summary asked again shorter, the stored cost and the budget
       // left; what is due and what the model reads are not money
-      ...declarationsOf(
-        "src/run/compaction.ts",
-        "summaryCall",
-        "summaryOf",
-        "compactWithModel",
-        "compactOne",
-        "compactDue",
-      ),
+      "src/run/compaction.ts",
     ],
   };
 }
@@ -85,15 +52,7 @@ export function ledgerMemoryShard() {
 export function ledgerBranchShard() {
   return {
     configFile: "vitest.mutation-ledger-branch.config.ts",
-    mutate: [
-      ...declarationsOf(
-        "src/flow/runtime/launch/branch-runner.ts",
-        "answeredEnd",
-        "ran",
-        "ended",
-        "runBranch",
-      ),
-    ],
+    mutate: ["src/flow/runtime/launch/branch-runner.ts"],
   };
 }
 
@@ -105,13 +64,24 @@ export function ledgerA2aClientShard() {
   return {
     configFile: "vitest.mutation-ledger-a2a-client.config.ts",
     mutate: [
-      ...methodsOf("src/a2a/client/a2a-client.ts", "#call"),
-      ...declarationsOf(
-        "src/a2a/a2a-rules.ts",
-        "priceProblemOf",
-        "checkedPrice",
-        "priceViolations",
-      ),
+      "src/a2a/client/a2a-client.ts",
+      // the assembly's rules of a contract: the price is the one that is money; the names, descriptions and finish names are not
+      ...wholeFile("src/a2a/a2a-rules.ts", {
+        isClass:
+          "tells a class from a value in the providers' list; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        contractNameViolations:
+          "checks the suffix of an exposed class's name; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        startsOf:
+          "lists the workflow starts of the workflows; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        exposeViolations:
+          "checks an application's exposes are exposes, named once, described and exporting a start; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        providersOf:
+          "lists the classes the application and its workflows provide; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        problemsOf:
+          "names the finish names a target does not have; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        targetFinishesViolations:
+          "reports the finish names a target does not have; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+      }),
     ],
   };
 }
@@ -124,9 +94,6 @@ export function ledgerA2aClientShard() {
 export function ledgerRetentionShard() {
   return {
     configFile: "vitest.mutation-ledger-retention.config.ts",
-    mutate: [
-      ...declarationsOf("src/infrastructure/retention-sweep.ts", "expiriesOf", "removeExpired"),
-      ...declarationsOf("src/components/rag.ts", "reportRerankUsage", "searchTool"),
-    ],
+    mutate: ["src/infrastructure/retention-sweep.ts", "src/components/rag.ts"],
   };
 }
