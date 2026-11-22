@@ -9,6 +9,7 @@ import {
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
+import { modelPricesProblemOf } from "./cost.js";
 import { withFallbacks } from "./resolution.js";
 
 /**
@@ -118,5 +119,24 @@ export function providerTimeoutViolations(
     return problem === undefined
       ? []
       : [violation("limits.timeout-invalid", `${name} (${cls.name}): ${problem}`, [application])];
+  });
+}
+
+/**
+ * `[model.price-invalid]` (#1385) for every listed model provider and breaker fallback whose `from-prices`
+ * table holds a price that is no finite number of dollars from 0: `ModelCost` is a public union, so a literal
+ * never passes `ModelCost.fromPrices`. Names the provider, the field and the value's kind, never a model.
+ */
+export function providerPriceViolations(
+  application: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  return classes.flatMap((cls) => {
+    const { name, cost } = modelProviderOf(cls);
+    const problem = cost.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;
+    return problem === undefined
+      ? []
+      : [violation("model.price-invalid", `${name} (${cls.name}): ${problem}`, [application])];
   });
 }

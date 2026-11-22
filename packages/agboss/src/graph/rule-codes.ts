@@ -195,6 +195,7 @@ export type RuleCode =
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"
+  | "model.price-invalid"
   | "model-provider.both-modes"
   | "model-provider.circuit-breaker-required"
   | "model-provider.request-fields-missing"
@@ -238,6 +239,4 @@ export type RuleCode =
   // child placement (#333 PR 2): one placement per child in a flow
   | "flow.conflicting-placement"
   // an agent's files for its model (#899)
-  | FileRuleCode
-  | "pii.original-file"
-  | "pii.redacted-needs-kinds";
+  | FileRuleCode;

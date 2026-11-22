@@ -5,7 +5,9 @@
 import { describe, expect, it } from "vitest";
 import { FALLBACK_MARK } from "../../src/finops/fallback-mark.js";
 import { SERVED_BY_FIELD } from "../../src/finops/served-by.js";
+import { UnitError } from "../../src/units/index.js";
 import {
+  costOf,
   CostSource,
   InvalidToolCostError,
   ModelCostError,
@@ -145,7 +147,7 @@ describe("#1356: one model call's record", () => {
 
   it("tokens that price at no amount are never accounted", () => {
     const nan = { usage_metadata: { input_tokens: Number.NaN, output_tokens: 1 } };
-    const negative = { usage_metadata: { input_tokens: 1, output_tokens: 1 } };
+    const negative = { usage_metadata: { input_tokens: 1, output_tokens: -9 } };
 
     expect(() => recordUsage("writer", { model: "m/a", price }, nan)).toThrow(
       "writer: model m/a — its tokens price at no amount: NaN",
@@ -153,7 +155,7 @@ describe("#1356: one model call's record", () => {
     expect(() =>
       recordUsage(
         "writer",
-        { model: "m/a", price: { inputPerMTok: -9, outputPerMTok: 1 } },
+        { model: "m/a", price: { inputPerMTok: 1, outputPerMTok: 1 } },
         negative,
       ),
     ).toThrow("writer: model m/a — its tokens price at no amount: -0.000008");
@@ -196,5 +198,54 @@ describe("#1356: the cost a tool reports", () => {
       ...recordToolCost("lookup", 0.5),
       caller: "rag:kb",
     });
+  });
+});
+
+describe("#1385: a price that is no amount from 0 never costs a call", () => {
+  const FIELDS = [
+    "inputPerMTok",
+    "outputPerMTok",
+    "cacheReadPerMTok",
+    "cacheWritePerMTok",
+  ] as const;
+  const BAD = [-1, Number.NaN, Number.POSITIVE_INFINITY, "5", null, -0.000001];
+
+  it.each(BAD)("a %s price field throws before a cost is recorded", (value) => {
+    for (const field of FIELDS) {
+      const bad = { ...price, [field]: value };
+      expect(() => costOf(ZERO_USAGE, bad)).toThrow(UnitError);
+      expect(() => recordUsage("w", { model: "secret-model", price: bad }, tokens)).toThrow(
+        new RegExp(
+          `^\\[model\\.price-invalid\\] ${field} is .*, not a finite number of dollars from 0`,
+        ),
+      );
+      expect(() => recordUsage("w", { model: "secret-model", price: bad }, tokens)).not.toThrow(
+        /secret-model/,
+      );
+    }
+  });
+
+  it("a negative input price cannot offset a positive output price (the issue's $0.0005)", () => {
+    const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000 } };
+    expect(() =>
+      recordUsage("w", { model: "m", price: { inputPerMTok: -5, outputPerMTok: 1 } }, call),
+    ).toThrow(UnitError);
+  });
+
+  it("a missing input or output price throws, a missing cache price does not", () => {
+    expect(() => costOf(ZERO_USAGE, { outputPerMTok: 1 } as never)).toThrow(
+      /inputPerMTok is undefined/,
+    );
+    expect(() => costOf(ZERO_USAGE, { inputPerMTok: 1 } as never)).toThrow(
+      /outputPerMTok is undefined/,
+    );
+    expect(costOf(ZERO_USAGE, { inputPerMTok: 0, outputPerMTok: 0 })).toBe(0);
+    expect(costOf(ZERO_USAGE, { ...price, cacheReadPerMTok: 0, cacheWritePerMTok: 0 })).toBe(0);
+  });
+
+  it("names a value by its kind, never its text", () => {
+    expect(() => costOf(ZERO_USAGE, { ...price, inputPerMTok: "sk-secret" as never })).toThrow(
+      /inputPerMTok is a string,/,
+    );
   });
 });

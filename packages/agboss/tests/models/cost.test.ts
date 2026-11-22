@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { ModelCostError, recordUsage } from "../../src/finops/usage.js";
 import { ModelCost } from "../../src/models/index.js";
-import { costLabel, priceOf } from "../../src/models/cost.js";
+import {
+  costLabel,
+  modelPriceProblemOf,
+  modelPricesProblemOf,
+  priceOf,
+} from "../../src/models/cost.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
-import { usd } from "../../src/units/index.js";
+import { UnitError, usd } from "../../src/units/index.js";
 import {
   Priced,
   Summariser,
@@ -93,34 +98,65 @@ describe("AC6: limits per run use the providers' cost", () => {
   });
 });
 
-describe("#1382: a price table holds finite prices from 0", () => {
-  const table = (field: string, value: unknown) => ({
-    "local/llama": { inputPerMillion: usd(1), outputPerMillion: usd(2), [field]: value } as never,
+describe("#1382, #1385: a price table holds finite prices from 0", () => {
+  const entry = (field: string, value: unknown) =>
+    ({ inputPerMillion: usd(1), outputPerMillion: usd(2), [field]: value }) as never;
+  const table = (field: string, value: unknown) => ({ "local/llama": entry(field, value) });
+  const BAD = [-1, Number.NaN, Number.POSITIVE_INFINITY, "five", null, {}, -0.000001];
+  const FIELDS = ["inputPerMillion", "outputPerMillion", "cachedInputPerMillion"];
+
+  it.each(BAD)("a %s price is refused when the table is made, naming the field only", (value) => {
+    for (const field of FIELDS) {
+      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(UnitError);
+      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(
+        new RegExp(
+          `^\\[model\\.price-invalid\\] ${field} is .*, not a finite number of dollars from 0`,
+        ),
+      );
+    }
   });
 
-  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, "five", null, {}])(
-    "a %s price is refused, naming the model and the field",
-    (value) => {
-      for (const field of ["inputPerMillion", "outputPerMillion", "cachedInputPerMillion"]) {
-        expect(() => ModelCost.fromPrices(table(field, value))).toThrow(
-          new RegExp(`ModelCost.fromPrices: local/llama.${field} must be a finite number`),
-        );
+  it("names a value by its kind, never its text, and never the model", () => {
+    const message = (build: () => unknown): string => {
+      try {
+        build();
+      } catch (error) {
+        return (error as Error).message;
       }
-    },
-  );
-
-  it("names a value by its kind, never its text", () => {
-    let message = "";
-    try {
-      ModelCost.fromPrices(table("inputPerMillion", "sk-secret-text"));
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    expect(message).not.toContain("sk-secret");
-    expect(() => ModelCost.fromPrices(table("inputPerMillion", "sk-secret-text"))).toThrow(
-      /got a string/,
+      return "";
+    };
+    const secret = message(() => ModelCost.fromPrices(table("inputPerMillion", "sk-secret-text")));
+    expect(secret).toBe(
+      "[model.price-invalid] inputPerMillion is a string, not a finite number of dollars from 0 (usd(...))",
     );
-    expect(() => ModelCost.fromPrices(table("inputPerMillion", -1))).toThrow(/got -1/);
+    expect(secret).not.toContain("llama");
+    expect(message(() => ModelCost.fromPrices(table("inputPerMillion", -1)))).toContain("is -1,");
+    expect(message(() => ModelCost.fromPrices(table("inputPerMillion", {})))).toContain(
+      "is an object,",
+    );
+  });
+
+  it("a missing input or output price is refused, a missing cached price is not", () => {
+    expect(() => ModelCost.fromPrices({ m: { outputPerMillion: usd(1) } as never })).toThrow(
+      /inputPerMillion is undefined/,
+    );
+    expect(() => ModelCost.fromPrices({ m: { inputPerMillion: usd(1) } as never })).toThrow(
+      /outputPerMillion is undefined/,
+    );
+    expect(() =>
+      ModelCost.fromPrices({ m: { inputPerMillion: usd(1), outputPerMillion: usd(1) } }),
+    ).not.toThrow();
+  });
+
+  it("an entry that is no object, and a table that is none, are refused", () => {
+    expect(() => ModelCost.fromPrices({ m: null as never })).toThrow(
+      /a price table entry is null, not a price object/,
+    );
+    expect(() => ModelCost.fromPrices({ m: "x" as never })).toThrow(/entry is a string/);
+    expect(() => ModelCost.fromPrices(null as never)).toThrow(
+      /the price table is null, not an object of prices/,
+    );
+    expect(() => ModelCost.fromPrices("x" as never)).toThrow(/the price table is a string/);
   });
 
   it("takes 0 and an absent cached price", () => {
@@ -133,5 +169,77 @@ describe("#1382: a price table holds finite prices from 0", () => {
       outputPerMTok: 2,
       cacheReadPerMTok: 0,
     });
+    expect(priceOf(cost, "a/b")).toEqual({ inputPerMTok: 0, outputPerMTok: 0 });
+  });
+
+  it("the table keeps its own frozen copy of each entry: the caller's object cannot change it", () => {
+    const mine = { inputPerMillion: usd(1), outputPerMillion: usd(2), extra: "x" };
+    const cost = ModelCost.fromPrices({ m: mine });
+    (mine as { inputPerMillion: number }).inputPerMillion = -5;
+    expect(priceOf(cost, "m")).toEqual({ inputPerMTok: 1, outputPerMTok: 2 });
+    if (cost.kind !== "from-prices") throw new Error("not a table");
+    expect(Object.isFrozen(cost.prices)).toBe(true);
+    expect(Object.isFrozen(cost.prices.m)).toBe(true);
+    expect(cost.prices.m).not.toBe(mine);
+    expect(cost.prices.m).toEqual({ inputPerMillion: 1, outputPerMillion: 2 });
+    expect(Object.keys(cost.prices.m as object)).toEqual(["inputPerMillion", "outputPerMillion"]);
+    expect(() => {
+      (cost.prices.m as { inputPerMillion: number }).inputPerMillion = -5;
+    }).toThrow(TypeError);
+  });
+
+  it("a literal ModelCost with a bad price is refused at its use, before any cost", () => {
+    for (const value of BAD) {
+      for (const field of FIELDS) {
+        const literal: ModelCost = { kind: "from-prices", prices: table(field, value) };
+        expect(() => priceOf(literal, "local/llama")).toThrow(UnitError);
+        expect(() => priceOf(literal, "local/llama")).toThrow(
+          new RegExp(`^\\[model\\.price-invalid\\] ${field} is `),
+        );
+        expect(priceOf(literal, "other/model")).toBeUndefined();
+      }
+    }
+  });
+
+  it("the issue's repro: a negative input price never lowers a recorded cost", () => {
+    const literal: ModelCost = {
+      kind: "from-prices",
+      prices: { m: { inputPerMillion: -5 as never, outputPerMillion: usd(1) } },
+    };
+    const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000, total_tokens: 1100 } };
+    expect(() => recordUsage("w", { model: "m", price: priceOf(literal, "m") }, call)).toThrow(
+      UnitError,
+    );
+  });
+
+  it("a table changed after it was checked is refused at its next use", () => {
+    const mutable = { m: { inputPerMillion: usd(1), outputPerMillion: usd(1) } };
+    const literal: ModelCost = { kind: "from-prices", prices: mutable };
+    expect(priceOf(literal, "m")).toEqual({ inputPerMTok: 1, outputPerMTok: 1 });
+    (mutable.m as { inputPerMillion: number }).inputPerMillion = -5;
+    expect(() => priceOf(literal, "m")).toThrow(/\[model\.price-invalid\] inputPerMillion is -5,/);
+  });
+
+  it("a literal whose table is none is refused at its use", () => {
+    expect(() => priceOf({ kind: "from-prices", prices: null as never }, "m")).toThrow(
+      /\[model\.price-invalid\] the price table is null, not an object of prices/,
+    );
+  });
+
+  it("only a model the table lists has a price: a name of Object.prototype has none", () => {
+    const cost = ModelCost.fromPrices({ m: { inputPerMillion: usd(1), outputPerMillion: usd(1) } });
+    expect(priceOf(cost, "constructor")).toBeUndefined();
+    expect(priceOf(cost, "toString")).toBeUndefined();
+  });
+
+  it("modelPricesProblemOf is none for a good table and the first problem otherwise", () => {
+    expect(modelPricesProblemOf({})).toBeUndefined();
+    expect(modelPriceProblemOf({ inputPerMillion: 0, outputPerMillion: 0 })).toBeUndefined();
+    expect(
+      modelPricesProblemOf({
+        a: { inputPerMillion: 1, outputPerMillion: 1 },
+        b: { inputPerMillion: 1, outputPerMillion: -1 },
+      }),
+    ).toMatch(/^outputPerMillion is -1,/);
   });
 });
