@@ -121,8 +121,8 @@ function componentOf(
 ): Component {
   const members = new Set(nodes);
   const inner = edges.filter((edge) => members.has(edge.from) && members.has(edge.to));
-  // a cycle is two nodes or more, or one with an edge to itself: every edge inside a single node is one
-  if (nodes.length === 1 && inner.length === 0)
+  // a component with no edge inside it is one node that is no cycle; any other is a cycle (two nodes or more, or one with an edge to itself)
+  if (inner.length === 0)
     return {
       nodes,
       // Stryker disable next-line StringLiteral: equivalent: the text only names the invariant of an error that cannot happen

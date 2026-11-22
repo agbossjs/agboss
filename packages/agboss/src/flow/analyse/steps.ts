@@ -68,7 +68,8 @@ function shortest(
     changed = false;
     for (const { from, to, weight } of edges) {
       const via = (distances.get(from) ?? Infinity) + weight;
-      if (via >= (distances.get(to) ?? Infinity)) continue;
+      // a weight that is no number (NaN) never improves a distance, so the walk ends
+      if (!(via < (distances.get(to) ?? Infinity))) continue;
       distances.set(to, via);
       changed = true;
     }
