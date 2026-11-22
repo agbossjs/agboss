@@ -28,6 +28,30 @@ describe("validateAgentsConfig", () => {
     expect(validateAgentsConfig(config).agents).toEqual({});
   });
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -0.5, "five", null])(
+    "#1382: rejects a price field of %s (input, output, cache read, cache write)",
+    (value) => {
+      for (const field of [
+        "inputPerMTok",
+        "outputPerMTok",
+        "cacheReadPerMTok",
+        "cacheWritePerMTok",
+      ]) {
+        const config: AgentsConfigOf<string> = {
+          ...testConfig,
+          agents: {
+            alpha: {
+              ...testConfig.agents.alpha,
+              price: { inputPerMTok: 1, outputPerMTok: 2, [field]: value },
+            },
+          },
+        };
+
+        expect(() => validateAgentsConfig(config)).toThrow();
+      }
+    },
+  );
+
   it("rejects a negative price", () => {
     const config: AgentsConfigOf<string> = {
       ...testConfig,

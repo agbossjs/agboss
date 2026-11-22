@@ -109,6 +109,8 @@ export type RuleCode =
   | "a2a.file-store-not-shared"
   | "a2a.nested-file-field"
   | "a2a.unknown-finish"
+  // an @A2AAgent price that is no finite number of dollars from 0 (#1382)
+  | "a2a.price-invalid"
   | "application.outbound-calls-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"

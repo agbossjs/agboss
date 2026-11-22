@@ -180,7 +180,9 @@ export function chargeOf(
   alreadyCharged: number,
 ): { readonly application: string; readonly cost: number } | undefined {
   const reported = report === undefined ? 0 : (dollarsOf(report.spend.total) ?? 0);
-  const cost = Math.max(reported, contract?.price ?? 0) - alreadyCharged;
+  // a price or a charge that is no amount (a negative or NaN one) would raise or hide the charge: it throws, never counts (#1382)
+  const priced = contract === undefined ? 0 : usd(contract.price);
+  const cost = Math.max(reported, priced) - usd(alreadyCharged);
   const application = report?.issuer ?? contract?.application;
   return application === undefined || cost <= 0 ? undefined : { application, cost };
 }

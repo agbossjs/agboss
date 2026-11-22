@@ -104,7 +104,15 @@ export function ledgerBranchShard() {
 export function ledgerA2aClientShard() {
   return {
     configFile: "vitest.mutation-ledger-a2a-client.config.ts",
-    mutate: methodsOf("src/a2a/client/a2a-client.ts", "#call"),
+    mutate: [
+      ...methodsOf("src/a2a/client/a2a-client.ts", "#call"),
+      ...declarationsOf(
+        "src/a2a/a2a-rules.ts",
+        "priceProblemOf",
+        "checkedPrice",
+        "priceViolations",
+      ),
+    ],
   };
 }
 

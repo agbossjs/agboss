@@ -196,7 +196,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     taskId: string | undefined,
     call: A2AClientCall,
   ): Promise<Settled> {
-    const key = checkedCall(this.#agent, call);
+    const key = checkedCall(this.#agent, call, this.contract?.price);
     const wire = await this.#wire(call.signal);
     const { activation, skill } = activatedMeshOf(wire, {
       agent: this.#agent,
