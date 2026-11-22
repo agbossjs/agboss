@@ -106,5 +106,14 @@
     "anchor": "reranker === undefined || reranker.decidedBy",
     "kind": "runtime-error",
     "reason": "the check that a base has a reranker is always false: the assembly of an application with a knowledge base that does not rerank reads `reranker.decidedBy` of undefined while `tests/rag/tenant-isolation.test.ts` builds it outside any test, an error Stryker counts as an error, not a kill; the unit test of `rerankerModelsOf` (`tests/rag/ledger-rag-meta.test.ts`) fails on it; run alone: the same"
+  },
+  {
+    "shard": "ledger-branch",
+    "file": "src/flow/runtime/launch/branch-runner.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "const ticket = branchTicketOf(state);",
+    "kind": "wall-clock",
+    "reason": "the branch node's body is emptied, so a branch never answers and its launch never joins: a launch test that runs the whole graph does not end, and vitest's testTimeout does not end it; run alone with a limit of 300 s (25 x the shard's whole run) the shard's tests did not finish; a run in which a unit test of the node fails first reads the mutant as Killed (told, not failed)"
   }
 ]
