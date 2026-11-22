@@ -1,3 +1,5 @@
+import { isFiniteNumber } from "../graph/count-limit.js";
+import { checkedPrice } from "../models/cost.js";
 import type { Price, ResolvedModelSettings } from "../config/types.js";
 import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
@@ -114,7 +116,8 @@ export function extractTokenUsage(message: UsageCarrier): TokenUsage {
   };
 }
 
-export function costOf(usage: TokenUsage, price: Price): number {
+export function costOf(usage: TokenUsage, unchecked: Price): number {
+  const price = checkedPrice(unchecked);
   const uncached = Math.max(0, usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens);
   const readPrice = price.cacheReadPerMTok ?? price.inputPerMTok;
   const writePrice = price.cacheWritePerMTok ?? price.inputPerMTok;
@@ -129,8 +132,6 @@ export function costOf(usage: TokenUsage, price: Price): number {
 export class ModelCostError extends Error {
   override name = "ModelCostError";
 }
-
-const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value);
 
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
 export function reportedCostOf(message: UsageCarrier): number | undefined {
