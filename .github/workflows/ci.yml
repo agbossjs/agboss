@@ -271,12 +271,13 @@ jobs:
         if: matrix.shard == 'stream'
         run: npm run test:mutation -w @agboss/cli
       # #1367: a Timeout counts as killed, and a survivor whose run outlasts Stryker's limit reads as one:
-      # timeoutMS is above each shard's whole run (stryker.config.mjs), so a Timeout left must be a proven hang
+      # timeoutMS is above each shard's whole run (stryker.config.mjs), so a Timeout left must be a proven hang;
+      # one that is not listed is run again alone (agbossjs/mongodb#103: a loaded runner moves it between mutants)
       - name: No Timeout that is not a proven hang (#1367)
-        run: node scripts/stryker-timeouts.mjs packages/agboss/reports/mutation/${{ matrix.shard }}.json
+        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss packages/agboss/reports/mutation/${{ matrix.shard }}.json
       - name: No Timeout that is not a proven hang, the CLI's stream path (#1367)
         if: matrix.shard == 'stream'
-        run: node scripts/stryker-timeouts.mjs packages/agboss-cli/reports/mutation/cli-stream.json
+        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss-cli packages/agboss-cli/reports/mutation/cli-stream.json
       - if: always()
         uses: actions/upload-artifact@v4
         with:
