@@ -279,7 +279,7 @@ describe("#1366: the reranker bound to a knowledge base", () => {
       onFailure: RerankFailurePolicy.Fallback,
       source: { kind: "model" },
     });
-    const source = out?.source as never as { binding: () => unknown };
+    const source = out?.source as { binding: () => unknown };
     expect(source.binding()).toEqual({ name: "model-reranker", model: "cheap" });
   });
 
@@ -290,10 +290,10 @@ describe("#1366: the reranker bound to a knowledge base", () => {
     };
     const rerankModel = vi.fn(() => "bound");
 
-    const withGateway = bound(DocsRag, { rerankModel })?.source as never as {
+    const withGateway = bound(DocsRag, { rerankModel })?.source as {
       binding: () => unknown;
     };
-    const without = bound(DocsRag)?.source as never as { binding: () => unknown };
+    const without = bound(DocsRag)?.source as { binding: () => unknown };
     withGateway.binding();
 
     expect(rerankModel).toHaveBeenCalledWith("model-reranker", DEFAULT_RERANKER_MODEL);
@@ -318,7 +318,7 @@ describe("#1366: the reranker bound to a knowledge base", () => {
       onFailure: RerankFailurePolicy.FailStep,
       source: { kind: "code" },
     });
-    expect((out?.source as never as { instance: () => unknown }).instance()).toEqual({
+    expect((out?.source as { instance: () => unknown }).instance()).toEqual({
       instanceOf: CodeReranker,
     });
   });

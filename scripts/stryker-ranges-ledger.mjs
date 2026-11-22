@@ -65,18 +65,14 @@ export function ledgerA2aClientShard() {
     configFile: "vitest.mutation-ledger-a2a-client.config.ts",
     mutate: [
       "src/a2a/client/a2a-client.ts",
-      // the assembly's rules of a contract: the price is the one that is money; the names, descriptions and finish names are not
+      // the assembly's rules of a contract: the price is the one that is money, and the choice of the agents whose price is checked (the providers' list) is mutated with it; what is left out is names, descriptions and finish names
       ...wholeFile("src/a2a/a2a-rules.ts", {
-        isClass:
-          "tells a class from a value in the providers' list; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         contractNameViolations:
           "checks the suffix of an exposed class's name; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         startsOf:
           "lists the workflow starts of the workflows; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         exposeViolations:
           "checks an application's exposes are exposes, named once, described and exporting a start; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
-        providersOf:
-          "lists the classes the application and its workflows provide; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         problemsOf:
           "names the finish names a target does not have; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         targetFinishesViolations:

@@ -5,7 +5,7 @@
  * only when one exists, and a `Required` call inside an execution that has none is refused; the price is charged once
  * as the service `a2a:<who>` under its ledger identity, and a completed task with no report is said so.
  */
-import { HTTP_EXTENSION_HEADER, TaskState, type AgentCard, type Message } from "@a2a-js/sdk";
+import { HTTP_EXTENSION_HEADER, Role, TaskState, type AgentCard, type Message } from "@a2a-js/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { A2AMesh, A2AMeshUnsupportedError } from "../../../src/a2a/client/a2a-guard-errors.js";
 import {
@@ -48,7 +48,16 @@ const charged: A2ACharged = {
   taskId: "task-1",
   now: new Date("2030-01-01T00:05:00.000Z"),
 };
-const message = { messageId: "m1", role: 1, parts: [] } as never as Message;
+const message: Message = {
+  messageId: "m1",
+  contextId: "",
+  taskId: "",
+  role: Role.ROLE_USER,
+  parts: [],
+  metadata: undefined,
+  extensions: [],
+  referenceTaskIds: [],
+};
 
 beforeEach(() => {
   vi.resetAllMocks();

@@ -134,7 +134,7 @@ describe("#1356: a call's price", () => {
     skill: undefined,
     mesh: A2AMesh.IfSupported,
   });
-  const card = { capabilities: {} } as never as AgentCard;
+  const card = { capabilities: {} } as AgentCard;
   const peer = { kind: "foreign" } as never;
 
   const chargedFor = async (price: number | undefined, application: string | undefined) => {

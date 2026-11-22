@@ -8,6 +8,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../../src/app/app-deps.js";
 import { markTreeUnwinding, unwoundTree } from "../../../src/app/compensation/root-unwind.js";
+import type { ApplicationBudgets } from "../../../src/budgets/budget-check.js";
+import { CompensationRegistry } from "../../../src/flow/runtime/compensation/registry.js";
+import type { RuntimeGraph, RuntimeNode } from "../../../src/flow/runtime/graph-model.js";
+import type { TurnRecords } from "../../../src/turns/index.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import {
   COMPENSATION_TIMEOUT,
@@ -84,31 +88,49 @@ interface DepsOptions {
 function depsOf(options: DepsOptions) {
   const trees = new InMemoryExecutionTreeRepository(new InMemoryDatabase());
   const ledger = new InMemoryCostLedgerRepository();
-  const childDeps =
+  const graphOf = (nodes: readonly object[], prefix: string) => {
+    const graph: Partial<RuntimeGraph> = {
+      nodes: new Map(nodes.map((node, i) => [`${prefix}${String(i)}`, node as RuntimeNode])),
+    };
+    return graph as RuntimeGraph;
+  };
+  const childParts: Partial<AppDeps> | undefined =
     options.child === undefined
       ? undefined
       : {
-          config: { name: "child-workflow" },
-          graph: { nodes: new Map(options.child.map((node, i) => [`c${String(i)}`, node])) },
+          config: { name: "child-workflow" } as AppDeps["config"],
+          graph: graphOf(options.child, "c"),
         };
-  const deps = {
-    config: { name: "desk-workflow" },
-    graph: { nodes: new Map(options.nodes.map((node, i) => [`n${String(i)}`, node])) },
-    childDepsOf: (component: unknown) => (component === "child" ? childDeps : undefined),
-    pause: options.pause === false ? undefined : { checkpointer: {} },
-    budgets: options.budgets === true ? { ledger, clock: new VirtualClock() } : undefined,
+  const budgets: ApplicationBudgets = {
+    budgets: [],
+    applicationName: "app",
+    resolve: () => {
+      throw new Error("no budget handler is resolved");
+    },
+    ledger,
+    clock: new VirtualClock(),
+  };
+  const turns: Partial<TurnRecords> = {
+    threadOwner: () =>
+      Promise.resolve(options.owner === undefined ? undefined : { owner: options.owner }),
+  };
+  const wired: Partial<AppDeps> = {
+    config: { name: "desk-workflow" } as AppDeps["config"],
+    graph: graphOf(options.nodes, "n"),
+    childDepsOf: (component: unknown) =>
+      component === "child" ? (childParts as AppDeps | undefined) : undefined,
+    pause: options.pause === false ? undefined : ({ checkpointer: {} } as AppDeps["pause"]),
+    budgets: options.budgets === true ? budgets : undefined,
     compensation:
       options.compensation === false
         ? undefined
-        : { timeout: seconds(4), registry: { entriesOf: () => [] }, trees },
-    turns: {
-      threadOwner: () =>
-        Promise.resolve(options.owner === undefined ? undefined : { owner: options.owner }),
-    },
-    observer: {},
+        : { timeout: seconds(4), registry: new CompensationRegistry(), trees },
+    turns: turns as TurnRecords,
+    observer: {} as AppDeps["observer"],
     stepEntries: undefined,
     clock: new VirtualClock(),
-  } as never as AppDeps;
+  };
+  const deps = wired as AppDeps;
   return { deps, trees, ledger };
 }
 

@@ -56,6 +56,8 @@ for (const dir of DIRS) {
         if (/@ts-(ignore|nocheck)/.test(line)) add(`${area} @ts-ignore`);
         if (/\bas any\b/.test(line)) add(`${area} as any`);
         if (/\bas unknown as\b/.test(line)) add(`${area} as unknown as`);
+        // the same escape through `never` (#1366): `x as never as T` is `x as unknown as T`
+        if (/\bas never as\b/.test(line)) add(`${area} as never as`);
       });
   }
 }

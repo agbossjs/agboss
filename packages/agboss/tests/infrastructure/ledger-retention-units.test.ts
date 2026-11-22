@@ -53,7 +53,7 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     ledgerEntryRetention: milliseconds(7000),
     ...changes,
   };
-  return { sources: sources as never as RetentionSources, pauses, ledgerOwn, stores };
+  return { sources: sources as RetentionSources, pauses, ledgerOwn, stores };
 };
 
 const sweep = (sources: RetentionSources) => {

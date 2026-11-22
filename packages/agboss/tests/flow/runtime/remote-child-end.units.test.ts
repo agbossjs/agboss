@@ -4,10 +4,12 @@
  * already (once, #685) before the parent's state shows it, and the end announced only by a pass that saw the
  * child end (#562). The queue is a script, the clock a hand, the budgets a spy.
  */
-import { MemorySaver } from "@langchain/langgraph";
+import { MemorySaver, type BaseCheckpointSaver, type StateSnapshot } from "@langchain/langgraph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { recordToolCost, type UsageRecord } from "../../../src/finops/usage.js";
 import { LedgerState } from "../../../src/finops/ledger-mark.js";
+import { trivialExecutionGraph } from "./fixtures/execution-graph.js";
+import type { Milliseconds } from "../../../src/units/index.js";
 import type { ExecutionGraph } from "../../../src/flow/runtime/build.js";
 import {
   remoteChildEndOf,
@@ -74,11 +76,44 @@ function queueOf(reads: readonly (QueuedChildExecution | undefined)[], isSaved =
   return { queue, saved, reads: () => read };
 }
 
-const graphOf = (values: unknown, tasks: readonly unknown[] = []) =>
-  ({
-    checkpointer: new MemorySaver(),
-    getState: () => Promise.resolve({ values, tasks }),
-  }) as never as ExecutionGraph;
+/** A real graph over its own checkpointer whose state read answers `values` and `tasks`. */
+const graphOf = (values: unknown, tasks: StateSnapshot["tasks"] = []): ExecutionGraph => {
+  const graph = trivialExecutionGraph();
+  vi.spyOn(graph, "getState").mockResolvedValue({ values, next: [], config: {}, tasks });
+  return graph;
+};
+
+/** The parts of a child's site that `remoteChildEndOf` reads: what the test fakes is left as `object` or `unknown`. */
+interface RemoteSiteRead {
+  readonly children: {
+    readonly queue: unknown;
+    readonly rateLimits: object;
+    readonly clock: {
+      readonly now: () => Date;
+      readonly sleep: (delay: Milliseconds, signal?: AbortSignal) => Promise<void>;
+    };
+    readonly yieldWhile?: RemoteChildSite["children"]["yieldWhile"];
+  };
+  readonly checkpointer: BaseCheckpointSaver;
+  readonly tenantId: string;
+  readonly executionId: string;
+  readonly rootExecutionId: string;
+  readonly parentExecutionId: string;
+  readonly rootWorkflow: string;
+  readonly workflow: string;
+  readonly depth: number;
+  readonly node: string;
+  readonly isRecursive: boolean;
+  readonly run: {
+    readonly thread: string;
+    readonly threadId: string;
+    readonly input: object;
+    readonly parent: object;
+    readonly piiPolicies: readonly string[];
+    readonly initial: object;
+  };
+  readonly signal: AbortSignal;
+}
 
 function siteOf(
   queue: unknown,
@@ -92,7 +127,7 @@ function siteOf(
       return sleeps > 200 ? Promise.reject(new Error("slept endlessly")) : Promise.resolve();
     }),
   };
-  const site = {
+  const read: RemoteSiteRead = {
     children: { queue, rateLimits: {}, clock, yieldWhile: options.yieldWhile },
     checkpointer: new MemorySaver(),
     tenantId: "acme",
@@ -113,7 +148,8 @@ function siteOf(
       initial: { child: { inheritedUsage: 1 } },
     },
     signal: options.signal ?? new AbortController().signal,
-  } as never as RemoteChildSite;
+  };
+  const site = read as RemoteChildSite;
   return { site, clock };
 }
 
@@ -444,8 +480,12 @@ describe("#1366: the watch a waiting parent opens on its child", () => {
 });
 
 describe("#1366: a child that rests at a pause", () => {
-  const openAt = (...ids: (string | undefined)[]) => [
-    { id: "task-1", interrupts: ids.map((id) => ({ id, value: 1 })) },
+  const openAt = (...ids: (string | undefined)[]): StateSnapshot["tasks"] => [
+    {
+      id: "task-1",
+      name: "child-node",
+      interrupts: ids.map((id) => (id === undefined ? { value: 1 } : { id, value: 1 })),
+    },
   ];
   const answered = (resume: Record<string, string>) => {
     interrupts.values.length = 0;
@@ -508,9 +548,9 @@ describe("#1366: a child that rests at a pause", () => {
       rowIn(ExecutionRecordStatus.Paused),
       rowIn(ExecutionRecordStatus.Answered),
     ]);
-    const tasks = [
-      { id: "task-0", interrupts: [] },
-      { id: "task-1", interrupts: [{ id: "int-1", value: 1 }] },
+    const tasks: StateSnapshot["tasks"] = [
+      { id: "task-0", name: "child-node", interrupts: [] },
+      { id: "task-1", name: "child-node", interrupts: [{ id: "int-1", value: 1 }] },
     ];
 
     await remoteChildEndOf(graphOf({ usage: [] }, tasks), {}, siteOf(queue).site, undefined);

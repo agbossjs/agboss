@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
+import type { ExecutionStateType } from "../../../src/flow/runtime/state.js";
 import { countedServiceSpend } from "../../../src/flow/runtime/limits.js";
 import {
   branchFrameOf,
@@ -202,11 +203,18 @@ describe("#1366: the state one branch runs on", () => {
 describe("#1366: the deadline of the quorum a branch runs in", () => {
   const AT = Date.parse("2030-01-01T00:10:00.000Z");
   const OWN = "2030-01-01T00:10:00.040Z";
-  const stateWith = (quorumDeadlineAt?: string) =>
-    ({
+  const TENANT = { tenantId: "t1", weight: 1 };
+  const stateWith = (quorumDeadlineAt?: string) => {
+    const read: Pick<ExecutionStateType, "runId" | "contexts"> = {
       runId: "run-1",
-      contexts: { tenant: "t1", ...(quorumDeadlineAt === undefined ? {} : { quorumDeadlineAt }) },
-    }) as never as Parameters<typeof withQuorumDeadline>[0];
+      contexts: {
+        tenant: TENANT,
+        execution: {},
+        ...(quorumDeadlineAt === undefined ? {} : { quorumDeadlineAt }),
+      },
+    };
+    return read as Parameters<typeof withQuorumDeadline>[0];
+  };
 
   it("a branch of a quorum with no deadline runs on the state it was given", () => {
     const given = stateWith();
@@ -217,7 +225,7 @@ describe("#1366: the deadline of the quorum a branch runs in", () => {
   it("is the ticket's deadline moved by the time its branches waited in the tree's queue", () => {
     const view = withQuorumDeadline(stateWith(), AT, 40);
 
-    expect(view.contexts).toEqual({ tenant: "t1", quorumDeadlineAt: OWN });
+    expect(view.contexts).toEqual({ tenant: TENANT, execution: {}, quorumDeadlineAt: OWN });
     expect(view.runId).toBe("run-1");
   });
 

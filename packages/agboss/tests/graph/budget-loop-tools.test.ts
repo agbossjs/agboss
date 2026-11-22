@@ -386,7 +386,7 @@ describe("#1366: what a guarded call gives, with what its guardrails spent", () 
     ...changes,
   });
   const guardedOf = () =>
-    vi.mocked(storedCallOf).mock.calls[0]?.[2] as never as {
+    vi.mocked(storedCallOf).mock.calls[0]?.[2] as {
       closed: Record<string, unknown>;
       step: unknown;
       output?: unknown;

@@ -4,7 +4,10 @@
  * build refuses the value itself (`[limits.count-invalid]`), and a run that got past it refuses the node on its
  * first visit. The two agree, and fail closed.
  */
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { BudgetMeter } from "../../../src/budgets/execution-budgets.js";
+import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
+import { VirtualClock } from "../../../src/testing/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -87,10 +90,15 @@ describe("#1365, #1373: maxVisits null, at build time and at run time", () => {
     const graph = runtimeGraphOf(analysis, [], NullBoundLoopWorkflow);
     const node = graph.nodes.get("null-bound-edit-agent");
     if (node === undefined) throw new Error("no null-bound-edit-agent node");
-    const limits = {
+    const limits: ExecutionLimits = {
       maxSteps: 10,
-      budgets: { refresh: vi.fn(() => Promise.resolve()), check: vi.fn(), tally: vi.fn() },
-    } as never as ExecutionLimits;
+      budgets: new BudgetMeter(
+        [],
+        new InMemoryCostLedgerRepository(),
+        new VirtualClock(new Date("2026-11-04T12:00:00.000Z")),
+        0,
+      ),
+    };
     const state = {
       path: ["start"],
       usage: [],

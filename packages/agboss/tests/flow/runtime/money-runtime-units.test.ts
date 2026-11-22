@@ -7,6 +7,9 @@
  */
 import { GraphInterrupt } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
+import { BudgetMeter } from "../../../src/budgets/execution-budgets.js";
+import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
+import { VirtualClock } from "../../../src/testing/index.js";
 import { ApplicationStoppingError, ExecutionCancelledError } from "../../../src/core/errors.js";
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
@@ -80,17 +83,22 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
 
 const limitsOf = (maxSteps = 10) => {
   const calls: string[] = [];
-  const budgets = {
-    refresh: vi.fn(() => {
-      calls.push("refresh");
-      return Promise.resolve();
-    }),
-    check: vi.fn((..._args: unknown[]) => {
-      calls.push("check");
-    }),
-    tally: vi.fn((records: readonly UsageRecord[]) => records),
-  };
-  return { limits: { maxSteps, budgets } as never as ExecutionLimits, budgets, calls };
+  const budgets = new BudgetMeter(
+    [],
+    new InMemoryCostLedgerRepository(),
+    new VirtualClock(new Date("2026-11-04T12:00:00.000Z")),
+    0,
+  );
+  const refresh = vi.spyOn(budgets, "refresh").mockImplementation(() => {
+    calls.push("refresh");
+    return Promise.resolve();
+  });
+  const check = vi.spyOn(budgets, "check").mockImplementation(() => {
+    calls.push("check");
+  });
+  const tally = vi.spyOn(budgets, "tally").mockImplementation((records) => records);
+  const limits: ExecutionLimits = { maxSteps, budgets };
+  return { limits, budgets: { refresh, check, tally }, calls };
 };
 
 const visit = (state: never, target: never, limits: ExecutionLimits) =>
