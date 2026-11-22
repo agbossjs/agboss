@@ -1,5 +1,5 @@
-import { STEPS_PER_WORKING_NODE } from "../../graph/limits.js";
 import { NodeKind } from "../ast.js";
+import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
 import type { Class } from "../../components/injection.js";
 import { declarationOf } from "../decorators/declaration.js";
@@ -60,15 +60,6 @@ export interface WorstCaseChild {
   readonly isRecursive: boolean;
   /** The child's worst start. */
   readonly worst: WorstCase;
-}
-
-/** `maxSteps`, else its default: (agents + routers) × 3. */
-export function maxStepsOf(graph: FlowGraph, maxSteps: number | undefined): number {
-  if (maxSteps !== undefined) return maxSteps;
-  const working = [...graph.nodes.values()].filter(
-    (node) => node.kind === NodeKind.Agent || node.kind === NodeKind.Router,
-  ).length;
-  return working * STEPS_PER_WORKING_NODE;
 }
 
 /** The launches an execution from `start` can reach. */

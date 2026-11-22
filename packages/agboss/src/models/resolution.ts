@@ -27,11 +27,16 @@ import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "./workflow-models.js";
  * of them by `serves` — at assembly, before any model call.
  */
 
+/** The `@ModelProvider` classes an application lists in its providers: none when it lists none. */
+export const listedModelProvidersOf = (
+  providers: readonly Provider[] | undefined,
+): readonly ModelProviderType[] => (providers ?? []).filter(isModelProviderClass);
+
 /** The `@ModelProvider` classes listed in an application's providers, else the built-ins. */
 export function modelProvidersOf(
   providers: readonly Provider[] | undefined,
 ): readonly ModelProviderType[] {
-  const listed = (providers ?? []).filter(isModelProviderClass);
+  const listed = listedModelProvidersOf(providers);
   return listed.length === 0 ? DEFAULT_MODEL_PROVIDERS : listed;
 }
 

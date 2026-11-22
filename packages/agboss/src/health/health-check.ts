@@ -228,5 +228,5 @@ export function healthCheckRuleViolations(options: HealthCheckList): RuleViolati
 }
 
 /** The listed classes the container creates: the decorated ones (the others fail the rules above). */
-export const decoratedHealthChecksOf = (checks: readonly Class[] | undefined): readonly Class[] =>
-  (checks ?? []).filter((cls) => healthCheckOf(cls) !== undefined);
+export const decoratedHealthChecksOf = (checks: readonly Class[]): readonly Class[] =>
+  checks.filter((cls) => healthCheckOf(cls) !== undefined);

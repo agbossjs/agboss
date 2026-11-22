@@ -134,7 +134,7 @@ export const applicationModule = (options: ApplicationOptions): ProviderModule =
     ...containerProvidersOf(options.providers),
     ...(options.budgets ?? []),
     ...(options.observers ?? []),
-    ...decoratedHealthChecksOf(options.healthChecks),
+    ...decoratedHealthChecksOf(options.healthChecks ?? []),
   ],
 });
 

@@ -60,6 +60,7 @@ export const TIMEOUTS_MS = {
   "budget-loop": 120_000,
   "budget-flow": 120_000,
   "budget-reply": 120_000,
+  "assembly-rules": 120_000,
 };
 
 /**

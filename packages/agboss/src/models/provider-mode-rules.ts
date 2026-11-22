@@ -4,13 +4,12 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   circuitBreakerPolicyOf,
   hasProviderMethod,
-  isModelProviderClass,
   isTransportClass,
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
 import { modelPricesProblemOf } from "./cost.js";
-import { withFallbacks } from "./resolution.js";
+import { listedModelProvidersOf, withFallbacks } from "./resolution.js";
 
 /**
  * A `@ModelProvider` is either HTTP — `baseUrl` (and `apiKey`, `baseUrlField`), a `chat` /
@@ -46,7 +45,7 @@ export function providerModeViolations(
   application: string,
   providers: readonly Provider[] | undefined,
 ): RuleViolation[] {
-  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.flatMap((cls) => {
     const problem = modeProblemOf(cls);
     if (problem === undefined) return [];
@@ -64,7 +63,7 @@ export function providerBreakerViolations(
   application: string,
   providers: readonly Provider[] | undefined,
 ): RuleViolation[] {
-  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes
     .filter((cls) => circuitBreakerPolicyOf(modelProviderOf(cls)) === undefined)
     .map((cls) => {
@@ -95,7 +94,7 @@ export function providerFieldsViolations(
   application: string,
   providers: readonly Provider[] | undefined,
 ): RuleViolation[] {
-  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.filter(lacksRequestFields).map((cls) => {
     const message =
       `${modelProviderOf(cls).name} (${cls.name}) sets no requestFields — an OpenAI-compatible ` +
@@ -112,7 +111,7 @@ export function providerTimeoutViolations(
   application: string,
   providers: readonly Provider[] | undefined,
 ): RuleViolation[] {
-  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.flatMap((cls) => {
     const { name, timeout } = modelProviderOf(cls);
     const problem = timerProblemOf("timeout", timeout, MAX_TIMEOUT);
@@ -131,7 +130,7 @@ export function providerPriceViolations(
   application: string,
   providers: readonly Provider[] | undefined,
 ): RuleViolation[] {
-  const classes = withFallbacks((providers ?? []).filter(isModelProviderClass));
+  const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.flatMap((cls) => {
     const { name, cost } = modelProviderOf(cls);
     const problem = cost.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;

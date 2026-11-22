@@ -63,3 +63,30 @@ export function budgetReplyShard() {
     mutate: ["src/app/reply-answer.ts", "src/channels/reply-reading.ts"],
   };
 }
+
+/**
+ * The `assembly-rules` shard (#1366, round 4 of acceptance X): the assembly's rules on a limit or a price — the
+ * limits of the application and its providers' timeouts and prices, a workflow's step and concurrency limits, the
+ * count limits of a flow and of a question tool, a question's deadline and working time, a limit handler that spends,
+ * a tool's expiry and the health check's timers — and the list that wires them in. Every file is mutated whole.
+ */
+export function assemblyRulesShard() {
+  return {
+    configFile: "vitest.mutation-assembly-rules.config.ts",
+    mutate: [
+      "src/models/provider-mode-rules.ts",
+      "src/application/application-rules.ts",
+      "src/application/limit-rules.ts",
+      "src/channels/channel-rules.ts",
+      "src/components/tool-expiry-rules.ts",
+      "src/flow/analyse/rules/options.ts",
+      "src/flow/analyse/rules/limit-handlers.ts",
+      "src/flow/analyse/question-expiry.ts",
+      "src/channels/working-time-rules.ts",
+      "src/flow/analyse/rules/recursion.ts",
+      "src/flow/analyse/steps.ts",
+      "src/flow/analyse/strongly-connected.ts",
+      "src/health/health-check.ts",
+    ],
+  };
+}

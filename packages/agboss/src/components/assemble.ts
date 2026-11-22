@@ -3,7 +3,7 @@ import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
-import { maxStepsOf as stepsLimitOf } from "../flow/analyse/worst-case.js";
+import { maxStepsOf as stepsLimitOf } from "../flow/analyse/steps.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
 import { runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { loadRouters } from "../flow/runtime/routers.js";

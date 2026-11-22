@@ -83,7 +83,6 @@ function reachViolations(
   spans: readonly unknown[],
   source: WorkingCalendarSource | undefined,
 ): RuleViolation[] {
-  if (source === undefined || typeof source === "function") return [];
   return spans.flatMap((span) =>
     isWorkingDuration(span) && !weekReaches(source, amountOf(span))
       ? [

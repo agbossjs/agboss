@@ -235,6 +235,7 @@ jobs:
             budget-loop,
             budget-flow,
             budget-reply,
+            assembly-rules,
             a2a-tasks,
             a2a-server,
             a2a-client,

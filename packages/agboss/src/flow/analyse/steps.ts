@@ -23,6 +23,13 @@ const catchesStepsLimit = (error: ErrorClass | undefined): boolean =>
   error !== undefined &&
   (error === StepsLimitExceededError || StepsLimitExceededError.prototype instanceof error);
 
+/** `maxSteps`, else its default: (agents + routers) × 3 — the limit a run takes (#1366: held against the flow below). */
+export function maxStepsOf(graph: FlowGraph, maxSteps: number | undefined): number {
+  if (maxSteps !== undefined) return maxSteps;
+  const working = [...graph.nodes.values()].filter((node) => weightOf(node) > 0).length;
+  return working * STEPS_PER_WORKING_NODE;
+}
+
 type Distances = ReadonlyMap<ComponentName, number>;
 
 /** An edge with what taking it counts: the node it enters, and the branches a join waits for. */
@@ -61,7 +68,8 @@ function shortest(
     changed = false;
     for (const { from, to, weight } of edges) {
       const via = (distances.get(from) ?? Infinity) + weight;
-      if (via >= (distances.get(to) ?? Infinity)) continue;
+      // a weight that is no number (NaN) never improves a distance, so the walk ends
+      if (!(via < (distances.get(to) ?? Infinity))) continue;
       distances.set(to, via);
       changed = true;
     }
@@ -101,9 +109,8 @@ function throughCounts(
   const least = new Map<ComponentName, number>();
   for (const start of starts) {
     for (const [node, before] of fromStart(graph, start)) {
-      const exit = exits.get(node);
-      if (exit === undefined) continue;
-      const through = before + exit - weightOf(graph.nodes.get(node));
+      // a node with no way to a finish has no exit: its count is NaN, which `boundViolations` leaves out
+      const through = before + (exits.get(node) ?? Number.NaN) - weightOf(graph.nodes.get(node));
       least.set(node, Math.min(least.get(node) ?? Infinity, through));
     }
   }
@@ -137,8 +144,7 @@ function boundViolations(graph: FlowGraph, maxSteps: number): readonly RuleViola
  * silently larger default. A cycle is bounded by `maxSteps` itself, so it is not checked here.
  */
 function defaultViolations(graph: FlowGraph): readonly RuleViolation[] {
-  const working = [...graph.nodes.values()].filter((node) => weightOf(node) > 0).length;
-  const limit = working * STEPS_PER_WORKING_NODE;
+  const limit = maxStepsOf(graph, undefined);
   return graph.starts.flatMap((start) => {
     const most = mostStepsFrom(graph, start);
     if (most === undefined || most <= limit) return [];
