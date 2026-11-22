@@ -18,8 +18,6 @@ import type { A2AAgentMeta } from "./a2a-decorator.js";
  * `…A2AExpose` class (`[name.kind-suffix]`).
  */
 
-const isClass = (provider: Provider): provider is Class => !("provide" in provider);
-
 /** `[name.kind-suffix]` for a contract's `name` and its class name. */
 function contractNameViolations(
   name: string,
@@ -84,12 +82,23 @@ function exposeViolations(options: ApplicationOptions): RuleViolation[] {
   });
 }
 
-/** Every provider of the application and its workflows. */
-function providersOf(options: ApplicationOptions): readonly Class[] {
-  const ofWorkflows = withChildWorkflows(options.workflows).flatMap((workflow) =>
-    declarationOf(workflow)?.kind === NodeKind.Workflow ? (moduleOf(workflow).providers ?? []) : [],
-  );
-  return [...new Set([...(options.providers ?? []), ...ofWorkflows].filter(isClass))];
+/** The class a provider creates: the class listed, the class given for a token; none for a value. */
+function createdClassOf(provider: Provider): Class | undefined {
+  if (!("provide" in provider)) return provider;
+  return "useClass" in provider ? provider.useClass : undefined;
+}
+
+/**
+ * The classes the application and its workflows (and the child workflows they launch) provide — listed, or given
+ * for a token with `provide(TOKEN, Class)`. `[a2a.price-invalid]` and the contract names are checked on these.
+ */
+function providersOf(options: ApplicationOptions): ReadonlySet<Class> {
+  const ofWorkflows = withChildWorkflows(options.workflows)
+    .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
+    .flatMap((workflow) => moduleOf(workflow).providers ?? []);
+  const created = [...(options.providers ?? []), ...ofWorkflows].map(createdClassOf);
+  // Stryker disable next-line ArrayDeclaration: a value provider would add a string, which no component is declared on, so the check passes it by
+  return new Set(created.flatMap((cls) => cls ?? []));
 }
 
 /**
@@ -157,7 +166,7 @@ function priceViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
 
 function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
-  return providersOf(options).flatMap((cls): RuleViolation[] => {
+  return [...providersOf(options)].flatMap((cls): RuleViolation[] => {
     const meta = componentOf(cls);
     if (meta?.kind !== "a2a-agent") return [];
     const { name } = meta.meta;

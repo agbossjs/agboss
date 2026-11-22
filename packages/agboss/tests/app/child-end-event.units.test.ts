@@ -11,6 +11,9 @@ import {
   type AnnouncedPass,
   type ClaimedChild,
 } from "../../src/app/remote/child-end-event.js";
+import type { GraphDeps } from "../../src/graph/deps.js";
+import type { RemoteChildRun } from "../../src/flow/runtime/remote/remote-child-run.js";
+import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { recordToolCost } from "../../src/finops/usage.js";
 import type { ChildExecutionQueueRepository } from "../../src/infrastructure/child-execution-queue.repository.js";
@@ -47,11 +50,11 @@ function claimedOf() {
     ),
     onExecutionError: vi.fn(() => Promise.resolve()),
   };
-  const claimed = {
-    deps: { observer },
+  const claimed: ClaimedChild = {
+    deps: { observer: new ExecutionObserverManager([observer]) } as GraphDeps<string>,
     row,
-    run: { threadId: "thread-1", initial: { child: { inheritedUsage: 1 } } },
-  } as never as ClaimedChild;
+    run: { threadId: "thread-1", initial: { child: { inheritedUsage: 1 } } } as RemoteChildRun,
+  };
   return { observer, claimed };
 }
 
@@ -71,7 +74,7 @@ const queueOf = (found: () => Promise<unknown>) => {
       finds.push(args);
       return found();
     },
-  } as never as ChildExecutionQueueRepository;
+  } as ChildExecutionQueueRepository;
   return { queue, finds };
 };
 
@@ -123,7 +126,7 @@ describe("#1366: a child's end announced by its worker", () => {
 
   it("a finish is announced to no one when its workflow has no observer", async () => {
     const { claimed } = claimedOf();
-    const bare = { ...claimed, deps: {} } as never as ClaimedChild;
+    const bare: ClaimedChild = { ...claimed, deps: {} as GraphDeps<string> };
     const pass = {
       end: { status: ExecutionRecordStatus.Answered },
       finished: { ...bare, last: { finish: "f", usage: [] } },
@@ -205,7 +208,7 @@ describe("#1366: a child cancelled with its tree is announced by the worker that
 
   it("is announced to no one when its workflow has no observer", async () => {
     const { claimed } = claimedOf();
-    const bare = { ...claimed, deps: {} } as never as ClaimedChild;
+    const bare: ClaimedChild = { ...claimed, deps: {} as GraphDeps<string> };
     const { queue } = queueOf(() => Promise.resolve(undefined));
     const pass = {
       end: { status: ExecutionRecordStatus.Failed },

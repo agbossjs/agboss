@@ -13,7 +13,7 @@ import { ApplicationStoppingError, ExecutionCancelledError } from "../../src/cor
 import { BudgetScope } from "../../src/budgets/budget.js";
 import type { BudgetMeter, ExecutionBudgetRecord } from "../../src/budgets/execution-budgets.js";
 import { recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
-import type { ExecutionGraph } from "../../src/flow/runtime/build.js";
+import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import type { ExecutionStateType } from "../../src/flow/runtime/state.js";
 import {
   InMemoryCostLedgerRepository,
@@ -153,7 +153,7 @@ function graphOf(scripted: Scripted) {
     },
     stream,
   };
-  return { graph: graph as never as ExecutionGraph, stream, states };
+  return { graph, stream, states };
 }
 
 /** The graph of the reading pass (the checkpoint before it) and the graph of the pass itself. */
@@ -184,18 +184,23 @@ const row: QueuedChildExecution = {
 async function pass(resume?: Readonly<Record<string, string>>) {
   const ledger = new SeenLedger();
   const warn = vi.fn();
-  const rootDeps = {
-    config: { name: "root-workflow", version: "1" },
-    log: { warn },
-    pause: {},
-    budgets: {
-      budgets: [],
-      applicationName: "app",
-      resolve: () => undefined,
-      ledger,
-      clock: new VirtualClock(NOW),
+  const log: FrameworkLog = { info: vi.fn(), warn, error: vi.fn() };
+  const budgets: Partial<NonNullable<AppDeps["budgets"]>> = {
+    budgets: [],
+    applicationName: "app",
+    resolve: () => {
+      throw new Error("no budget handler is resolved");
     },
-  } as never as AppDeps;
+    ledger,
+    clock: new VirtualClock(NOW),
+  };
+  const wired: Partial<AppDeps> = {
+    config: { name: "root-workflow", version: "1" } as AppDeps["config"],
+    log,
+    pause: {} as AppDeps["pause"],
+    budgets: budgets as AppDeps["budgets"],
+  };
+  const rootDeps = wired as AppDeps;
   const run = {
     thread: "root-thread/child/child-1",
     threadId: "root-thread",
@@ -399,7 +404,9 @@ async function claimed(options: {
     budgets: {
       budgets: [],
       applicationName: "app",
-      resolve: () => undefined,
+      resolve: () => {
+        throw new Error("no budget handler is resolved");
+      },
       ledger,
       clock: new VirtualClock(NOW),
     },

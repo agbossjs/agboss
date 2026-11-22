@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
 import type { CancelParts } from "../../src/app/cancel-requests.js";
-import type { HeldExecutionLease } from "../../src/app/execution-leases.js";
+import type { ExecutionLeases, HeldExecutionLease } from "../../src/app/execution-leases.js";
 import { unwindingDeps } from "../../src/app/tree-unwind.js";
 import { endedUnwindingAtTake, endUnwindingIfFree } from "../../src/app/unwinding-takeover.js";
 import { CompensationReason } from "../../src/flow/compensation.js";
@@ -16,6 +16,8 @@ import {
   markUnwinding,
   UNWINDING_KEY,
 } from "../../src/flow/runtime/compensation/unwinding-marks.js";
+import type { FrameworkLog } from "../../src/infrastructure/logger.js";
+import type { Turn, TurnRecords } from "../../src/turns/index.js";
 import { LeaseTakeoverReason } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
@@ -34,10 +36,48 @@ const STATE = {
 };
 const TREE = { tenantId: "acme", rootExecutionId: "root-1" };
 
+const FAILED_TURN: Turn = {
+  id: "tern-1",
+  runId: "root-1",
+  threadId: "thread-1",
+  tenantId: "acme",
+  bundle: "desk-workflow",
+  createdAt: "2026-11-20T10:00:00.000Z",
+  task: "",
+  replyWith: "",
+  status: "failed",
+  stopReason: "",
+  route: [],
+  steps: [],
+  costUsd: 0,
+  promptVersion: "",
+  modelVersion: "",
+  replayOf: null,
+  configVersion: null,
+  configHash: null,
+};
+
 function leaseOf() {
   const release = vi.fn(() => Promise.resolve());
   const signal = new AbortController().signal;
-  const lease = { release, signal } as never as HeldExecutionLease;
+  const lease: HeldExecutionLease = {
+    tenantId: "acme",
+    leaseExecutionId: "root-1",
+    scopeKey: "acme:root-1",
+    rootExecutionId: "root-1",
+    token: 1,
+    trustedUntil: Number.POSITIVE_INFINITY,
+    isYielded: false,
+    signal,
+    assertHeld: () => undefined,
+    renewNow: () => Promise.resolve(),
+    renew: () => Promise.resolve(),
+    enterStep: () => Promise.resolve(() => undefined),
+    afterEachRenewal: () => undefined,
+    whenCancelFound: () => undefined,
+    yieldWhile: (wait) => wait(),
+    release,
+  };
   return { lease, release, signal };
 }
 
@@ -45,15 +85,22 @@ function partsOf(lease?: HeldExecutionLease) {
   const trees = new InMemoryExecutionTreeRepository(new InMemoryDatabase());
   const warn = vi.fn();
   const tryHold = vi.fn((_tree: unknown, _take: unknown) => Promise.resolve(lease));
-  const parts = {
-    trees,
-    leases: { tryHold },
-    deps: {
-      log: { warn },
-      pause: undefined,
-      turns: { byIds: () => Promise.resolve([{ status: "failed" }]) },
-    },
-  } as never as CancelParts;
+  const log: FrameworkLog = { info: vi.fn(), warn, error: vi.fn() };
+  const leases: ExecutionLeases = {
+    tryHold,
+    hold: () => Promise.reject(new Error("not held here")),
+    requestCancel: () => Promise.resolve(),
+    isCancelRequested: () => Promise.resolve(false),
+  };
+  const deps: Partial<AppDeps> = {
+    log,
+    pause: undefined,
+    turns: {
+      byIds: (_ids: readonly string[]): Promise<Turn[]> => Promise.resolve([FAILED_TURN]),
+    } as TurnRecords,
+  };
+  const wired: Partial<CancelParts> = { trees, leases, deps: deps as AppDeps };
+  const parts = wired as CancelParts;
   return { parts, trees, warn, tryHold };
 }
 
@@ -141,7 +188,7 @@ describe("#633: the sweep's take of a root mid-undo", () => {
 
 describe("#633: a pass's root unwind", () => {
   it("no compensation parts: the deps as they are", () => {
-    const deps = { compensation: undefined } as never as AppDeps;
+    const deps = { compensation: undefined } as AppDeps;
 
     expect(
       unwindingDeps(deps, STATE, {
@@ -157,7 +204,7 @@ describe("#633: a pass's root unwind", () => {
       error: new Error("undone"),
       compensations: [{ status: "x" }],
     });
-    const deps = { compensation: { timeout: 1 } } as never as AppDeps;
+    const deps = { compensation: { timeout: 1 } } as AppDeps;
     const undo = {};
 
     const leased = unwindingDeps(deps, STATE, {

@@ -7,7 +7,8 @@
  */
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
-import { PiiActionKind } from "../../src/pii/actions.js";
+import { PiiActionKind, type AnyPiiAction } from "../../src/pii/actions.js";
+import { PiiKind } from "../../src/pii/kinds.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
 import { maskedText, type PiiFinding } from "../../src/pii/masking.js";
 import { PiiFileAction } from "../../src/pii/pii-policy.decorator.js";
@@ -52,7 +53,7 @@ const spiesOf = (policy: RuntimePiiPolicy): { find: Mock; findNow: Mock } => {
 const policyOf = (
   name: string,
   changes: Partial<{
-    actions: [string, object][];
+    actions: [PiiKind, AnyPiiAction][];
     found: PiiFinding[];
     now: PiiFinding[];
     usage: UsageRecord[];
@@ -63,14 +64,14 @@ const policyOf = (
     Promise.resolve({ findings: changes.found ?? [], usage: changes.usage ?? [] }),
   );
   const findNow = vi.fn((_text: string) => changes.now ?? []);
-  const policy = {
+  const policy: RuntimePiiPolicy = {
     name,
-    meta: { name, files: changes.files },
+    meta: { name, files: changes.files, action: kindAction, deps: [] },
     actions: new Map(changes.actions ?? []),
     find,
     findNow,
     refusalOf: vi.fn((kind: string | undefined) => Promise.resolve(`refused ${String(kind)}`)),
-  } as never as RuntimePiiPolicy;
+  };
   spies.set(policy, { find, findNow });
   return policy;
 };
@@ -174,11 +175,11 @@ describe("#1366: whether a block rule is among the policies", () => {
     // one rule of the policy blocks, the other masks: a policy has a block rule when any of its rules is one
     const blocking = policyOf("b", {
       actions: [
-        ["email", kindAction],
-        ["card", blockAction],
+        [PiiKind.Email, kindAction],
+        [PiiKind.CardNumber, blockAction],
       ],
     });
-    const masking = policyOf("m", { actions: [["email", kindAction]] });
+    const masking = policyOf("m", { actions: [[PiiKind.Email, kindAction]] });
 
     expect(setOf([masking, blocking]).blocks).toBe(true);
     expect(setOf([masking]).blocks).toBe(false);
@@ -198,27 +199,27 @@ describe("#1366: what a redactor is told to black out of a file", () => {
       [
         policyOf("a", {
           actions: [
-            ["email", kindAction],
-            ["card", blockAction],
+            [PiiKind.Email, kindAction],
+            [PiiKind.CardNumber, blockAction],
           ],
           files: PiiFileAction.RedactWithModel,
         }),
         policyOf("b", {
           actions: [
-            ["card", blockAction],
-            ["phone", blockAction],
+            [PiiKind.CardNumber, blockAction],
+            [PiiKind.Phone, blockAction],
           ],
           files: PiiFileAction.RedactWithModel,
         }),
-        policyOf("c", { actions: [["email", kindAction]] }),
+        policyOf("c", { actions: [[PiiKind.Email, kindAction]] }),
       ],
       [value("anna"), value("bob")],
     );
 
     expect(set.redaction).toEqual({
-      kinds: ["email", "card", "phone"],
+      kinds: [PiiKind.Email, PiiKind.CardNumber, PiiKind.Phone],
       values: ["anna", "bob"],
-      blocked: ["card", "phone"],
+      blocked: [PiiKind.CardNumber, PiiKind.Phone],
       isModelChecked: true,
     });
   });
@@ -227,26 +228,29 @@ describe("#1366: what a redactor is told to black out of a file", () => {
     const set = setOf([
       policyOf("mixed", {
         actions: [
-          ["email", kindAction],
-          ["card", blockAction],
+          [PiiKind.Email, kindAction],
+          [PiiKind.CardNumber, blockAction],
         ],
         files: PiiFileAction.RedactWithModel,
       }),
     ]);
 
     expect(set.redaction).toMatchObject({
-      kinds: ["email", "card"],
-      blocked: ["card"],
+      kinds: [PiiKind.Email, PiiKind.CardNumber],
+      blocked: [PiiKind.CardNumber],
       isModelChecked: true,
     });
   });
 
   it("is checked by no model when a policy with a block rule lets none decide, and by every one when none blocks", () => {
     const unchecked = setOf([
-      policyOf("a", { actions: [["card", blockAction]], files: PiiFileAction.RedactWithModel }),
-      policyOf("b", { actions: [["phone", blockAction]] }),
+      policyOf("a", {
+        actions: [[PiiKind.CardNumber, blockAction]],
+        files: PiiFileAction.RedactWithModel,
+      }),
+      policyOf("b", { actions: [[PiiKind.Phone, blockAction]] }),
     ]);
-    const nothingBlocked = setOf([policyOf("c", { actions: [["email", kindAction]] })]);
+    const nothingBlocked = setOf([policyOf("c", { actions: [[PiiKind.Email, kindAction]] })]);
 
     expect(unchecked.redaction.isModelChecked).toBe(false);
     expect(nothingBlocked.redaction.isModelChecked).toBe(true);
@@ -258,16 +262,19 @@ describe("#1366: what a redactor is told to black out of a file", () => {
 describe("#1366: the refusals of a set", () => {
   it("a kind a block rule names is refused with that policy's text; any other kind is blacked out, never refused", async () => {
     const set = setOf([
-      policyOf("a", { actions: [["email", kindAction]] }),
-      policyOf("b", { actions: [["card", blockAction]] }),
+      policyOf("a", { actions: [[PiiKind.Email, kindAction]] }),
+      policyOf("b", { actions: [[PiiKind.CardNumber, blockAction]] }),
     ]);
 
-    const refused = await set.refusalForKind("card" as never);
+    const refused = await set.refusalForKind(PiiKind.CardNumber);
 
     expect(refused).toBeInstanceOf(PiiRefusedError);
-    expect(refused).toMatchObject({ kind: "card", refusal: "refused card" });
-    expect(await set.refusalForKind("email" as never)).toBeUndefined();
-    expect(await set.refusalForKind("phone" as never)).toBeUndefined();
+    expect(refused).toMatchObject({
+      kind: PiiKind.CardNumber,
+      refusal: `refused ${PiiKind.CardNumber}`,
+    });
+    expect(await set.refusalForKind(PiiKind.Email)).toBeUndefined();
+    expect(await set.refusalForKind(PiiKind.Phone)).toBeUndefined();
   });
 
   it("the first blocked finding is refused by its policy, carrying the spend so far; none, or one that is no block, is not", async () => {
@@ -276,13 +283,16 @@ describe("#1366: the refusals of a set", () => {
       action: blockAction,
       policy: "p2",
       label: "card",
-      kind: "card" as never,
+      kind: PiiKind.CardNumber,
     });
 
     const refused = await set.refusalError([blocked, finding({ policy: "p1" })], [record(0.25)]);
 
     expect(refused).toBeInstanceOf(PiiRefusedError);
-    expect(refused).toMatchObject({ kind: "card", refusal: "refused card" });
+    expect(refused).toMatchObject({
+      kind: "card",
+      refusal: `refused ${PiiKind.CardNumber}`,
+    });
     expect(refused?.usage.map((u) => u.costUsd)).toEqual([0.25]);
     expect(await set.refusalError([], [])).toBeUndefined();
     expect(await set.refusalError([finding({ action: kindAction })], [])).toBeUndefined();

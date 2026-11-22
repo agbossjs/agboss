@@ -14,7 +14,6 @@ import {
   OutboundCallReconciliation,
   OutboundCalls,
   OutboundCallSettings,
-  type ExecutionContext,
   type EffectKeyFields,
 } from "../../src/index.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -23,6 +22,7 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { SilentLogger } from "../../src/infrastructure/logger.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
+import { testExecutionContext } from "../../src/testing/execution-context.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { storeClockOf } from "../helpers/store-clock.js";
 
@@ -115,12 +115,7 @@ describe("#825: the key a call is sent under", () => {
   });
 
   it("options without a business key make no key (a JavaScript caller)", () => {
-    const executionContext = {
-      executionId: "execution-1",
-      root: { executionId: "execution-1" },
-      step: { nodeId: "charge-action", visitNumber: 1, idempotencyKey: KEY.idempotencyKey },
-      fence: { ...KEY },
-    } as never as ExecutionContext;
+    const executionContext = testExecutionContext({ executionId: "execution-1" });
 
     expect(() => effectKeyOf(executionContext, "charge", { fingerprint: 1 } as never)).toThrow(
       /options name no businessKey/u,

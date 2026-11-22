@@ -92,15 +92,6 @@
   {
     "shard": "ledger-retention",
     "file": "src/components/rag.ts",
-    "mutator": "OptionalChaining",
-    "replacement": "rerankedBy(ragMeta(cls)).reranker",
-    "anchor": "rerankedBy(ragMeta(cls))?.reranker",
-    "kind": "runtime-error",
-    "reason": "a knowledge base that does not rerank has no reranker to read: `tests/rag/tenant-isolation.test.ts` builds its application outside any test, and the assembly reads the reranker of such a base as undefined, a TypeError the test process reports outside a test run ('An error occurred outside of a test run'), which Stryker counts as an error, not a kill; the unit test of `rerankerModelsOf` (`tests/rag/ledger-rag-meta.test.ts`) fails on it; run alone: the same"
-  },
-  {
-    "shard": "ledger-retention",
-    "file": "src/components/rag.ts",
     "mutator": "ConditionalExpression",
     "replacement": "false",
     "anchor": "reranker === undefined || reranker.decidedBy",

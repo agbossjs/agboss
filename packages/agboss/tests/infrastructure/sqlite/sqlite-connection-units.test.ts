@@ -6,6 +6,7 @@
  * the marks of a SQLite implementation.
  */
 import { mkdirSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pauseThread } from "../../../src/infrastructure/clock.js";
@@ -37,26 +38,37 @@ const busy = (errcode: number): Error =>
   Object.assign(new Error("database is locked"), { errcode });
 
 /** A database whose `exec` is scripted: what each statement does, in the order it is asked. */
-class FakeDatabase {
+class FakeDatabase extends DatabaseSync {
   static made: FakeDatabase[] = [];
   readonly statements: string[] = [];
   closed = 0;
-  isTransaction = false;
   constructor(
     readonly path: string,
     readonly options: unknown,
   ) {
+    super(":memory:");
     FakeDatabase.made.push(this);
   }
   static behaviour = new Map<string, (() => void)[]>();
-  exec(sql: string): void {
+  /** Leaves a transaction open on the real in-memory file under it: `isTransaction` is then true. */
+  openTransaction(): void {
+    super.exec("BEGIN");
+  }
+  override exec(sql: string): void {
     this.statements.push(sql);
     FakeDatabase.behaviour.get(sql)?.shift()?.();
   }
-  close(): void {
+  override close(): void {
     this.closed += 1;
+    if (this.isOpen) super.close();
   }
 }
+
+/** The fake a `DatabaseSync` the code under test got is (it opens through the mocked module). */
+const fakeOf = (database: DatabaseSync): FakeDatabase => {
+  if (!(database instanceof FakeDatabase)) throw new TypeError("not the fake database");
+  return database;
+};
 
 const walFails = (...errors: unknown[]): void => {
   FakeDatabase.behaviour.set(
@@ -89,7 +101,7 @@ const pauses = (): number[] => vi.mocked(pauseThread).mock.calls.map(([delay]) =
 
 describe("#1366: the open of a database", () => {
   it("is on the path with no wait of SQLite's own, its pragmas in order, the busy timeout last: the default one's, or the one given", () => {
-    const database = openSqliteDatabase(":memory:") as never as FakeDatabase;
+    const database = fakeOf(openSqliteDatabase(":memory:"));
     openSqliteDatabase(":memory:", 250);
 
     expect(database.path).toBe(":memory:");
@@ -135,7 +147,7 @@ describe("#1366: the open of a database", () => {
   it("a busy answer that goes away lets the open finish, with the pauses it took", () => {
     walFails(busy(5), busy(261), busy(5));
 
-    const database = openSqliteDatabase(":memory:", 5000) as never as FakeDatabase;
+    const database = fakeOf(openSqliteDatabase(":memory:", 5000));
 
     expect(pauses()).toEqual([1, 2, 4]);
     expect(database.statements.filter((sql) => sql === "PRAGMA journal_mode = WAL")).toHaveLength(
@@ -193,8 +205,7 @@ describe("#1366: the open of a database", () => {
 });
 
 describe("#1366: a transaction", () => {
-  const databaseOf = () =>
-    new FakeDatabase(":memory:", {}) as never as Parameters<typeof inImmediateTransaction>[0];
+  const databaseOf = () => new FakeDatabase(":memory:", {});
 
   it("takes the write lock first, runs the work, commits, and is the work's result", () => {
     const database = databaseOf();
@@ -202,11 +213,11 @@ describe("#1366: a transaction", () => {
     const result = inImmediateTransaction(database, () => 42);
 
     expect(result).toBe(42);
-    expect((database as never as FakeDatabase).statements).toEqual(["BEGIN IMMEDIATE", "COMMIT"]);
+    expect(database.statements).toEqual(["BEGIN IMMEDIATE", "COMMIT"]);
   });
 
   it("a failed COMMIT is thrown as what the database's own outcome makes of it", () => {
-    const database = databaseOf() as never as FakeDatabase;
+    const database = databaseOf();
     const failure = new Error("disk full");
     const made = new Error("outcome unknown");
     vi.mocked(afterFailedCommit).mockReturnValue(made);
@@ -216,18 +227,18 @@ describe("#1366: a transaction", () => {
       },
     ]);
 
-    expect(() => inImmediateTransaction(database as never, () => 1)).toThrow(made);
+    expect(() => inImmediateTransaction(database, () => 1)).toThrow(made);
 
     expect(afterFailedCommit).toHaveBeenCalledExactlyOnceWith(database, failure);
   });
 
   it("is rolled back when the work throws while one is open, and the work's error is thrown", () => {
-    const database = databaseOf() as never as FakeDatabase;
-    database.isTransaction = true;
+    const database = databaseOf();
+    database.openTransaction();
     const error = new Error("work failed");
 
     expect(() =>
-      inImmediateTransaction(database as never, () => {
+      inImmediateTransaction(database, () => {
         throw error;
       }),
     ).toThrow(error);
@@ -236,11 +247,10 @@ describe("#1366: a transaction", () => {
   });
 
   it("is not rolled back when SQLite has none open any more", () => {
-    const database = databaseOf() as never as FakeDatabase;
-    database.isTransaction = false;
+    const database = databaseOf();
 
     expect(() =>
-      inImmediateTransaction(database as never, () => {
+      inImmediateTransaction(database, () => {
         throw new Error("work failed");
       }),
     ).toThrow("work failed");

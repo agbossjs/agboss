@@ -351,15 +351,15 @@ describe("#1366: the cost a child's record and a turn report", () => {
     rootExecutionId: "root",
     inheritedUsage: 1,
   };
-  const child = {
+  const child: EndedChild = {
     identity,
     depth: 2,
-    workflow: { name: "wf" },
-    launchedBy: { nodeId: "n" },
+    workflow: { name: "wf", version: "1", startedVersion: "1", configHash: "h" },
+    launchedBy: { nodeId: "n", visitNumber: 1 },
     start: "start",
     input: { i: 1 },
     records: { components: new Map(), graph: { nodes: new Map() } },
-  } as never as EndedChild;
+  };
 
   it("a child that failed: its spend is the usage it ended with, its error recorded, no finish", () => {
     const out = childRecordOf(child, undefined, {

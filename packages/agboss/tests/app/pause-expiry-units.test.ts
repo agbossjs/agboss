@@ -7,6 +7,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
+import { ExecutionStatus } from "../../src/app/types.js";
+import { buildCostReport } from "../../src/finops/usage.js";
+import type { ThreadKey } from "../../src/app/live-runs.js";
+import type { PausedExecution, PausedRunBook } from "../../src/app/paused-runs.js";
+import type { TreeMoveParts } from "../../src/app/tree-move-types.js";
 import { expiredPassOf } from "../../src/app/tree-expiry.js";
 import {
   PauseExpiryBound,
@@ -163,16 +168,37 @@ describe("#941: expiring a tree's due pauses", () => {
 });
 
 describe("#941: the pass an expiry starts (expiredPassOf)", () => {
-  const stored = { run: { runId: "root-1", turnId: "turn-1", path: [], cost: { totalUsd: 0 } } };
+  const stored: PausedExecution = {
+    run: {
+      status: ExecutionStatus.Paused,
+      start: "start",
+      startInput: {},
+      path: [],
+      budgetUsd: 1,
+      cost: buildCostReport([]),
+      threadId: "t-1",
+      tenantId: "acme",
+      turnId: "turn-1",
+      data: { scope: {}, outdatedValues: [], lastError: null },
+      runId: "root-1",
+      pending: [],
+    },
+    workflowVersion: "1",
+    configHash: "hash",
+  };
   const state = { runId: "root-1", threadId: "t-1", tenantId: "acme", startedVersion: "1" };
 
   function movesOf(records: readonly unknown[]) {
     const { parts, expire } = partsOf(records);
     const completeIfStatus = vi.fn(() => Promise.resolve(true));
-    const wired = {
-      ...(parts as object),
-      paused: { find: vi.fn(() => Promise.resolve(stored)) },
-    } as never as Parameters<typeof expiredPassOf>[0];
+    const base: Partial<TreeMoveParts> = parts;
+    const found: PausedRunBook = {
+      settle: () => Promise.resolve(),
+      drop: () => Promise.resolve(undefined),
+      find: vi.fn((_thread: ThreadKey) => Promise.resolve(stored)),
+    };
+    const moved: Partial<TreeMoveParts> = { ...base, paused: found };
+    const wired = moved as TreeMoveParts;
     Reflect.get(Object(Reflect.get(wired, "deps")), "turns");
     Reflect.set(Object(Reflect.get(wired, "deps")), "turns", { completeIfStatus });
     return { parts: wired, completeIfStatus, expire };

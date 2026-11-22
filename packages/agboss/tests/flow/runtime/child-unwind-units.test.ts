@@ -28,7 +28,8 @@ import { recordToolCost } from "../../../src/finops/usage.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import { VirtualClock } from "../../../src/testing/index.js";
-import { seconds } from "../../../src/units/index.js";
+import { seconds, type Milliseconds } from "../../../src/units/index.js";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { closedOf, entryOf, TREE } from "./fixtures/compensation-entries.js";
 
 const mocks = vi.hoisted(() => ({ unwound: vi.fn(), entriesInCheckpoint: vi.fn() }));
@@ -60,11 +61,47 @@ interface SiteOptions {
   readonly keys?: { readonly correlationKey: string; readonly fingerprintKeys: object };
 }
 
+/** The parts of a child's site its unwind reads: what the test fakes is left as `object` or `unknown`. */
+interface ChildSiteRead {
+  readonly deps: {
+    readonly graph: object;
+    readonly container: object;
+    readonly observer: unknown;
+    readonly stepEntries: unknown;
+    readonly compensation:
+      | { readonly timeout: Milliseconds; readonly registry: object; readonly trees: object }
+      | undefined;
+  };
+  readonly workflow: { readonly name: string; readonly version: string };
+  readonly executionId: string;
+  readonly run: {
+    readonly threadId: string;
+    readonly ownerId?: string;
+    readonly signal: AbortSignal;
+    readonly tree?: unknown;
+    readonly lease?: unknown;
+    readonly correlationKey?: string | undefined;
+    readonly fingerprintKeys?: object | undefined;
+  };
+  readonly parent: {
+    readonly execution: {
+      readonly executionId: string;
+      readonly tenant: { readonly tenantId: string };
+      readonly values: object;
+    };
+  };
+  readonly config: RunnableConfig;
+  readonly checkpointer: object | undefined;
+  readonly budgets: { readonly record: (usage: readonly unknown[]) => Promise<void> } | undefined;
+  readonly last: readonly CompensationEntry[];
+  readonly error: unknown;
+}
+
 function siteOf(options: SiteOptions = {}) {
   const trees = new InMemoryExecutionTreeRepository(new InMemoryDatabase());
   const record = vi.fn((_usage: readonly unknown[]) => Promise.resolve());
   const signal = new AbortController().signal;
-  const site = {
+  const read: ChildSiteRead = {
     deps: {
       graph: {},
       container: {},
@@ -91,7 +128,8 @@ function siteOf(options: SiteOptions = {}) {
     budgets: options.budgets === false ? undefined : { record },
     last: options.last ?? [],
     error: new Error("child's own"),
-  } as never as ChildUnwindSite;
+  };
+  const site = read as ChildUnwindSite;
   return { site, trees, record, signal };
 }
 

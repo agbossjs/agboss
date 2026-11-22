@@ -26,7 +26,7 @@ import { recordToolCost } from "../../../src/finops/usage.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import { VirtualClock } from "../../../src/testing/index.js";
-import { seconds } from "../../../src/units/index.js";
+import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { closedOf, entryOf, TREE } from "./fixtures/compensation-entries.js";
 
 const mocks = vi.hoisted(() => ({ unwound: vi.fn() }));
@@ -48,10 +48,36 @@ const LAUNCH = "root-1:book-launch:1";
 const inLaunch = (key: string, overrides: Partial<CompensationEntry> = {}) =>
   entryOf(key, { launchId: LAUNCH, ...overrides });
 
+/** The parts of a join's site its unwind reads: what the test fakes is left as `object` or `unknown`. */
+interface JoinSiteRead {
+  readonly state: { readonly runId: string; readonly compensations: readonly CompensationEntry[] };
+  readonly config: undefined;
+  readonly ticket: {
+    readonly launchId: string;
+    readonly launcher: string;
+    readonly visitNumber: number;
+    readonly branches: readonly { readonly nodeId: string }[];
+  };
+  readonly deps: {
+    readonly graph: { readonly nodes: ReadonlyMap<string, object> };
+    readonly container: object;
+    readonly components: ReadonlyMap<string, object>;
+    readonly observer: unknown;
+    readonly stepEntries: unknown;
+    readonly compensation:
+      | { readonly timeout: Milliseconds; readonly registry: object; readonly trees: object }
+      | undefined;
+    readonly limits: {
+      readonly budgets: { readonly record: (usage: readonly unknown[]) => Promise<void> };
+    };
+  };
+  readonly cause: unknown;
+}
+
 function siteOf(compensations: readonly CompensationEntry[], withParts = true) {
   const trees = new InMemoryExecutionTreeRepository(new InMemoryDatabase());
   const record = vi.fn((_usage: readonly unknown[]) => Promise.resolve());
-  const site = {
+  const read: JoinSiteRead = {
     state: { runId: "root-1", compensations },
     config: undefined,
     ticket: {
@@ -70,7 +96,8 @@ function siteOf(compensations: readonly CompensationEntry[], withParts = true) {
       limits: { budgets: { record } },
     },
     cause: new Error("branch failed"),
-  } as never as JoinUnwindSite;
+  };
+  const site = read as JoinUnwindSite;
   return { site, trees, record };
 }
 

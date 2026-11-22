@@ -6,6 +6,8 @@
  * remember what they were asked.
  */
 import { describe, expect, it, vi } from "vitest";
+import { trivialExecutionGraph } from "./fixtures/execution-graph.js";
+import type { ExecutionGraph } from "../../../src/flow/runtime/build.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import { childRunner, type ChildGraph } from "../../../src/flow/runtime/child.js";
 import type { RuntimeNode } from "../../../src/flow/runtime/graph-model.js";
@@ -132,7 +134,8 @@ const IDENTITY = {
   parentExecutionId: "parent-1",
   rootExecutionId: "root-1",
 };
-const node = { id: "launch-node" } as never as RuntimeNode;
+const node = { id: "launch-node" } as RuntimeNode;
+const CHILD_GRAPH = trivialExecutionGraph();
 const FINISH = { kind: NodeKind.Finish, options: { output: { name: "ApprovedDto" } } };
 
 interface Setup {
@@ -145,6 +148,18 @@ interface Setup {
   readonly noStart?: boolean;
   readonly executionIds?: unknown;
   readonly noRecordChild?: boolean;
+}
+
+/** The parts of a child's graph the runner reads: what the test fakes is left as `object` or `unknown`. */
+interface ChildRead {
+  readonly deps: {
+    readonly graph: { readonly nodes: ReadonlyMap<string, unknown> };
+    readonly pii?: object;
+    readonly observer?: object;
+  };
+  readonly workflow: { readonly type: unknown; readonly name: string; readonly version: string };
+  readonly graph: ExecutionGraph;
+  readonly isRecursive: boolean;
 }
 
 /** A parent step with a child; every call a collaborator hears is in `h.calls`, from this set-up on. */
@@ -180,16 +195,17 @@ function setUp(setup: Setup = {}) {
     stepEntries: "entries",
     ...(setup.compensation === true ? { compensation: { trees: "trees" } } : {}),
   };
-  const child = {
+  const read: ChildRead = {
     deps: {
       graph: { nodes },
       ...(setup.pii === true ? { pii: { observability: "mask" } } : {}),
       ...(setup.noObserver === true ? {} : { observer }),
     },
     workflow: { type: Object, name: "child-workflow", version: "v2" },
-    graph: "child-graph",
+    graph: CHILD_GRAPH,
     isRecursive: setup.isRecursive === true,
-  } as never as ChildGraph;
+  };
+  const child = read as ChildGraph;
   const budgets = { meter: "meter" };
   const run = (state: Record<string, unknown> = {}, config?: Record<string, unknown>) =>
     childRunner(node, deps as never, child, {
@@ -367,8 +383,8 @@ describe("#1366: what the child is entered with", () => {
 
     await run();
 
-    const [[graph, call]] = callsOf("childEndOf") as [[unknown, Record<string, unknown>]];
-    expect(graph).toMatchObject({ graph: "child-graph" });
+    const [[ended, call]] = callsOf("childEndOf") as [[ChildGraph, Record<string, unknown>]];
+    expect(ended.graph).toBe(CHILD_GRAPH);
     expect(call).toMatchObject({ claimed: "claimed-by", node: "launch-node", entered: h.entered });
     expect(call.remote).toBeUndefined();
     expect(call.initial).toBeDefined();
@@ -432,7 +448,7 @@ describe("#1366: how a child ran", () => {
     await run();
 
     const [graph, config, site, meter] = callsOf("remoteChildEndOf")[0] ?? [];
-    expect(graph).toBe("child-graph");
+    expect(graph).toBe(CHILD_GRAPH);
     expect(config).toMatchObject({ runName: "child-workflow", signal: "run-signal" });
     expect(site).toBe(h.remote);
     expect(meter).toBe(budgets);

@@ -3,6 +3,14 @@
  * the visit a branch brings back counts its own step once, and the run's next step is checked against the steps the branches took.
  */
 import { describe, expect, it } from "vitest";
+import { buildCostReport } from "../../../src/finops/usage.js";
+import { FailurePolicy } from "../../../src/flow/decorators/router.js";
+import {
+  ChildExecutionStatus,
+  type EndedChildRecord,
+} from "../../../src/flow/runtime/child-records.js";
+import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
+import { entryOf } from "./fixtures/compensation-entries.js";
 import { StepsLimitExceededError } from "../../../src/graph/limits.js";
 import {
   branchVisitOf,
@@ -62,15 +70,46 @@ describe("#1366: the steps the branches of a launch add to the run", () => {
   );
 });
 
+type BranchRunRead = Pick<BranchFrameRun, "ticket" | "children" | "piiTokens" | "compensations"> & {
+  readonly ranAsStep: boolean;
+};
+
+const endedChild: EndedChildRecord = {
+  executionId: "child-1",
+  parentExecutionId: "run-1",
+  rootExecutionId: "run-1",
+  workflow: { name: "audit-workflow", version: "1", startedVersion: "1", configHash: "h" },
+  depth: 2,
+  launchedBy: { nodeId: "company-audit-agent", visitNumber: 2 },
+  start: bareRecordOf("start", ComponentKind.WorkflowStart),
+  input: {},
+  status: ChildExecutionStatus.Finished,
+  path: [],
+  spend: buildCostReport([]),
+  toolCalls: [],
+  steps: [],
+  children: [],
+};
+
 describe("#1366: the visit a branch brings back", () => {
-  const run = (ranAsStep: boolean) =>
-    ({
-      ticket: { nodeId: "company-audit-agent#2" },
-      children: [{ child: 1 }],
+  const run = (ranAsStep: boolean) => {
+    const read: BranchRunRead = {
+      ticket: {
+        index: 1,
+        node: "company-audit-agent",
+        nodeId: "company-audit-agent#2",
+        copyNumber: 2,
+        visitNumber: 1,
+        stepsBefore: 0,
+        failure: FailurePolicy.FailFast,
+      },
+      children: [endedChild],
       piiTokens: { a: "1" },
       compensations: [],
       ranAsStep,
-    }) as never as BranchFrameRun & { readonly ranAsStep: boolean };
+    };
+    return read as BranchFrameRun & { readonly ranAsStep: boolean };
+  };
 
   it("counts one step for a branch that ran as a step, none for one that did not", () => {
     expect(branchVisitOf(run(true)).steps).toBe(1);
@@ -82,13 +121,11 @@ describe("#1366: the visit a branch brings back", () => {
     expect(own).toEqual({
       path: ["company-audit-agent#2"],
       steps: 1,
-      children: [{ child: 1 }],
+      children: [endedChild],
       piiTokens: { a: "1" },
     });
 
-    const undone = { ...run(false), compensations: ["undo"] } as never as BranchFrameRun & {
-      readonly ranAsStep: boolean;
-    };
-    expect(branchVisitOf(undone).compensations).toEqual(["undo"]);
+    const undone = { ...run(false), compensations: [entryOf("undo")] };
+    expect(branchVisitOf(undone).compensations).toEqual([entryOf("undo")]);
   });
 });
