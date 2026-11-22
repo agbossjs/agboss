@@ -182,6 +182,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     expect(Object.isFrozen(cost.prices.m)).toBe(true);
     expect(cost.prices.m).not.toBe(mine);
     expect(cost.prices.m).toEqual({ inputPerMillion: 1, outputPerMillion: 2 });
+    expect(Object.keys(cost.prices.m)).toEqual(["inputPerMillion", "outputPerMillion"]);
     expect(() => {
       (cost.prices.m as { inputPerMillion: number }).inputPerMillion = -5;
     }).toThrow(TypeError);
