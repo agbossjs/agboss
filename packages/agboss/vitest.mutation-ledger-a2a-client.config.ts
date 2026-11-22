@@ -13,6 +13,7 @@ export default defineConfig({
     include: [
       "tests/a2a/client/ledger-a2a-client-units.test.ts",
       "tests/a2a/a2a-price.test.ts",
+      "tests/a2a/a2a-agent-rules.test.ts",
       "tests/a2a/client/ledger-a2a-client-reads.test.ts",
       "tests/a2a/client/ledger-a2a-client-card.test.ts",
       "tests/a2a/client/a2a-client-minimal-card.test.ts",
