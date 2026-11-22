@@ -11,6 +11,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations, readingClassesOf } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
+import { listedModelProvidersOf } from "../models/resolution.js";
 import {
   providerBreakerViolations,
   providerFieldsViolations,
@@ -35,6 +36,7 @@ import {
   fencedEffectsViolations,
   outboundCallsViolations,
 } from "../infrastructure/fenced-effect-settings.js";
+import { providersOf } from "./listed-providers.js";
 import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
 import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-task-store-rule.js";
@@ -119,15 +121,15 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
  * environment) — a class given for a token too (#891: `provide(EXECUTION_ID_STORE, Class)`).
  */
 export const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
-  ...createdClassesOf(options.providers ?? []),
+  ...createdClassesOf(providersOf(options)),
   ...withChildWorkflows(options.workflows)
     .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
-    .flatMap((workflow) => createdClassesOf(moduleOf(workflow).providers ?? [])),
+    .flatMap((workflow) => createdClassesOf(providersOf(moduleOf(workflow)))),
 ];
 
 /** A listed `@ModelProvider`'s `name` ends with `-model-provider` (#266 S73 c). */
 function modelProviderNameViolations(options: ApplicationOptions): RuleViolation[] {
-  return (options.providers ?? []).filter(isModelProviderClass).flatMap((cls) => {
+  return listedModelProvidersOf(options.providers).flatMap((cls) => {
     const { name } = modelProviderOf(cls);
     const problem = kindSuffixProblem(name, NameKind.ModelProvider);
     return problem === undefined ? [] : [violation(problem.code, problem.message, [options.name])];
@@ -148,7 +150,7 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   return withChildWorkflows(options.workflows).flatMap((workflow) => {
     if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
     const module = moduleOf(workflow);
-    return createdClassesOf(module.providers ?? []).flatMap((cls) => {
+    return createdClassesOf(providersOf(module)).flatMap((cls) => {
       const kind = infrastructureKindOf(cls);
       if (kind === undefined) return [];
       return [
@@ -194,8 +196,8 @@ export function applicationRuleViolations(
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
     ...movedRetentionViolations(options.name, options),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)
-    ...storeDescriptorViolations(options.name, options.providers ?? []),
-    ...storeBackendViolations(options.name, options.providers ?? []),
+    ...storeDescriptorViolations(options.name, providersOf(options)),
+    ...storeBackendViolations(options.name, providersOf(options)),
     // an application serving A2A on shared leases keeps its tasks shared too (#824)
     ...a2aTaskStoreViolations(options),
     // a direct-reply skill is stateless, its replies kept where its tasks' ids are (#860)

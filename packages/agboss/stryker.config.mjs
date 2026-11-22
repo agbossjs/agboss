@@ -82,6 +82,8 @@ export const SHARDS = {
   "budget-loop": ranges.budgetLoopShard(),
   "budget-flow": ranges.budgetFlowShard(),
   "budget-reply": ranges.budgetReplyShard(),
+  // the assembly's rules on a limit or a price, mutated whole (#1366)
+  "assembly-rules": ranges.assemblyRulesShard(),
 };
 
 const shard = process.env.MUTATION_SHARD ?? "fencing";

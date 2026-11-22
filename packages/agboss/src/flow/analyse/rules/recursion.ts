@@ -1,7 +1,6 @@
 import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
-import { declarationOf } from "../../decorators/declaration.js";
+import { workflowDeclarationOf } from "../../../components/module.js";
 import {
   declaredMaxConcurrentExecutionsOf,
   DEFAULT_MAX_CONCURRENT_EXECUTIONS,
@@ -24,11 +23,11 @@ import type { AnalysisContext } from "./context.js";
  * (`[graph.mutual-recursion]` — only direct recursion, through `ThisWorkflow`, is supported).
  */
 
-const isPositiveWhole = (value: number): boolean => Number.isInteger(value) && value >= 1;
+const isPositiveWhole = (value: unknown): boolean => Number.isInteger(value) && Number(value) >= 1;
 
 function depthViolations(context: AnalysisContext, recursion: Recursion): RuleViolation[] {
   const { maxDepth } = recursion;
-  if (maxDepth !== undefined && isPositiveWhole(maxDepth)) return [];
+  if (isPositiveWhole(maxDepth)) return [];
   const what =
     maxDepth === undefined
       ? "it launches ThisWorkflow but sets no maxDepth"
@@ -59,19 +58,15 @@ function chainBack(from: Class, self: Class, seen: Set<Class>): readonly Class[]
   if (from === self) return [from];
   if (seen.has(from)) return undefined;
   seen.add(from);
-  const declaration = declarationOf(from);
-  if (declaration?.kind !== NodeKind.Workflow) return undefined;
-  for (const child of childClassesOf(declaration.options.flow)) {
+  // a child of a flow is a workflow: `childClassesOf` lists no other class
+  for (const child of childClassesOf(workflowDeclarationOf(from).options.flow)) {
     const chain = chainBack(child, self, seen);
     if (chain !== undefined) return [from, ...chain];
   }
   return undefined;
 }
 
-const nameOf = (workflow: Class): string => {
-  const declaration = declarationOf(workflow);
-  return declaration === undefined ? classLabel(workflow) : declaration.options.name;
-};
+const nameOf = (workflow: Class): string => workflowDeclarationOf(workflow).options.name;
 
 function mutualViolations(context: AnalysisContext, self: Class): RuleViolation[] {
   const name = context.workflow.name;

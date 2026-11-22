@@ -1,4 +1,5 @@
 import { countBoundOf, isCountLimit } from "../../graph/count-limit.js";
+import { definedOf } from "../../infrastructure/clock.js";
 import { StepsLimitExceededError } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
@@ -20,6 +21,7 @@ export function stronglyConnected<TVertex extends string>(
 ): readonly (readonly TVertex[])[] {
   const index = new Map<TVertex, number>();
   const low = new Map<TVertex, number>();
+  // Stryker disable next-line ArrayDeclaration: a vertex pops off the stack before the junk under it is ever read, so a stack that starts with an element behaves as an empty one
   const stack: TVertex[] = [];
   const onStack = new Set<TVertex>();
   const components: TVertex[][] = [];
@@ -119,13 +121,12 @@ function componentOf(
 ): Component {
   const members = new Set(nodes);
   const inner = edges.filter((edge) => members.has(edge.from) && members.has(edge.to));
-  const successors = (node: ComponentName): readonly ComponentName[] =>
-    inner.filter((edge) => edge.from === node).map((edge) => edge.to);
-  const [only] = nodes;
-  if (!isCycle(nodes, successors))
+  // a cycle is two nodes or more, or one with an edge to itself: every edge inside a single node is one
+  if (nodes.length === 1 && inner.length === 0)
     return {
       nodes,
-      most: weightOf(only === undefined ? undefined : graph.nodes.get(only)),
+      // Stryker disable next-line StringLiteral: equivalent: the text only names the invariant of an error that cannot happen
+      most: weightOf(graph.nodes.get(definedOf(nodes[0], "a component has a node"))),
       loop: [],
     };
   const bounded = nodes.flatMap((name) => {
@@ -172,8 +173,10 @@ function longestOnward(
 ): BoundedSteps | undefined {
   let best: BoundedSteps = { most: 0, loops: [] };
   for (const edge of edges) {
-    const target = owner.get(edge.to);
-    if (!part.nodes.includes(edge.from) || target === undefined || target === part) continue;
+    if (!part.nodes.includes(edge.from)) continue;
+    // Stryker disable next-line StringLiteral: equivalent: the text only names the invariant of an error that cannot happen
+    const target = definedOf(owner.get(edge.to), "every node an edge enters is in a component");
+    if (target === part) continue;
     const after = from(target);
     const running = mostRunning(graph, edge);
     if (after === undefined || running === undefined) return undefined;
@@ -221,7 +224,7 @@ export function worstCaseStepsWarnings(context: AnalysisContext): readonly RuleV
   const { maxSteps } = context.workflow;
   const { graph } = context;
   // a `maxSteps` that is no count is refused by `stepsRules`
-  if (maxSteps === undefined || !isCountLimit(maxSteps) || takesStepsLimit(graph)) return [];
+  if (!isCountLimit(maxSteps) || takesStepsLimit(graph)) return [];
   return graph.starts.flatMap((start) => {
     const worst = boundedStepsFrom(graph, start);
     if (worst === undefined || worst.most <= maxSteps) return [];

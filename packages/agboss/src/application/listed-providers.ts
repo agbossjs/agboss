@@ -1,4 +1,4 @@
-import type { Class } from "../components/injection.js";
+import type { Class, Provider } from "../components/injection.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 
 /** Whether a class is listed in the application's or one of its workflows' `providers`. */
@@ -23,3 +23,8 @@ export const listedProviderCheckOf =
  */
 export const isListedProvider = (app: object, cls: Class): boolean | undefined =>
   checks.get(app)?.(cls);
+
+/** What an application or a workflow's module lists in `providers`: nothing when it lists none. */
+export const providersOf = (listed: {
+  readonly providers?: readonly Provider[];
+}): readonly Provider[] => listed.providers ?? [];

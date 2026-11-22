@@ -29,10 +29,10 @@ const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 /** The listed classes that extend `role` (the role itself is not its implementation). */
 export function implementationsOf(role: Class, modules: readonly ProviderModule[]): Class[] {
   const listed = modules.flatMap((module) =>
-    module.providers.flatMap((provider) => (typeof provider === "function" ? [provider] : [])),
+    module.providers.filter((provider): provider is Class => typeof provider === "function"),
   );
-  return [...new Set(listed)].filter(
-    (cls) => cls !== role && Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype),
+  return [...new Set(listed)].filter((cls) =>
+    Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype),
   );
 }
 

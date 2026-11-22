@@ -3,7 +3,7 @@
  * shard of `stryker.config.mjs`, or is named in `NON_SHARDED_SRC` with the reason it is not — so a module
  * added to a money path is a conscious decision of a shard, never a file no mutant reaches.
  */
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, matchesGlob } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runProcess } from "../helpers/process.js";
@@ -124,6 +124,46 @@ describe("#1356: the mutation shards cover src/", () => {
     );
 
     expect(bad).toEqual([]);
+  });
+});
+
+/**
+ * #1366 round 4: a rule on money or a limit must not hide in a file no mutant reaches. The money and limit codes are
+ * `*.price-invalid`, `limits.*` and `budget*` of `RuleCode` (`src/graph/rule-codes.ts`). A file that holds one as a
+ * string (it declares the rule or registers it) is mutated by a shard, never named in `NON_SHARDED_SRC`. The union
+ * itself (`rule-codes.ts`) only lists names; the other files are read as text, a code written as a literal.
+ */
+const MONEY_CODE = /^(?:[a-z0-9-]+\.price-invalid|limits\..+|budget.*)$/;
+const CODE_LIST = "src/graph/rule-codes.ts";
+
+const moneyCodesIn = (source: string): string[] =>
+  [...source.matchAll(/"([a-z0-9.-]+)"/g)]
+    .map((match) => match[1] ?? "")
+    .filter((code) => MONEY_CODE.test(code));
+
+/** The money and limit codes a file writes as a literal, none when it is the union of the codes. */
+const moneyRulesOf = (file: string, codes: readonly string[]): string[] =>
+  file === CODE_LIST
+    ? []
+    : codes.filter((code) => readFileSync(join(pkg, file), "utf8").includes(`"${code}"`));
+
+describe("#1366: a file not sharded holds no rule on money or a limit", () => {
+  const sources = sourcesOf("src");
+  const codes = moneyCodesIn(readFileSync(join(pkg, CODE_LIST), "utf8"));
+
+  it("the codes read are the money and limit ones", () => {
+    expect(codes).toContain("model.price-invalid");
+    expect(codes).toContain("limits.timeout-invalid");
+    expect(codes).toContain("budget.not-a-budget");
+    expect(codes).not.toContain("name.kind-suffix");
+  });
+
+  it("no file named in NON_SHARDED_SRC declares or registers one", () => {
+    const holding = sources
+      .filter((file) => reviewedAs(file).length > 0)
+      .flatMap((file) => moneyRulesOf(file, codes).map((code) => `${file}: ${code}`));
+
+    expect(holding).toEqual([]);
   });
 });
 

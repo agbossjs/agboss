@@ -34,6 +34,7 @@
     "vitest.mutation-budget-loop.config.ts",
     "vitest.mutation-budget-flow.config.ts",
     "vitest.mutation-budget-reply.config.ts",
+    "vitest.mutation-assembly-rules.config.ts",
     "vitest.mutation-pauses-sqlite.config.ts",
     "vitest.mutation-pause-notices.config.ts",
     "vitest.mutation-rate-limits.config.ts",
