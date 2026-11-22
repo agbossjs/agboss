@@ -115,5 +115,14 @@
     "anchor": ") { return <TClass extends new",
     "kind": "runtime-error",
     "reason": "the body of HealthCheck is emptied, so the decorator it returns is undefined: every test file that decorates a class with it fails to load ('decorators[i] is not a function') outside any test, which Stryker counts as an error, not a kill; run alone: the same"
+  },
+  {
+    "shard": "assembly-rules",
+    "file": "src/health/health-check.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": ") { return <TClass extends new",
+    "kind": "wall-clock",
+    "reason": "the body of HealthCheck is emptied, so the decorator it returns is undefined and every test file that decorates a class with it fails to load ('decorators[i] is not a function') outside any test: on a short run Stryker reads that as a RuntimeError, on CI's slower runner the shard ends it by the clock as a Timeout (a Timeout in the shard's own run, a RuntimeError in a run alone: the same mutant, listed under both kinds); nothing that loads survives it"
   }
 ]
