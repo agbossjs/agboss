@@ -8,6 +8,8 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import type { DtoClass } from "../../../src/dto/types.js";
+import { Action } from "../../../src/flow/decorators/action.js";
+import { StepFailedError } from "../../../src/graph/errors.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -16,7 +18,7 @@ import { historyOf, listOf, oneOf, optional } from "../../../src/flow/dto-wrappe
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { CriticAgent, PlanResearcherAgent } from "../fixtures/launch.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { agent, caseOf, returnsEach, start, toAction } from "../fixtures/paths.js";
 import { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
 
 const problemsOf = (workflow: object) =>
@@ -24,10 +26,37 @@ const problemsOf = (workflow: object) =>
     .errors.filter((found) => found.code.startsWith("io.ambiguous"))
     .map(({ code, message, nodes }) => ({ code, message, nodes }));
 
+class LeftDto {
+  value!: string;
+}
+class RightDto {
+  value!: string;
+}
+
+@Agent({
+  name: "pre-critic-agent",
+  description: "Criticises the request before the loop",
+  prompt: "Criticise.",
+  model: "moonshotai/kimi-k2.6",
+  input: { message: WorkflowStartTextDto },
+  output: CritiqueDto,
+})
+class PreCriticAgent {}
+
+@Agent({
+  name: "pre-note-agent",
+  description: "Notes the request before the loop",
+  prompt: "Note.",
+  model: "moonshotai/kimi-k2.6",
+  input: { message: WorkflowStartTextDto },
+  output: LeftDto,
+})
+class PreNoteAgent {}
+
 /** A planner whose plan the joined critic reads and whose next round reads the critique. */
 const joinLoop = (
   name: string,
-  options: { about?: DtoClass; critic?: abstract new () => unknown },
+  options: { about?: DtoClass; critic?: abstract new () => unknown; preJoin?: boolean },
 ): object => {
   @WorkflowStart({ name: `${name}-workflow-start`, description: "Ask", input: WorkflowStartTextDto })
   class LoopStart {}
@@ -57,7 +86,15 @@ const joinLoop = (
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(LoopStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
+      options.preJoin === true
+        ? start(LoopStart)
+            .returns(WorkflowStartTextDto)
+            .toParallelAgents(PreCriticAgent, PreNoteAgent)
+            .join()
+            .returns(CritiqueDto)
+            .returns(LeftDto)
+            .toAgent(PlannerAgent)
+        : start(LoopStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
       agent(PlannerAgent)
         .returns(PlanDto)
         .toParallelAgents(PlanResearcherAgent, options.critic ?? CriticAgent)
@@ -144,7 +181,7 @@ describe("#1366: a branch of a join that reads the class its values are about in
 class DraftResearcherAgent {}
 
 /** A draft is researched twice in parallel; the planner plans from the researches and the drafter redrafts from the plan. */
-const fanOutLoop = (name: string, about: DtoClass | undefined): object => {
+const fanOutLoop = (name: string, about: DtoClass | undefined, plannerReadsDraft = false): object => {
   @WorkflowStart({ name: `${name}-workflow-start`, description: "Ask", input: WorkflowStartTextDto })
   class FanStart {}
   @WorkflowFinish({ name: `${name}-workflow-finish`, description: "Done", output: ApprovalDto })
@@ -165,7 +202,7 @@ const fanOutLoop = (name: string, about: DtoClass | undefined): object => {
     prompt: "Plan.",
     model: "moonshotai/kimi-k2.6",
     maxVisits: 3,
-    input: { researches: listOf(ResearchDto) },
+    input: plannerReadsDraft ? { researches: listOf(ResearchDto), draft: DraftDto } : { researches: listOf(ResearchDto) },
     output: oneOf(PlanDto, ApprovalDto),
   })
   class PlannerAgent {}
@@ -201,6 +238,14 @@ describe("#1366: the hint of a cycle whose join branches read the first class", 
         nodes: ["afan-drafter-agent", "afan-planner-agent", "draft-researcher-agent"],
       },
     ]);
+  });
+
+  it("two edges into the hint's target: the producer first by name is named, not the first found", () => {
+    const [found] = problemsOf(fanOutLoop("zfan", undefined, true));
+
+    expect(found?.message).toContain(
+      "write .join().returns(listOf(ResearchDto), { about: DraftDto }) after zfan-drafter-agent",
+    );
   });
 
   it("with { about } on the join's value it is accepted", () => {
@@ -394,5 +439,255 @@ describe("#1366: a producer whose values are about two classes, each read in two
       "2 DraftDto",
       "2 PlanDto",
     ]);
+  });
+});
+
+/** 13 optional fields: 2^13 reachable scopes at the next node, past the scope guard. */
+const wideDtos = Array.from({ length: 13 }, (_, index) => {
+  const name = `Wide${String(index + 1)}Dto`;
+  return {
+    [name]: class {
+      value!: string;
+    },
+  }[name];
+}).filter((dto) => dto !== undefined);
+
+describe("#1366: past the scope guard a cycle is not judged, even when the wide node is elsewhere", () => {
+  it("[flow.analysis-too-large] says so and the un-directed cycle is not reported on partial states", () => {
+    const optionalFields = Object.fromEntries(
+      wideDtos.map((dto, index) => [`field${String(index + 1)}`, optional(dto)]),
+    );
+    @WorkflowStart({
+      name: "guarded-workflow-start",
+      description: "A request",
+      input: { request: ArticleRequestDto },
+    })
+    class GuardedStart {}
+    @WorkflowStart({
+      name: "guarded-wide-workflow-start",
+      description: "Many optional fields",
+      input: optionalFields,
+    })
+    class GuardedWideStart {}
+    @WorkflowFinish({ name: "guarded-workflow-finish", description: "Done", output: ApprovalDto })
+    class GuardedFinish {}
+    @WorkflowFinish({
+      name: "guarded-wide-workflow-finish",
+      description: "Reads them all",
+      input: optionalFields,
+      output: ApprovalDto,
+    })
+    class GuardedWideFinish {
+      finish(): ApprovalDto {
+        return { reason: "" };
+      }
+    }
+    @Agent({
+      name: "guarded-writer-agent",
+      description: "Writes the draft, or rewrites it from the notes",
+      prompt: "Write.",
+      model: "moonshotai/kimi-k2.6",
+      maxVisits: 3,
+      input: { request: ArticleRequestDto, changes: optional(DraftChangesDto) },
+      output: DraftDto,
+    })
+    class GuardedWriterAgent {}
+    @Agent({
+      name: "guarded-reviewer-agent",
+      description: "Approves the draft or asks for changes",
+      prompt: "Review.",
+      model: "moonshotai/kimi-k2.6",
+      maxVisits: 3,
+      input: { draft: DraftDto },
+      output: oneOf(ApprovalDto, DraftChangesDto),
+    })
+    class GuardedReviewerAgent {}
+    @Workflow({
+      name: "guarded-workflow",
+      version: "1.0.0",
+      flow: [
+        start(GuardedStart).returns(ArticleRequestDto).toAgent(GuardedWriterAgent),
+        returnsEach(start(GuardedWideStart), wideDtos.map(optional)).toFinish(GuardedWideFinish),
+        agent(GuardedWriterAgent)
+          .returns(DraftDto)
+          .toAgent(GuardedReviewerAgent)
+          .returns(oneOf(ApprovalDto, DraftChangesDto))
+          .switch(
+            caseOf(DraftChangesDto).toAgent(GuardedWriterAgent),
+            caseOf(ApprovalDto).toFinish(GuardedFinish),
+          ),
+      ],
+    })
+    class GuardedWorkflow {}
+
+    const codes = checkWorkflow(GuardedWorkflow as never).errors.map((found) => found.code);
+
+    expect(codes).toContain("flow.analysis-too-large");
+    expect(codes).not.toContain("io.ambiguous-cycle");
+  });
+});
+
+describe("#1366: a node that is not in a cycle is never judged for one", () => {
+  it("an agent that reads two classes and answers with either of them is not [io.ambiguous-cycle]", () => {
+    @WorkflowStart({
+      name: "pair-workflow-start",
+      description: "Two values",
+      input: { left: LeftDto, right: RightDto },
+    })
+    class PairStart {}
+    @WorkflowFinish({ name: "pair-left-workflow-finish", description: "Left", output: LeftDto })
+    class PairLeftFinish {}
+    @WorkflowFinish({ name: "pair-right-workflow-finish", description: "Right", output: RightDto })
+    class PairRightFinish {}
+    @Agent({
+      name: "pair-agent",
+      description: "Picks one of the two",
+      prompt: "Pick.",
+      model: "moonshotai/kimi-k2.6",
+      input: { left: LeftDto, right: RightDto },
+      output: oneOf(LeftDto, RightDto),
+    })
+    class PairAgent {}
+    @Workflow({
+      name: "pair-workflow",
+      version: "1.0.0",
+      flow: [
+        returnsEach(start(PairStart), [LeftDto, RightDto])
+          .toAgent(PairAgent)
+          .returns(oneOf(LeftDto, RightDto))
+          .switch(caseOf(LeftDto).toFinish(PairLeftFinish), caseOf(RightDto).toFinish(PairRightFinish)),
+      ],
+    })
+    class PairWorkflow {}
+
+    expect(checkWorkflow(PairWorkflow as never).errors).toStrictEqual([]);
+  });
+});
+
+@Agent({
+  name: "item-critic-agent",
+  description: "Criticises one plan",
+  prompt: "Criticise.",
+  model: "moonshotai/kimi-k2.6",
+  input: { plan: PlanDto },
+  output: CritiqueDto,
+})
+class ItemCriticAgent {}
+
+describe("#1366: a per-item launch's item is not written by its launcher", () => {
+  it("planner → one critic per plan → planner is not [io.ambiguous-cycle]: the item class is the branch's input, not the planner's output", () => {
+    @WorkflowStart({ name: "items-workflow-start", description: "Ask", input: WorkflowStartTextDto })
+    class ItemsStart {}
+    @WorkflowFinish({ name: "items-workflow-finish", description: "Done", output: ApprovalDto })
+    class ItemsFinish {}
+    @Agent({
+      name: "items-planner-agent",
+      description: "Plans several, or replans from the critiques",
+      prompt: "Plan.",
+      model: "moonshotai/kimi-k2.6",
+      maxVisits: 3,
+      input: { message: WorkflowStartTextDto, critiques: optional(listOf(CritiqueDto)) },
+      output: listOf(PlanDto),
+    })
+    class ItemsPlannerAgent {}
+    @Agent({
+      name: "items-decider-agent",
+      description: "Approves or asks for changes",
+      prompt: "Decide.",
+      model: "moonshotai/kimi-k2.6",
+      maxVisits: 3,
+      input: { critiques: listOf(CritiqueDto) },
+      output: oneOf(ApprovalDto, DraftChangesDto),
+    })
+    class ItemsDeciderAgent {}
+    @Workflow({
+      name: "items-workflow",
+      version: "1.0.0",
+      flow: [
+        start(ItemsStart).returns(WorkflowStartTextDto).toAgent(ItemsPlannerAgent),
+        agent(ItemsPlannerAgent)
+          .returns(listOf(PlanDto))
+          .toParallelAgents(ItemCriticAgent, { maxConcurrency: 2, maxItems: 5 })
+          .join()
+          .returns(listOf(CritiqueDto))
+          .toAgent(ItemsDeciderAgent)
+          .returns(oneOf(ApprovalDto, DraftChangesDto))
+          .switch(
+            caseOf(DraftChangesDto).toAgent(ItemsPlannerAgent),
+            caseOf(ApprovalDto).toFinish(ItemsFinish),
+          ),
+      ],
+    })
+    class ItemsWorkflow {}
+
+    expect(checkWorkflow(ItemsWorkflow as never).errors).toStrictEqual([]);
+  });
+});
+
+describe("#1366: a join before the cycle is not part of it", () => {
+  it("its branches are not producers of the cycle", () => {
+    const found = problemsOf(joinLoop("pre", { preJoin: true }));
+
+    expect(found.map((problem) => problem.code)).toStrictEqual(["io.ambiguous-cycle"]);
+    expect(found[0]?.nodes).toStrictEqual(["critic-agent", "pre-planner-agent"]);
+  });
+});
+
+describe("#1366: a cycle that only the join's error path closes", () => {
+  it("the branches of a join whose happy path leaves the loop are not producers of the cycle", () => {
+    @WorkflowStart({ name: "retry-workflow-start", description: "Ask", input: WorkflowStartTextDto })
+    class RetryStart {}
+    @WorkflowFinish({ name: "retry-workflow-finish", description: "Done", output: CritiqueDto })
+    class RetryFinish {}
+    @Agent({
+      name: "retry-planner-agent",
+      description: "Plans, or replans after a failed launch",
+      prompt: "Plan.",
+      model: "moonshotai/kimi-k2.6",
+      maxVisits: 3,
+      input: {
+        message: WorkflowStartTextDto,
+        critique: optional(CritiqueDto),
+        research: optional(ResearchDto),
+        note: optional(LeftDto),
+      },
+      output: PlanDto,
+    })
+    class RetryPlannerAgent {}
+    @Action({
+      name: "retry-note-action",
+      description: "Notes the failure",
+      input: { plan: PlanDto },
+      output: LeftDto,
+    })
+    class RetryNoteAction {
+      execute(): Promise<LeftDto> {
+        return Promise.resolve({ value: "" });
+      }
+    }
+    @Workflow({
+      name: "retry-workflow",
+      version: "1.0.0",
+      flow: [
+        start(RetryStart).returns(WorkflowStartTextDto).toAgent(RetryPlannerAgent),
+        agent(RetryPlannerAgent)
+          .returns(PlanDto)
+          .toParallelAgents(PlanResearcherAgent, CriticAgent)
+          .join()
+          .onJoinError(
+            StepFailedError,
+            toAction(RetryNoteAction).returns(LeftDto).toAgent(RetryPlannerAgent),
+          )
+          .returns(ResearchDto)
+          .returns(CritiqueDto)
+          .toFinish(RetryFinish),
+      ],
+    })
+    class RetryWorkflow {}
+
+    const found = problemsOf(RetryWorkflow);
+
+    expect(found.map((problem) => problem.code)).toStrictEqual(["io.ambiguous-cycle"]);
+    expect(found[0]?.nodes).toStrictEqual(["retry-note-action", "retry-planner-agent"]);
   });
 });
