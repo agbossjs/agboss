@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-const pkg = vi.hoisted(() => ({ value: undefined }));
+const pkg: { value: unknown } = vi.hoisted(() => ({ value: undefined }));
 vi.mock("../../src/package-json.js", () => ({ frameworkPackageJson: () => pkg.value }));
 
 import { InstanceMetrics, METER_NAME } from "../../src/metrics/instance-metrics.js";

@@ -11,7 +11,7 @@ import { describedTreeOf, treeLines } from "../../src/describe/tree.js";
 import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { start } from "../../src/flow/builder.js";
+import { start } from "../helpers/flow.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
@@ -41,7 +41,11 @@ const applicationOver = async (...workflows: Class[]) => {
 
 /** A workflow that splits a request and launches the treasury once per line, with these options. */
 const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurrency?: number }) => {
-  @WorkflowStart({ name: `${name}-workflow-start`, description: "Lines", input: WorkflowStartTextDto })
+  @WorkflowStart({
+    name: `${name}-workflow-start`,
+    description: "Lines",
+    input: WorkflowStartTextDto,
+  })
   class Start {}
   @WorkflowFinish({
     name: `${name}-workflow-finish`,
@@ -78,7 +82,9 @@ describe("#1366: the launch of a child in the tree", () => {
       ),
     );
 
-    expect(tree.workflows.map((workflow) => workflow.children.map((child) => child.launch))).toStrictEqual([
+    expect(
+      tree.workflows.map((workflow) => workflow.children.map((child) => child.launch)),
+    ).toStrictEqual([
       [],
       [{ from: ["split-requests-action"], isPerItem: true, maxItems: 4 }],
       [{ from: ["split-requests-action"], isPerItem: true, maxItems: 6, maxConcurrency: 2 }],
@@ -101,9 +107,17 @@ describe("#1366: the launch of a child in the tree", () => {
   });
 
   it("grandchildren: a child's own children sit one level deeper, each with its starts", async () => {
-    @WorkflowStart({ name: "grand-workflow-start", description: "Ask", input: WorkflowStartTextDto })
+    @WorkflowStart({
+      name: "grand-workflow-start",
+      description: "Ask",
+      input: WorkflowStartTextDto,
+    })
     class GrandStart {}
-    @WorkflowFinish({ name: "grand-workflow-finish", description: "Answer", output: WorkflowFinishTextDto })
+    @WorkflowFinish({
+      name: "grand-workflow-finish",
+      description: "Answer",
+      output: WorkflowFinishTextDto,
+    })
     class GrandFinish {}
     @Workflow({
       name: "grand-workflow",
@@ -121,10 +135,12 @@ describe("#1366: the launch of a child in the tree", () => {
     const assembled = await applicationOver(GrandWorkflow, TreasuryDeskWorkflow, TreasuryWorkflow);
     const [grand] = describedTreeOf(assembled).workflows;
 
-    expect(grand?.children.map((child) => child.workflow.name)).toStrictEqual(["treasury-desk-workflow"]);
-    expect(grand?.children[0]?.workflow.children.map((child) => child.workflow.name)).toStrictEqual([
-      "treasury-workflow",
+    expect(grand?.children.map((child) => child.workflow.name)).toStrictEqual([
+      "treasury-desk-workflow",
     ]);
+    expect(grand?.children[0]?.workflow.children.map((child) => child.workflow.name)).toStrictEqual(
+      ["treasury-workflow"],
+    );
     expect(treeLines(assembled).slice(0, 7)).toStrictEqual([
       "workflows",
       "  grand-workflow 3.1.0",

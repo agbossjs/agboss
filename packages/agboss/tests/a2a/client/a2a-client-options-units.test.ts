@@ -12,6 +12,7 @@ import {
   urlOf,
 } from "../../../src/a2a/client/a2a-client-options.js";
 import { ComponentError } from "../../../src/components/metadata.js";
+import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { MAX_TIMEOUT } from "../../../src/units/timer-limits.js";
 
 const refusal = (work: () => unknown): string | undefined => {
@@ -43,11 +44,15 @@ describe("#1366: a call's timeout and key are checked before it is sent", () => 
   });
 
   it("checkedCall checks the timeout, the price and the key, and gives the key back", () => {
-    expect(checkedCall("agent", { key: "second-call", timeout: 1000 }, 0.5)).toBe("second-call");
-    expect(checkedCall("agent", {}, undefined)).toBeUndefined();
-    expect(refusal(() => checkedCall("agent", { timeout: MAX_TIMEOUT + 1 }, undefined))).toMatch(
-      /a2a\.timeout-invalid/u,
+    expect(checkedCall("agent", { key: "second-call", timeout: seconds(1) }, 0.5)).toBe(
+      "second-call",
     );
+    expect(checkedCall("agent", {}, undefined)).toBeUndefined();
+    expect(
+      refusal(() =>
+        checkedCall("agent", { timeout: (MAX_TIMEOUT + 1) as Milliseconds }, undefined),
+      ),
+    ).toMatch(/a2a\.timeout-invalid/u);
     expect(refusal(() => checkedCall("agent", {}, -1))).toMatch(/a2a\.price-invalid/u);
   });
 

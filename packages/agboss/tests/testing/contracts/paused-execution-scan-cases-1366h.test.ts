@@ -6,16 +6,15 @@
  * last pause as the keyset.
  */
 import { describe, expect, it } from "vitest";
-import {
-  InMemoryPausedExecutionRepository,
-} from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
+import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import type { PauseScanAfter } from "../../../src/infrastructure/pause-notices.js";
 import {
   PauseStatus,
   type PausedExecutionRepository,
-  type PausePage,
   type PauseRecord,
 } from "../../../src/infrastructure/paused-execution.repository.js";
+
+type PausePage = Awaited<ReturnType<PausedExecutionRepository["findOpenAfter"]>>;
 import { VirtualClock } from "../../../src/testing/clock.js";
 import type { ContractCase } from "../../../src/testing/contracts/define.js";
 import { KEYSET_CASES } from "../../../src/testing/contracts/paused-execution-keyset.cases.js";
@@ -64,10 +63,16 @@ const compareKeys = (a: readonly string[], b: readonly string[], tweaks: Tweaks)
   return 0;
 };
 
-const isLastOf = (sorted: readonly PauseRecord[], column: Column, keyset: PauseScanAfter): boolean => {
+const isLastOf = (
+  sorted: readonly PauseRecord[],
+  column: Column,
+  keyset: PauseScanAfter,
+): boolean => {
   const last = sorted.at(-1);
   return (
-    last?.[column] === keyset.at && last.tenantId === keyset.tenantId && last.pauseId === keyset.pauseId
+    last?.[column] === keyset.at &&
+    last.tenantId === keyset.tenantId &&
+    last.pauseId === keyset.pauseId
   );
 };
 
@@ -88,7 +93,12 @@ class TweakedStore extends InMemoryPausedExecutionRepository {
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
     if (this.#tweaks.noLimitCheck !== true) await super.findPendingByExpiresAtBefore(at, limit);
-    return this.#scan("expiresAt", await super.findPendingByExpiresAtBefore(at, 1000), limit, after);
+    return this.#scan(
+      "expiresAt",
+      await super.findPendingByExpiresAtBefore(at, 1000),
+      limit,
+      after,
+    );
   }
 
   override async findPendingByRemindAtBefore(
@@ -109,7 +119,11 @@ class TweakedStore extends InMemoryPausedExecutionRepository {
     limit: number,
     after?: string,
   ): Promise<PausePage> {
-    return super.findClosedByResolvedAtBefore(cutoff, this.#tweaks.noLimitCheck === true ? 5 : limit, after);
+    return super.findClosedByResolvedAtBefore(
+      cutoff,
+      this.#tweaks.noLimitCheck === true ? 5 : limit,
+      after,
+    );
   }
 
   #scan(
@@ -133,15 +147,19 @@ class TweakedStore extends InMemoryPausedExecutionRepository {
       if (tweaks.emptyTenantStrict === true && after.tenantId === "") {
         return (pause[column] ?? "") > after.at;
       }
-      const bound = tweaks.idFirst === true
-        ? [after.at, after.pauseId, after.tenantId]
-        : [after.at, after.tenantId, after.pauseId];
+      const bound =
+        tweaks.idFirst === true
+          ? [after.at, after.pauseId, after.tenantId]
+          : [after.at, after.tenantId, after.pauseId];
       return compareKeys(keyOf(pause, tweaks, column), bound, tweaks) > 0;
     });
     const page = past.slice(0, tweaks.oversize === true ? limit + 2 : limit);
     return after === undefined || tweaks.changeAfterPage === undefined
       ? page
-      : page.map((pause, index) => tweaks.changeAfterPage?.(pause, column, index === page.length - 1) ?? pause);
+      : page.map(
+          (pause, index) =>
+            tweaks.changeAfterPage?.(pause, column, index === page.length - 1) ?? pause,
+        );
   }
 
   #effectiveAfter(
@@ -174,7 +192,12 @@ interface PageTweaks {
   readonly strictArguments?: boolean;
 }
 
-const ALL_STATUSES = [PauseStatus.Pending, PauseStatus.Resolved, PauseStatus.Taken, PauseStatus.Cancelled];
+const ALL_STATUSES = [
+  PauseStatus.Pending,
+  PauseStatus.Resolved,
+  PauseStatus.Taken,
+  PauseStatus.Cancelled,
+];
 
 class PagedStore extends TweakedStore {
   readonly #page: PageTweaks;
@@ -192,12 +215,15 @@ class PagedStore extends TweakedStore {
 
   override async findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {
     const page = await super.findOpenAfter(after, limit);
-    const open = this.#page.resolvedNotOpen === true
-      ? { ...page, pauses: page.pauses.filter((pause) => pause.status !== PauseStatus.Resolved) }
-      : page;
+    const open =
+      this.#page.resolvedNotOpen === true
+        ? { ...page, pauses: page.pauses.filter((pause) => pause.status !== PauseStatus.Resolved) }
+        : page;
     const isLast = open.next === undefined;
-    if (this.#page.nextOnFirst === true && after === undefined && isLast) return { ...open, next: "end" };
-    if (this.#page.nextOnLastAfter === true && after !== undefined && isLast) return { ...open, next: "end" };
+    if (this.#page.nextOnFirst === true && after === undefined && isLast)
+      return { ...open, next: "end" };
+    if (this.#page.nextOnLastAfter === true && after !== undefined && isLast)
+      return { ...open, next: "end" };
     return open;
   }
 
@@ -208,8 +234,16 @@ class PagedStore extends TweakedStore {
     after?: string,
   ): Promise<PausePage> {
     const tweaks = this.#page;
-    if (tweaks.statusesOptional === true && (filter as { statuses?: unknown }).statuses === undefined) {
-      return super.findPageByTenantId(tenantId, { ...filter, statuses: ALL_STATUSES }, limit, after);
+    if (
+      tweaks.statusesOptional === true &&
+      (filter as { statuses?: unknown }).statuses === undefined
+    ) {
+      return super.findPageByTenantId(
+        tenantId,
+        { ...filter, statuses: ALL_STATUSES },
+        limit,
+        after,
+      );
     }
     if (tweaks.emptyChannelMatchesAny === true && filter.channel !== undefined) {
       return this.#pageOfAnyEmptyChannel(tenantId, filter, limit);
@@ -226,15 +260,26 @@ class PagedStore extends TweakedStore {
       : page;
   }
 
-  async #pageOfAnyEmptyChannel(tenantId: string, filter: Filter, limit: number): Promise<PausePage> {
+  async #pageOfAnyEmptyChannel(
+    tenantId: string,
+    filter: Filter,
+    limit: number,
+  ): Promise<PausePage> {
     const { channel, ...rest } = filter;
     const all = await super.findPageByTenantId(tenantId, rest, 1000);
     return {
-      pauses: all.pauses.filter((pause) => !pause.channel || pause.channel === channel).slice(0, limit),
+      pauses: all.pauses
+        .filter((pause) => !pause.channel || pause.channel === channel)
+        .slice(0, limit),
     };
   }
 
-  async #pageByOffset(tenantId: string, filter: Filter, limit: number, after?: string): Promise<PausePage> {
+  async #pageByOffset(
+    tenantId: string,
+    filter: Filter,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage> {
     const all = (await super.findPageByTenantId(tenantId, filter, 1000)).pauses;
     const start = after === undefined ? 0 : Number(after);
     const pauses = all.slice(start, start + limit);
@@ -259,7 +304,13 @@ class PagedStore extends TweakedStore {
   override async resolveByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    ...rest: Parameters<PausedExecutionRepository["resolveByTenantIdAndPauseId"]> extends [string, string, ...infer R] ? R : never
+    ...rest: Parameters<PausedExecutionRepository["resolveByTenantIdAndPauseId"]> extends [
+      string,
+      string,
+      ...infer R,
+    ]
+      ? R
+      : never
   ): Promise<PauseRecord | undefined> {
     this.#strict(tenantId, pauseId);
     this.#noRecipients(rest[2]);
@@ -269,7 +320,13 @@ class PagedStore extends TweakedStore {
   override async cancelByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    ...rest: Parameters<PausedExecutionRepository["cancelByTenantIdAndPauseId"]> extends [string, string, ...infer R] ? R : never
+    ...rest: Parameters<PausedExecutionRepository["cancelByTenantIdAndPauseId"]> extends [
+      string,
+      string,
+      ...infer R,
+    ]
+      ? R
+      : never
   ): Promise<PauseRecord | undefined> {
     this.#strict(tenantId, pauseId);
     this.#noRecipients(rest[2]);
@@ -279,7 +336,13 @@ class PagedStore extends TweakedStore {
   override decideByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    ...rest: Parameters<PausedExecutionRepository["decideByTenantIdAndPauseId"]> extends [string, string, ...infer R] ? R : never
+    ...rest: Parameters<PausedExecutionRepository["decideByTenantIdAndPauseId"]> extends [
+      string,
+      string,
+      ...infer R,
+    ]
+      ? R
+      : never
   ): Promise<boolean> {
     this.#strict(tenantId, pauseId);
     return super.decideByTenantIdAndPauseId(tenantId, pauseId, ...rest);
@@ -320,16 +383,21 @@ const shift = (pause: PauseRecord, column: Column, isLast: boolean): PauseRecord
 const renamed = (pause: PauseRecord): PauseRecord => ({ ...pause, pauseId: `${pause.pauseId}x` });
 
 describe("#1366: the keyset cases pass a correct store", () => {
-  it.each(KEYSET.map((contractCase) => [contractCase.name, contractCase] as const))("%s", async (_, contractCase) => {
-    expect(await outcomeOf(contractCase, new TweakedStore())).toBe("pass");
-  });
+  it.each(KEYSET.map((contractCase) => [contractCase.name, contractCase] as const))(
+    "%s",
+    async (_, contractCase) => {
+      expect(await outcomeOf(contractCase, new TweakedStore())).toBe("pass");
+    },
+  );
   it("also on a store with a locale collation and a page longer than asked", async () => {
     for (const contractCase of KEYSET) {
       expect(await outcomeOf(contractCase, new TweakedStore({ locale: true }))).toBe("pass");
       expect(await outcomeOf(contractCase, new TweakedStore({ oversize: true }))).toBe("pass");
     }
     for (const contractCase of [EXPIRES, REMIND]) {
-      expect(await outcomeOf(contractCase, new TweakedStore({ locale: true, idFirst: true }))).toBe("pass");
+      expect(await outcomeOf(contractCase, new TweakedStore({ locale: true, idFirst: true }))).toBe(
+        "pass",
+      );
     }
   });
 });
@@ -354,26 +422,44 @@ describe("#1366: a store that breaks the keyset fails the cases with an assertio
   });
 
   it("a keyset with an empty tenant that reads nothing fails the keyset before the first pause", async () => {
-    expect(await outcomeOf(EXPIRES, new TweakedStore({ emptyTenantNothing: true }))).toBe("AssertionError");
-    expect(await outcomeOf(REMIND, new TweakedStore({ emptyTenantNothing: true }))).toBe("AssertionError");
+    expect(await outcomeOf(EXPIRES, new TweakedStore({ emptyTenantNothing: true }))).toBe(
+      "AssertionError",
+    );
+    expect(await outcomeOf(REMIND, new TweakedStore({ emptyTenantNothing: true }))).toBe(
+      "AssertionError",
+    );
   });
 
   it("a keyset with an empty tenant that drops the ties at its time fails the keyset before the first pause", async () => {
-    expect(await outcomeOf(EXPIRES, new TweakedStore({ emptyTenantStrict: true }))).toBe("AssertionError");
-    expect(await outcomeOf(REMIND, new TweakedStore({ emptyTenantStrict: true }))).toBe("AssertionError");
+    expect(await outcomeOf(EXPIRES, new TweakedStore({ emptyTenantStrict: true }))).toBe(
+      "AssertionError",
+    );
+    expect(await outcomeOf(REMIND, new TweakedStore({ emptyTenantStrict: true }))).toBe(
+      "AssertionError",
+    );
   });
 
   it("a keyset with an empty tenant that restarts the scan passes the tied cases: their pauses keep a tenant", async () => {
     for (const contractCase of [TIED_EXPIRES, TIED_REMIND]) {
-      expect(await outcomeOf(contractCase, new TweakedStore({ emptyTenantRestarts: true }))).toBe("pass");
+      expect(await outcomeOf(contractCase, new TweakedStore({ emptyTenantRestarts: true }))).toBe(
+        "pass",
+      );
     }
   });
 
   it("pages whose deadline, reminder or id differ from the whole scan's fail the case", async () => {
-    expect(await outcomeOf(EXPIRES, new TweakedStore({ changeAfterPage: shift }))).toBe("AssertionError");
-    expect(await outcomeOf(REMIND, new TweakedStore({ changeAfterPage: shift }))).toBe("AssertionError");
-    expect(await outcomeOf(EXPIRES, new TweakedStore({ changeAfterPage: renamed }))).toBe("AssertionError");
-    expect(await outcomeOf(REMIND, new TweakedStore({ changeAfterPage: renamed }))).toBe("AssertionError");
+    expect(await outcomeOf(EXPIRES, new TweakedStore({ changeAfterPage: shift }))).toBe(
+      "AssertionError",
+    );
+    expect(await outcomeOf(REMIND, new TweakedStore({ changeAfterPage: shift }))).toBe(
+      "AssertionError",
+    );
+    expect(await outcomeOf(EXPIRES, new TweakedStore({ changeAfterPage: renamed }))).toBe(
+      "AssertionError",
+    );
+    expect(await outcomeOf(REMIND, new TweakedStore({ changeAfterPage: renamed }))).toBe(
+      "AssertionError",
+    );
   });
 });
 
@@ -386,10 +472,13 @@ const DELETE = caseNamed(SCAN_CASES, "deleteByTenantIdAndThreadIdAndRunId remove
 const SCAN_ALL = [SCAN, LIMIT, OPEN, PAGE, REMOVED, DELETE];
 
 describe("#1366: the scan cases pass a correct store", () => {
-  it.each(SCAN_ALL.map((contractCase) => [contractCase.name, contractCase] as const))("%s", async (_, contractCase) => {
-    expect(await outcomeOf(contractCase, new PagedStore({}))).toBe("pass");
-    expect(await outcomeOf(contractCase, new PagedStore({ strictArguments: true }))).toBe("pass");
-  });
+  it.each(SCAN_ALL.map((contractCase) => [contractCase.name, contractCase] as const))(
+    "%s",
+    async (_, contractCase) => {
+      expect(await outcomeOf(contractCase, new PagedStore({}))).toBe("pass");
+      expect(await outcomeOf(contractCase, new PagedStore({ strictArguments: true }))).toBe("pass");
+    },
+  );
   it("a store that makes the statuses optional but rejects an empty list passes: the case asks with an empty list, not a missing one", async () => {
     expect(await outcomeOf(PAGE, new PagedStore({ statusesOptional: true }))).toBe("pass");
   });
@@ -425,7 +514,9 @@ describe("#1366: a store that breaks a scan rule fails its case with an assertio
   });
 
   it("a delete of one run that takes the thread's other runs fails with an assertion, not a crash", async () => {
-    expect(await outcomeOf(DELETE, new PagedStore({ deleteIgnoresRun: true }))).toBe("AssertionError");
+    expect(await outcomeOf(DELETE, new PagedStore({ deleteIgnoresRun: true }))).toBe(
+      "AssertionError",
+    );
   });
 
   it("a delete that removes nothing fails the case at the final look", async () => {
