@@ -13,44 +13,87 @@ const reviewed = (reason: string, names: readonly string[]): [string, string][] 
 export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntries([
   ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-caller-gate.ts",
-    "src/a2a/a2a-caller.ts",
-    "src/a2a/a2a-card-file-fields.ts",
-    "src/a2a/a2a-decorator.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 16 mutants, 12 killed in the final run; the 5 that had lived in the first run each got a test (1), an equivalence reason (4) or was classed message text (0); covered by tests/sweep-1366h/a2a/a2a-caller-fields-1366h.test.ts, tests/a2a/files/a2a-file-slots.test.ts, tests/a2a/server/a2a-payment-grade.test.ts, tests/a2a/mesh/a2a-mesh-takeover.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/a2a-caller.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 44 mutants, 44 killed in the final run; the 9 that had lived in the first run each got a test (9), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/a2a/a2a-caller-fields-1366h.test.ts, tests/a2a/files/a2a-card-file-fields.test.ts, tests/a2a/files/a2a-card-output-files.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/a2a-card-file-fields.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 28 mutants, 28 killed in the final run; the 7 that had lived in the first run each got a test (7), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/a2a/a2a-decorator-meta-1366h.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, tests/a2a/client/a2a-client-hardening.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/a2a-decorator.ts"],
+  ),
+  ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-exports.ts",
     "src/a2a/a2a-expose.decorator.ts",
     "src/a2a/a2a-extension-uris.ts",
-    "src/a2a/a2a-http.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 142 mutants, 136 killed in the final run; the 29 that had lived in the first run each got a test (27), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/a2a/a2a-http-listener-1366h.test.ts, tests/a2a/files/a2a-file-slots.test.ts, tests/a2a/server/a2a-card.test.ts, tests/a2a/server/a2a-messages.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/a2a-http.ts"],
+  ),
+  ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-nested-file-rule.ts",
     "src/a2a/a2a-security.ts",
     "src/a2a/index.ts",
   ]),
   ...reviewed(
-    "builds assembly warnings about untagged skills and unpriced foreign peers; it only reports, nothing is enforced",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 76 mutants, 68 killed in the final run; the 20 that had lived in the first run each got a test (12), an equivalence reason (7) or was classed message text (1); covered by tests/sweep-1366h/a2a/a2a-card-warnings-1366h.test.ts, tests/a2a/a2a-card-rules.test.ts, tests/a2a-tck/tck-sut.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/a2a-card-warnings.ts"],
   ),
   ...reviewed(
-    "assembly check that A2A files have a store every instance reaches; a config rule, no money, lease or cancel logic",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 83 mutants, 70 killed in the final run; the 22 that had lived in the first run each got a test (15), an equivalence reason (5) or was classed message text (2); covered by tests/sweep-1366h/a2a/files/a2a-file-store-rule-1366h.test.ts, tests/a2a/files/a2a-file-store-rules.test.ts, tests/models/streaming/http-streaming-failures.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/a2a-file-store-rule.ts"],
   ),
   ...reviewed(
     "the A2A client's cards, files and services: the accept, reconcile and charge rules are sharded",
-    [
-      "src/a2a/client/a2a-activation.ts",
-      "src/a2a/client/a2a-card-cache.ts",
-      "src/a2a/client/a2a-card-files.ts",
-      "src/a2a/client/a2a-card-schemas.ts",
-      "src/a2a/client/a2a-card.ts",
-      "src/a2a/client/a2a-client-errors.ts",
-      "src/a2a/client/a2a-client-files.ts",
-      "src/a2a/client/a2a-client-services.ts",
-      "src/a2a/client/a2a-download.ts",
-      "src/a2a/client/a2a-finish.ts",
-      "src/a2a/client/a2a-guard-errors.ts",
-      "src/a2a/client/a2a-parts.ts",
-    ],
+    ["src/a2a/client/a2a-activation.ts", "src/a2a/client/a2a-card-cache.ts"],
   ),
   ...reviewed(
-    "error classes and enums of the A2A client for failed, canceled, interrupted and deadline tasks",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 120 mutants, 113 killed in the final run; the 23 that had lived in the first run each got a test (20), an equivalence reason (0) or was classed message text (3); covered by tests/sweep-1366h/a2a/client/a2a-card-files-1366h.test.ts, tests/a2a/files/a2a-card-output-files.test.ts, tests/a2a/client/a2a-client-files.test.ts, tests/a2a/files/a2a-card-file-fields.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-card-files.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 59 mutants, 58 killed in the final run; the 5 that had lived in the first run each got a test (5), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-card-files-1366h.test.ts, tests/a2a/files/a2a-card-output-files.test.ts, tests/a2a/client/a2a-client-finishes.test.ts, tests/a2a/client/a2a-client-finishes-app.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-card-schemas.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 183 mutants, 172 killed in the final run; the 63 that had lived in the first run each got a test (57), an equivalence reason (6) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-card-1366h.test.ts, tests/a2a/client/a2a-client-wire.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-card.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 92 mutants, 59 killed in the final run; the 50 that had lived in the first run each got a test (27), an equivalence reason (0) or was classed message text (23); covered by tests/sweep-1366h/a2a/client/a2a-client-errors-1366h.test.ts, tests/a2a/client/a2a-client-wire.test.ts, tests/a2a/client/a2a-client-units.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-client-errors.ts"],
+  ),
+  ...reviewed(
+    "the A2A client's cards, files and services: the accept, reconcile and charge rules are sharded",
+    ["src/a2a/client/a2a-client-files.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 15 mutants, 13 killed in the final run; the 10 that had lived in the first run each got a test (10), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-client-services-1366h.test.ts, tests/a2a/client/a2a-client-hardening.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-client-services.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 51 mutants, 49 killed in the final run; the 14 that had lived in the first run each got a test (13), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-download-1366h.test.ts, tests/a2a/client/a2a-client-files.test.ts, tests/sweep-1366h/a2a/client/a2a-download-limits.test.ts, tests/sweep-1366h/a2a/client/a2a-download-url.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-download.ts"],
+  ),
+  ...reviewed(
+    "the A2A client's cards, files and services: the accept, reconcile and charge rules are sharded",
+    ["src/a2a/client/a2a-finish.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 14 mutants, 6 killed in the final run; the 10 that had lived in the first run each got a test (2), an equivalence reason (0) or was classed message text (8); covered by tests/sweep-1366h/a2a/client/a2a-client-errors-1366h.test.ts, tests/public-api/error-options.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/a2a/client/a2a-guard-errors.ts"],
+  ),
+  ...reviewed(
+    "the A2A client's cards, files and services: the accept, reconcile and charge rules are sharded",
+    ["src/a2a/client/a2a-parts.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 53 mutants, 37 killed in the final run; the 28 that had lived in the first run each got a test (18), an equivalence reason (0) or was classed message text (10); covered by tests/sweep-1366h/a2a/client/a2a-client-errors-1366h.test.ts, tests/a2a/client/a2a-client-direct.test.ts, tests/public-api/error-options.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/client/a2a-task-errors.ts"],
   ),
   ...reviewed(
@@ -142,7 +185,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "maps pause records to channel and listener notice events and delivery ids; no spend, lease or cancel enforcement",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 132 mutants, 125 killed in the final run; the 36 that had lived in the first run each got a test (29), an equivalence reason (4) or was classed message text (3); covered by tests/sweep-1366h/app/pause-notice-events-1366h.test.ts, tests/app/pause-notices.test.ts, tests/channels/channel-pause-closed.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/app/pause-notices.ts"],
   ),
   ...reviewed(
@@ -301,22 +344,43 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/describe/contracts.ts",
     "src/describe/defaults.ts",
     "src/describe/describe-application.ts",
-    "src/describe/describe-workflow.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 179 mutants, 156 killed in the final run; the 30 that had lived in the first run each got a test (25), an equivalence reason (4) or was classed message text (1); covered by tests/sweep-1366h/describe/describe-workflow-1366h.test.ts, tests/describe.test.ts, tests/describe/pause-expiry-describe.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/describe/describe-workflow.ts"],
+  ),
+  ...reviewed("the description of an application (docs and reports): read-only", [
     "src/describe/files.ts",
     "src/describe/guardrails.ts",
     "src/describe/inputs.ts",
     "src/describe/launch-counts.ts",
-    "src/describe/limits.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 72 mutants, 70 killed in the final run; the 10 that had lived in the first run each got a test (10), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/describe/limits-1366h.test.ts, tests/describe.test.ts, tests/flow/analyse/concurrency.test.ts, tests/describe-application.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/describe/limits.ts"],
+  ),
+  ...reviewed("the description of an application (docs and reports): read-only", [
     "src/describe/pii-policies.ts",
     "src/describe/quorum-counts.ts",
     "src/describe/recursion.ts",
     "src/describe/snapshot-flow.ts",
-    "src/describe/snapshot-nodes.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 115 mutants, 103 killed in the final run; the 74 that had lived in the first run each got a test (65), an equivalence reason (9) or was classed message text (0); covered by tests/sweep-1366h/describe/snapshot-nodes-1366h.test.ts, tests/eval/eval-trace.test.ts, tests/eval/eval-metamorphic.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/describe/snapshot-nodes.ts"],
+  ),
+  ...reviewed("the description of an application (docs and reports): read-only", [
     "src/describe/snapshot.ts",
     "src/describe/tool-interceptors.ts",
-    "src/describe/tree.ts",
-    "src/describe/worst-case-report.ts",
   ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 159 mutants, 129 killed in the final run; the 34 that had lived in the first run each got a test (5), an equivalence reason (28) or was classed message text (1); covered by tests/sweep-1366h/describe/tree-1366h.test.ts, tests/describe-report.test.ts, tests/describe/pause-reminder-describe.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/describe/tree.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 120 mutants, 112 killed in the final run; the 23 that had lived in the first run each got a test (22), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/describe/worst-case-report-1366h.test.ts, tests/describe-report.test.ts, tests/describe/pause-reminder-describe.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/describe/worst-case-report.ts"],
+  ),
   ...reviewed("renders the described application (providers, budgets, listeners) as text lines", [
     "src/describe/application.ts",
   ]),
@@ -352,7 +416,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/quorum-joins.ts",
       "src/flow/analyse/recursion.ts",
       "src/flow/analyse/remind-before.ts",
-      "src/flow/analyse/rules/about.ts",
+    ],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 199 mutants, 179 killed in the final run; the 52 that had lived in the first run each got a test (38), an equivalence reason (14) or was classed message text (0); covered by tests/sweep-1366h/flow/analyse/about-1366h.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/outdating.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/flow/analyse/rules/about.ts"],
+  ),
+  ...reviewed(
+    "the static analysis of a flow's source at build time: its rules on a limit, a price or a deadline are sharded (assembly-rules), the rest checks names, types and shapes",
+    [
       "src/flow/analyse/rules/arbiters.ts",
       "src/flow/analyse/rules/branch-outdating.ts",
       "src/flow/analyse/rules/child-failure.ts",
@@ -446,7 +518,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/runtime/child-records.ts",
       "src/flow/runtime/child-reentry.ts",
       "src/flow/runtime/child-thread.ts",
-      "src/flow/runtime/errors.ts",
+    ],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 32 mutants, 29 killed in the final run; the 7 that had lived in the first run each got a test (5), an equivalence reason (0) or was classed message text (2); covered by tests/sweep-1366h/flow/runtime-errors-1366h.test.ts, tests/public-api/error-options.test.ts, tests/app/undo-once.matrix.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/flow/runtime/errors.ts"],
+  ),
+  ...reviewed(
+    "the run's steps, records and child handling: no spend, lease or cancel rule of its own",
+    [
       "src/flow/runtime/execution-record.ts",
       "src/flow/runtime/graph-model.ts",
       "src/flow/runtime/history.ts",
@@ -477,19 +557,29 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "compiles the execution graph and picks the runner per node, passing the budget meter on",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 97 mutants, 88 killed in the final run; the 18 that had lived in the first run each got a test (9), an equivalence reason (5) or was classed message text (4); covered by tests/sweep-1366h/flow/runtime-build-1366h.test.ts, tests/models/streaming/http-streaming-failures.test.ts, tests/app/owner-key-text.test.ts, tests/flow/runtime/soft-stop.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/build.ts"],
   ),
   ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/branch-schedule.ts",
     "src/flow/runtime/launch/branch-settle.ts",
     "src/flow/runtime/launch/expired-branch.ts",
-    "src/flow/runtime/launch/join-failure.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 82 mutants, 79 killed in the final run; the 28 that had lived in the first run each got a test (26), an equivalence reason (2) or was classed message text (0); covered by tests/app/undo-once.matrix.test.ts, tests/sweep-1366h/flow/join-failure-settled-1366h.test.ts, tests/channels/join-expiry.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/flow/runtime/launch/join-failure.ts"],
+  ),
+  ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/join-node.ts",
     "src/flow/runtime/launch/join-notices.ts",
     "src/flow/runtime/launch/join-values.ts",
     "src/flow/runtime/launch/join-write.ts",
-    "src/flow/runtime/launch/launch-registry.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 108 mutants, 105 killed in the final run; the 14 that had lived in the first run each got a test (11), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/flow/runtime/launch-registry-1366h.test.ts, tests/flow/runtime/tree-cap.test.ts, tests/flow/runtime/tree-slots.test.ts, tests/app/undo-once.matrix.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/flow/runtime/launch/launch-registry.ts"],
+  ),
+  ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/pending-records.ts",
     "src/flow/runtime/launch/quorum-errors.ts",
     "src/flow/runtime/launch/quorum.ts",
@@ -514,12 +604,22 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-definitions.ts",
     "src/graph/agent-loop/answer-node.ts",
     "src/graph/agent-loop/answer-stream.ts",
-    "src/graph/agent-loop/boundary.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 84 mutants, 83 killed in the final run; the 7 that had lived in the first run each got a test (7), an equivalence reason (0) or was classed message text (0); covered by tests/graph/agent-loop/trajectory.test.ts, tests/channels/question-tools.test.ts, tests/channels/quorum-expiry.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/graph/agent-loop/boundary.ts"],
+  ),
+  ...reviewed("the agent loop's graph wiring: no spend, lease or cancel decision of its own", [
     "src/graph/agent-loop/call-records.ts",
     "src/graph/agent-loop/call-signal.ts",
     "src/graph/agent-loop/deps.ts",
     "src/graph/agent-loop/index.ts",
-    "src/graph/agent-loop/judge-files.ts",
+  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 20 mutants, 19 killed in the final run; the 3 that had lived in the first run each got a test (3), an equivalence reason (0) or was classed message text (0); covered by tests/files/guard-masking-pins.test.ts, tests/sweep-1366h/graph/judge-files-1366h.test.ts, tests/judges/decision-wire.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/graph/agent-loop/judge-files.ts"],
+  ),
+  ...reviewed("the agent loop's graph wiring: no spend, lease or cancel decision of its own", [
     "src/graph/agent-loop/judge-points.ts",
     "src/graph/agent-loop/loop-graph.ts",
     "src/graph/agent-loop/loop-records.ts",
@@ -545,9 +645,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "adapts the pause seam to tool approval and question calls and passes the answer usage on",
     ["src/graph/agent-loop/approval.ts"],
   ),
-  ...reviewed("step and agent error classes that carry the usage of a failed step", [
-    "src/graph/errors.ts",
-  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 52 mutants, 42 killed in the final run; the 14 that had lived in the first run each got a test (8), an equivalence reason (0) or was classed message text (6); covered by tests/sweep-1366h/graph/errors-1366h.test.ts, tests/testing/vcr-stale.test.ts, tests/public-api/error-options.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/graph/errors.ts"],
+  ),
   ...reviewed("union type of the assembly rule codes", ["src/graph/rule-codes.ts"]),
   ...reviewed("the guardrails of model text: semantic checks, not payment guarantees", [
     "src/guardrails/assembly.ts",
@@ -568,7 +669,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/quorum-join.ts"],
   ),
   ...reviewed(
-    "the error a depth limit raises, a carrier of the limit and the depth reached; the check that raises it is in the launch, which is tested end to end - no decision here",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 7 mutants, 7 killed in the final run; the 2 that had lived in the first run each got a test (2), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/flow/runtime/depth-limit-error-1366h.test.ts, tests/flow/runtime/depth-limit.test.ts, tests/flow/runtime/remote-recursion.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/depth-limit.ts"],
   ),
   ...reviewed(
@@ -576,7 +677,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/server/a2a-file-admission.ts"],
   ),
   ...reviewed(
-    "the data-flow rules of a flow's inputs; its one limit rule, [input.history-limit] (a historyOf window is a positive integer), bounds how much history an input reads - no money, run-time limit or deadline",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 221 mutants, 209 killed in the final run; the 32 that had lived in the first run each got a test (22), an equivalence reason (6) or was classed message text (4); covered by tests/sweep-1366h/flow/analyse/data-inputs-1366h.test.ts, tests/flow/analyse/scope.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/quorum.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/analyse/rules/data-inputs.ts"],
   ),
   ...reviewed("the exports", ["src/index.ts"]),
@@ -607,7 +708,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/infrastructure/execution-audit-log.repository.ts",
   ]),
   ...reviewed(
-    "settings classes and size validation of the fenced effect and outbound call options",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 67 mutants, 65 killed in the final run; the 6 that had lived in the first run each got a test (4), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/infrastructure/fenced-effect-settings-1366h.test.ts, tests/models/streaming/http-streaming-failures.test.ts, tests/application/fenced-effects.test.ts, tests/application/outbound-calls.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/infrastructure/fenced-effect-settings.ts"],
   ),
   ...reviewed("checkpoint ordering: its own shard is #1165", [
@@ -637,11 +738,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "the execution record store's wrapper over the turns' store: one method per `TurnStore` call, no rule of its own. The compare-and-set of a turn's status (`completeIfStatus`, which of a resume, an expiry and a holder's end writes a paused turn's outcome) and the thread's create are `src/turns/**`, which is not mutated either (#1374 follow-up)",
-    [
-      "src/infrastructure/execution-record.repository.ts",
-      "src/infrastructure/sqlite/sqlite-execution-record.repository.ts",
-    ],
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 31 mutants, 31 killed in the final run; the 2 that had lived in the first run each got a test (2), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/infrastructure/execution-record-repository-1366h.test.ts, tests/sweep-1366h/infrastructure/sqlite/execution-record-delegation-1366h.test.ts, tests/app/cancel-paused-crash.sqlite.test.ts, tests/app/undo-once.matrix.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/infrastructure/execution-record.repository.ts"],
+  ),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 31 mutants, 30 killed in the final run; the 13 that had lived in the first run each got a test (13), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/infrastructure/sqlite/execution-record-delegation-1366h.test.ts, tests/infrastructure/store-conformance.sqlite.test.ts, tests/app/cancel-paused-crash.sqlite.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/infrastructure/sqlite/sqlite-execution-record.repository.ts"],
   ),
   ...reviewed("the S3 file store: a store of no spend, lease or cancel state", [
     "src/infrastructure/s3/**",
@@ -723,14 +825,18 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/mesh/mesh-rules.ts",
       "src/mesh/mesh-settings.ts",
       "src/mesh/mesh-start.ts",
-      "src/mesh/mesh-wire.ts",
     ],
   ),
-  ...reviewed("the metrics: read-only", [
-    "src/metrics/held-lease-tally.ts",
-    "src/metrics/instance-metrics.ts",
-    "src/metrics/pause-metrics.ts",
-  ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 32 mutants, 20 killed in the final run; the 12 that had lived in the first run each got a test (12), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/mesh/mesh-wire-1366h.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, tests/flow/types/write.test.ts, tests/app/owner-key-text.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/mesh/mesh-wire.ts"],
+  ),
+  ...reviewed("the metrics: read-only", ["src/metrics/held-lease-tally.ts"]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 83 mutants, 81 killed in the final run; the 31 that had lived in the first run each got a test (30), an equivalence reason (0) or was classed message text (1); covered by tests/sweep-1366h/metrics/instance-metrics-1366h.test.ts, tests/metrics/cluster-gauges.test.ts, tests/metrics/scale-signals.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/metrics/instance-metrics.ts"],
+  ),
+  ...reviewed("the metrics: read-only", ["src/metrics/pause-metrics.ts"]),
   ...reviewed("declares the names, units and labels of the metrics", [
     "src/metrics/metric-catalog.ts",
   ]),
@@ -740,8 +846,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the model call's gate, queue and attempts: no spend rule (the usage is sharded)", [
     "src/models/calls/event-stream.ts",
     "src/models/calls/input-refusal.ts",
-    "src/models/calls/provider-calls.ts",
   ]),
+  ...reviewed(
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 16 mutants, 16 killed in the final run; the 4 that had lived in the first run each got a test (4), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/models/provider-calls-1366h.test.ts, tests/models/transport/transport-resilience.test.ts, tests/models/retry.test.ts; survivors listed in the #1366 round-8 notes",
+    ["src/models/calls/provider-calls.ts"],
+  ),
   ...reviewed(
     "the model providers, fallback and wire formats: no spend rule (cost and usage are sharded); a provider's price and timeout rules are sharded too (assembly-rules)",
     [
@@ -914,9 +1023,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/units/**"],
   ),
   ...reviewed("the workflow's entry: exports", ["src/workflow.ts"]),
-  // the files with a spend, rate-limit or deadline site (#1366 pattern sweep): each says which test fails when the site is sabotaged
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (a2a deadline later; a2a deadline run only; a2a deadline call only) - not mutated: covered by tests/a2a/client/a2a-client-deadline.test.ts, tests/a2a/client/a2a-client-hardening.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 108 mutants, 102 killed in the final run; the 23 that had lived in the first run each got a test (17), an equivalence reason (3) or was classed message text (3); covered by tests/sweep-1366h/a2a/client/a2a-client-services-1366h.test.ts, tests/a2a/client/a2a-client-hardening.test.ts, tests/a2a/client/a2a-client-deadline.test.ts, tests/a2a/mesh/a2a-mesh-e2e.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/client/a2a-client-options.ts"],
   ),
   ...reviewed(
@@ -924,7 +1032,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/client/a2a-wait.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (file slots tenant above total; file slots tenant max; file slots owner above tenant; and 16 more) - not mutated: covered by tests/a2a/files/a2a-file-slots.test.ts, tests/files/file-bytes-slots.test.ts, tests/a2a/files/mutation/a2a-file-pool-pins.test.ts, each sabotage of it (19 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 130 mutants, 127 killed in the final run; the 3 that had lived in the first run each got a test (3), an equivalence reason (0) or was classed message text (0); covered by tests/files/file-bytes-slots.test.ts, tests/a2a/files/a2a-file-slots.test.ts, tests/sweep-1366h/a2a/files/a2a-file-slots-shares.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/files/a2a-file-slots.ts"],
   ),
   ...reviewed(
@@ -944,7 +1052,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/outbound-call-parts.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (extension not later <; extension bound >=; extension bound dropped; and 1 more) - not mutated: covered by tests/app/pause-extension.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 140 mutants, 131 killed in the final run; the 37 that had lived in the first run each got a test (30), an equivalence reason (4) or was classed message text (3); covered by tests/sweep-1366h/app/pause-extension-1366h.test.ts, tests/app/pause-working-time.test.ts, tests/app/pause-extension.test.ts, tests/app/pause-reminders.sqlite.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/app/pause-extension.ts"],
   ),
   ...reviewed(
@@ -972,7 +1080,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/instance-reads.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (instance-steps timeout <; instance-steps later at; instance-steps always later) - not mutated: covered by tests/application/instance-stop-deadline.test.ts, tests/app/close-waits-for-steps.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 98 mutants, 96 killed in the final run; the 21 that had lived in the first run each got a test (20), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/application/instance-steps-1366h.test.ts, tests/app/close-waits-for-steps.test.ts, tests/app/close-abandoned.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/application/instance-steps.ts"],
   ),
   ...reviewed(
@@ -992,7 +1100,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/channels/reply-decision.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (reply-reader request.usage dropped; reply-reader own usage dropped; reply-reader declined usage []; and 1 more) - not mutated: covered by tests/channels/reply-reader-spend.test.ts, tests/channels/reply-interpreter.test.ts, tests/testing/units/test-reply-interpreter.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 88 mutants, 83 killed in the final run; the 23 that had lived in the first run each got a test (21), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/channels/reply-reader-1366h.test.ts, tests/channels/question-replies.test.ts, tests/channels/reply-capped-approvals.test.ts, tests/channels/reply-interpreter-tools.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/channels/reply-reader.ts"],
   ),
   ...reviewed(
@@ -1040,11 +1148,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/analyse/rules/depth.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (worst atOnce max; worst concurrent min; worst depth min; and 1 more) - not mutated: covered by tests/flow/analyse/children.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, tests/flow/analyse/worst-case-steps-cap.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 148 mutants, 144 killed in the final run; the 25 that had lived in the first run each got a test (24), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/flow/analyse/worst-case-1366h.test.ts, tests/describe-report.test.ts, tests/models/streaming/http-streaming-failures.test.ts, tests/flow/analyse/launches.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/analyse/worst-case.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (quorum deadline zero ok; quorum max may be below min; quorum deadline cap dropped) - not mutated: covered by tests/flow/quorum-step-limits.test.ts, tests/flow/builder-quorum.test.ts, tests/units/timer-caps.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 206 mutants, 193 killed in the final run; the 43 that had lived in the first run each got a test (32), an equivalence reason (9) or was classed message text (2); covered by tests/sweep-1366h/flow/quorum-step-1366h.test.ts, tests/flow/builder-quorum.test.ts, tests/flow/quorum-step-limits.test.ts, tests/flow/analyse/quorum.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/quorum-step.ts"],
   ),
   ...reviewed(
@@ -1076,7 +1184,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/launch-report.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (quorum decided never cancels; cancelled answer loses usage) - not mutated: covered by tests/channels/channel-pause-closed.test.ts, tests/flow/runtime/quorum-branch-mark.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 71 mutants, 70 killed in the final run; the 8 that had lived in the first run each got a test (7), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/flow/runtime/quorum-branch-deadline-1366h.test.ts, tests/channels/quorum-pauses.test.ts, tests/flow/runtime/arbiters.test.ts, tests/flow/runtime/quorum.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/launch/quorum-branch.ts"],
   ),
   ...reviewed(
@@ -1088,7 +1196,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/router-decision.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (shared slots release dropped; shared slots working.held release dropped; shared slots dequeued not released; and 3 more) - not mutated: covered by tests/flow/runtime/shared-tree-slots.test.ts, tests/budgets/spend-once.test.ts, tests/flow/runtime/remote-limits.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 107 mutants, 98 killed in the final run; the 17 that had lived in the first run each got a test (12), an equivalence reason (5) or was classed message text (0); covered by tests/sweep-1366h/flow/runtime/shared-tree-slots-1366h.test.ts, tests/flow/runtime/shared-tree-slots.test.ts, tests/flow/runtime/shared-tree-slots-leave.test.ts, tests/flow/runtime/remote-limits.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/launch/shared-tree-slots.ts"],
   ),
   ...reviewed(
@@ -1096,11 +1204,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/slot-queue.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (pause-expiry-failure state dropped; pause-expiry-failure usage dropped; pause-expiry-failure usage field []; and 2 more) - not mutated: covered by tests/budgets/deadline-bounds-pause.test.ts, tests/flow/pause-expiry-spend.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 47 mutants, 44 killed in the final run; the 6 that had lived in the first run each got a test (4), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/flow/runtime/pause-expiry-failure-1366h.test.ts, tests/flow/pause-expiry-spend.test.ts, tests/flow/pause-expiry-run-bound.test.ts, tests/channels/pause-expiry.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/pause-expiry-failure.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (pause bound later; pause first latest; pause boundAt run only; and 3 more) - not mutated: covered by tests/flow/pause-record-deadlines.test.ts, tests/app/pause-extension.test.ts, tests/channels/quorum-expiry.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 123 mutants, 111 killed in the final run; the 21 that had lived in the first run each got a test (10), an equivalence reason (11) or was classed message text (0); covered by tests/sweep-1366h/flow/pause-record-made-1366h.test.ts, tests/flow/pause-record-deadlines.test.ts, tests/app/pause-extension.test.ts, tests/app/pause-reminders.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/pause-record-made.ts"],
   ),
   ...reviewed(
@@ -1128,7 +1236,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/visit-failure.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (collect-node spentUsd 0) - not mutated: covered by tests/graph/collect-node-mesh-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 113 mutants, 108 killed in the final run; the 22 that had lived in the first run each got a test (19), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/graph/collect-node-1366h.test.ts, tests/sweep-1366h/graph/collect-node-file-limits.test.ts, tests/files/guardrails-judges.test.ts, tests/files/answer-files.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/graph/agent-loop/collect-node.ts"],
   ),
   ...reviewed(
@@ -1140,15 +1248,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/graph/agent-loop/judge-reading.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (model-pii request.usage dropped; model-pii push dropped; model-pii refusal usage dropped; and 3 more) - not mutated: covered by tests/graph/pii-refusal-spend.test.ts, tests/graph/model-pii-spend.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 63 mutants, 61 killed in the final run; the 13 that had lived in the first run each got a test (12), an equivalence reason (1) or was classed message text (0); covered by tests/sweep-1366h/graph/model-pii-1366h.test.ts, tests/models/streaming/http-streaming-failures.test.ts, tests/pii/model-boundary.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/graph/agent-loop/model-pii.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (tool-pii usage dropped; tool-pii result usage dropped; tool-pii refusal usage dropped) - not mutated: covered by tests/graph/tool-pii-spend.test.ts, tests/graph/pii-refusal-spend.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 91 mutants, 87 killed in the final run; the 12 that had lived in the first run each got a test (9), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/graph/tool-pii-1366h.test.ts, tests/rag/rerank-pii.test.ts, tests/app/tool-call-trajectory.test.ts, tests/pii/model-boundary.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/graph/agent-loop/tool-pii.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (limits spentUsd 0; limits usage []; budget error spentUsd 0; and 1 more) - not mutated: covered by tests/budgets/parallel-budget.test.ts, tests/budgets/deadline-bounds-pause.test.ts, tests/budgets/meter-ledger-ids.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 48 mutants, 43 killed in the final run; the 8 that had lived in the first run each got a test (6), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/graph/limits-1366h.test.ts, tests/budgets/spend-in-flight-instances.test.ts, tests/budgets/parallel-budget.test.ts, tests/app/run-rejected.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/graph/limits.ts"],
   ),
   ...reviewed(
@@ -1156,7 +1264,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/graph/nodes/knowledge.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (guardrail model usage dropped; guardrail decision usage []; guardrail passed usage []; and 1 more) - not mutated: covered by tests/guardrails/run.test.ts, tests/guardrails/runtime-spend.test.ts, tests/files/mutation-a-tool-files.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 125 mutants, 118 killed in the final run; the 38 that had lived in the first run each got a test (35), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/guardrails/runtime-1366h.test.ts, tests/guardrails/run.test.ts, tests/guardrails/code-run.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/guardrails/runtime.ts"],
   ),
   ...reviewed(
@@ -1168,7 +1276,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/infrastructure/child-execution-queue.repository.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (decision cost negative ok) - not mutated: covered by tests/llm/decision-cost.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 87 mutants, 66 killed in the final run; the 35 that had lived in the first run each got a test (24), an equivalence reason (7) or was classed message text (4); covered by tests/sweep-1366h/llm/decision-response-1366h.test.ts, tests/llm/decision-cost.test.ts, tests/judges/decision-wire.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/llm/decision-response.ts"],
   ),
   ...reviewed(
@@ -1180,11 +1288,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/mcp/mcp-mesh-gate.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (mesh hops >) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 61 mutants, 61 killed in the final run; the 6 that had lived in the first run each got a test (6), an equivalence reason (0) or was classed message text (0); covered by tests/mesh/mesh-envelope.test.ts, tests/sweep-1366h/mesh/mesh-admission-1366h.test.ts, tests/a2a/mesh/a2a-mesh-e2e.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/mesh/mesh-admission.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (mesh loop spentUsd 0; mesh loop usage []) - not mutated: covered by tests/graph/collect-node-mesh-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 30 mutants, 25 killed in the final run; the 9 that had lived in the first run each got a test (5), an equivalence reason (0) or was classed message text (4); covered by tests/sweep-1366h/mesh/mesh-errors-1366h.test.ts, tests/a2a/mesh/a2a-mesh-e2e.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, tests/a2a/mesh/a2a-mesh-admission.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/mesh/mesh-errors.ts"],
   ),
   ...reviewed(
@@ -1208,7 +1316,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/calls/model-call.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (gate tokens <=; gate tokens never counted; gate tokens skip; and 12 more) - not mutated: covered by tests/models/provider-gate-accounting.test.ts, tests/models/rate-limit-429.test.ts, tests/models/provider-gate-tokens.test.ts, each sabotage of it (15 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 161 mutants, 146 killed in the final run; the 37 that had lived in the first run each got a test (29), an equivalence reason (8) or was classed message text (0); covered by tests/sweep-1366h/models/provider-gate-1366h.test.ts, tests/models/transport/transport-resilience.test.ts, tests/models/provider-gate-accounting.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/models/calls/provider-gate.ts"],
   ),
   ...reviewed(
@@ -1232,11 +1340,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/model-failure.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (retry exp max) - not mutated: covered by tests/models/rate-limit-429.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 64 mutants, 63 killed in the final run; the 12 that had lived in the first run each got a test (12), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/models/retry-policy-1366h.test.ts, tests/models/retry.test.ts, tests/units/timer-caps.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/models/retry-policy.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (transport messages cost dropped) - not mutated: covered by tests/models/usage-contract.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 123 mutants, 122 killed in the final run; the 35 that had lived in the first run each got a test (35), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/models/transport/messages-1366h.test.ts, tests/models/transport/transport-units.test.ts, tests/models/transport/transport-resilience.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/models/transport/messages.ts"],
   ),
   ...reviewed(
@@ -1244,7 +1352,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/transport/transport-carrier.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (stream success release 0; stream failed read release 0; stream failure waited flipped) - not mutated: covered by tests/models/transport/transport-stream-tokens.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 158 mutants, 141 killed in the final run; the 44 that had lived in the first run each got a test (33), an equivalence reason (9) or was classed message text (2); covered by tests/sweep-1366h/models/transport/transport-stream-1366h.test.ts, tests/models/streaming/transport-streaming.test.ts, tests/models/transport/transport-stream-tokens.test.ts, tests/models/transport/transport-stream-units.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/models/transport/transport-stream.ts"],
   ),
   ...reviewed(
@@ -1256,7 +1364,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/pii/detectors/model.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (model-boundary one.usage dropped; model-boundary pass usage dropped) - not mutated: covered by tests/pii/model-boundary-spend.test.ts, tests/channels/reply-reader-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 80 mutants, 74 killed in the final run; the 18 that had lived in the first run each got a test (15), an equivalence reason (3) or was classed message text (0); covered by tests/sweep-1366h/pii/model-boundary-1366h.test.ts, tests/pii/key-hierarchy.test.ts, tests/testing/invalid-turns.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/pii/model-boundary.ts"],
   ),
   ...reviewed(
@@ -1264,7 +1372,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/rag/llm-reranker.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (rerank reported cost dropped; rerank usage dropped; rerank success spend dropped; and 3 more) - not mutated: covered by tests/rag/rerank.test.ts, tests/rag/rerank-spend.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 97 mutants, 89 killed in the final run; the 20 that had lived in the first run each got a test (15), an equivalence reason (1) or was classed message text (4); covered by tests/sweep-1366h/rag/rerank-1366h.test.ts, tests/rag/rerank-spend.test.ts, tests/rag/rerank.test.ts, tests/rag/rerank-units.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/rag/rerank.ts"],
   ),
   ...reviewed(
