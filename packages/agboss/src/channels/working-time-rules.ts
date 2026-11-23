@@ -84,7 +84,12 @@ function reachViolations(
   source: WorkingCalendarSource | undefined,
 ): RuleViolation[] {
   return spans.flatMap((span) =>
-    isWorkingDuration(span) && !weekReaches(source, amountOf(span))
+    isWorkingDuration(span) &&
+    // Stryker disable next-line ConditionalExpression: equivalent: with no calendar there is no grid to reach, so `weekReaches` is true for it and nothing is refused; the check says what the rule is
+    source !== undefined &&
+    // a class calendar is no grid (checked at each call): `weekReaches` is true for it, so it is left out here
+    !(source instanceof Function) &&
+    !weekReaches(source, amountOf(span))
       ? [
           violation(
             "working-calendar.invalid",

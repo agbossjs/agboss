@@ -1,6 +1,7 @@
 import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { workflowDeclarationOf } from "../../../components/module.js";
+import { NodeKind } from "../../ast.js";
+import { declarationOf } from "../../decorators/declaration.js";
 import {
   declaredMaxConcurrentExecutionsOf,
   DEFAULT_MAX_CONCURRENT_EXECUTIONS,
@@ -53,20 +54,29 @@ function exitViolations(recursion: Recursion): RuleViolation[] {
     });
 }
 
-/** The chain of child workflows from `from` back to `self`, if any (depth first). */
+/** The chain of child workflows from `from` back to `self`, if any (depth first); a class that is no workflow has none. */
 function chainBack(from: Class, self: Class, seen: Set<Class>): readonly Class[] | undefined {
   if (from === self) return [from];
   if (seen.has(from)) return undefined;
   seen.add(from);
-  // a child of a flow is a workflow: `childClassesOf` lists no other class
-  for (const child of childClassesOf(workflowDeclarationOf(from).options.flow)) {
-    const chain = chainBack(child, self, seen);
-    if (chain !== undefined) return [from, ...chain];
+  const declaration = declarationOf(from);
+  // Stryker disable next-line OptionalChaining: equivalent: `childClassesOf` lists only classes that are workflows, so a declaration is always there; the check stays for a class that is not one
+  switch (declaration?.kind) {
+    case NodeKind.Workflow:
+      for (const child of childClassesOf(declaration.options.flow)) {
+        const chain = chainBack(child, self, seen);
+        if (chain !== undefined) return [from, ...chain];
+      }
+      return undefined;
+    // Stryker disable next-line ConditionalExpression: equivalent: with no default the switch ends the same way, in the `undefined` the function returns
+    default:
+      return undefined;
   }
-  return undefined;
 }
 
-const nameOf = (workflow: Class): string => workflowDeclarationOf(workflow).options.name;
+const nameOf = (workflow: Class): string =>
+  // Stryker disable next-line OptionalChaining: equivalent: the classes named are workflows (`chainBack` lists no other), so a declaration is always there; the label stays for a class that is not one
+  declarationOf(workflow)?.options.name ?? classLabel(workflow);
 
 function mutualViolations(context: AnalysisContext, self: Class): RuleViolation[] {
   const name = context.workflow.name;

@@ -88,8 +88,7 @@ const holidayShare = new WeakMap<object, { readonly holidays: number; readonly d
  * limit leaves that room: the estimate and the limit agree to the day, so a span that passes here
  * is reached, and the limit itself stays as the walk's last line (never a loop).
  */
-export function weekReaches(calendar: object | undefined, amount: number): boolean {
-  if (calendar === undefined) return true;
+export function weekReaches(calendar: object, amount: number): boolean {
   const minutes = weekly.get(calendar);
   const share = holidayShare.get(calendar);
   if (minutes === undefined || minutes === 0 || share === undefined) return true;

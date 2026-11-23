@@ -9,6 +9,7 @@ import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import { readJws } from "../../src/mesh/mesh-jws.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
+import { usd } from "../../src/units/index.js";
 import { offline } from "../a2a/fixtures/remote.workflow.js";
 import { meshAppOf } from "../a2a/fixtures/mesh.workflow.js";
 import { meshEnvOf, meshKeyPair, meshOf, type MeshKeyPair } from "../a2a/fixtures/mesh-keys.js";
@@ -111,6 +112,22 @@ describe("#398 PR 2: a trusted peer's MCP call", () => {
     expect(result.isError).toBeFalsy();
     expect(report?.payload).toMatchObject({ issuer: "billing-application" });
     expect(report?.signed).toBeDefined();
+  });
+
+  it("the signed report states what the run spent: a trusted caller charges from it (#1366)", async () => {
+    const [ordersKeys, billingKeys] = [meshKeyPair(), meshKeyPair()];
+    const book = new ScriptBook();
+    const { client } = await billing(book, ordersKeys, billingKeys);
+    book.scriptOf("agent:billing-desk-agent").thenReturn(replyWith("paid", { cost: usd(0.0125) }));
+
+    const result = await client.callTool({
+      name: "billing-workflow-start",
+      arguments: args,
+      _meta: { "agboss.dev/mesh": funded(ordersKeys) },
+    });
+
+    const report = readJws(result._meta?.["agboss.dev/report"]);
+    expect(report?.payload).toMatchObject({ spend: { total: "0.0125", currency: "USD" } });
   });
 
   it("another key's signature or another body is refused before anything runs", async () => {

@@ -31,8 +31,11 @@ export function implementationsOf(role: Class, modules: readonly ProviderModule[
   const listed = modules.flatMap((module) =>
     module.providers.filter((provider): provider is Class => typeof provider === "function"),
   );
-  return [...new Set(listed)].filter((cls) =>
-    Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype),
+  return [...new Set(listed)].filter(
+    (cls) =>
+      Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype) &&
+      // Stryker disable next-line ConditionalExpression: equivalent: `role.prototype` is not in its own prototype chain, so the first test is already false for the role itself; the guard says what the rule is
+      cls !== role,
   );
 }
 

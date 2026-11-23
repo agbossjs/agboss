@@ -359,6 +359,52 @@ describe("#1366: the steps limit a run takes", () => {
   });
 });
 
+describe("#1366: a weight that is no number fails closed", () => {
+  /** S -> L, whose join waits for an agent launched NaN times, -> F. */
+  const unbounded = graphOf(
+    [start("S"), agent("L"), agent("X"), finish("F")],
+    [
+      edge("S", "L"),
+      edge("L", "X", EdgeKind.Launch),
+      join("L", "F", [branch("X", Number.NaN, true)]),
+    ],
+    ["S"],
+  );
+
+  it("is an unbounded path: the way out takes NaN steps, so no hand-set maxSteps holds it", () => {
+    expect(tooLow(unbounded, 1000).map((one) => one.message)).toEqual([
+      "the shortest path from S takes NaN steps, but maxSteps is 1000",
+    ]);
+  });
+
+  it("a longer way found first does not keep a shorter one found later out", () => {
+    // listed so that the way out through B is walked back before the direct one
+    const graph = graphOf(
+      [start("S"), agent("A"), agent("B"), finish("F")],
+      [edge("B", "F"), edge("A", "B"), edge("S", "A"), edge("S", "F")],
+      ["S"],
+    );
+
+    expect(tooLow(graph, 0)).toEqual([]);
+  });
+
+  it("ends the walk on a cycle through it, and takes the finite way out when there is one", () => {
+    const cycle = graphOf(
+      [start("S"), agent("L"), agent("X"), finish("F")],
+      [
+        edge("S", "L"),
+        edge("L", "X", EdgeKind.Launch),
+        join("L", "L", [branch("X", Number.NaN, true)]),
+        edge("L", "F"),
+      ],
+      ["S"],
+    );
+
+    expect(tooLow(cycle, 1)).toEqual([]);
+    expect(tooLow(cycle, 0)).toHaveLength(1);
+  });
+});
+
 describe("#1366: what the bounds read of a graph's edges", () => {
   it("counts a branch that is no agent as no step, however many copies", () => {
     const graph = graphOf(

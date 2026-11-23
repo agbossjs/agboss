@@ -67,9 +67,14 @@ function shortest(
   for (let changed = true; changed;) {
     changed = false;
     for (const { from, to, weight } of edges) {
-      const via = (distances.get(from) ?? Infinity) + weight;
-      // a weight that is no number (NaN) never improves a distance, so the walk ends
-      if (!(via < (distances.get(to) ?? Infinity))) continue;
+      const base = distances.get(from);
+      if (base === undefined) continue;
+      const via = base + weight;
+      const known = distances.get(to);
+      // a weight that is no number (NaN) makes a distance that nothing is less than: the walk ends, and the bound
+      // reads that distance as fitting no `maxSteps`, as the worst case's does
+      const improves = known === undefined || via < known;
+      if (!improves) continue;
       distances.set(to, via);
       changed = true;
     }
