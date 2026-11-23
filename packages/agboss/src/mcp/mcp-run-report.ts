@@ -1,4 +1,5 @@
 import type { ExecutionOutput } from "../app/types.js";
+import { definedOf } from "../infrastructure/clock.js";
 import { MESH_REPORT_META_KEY } from "../mesh/mesh-envelope.js";
 import { encodeRunReport } from "../mesh/mesh-report.js";
 import { meshSettingsOf } from "../mesh/mesh-settings.js";
@@ -16,13 +17,19 @@ export function runReportMetaOf(
 ): Record<string, string> | undefined {
   const settings = meshSettingsOf(app);
   const key = settings?.keys.signingKey;
-  if (settings === undefined || key === undefined || call.bodyHash === undefined) return undefined;
+  if (key === undefined || call.bodyHash === undefined) return undefined;
+  // a key is a settings' key: its settings are there
+  const { application, clock } = definedOf(
+    settings,
+    // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+    "a signing key belongs to the settings that hold it",
+  );
   const facts = {
-    issuer: settings.application,
+    issuer: application,
     executionId: result.executionId,
     spentUsd: result.spend.totalUsd,
     bodyHash: call.bodyHash,
-    issuedAt: settings.clock.now(),
+    issuedAt: clock.now(),
   };
   return { [MESH_REPORT_META_KEY]: encodeRunReport(facts, key) };
 }

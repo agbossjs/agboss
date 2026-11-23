@@ -48,6 +48,9 @@ function alwaysRunning(graph: FlowGraph, edge: FlowEdge): number {
     .reduce((total, branch) => total + branch.copies * weightOf(graph.nodes.get(branch.node)), 0);
 }
 
+/** A weight that is no number (NaN) counts as unbounded: the path through it fails every `maxSteps`, as the worst case's does. */
+const countedOf = (weight: number): number => (Number.isNaN(weight) ? Infinity : weight);
+
 /** The edges that count (a launch edge does not: its branches count on the join), weighted. */
 const weighted = (graph: FlowGraph, edges: readonly FlowEdge[]): readonly WeightedEdge[] =>
   edges
@@ -55,7 +58,7 @@ const weighted = (graph: FlowGraph, edges: readonly FlowEdge[]): readonly Weight
     .map((edge) => ({
       from: edge.from,
       to: edge.to,
-      weight: weightOf(graph.nodes.get(edge.to)) + alwaysRunning(graph, edge),
+      weight: countedOf(weightOf(graph.nodes.get(edge.to)) + alwaysRunning(graph, edge)),
     }));
 
 /** Fewest steps over `edges` from the `seeds` (with their own weights), each edge's weight added. */
@@ -67,9 +70,12 @@ function shortest(
   for (let changed = true; changed;) {
     changed = false;
     for (const { from, to, weight } of edges) {
-      const via = (distances.get(from) ?? Infinity) + weight;
-      // a weight that is no number (NaN) never improves a distance, so the walk ends
-      if (!(via < (distances.get(to) ?? Infinity))) continue;
+      const base = distances.get(from);
+      if (base === undefined) continue;
+      const via = base + weight;
+      const known = distances.get(to);
+      // an unbounded path (Infinity) still reaches a node nothing else reached: the walk ends there, it never loops
+      if (known !== undefined && via >= known) continue;
       distances.set(to, via);
       changed = true;
     }

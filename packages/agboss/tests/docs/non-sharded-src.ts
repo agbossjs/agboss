@@ -253,7 +253,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/channels/reply-decision.ts"],
   ),
   ...reviewed(
-    "holds readByModel (collects masking and call usage into every outcome incl. declined; a bug loses spend of a paid call) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds readByModel (collects the masking and the call usage into every outcome, a declined one too; a bug loses the spend of a paid call) - not mutated: no mutation run reads it; its masking usage is held by `tests/channels/reply-reader-spend.test.ts` (a sabotage that drops it fails there), and the declined and tokens paths by `reply-interpreter-rules.test.ts`; listed for the reviewer (#1356, #1366)",
     ["src/channels/reply-reader.ts"],
   ),
   ...reviewed("the compaction of a thread's history: no money decision", ["src/compaction/**"]),
@@ -537,7 +537,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/launch/runtime-launch.ts",
   ]),
   ...reviewed(
-    "holds decideOnChatModel (keeps the call usage also when parsing the answer fails; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds decideOnChatModel (keeps the call usage also when parsing the answer fails; a bug loses spend) - not mutated: no mutation run reads it; both its outcomes carry the usage in `tests/flow/launch-decider-spend.test.ts` (a sabotage that drops the usage of a failed parse fails there); listed for the reviewer (#1356, #1366)",
     ["src/flow/runtime/launch/launch-decider.ts"],
   ),
   ...reviewed(
@@ -611,18 +611,18 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/graph/agent-loop/approval.ts"],
   ),
   ...reviewed(
-    "holds outgoingMove (keeps masking and answer-check usage in the update also for an invalid answer; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds outgoingMove (keeps masking and answer-check usage in the update also for an invalid answer; a bug loses spend) - not mutated: no mutation run reads it; the check's usage on a taken and on an invalid answer is held by `tests/graph/model-pii-spend.test.ts` (a sabotage that drops it from the invalid one fails there), the request's masking by the budget-loop tests; listed for the reviewer (#1356, #1366)",
     ["src/graph/agent-loop/model-pii.ts"],
   ),
   ...reviewed(
-    "holds closedResult (carries the PII detection usage also on refusal; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds closedResult (carries the PII detection usage also on refusal; a bug loses spend) - not mutated: no mutation run reads it; the usage of a refusal is held by `tests/graph/tool-pii-spend.test.ts` (a sabotage that drops it fails there), the rest by the budget-loop tool tests; listed for the reviewer (#1356, #1366)",
     ["src/graph/agent-loop/tool-pii.ts"],
   ),
   ...reviewed("step and agent error classes that carry the usage of a failed step", [
     "src/graph/errors.ts",
   ]),
   ...reviewed(
-    "holds isPeriodBudgetExhausted (tells a period (tenant, application) budget breach from an execution one; a bug mis-classifies a breach) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds isPeriodBudgetExhausted (tells a period (tenant, application) budget breach from an execution one; a bug mis-classifies a breach) - not mutated: no mutation run reads it; held by `tests/graph/period-budget-exhausted.test.ts` (a sabotage that counts an execution budget as a period one fails there) and, through its replay and compare, by the eval tests; listed for the reviewer (#1356, #1366)",
     ["src/graph/limits.ts"],
   ),
   ...reviewed(
@@ -653,7 +653,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/deadline.ts"],
   ),
   ...reviewed(
-    "holds decideQuorum (whether the answers in reach the quorum's count) and the deadline a quorum missed (deadlinePassed); a bug reaches a quorum that is not reached or misses one that is - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
+    "holds decideQuorum (whether the answers in reach the quorum's count) and the reason a quorum was not reached (the deadline passed, moved by the time in the tree's queue, or the shortfall); a bug reaches a quorum that is not reached or misses one that is - not mutated: no mutation run reads it; the reason is held by `tests/flow/runtime/quorum-reason.test.ts` (a sabotage that ignores the queue's time fails there), the count by the quorum tests; listed for the reviewer (#1366)",
     ["src/flow/runtime/launch/quorum-join.ts"],
   ),
   ...reviewed(
@@ -661,7 +661,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/launch/launch-exit.ts"],
   ),
   ...reviewed(
-    "holds givenDeadline (the span a pause was given to answer, which the expiry failure reports) and isRunBound (whether the run's own deadline ended the pause; a bug blames the wrong deadline) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
+    "holds givenDeadline (the span a pause was given to answer, which the expiry failure reports) and isRunBound (whether the run's own deadline ended the pause; a bug blames the wrong deadline) - not mutated: no mutation run reads it; isRunBound, a tie included, is held by `tests/flow/pause-expiry-run-bound.test.ts` (a sabotage that turns the tie to the pause fails there), the failures by the pause-step tests; listed for the reviewer (#1366)",
     ["src/flow/runtime/pause-expiry-failure.ts"],
   ),
   ...reviewed(
@@ -673,7 +673,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/mesh/mesh-admission.ts"],
   ),
   ...reviewed(
-    "holds the A2A server's admission of a skill's files: the size of a file and of all of them (maxFileSize, maxTotalFileSize) and the allowed origins; a bug admits a file over its limit - not mutated: only the end-to-end A2A runs test it, no unit shard; listed for the reviewer (#1366)",
+    "holds the A2A server's admission of a skill's files: the size of a file and of all of them (maxFileSize, maxTotalFileSize) and the allowed origins; a bug admits a file over its limit - not mutated: no mutation run reads it; the total is held by `tests/a2a/files/a2a-file-admission-total.test.ts` (a sabotage that doubles the limit fails there, a total at the limit is taken), the origins and the fetch by the A2A file tests; listed for the reviewer (#1366)",
     ["src/a2a/server/a2a-file-admission.ts"],
   ),
   ...reviewed(
@@ -689,7 +689,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/pause-listing.ts"],
   ),
   ...reviewed(
-    "holds stopDeadlineOf (how long a graceful stop waits for the steps at work, from shutdownTimeout; a bug stops at once or never) and the step slots a stop drains - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
+    "holds stopDeadlineOf (how long a graceful stop waits for the steps at work, from shutdownTimeout; a bug stops at once or never) and the step slots a stop drains - not mutated: no mutation run reads it; the earliest-end rule of the stop is held by `tests/application/instance-stop-deadline.test.ts` (a sabotage that lets a later, longer close push the end back fails there), the drain by the shutdown tests; listed for the reviewer (#1366)",
     ["src/application/instance-steps.ts"],
   ),
   ...reviewed(
@@ -846,10 +846,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/mcp/mcp-mesh-gate.ts"],
   ),
   ...reviewed(
-    "holds runReportMetaOf (signs the spend of the execution and its id into the report a trusted caller charges from, bound to its bodyHash; a wrong figure charges the caller too much or nothing) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/mcp/mcp-run-report.ts"],
-  ),
-  ...reviewed(
     "the MCP server's sessions and transports: the order of its call path (the mesh gate, then the deduplication of `once-mesh`, then the run) is tested end to end only; the rules themselves are in the files beside it",
     ["src/mcp/mcp-service.ts"],
   ),
@@ -912,7 +908,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/calls/gate-waiter.ts"],
   ),
   ...reviewed(
-    "holds #roomFor (checks the tokens-per-minute, slots and calls-per-minute limits before a call is admitted); #grant (honours the cooldown and the concurrency level before admitting) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds #roomFor (checks the tokens-per-minute, slots and calls-per-minute limits before a call is admitted); #grant (honours the cooldown and the concurrency level before admitting) - not mutated: a mutation run of the whole file (with the rate-limit tests, #1366) scores 70 % — its queue, wake timers and lease hand-backs are tested through the providers' calls only; the tokens window is held by `tests/models/provider-gate-tokens.test.ts` (a sabotage that admits a call at exactly the limit fails there), the rest by `tests/models/rate-limit.test.ts`; its sharding is #1390; listed for the reviewer (#1356, #1366)",
     ["src/models/calls/provider-gate.ts"],
   ),
   ...reviewed(
@@ -984,7 +980,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/transport/messages.ts"],
   ),
   ...reviewed(
-    "holds tokensOf (counts the tokens released to the token-per-minute limit; a bug misstates the limit) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
+    "holds tokensOf (counts the tokens released to the token-per-minute limit; a bug misstates the limit) - not mutated: a whole-file run scores 25 % (the abort race and the failure mapping of the carrier are tested through the providers' calls only); tokensOf and the release of a held answer are held by `tests/models/transport-tokens.test.ts` (a sabotage that drops the output tokens fails there); its sharding is #1390; listed for the reviewer (#1356, #1366)",
     ["src/models/transport/transport-carrier.ts"],
   ),
   ...reviewed("checks that a transport stream gives a text stream and a usage promise", [
