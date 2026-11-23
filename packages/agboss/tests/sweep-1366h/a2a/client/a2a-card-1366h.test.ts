@@ -267,8 +267,8 @@ describe("#1366 fetchCard: which interfaces are usable", () => {
     expect(await refusedFor(iface(over))).toBeInstanceOf(A2AProtocolError);
   });
 
-  it("a non-object entry is skipped, a good one beside it still counts", async () => {
-    expect(await urlsOf(rawCard({ supportedInterfaces: ["x", 4, iface()] }))).toHaveLength(1);
+  it("a non-object entry refuses the card even beside a good one (#1394, fail closed)", async () => {
+    expect(await refusedFor("x")).toBeInstanceOf(A2AProtocolError);
   });
 
   it("a usable interface elsewhere is refused as an origin error at the card interface", async () => {
