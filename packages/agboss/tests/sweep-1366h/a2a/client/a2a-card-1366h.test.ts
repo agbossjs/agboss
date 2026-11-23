@@ -161,6 +161,34 @@ describe("#1366 fetchCard: the request", () => {
   );
 });
 
+describe("#1394 fetchCard: a malformed interface entry refuses the card", () => {
+  it.each([
+    ["null", null],
+    ["a number", 42],
+    ["an entry without protocolVersion", { url: URL_OK, protocolBinding: "JSONRPC" }],
+    ["an entry with a non-string url", iface({ url: 7 })],
+  ])("%s next to a usable interface: A2AProtocolError, never TypeError", async (_name, entry) => {
+    const error = await rejectionOf(
+      fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces: [iface(), entry] })), POLICY),
+    );
+    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toMatchObject({ agent: "peer", operation: A2AClientOperation.AgentCard });
+    expect((error as Error).message).not.toContain(URL_OK);
+  });
+
+  it.each([
+    ["[null]", [null]],
+    ["[42]", [42]],
+    ["an entry without protocolVersion", [{ url: URL_OK }]],
+    ["an entry with a non-string url", [iface({ url: 7 })]],
+  ])("%s alone: A2AProtocolError", async (_name, supportedInterfaces) => {
+    const error = await rejectionOf(
+      fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces })), POLICY),
+    );
+    expect(error).toBeInstanceOf(A2AProtocolError);
+  });
+});
+
 describe("#1366 fetchCard: the versions named when no interface is usable", () => {
   const versionsOf = async (raw: Record<string, unknown>): Promise<unknown> => {
     const error = await rejectionOf(fetchCard(URL_OK, fetcherOf(raw), POLICY));

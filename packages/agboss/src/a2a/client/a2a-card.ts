@@ -102,6 +102,20 @@ function usableInterfaceUrlsOf(raw: Readonly<Record<string, unknown>>): readonly
   );
 }
 
+/** Whether every interface entry of a raw card is a record with a string url and protocolVersion. */
+function interfacesWellFormed(raw: Readonly<Record<string, unknown>>): boolean {
+  const interfaces: unknown = raw.supportedInterfaces;
+  return (
+    Array.isArray(interfaces) &&
+    interfaces.every(
+      (entry: unknown) =>
+        isRecord(entry) &&
+        typeof entry.url === "string" &&
+        typeof entry.protocolVersion === "string",
+    )
+  );
+}
+
 /**
  * The extensions a card declares (#904): none when it leaves `capabilities` or its `extensions`
  * out, as a foreign agent's minimal card may.
@@ -162,6 +176,8 @@ export async function fetchCard(
   if (usable.length === 0) {
     throw new A2AProtocolError({ agent, operation, protocolVersions: versionsOf(raw) });
   }
+  // #1394: a remote card is untrusted — one malformed interface entry refuses it (fail closed)
+  if (!interfacesWellFormed(raw)) throw new A2AProtocolError({ agent, operation });
   // #809 security: an interface elsewhere would get the client's headers — the card is refused
   for (const interfaceUrl of usable) {
     const refused = originRefusalOf(policy, interfaceUrl, A2AOriginSite.CardInterface);
