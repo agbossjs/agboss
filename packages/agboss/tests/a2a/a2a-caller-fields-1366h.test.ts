@@ -45,11 +45,7 @@ describe("#1366 withoutFileFields", () => {
 
   it("with a marker replaces the field's schema; no required key when none is left", () => {
     const only = { ...schema, required: ["doc"] } as JsonSchema;
-    const out = withoutFileFields(
-      only,
-      new Set(["doc"]),
-      (name) => ({ "x-m": name }),
-    );
+    const out = withoutFileFields(only, new Set(["doc"]), (name) => ({ "x-m": name }));
     expect(out).toEqual({
       type: "object",
       additionalProperties: false,

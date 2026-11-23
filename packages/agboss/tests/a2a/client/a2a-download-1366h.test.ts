@@ -62,7 +62,9 @@ describe("#1366: a descriptor with no address and no bytes", () => {
 
     await downloadedFile({ mediaType: "text/plain" } as never, { fetcher });
     // an inline descriptor (inline set, bytes empty) is the empty file; one with neither is read as a url
-    const empty = await downloadedFile({ mediaType: "text/plain", inline: "" } as never, { fetcher });
+    const empty = await downloadedFile({ mediaType: "text/plain", inline: "" } as never, {
+      fetcher,
+    });
 
     expect(urls).toEqual([""]);
     expect(empty.byteLength).toBe(0);

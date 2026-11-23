@@ -33,7 +33,17 @@ import {
 
 describe("#1366: a remote code is shown only when it reads as a stable error code", () => {
   it("dotted lower-case words pass, anything else is no code", () => {
-    for (const code of ["a", "ab", "abc", "limit.hops", "a2a.start-lost", "a.b", "a.bc", "x-y.z-1", "a1"])
+    for (const code of [
+      "a",
+      "ab",
+      "abc",
+      "limit.hops",
+      "a2a.start-lost",
+      "a.b",
+      "a.bc",
+      "x-y.z-1",
+      "a1",
+    ])
       expect(remoteCodeOf(code)).toBe(code);
     for (const text of [
       "",
@@ -151,7 +161,11 @@ describe("#1366: a contract error", () => {
       differences: ["input: amount", "output: id"],
     });
 
-    expect(error.details).toStrictEqual({ agent: "a", rule: "a2a.schema-mismatch", skill: "refund" });
+    expect(error.details).toStrictEqual({
+      agent: "a",
+      rule: "a2a.schema-mismatch",
+      skill: "refund",
+    });
     expect(error.differences).toEqual(["input: amount", "output: id"]);
     expect(error.rule).toBe(A2AContractRule.SchemaMismatch);
     expect(error.skill).toBe("refund");

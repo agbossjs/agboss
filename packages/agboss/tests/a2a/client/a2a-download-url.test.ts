@@ -36,8 +36,7 @@ const outcomeOf = (
 ): Promise<number | A2AFileUnavailableReason | unknown> =>
   downloadedFile(file, download).then(
     (bytes) => bytes.byteLength,
-    (error: unknown) =>
-      (error as { reason?: A2AFileUnavailableReason }).reason ?? error,
+    (error: unknown) => (error as { reason?: A2AFileUnavailableReason }).reason ?? error,
   );
 
 const bytesOf = (size: number): Uint8Array => new Uint8Array(size).fill(7);
@@ -110,9 +109,9 @@ describe("#1366: why a file is unavailable", () => {
   it("a stored descriptor is another application's: not-found, nothing fetched", async () => {
     const { fetcher, calls } = fetching([bytesOf(1)]);
 
-    expect(
-      await outcomeOf({ mediaType: "text/plain", fileId: "f-1" }, { fetcher }),
-    ).toBe(A2AFileUnavailableReason.NotFound);
+    expect(await outcomeOf({ mediaType: "text/plain", fileId: "f-1" }, { fetcher })).toBe(
+      A2AFileUnavailableReason.NotFound,
+    );
     expect(calls).toEqual([]);
   });
 
@@ -122,8 +121,8 @@ describe("#1366: why a file is unavailable", () => {
     const { fetcher } = fetching([body]);
 
     expect(await outcomeOf({ ...byUrl, sha256: digest }, { fetcher })).toBe(10);
-    expect(await outcomeOf({ ...byUrl, sha256: "0".repeat(64) }, { fetcher: fetching([body]).fetcher })).toBe(
-      A2AFileUnavailableReason.DigestMismatch,
-    );
+    expect(
+      await outcomeOf({ ...byUrl, sha256: "0".repeat(64) }, { fetcher: fetching([body]).fetcher }),
+    ).toBe(A2AFileUnavailableReason.DigestMismatch);
   });
 });

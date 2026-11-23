@@ -63,7 +63,9 @@ describe("#1366: a stored file is read before it is sent", () => {
     );
     expect(
       await reasonOf(
-        storedFileReaderOf({ outboundCalls: () => ({}) as never, clock: new VirtualClock() })(stored),
+        storedFileReaderOf({ outboundCalls: () => ({}) as never, clock: new VirtualClock() })(
+          stored,
+        ),
       ),
     ).toBe(A2AFileUnavailableReason.OutsideExecution);
     expect(

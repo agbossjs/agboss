@@ -64,7 +64,9 @@ describe("#1366: what the client reads of its class", () => {
     class Input {}
     class Output {}
 
-    expect(typedContractOf("agent", { input: Input as never, output: Output as never })).toMatchObject({
+    expect(
+      typedContractOf("agent", { input: Input as never, output: Output as never }),
+    ).toMatchObject({
       input: Input,
       output: Output,
     });

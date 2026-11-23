@@ -64,8 +64,7 @@ const rejectionOf = async (promise: Promise<unknown>): Promise<unknown> => {
   return undefined;
 };
 
-const cardWith = (extensions: unknown) =>
-  ({ capabilities: { extensions } }) as never as Parameters<typeof peerOf>[0];
+const cardWith = (extensions: unknown) => ({ capabilities: { extensions } }) as never;
 
 const meshExt = (params: Record<string, unknown> | undefined) => [
   { uri: A2A_MESH_EXTENSION, ...(params === undefined ? {} : { params }) },
@@ -283,8 +282,7 @@ describe("#1366 fetchCard: which interfaces are usable", () => {
 describe("#1366 skillOf", () => {
   const expectation = (skill: string | undefined): CardExpectation =>
     ({ agent: "a", skill }) as never;
-  const skills = (...ids: string[]) =>
-    ({ skills: ids.map((id) => ({ id })) }) as never as Parameters<typeof skillOf>[0];
+  const skills = (...ids: string[]) => ({ skills: ids.map((id) => ({ id })) }) as never;
 
   it("the declared skill wins", () => {
     expect(skillOf(skills("a", "b"), expectation("x"))).toBe("x");
