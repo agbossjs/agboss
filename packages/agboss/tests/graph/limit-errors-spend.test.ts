@@ -1,0 +1,101 @@
+/**
+ * #1366: the spend a limit error states — the figure and the records of what the run had spent when it hit the
+ * limit, whichever limit it is (the steps', the depth's, a budget's), in its message and on the error, so a
+ * handler and the ledger see the same spend.
+ */
+import { describe, expect, it } from "vitest";
+import { BudgetScope } from "../../src/budgets/budget.js";
+import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
+import { DepthLimitExceededError } from "../../src/flow/runtime/depth-limit.js";
+import {
+  BudgetExceededError,
+  LimitExceededError,
+  StepsLimitExceededError,
+} from "../../src/graph/limits.js";
+import { usd } from "../../src/units/index.js";
+
+const record = (costUsd: number, caller: string): UsageRecord => ({
+  ...ZERO_USAGE,
+  caller,
+  model: "m",
+  costUsd,
+  costSource: CostSource.Api,
+});
+
+const workflow = { name: "desk", version: "1.0.0", startedVersion: "1.0.0", configHash: "h" };
+const spent = [record(0.25, "agent")];
+
+describe("#1366: the spend of a limit error", () => {
+  it("a limit states its spend in its message, as a figure and as records", () => {
+    const error = new LimitExceededError({
+      key: "k",
+      limit: 1,
+      actual: 2,
+      path: ["flow", "step"],
+      spentUsd: 0.25,
+      usage: spent,
+    });
+
+    expect(error.spentUsd).toBe(0.25);
+    expect(error.usage).toEqual(spent);
+    expect(error.message).toContain("path: flow → step; spent $0.2500");
+  });
+
+  it("a limit with no records has none", () => {
+    const error = new LimitExceededError({
+      key: "k",
+      limit: 1,
+      actual: 2,
+      path: [],
+      spentUsd: 0,
+    });
+
+    expect(error.usage).toEqual([]);
+  });
+
+  it("a budget carries the run's spend and its records through to the limit", () => {
+    const error = new BudgetExceededError({
+      budget: { name: "daily" },
+      scope: BudgetScope.Application,
+      key: "app",
+      maxSpend: usd(1),
+      spent: usd(1.5),
+      path: ["flow"],
+      spentUsd: 1.5,
+      usage: spent,
+    });
+
+    expect(error).toMatchObject({ spentUsd: 1.5, usage: spent, path: ["flow"] });
+  });
+
+  it("a budget without records has none", () => {
+    const error = new BudgetExceededError({
+      budget: { name: "daily" },
+      scope: BudgetScope.Application,
+      key: "app",
+      maxSpend: usd(1),
+      spent: usd(1.5),
+      path: ["flow"],
+      spentUsd: 1.5,
+    });
+
+    expect(error.usage).toEqual([]);
+  });
+
+  it("the steps' limit carries the figure it was given", () => {
+    const error = new StepsLimitExceededError({
+      workflow,
+      maxSteps: 3,
+      path: ["flow"],
+      spentUsd: 0.75,
+    });
+
+    expect(error).toMatchObject({ spentUsd: 0.75, steps: 4 });
+  });
+
+  it("the depth limit has spent nothing: its step never ran", () => {
+    const error = new DepthLimitExceededError({ workflow, maxDepth: 2, path: ["flow"] });
+
+    expect(error).toMatchObject({ spentUsd: 0, depth: 3 });
+  });
+});

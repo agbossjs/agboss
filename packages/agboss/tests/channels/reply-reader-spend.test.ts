@@ -52,9 +52,9 @@ const interpreter = {
   instructions: "Read the reply.",
 };
 
-async function reading(book: ScriptBook) {
+async function reading(book: ScriptBook, role: typeof interpreter | object = interpreter) {
   return readByModel(
-    interpreter,
+    role as never,
     { ask: { tool: "wire" }, reply: "yes" },
     {
       gateway: createScriptedGateway(book),
@@ -77,6 +77,44 @@ describe("#1366: what a model interpreter's reading cost", () => {
     expect(out.kind).toBe("answered");
     expect(out.usage.at(-1)).toMatchObject({ caller: "reply-interpreter:wire-reply-interpreter" });
     expect(out.usage.slice(0, -1).length).toBeGreaterThanOrEqual(1);
+    expect(out.usage.slice(0, -1).every((record) => record === masking)).toBe(true);
+  });
+
+  it("a model that gave no answer is declined with the same usage: the masking, then the call", async () => {
+    const book = new ScriptBook();
+    book
+      .scriptOf("reply-interpreter:wire-reply-interpreter")
+      .thenReturn(replyWith("I do not know"));
+
+    const out = await reading(book);
+
+    expect(out).toMatchObject({ kind: "declined", reason: "the model gave no answer" });
+    expect(out.usage.at(-1)).toMatchObject({ caller: "reply-interpreter:wire-reply-interpreter" });
+    expect(out.usage.slice(0, -1).every((record) => record === masking)).toBe(true);
+  });
+
+  it("an answer with a token nobody gave is declined with the usage too", async () => {
+    const book = new ScriptBook();
+    book
+      .scriptOf("reply-interpreter:wire-reply-interpreter")
+      .thenReturn(replyWith("sure <email:0123456789ab>"));
+
+    const out = await reading(book);
+
+    expect(out.kind).toBe("declined");
+    expect(out.usage.at(-1)).toMatchObject({ caller: "reply-interpreter:wire-reply-interpreter" });
+  });
+
+  it("a question role's answer carries the usage as well: the masking, then the call", async () => {
+    const book = new ScriptBook();
+    book
+      .scriptOf("reply-interpreter:wire-reply-interpreter")
+      .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }));
+
+    const out = await reading(book, { ...interpreter, approves: undefined });
+
+    expect(out.kind).toBe("answered");
+    expect(out.usage.at(-1)).toMatchObject({ caller: "reply-interpreter:wire-reply-interpreter" });
     expect(out.usage.slice(0, -1).every((record) => record === masking)).toBe(true);
   });
 });
