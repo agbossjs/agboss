@@ -67,7 +67,15 @@ describe("#1366: an agent's settings as resolved", () => {
   it("its own reasoning, output ceiling, tools, judges and retries win over the defaults", () => {
     const workflow = withConfig(
       { thinking: "low", maxTokens: 900 },
-      { "coder-agent": { thinking: "none", maxTokens: 4000, maxRetries: 2, judges: ["quality-judge"], tools: ["clock"] } },
+      {
+        "coder-agent": {
+          thinking: "none",
+          maxTokens: 4000,
+          maxRetries: 2,
+          judges: ["quality-judge"],
+          tools: ["clock"],
+        },
+      },
       { maxToolCalls: 5 },
     );
 
@@ -121,7 +129,9 @@ describe("#1366: an agent's settings as resolved", () => {
     const [workflow] = notes.workflows;
     if (workflow === undefined) throw new TypeError("one workflow");
 
-    expect(nodeNamed(workflow, "note-agent").agent).toMatchObject({ compaction: "note-compaction" });
+    expect(nodeNamed(workflow, "note-agent").agent).toMatchObject({
+      compaction: "note-compaction",
+    });
   });
 });
 
@@ -143,7 +153,9 @@ describe("#1366: a node's own facts", () => {
     expect(router.maxVisits).toBe(10);
     expect(coder.description).toBe("Writes, reviews and explains code");
     expect(coder).not.toHaveProperty("maxVisits");
-    expect(nodesOf(test).filter((node) => !("description" in node))).not.toStrictEqual(nodesOf(test));
+    expect(nodesOf(test).filter((node) => !("description" in node))).not.toStrictEqual(
+      nodesOf(test),
+    );
   });
 
   it("a model router: the model, its provider, its instructions and each route with its prompt", () => {
@@ -176,7 +188,9 @@ class UndecoratedPolicy {
 }
 
 /** The test workflow with this PII assembly, per element. */
-const withPii = (byElement: ReadonlyMap<string, readonly (abstract new () => unknown)[]>): AssembledWorkflow => ({
+const withPii = (
+  byElement: ReadonlyMap<string, readonly (abstract new () => unknown)[]>,
+): AssembledWorkflow => ({
   ...test,
   pii: { ...test.pii, byElement } as never,
 });
@@ -201,7 +215,9 @@ describe("#1366: the PII policies and the instructions of a node", () => {
       "card-numbers-pii-policy",
       "UndecoratedPolicy",
     ]);
-    expect(nodeNamed(workflow, "main-router").router?.piiPolicies).toStrictEqual(["card-numbers-pii-policy"]);
+    expect(nodeNamed(workflow, "main-router").router?.piiPolicies).toStrictEqual([
+      "card-numbers-pii-policy",
+    ]);
     expect(nodeNamed(workflow, "researcher-agent").agent?.piiPolicies).toStrictEqual([]);
   });
 
@@ -216,7 +232,12 @@ describe("#1366: the routers of a node", () => {
   it("a router reads its own loaded texts, not another router's", () => {
     const [main] = test.routers;
     if (main === undefined) throw new TypeError("the test workflow has a model router");
-    const other = { ...main, name: "other-router", model: "other/model", instructions: "Other instructions." };
+    const other = {
+      ...main,
+      name: "other-router",
+      model: "other/model",
+      instructions: "Other instructions.",
+    };
     const workflow: AssembledWorkflow = { ...test, routers: [other, main] };
 
     expect(nodeNamed(workflow, "main-router").router).toMatchObject({
@@ -257,6 +278,10 @@ describe("#1366: the routers of a node", () => {
     const lacking = nodes.filter((node) => !("description" in node)).map((node) => node.name);
 
     expect(lacking).toStrictEqual(["this-workflow"]);
-    expect(nodes.filter((node) => "description" in node).every((node) => typeof node.description === "string")).toBe(true);
+    expect(
+      nodes
+        .filter((node) => "description" in node)
+        .every((node) => typeof node.description === "string"),
+    ).toBe(true);
   });
 });

@@ -19,7 +19,13 @@ import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { CriticAgent, PlanResearcherAgent } from "../fixtures/launch.fixture.js";
 import { agent, caseOf, returnsEach, start, toAction } from "../fixtures/paths.js";
-import { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
+import {
+  ApprovalDto,
+  CritiqueDto,
+  DraftDto,
+  PlanDto,
+  ResearchDto,
+} from "../fixtures/review-dtos.js";
 
 const problemsOf = (workflow: object) =>
   checkWorkflow(workflow as never)
@@ -58,7 +64,11 @@ const joinLoop = (
   name: string,
   options: { about?: DtoClass; critic?: abstract new () => unknown; preJoin?: boolean },
 ): object => {
-  @WorkflowStart({ name: `${name}-workflow-start`, description: "Ask", input: WorkflowStartTextDto })
+  @WorkflowStart({
+    name: `${name}-workflow-start`,
+    description: "Ask",
+    input: WorkflowStartTextDto,
+  })
   class LoopStart {}
   @WorkflowFinish({ name: `${name}-workflow-finish`, description: "Done", output: ApprovalDto })
   class LoopFinish {}
@@ -133,9 +143,9 @@ describe("#1366: a cycle through the join of a parallel launch", () => {
   });
 
   it("about the wrong class (the research) does not direct it", () => {
-    expect(problemsOf(joinLoop("jw", { about: ResearchDto })).map((found) => found.code)).toStrictEqual([
-      "io.ambiguous-cycle",
-    ]);
+    expect(
+      problemsOf(joinLoop("jw", { about: ResearchDto })).map((found) => found.code),
+    ).toStrictEqual(["io.ambiguous-cycle"]);
   });
 });
 
@@ -151,22 +161,24 @@ class DoubleCriticAgent {}
 
 describe("#1366: a branch of a join that reads the class its values are about in two fields", () => {
   it("[io.ambiguous-about] on the branch, naming its fields", () => {
-    expect(problemsOf(joinLoop("jd", { about: PlanDto, critic: DoubleCriticAgent }))).toStrictEqual([
-      {
-        code: "io.ambiguous-about",
-        message:
-          "jd-workflow: double-critic-agent reads 2 PlanDto fields (plan, plans) and its values are " +
-          "{ about: PlanDto } — about which one? Read PlanDto in one field: with historyOf(PlanDto) " +
-          "the answers are about its current value",
-        nodes: ["double-critic-agent"],
-      },
-    ]);
+    expect(problemsOf(joinLoop("jd", { about: PlanDto, critic: DoubleCriticAgent }))).toStrictEqual(
+      [
+        {
+          code: "io.ambiguous-about",
+          message:
+            "jd-workflow: double-critic-agent reads 2 PlanDto fields (plan, plans) and its values are " +
+            "{ about: PlanDto } — about which one? Read PlanDto in one field: with historyOf(PlanDto) " +
+            "the answers are about its current value",
+          nodes: ["double-critic-agent"],
+        },
+      ],
+    );
   });
 
   it("without { about } two fields of one class are not [io.ambiguous-about]", () => {
-    expect(problemsOf(joinLoop("je", { critic: DoubleCriticAgent })).map((found) => found.code)).not.toContain(
-      "io.ambiguous-about",
-    );
+    expect(
+      problemsOf(joinLoop("je", { critic: DoubleCriticAgent })).map((found) => found.code),
+    ).not.toContain("io.ambiguous-about");
   });
 });
 
@@ -181,8 +193,16 @@ describe("#1366: a branch of a join that reads the class its values are about in
 class DraftResearcherAgent {}
 
 /** A draft is researched twice in parallel; the planner plans from the researches and the drafter redrafts from the plan. */
-const fanOutLoop = (name: string, about: DtoClass | undefined, plannerReadsDraft = false): object => {
-  @WorkflowStart({ name: `${name}-workflow-start`, description: "Ask", input: WorkflowStartTextDto })
+const fanOutLoop = (
+  name: string,
+  about: DtoClass | undefined,
+  plannerReadsDraft = false,
+): object => {
+  @WorkflowStart({
+    name: `${name}-workflow-start`,
+    description: "Ask",
+    input: WorkflowStartTextDto,
+  })
   class FanStart {}
   @WorkflowFinish({ name: `${name}-workflow-finish`, description: "Done", output: ApprovalDto })
   class FanFinish {}
@@ -202,7 +222,9 @@ const fanOutLoop = (name: string, about: DtoClass | undefined, plannerReadsDraft
     prompt: "Plan.",
     model: "moonshotai/kimi-k2.6",
     maxVisits: 3,
-    input: plannerReadsDraft ? { researches: listOf(ResearchDto), draft: DraftDto } : { researches: listOf(ResearchDto) },
+    input: plannerReadsDraft
+      ? { researches: listOf(ResearchDto), draft: DraftDto }
+      : { researches: listOf(ResearchDto) },
     output: oneOf(PlanDto, ApprovalDto),
   })
   class PlannerAgent {}
@@ -275,7 +297,11 @@ class OutsideResearcherAgent {}
 
 /** The join loop, whose approval ends in a second join of its own, outside the cycle. */
 const loopWithJoinAfter = (name: string): object => {
-  @WorkflowStart({ name: `${name}-workflow-start`, description: "Ask", input: WorkflowStartTextDto })
+  @WorkflowStart({
+    name: `${name}-workflow-start`,
+    description: "Ask",
+    input: WorkflowStartTextDto,
+  })
   class AfterStart {}
   @WorkflowFinish({ name: `${name}-workflow-finish`, description: "Done", output: ApprovalDto })
   class AfterFinish {}
@@ -408,13 +434,26 @@ describe("#1366: a producer whose values are about two classes, each read in two
       description: "Reviews the draft against the plan",
       prompt: "Review.",
       model: "moonshotai/kimi-k2.6",
-      input: { plan: PlanDto, plans: historyOf(PlanDto), draft: DraftDto, drafts: historyOf(DraftDto) },
+      input: {
+        plan: PlanDto,
+        plans: historyOf(PlanDto),
+        draft: DraftDto,
+        drafts: historyOf(DraftDto),
+      },
       output: oneOf(ApprovalDto, DraftChangesDto),
     })
     class TwoReviewerAgent {}
-    @WorkflowStart({ name: "two-targets-workflow-start", description: "Ask", input: ArticleRequestDto })
+    @WorkflowStart({
+      name: "two-targets-workflow-start",
+      description: "Ask",
+      input: ArticleRequestDto,
+    })
     class TwoStart {}
-    @WorkflowFinish({ name: "two-targets-workflow-finish", description: "Done", output: ApprovalDto })
+    @WorkflowFinish({
+      name: "two-targets-workflow-finish",
+      description: "Done",
+      output: ApprovalDto,
+    })
     class TwoFinish {}
     @Workflow({
       name: "two-targets-workflow",
@@ -435,10 +474,11 @@ describe("#1366: a producer whose values are about two classes, each read in two
     })
     class TwoTargetsWorkflow {}
 
-    expect(problemsOf(TwoTargetsWorkflow).map((problem) => problem.message.split(" reads ")[1]?.split(" fields")[0])).toStrictEqual([
-      "2 DraftDto",
-      "2 PlanDto",
-    ]);
+    expect(
+      problemsOf(TwoTargetsWorkflow).map(
+        (problem) => problem.message.split(" reads ")[1]?.split(" fields")[0],
+      ),
+    ).toStrictEqual(["2 DraftDto", "2 PlanDto"]);
   });
 });
 
@@ -555,7 +595,10 @@ describe("#1366: a node that is not in a cycle is never judged for one", () => {
         returnsEach(start(PairStart), [LeftDto, RightDto])
           .toAgent(PairAgent)
           .returns(oneOf(LeftDto, RightDto))
-          .switch(caseOf(LeftDto).toFinish(PairLeftFinish), caseOf(RightDto).toFinish(PairRightFinish)),
+          .switch(
+            caseOf(LeftDto).toFinish(PairLeftFinish),
+            caseOf(RightDto).toFinish(PairRightFinish),
+          ),
       ],
     })
     class PairWorkflow {}
@@ -576,7 +619,11 @@ class ItemCriticAgent {}
 
 describe("#1366: a per-item launch's item is not written by its launcher", () => {
   it("planner → one critic per plan → planner is not [io.ambiguous-cycle]: the item class is the branch's input, not the planner's output", () => {
-    @WorkflowStart({ name: "items-workflow-start", description: "Ask", input: WorkflowStartTextDto })
+    @WorkflowStart({
+      name: "items-workflow-start",
+      description: "Ask",
+      input: WorkflowStartTextDto,
+    })
     class ItemsStart {}
     @WorkflowFinish({ name: "items-workflow-finish", description: "Done", output: ApprovalDto })
     class ItemsFinish {}
@@ -635,7 +682,11 @@ describe("#1366: a join before the cycle is not part of it", () => {
 
 describe("#1366: a cycle that only the join's error path closes", () => {
   it("the branches of a join whose happy path leaves the loop are not producers of the cycle", () => {
-    @WorkflowStart({ name: "retry-workflow-start", description: "Ask", input: WorkflowStartTextDto })
+    @WorkflowStart({
+      name: "retry-workflow-start",
+      description: "Ask",
+      input: WorkflowStartTextDto,
+    })
     class RetryStart {}
     @WorkflowFinish({ name: "retry-workflow-finish", description: "Done", output: CritiqueDto })
     class RetryFinish {}
