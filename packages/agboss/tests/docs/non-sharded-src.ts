@@ -61,7 +61,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/client/a2a-card-schemas.ts"],
   ),
   ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 183 mutants, 172 killed in the final run; the 63 that had lived in the first run each got a test (57), an equivalence reason (6) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-card-1366h.test.ts, tests/a2a/client/a2a-client-wire.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts; survivors listed in the #1366 round-8 notes",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 183 mutants, 172 killed in the final run; the 63 that had lived in the first run each got a test (57), an equivalence reason (6) or was classed message text (0); covered by tests/sweep-1366h/a2a/client/a2a-card-1366h.test.ts (including the #1394 malformed-interface-entry tests: null, non-record, no protocolVersion, non-string url), tests/a2a/client/a2a-client-wire.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/client/a2a-card.ts"],
   ),
   ...reviewed(

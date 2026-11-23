@@ -161,6 +161,34 @@ describe("#1366 fetchCard: the request", () => {
   );
 });
 
+describe("#1394 fetchCard: a malformed interface entry refuses the card", () => {
+  it.each([
+    ["null", null],
+    ["a number", 42],
+    ["an entry without protocolVersion", { url: URL_OK, protocolBinding: "JSONRPC" }],
+    ["an entry with a non-string url", iface({ url: 7 })],
+  ])("%s next to a usable interface: A2AProtocolError, never TypeError", async (_name, entry) => {
+    const error = await rejectionOf(
+      fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces: [iface(), entry] })), POLICY),
+    );
+    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toMatchObject({ agent: "peer", operation: A2AClientOperation.AgentCard });
+    expect((error as Error).message).not.toContain(URL_OK);
+  });
+
+  it.each([
+    ["[null]", [null]],
+    ["[42]", [42]],
+    ["an entry without protocolVersion", [{ url: URL_OK }]],
+    ["an entry with a non-string url", [iface({ url: 7 })]],
+  ])("%s alone: A2AProtocolError", async (_name, supportedInterfaces) => {
+    const error = await rejectionOf(
+      fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces })), POLICY),
+    );
+    expect(error).toBeInstanceOf(A2AProtocolError);
+  });
+});
+
 describe("#1366 fetchCard: the versions named when no interface is usable", () => {
   const versionsOf = async (raw: Record<string, unknown>): Promise<unknown> => {
     const error = await rejectionOf(fetchCard(URL_OK, fetcherOf(raw), POLICY));
@@ -239,8 +267,8 @@ describe("#1366 fetchCard: which interfaces are usable", () => {
     expect(await refusedFor(iface(over))).toBeInstanceOf(A2AProtocolError);
   });
 
-  it("a non-object entry is skipped, a good one beside it still counts", async () => {
-    expect(await urlsOf(rawCard({ supportedInterfaces: ["x", 4, iface()] }))).toHaveLength(1);
+  it("a non-object entry refuses the card even beside a good one (#1394, fail closed)", async () => {
+    expect(await refusedFor("x")).toBeInstanceOf(A2AProtocolError);
   });
 
   it("a usable interface elsewhere is refused as an origin error at the card interface", async () => {
