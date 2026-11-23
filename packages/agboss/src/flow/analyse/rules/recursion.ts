@@ -74,10 +74,9 @@ function chainBack(from: Class, self: Class, seen: Set<Class>): readonly Class[]
   }
 }
 
-const nameOf = (workflow: Class): string => {
-  const declaration = declarationOf(workflow);
-  return declaration === undefined ? classLabel(workflow) : declaration.options.name;
-};
+const nameOf = (workflow: Class): string =>
+  // Stryker disable next-line OptionalChaining: equivalent: the classes named are workflows (`chainBack` lists no other), so a declaration is always there; the label stays for a class that is not one
+  declarationOf(workflow)?.options.name ?? classLabel(workflow);
 
 function mutualViolations(context: AnalysisContext, self: Class): RuleViolation[] {
   const name = context.workflow.name;
