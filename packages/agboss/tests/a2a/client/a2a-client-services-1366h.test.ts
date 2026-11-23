@@ -48,7 +48,7 @@ describe("#1366: the origins a client's class names", () => {
   });
 });
 
-const stored: A2AFileDto = { mediaType: "text/plain", fileId: "f-1" } as A2AFileDto;
+const stored: A2AFileDto = { mediaType: "text/plain", fileId: "f-1" };
 
 describe("#1366: a stored file is read before it is sent", () => {
   it("outside an execution (no services, or services with no files) it is unavailable as outside-execution", async () => {

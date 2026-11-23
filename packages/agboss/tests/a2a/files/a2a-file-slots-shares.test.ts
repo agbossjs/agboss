@@ -35,7 +35,7 @@ async function held(slots: ReturnType<typeof fileSlotsOf>, callers: readonly Fil
   const atOnce = started.length;
   const finish = async (): Promise<void> => {
     // a slot given back starts the next in line: release until every run has settled
-    for (let round = 0; round < callers.length; round += 1) {
+    for (const _round of callers) {
       for (const done of release.splice(0)) done();
       await new Promise((resolve) => setTimeout(resolve, 1));
     }

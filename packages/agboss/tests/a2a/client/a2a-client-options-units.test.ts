@@ -25,11 +25,21 @@ const refusal = (work: () => unknown): string | undefined => {
 
 describe("#1366: a call's timeout and key are checked before it is sent", () => {
   it("a timeout up to the largest timer passes, one past it is [a2a.timeout-invalid], none is no check", () => {
-    expect(refusal(() => checkedCallTimeout("agent", MAX_TIMEOUT))).toBeUndefined();
-    expect(refusal(() => checkedCallTimeout("agent", undefined))).toBeUndefined();
-    expect(refusal(() => checkedCallTimeout("agent", MAX_TIMEOUT + 1))).toMatch(
-      /^\[a2a\.timeout-invalid\] agent: a call's timeout/u,
-    );
+    expect(
+      refusal(() => {
+        checkedCallTimeout("agent", MAX_TIMEOUT);
+      }),
+    ).toBeUndefined();
+    expect(
+      refusal(() => {
+        checkedCallTimeout("agent", undefined);
+      }),
+    ).toBeUndefined();
+    expect(
+      refusal(() => {
+        checkedCallTimeout("agent", MAX_TIMEOUT + 1);
+      }),
+    ).toMatch(/^\[a2a\.timeout-invalid\] agent: a call's timeout/u);
   });
 
   it("checkedCall checks the timeout, the price and the key, and gives the key back", () => {
@@ -54,26 +64,30 @@ describe("#1366: a call's timeout and key are checked before it is sent", () => 
 
 describe("#1366: what the client reads of its class", () => {
   it("a class with no @A2AAgent has no url and no origins: the url is refused by name", () => {
-    class Plain {}
+    class Plain {
+      readonly marker = 1;
+    }
 
     expect(refusal(() => urlOf(Plain, "plain-client"))).toMatch(/^\[a2a\.no-url\] plain-client /u);
     expect(allowedOriginsOfClass(Plain)).toEqual([]);
   });
 
   it("a typed contract needs both DTOs: one alone, or none, is [a2a.no-contract]", () => {
-    class Input {}
-    class Output {}
+    class Input {
+      readonly marker = 1;
+    }
+    class Output {
+      readonly marker = 2;
+    }
 
-    expect(
-      typedContractOf("agent", { input: Input as never, output: Output as never }),
-    ).toMatchObject({
+    expect(typedContractOf("agent", { input: Input, output: Output })).toMatchObject({
       input: Input,
       output: Output,
     });
-    expect(refusal(() => typedContractOf("agent", { input: Input as never }))).toMatch(
+    expect(refusal(() => typedContractOf("agent", { input: Input }))).toMatch(
       /^\[a2a\.no-contract\] agent /u,
     );
-    expect(refusal(() => typedContractOf("agent", { output: Output as never }))).toMatch(
+    expect(refusal(() => typedContractOf("agent", { output: Output }))).toMatch(
       /^\[a2a\.no-contract\] agent /u,
     );
     expect(refusal(() => typedContractOf("agent", undefined))).toMatch(/^\[a2a\.no-contract\]/u);

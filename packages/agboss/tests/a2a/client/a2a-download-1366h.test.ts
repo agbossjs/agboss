@@ -56,15 +56,18 @@ describe("#1366: a descriptor with no address and no bytes", () => {
   it("one with no url is fetched from an empty address, one with no inline bytes is an empty file", async () => {
     const urls: string[] = [];
     const fetcher: typeof fetch = (url) => {
-      urls.push(String(url));
+      urls.push(typeof url === "string" ? url : url instanceof URL ? url.href : url.url);
       return Promise.resolve(new Response(new Uint8Array([9])));
     };
 
-    await downloadedFile({ mediaType: "text/plain" } as never, { fetcher });
+    await downloadedFile({ mediaType: "text/plain" }, { fetcher });
     // an inline descriptor (inline set, bytes empty) is the empty file; one with neither is read as a url
-    const empty = await downloadedFile({ mediaType: "text/plain", inline: "" } as never, {
-      fetcher,
-    });
+    const empty = await downloadedFile(
+      { mediaType: "text/plain", inline: "" },
+      {
+        fetcher,
+      },
+    );
 
     expect(urls).toEqual([""]);
     expect(empty.byteLength).toBe(0);

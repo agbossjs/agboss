@@ -17,7 +17,10 @@ const byUrl = { mediaType: "application/octet-stream", url: "https://files.examp
 function fetching(chunks: readonly Uint8Array[], init: ResponseInit = {}) {
   const calls: { url: string; init: RequestInit | undefined }[] = [];
   const fetcher: typeof fetch = (url, options) => {
-    calls.push({ url: String(url), init: options });
+    calls.push({
+      url: typeof url === "string" ? url : url instanceof URL ? url.href : url.url,
+      init: options,
+    });
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         for (const chunk of chunks) controller.enqueue(chunk);
@@ -33,7 +36,7 @@ function fetching(chunks: readonly Uint8Array[], init: ResponseInit = {}) {
 const outcomeOf = (
   file: Parameters<typeof downloadedFile>[0],
   download: Parameters<typeof downloadedFile>[1],
-): Promise<number | A2AFileUnavailableReason | unknown> =>
+): Promise<unknown> =>
   downloadedFile(file, download).then(
     (bytes) => bytes.byteLength,
     (error: unknown) => (error as { reason?: A2AFileUnavailableReason }).reason ?? error,
