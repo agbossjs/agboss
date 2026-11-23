@@ -419,7 +419,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 199 mutants, 179 killed in the final run; the 52 that had lived in the first run each got a test (38), an equivalence reason (14) or was classed message text (0); covered by tests/sweep-1366h/flow/analyse/about-1366h.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/outdating.test.ts; survivors listed in the #1366 round-8 notes",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 199 mutants, 179 killed in the final run; the 52 that had lived in the first run each got a test (37), an equivalence reason (15) or was classed message text (0); covered by tests/sweep-1366h/flow/analyse/about-1366h.test.ts, tests/sweep-1366h/flow/analyse/about-more-1366h.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/outdating.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/analyse/rules/about.ts"],
   ),
   ...reviewed(
