@@ -3,7 +3,7 @@
  * shard of `stryker.config.mjs`, or is named in `NON_SHARDED_SRC` with the reason it is not — so a module
  * added to a money path is a conscious decision of a shard, never a file no mutant reaches.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, matchesGlob } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runProcess } from "../helpers/process.js";
@@ -116,6 +116,30 @@ describe("#1356: the mutation shards cover src/", () => {
     );
 
     expect(bad).toEqual([]);
+  });
+
+  it("a reason that says a file is covered names tests that exist (#1366)", () => {
+    const named = Object.entries(NON_SHARDED_SRC).flatMap(([entry, reason]) =>
+      [...reason.matchAll(/\btests\/[\w./-]+\.test\.ts\b/gu)].map(([test]) => ({ entry, test })),
+    );
+    const missing = named.filter(({ test }) => !existsSync(join(pkg, test)));
+    const claims = Object.entries(NON_SHARDED_SRC).filter(
+      ([, reason]) =>
+        /\bcovered by\b/u.test(reason) && !/\btests\/[\w./-]+\.test\.ts\b/u.test(reason),
+    );
+
+    expect({ missing, claims: claims.map(([entry]) => entry) }).toEqual({
+      missing: [],
+      claims: [],
+    });
+  });
+
+  it("no reason says a money, limit or deadline file is tested only by end-to-end runs (#1366)", () => {
+    const bare = Object.entries(NON_SHARDED_SRC).filter(([, reason]) =>
+      /only the end-to-end[^;]*no unit shard/u.test(reason),
+    );
+
+    expect(bare.map(([entry]) => entry)).toEqual([]);
   });
 
   it("every reason says something, in one line", () => {

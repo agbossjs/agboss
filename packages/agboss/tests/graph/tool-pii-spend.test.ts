@@ -31,4 +31,47 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
     expect(closed).toMatchObject({ refusal: cause, usage: spent, isTruncated: false });
     expect(closed.content).toContain("no cards");
   });
+
+  /** A set whose every search costs a record; `refuses` makes its block rule refuse. */
+  const costing = (spent: UsageRecord[], refuses: boolean) => ({
+    isEmpty: false,
+    fieldKey: "field-key",
+    maskCacheKeyOf: (text: string) => text,
+    mask: (text: string) =>
+      Promise.resolve({ masked: { text, blocked: [], tokens: {} }, usage: spent }),
+    refusalError: () =>
+      Promise.resolve(
+        refuses
+          ? new PiiRefusedError({ kind: "card", refusal: "no cards", usage: spent })
+          : undefined,
+      ),
+  });
+
+  it("a result that is taken carries the cost of searching it", async () => {
+    const spent = [record(0.25, "detector")];
+
+    const closed = await closedResult(
+      costing(spent, false) as never,
+      undefined,
+      { kind: "ok", value: "fine" },
+      kilobytes(1),
+    );
+
+    expect(closed.usage).toEqual(spent);
+    expect(closed.refusal).toBeUndefined();
+  });
+
+  it("a result refused by a block rule carries the same cost", async () => {
+    const spent = [record(0.25, "detector")];
+
+    const closed = await closedResult(
+      costing(spent, true) as never,
+      undefined,
+      { kind: "ok", value: "4242" },
+      kilobytes(1),
+    );
+
+    expect(closed.usage).toEqual(spent);
+    expect(closed.refusal).toBeInstanceOf(PiiRefusedError);
+  });
 });

@@ -42,13 +42,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/a2a/client/a2a-card.ts",
       "src/a2a/client/a2a-client-errors.ts",
       "src/a2a/client/a2a-client-files.ts",
-      "src/a2a/client/a2a-client-options.ts",
       "src/a2a/client/a2a-client-services.ts",
       "src/a2a/client/a2a-download.ts",
       "src/a2a/client/a2a-finish.ts",
       "src/a2a/client/a2a-guard-errors.ts",
       "src/a2a/client/a2a-parts.ts",
-      "src/a2a/client/a2a-wait.ts",
     ],
   ),
   ...reviewed(
@@ -65,12 +63,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/a2a/server/a2a-input-files.ts",
       "src/a2a/server/a2a-jsonrpc-http.ts",
       "src/a2a/server/a2a-local-runs.ts",
-      "src/a2a/server/a2a-message-files.ts",
       "src/a2a/server/a2a-message-input.ts",
       "src/a2a/server/a2a-output-parts.ts",
       "src/a2a/server/a2a-skills.ts",
       "src/a2a/server/a2a-start-input.ts",
-      "src/a2a/server/a2a-task-view.ts",
       "src/a2a/server/a2a-wire-errors.ts",
     ],
   ),
@@ -95,7 +91,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/app/models.ts",
       "src/app/new-thread.ts",
       "src/app/outbound-call-events.ts",
-      "src/app/outbound-call-parts.ts",
       "src/app/outbound-call-types.ts",
       "src/app/own-deps.ts",
       "src/app/own-notices.ts",
@@ -106,7 +101,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/app/providers-at-start.ts",
       "src/app/record-masks.ts",
       "src/app/result.ts",
-      "src/app/resume.ts",
       "src/app/run-events.ts",
       "src/app/standalone-deps.ts",
       "src/app/start-components.ts",
@@ -138,10 +132,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/application/pause-expiry-look.ts",
   ]),
   ...reviewed(
-    "holds recordPartOf (history spend is the usage plus the lost usage of the end; dropping or doubling lostUsage misreports spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/app/execution-history.ts"],
-  ),
-  ...reviewed(
     "the pause's application-side wiring: the pause transitions themselves are the pause stores'",
     [
       "src/app/pause-answerer.ts",
@@ -149,8 +139,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/app/pause-closed.ts",
       "src/app/pause-frame.ts",
       "src/app/pause-join-notices.ts",
-      "src/app/pause-reassignment.ts",
-      "src/app/paused-runs.ts",
     ],
   ),
   ...reviewed(
@@ -177,7 +165,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/application/assembled-keys.ts",
       "src/application/compose-app.ts",
       "src/application/execution-history-store.ts",
-      "src/application/graceful-stop.ts",
       "src/application/idempotency-key.ts",
       "src/application/instance-seams.ts",
       "src/application/instance-timers.ts",
@@ -218,11 +205,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/start-log.ts"],
   ),
   ...reviewed(
-    "holds problemOf (validates the store descriptor incl. the leaseCheck opt-out value; a miss lets a bad opt-out pass unnoticed) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/application/store-descriptor-rule.ts"],
-  ),
-  ...reviewed(
-    "the calendar of working time: no spend, lease or cancel decision; its one limit, weekReaches (whether a grid gives a working span within 25 years), is read by the sharded working-time rules and tested by the calendar tests, not mutated (#1366)",
+    "the calendar of working time: no spend, lease or cancel decision; its one limit, weekReaches (whether a grid gives a working span within 25 years), is read by the sharded working-time rules and tested by the calendar tests, not mutated (#1366); its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
     ["src/calendar/**"],
   ),
   ...reviewed(
@@ -233,7 +216,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/channels/channel-role-form.ts",
       "src/channels/channel-role.decorator.ts",
       "src/channels/channel-sender.ts",
-      "src/channels/decision.ts",
       "src/channels/discovery.ts",
       "src/channels/index.ts",
       "src/channels/pause-expiration.ts",
@@ -248,17 +230,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "runs a code reply interpreter and wraps its answer; code interpreters report no usage",
     ["src/channels/reply-code.ts"],
   ),
-  ...reviewed(
-    "holds readByDecision (collects the masking and the decision usage into the reading; a bug loses the spend of the call) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/channels/reply-decision.ts"],
-  ),
-  ...reviewed(
-    "holds readByModel (collects the masking and the call usage into every outcome, a declined one too; a bug loses the spend of a paid call) - not mutated: no mutation run reads it; its masking usage is held by `tests/channels/reply-reader-spend.test.ts` (a sabotage that drops it fails there), and the declined and tokens paths by `reply-interpreter-rules.test.ts`; listed for the reviewer (#1356, #1366)",
-    ["src/channels/reply-reader.ts"],
-  ),
   ...reviewed("the compaction of a thread's history: no money decision", ["src/compaction/**"]),
   ...reviewed("the components' decorators, assembly and injection: wiring, no money decision", [
-    "src/components/accounted-router.ts",
     "src/components/agent-settings.ts",
     "src/components/assemble-checks.ts",
     "src/components/assemble-parts.ts",
@@ -351,9 +324,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the environments of a run: configuration", ["src/environments/**"]),
   ...reviewed("re-exports the error classes of the public API", ["src/errors.ts"]),
   ...reviewed("the ESLint plugin: tooling", ["src/eslint/**"]),
-  ...reviewed("the evaluation harness (0.1.2): no spend, fencing or cancel decision", [
-    "src/eval/**",
-  ]),
+  ...reviewed(
+    "the evaluation harness (0.1.2): no spend, fencing or cancel decision; its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
+    ["src/eval/**"],
+  ),
   ...reviewed("the federation of applications: wiring beside the sharded A2A and mesh", [
     "src/federation/**",
   ]),
@@ -411,7 +385,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/walk-quorum.ts",
       "src/flow/analyse/walk.ts",
       "src/flow/analyse/walked-flow.ts",
-      "src/flow/analyse/worst-case.ts",
     ],
   ),
   ...reviewed("the flow DSL's builder, syntax and types: build-time declarations", [
@@ -487,22 +460,18 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/runtime/outdating.ts",
       "src/flow/runtime/pause-chain.ts",
       "src/flow/runtime/pause-expired-error.ts",
-      "src/flow/runtime/pause-record-made.ts",
       "src/flow/runtime/provenance.ts",
       "src/flow/runtime/records.ts",
-      "src/flow/runtime/recursion-launch.ts",
       "src/flow/runtime/recursive-child.ts",
       "src/flow/runtime/routers.ts",
       "src/flow/runtime/scope.ts",
       "src/flow/runtime/seam-approval.ts",
-      "src/flow/runtime/soft-stop.ts",
       "src/flow/runtime/start-input-issues.ts",
       "src/flow/runtime/start-input.ts",
       "src/flow/runtime/step-entries.ts",
       "src/flow/runtime/step-records.ts",
       "src/flow/runtime/tool-calls.ts",
       "src/flow/runtime/tool-keys.ts",
-      "src/flow/runtime/visit-failure.ts",
       "src/flow/runtime/visit-step.ts",
       "src/flow/runtime/workflow-keys.ts",
     ],
@@ -511,15 +480,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "compiles the execution graph and picks the runner per node, passing the budget meter on",
     ["src/flow/runtime/build.ts"],
   ),
-  ...reviewed(
-    "holds judge (merges masking usage with the decision usage of the arbiter call; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/arbiter-model.ts"],
-  ),
   ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
-    "src/flow/runtime/launch/branch-quorum.ts",
     "src/flow/runtime/launch/branch-schedule.ts",
     "src/flow/runtime/launch/branch-settle.ts",
-    "src/flow/runtime/launch/dispatch.ts",
     "src/flow/runtime/launch/expired-branch.ts",
     "src/flow/runtime/launch/join-failure.ts",
     "src/flow/runtime/launch/join-node.ts",
@@ -527,48 +490,23 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/runtime/launch/join-values.ts",
     "src/flow/runtime/launch/join-write.ts",
     "src/flow/runtime/launch/launch-registry.ts",
-    "src/flow/runtime/launch/launch-report.ts",
     "src/flow/runtime/launch/pending-records.ts",
     "src/flow/runtime/launch/quorum-errors.ts",
-    "src/flow/runtime/launch/quorum-groups.ts",
     "src/flow/runtime/launch/quorum.ts",
     "src/flow/runtime/launch/records.ts",
-    "src/flow/runtime/launch/router-decision.ts",
     "src/flow/runtime/launch/runtime-launch.ts",
   ]),
-  ...reviewed(
-    "holds decideOnChatModel (keeps the call usage also when parsing the answer fails; a bug loses spend) - not mutated: no mutation run reads it; both its outcomes carry the usage in `tests/flow/launch-decider-spend.test.ts` (a sabotage that drops the usage of a failed parse fails there); listed for the reviewer (#1356, #1366)",
-    ["src/flow/runtime/launch/launch-decider.ts"],
-  ),
-  ...reviewed(
-    "holds cancelIfDecided (aborts the remaining branches once the quorum is decided); markAnswer (keeps arbiter usage when a branch is cancelled mid judging) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/quorum-branch.ts"],
-  ),
-  ...reviewed(
-    "holds #take (acquires the tree and subtree concurrency caps with leases; a bug exceeds maxConcurrentExecutions) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/launch/shared-tree-slots.ts"],
-  ),
-  ...reviewed(
-    "orders waiters of a slot queue by depth, age and closing branches; a scheduling order, no limit is checked here",
-    ["src/flow/runtime/launch/slot-queue.ts"],
-  ),
   ...reviewed("the remote child's steps: wiring beside the sharded A2A client and queue", [
     "src/flow/runtime/remote/remote-child-run.ts",
     "src/flow/runtime/remote/remote-child-signals.ts",
     "src/flow/runtime/remote/remote-child-site.ts",
     "src/flow/runtime/remote/remote-failure.ts",
   ]),
-  ...reviewed(
-    "holds routerFailureOf (keeps the spent usage plus the failed outcome usage in the router error; a bug loses spend of a failed router) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/flow/runtime/router-error.ts"],
-  ),
   ...reviewed("the runners of a step kind: wiring beside the sharded visit and unwind files", [
     "src/flow/runtime/runners/action.ts",
-    "src/flow/runtime/runners/agent.ts",
     "src/flow/runtime/runners/boundary-input.ts",
     "src/flow/runtime/runners/code-router.ts",
     "src/flow/runtime/runners/finish.ts",
-    "src/flow/runtime/runners/question.ts",
     "src/flow/runtime/runners/start.ts",
   ]),
   ...reviewed("types of the flow DSL: declarations, no runtime guarantee", ["src/flow/types/**"]),
@@ -579,13 +517,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/boundary.ts",
     "src/graph/agent-loop/call-records.ts",
     "src/graph/agent-loop/call-signal.ts",
-    "src/graph/agent-loop/collect-node.ts",
     "src/graph/agent-loop/deps.ts",
     "src/graph/agent-loop/index.ts",
     "src/graph/agent-loop/judge-files.ts",
-    "src/graph/agent-loop/judge-model.ts",
     "src/graph/agent-loop/judge-points.ts",
-    "src/graph/agent-loop/judge-reading.ts",
     "src/graph/agent-loop/loop-graph.ts",
     "src/graph/agent-loop/loop-records.ts",
     "src/graph/agent-loop/memory-view.ts",
@@ -610,25 +545,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "adapts the pause seam to tool approval and question calls and passes the answer usage on",
     ["src/graph/agent-loop/approval.ts"],
   ),
-  ...reviewed(
-    "holds outgoingMove (keeps masking and answer-check usage in the update also for an invalid answer; a bug loses spend) - not mutated: no mutation run reads it; the check's usage on a taken and on an invalid answer is held by `tests/graph/model-pii-spend.test.ts` (a sabotage that drops it from the invalid one fails there), the request's masking by the budget-loop tests; listed for the reviewer (#1356, #1366)",
-    ["src/graph/agent-loop/model-pii.ts"],
-  ),
-  ...reviewed(
-    "holds closedResult (carries the PII detection usage also on refusal; a bug loses spend) - not mutated: no mutation run reads it; the usage of a refusal is held by `tests/graph/tool-pii-spend.test.ts` (a sabotage that drops it fails there), the rest by the budget-loop tool tests; listed for the reviewer (#1356, #1366)",
-    ["src/graph/agent-loop/tool-pii.ts"],
-  ),
   ...reviewed("step and agent error classes that carry the usage of a failed step", [
     "src/graph/errors.ts",
   ]),
-  ...reviewed(
-    "holds isPeriodBudgetExhausted (tells a period (tenant, application) budget breach from an execution one; a bug mis-classifies a breach) - not mutated: no mutation run reads it; held by `tests/graph/period-budget-exhausted.test.ts` (a sabotage that counts an execution budget as a period one fails there) and, through its replay and compare, by the eval tests; listed for the reviewer (#1356, #1366)",
-    ["src/graph/limits.ts"],
-  ),
-  ...reviewed(
-    "holds gatherKnowledge (records the retrieval cost and usage of every knowledge source; a bug loses spend); recordsOf (builds the usage records of a retrieval) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/graph/nodes/knowledge.ts"],
-  ),
   ...reviewed("union type of the assembly rule codes", ["src/graph/rule-codes.ts"]),
   ...reviewed("the guardrails of model text: semantic checks, not payment guarantees", [
     "src/guardrails/assembly.ts",
@@ -638,10 +557,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/guardrails/levels.ts",
     "src/guardrails/loaded.ts",
   ]),
-  ...reviewed(
-    "holds modelDecisionOf (pushes the guardrail model usage into spent, also when the decision fails); checkGuardrails (accumulates guardrail usage and returns it with blocked and passed) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/guardrails/runtime.ts"],
-  ),
   ...reviewed("the health report: read-only", [
     "src/health/application-health.ts",
     "src/health/health-probe.ts",
@@ -649,75 +564,25 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/health/readiness-checks.ts",
   ]),
   ...reviewed(
-    "holds deadlineAtOf (a launch's deadline: now plus its span) and hasExpired (whether the clock has reached it; a bug ends a launch too soon or never) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/flow/runtime/launch/deadline.ts"],
-  ),
-  ...reviewed(
     "holds decideQuorum (whether the answers in reach the quorum's count) and the reason a quorum was not reached (the deadline passed, moved by the time in the tree's queue, or the shortfall); a bug reaches a quorum that is not reached or misses one that is - not mutated: no mutation run reads it; the reason is held by `tests/flow/runtime/quorum-reason.test.ts` (a sabotage that ignores the queue's time fails there), the count by the quorum tests; listed for the reviewer (#1366)",
     ["src/flow/runtime/launch/quorum-join.ts"],
-  ),
-  ...reviewed(
-    "holds deadlineOf (the deadline a quorum launch takes from the visit's clock; a bug moves the deadline of every branch) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/flow/runtime/launch/launch-exit.ts"],
-  ),
-  ...reviewed(
-    "holds givenDeadline (the span a pause was given to answer, which the expiry failure reports) and isRunBound (whether the run's own deadline ended the pause; a bug blames the wrong deadline) - not mutated: no mutation run reads it; isRunBound, a tie included, is held by `tests/flow/pause-expiry-run-bound.test.ts` (a sabotage that turns the tie to the pause fails there), the failures by the pause-step tests; listed for the reviewer (#1366)",
-    ["src/flow/runtime/pause-expiry-failure.ts"],
   ),
   ...reviewed(
     "the error a depth limit raises, a carrier of the limit and the depth reached; the check that raises it is in the launch, which is tested end to end - no decision here",
     ["src/flow/runtime/depth-limit.ts"],
   ),
   ...reviewed(
-    "holds meshRefusalOf (refuses a call whose chain loops or has passed maxMeshHops applications; a bug lets a chain run on) - not mutated: only the end-to-end mesh runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/mesh/mesh-admission.ts"],
-  ),
-  ...reviewed(
     "holds the A2A server's admission of a skill's files: the size of a file and of all of them (maxFileSize, maxTotalFileSize) and the allowed origins; a bug admits a file over its limit - not mutated: no mutation run reads it; the total is held by `tests/a2a/files/a2a-file-admission-total.test.ts` (a sabotage that doubles the limit fails there, a total at the limit is taken), the origins and the fetch by the A2A file tests; listed for the reviewer (#1366)",
     ["src/a2a/server/a2a-file-admission.ts"],
-  ),
-  ...reviewed(
-    "holds checkedFetchLimit (a file fetch's limit is a whole number from 1; a bug lets 0 or a fraction through) - not mutated: only the end-to-end A2A runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/a2a/files/a2a-file-slots.ts"],
-  ),
-  ...reviewed(
-    "holds previousDeadlineOf and the check of a pause's new deadline (later than the current one; a bug extends a pause to an earlier one) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/app/pause-extension.ts"],
-  ),
-  ...reviewed(
-    "holds checkLimit (the page size of a pause listing is a whole number from 1 to 1000); no money, deadline or run limit - not mutated: tested through the listing, no unit shard; listed for the reviewer (#1366)",
-    ["src/app/pause-listing.ts"],
-  ),
-  ...reviewed(
-    "holds stopDeadlineOf (how long a graceful stop waits for the steps at work, from shutdownTimeout; a bug stops at once or never) and the step slots a stop drains - not mutated: no mutation run reads it; the earliest-end rule of the stop is held by `tests/application/instance-stop-deadline.test.ts` (a sabotage that lets a later, longer close push the end back fails there), the drain by the shutdown tests; listed for the reviewer (#1366)",
-    ["src/application/instance-steps.ts"],
-  ),
-  ...reviewed(
-    "holds pageLimitOf (the page size of a read of outbound calls); no money, deadline or run limit - not mutated: tested through the read, no unit shard; listed for the reviewer (#1366)",
-    ["src/application/instance-reads.ts"],
-  ),
-  ...reviewed(
-    "holds deadlineOf and countQuorumOf (a quorum's deadline is a positive duration within 24 days and its counts whole numbers, refused when the flow is built; a bug builds a flow that can never end its join) - not mutated: only the flow-build tests read it, no unit shard; listed for the reviewer (#1366)",
-    ["src/flow/quorum-step.ts"],
-  ),
-  ...reviewed(
-    "[flow.path-too-deep]: a path's nesting against defaults.flow.maxPathDepth, a style cap of the DSL; no money, run-time limit or deadline",
-    ["src/flow/analyse/rules/depth.ts"],
   ),
   ...reviewed(
     "the data-flow rules of a flow's inputs; its one limit rule, [input.history-limit] (a historyOf window is a positive integer), bounds how much history an input reads - no money, run-time limit or deadline",
     ["src/flow/analyse/rules/data-inputs.ts"],
   ),
-  ...reviewed(
-    "holds checkedFetchLimit (a file fetch's limit is a whole number from 1; a bug lets 0 or a fraction through) - not mutated: only the end-to-end A2A runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/a2a/files/a2a-file-slots.ts"],
-  ),
   ...reviewed("the exports", ["src/index.ts"]),
   ...reviewed(
     "the in-memory stores of history, audit and files, and their helpers: no spend, lease or cancel state",
     [
-      "src/infrastructure/a2a-file.repository.ts",
-      "src/infrastructure/child-execution-queue.repository.ts",
       "src/infrastructure/effect-key.ts",
       "src/infrastructure/execution-history-export.ts",
       "src/infrastructure/execution-history.repository.ts",
@@ -765,19 +630,14 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/infrastructure/paused-execution.repository.ts"],
   ),
   ...reviewed(
-    "the execution tree's key store (#265): an insert-if-absent and a read of keys under a tree's root — the cancel request, " +
-      "the child-failure announcement's claim, the undo-done marks (#1374). The holder writes the claim and the marks under its " +
-      "held lease, which is the fence (the lease store's mark, mutated in `fencing` and `sqlite-stores`), and a cancel writes " +
-      "that mark before its request; the store itself decides only whether a key is there already",
+    "the execution tree's key store (#265): an insert-if-absent and a read of keys under a tree's root — the cancel request, the child-failure announcement's claim, the undo-done marks (#1374). The holder writes the claim and the marks under its held lease, which is the fence (the lease store's mark, mutated in `fencing` and `sqlite-stores`), and a cancel writes that mark before its request; the store itself decides only whether a key is there already",
     [
       "src/infrastructure/execution-tree.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-tree.repository.ts",
     ],
   ),
   ...reviewed(
-    "the execution record store's wrapper over the turns' store: one method per `TurnStore` call, no rule of its own. " +
-      "The compare-and-set of a turn's status (`completeIfStatus`, which of a resume, an expiry and a holder's end writes a " +
-      "paused turn's outcome) and the thread's create are `src/turns/**`, which is not mutated either (#1374 follow-up)",
+    "the execution record store's wrapper over the turns' store: one method per `TurnStore` call, no rule of its own. The compare-and-set of a turn's status (`completeIfStatus`, which of a resume, an expiry and a holder's end writes a paused turn's outcome) and the thread's create are `src/turns/**`, which is not mutated either (#1374 follow-up)",
     [
       "src/infrastructure/execution-record.repository.ts",
       "src/infrastructure/sqlite/sqlite-execution-record.repository.ts",
@@ -828,22 +688,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/llm/provider-fallback.ts",
     "src/llm/registry.ts",
   ]),
-  ...reviewed(
-    "holds readDecision (turns the reported cost into the usage record, defaulting a missing cost to 0; a bug bills the wrong amount) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/llm/decision-response.ts"],
-  ),
   ...reviewed("the loader of an application's sources: tooling", ["src/loader/**"]),
   ...reviewed(
     "the MCP exports and the `@McpExpose` declaration: re-exports and a decorator that records its options",
     ["src/mcp/index.ts", "src/mcp/mcp-expose.decorator.ts"],
-  ),
-  ...reviewed(
-    "holds inMcpCallFrame (the call id is the client's `_meta.callId` and the execution id follows it, so a repeated call gets the same step idempotencyKey; a bug makes a repeat a new call to every fenced effect under it) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1366)",
-    ["src/mcp/mcp-call-frame.ts"],
-  ),
-  ...reviewed(
-    "holds the hop and signature refusals of an MCP call (admitMcpCall: a chain through this application's own tool or as long as maxMeshHops, a bad signature, a replayed envelope, a body that is not the one signed, an audience that is not this application; which peer is trusted, so that its calls are deduplicated) - not mutated: only the end-to-end runs test it (`tests/mcp/mcp-mesh*.test.ts`), no unit shard; listed for the reviewer (#1366)",
-    ["src/mcp/mcp-mesh-gate.ts"],
   ),
   ...reviewed(
     "the MCP server's sessions and transports: the order of its call path (the mesh gate, then the deduplication of `once-mesh`, then the run) is tested end to end only; the rules themselves are in the files beside it",
@@ -868,7 +716,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/mesh/mesh-durations.ts",
       "src/mesh/mesh-envelope-codec.ts",
       "src/mesh/mesh-envelope.ts",
-      "src/mesh/mesh-errors.ts",
       "src/mesh/mesh-hop.ts",
       "src/mesh/mesh-jws.ts",
       "src/mesh/mesh-keys.ts",
@@ -891,32 +738,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/metrics/metrics-observer.ts",
   ]),
   ...reviewed("the model call's gate, queue and attempts: no spend rule (the usage is sharded)", [
-    "src/models/calls/attempt-runner.ts",
-    "src/models/calls/concurrency-level.ts",
     "src/models/calls/event-stream.ts",
     "src/models/calls/input-refusal.ts",
-    "src/models/calls/model-call.ts",
     "src/models/calls/provider-calls.ts",
-    "src/models/calls/tenant-fair-queue.ts",
   ]),
-  ...reviewed(
-    "holds heldPass (renews the slot lease and releases it once with the used tokens; a bug breaks the concurrency or token limit) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/calls/gate-pass.ts"],
-  ),
-  ...reviewed(
-    "holds waitInQueue (removes an aborted waiter from the queue and rejects it; a bug admits a cancelled call) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/calls/gate-waiter.ts"],
-  ),
-  ...reviewed(
-    "holds #roomFor (checks the tokens-per-minute, slots and calls-per-minute limits before a call is admitted); #grant (honours the cooldown and the concurrency level before admitting) - not mutated: a mutation run of the whole file (with the rate-limit tests, #1366) scores 70 % — its queue, wake timers and lease hand-backs are tested through the providers' calls only; the tokens window is held by `tests/models/provider-gate-tokens.test.ts` (a sabotage that admits a call at exactly the limit fails there), the rest by `tests/models/rate-limit.test.ts`; its sharding is #1390; listed for the reviewer (#1356, #1366)",
-    ["src/models/calls/provider-gate.ts"],
-  ),
   ...reviewed(
     "the model providers, fallback and wire formats: no spend rule (cost and usage are sharded); a provider's price and timeout rules are sharded too (assembly-rules)",
     [
       "src/models/capabilities.ts",
       "src/models/catch-all.ts",
-      "src/models/circuit-breaker.ts",
       "src/models/connections.ts",
       "src/models/content.ts",
       "src/models/decision-models.ts",
@@ -929,7 +759,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/jev-alias.ts",
       "src/models/jev.provider.ts",
       "src/models/lazy-chat-model.ts",
-      "src/models/model-failure.ts",
       "src/models/model-list.ts",
       "src/models/model-provider.decorator.ts",
       "src/models/openai-compatible.provider.ts",
@@ -940,20 +769,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/provider-environment.ts",
       "src/models/resolution.ts",
       "src/models/resolve.ts",
-      "src/models/retry-policy.ts",
       "src/models/stream-discard.ts",
       "src/models/uses.ts",
       "src/models/wire-audio.ts",
       "src/models/wire.ts",
     ],
-  ),
-  ...reviewed(
-    "holds priceProblems (reports a model with no price when the cost is not from the response; a miss lets a call run with unknown cost) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/check.ts"],
-  ),
-  ...reviewed(
-    "holds markedFallbackMessage (prices the answer of the fallback model with its own price table; a bug bills the wrong amount) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/fallback.ts"],
   ),
   ...reviewed(
     "OpenRouter wire fields, reasoning and caching request mapping and capability reading",
@@ -975,53 +795,36 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/models/transport/transport-resolver.ts",
     "src/models/transport/transport.ts",
   ]),
-  ...reviewed(
-    "holds aiMessageOf (maps provider tokens and cost into the message; a missing cost is left for the price table) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/transport/messages.ts"],
-  ),
-  ...reviewed(
-    "holds tokensOf (counts the tokens released to the token-per-minute limit; a bug misstates the limit) - not mutated: a whole-file run scores 25 % (the abort race and the failure mapping of the carrier are tested through the providers' calls only); tokensOf and the release of a held answer are held by `tests/models/transport-tokens.test.ts` (a sabotage that drops the output tokens fails there); its sharding is #1390; listed for the reviewer (#1356, #1366)",
-    ["src/models/transport/transport-carrier.ts"],
-  ),
   ...reviewed("checks that a transport stream gives a text stream and a usage promise", [
     "src/models/transport/transport-stream-source.ts",
   ]),
-  ...reviewed(
-    "holds answerOf (releases the used tokens on success and failure and passes the cost; a bug misstates the limit or drops cost) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/transport/transport-stream.ts"],
-  ),
-  ...reviewed(
-    "holds priced (fills the model price from the provider table unless set; a bug bills the wrong amount) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/models/workflow-models.ts"],
-  ),
   ...reviewed("the package's own metadata", ["src/package-json.ts"]),
   ...reviewed("the pause declarations: types", ["src/pause/**"]),
-  ...reviewed("the PII policies and masking: guardrails, the key hierarchy is sharded in #1269", [
-    "src/pii/actions.ts",
-    "src/pii/application-key.ts",
-    "src/pii/assembly.ts",
-    "src/pii/detectors/**",
-    "src/pii/effective-policies.ts",
-    "src/pii/errors.ts",
-    "src/pii/field-masks.ts",
-    "src/pii/index.ts",
-    "src/pii/inheritance.ts",
-    "src/pii/kinds.ts",
-    "src/pii/masking.ts",
-    "src/pii/message-mask.ts",
-    "src/pii/observability-mask.ts",
-    "src/pii/pii-policy.decorator.ts",
-    "src/pii/policy-checks.ts",
-    "src/pii/policy-rules.ts",
-    "src/pii/replacement.ts",
-    "src/pii/runtime-policy.ts",
-    "src/pii/runtime.ts",
-    "src/pii/sensitive-values.ts",
-    "src/pii/strings.ts",
-  ]),
   ...reviewed(
-    "holds MaskingPass.text (collects the detection usage of a mask and caches masks so a hit is not charged again) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/pii/model-boundary.ts"],
+    "the PII policies and masking: guardrails, the key hierarchy is sharded in #1269; its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
+    [
+      "src/pii/actions.ts",
+      "src/pii/application-key.ts",
+      "src/pii/assembly.ts",
+      "src/pii/detectors/**",
+      "src/pii/effective-policies.ts",
+      "src/pii/errors.ts",
+      "src/pii/field-masks.ts",
+      "src/pii/index.ts",
+      "src/pii/inheritance.ts",
+      "src/pii/kinds.ts",
+      "src/pii/masking.ts",
+      "src/pii/message-mask.ts",
+      "src/pii/observability-mask.ts",
+      "src/pii/pii-policy.decorator.ts",
+      "src/pii/policy-checks.ts",
+      "src/pii/policy-rules.ts",
+      "src/pii/replacement.ts",
+      "src/pii/runtime-policy.ts",
+      "src/pii/runtime.ts",
+      "src/pii/sensitive-values.ts",
+      "src/pii/strings.ts",
+    ],
   ),
   ...reviewed("a polyfill", ["src/polyfills/**"]),
   ...reviewed("a profile workflow: tooling", ["src/profile-workflow.ts"]),
@@ -1055,14 +858,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/rag/tenancy-checks.ts",
     "src/rag/types.ts",
   ]),
-  ...reviewed(
-    "holds modelRerankerOf (records the usage of the rerank call and keeps it in the error when the reply is unreadable) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/rag/llm-reranker.ts"],
-  ),
-  ...reviewed(
-    "holds spendOf (converts the reranker usage or cost into records under the rag caller; a bug loses or misattributes spend); rerankedRetrieval (keeps masking and failed rerank usage on the fallback path) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/rag/rerank.ts"],
-  ),
   ...reviewed("the router's declaration", ["src/router/**"]),
   ...reviewed("the routers: choice of a branch, no money decision", [
     "src/routers/create-router.ts",
@@ -1072,14 +867,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/routers/prompts.ts",
     "src/routers/types.ts",
   ]),
-  ...reviewed(
-    "holds reportedCost (takes the router cost from cost, then total_cost, else 0; a bug bills the wrong amount) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/routers/jev-router.ts"],
-  ),
-  ...reviewed(
-    "holds createLlmRouter (records the usage of the call, and a zero-cost record when the call throws) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/routers/llm-router.ts"],
-  ),
   ...reviewed("small constructors of router outcomes that pass the usage record through", [
     "src/routers/outcome.ts",
   ]),
@@ -1094,17 +881,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/run/resume-map.ts",
     "src/run/stream-config.ts",
     "src/run/strip-functions.ts",
-    "src/run/thread.ts",
     "src/run/transport-snapshot.ts",
     "src/run/turns.ts",
     "src/run/types.ts",
     "src/run/versions.ts",
     "src/run/waiting-pauses.ts",
   ]),
-  ...reviewed(
-    "holds maskedInputOf (collects the masking usage of a custom compaction; a bug loses spend) - not mutated: only the end-to-end runs test it, no unit shard; listed for the reviewer (#1356)",
-    ["src/run/custom-compaction.ts"],
-  ),
   ...reviewed("the store assemblies: wiring", [
     "src/stores/contract-types.ts",
     "src/stores/pause-contract-types.ts",
@@ -1116,7 +898,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the studio entry: tooling", ["src/studio.ts"]),
   ...reviewed(
-    "test support shipped for users' tests (fakes, contracts, fault harness): no production decision",
+    "test support shipped for users' tests (fakes, contracts, fault harness): no production decision; its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
     ["src/testing/**"],
   ),
   ...reviewed("the tool's entry: exports", ["src/tool/**"]),
@@ -1127,6 +909,402 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the branded and defined types: declarations, no runtime guarantee", [
     "src/types/**",
   ]),
-  ...reviewed("units of time and size", ["src/units/**"]),
+  ...reviewed(
+    "units of time and size; its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
+    ["src/units/**"],
+  ),
   ...reviewed("the workflow's entry: exports", ["src/workflow.ts"]),
+  // the files with a spend, rate-limit or deadline site (#1366 pattern sweep): each says which test fails when the site is sabotaged
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (a2a deadline later; a2a deadline run only; a2a deadline call only) - not mutated: covered by tests/a2a/client/a2a-client-deadline.test.ts, tests/a2a/client/a2a-client-hardening.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/a2a/client/a2a-client-options.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (a2a poll delay max) - not mutated: covered by tests/a2a/client/a2a-wait-poll-delay.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/a2a/client/a2a-wait.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (file slots tenant above total; file slots tenant max; file slots owner above tenant; and 16 more) - not mutated: covered by tests/a2a/files/a2a-file-slots.test.ts, tests/files/file-bytes-slots.test.ts, tests/a2a/files/mutation/a2a-file-pool-pins.test.ts, each sabotage of it (19 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/a2a/files/a2a-file-slots.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (msg files count >=; msg file size >=; msg files total >=; and 1 more) - not mutated: covered by tests/a2a/server/a2a-message-file-limits.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/a2a/server/a2a-message-files.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (task-view spentUsd 0) - not mutated: covered by tests/a2a/mesh/a2a-mesh-e2e.test.ts, tests/a2a/mesh/a2a-mesh-takeover.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/a2a/server/a2a-task-view.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (exec-history lostUsage dropped; exec-history values.usage dropped) - not mutated: covered by tests/app/without-recovery.test.ts, tests/application/execution-history-spend.test.ts, tests/channels/question-reply-record-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/execution-history.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (outbound payload >=) - not mutated: covered by tests/application/outbound-calls.acceptance.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/outbound-call-parts.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (extension not later <; extension bound >=; extension bound dropped; and 1 more) - not mutated: covered by tests/app/pause-extension.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/pause-extension.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (pause page limit 0; pause page limit over) - not mutated: covered by tests/app/list-pauses.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/pause-listing.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (reassign due <) - not mutated: covered by tests/app/pause-reassignment.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/pause-reassignment.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (paused-runs due <; paused-runs total 0) - not mutated: covered by tests/app/mark-answered-cost.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/paused-runs.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (resume due <; resume read usage dropped) - not mutated: covered by tests/app/pause-expiry-answers.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, tests/channels/reply-interpreter.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/app/resume.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (shutdown grace max; shutdown until 0) - not mutated: covered by tests/channels/quorum-pauses.test.ts, tests/application/shutdown.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/application/graceful-stop.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (outbound page limit over) - not mutated: covered by tests/app/pending-calls-paging.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/application/instance-reads.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (instance-steps timeout <; instance-steps later at; instance-steps always later) - not mutated: covered by tests/application/instance-stop-deadline.test.ts, tests/app/close-waits-for-steps.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/application/instance-steps.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (store-descriptor leaseCheck not checked; store-descriptor backend not checked) - not mutated: covered by tests/application/store-descriptor.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/application/store-descriptor-rule.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (working-week start min; working-week end max; working-week join min) - not mutated: covered by tests/calendar/working-week-dst.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/calendar/working-week.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (decision usage dropped) - not mutated: covered by tests/channels/reply-interpreter.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/channels/decision.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (reply-decision outcome.usage dropped; reply-decision state.usage dropped; reply-decision answered usage []; and 1 more) - not mutated: covered by tests/channels/reply-outcomes.test.ts, tests/channels/reply-decision-spend.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/channels/reply-decision.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (reply-reader request.usage dropped; reply-reader own usage dropped; reply-reader declined usage []; and 1 more) - not mutated: covered by tests/channels/reply-reader-spend.test.ts, tests/channels/reply-interpreter.test.ts, tests/testing/units/test-reply-interpreter.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/channels/reply-reader.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (accounted-router usage not reported) - not mutated: covered by tests/agent-tools.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/components/accounted-router.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (eval compare judge spend not recorded; eval compare cost not summed) - not mutated: covered by tests/eval/compare.test.ts, tests/eval/eval-cost-sums.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/compare.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (eval judge spend not recorded; eval judge cost not summed) - not mutated: covered by tests/eval/eval.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/eval.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (eval replay cost not summed) - not mutated: covered by tests/eval/eval-cost-sums.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/replay.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (case-run judged dropped; case-run turns dropped; case-run check spent 0) - not mutated: covered by tests/eval/eval-run-spend.test.ts, tests/eval/eval-run.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/case-run.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (case-turns accumulation dropped) - not mutated: covered by tests/eval/eval-run.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/case-turns.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (judge-check totalCost 0; judge-check spend not recorded) - not mutated: covered by tests/eval/eval-run-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/judge-check.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (metamorphic found spend dropped; metamorphic outcome spend 0 (final)) - not mutated: covered by tests/eval/eval-run-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/metamorphic.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (run-suite spent 0) - not mutated: covered by tests/eval/eval-run.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/run-suite.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (trace-of spentUsd 0; trace validationAttempts min) - not mutated: covered by tests/eval/eval-trace.test.ts, tests/eval/eval-trace-attempts.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/eval/run/trace-of.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (depth rule >=) - not mutated: covered by tests/flow/analyse/depth.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/analyse/rules/depth.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (worst atOnce max; worst concurrent min; worst depth min; and 1 more) - not mutated: covered by tests/flow/analyse/children.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, tests/flow/analyse/worst-case-steps-cap.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/analyse/worst-case.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (quorum deadline zero ok; quorum max may be below min; quorum deadline cap dropped) - not mutated: covered by tests/flow/quorum-step-limits.test.ts, tests/flow/builder-quorum.test.ts, tests/units/timer-caps.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/quorum-step.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (arbiter read.usage dropped; arbiter outcome.usage dropped) - not mutated: covered by tests/pii/model-reading-spend.test.ts, tests/flow/runtime/arbiters.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/arbiter-model.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (branch-quorum services dropped; branch-quorum spent dropped; branch-quorum view.usage dropped) - not mutated: covered by tests/flow/branch-arbiter-budget.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/branch-quorum.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (deadline expired >; deadline until no floor; deadline at plus) - not mutated: covered by tests/flow/runtime/tree-queue.test.ts, tests/flow/runtime/launch-deadline.test.ts, tests/channels/quorum-expiry.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/deadline.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (dispatch maxItems max) - not mutated: covered by tests/budgets/spend-once.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/dispatch.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (launch-decider usage undefined) - not mutated: covered by tests/flow/launch-decider-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/launch-decider.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (launch quorum deadline none) - not mutated: covered by tests/channels/quorum-expiry.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/launch-exit.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (launch truncated <) - not mutated: covered by tests/flow/runtime/launch-truncation-report.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/launch-report.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (quorum decided never cancels; cancelled answer loses usage) - not mutated: covered by tests/channels/channel-pause-closed.test.ts, tests/flow/runtime/quorum-branch-mark.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/quorum-branch.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (quorum best max; quorum rank <=; quorum winner tie; and 1 more) - not mutated: covered by tests/flow/runtime/quorum-groups.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, tests/channels/quorum-pauses.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/quorum-groups.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (router-decision usage dropped) - not mutated: covered by tests/flow/runtime/router-launch-record-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/router-decision.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (shared slots release dropped; shared slots working.held release dropped; shared slots dequeued not released; and 3 more) - not mutated: covered by tests/flow/runtime/shared-tree-slots.test.ts, tests/budgets/spend-once.test.ts, tests/flow/runtime/remote-limits.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/shared-tree-slots.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (holdOnce twice; queue compare closing; queue compare level; and 2 more) - not mutated: covered by tests/flow/runtime/tree-slots.test.ts, tests/app/step-slots-queue.test.ts, tests/flow/runtime/tree-queue.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/launch/slot-queue.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (pause-expiry-failure state dropped; pause-expiry-failure usage dropped; pause-expiry-failure usage field []; and 2 more) - not mutated: covered by tests/budgets/deadline-bounds-pause.test.ts, tests/flow/pause-expiry-spend.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/pause-expiry-failure.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (pause bound later; pause first latest; pause boundAt run only; and 3 more) - not mutated: covered by tests/flow/pause-record-deadlines.test.ts, tests/app/pause-extension.test.ts, tests/channels/quorum-expiry.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/pause-record-made.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (recursion depth <) - not mutated: covered by tests/app/undo-once.matrix.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/recursion-launch.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (router-error spent dropped; router-error outcome usage dropped) - not mutated: covered by tests/flow/runtime/money-runtime-spend-units.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/router-error.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (agent guarded.usage dropped; agent result.usage dropped) - not mutated: covered by tests/guardrails/record-spend.test.ts, tests/models/usage-contract.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/runners/agent.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (question reply usage dropped) - not mutated: covered by tests/channels/question-reply-record-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/runners/question.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (soft-stop depth >) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/flow/runtime/soft-stop.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/soft-stop.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (visit-failure unrecorded dropped; visit-failure reported dropped) - not mutated: covered by tests/app/tool-call-trajectory.test.ts, tests/budgets/every-step.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/flow/runtime/visit-failure.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (collect-node spentUsd 0) - not mutated: covered by tests/graph/collect-node-mesh-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/agent-loop/collect-node.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (judge invoke reading usage dropped; judge decide reading usage dropped) - not mutated: covered by tests/graph/judge-model-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/agent-loop/judge-model.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (judge-reading usage dropped) - not mutated: covered by tests/graph/judge-model-spend.test.ts, tests/pii/model-reading-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/agent-loop/judge-reading.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (model-pii request.usage dropped; model-pii push dropped; model-pii refusal usage dropped; and 3 more) - not mutated: covered by tests/graph/pii-refusal-spend.test.ts, tests/graph/model-pii-spend.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/agent-loop/model-pii.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (tool-pii usage dropped; tool-pii result usage dropped; tool-pii refusal usage dropped) - not mutated: covered by tests/graph/tool-pii-spend.test.ts, tests/graph/pii-refusal-spend.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/agent-loop/tool-pii.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (limits spentUsd 0; limits usage []; budget error spentUsd 0; and 1 more) - not mutated: covered by tests/budgets/parallel-budget.test.ts, tests/budgets/deadline-bounds-pause.test.ts, tests/budgets/meter-ledger-ids.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/limits.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (knowledge cost dropped; knowledge rerank usage dropped; knowledge records not kept) - not mutated: covered by tests/rag/rerank.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/graph/nodes/knowledge.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (guardrail model usage dropped; guardrail decision usage []; guardrail passed usage []; and 1 more) - not mutated: covered by tests/guardrails/run.test.ts, tests/guardrails/runtime-spend.test.ts, tests/files/mutation-a-tool-files.test.ts, each sabotage of it (4 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/guardrails/runtime.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (orphan cutoff max; orphan cutoff cutoff only) - not mutated: covered by tests/a2a/files/a2a-file-orphan-cutoff.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/infrastructure/a2a-file.repository.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (oldest queued max) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/testing/contracts/conformance-sabotage.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/infrastructure/child-execution-queue.repository.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (decision cost negative ok) - not mutated: covered by tests/llm/decision-cost.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/llm/decision-response.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (mcp client call id ignored; mcp execution id random) - not mutated: covered by tests/mcp/mcp-call-frame-ids.test.ts, tests/mcp/mcp-service.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/mcp/mcp-call-frame.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (mcp body hash not checked; mcp signature not checked) - not mutated: covered by tests/mcp/mcp-mesh-trust.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/mcp/mcp-mesh-gate.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (mesh hops >) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/a2a/client/a2a-client-in-execution.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/mesh/mesh-admission.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (mesh loop spentUsd 0; mesh loop usage []) - not mutated: covered by tests/graph/collect-node-mesh-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/mesh/mesh-errors.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (retry-after min; retry longest wait >=) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/models/retry.test.ts, tests/models/rate-limit-429.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/attempt-runner.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (concurrencyAt no cap; halved no min 1; halved not halved) - not mutated: covered by tests/models/rate-limit-429.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/concurrency-level.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (pass lease not released; pass tokens 0; pass double release; and 2 more) - not mutated: covered by tests/models/gate-pass-release.test.ts, tests/models/rate-limit-429.test.ts, tests/models/rate-limit.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/gate-pass.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (waiter not removed on abort) - not mutated: covered by tests/models/gate-waiter.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/gate-waiter.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (model-call error pass not released; model-call end pass not released; model-call hold dropped) - not mutated: covered by tests/models/streaming/stall-timeout.test.ts, tests/models/gate-pass-release.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/model-call.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (gate tokens <=; gate tokens never counted; gate tokens skip; and 12 more) - not mutated: covered by tests/models/provider-gate-accounting.test.ts, tests/models/rate-limit-429.test.ts, tests/models/provider-gate-tokens.test.ts, each sabotage of it (15 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/provider-gate.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (fair-queue inflight <) - not mutated: covered by tests/models/tenant-fair-queue.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/calls/tenant-fair-queue.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (model price never missing) - not mutated: covered by tests/models/check.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/check.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (breaker failure not counted; breaker threshold >; breaker window not cleared; and 2 more) - not mutated: covered by tests/models/streaming/stall-timeout.test.ts, tests/models/circuit-breaker-count.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/circuit-breaker.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (fallback priced dropped; fallback usage priced marks) - not mutated: covered by tests/models/streaming/http-streaming-failures.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/fallback.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (retry-after seconds no floor; retry-after date no floor) - not mutated: covered by tests/models/retry-after.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/model-failure.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (retry exp max) - not mutated: covered by tests/models/rate-limit-429.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/retry-policy.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (transport messages cost dropped) - not mutated: covered by tests/models/usage-contract.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/transport/messages.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (carrier hold releases 0; tokensOf input only; tokensOf output only) - not mutated: covered by tests/models/transport-tokens.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/transport/transport-carrier.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (stream success release 0; stream failed read release 0; stream failure waited flipped) - not mutated: covered by tests/models/transport/transport-stream-tokens.test.ts, each sabotage of it (3 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/transport/transport-stream.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (provider price never applied; provider price overrides own) - not mutated: covered by tests/models/usage-contract.test.ts, tests/models/provider-price-own.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/workflow-models.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (detector model usage []) - not mutated: covered by tests/pii/sensitive-field.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/pii/detectors/model.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (model-boundary one.usage dropped; model-boundary pass usage dropped) - not mutated: covered by tests/pii/model-boundary-spend.test.ts, tests/channels/reply-reader-spend.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/pii/model-boundary.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (reranker usage []) - not mutated: covered by tests/rag/rerank.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/rag/llm-reranker.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (rerank reported cost dropped; rerank usage dropped; rerank success spend dropped; and 3 more) - not mutated: covered by tests/rag/rerank.test.ts, tests/rag/rerank-spend.test.ts, each sabotage of it (6 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/rag/rerank.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (jev-router cost 0) - not mutated: covered by tests/judges/decision-wire.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/routers/jev-router.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (llm-router usage dropped; llm-router failure usage dropped) - not mutated: covered by tests/llm/gateway.test.ts, tests/routers/llm-router-usage.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/routers/llm-router.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (custom-compaction masked usage dropped) - not mutated: covered by tests/run/custom-compaction-spend.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/run/custom-compaction.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (thread rawDepth min; thread deepest min) - not mutated: covered by tests/compaction/compaction.test.ts, tests/memory/memory-strategies.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/run/thread.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (clock sleepers latest first; clock sleepers order) - not mutated: covered by tests/app/child-end-once.test.ts, tests/testing/clock.test.ts, tests/flow/context/call-signal.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/testing/clock.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (test-arbiter usage dropped) - not mutated: covered by tests/testing/units/test-arbiter.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/testing/units/test-arbiter.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (test-pii usage dropped) - not mutated: covered by tests/testing/units/test-pii.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/testing/units/test-pii.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (test-reply-interpreter usage dropped) - not mutated: covered by tests/testing/units/test-reply-interpreter.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/testing/units/test-reply-interpreter.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (test-router usage dropped) - not mutated: covered by tests/testing/units/test-router.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/testing/units/test-router.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (timer problem <) - not mutated: covered by tests/units/unit-errors-no-text.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/units/timer-limits.ts"],
+  ),
 ]);

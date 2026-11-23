@@ -590,6 +590,26 @@ describe("#946 AC3: the deadline, and the races", () => {
   );
 
   extension(
+    "#1366: at the very instant of the deadline a reassignment is refused before it reaches the store",
+    async ({ app, clock }) => {
+      await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
+      const pauseId = told.sent[0]?.pauseId ?? "";
+      const store = app.resolve(PausedExecutionRepository);
+      const look = vi.spyOn(store, "findPendingByExpiresAtBefore").mockResolvedValue([]);
+      const write = vi.spyOn(store, "reassignByTenantIdAndPauseId");
+      await clock.advance(hours(24));
+
+      const refused = await failureOf(
+        app.reassignPause({ pauseId, assignee: "deputy-3" }, manager),
+      );
+      look.mockRestore();
+
+      expect(refused).toBeInstanceOf(PauseClosedError);
+      expect(write).not.toHaveBeenCalled();
+    },
+  );
+
+  extension(
     "AC3: two reassignments at once from two instances: exactly one wins, one new send, the other is refused 'reassigned'",
     async ({ apps }) => {
       await execute(instance(apps, 0), managerFlow.start, { orderId: "o-1" }, THREAD);
