@@ -4328,6 +4328,7 @@ declare namespace FlowTypes {
         GroupsCheck,
         ClassOf,
         UnwrapTarget,
+        UntrackedLeaf,
         PiiRefusalShape,
         CacheSetting,
         ModelSettings,
@@ -5934,6 +5935,42 @@ export interface MeshSpendReport {
 export interface MessageErrorOptions extends AGBossErrorOptions {
     // (undocumented)
     readonly message: string;
+}
+
+// @public (undocumented)
+export const Metadata: MetadataFacade;
+
+// @public
+export interface MetadataFacade {
+    // (undocumented)
+    ancestors(value: object): readonly ValueMetadata[];
+    // (undocumented)
+    createdBy<TComponent extends Class>(value: Tracked<object, TComponent>): TComponent;
+    // (undocumented)
+    createdBy(value: object): Class | undefined;
+    // (undocumented)
+    has(value: object): value is Tracked<object>;
+    // (undocumented)
+    of<TComponent extends Class>(value: Tracked<object, TComponent>): ValueMetadata<TComponent>;
+    // (undocumented)
+    of(value: object): ValueMetadata | undefined;
+    with<TValue extends object, TComponent extends Class>(value: TValue, options: MetadataOptions<TComponent>): Tracked<TValue, TComponent>;
+}
+
+// @public
+export interface MetadataOptions<TComponent extends Class = Class> {
+    // (undocumented)
+    readonly createdBy: TComponent;
+    // (undocumented)
+    readonly itemIndex?: number | undefined;
+    // (undocumented)
+    readonly parents?: readonly (Tracked<object> | ValueMetadata)[] | undefined;
+    // (undocumented)
+    readonly slot?: string | undefined;
+    // (undocumented)
+    readonly valueId?: string | undefined;
+    // (undocumented)
+    readonly visitNumber?: number | undefined;
 }
 
 // @public
@@ -10367,6 +10404,11 @@ export function totalCost(records: readonly {
 export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead>;
 
 // @public
+export type Tracked<TValue extends object, TComponent extends Class = Class> = TValue & {
+    readonly [valueMetadata]: TComponent;
+};
+
+// @public
 export interface TranscribeOptions {
     // (undocumented)
     readonly signal: AbortSignal;
@@ -10562,6 +10604,16 @@ export class UnknownThreadError extends AGBossError {
 }
 
 // @public
+export type Untracked<T> = T extends readonly (infer TItem)[] ? readonly Untracked<TItem>[] : T extends {
+    readonly [valueMetadata]: Class;
+} ? Omit<T, typeof valueMetadata> | T : T extends UntrackedLeaf ? T : T extends object ? {
+    readonly [K in keyof T]: Untracked<T[K]>;
+} : T;
+
+// @public
+type UntrackedLeaf = Date | Uint8Array | RegExp | ((...args: never[]) => unknown);
+
+// @public
 type UnwrapTarget<TRef> = TRef extends abstract new (...args: never[]) => unknown ? TRef : TRef extends () => infer TClass ? TClass : TRef;
 
 // @public
@@ -10610,6 +10662,16 @@ export enum ValidationErrorKind {
 
 // @public
 type ValueContinuation<TValue, THead extends PathHead> = IsOneOf<TValue> extends true ? BuiltPath<THead> & Switching<TValue, THead> : AfterValue<TValue, THead>;
+
+// @public
+export interface ValueMetadata<TComponent extends Class = Class> {
+    readonly createdBy: TComponent;
+    readonly itemIndex?: number | undefined;
+    readonly parents: readonly ValueMetadata[];
+    readonly slot: string;
+    readonly valueId: string;
+    readonly visitNumber: number;
+}
 
 // @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
@@ -11994,6 +12056,19 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "visitNumber".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "itemIndex".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "parents".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "slot".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "valueId".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "of".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "of".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "has".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "ancestors".
+// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "Metadata".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "previousToken".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "reason".

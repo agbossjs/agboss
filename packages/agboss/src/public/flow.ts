@@ -22,6 +22,14 @@ export {
   toWorkflow,
   onWorkflow,
 } from "../flow/builder.js";
+export {
+  Metadata,
+  type MetadataFacade,
+  type MetadataOptions,
+  type Tracked,
+  type Untracked,
+  type ValueMetadata,
+} from "../flow/metadata.js";
 export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";
 
 export type {

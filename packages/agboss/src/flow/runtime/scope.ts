@@ -4,6 +4,7 @@ import { slotOfField, slotOfWrite } from "../analyse/scope.js";
 import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
 import { Wrapper, withVariant, type HistoryOf, type ProducedValue } from "../dto-wrappers.js";
+import { trackValue, type ValueMetadata } from "../metadata.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import {
   valueIdOf,
@@ -93,11 +94,72 @@ export interface ReadInput {
   readonly read: readonly string[];
 }
 
+/** The record of a value by its id, current or outdated: what a value's parents are read from. */
+function recordsById(view: ScopeView): ReadonlyMap<string, ScopeValueRecord> {
+  return new Map(
+    [...Object.values(view.scope), ...view.outdatedValues].map((record) => [
+      record.valueId,
+      record,
+    ]),
+  );
+}
+
+/** The visit a value was written at: its `valueId` is `<producer>:<visit>/<slot>`. */
+function visitOf(record: ScopeValueRecord): number {
+  const rest = record.valueId.slice(record.producer.length + 1);
+  const visit = Number.parseInt(rest.slice(0, rest.indexOf("/")), 10);
+  return Number.isInteger(visit) ? visit : 1;
+}
+
+/** Where a value of a record came from (#1274), its parents the values the producer read, resolved on first use. */
+function metadataOf(
+  graph: RuntimeGraph,
+  view: ScopeView,
+  record: ScopeValueRecord,
+  producer: string,
+  index?: number,
+): ValueMetadata | undefined {
+  const createdBy = graph.nodes.get(producer)?.component;
+  if (createdBy === undefined) return undefined;
+  let parents: readonly ValueMetadata[] | undefined;
+  const parentsOf = (): readonly ValueMetadata[] => {
+    const known = recordsById(view);
+    parents ??= Object.freeze(
+      record.builtFrom.flatMap((id) => {
+        const parent = known.get(id);
+        const meta =
+          parent === undefined ? undefined : metadataOf(graph, view, parent, parent.producer);
+        return meta === undefined ? [] : [meta];
+      }),
+    );
+    return parents;
+  };
+  return Object.freeze({
+    valueId: index === undefined ? record.valueId : `${record.valueId}[${String(index)}]`,
+    slot: record.slot,
+    createdBy,
+    visitNumber: visitOf(record),
+    ...(index === undefined ? {} : { itemIndex: index }),
+    get parents() {
+      return parentsOf();
+    },
+  });
+}
+
 /** Rebuilds one value of a slot into `{ producer, value }` (with its class for a `oneOf`). */
-function produced(graph: RuntimeGraph, producer: string, value: unknown, variant?: string) {
+function produced(
+  graph: RuntimeGraph,
+  view: ScopeView,
+  record: ScopeValueRecord,
+  producer: string,
+  value: unknown,
+  variant?: string,
+  index?: number,
+) {
+  const meta = metadataOf(graph, view, record, producer, index);
   const item: ProducedValue<unknown, unknown> = {
     producer: graph.nodes.get(producer)?.component,
-    value,
+    value: meta === undefined ? value : trackValue(value, meta),
   };
   const dto = variant === undefined ? undefined : graph.dtos.get(variant);
   return dto === undefined ? item : withVariant(item, dto);
@@ -117,19 +179,20 @@ function fieldValue(
   graph: RuntimeGraph,
   field: ResolvedField,
   record: ScopeValueRecord,
-  outdatedValues: readonly OutdatedValueRecord[],
+  view: ScopeView,
 ): unknown {
+  const { outdatedValues } = view;
   if (field.history !== undefined) {
     const history: HistoryOf<unknown> = {
-      current: produced(graph, record.producer, record.value, record.variant),
+      current: produced(graph, view, record, record.producer, record.value, record.variant),
       previous: previousOf(field, outdatedValues).map((version) =>
-        produced(graph, version.producer, version.value, version.variant),
+        produced(graph, view, version, version.producer, version.value, version.variant),
       ),
     };
     return history;
   }
   if (!field.isList || !Array.isArray(record.value)) {
-    return produced(graph, record.producer, record.value, record.variant);
+    return produced(graph, view, record, record.producer, record.value, record.variant);
   }
   const isOneOf = record.slot.startsWith("list:oneOf(");
   return (record.value as readonly unknown[]).map((element, index) => {
@@ -137,11 +200,14 @@ function fieldValue(
     return isOneOf
       ? produced(
           graph,
+          view,
+          record,
           producer,
           (element as VariantElement).value,
           (element as VariantElement).variant,
+          index,
         )
-      : produced(graph, producer, element);
+      : produced(graph, view, record, producer, element, undefined, index);
   });
 }
 
@@ -160,7 +226,7 @@ export function readInput(
   for (const field of node.fields) {
     const record = view.scope[field.slot];
     if (record === undefined) continue;
-    fields[field.name] = fieldValue(graph, field, record, view.outdatedValues);
+    fields[field.name] = fieldValue(graph, field, record, view);
     read.push(record.valueId);
   }
   return { fields, read: [...new Set(read)].sort() };

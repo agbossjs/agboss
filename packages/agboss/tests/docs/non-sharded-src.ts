@@ -511,6 +511,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/launch-types.ts",
     "src/flow/names.ts",
     "src/flow/path-builder.ts",
+    "src/flow/metadata.ts",
     "src/flow/path-start.ts",
     "src/flow/print-quorum.ts",
     "src/flow/print.ts",
