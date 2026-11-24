@@ -94,4 +94,43 @@ export const QUEUE_PLACEMENT_CASES: readonly ContractCase<ChildExecutionQueueRep
       expect(claims.filter((found) => found !== undefined)).toHaveLength(1);
     },
   },
+  {
+    name: "a queued child is withdrawn once: its row is gone and no instance claims it later (#1286a)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.saveIfAbsent(child("c-1", other));
+
+      expect(await first.withdrawByTenantIdAndExecutionIdIfQueued("default", "c-1")).toBe(true);
+      expect(await second.withdrawByTenantIdAndExecutionIdIfQueued("default", "c-1")).toBe(false);
+
+      expect(await first.findByTenantIdAndExecutionId("default", "c-1")).toBeUndefined();
+      expect(await claimNext(second)).toBeUndefined();
+    },
+  },
+  {
+    name: "a claimed child is not withdrawn: it stays Running for its claimer (#1286a)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.saveIfAbsent(child("c-1", other));
+      await claimNext(second);
+
+      expect(await first.withdrawByTenantIdAndExecutionIdIfQueued("default", "c-1")).toBe(false);
+
+      expect(await first.findByTenantIdAndExecutionId("default", "c-1")).toMatchObject({
+        status: ExecutionRecordStatus.Running,
+        instanceId: "instance-2",
+      });
+    },
+  },
+  {
+    name: "a claim and a withdrawal of one row never both win (#1286a)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.saveIfAbsent(child("c-1", other));
+
+      const [claimed, withdrawn] = await Promise.all([
+        claimNext(second),
+        first.withdrawByTenantIdAndExecutionIdIfQueued("default", "c-1"),
+      ]);
+
+      expect(claimed !== undefined).toBe(!withdrawn);
+    },
+  },
 ];

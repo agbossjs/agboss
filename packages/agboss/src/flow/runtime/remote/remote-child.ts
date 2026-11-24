@@ -17,7 +17,7 @@ import { asRootRun, atLeafCheckpoint, isExecutionState, rootConfigOf } from "../
 import type { ExecutionStateType } from "../state.js";
 import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
 import type { RemoteChildRun } from "./remote-child-run.js";
-import { checkClaimed, rowOf } from "./remote-claim.js";
+import { lostToClaim, rowOf } from "./remote-claim.js";
 import { remoteChildSignals } from "./remote-child-signals.js";
 import { remoteFailureOf } from "./remote-failure.js";
 
@@ -128,7 +128,10 @@ async function endedRow(
     if (row === undefined)
       throw new RemoteChildLostError(`child execution ${site.executionId} is no longer queued`);
     if (isSettled(row)) return row;
-    checkClaimed(site, row);
+    if (await lostToClaim(site, row)) {
+      row = await queue.findByTenantIdAndExecutionId(site.tenantId, site.executionId);
+      continue;
+    }
     if (row.status === ExecutionRecordStatus.Running) remoteChildSignals.running(row);
     const watch = remoteChildSignals.watchEnd(key);
     try {

@@ -112,6 +112,17 @@ export abstract class ChildExecutionQueueRepository {
     executionId: string,
     end: ChildExecutionEnd,
   ): Promise<boolean>;
+  /**
+   * Withdraws a child that is still `Queued`: removes its row, atomically — a claim and a
+   * withdrawal of one row never both win (#1286a). `true` when this call removed it; `false` when it
+   * is not `Queued` (an instance claimed it, or it ended or was removed): its parent then waits for
+   * it as for any claimed child. Called when an `OtherWorker` child waited past `childClaimTimeout`,
+   * so a worker that comes later never runs a child its parent gave up on.
+   */
+  abstract withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
+  ): Promise<boolean>;
   /** Removes every queued child of a tree (its root ended). */
   abstract deleteAllByTenantIdAndRootExecutionId(
     tenantId: string,
@@ -239,6 +250,17 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
       endedAt: this.clock.now(),
       failure: end.failure,
     });
+    return Promise.resolve(true);
+  }
+
+  withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
+  ): Promise<boolean> {
+    const key = treeKeyOf(tenantId, executionId);
+    if (this.database.childQueue.get(key)?.status !== ExecutionRecordStatus.Queued)
+      return Promise.resolve(false);
+    this.database.childQueue.delete(key);
     return Promise.resolve(true);
   }
 

@@ -147,6 +147,18 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     return Promise.resolve(Number(changes) === 1);
   }
 
+  withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
+  ): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(
+        "DELETE FROM child_execution_queue WHERE tenant_id = ? AND execution_id = ? AND status = ?",
+      )
+      .run(tenantId, executionId, ExecutionRecordStatus.Queued);
+    return Promise.resolve(Number(changes) === 1);
+  }
+
   deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM child_execution_queue WHERE tenant_id = ? AND root_execution_id = ?")

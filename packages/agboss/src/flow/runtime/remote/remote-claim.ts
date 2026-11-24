@@ -5,13 +5,27 @@ import { ChildWorkerUnavailableError } from "../child-errors.js";
 import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
 import type { RemoteChildSite } from "./remote-child.js";
 
-/** An `OtherWorker` child no other worker claimed within the claim timeout fails its parent's step (D9). */
-export function checkClaimed(site: RemoteChildSite, row: QueuedChildExecution): void {
-  const { clock, claimTimeout } = site.children;
-  if (site.placement !== ChildPlacement.OtherWorker) return;
-  if (row.status !== ExecutionRecordStatus.Queued) return;
+/**
+ * Whether an `OtherWorker` child's claim timeout is up and a worker claimed it just now (#1286a).
+ * Past the timeout the row is withdrawn atomically, only while it is still `Queued`, and the
+ * parent's step fails (D9): a worker that comes later never runs a child its parent gave up on.
+ * When a claim won the race the child is no longer the parent's to give up: `true`, the parent
+ * reads the row again and waits for it. `false`: nothing is due.
+ */
+export async function lostToClaim(
+  site: RemoteChildSite,
+  row: QueuedChildExecution,
+): Promise<boolean> {
+  const { clock, claimTimeout, queue } = site.children;
+  if (site.placement !== ChildPlacement.OtherWorker) return false;
+  if (row.status !== ExecutionRecordStatus.Queued) return false;
   const waitedMs = clock.now().getTime() - row.queuedAt.getTime();
-  if (waitedMs < claimTimeout) return;
+  if (waitedMs < claimTimeout) return false;
+  const isWithdrawn = await queue.withdrawByTenantIdAndExecutionIdIfQueued(
+    site.tenantId,
+    site.executionId,
+  );
+  if (!isWithdrawn) return true;
   throw new ChildWorkerUnavailableError({
     childExecutionId: site.executionId,
     workflow: site.workflow,
