@@ -6,7 +6,7 @@ import type {
   ToolCallApprovalDecisionDto,
 } from "../dto/standard/framework.js";
 
-export type { HistoryOf, Produced } from "./dto-wrappers.js";
+export type { HistoryOf, Produced, VariantOf } from "./dto-wrappers.js";
 /** The kinds a brand carries (`NodeKind.Agent`): the generated file imports it from here. */
 export type { NodeKind };
 
@@ -145,6 +145,14 @@ export declare namespace AGBossTypes {
    * its tool-mode knowledge bases' `search-<rag>-tool`.
    */
   export interface AgentTools {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * The output each `@Judge` judges, by the judge's `name` (#1290): `JudgeInput<Self>` reads it —
+   * the output's value as the judge gets it (`readonly VariantOf<A | B>[]` for a `listOf(oneOf(A, B))`).
+   */
+  export interface JudgeOutputs {
     readonly [notGenerated]?: never;
   }
 }

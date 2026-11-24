@@ -17,6 +17,7 @@ import type { ChannelSenderAsk } from "../../../src/channels/channel-sender.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import {
   Judge,
+  JudgeModel,
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
@@ -110,12 +111,12 @@ export class KeptDto {
   text!: string;
 }
 
-@Judge({ name: "strict", model: "test/strict", reply: KeptDto, deps: [Vault] })
+@Judge({ name: "strict", model: "test/strict", output: KeptDto, deps: [Vault, JudgeModel] })
 export class StrictJudge implements JudgeHandler<KeptDto> {
   constructor(private readonly vault: Vault) {}
-  judge({ reply }: JudgeInput<KeptDto>): Promise<JudgeVerdict> {
+  judge({ output }: JudgeInput<KeptDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.text.includes(this.vault.secret)
+      output.text.includes(this.vault.secret)
         ? JudgeVerdict.failed("leaks the secret")
         : JudgeVerdict.passed(),
     );

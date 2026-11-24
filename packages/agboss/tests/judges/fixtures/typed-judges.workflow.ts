@@ -61,7 +61,7 @@ export class VariantLog {
 @Judge({
   name: "answer-grounded-judge",
   model: "local/judge",
-  reply: JobReportDto,
+  output: JobReportDto,
   deps: [JudgeModel, JobSearch, VariantLog],
 })
 export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
@@ -71,13 +71,13 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     private readonly variantLog: VariantLog,
   ) {}
 
-  async judge({ variant, reply }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+  async judge({ variant, output }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
     this.variantLog.seen(variant);
-    const [first] = reply.jobs;
+    const [first] = output.jobs;
     if (first === undefined) return JudgeVerdict.failed("the report has no jobs");
     const found: boolean = await this.jobSearch.exists(first.url);
     return found
-      ? JudgeVerdict.passed({ metrics: { jobs: reply.jobs.length, model: this.judgeModel.model } })
+      ? JudgeVerdict.passed({ metrics: { jobs: output.jobs.length, model: this.judgeModel.model } })
       : JudgeVerdict.failed("the first job does not exist");
   }
 }
@@ -142,8 +142,8 @@ export class RefusalDto {
 @Judge({
   name: "fair-decision-judge",
   model: "local/judge",
-  reply: oneOf(OfferDto, RefusalDto),
-  deps: [VariantLog],
+  output: oneOf(OfferDto, RefusalDto),
+  deps: [VariantLog, JudgeModel],
 })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   constructor(private readonly variantLog: VariantLog) {}
@@ -151,7 +151,7 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
     this.variantLog.seen(input.variant);
     if (isVariant(input, OfferDto)) {
-      const { salary } = input.reply;
+      const { salary } = input.output;
       return Promise.resolve(
         salary > 0
           ? JudgeVerdict.passed({ metrics: { salary } })
@@ -159,7 +159,7 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
       );
     }
     return Promise.resolve(
-      input.reply.why.trim().length > 0
+      input.output.why.trim().length > 0
         ? JudgeVerdict.passed()
         : JudgeVerdict.failed("a refusal says why"),
     );
@@ -212,7 +212,7 @@ export class VariantJudgeWorkflow {}
 export class VariantJudgeApplication {}
 
 /** Judges one variant only. */
-@Judge({ name: "offer-only-judge", model: "local/judge", reply: OfferDto })
+@Judge({ name: "offer-only-judge", model: "local/judge", output: OfferDto, deps: [JudgeModel] })
 export class OfferOnlyJudge implements JudgeHandler<OfferDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -220,11 +220,11 @@ export class OfferOnlyJudge implements JudgeHandler<OfferDto> {
 }
 
 /** Judges text. */
-@Judge({ name: "text-judge", model: "local/judge", reply: PlainTextDto })
+@Judge({ name: "text-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class TextJudge implements JudgeHandler<PlainTextDto> {
-  judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.text.length > 0 ? JudgeVerdict.passed() : JudgeVerdict.failed("empty"),
+      output.text.length > 0 ? JudgeVerdict.passed() : JudgeVerdict.failed("empty"),
     );
   }
 }
@@ -340,8 +340,8 @@ export class WrongReplyApplication {}
 @Judge({
   name: "jobs-judge",
   model: "local/judge",
-  reply: listOf(JobDto),
-  deps: [JobSearch, VariantLog],
+  output: listOf(JobDto),
+  deps: [JobSearch, VariantLog, JudgeModel],
 })
 export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
   constructor(
@@ -349,13 +349,13 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
     private readonly variantLog: VariantLog,
   ) {}
 
-  async judge({ variant, reply }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
+  async judge({ variant, output }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
     this.variantLog.seen(variant);
     const found: readonly boolean[] = await Promise.all(
-      reply.map((job) => this.jobSearch.exists(job.url)),
+      output.map((job) => this.jobSearch.exists(job.url)),
     );
     return found.length > 0 && found.every(Boolean)
-      ? JudgeVerdict.passed({ metrics: { jobs: reply.length } })
+      ? JudgeVerdict.passed({ metrics: { jobs: output.length } })
       : JudgeVerdict.failed("every job must still be posted");
   }
 }
@@ -402,15 +402,15 @@ type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
 @Judge({
   name: "decisions-judge",
   model: "local/judge",
-  reply: listOf(oneOf(OfferDto, RefusalDto)),
-  deps: [VariantLog],
+  output: listOf(oneOf(OfferDto, RefusalDto)),
+  deps: [VariantLog, JudgeModel],
 })
 export class DecisionsJudge implements JudgeHandler<Decisions> {
   constructor(private readonly variantLog: VariantLog) {}
 
-  judge({ reply }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
-    for (const decision of reply) this.variantLog.seen(decision.variant);
-    const salaries: readonly number[] = reply.flatMap((decision) =>
+  judge({ output }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
+    for (const decision of output) this.variantLog.seen(decision.variant);
+    const salaries: readonly number[] = output.flatMap((decision) =>
       isVariant(decision, OfferDto) ? [decision.value.salary] : [],
     );
     return Promise.resolve(

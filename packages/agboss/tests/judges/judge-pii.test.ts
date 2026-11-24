@@ -29,12 +29,12 @@ const EMAIL = "alice@example.com";
 const seen: string[] = [];
 
 /** Asks its model whether the reply is fine; keeps what the model said, as `judge()` got it. */
-@Judge({ name: "contact-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "contact-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 class ContactJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`Is this reply fine? ${reply.text}`);
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`Is this reply fine? ${output.text}`);
     seen.push(said);
     return JudgeVerdict.passed();
   }

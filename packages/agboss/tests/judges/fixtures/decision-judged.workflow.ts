@@ -21,13 +21,13 @@ export const PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 /** Judges with three typed questions on a decision model: grounded (P(yes)), tone (choice), quality (score). */
-@Judge({ name: "answer-grounded", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "answer-grounded", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
 export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: { task, reply: reply.text },
+      state: { task, reply: output.text },
       questions: {
         grounded: Decision.boolean("Every fact in the reply appears in the task"),
         tone: Decision.choice("Tone of the reply", {
@@ -48,13 +48,13 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
 }
 
 /** Looks at an image with the reply: the state is text and image parts. */
-@Judge({ name: "looks-right", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "looks-right", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
 export class LooksRight implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: ["Does the chart match the reply?", Decision.image(PNG, ImageDetail.Low), reply.text],
+      state: ["Does the chart match the reply?", Decision.image(PNG, ImageDetail.Low), output.text],
       questions: { matches: Decision.boolean("The reply describes the chart") },
     });
     return a.matches.probability >= 0.5

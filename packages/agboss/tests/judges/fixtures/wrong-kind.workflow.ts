@@ -15,13 +15,13 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /** On a chat model, yet asks for a decision. */
-@Judge({ name: "chat-decider", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class ChatDecider implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: reply.text,
+      state: output.text,
       questions: { ok: Decision.boolean("The reply is fine") },
     });
     return a.ok.probability > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
@@ -29,12 +29,12 @@ export class ChatDecider implements JudgeHandler<PlainTextDto> {
 }
 
 /** On a decision model, yet chats. */
-@Judge({ name: "decision-chatter", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "decision-chatter", model: LUNA, output: PlainTextDto, deps: [JudgeModel] })
 export class DecisionChatter implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const fine = (await this.judgeModel.invoke(`Is this fine? ${reply.text}`)) === "yes";
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const fine = (await this.judgeModel.invoke(`Is this fine? ${output.text}`)) === "yes";
     return fine ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }

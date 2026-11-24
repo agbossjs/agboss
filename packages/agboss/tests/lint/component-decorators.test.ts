@@ -84,7 +84,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     "findMatches(): void",
   ),
   Judge: statefulClass(
-    '@Judge({ name: "grounded-judge", model: "moonshotai/kimi-k2.6", reply: AnswerDto })',
+    '@Judge({ name: "grounded-judge", model: "moonshotai/kimi-k2.6", output: AnswerDto, deps: [JudgeModel] })',
     "async judge(): Promise<void>",
   ),
   Arbiter: statefulClass(

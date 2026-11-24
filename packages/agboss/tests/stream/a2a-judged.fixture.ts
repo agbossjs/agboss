@@ -19,11 +19,11 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 
-@Judge({ name: "a2a-audit-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "a2a-audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class A2AJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`RUBRIC ${reply.text}`);
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`RUBRIC ${output.text}`);
     return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }

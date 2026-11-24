@@ -6,6 +6,7 @@ import {
   InputGuardrail,
   FileView,
   Judge,
+  JudgeModel,
   ModelFiles,
   JudgeVerdict,
   PiiKind,
@@ -52,7 +53,7 @@ export function everyKindWorkflows(models: KindModels): {
   readonly workflows: readonly Class[];
   readonly providers: readonly Class[];
 } {
-  @Judge({ name: "tone-judge", model: models.judges, reply: PlainTextDto })
+  @Judge({ name: "tone-judge", model: models.judges, output: PlainTextDto, deps: [JudgeModel] })
   class ToneJudge implements JudgeHandler<PlainTextDto> {
     judge(): Promise<JudgeVerdict> {
       return Promise.resolve(JudgeVerdict.passed());

@@ -32,7 +32,9 @@ export interface JudgedAgent {
 function judgeModelOf(judge: Class): { readonly name: string; readonly model: string } | undefined {
   const found = componentOf(judge);
   if (found?.kind !== "judge" || isCodeJudge(found.meta)) return undefined;
-  return { name: found.meta.name, model: found.meta.model };
+  // no model named: its provider's role, whose vendor is not known before assembly
+  const { model } = found.meta;
+  return model === undefined ? undefined : { name: found.meta.name, model };
 }
 
 /** The warning of one judge against the agents it judges, when one shares its model's family. */

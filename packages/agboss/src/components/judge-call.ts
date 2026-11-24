@@ -11,11 +11,14 @@ import { ComponentError } from "./metadata.js";
  */
 const judging = new AsyncLocalStorage<JudgeModel>();
 
-/** Runs one judge's `judge()` with its model as the current `JudgeModel`. */
+/**
+ * Runs one judge's `judge()` — sync or async — with its model as the current `JudgeModel`. A sync
+ * throw is a rejection, so the loop handles both alike.
+ */
 export const runJudgeCall = <TResult>(
   model: JudgeModel,
-  work: () => Promise<TResult>,
-): Promise<TResult> => judging.run(model, work);
+  work: () => TResult | Promise<TResult>,
+): Promise<TResult> => judging.run(model, async () => work());
 
 /** The injected `JudgeModel`: the model of the judge whose `judge()` runs now. */
 export class LiveJudgeModel extends JudgeModel {

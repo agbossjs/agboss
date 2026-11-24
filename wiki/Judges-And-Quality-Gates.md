@@ -7,16 +7,18 @@ fill up with failed attempts — and once `maxRetries` retries are spent the run
 
 ## A judge
 
-A `@Judge({ name, model, reply, deps })` class implements `JudgeHandler<TReply>`; the container
-creates it with its `deps`, and its **own** model is called through the model gateway, so its spend
-is in the run's cost report (`judge:<name>`). A model judge without a model fails at app start
-(`[judge.no-model]`); a judge decided by code has none
-([A code judge](#a-code-judge--decidedby-decidedbycode-396)).
+A `@Judge({ output, deps })` class has a `judge(input)` method — sync or async, no `implements`
+needed; the container creates it with its `deps`. A judge that injects `JudgeModel` (`deps: [JudgeModel]`)
+calls its **own** model through the model gateway, so its spend is in the run's cost report
+(`judge:<name>`); `model` names it, and when it is left out the judge asks its provider's default
+role (`modelProvider`, else its workflow's, else its application's — [Model providers](Model-providers)).
+A judge that injects no `JudgeModel` is decided by code alone
+([A code judge](#a-code-judge-no-model)); it names no `model` (`[judge.model-on-code-judge]`).
 
-A judge sees the agent's answer **as its DTO** (#262 S115). `reply` declares what it judges, in
+A judge sees the agent's answer **as its DTO** (#262 S115). `output` declares what it judges, in
 every shape an agent's `output` has:
 
-| `reply`               | The agent it judges                    | `input.reply` is                                    | `input.variant` is                    |
+| `output`              | The agent it judges                    | `input.output` is                                   | `input.variant` is                    |
 | --------------------- | -------------------------------------- | --------------------------------------------------- | ------------------------------------- |
 | `JobReportDto`        | `output: JobReportDto`                 | the validated `JobReportDto`                        | `JobReportDto`                        |
 | `oneOf(A, B)`         | `output: oneOf(A, B)` (or `A`, or `B`) | the variant's value, `A` or `B`                     | `A` or `B` — the class it answered as |
@@ -24,12 +26,20 @@ every shape an agent's `output` has:
 | `listOf(oneOf(A, B))` | `output: listOf(oneOf(A, B))`          | each item `{ variant, value }`, `readonly VariantOf<A \| B>[]` | — (each item has its own)  |
 | `PlainTextDto`        | a text agent (no `output`)             | `{ text }` — its reply                              | `PlainTextDto`                        |
 
-`judge(input)` gets what it judges as data (`JudgeInput<TReply>`: `variant`, `reply`, `task` — the
+`judge(input)` gets what it judges as data (`JudgeInput<Self>`: `variant`, `output`, `task` — the
 agent's input message, `attempt` — retries so far) and nothing else (#280: no `JudgeContext`); each judge
 gets its own copy of the answer, so none changes what the step gives. Its model comes through the
 constructor — `deps: [JudgeModel]`, each call going to the model of the judge whose `judge()` runs
 (used anywhere else it throws `[judge.model-outside-judge]`); the execution, like in any component,
 through `deps: [ExecutionContext]` (the judged agent is `step.component`).
+
+`judge(input)` returns its verdict directly — a code judge needs no `Promise.resolve` — or a promise.
+`JudgeInput<T>` takes the judge class itself (`judge(input: JudgeInput<OneSentenceJudge>)`: its `output` is
+read from the generated `AGBossTypes.JudgeOutputs` table, so the class does not repeat it; before
+`agboss check` it is `MissingGeneratedTypes`) or the output type directly (`JudgeInput<PlainTextDto>`,
+for a library without generated types). `WorkflowFinishTextDto` extends `PlainTextDto`, so one
+`@Judge({ output: PlainTextDto })` judges a text agent's answer, a text `@WorkflowFinish` and an eval
+suite's `judgedBy`.
 
 A verdict is built only with **`JudgeVerdict.passed({ metrics? })`** or
 **`JudgeVerdict.failed(reason, { metrics? })`** — a plain object does not compile (one way). A
@@ -48,15 +58,15 @@ import { PlainTextDto } from "@agboss/core/dto";
 @Judge({
   name: "correctness-judge",
   model: "moonshotai/kimi-k2.6",
-  reply: PlainTextDto, // a text agent's reply: { text }
+  output: PlainTextDto, // a text agent's reply: { text }
   deps: [JudgeModel],
 })
 export class CorrectnessJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task, attempt }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task, attempt }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const verdict = await this.judgeModel.invoke(
-      `Task: ${task}\nReply: ${reply.text}\nAnswer PASS if the reply is correct and complete, else explain what is wrong.`,
+      `Task: ${task}\nReply: ${output.text}\nAnswer PASS if the reply is correct and complete, else explain what is wrong.`,
     );
     return verdict.trim().startsWith("PASS")
       ? JudgeVerdict.passed()
@@ -83,15 +93,15 @@ import { PlainTextDto } from "@agboss/core/dto";
 @Judge({
   name: "grounded-judge",
   model: "openai/gpt-6-luna-decisions",
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [JudgeModel],
 })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: { task, reply: reply.text },
+      state: { task, reply: output.text },
       questions: {
         grounded: Decision.boolean("Every fact in the reply follows from the task"),
         quality: Decision.score("Overall usefulness", ["useless", "partial", "complete"]),
@@ -106,34 +116,32 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 
 `decide` on a chat model or `invoke` on a decision model throws `ModelKindError` (`model.wrong-kind`).
 
-## A code judge — `decidedBy: DecidedBy.Code` (#396)
+## A code judge: no model
 
 A judge whose rule is code — a length, a format, a side effect a service can look up — needs no
-model: `@Judge({ decidedBy: DecidedBy.Code })` decides by its `judge(input)` alone. No model call,
+model: a `@Judge` whose `deps` hold no `JudgeModel` decides by its `judge(input)` alone. No model call,
 cost 0, nothing to script; its services and the execution come through `deps` like any component's.
-`decidedBy` is absent on a model judge (`DecidedBy.Model`, the default) — the options are
-discriminated: a model judge requires `model`, on a code judge `model` does not compile. A code judge
-that names a `model` anyway (plain JS) or injects `JudgeModel` fails assembly with
+`model` and `modelProvider` are for a judge that injects `JudgeModel` — on a code judge they do not
+compile. One that names a `model` anyway (plain JS) fails assembly with
 `[judge.model-on-code-judge]`; a `JudgeModel` reached through a service throws the same code when
 called. It runs in an agent's quality gate beside model judges — list the free one first, every
 judge runs — and in an eval suite's checks ([Eval suites](Eval-Suites)).
 
 ```ts file=judges/one-sentence.judge.ts
-import { DecidedBy, ExecutionContext, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { ExecutionContext, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
 
 @Judge({
   name: "one-sentence-judge",
-  description: "The reply is one sentence",
-  decidedBy: DecidedBy.Code, // no model, no cost
-  reply: PlainTextDto,
+  description: "The reply is one sentence", // no JudgeModel in deps: no model, no cost
+  output: PlainTextDto,
   deps: [ExecutionContext],
 })
 export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const sentences: number = reply.text.split(/[.!?](\s|$)/u).filter((part) => part.trim() !== "").length;
+  judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const sentences: number = output.text.split(/[.!?](\s|$)/u).filter((part) => part.trim() !== "").length;
     const tenant: string = this.executionContext.tenant.tenantId;
     return Promise.resolve(
       sentences <= 1
@@ -187,7 +195,7 @@ export class JobSearch {
 @Judge({
   name: "answer-grounded-judge",
   model: "typesafe/jev-1.13",
-  reply: JobReportDto,
+  output: JobReportDto,
   deps: [JudgeModel, JobSearch],
 })
 export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
@@ -196,23 +204,23 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     private readonly jobSearch: JobSearch,
   ) {}
 
-  async judge({ reply }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
-    const [first] = reply.jobs;
+  async judge({ output }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+    const [first] = output.jobs;
     const found: boolean = first !== undefined && (await this.jobSearch.exists(first.url));
     return found
-      ? JudgeVerdict.passed({ metrics: { jobs: reply.jobs.length } })
+      ? JudgeVerdict.passed({ metrics: { jobs: output.jobs.length } })
       : JudgeVerdict.failed("the first job does not exist");
   }
 }
 ```
 
-### The variant of a `oneOf` reply
+### The variant of a `oneOf` output
 
 `input.variant` is the class the answer validated as (#262 S125): the class of the answer tool the
 agent used — never guessed from the answer's shape, never compared by name. For a
 `oneOf(OfferDto, RefusalDto)` judge `JudgeInput<OfferDto | RefusalDto>` is a discriminated union —
-`{ variant: typeof OfferDto; reply: OfferDto; … } | { variant: typeof RefusalDto; reply: RefusalDto; … }` —
-and `isVariant(input, OfferDto)` narrows `reply` to `OfferDto` (the other branch to `RefusalDto`).
+`{ variant: typeof OfferDto; output: OfferDto; … } | { variant: typeof RefusalDto; output: RefusalDto; … }` —
+and `isVariant(input, OfferDto)` narrows `output` to `OfferDto` (the other branch to `RefusalDto`).
 `input.variant === OfferDto` is true at run time too, but TypeScript narrows an object only on a
 literal discriminant, never on a class, so `isVariant` is the way to narrow:
 
@@ -232,20 +240,20 @@ export class RefusalDto {
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { isVariant, oneOf } from "@agboss/core/dto";
 
-@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
+@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
     if (isVariant(input, OfferDto)) {
-      // the agent answered through answer-offer-dto: input.reply is an OfferDto
+      // the agent answered through answer-offer-dto: input.output is an OfferDto
       return Promise.resolve(
-        input.reply.salary > 0
-          ? JudgeVerdict.passed({ metrics: { salary: input.reply.salary } })
+        input.output.salary > 0
+          ? JudgeVerdict.passed({ metrics: { salary: input.output.salary } })
           : JudgeVerdict.failed("an offer pays something"),
       );
     }
-    // input.variant is RefusalDto, input.reply a RefusalDto
+    // input.variant is RefusalDto, input.output a RefusalDto
     return Promise.resolve(
-      input.reply.why.trim() === ""
+      input.output.why.trim() === ""
         ? JudgeVerdict.failed("a refusal says why")
         : JudgeVerdict.passed(),
     );
@@ -254,8 +262,8 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
 ```
 
 A judge of one class has `variant` as that class (a subclass the agent answered with, when its
-`output` extends the judge's `reply`), a text judge `PlainTextDto`, a `listOf(XDto)` judge the
-list's one class. A `listOf(oneOf(A, B))` judge has no `variant` of its own: its `reply` is
+`output` extends the judge's `output`), a text judge `PlainTextDto`, a `listOf(XDto)` judge the
+list's one class. A `listOf(oneOf(A, B))` judge has no `variant` of its own: its `output` is
 `readonly VariantOf<A | B>[]` — each item `{ variant, value }` (`VariantOf` from `@agboss/core/dto`), as
 the answer's items are kept — narrowed by `isVariant(item, A)`:
 
@@ -280,11 +288,13 @@ type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
 @Judge({
   name: "decisions-judge",
   model: "typesafe/jev-1.13",
-  reply: listOf(oneOf(OfferDto, RefusalDto)),
-})
+  output: listOf(oneOf(OfferDto, RefusalDto)),
+},
+  deps: [JudgeModel],
+)
 export class DecisionsJudge implements JudgeHandler<Decisions> {
-  judge({ reply }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
-    const salaries: readonly number[] = reply.flatMap((decision) =>
+  judge({ output }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
+    const salaries: readonly number[] = output.flatMap((decision) =>
       isVariant(decision, OfferDto) ? [decision.value.salary] : [],
     );
     return Promise.resolve(
@@ -303,16 +313,16 @@ import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss
 import { listOf } from "@agboss/core/dto";
 import { JobDto, JobSearch } from "./judges/answer-grounded.judge.js";
 
-@Judge({ name: "jobs-judge", model: "typesafe/jev-1.13", reply: listOf(JobDto), deps: [JobSearch] })
+@Judge({ name: "jobs-judge", model: "typesafe/jev-1.13", output: listOf(JobDto), deps: [JobSearch, JudgeModel] })
 export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
   constructor(private readonly jobSearch: JobSearch) {}
 
-  async judge({ reply }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<readonly JobDto[]>): Promise<JudgeVerdict> {
     const found: readonly boolean[] = await Promise.all(
-      reply.map((job) => this.jobSearch.exists(job.url)),
+      output.map((job) => this.jobSearch.exists(job.url)),
     );
     return found.length > 0 && found.every(Boolean)
-      ? JudgeVerdict.passed({ metrics: { jobs: reply.length } })
+      ? JudgeVerdict.passed({ metrics: { jobs: output.length } })
       : JudgeVerdict.failed("every job must still be posted");
   }
 }
@@ -350,12 +360,12 @@ export class GetOrderTool {
 -->
 
 ```ts
-@Judge({ name: "looked-up-judge", model: "typesafe/jev-1.13", reply: PlainTextDto })
+@Judge({ name: "looked-up-judge", model: "typesafe/jev-1.13", output: PlainTextDto, deps: [JudgeModel] })
 export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
-  judge({ reply, toolCalls }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  judge({ output, toolCalls }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const lookups = toolCallsOf(GetOrderTool, toolCalls);
     const found = lookups.filter((call) => call.status === ToolCallStatus.Succeeded);
-    const named = found.some((call) => reply.text.includes(call.output.status));
+    const named = found.some((call) => output.text.includes(call.output.status));
     return Promise.resolve(
       named
         ? JudgeVerdict.passed({ metrics: { lookups: found.length } })
@@ -365,21 +375,21 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-`testJudge(LookedUpJudge)({ variant: PlainTextDto, reply, task, attempt })` runs it with no calls
+`testJudge(LookedUpJudge)({ variant: PlainTextDto, output, task, attempt })` runs it with no calls
 (`toolCalls` defaults to `[]`); pass `toolCalls: [record]` to judge a trajectory. Each verdict is in
 the agent step's `result.record.steps[i].judgeVerdicts` (`judge`, `attempt`, `passed`, `reason?`,
 `metrics?`).
 
-## `[judge.wrong-reply]`
+## `[judge.wrong-output]`
 
-The agent's answer and its judge's `reply` have one shape — one value or a list — and every class
-the agent may answer with must be one of the judge's `reply` classes (or extend one), checked at
+The agent's answer and its judge's `output` have one shape — one value or a list — and every class
+the agent may answer with must be one of the judge's `output` classes (or extend one), checked at
 assembly with the other rules — before any model call, also by `agboss check`:
 
 - a text agent with a DTO judge (`answers text (no output: PlainTextDto), but its judge … judges JobReportDto`);
 - a DTO agent with a judge of another class, or with a `PlainTextDto` judge;
 - a `oneOf(A, B)` output whose judge judges `A` only (`it does not judge B`);
-- a list agent with a judge of one value (`the agent answers a list: set @Judge({ reply: listOf(…) })`);
+- a list agent with a judge of one value (`the agent answers a list: set @Judge({ output: listOf(…) })`);
 - one value with a list judge (`the judge judges a list, but the agent answers one value`).
 
 ## `[judge.same-model-family]`
@@ -441,6 +451,6 @@ masked.
 In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
 `mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
-`testJudge(AnswerGroundedJudge, …)({ variant: JobReportDto, reply, task, attempt })` takes `reply` as
+`testJudge(AnswerGroundedJudge, …)({ variant: JobReportDto, output, task, attempt })` takes `output` as
 a plain object of the judge's DTO, typed by the judge — a `variant` with another class's value
-(`{ variant: OfferDto, reply: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).
+(`{ variant: OfferDto, output: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).

@@ -2,15 +2,15 @@ import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { runJudgeCall } from "../../components/judge-call.js";
 import type {
-  JudgeHandler,
-  JudgeHandlerClass,
-  JudgeInput,
-  JudgedReply,
-  JudgeReplyOf,
+  JudgedOutput,
+  JudgeOutputOf,
   JudgeVerdict,
+  RunnableJudge,
 } from "../../components/judge-decorators.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf } from "../../components/judge-parts.js";
+import type { Class } from "../../components/injection.js";
+import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import { requireComponent } from "../../components/metadata.js";
 import { TestSetupError } from "../errors.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
@@ -26,18 +26,18 @@ import type { FileContent } from "../../files/file-bytes.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
 /** A judge's input with `toolCalls` (#395) and `files` (#899) optional: `[]` when not given. */
-export type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
+export type JudgeRunnerInput<TOutput> = JudgedOutput<TOutput> & {
   readonly toolCalls?: readonly ToolCallRecord[];
   readonly files?: readonly FileContent[];
 };
 
 /**
- * One judge on an agent's reply: `await runJudge({ reply, task, attempt })` → `{ output, spend }` —
- * `reply` a plain object of the judge's `reply` (`JudgeHandler<TReply>`), passed to it as given;
+ * One judge on an agent's output: `await runJudge({ output, task, attempt })` → `{ output, spend }` —
+ * the input's `output` a plain object of the judge's `output`, passed to it as given;
  * `toolCalls` the visit's tool calls it reads (#395), `[]` when not given.
  */
-export interface JudgeRunner<TReply> extends UnitClock {
-  (input: JudgeRunnerInput<TReply>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+export interface JudgeRunner<TOutput> extends UnitClock {
+  (input: JudgeRunnerInput<TOutput>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
 }
 
 /** The judge's own model on the runner's scripts: a decision model decides, a chat model replies. */
@@ -63,35 +63,40 @@ function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
  * the `environment`); its injected `JudgeModel` is its own `@Judge({ model })` answering from
  * `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model (`ModelKindError`
  * for the wrong call, as at run time). Each call runs `judge(input)` in a step's frame; the
- * verdict is `output`, the model calls `spend` (`judge:<name>`). A code judge (`DecidedBy.Code`,
- * #396) runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.
+ * verdict is `output`, the model calls `spend` (`judge:<name>`). A code judge (no `JudgeModel` in its `deps`)
+ * runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.
  */
 export function testJudge<
-  TJudge extends JudgeHandlerClass,
+  TJudge extends Class<object>,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(
   judge: TJudge,
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
-): JudgeRunner<JudgeReplyOf<TJudge>> {
+): JudgeRunner<JudgeOutputOf<TJudge>> {
   requireComponent(judge, "judge", "testJudge");
   const { meta } = checkedJudgeOf(`testJudge(${judge.name})`, judge);
   if (isCodeJudge(meta) && options.model !== undefined)
     throw new TestSetupError({
-      message: `testJudge(${judge.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+      message: `testJudge(${judge.name}): ${meta.name} injects no JudgeModel (it is decided by code) — it calls no model; leave out model`,
     });
   const site = new UnitSite(options);
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);
-  const binding = isCodeJudge(meta) ? undefined : bindingOf(site, meta.name, meta.model);
-  const run = async (given: JudgeRunnerInput<JudgeReplyOf<TJudge>>, call: UnitCallOptions = {}) => {
+  const binding = isCodeJudge(meta)
+    ? undefined
+    : bindingOf(site, meta.name, meta.model ?? DEFAULT_MODEL_ALIAS);
+  const run = async (
+    given: JudgeRunnerInput<JudgeOutputOf<TJudge>>,
+    call: UnitCallOptions = {},
+  ) => {
     // the judge reads the trajectory it would read at run time: none given → none (#395)
-    const input: JudgeInput<JudgeReplyOf<TJudge>> = {
+    const input = {
       ...given,
       toolCalls: given.toolCalls ?? [],
       files: given.files ?? [],
     };
     // the container creates the class itself: an instance of the judge, `judge` included
-    const handler = site.instanceOf(judge) as JudgeHandler<JudgeReplyOf<TJudge>>;
+    const handler = site.instanceOf(judge) as RunnableJudge;
     const frame = {
       component: judge,
       caller: judgeKeyOf(meta.name),
@@ -99,7 +104,9 @@ export function testJudge<
     };
     return site.run(frame, ({ spent }: { readonly spent: UsageRecord[] }) => {
       const model = meteredModel({ name: meta.name, binding }, spent);
-      return runJudgeCall(model, () => handler.judge(input));
+      return runJudgeCall(model, () =>
+        handler.judge(input as Parameters<RunnableJudge["judge"]>[0]),
+      );
     });
   };
   return Object.assign(run, { clock: site.clock });

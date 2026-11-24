@@ -1,12 +1,4 @@
-import {
-  DecidedBy,
-  Judge,
-  JudgeVerdict,
-  ToolCallStatus,
-  toolCallsOf,
-  type JudgeHandler,
-  type JudgeInput,
-} from "@agboss/core";
+import { Judge, JudgeVerdict, ToolCallStatus, toolCallsOf, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
 import { OrderStatusTool } from "../../tools/order-status.tool.js";
 
@@ -17,19 +9,16 @@ import { OrderStatusTool } from "../../tools/order-status.tool.js";
 @Judge({
   name: "quotes-lookup-judge",
   description: "An answer after a lookup names the order looked up",
-  decidedBy: DecidedBy.Code,
-  reply: PlainTextDto,
+  output: PlainTextDto,
 })
-export class QuotesLookupJudge implements JudgeHandler<PlainTextDto> {
-  judge({ reply, toolCalls }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+export class QuotesLookupJudge {
+  judge({ output, toolCalls }: JudgeInput<PlainTextDto>): JudgeVerdict {
     const looked = toolCallsOf(OrderStatusTool, toolCalls).filter(
       (call) => call.status === ToolCallStatus.Succeeded,
     );
-    const missing = looked.filter((call) => !reply.text.includes(call.input.orderId));
-    return Promise.resolve(
-      missing.length === 0
-        ? JudgeVerdict.passed({ metrics: { lookups: looked.length } })
-        : JudgeVerdict.failed("name the order you looked up in the answer"),
-    );
+    const missing = looked.filter((call) => !output.text.includes(call.input.orderId));
+    return missing.length === 0
+      ? JudgeVerdict.passed({ metrics: { lookups: looked.length } })
+      : JudgeVerdict.failed("name the order you looked up in the answer");
   }
 }

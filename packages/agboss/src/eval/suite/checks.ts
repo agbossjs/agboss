@@ -1,4 +1,4 @@
-import type { JudgeHandlerClass } from "../../components/judge-decorators.js";
+import type { Class } from "../../components/injection.js";
 
 /**
  * The checks of an eval suite (#396): what decides whether one run of a case passed, in the order
@@ -30,7 +30,7 @@ export interface TrajectoryEvalCheck {
 
 /** `judgedBy(Judge)`: a `@Judge` on the output of the finish the run ended at. */
 export interface JudgeEvalCheck {
-  readonly judge: JudgeHandlerClass;
+  readonly judge: Class<object>;
 }
 
 /** One check of an eval suite: the trajectory, or a judge. */
@@ -41,9 +41,9 @@ export const checkTrajectory = (): TrajectoryEvalCheck => Object.freeze({ trajec
 
 /**
  * A judge as a check of a suite (or of one case, `evalCase({ judges })`): it judges the output of
- * the finish the run ended at, so its `reply` is that finish's `output` (`[eval.judge-wrong-reply]`).
+ * the finish the run ended at, so its `output` is that finish's `output` (`[eval.judge-wrong-output]`).
  */
-export const judgedBy = (judge: JudgeHandlerClass): JudgeEvalCheck => Object.freeze({ judge });
+export const judgedBy = (judge: Class<object>): JudgeEvalCheck => Object.freeze({ judge });
 
 /** Whether a check is a judge. */
 export const isJudgeCheck = (check: EvalCheck): check is JudgeEvalCheck => "judge" in check;

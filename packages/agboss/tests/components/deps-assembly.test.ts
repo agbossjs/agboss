@@ -13,7 +13,12 @@ import {
 } from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
-import { Judge, JudgeVerdict, type JudgeHandler } from "../../src/components/judge-decorators.js";
+import {
+  Judge,
+  JudgeModel,
+  JudgeVerdict,
+  type JudgeHandler,
+} from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
 import { Action, Agent, InjectionToken, provide, RagMode, Tool } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
@@ -93,7 +98,7 @@ class ApprovedTool {
 @Agent({ name: "approving-agent", description: "d", model: "test/a", tools: [ApprovedTool] })
 class ApprovingAgent {}
 
-@Judge({ name: "needs-judge", model: "test/j", reply: PlainTextDto, deps: [MISSING] })
+@Judge({ name: "needs-judge", model: "test/j", output: PlainTextDto, deps: [MISSING, JudgeModel] })
 class NeedsJudge implements JudgeHandler<PlainTextDto> {
   constructor(readonly value: string) {}
   judge(): Promise<JudgeVerdict> {

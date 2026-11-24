@@ -16,7 +16,7 @@ import type { ToolInterceptorChains } from "../../tool-interceptors/runtime.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
 import type { AgentLoopLimits } from "./limits.js";
-import type { JudgeReplyShape, RunnableJudge } from "../../components/judge-decorators.js";
+import type { JudgeOutputShape, RunnableJudge } from "../../components/judge-decorators.js";
 
 /** Everything needed to run one configured agent. */
 export interface AgentDefinition {
@@ -49,9 +49,9 @@ export interface AgentDefinition {
 export interface AgentJudge {
   readonly name: string;
   readonly handler: RunnableJudge;
-  /** What it judges (`@Judge({ reply })`): the shape of its input. */
-  readonly reply: JudgeReplyShape;
-  /** Its model; none for a code judge (`DecidedBy.Code`, #396). */
+  /** What it judges (`@Judge({ output })`): the shape of its input. */
+  readonly output: JudgeOutputShape;
+  /** Its model; none for a code judge (`$0`). */
   readonly binding?: JudgeBinding;
 }
 

@@ -26,7 +26,7 @@ import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
  * ends with `-eval-suite` and its class with `EvalSuite` (`[name.kind-suffix]`), its start is a
  * start of the application (`[eval.unknown-start]`), every case name is unique
  * (`[eval.duplicate-case]`), every judge is a `@Judge` (`[judge.not-a-judge]`, its model rules) and
- * judges the output of a finish the start reaches (`[eval.judge-wrong-reply]`) — one value, never a
+ * judges the output of a finish the start reaches (`[eval.judge-wrong-output]`) — one value, never a
  * list; a run that ends at a finish its judge does not judge fails that check.
  */
 
@@ -104,28 +104,28 @@ export function evalSuiteWarnings(application: Class, meta: EvalSuiteMeta): Rule
   );
 }
 
-function wrongReply(
+function wrongOutput(
   meta: EvalSuiteMeta,
   check: JudgeEvalCheck,
   outputs: readonly DtoClass[],
 ): RuleViolation[] {
   const judge = checkedJudgeOf(`@EvalSuite "${meta.name}"`, check.judge).meta;
-  const replies = judgedShapeOf(judge.reply);
-  const what = `${meta.name}: ${judge.name} judges ${shapeLabel(judge.reply)}, but the runs of ${startNameOf(meta.start)} end at finishes with ${outputs.map(dtoLabel).join(", ") || "no output"}`;
-  if (replies.isList)
+  const outputsJudged = judgedShapeOf(judge.output);
+  const what = `${meta.name}: ${judge.name} judges ${shapeLabel(judge.output)}, but the runs of ${startNameOf(meta.start)} end at finishes with ${outputs.map(dtoLabel).join(", ") || "no output"}`;
+  if (outputsJudged.isList)
     return [
       violation(
-        "eval.judge-wrong-reply",
-        `${what} — an eval judge judges the finish's output, one value: set @Judge({ reply }) to it`,
+        "eval.judge-wrong-output",
+        `${what} — an eval judge judges the finish's output, one value: set @Judge({ output }) to it`,
         [judge.name],
       ),
     ];
   const judged = outputs.some((output) =>
-    replies.classes.some((reply) => isJudgedBy(output, reply)),
+    outputsJudged.classes.some((judged) => isJudgedBy(output, judged)),
   );
   if (judged) return [];
-  const message = `${what} — it judges none of them: set @Judge({ reply }) to a finish's output (oneOf(…) for several)`;
-  return [violation("eval.judge-wrong-reply", message, [judge.name])];
+  const message = `${what} — it judges none of them: set @Judge({ output }) to a finish's output (oneOf(…) for several)`;
+  return [violation("eval.judge-wrong-output", message, [judge.name])];
 }
 
 /** Every judge of the suite: its checks', then each case's, each class once. */
@@ -148,5 +148,5 @@ export function evalSuiteViolations(
     const message = `${meta.name}: ${startNameOf(meta.start)} is not a start of ${application.name} — its starts: ${starts.join(", ")}`;
     return [...found, violation("eval.unknown-start", message, [meta.name])];
   }
-  return [...found, ...judgesOf(meta).flatMap((check) => wrongReply(meta, check, outputs))];
+  return [...found, ...judgesOf(meta).flatMap((check) => wrongOutput(meta, check, outputs))];
 }

@@ -94,7 +94,7 @@ export class NoteTool {
 @Judge({
   name: "picky",
   model: "test/picky",
-  reply: DraftDto,
+  output: DraftDto,
   deps: [JudgeModel, ExecutionContext],
 })
 export class PickyJudge implements JudgeHandler<DraftDto> {
@@ -107,9 +107,7 @@ export class PickyJudge implements JudgeHandler<DraftDto> {
     seen.judged.push(
       `${this.judgeModel.model}:${this.executionContext.step.nodeId}:${String(attempt)}`,
     );
-    return Promise.resolve(
-      attempt === 0 ? JudgeVerdict.failed("again") : JudgeVerdict.passed(),
-    );
+    return Promise.resolve(attempt === 0 ? JudgeVerdict.failed("again") : JudgeVerdict.passed());
   }
 }
 

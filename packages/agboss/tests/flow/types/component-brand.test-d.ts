@@ -8,6 +8,9 @@ import type {
 } from "../../../src/flow/generated-types.js";
 import type * as flow from "../../../src/public/flow.js";
 import type * as flowTypes from "../../../src/public/flow-types.js";
+import type { JudgeInput } from "../../../src/components/judge-decorators.js";
+import type { MissingGeneratedTypes } from "../../../src/flow/generated-types.js";
+import type { DeskAnswerDto, RefundRecordedJudge } from "../fixtures/eval-desk.fixture.js";
 import { ChargeCardAction, CreditWorkflowStart, DeskRouter } from "../fixtures/credit.fixture.js";
 
 /**
@@ -59,5 +62,26 @@ describe("#1324g: the generated tables are AGBossTypes", () => {
     expectTypeOf<flow.DtoBrands>();
     // @ts-expect-error — the kind is read from the brand, not from the name's suffix
     expectTypeOf<flowTypes.KindOfName<"x-agent">>();
+  });
+});
+
+describe("#1290: JudgeInput<T> reads a judge class's output from JudgeOutputs, or a direct output", () => {
+  it("a @Judge class, instance or class, gives the output its generated entry names", () => {
+    expectTypeOf<AGBossTypes.JudgeOutputs>().toHaveProperty("refund-recorded-judge");
+    expectTypeOf<JudgeInput<RefundRecordedJudge>["output"]>().toEqualTypeOf<DeskAnswerDto>();
+    expectTypeOf<JudgeInput<typeof RefundRecordedJudge>["output"]>().toEqualTypeOf<DeskAnswerDto>();
+  });
+
+  it("a direct output type is read as it is", () => {
+    expectTypeOf<JudgeInput<DeskAnswerDto>["output"]>().toEqualTypeOf<DeskAnswerDto>();
+  });
+
+  it("a judge class no generated entry names is MissingGeneratedTypes", () => {
+    class Unlisted {
+      judge(): number {
+        return 1;
+      }
+    }
+    expectTypeOf<JudgeInput<Unlisted>["output"]>().toEqualTypeOf<MissingGeneratedTypes>();
   });
 });

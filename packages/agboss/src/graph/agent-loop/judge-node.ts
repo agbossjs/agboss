@@ -2,7 +2,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { runJudgeCall } from "../../components/judge-call.js";
 import type {
   AnyJudgeInput,
-  JudgeReplyShape,
+  JudgeOutputShape,
   JudgeVerdict,
 } from "../../components/judge-decorators.js";
 import { PlainTextDto } from "../../dto/standard/framework.js";
@@ -63,17 +63,17 @@ function itemValuesOf(deps: AgentLoopDeps, value: unknown): readonly unknown[] {
  * The one class a `listOf(XDto)` judge's `variant` names: the class of the agent's list — or, when
  * the agent's list may hold several classes (each extending `XDto`), the judge's `XDto`.
  */
-function listClassOf(deps: AgentLoopDeps, reply: JudgeReplyShape): DtoClass {
+function listClassOf(deps: AgentLoopDeps, output: JudgeOutputShape): DtoClass {
   const [only, ...others] = deps.agent.answerTools.tools;
   if (only !== undefined && others.length === 0) return only.dto;
   const element =
-    typeof reply === "function" || reply.kind !== Wrapper.List ? reply : reply.element;
+    typeof output === "function" || output.kind !== Wrapper.List ? output : output.element;
   if (typeof element !== "function") throw new TypeError("a list judge of one class has one class");
   return element;
 }
 
 /**
- * What a judge reads (#262 S115, S125), in the shape of its `reply`: the validated answer and the
+ * What a judge reads (#262 S115, S125), in the shape of its `output`: the validated answer and the
  * class it validated as — a text agent's text as a `PlainTextDto`; one value with its answer
  * tool's class; a list with its one class, or, for a `listOf(oneOf(…))` judge, each item as
  * `{ variant, value }`. Each judge gets its own copy, so no judge changes the answer the step gives.
@@ -92,23 +92,23 @@ function judgedInputOf(
     toolCalls: state.trajectory,
     files,
   };
-  if (state.answer === null) return { ...base, variant: PlainTextDto, reply: { text } };
+  if (state.answer === null) return { ...base, variant: PlainTextDto, output: { text } };
   const value: unknown = structuredClone(state.answer.value);
   const classes = answeredClassesOf(state, deps);
   if (!deps.agent.answerTools.isList) {
     const [variant] = classes;
     if (variant === undefined) throw new TypeError(`${deps.agent.name}: an answer without a class`);
-    return { ...base, variant, reply: value };
+    return { ...base, variant, output: value };
   }
   const items = itemValuesOf(deps, value);
-  const { reply } = judge;
+  const { output } = judge;
   const judgesVariants =
-    typeof reply !== "function" && reply.kind === Wrapper.List && isWrapper(reply.element);
-  if (!judgesVariants) return { ...base, variant: listClassOf(deps, reply), reply: items };
+    typeof output !== "function" && output.kind === Wrapper.List && isWrapper(output.element);
+  if (!judgesVariants) return { ...base, variant: listClassOf(deps, output), output: items };
   // a `listOf(oneOf(…))` judge: each item with its own class (`VariantOf`)
   return {
     ...base,
-    reply: items.map((item, index) => ({ variant: classAt(classes, index), value: item })),
+    output: items.map((item, index) => ({ variant: classAt(classes, index), value: item })),
   };
 }
 

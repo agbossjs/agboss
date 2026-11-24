@@ -10,6 +10,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { toolComponentNameOf } from "../flow/types/agent-tools.js";
 import { channelBrandOf } from "../flow/types/channel-roles.js";
+import { judgeComponentNameOf } from "../flow/types/judge-outputs.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -49,7 +50,8 @@ const isComponent = (value: unknown): value is Class =>
   typeof value === "function" &&
   (declarationOf(value) !== undefined ||
     channelBrandOf(value as Class) !== undefined ||
-    toolComponentNameOf(value as Class) !== undefined);
+    toolComponentNameOf(value as Class) !== undefined ||
+    judgeComponentNameOf(value as Class) !== undefined);
 
 const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknown>>> =>
   (await lazyLoad(import(pathToFileURL(file).href))) as Readonly<Record<string, unknown>>;

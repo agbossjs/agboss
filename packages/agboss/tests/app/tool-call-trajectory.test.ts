@@ -220,7 +220,7 @@ const LOOKUP: ToolCallRecord = {
 };
 
 describe("testJudge", () => {
-  const reply = { variant: PlainTextDto, reply: { text: "Shipped." }, task: "t", attempt: 0 };
+  const reply = { variant: PlainTextDto, output: { text: "Shipped." }, task: "t", attempt: 0 };
 
   it("takes no toolCalls: the judge reads none", async () => {
     const { output } = await testJudge(LookedUpJudge)(reply);

@@ -14,6 +14,7 @@ import {
   type ModelCascade,
 } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
+import { componentOf } from "./metadata.js";
 import { rerankerModelsOf } from "./rag.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { AssembledReplyInterpreter } from "../channels/discovery.js";
@@ -79,13 +80,22 @@ export function modelPartsOf(
   };
 }
 
-/** The levels a workflow's model providers come from: itself, its application and its agents (#1313). */
+/** The `modelProvider` each judge of the agents names itself (#1290). */
+const judgeProvidersOf = (agents: readonly AgentMeta[]): readonly (Class | undefined)[] =>
+  agents.flatMap((agent) =>
+    (agent.judges ?? []).map((cls) => {
+      const component = componentOf(cls);
+      return component?.kind === "judge" ? component.meta.modelProvider : undefined;
+    }),
+  );
+
+/** The levels a workflow's model providers come from: itself, its application, its agents and judges (#1313). */
 export const modelCascadeOf = (
   bundle: Pick<WorkflowMeta, "modelCascade">,
   agents: readonly AgentMeta[],
 ): ModelCascade => ({
   ...bundle.modelCascade,
-  components: agents.map((agent) => agent.modelProvider),
+  components: [...agents.map((agent) => agent.modelProvider), ...judgeProvidersOf(agents)],
 });
 
 /** What a workflow's models are read from, and the policies' and channels' own. */

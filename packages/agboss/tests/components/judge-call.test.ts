@@ -23,6 +23,17 @@ describe("#280: a judge's model through deps: [JudgeModel]", () => {
     await expect(decided).rejects.toThrow("a chat model");
   });
 
+  it("a sync judge() is awaited like an async one: its value, and its throw as a rejection", async () => {
+    const verdict = { passed: true };
+
+    await expect(runJudgeCall(metered("local/judge"), () => verdict)).resolves.toBe(verdict);
+    await expect(
+      runJudgeCall(metered("local/judge"), () => {
+        throw new TypeError("a sync judge broke");
+      }),
+    ).rejects.toThrow("a sync judge broke");
+  });
+
   it("outside a judge() it names the consumer", () => {
     const judgeModel = new LiveJudgeModel("GroundedJudge");
 

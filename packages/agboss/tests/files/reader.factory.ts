@@ -17,7 +17,6 @@ import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
 import { Application } from "../../src/application/application.js";
 import type { ExecutionContextClass } from "../../src/flow/context/context-values.js";
 import type { Class } from "../../src/components/injection.js";
-import type { JudgeHandlerClass } from "../../src/components/judge-decorators.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { List, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -101,7 +100,7 @@ export interface ReaderOptions {
   readonly model?: string;
   readonly guardrails?: readonly Class[];
   /** Output guardrails of the agent: attached on the agent's `guardrails` list as the classes say. */
-  readonly judges?: readonly JudgeHandlerClass[];
+  readonly judges?: readonly Class<object>[];
   /** The execution context class: its `sensitive` fields are values PII policies hide (#899 §6). */
   readonly executionContext?: ExecutionContextClass;
   /** The agent answers in this DTO (and the workflow finishes with it). */

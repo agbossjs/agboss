@@ -124,15 +124,14 @@ export class LookupWorkflow {}
 @Judge({
   name: "quotes-lookup-judge",
   description: "The answer quotes the lookup",
-  decidedBy: DecidedBy.Code,
-  reply: WorkflowFinishTextDto,
+  output: WorkflowFinishTextDto,
 })
 export class QuotesLookupJudge implements JudgeHandler<WorkflowFinishTextDto> {
-  judge({ reply, toolCalls }: JudgeInput<WorkflowFinishTextDto>): Promise<JudgeVerdict> {
+  judge({ output, toolCalls }: JudgeInput<WorkflowFinishTextDto>): Promise<JudgeVerdict> {
     const [lookup] = toolCallsOf(LookupTool, toolCalls);
     const status = lookup?.status === ToolCallStatus.Succeeded ? lookup.output.status : "";
     return Promise.resolve(
-      status !== "" && reply.text.includes(status)
+      status !== "" && output.text.includes(status)
         ? JudgeVerdict.passed()
         : JudgeVerdict.failed("the answer does not quote the lookup"),
     );

@@ -25,7 +25,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, Grounded, MODEL_PROVIDERS, RUBRIC } from "./judged.workflow.js";
 
 /**
- * #396 — code judges: `@Judge({ decidedBy: DecidedBy.Code })` decides by its `judge(input)` alone,
+ * #396 — code judges: `@Judge({ })` decides by its `judge(input)` alone,
  * with its services and the execution through `deps`; no model, no spend. Beside a model judge on one
  * agent, and two judges assembly refuses.
  */
@@ -40,8 +40,7 @@ export class BannedWords {
 @Judge({
   name: "no-banned-words-judge",
   description: "The reply says no banned word",
-  decidedBy: DecidedBy.Code,
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [BannedWords, ExecutionContext],
 })
 export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
@@ -50,14 +49,13 @@ export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  /** Sync: a code judge returns its verdict, no `Promise.resolve`. */
+  judge({ output }: JudgeInput<PlainTextDto>): JudgeVerdict {
     const { tenantId } = this.executionContext.tenant;
-    const found = this.bannedWords.words.filter((word) => reply.text.includes(word));
-    return Promise.resolve(
-      found.length === 0
-        ? JudgeVerdict.passed({ metrics: { words: reply.text.split(" ").length, tenantId } })
-        : JudgeVerdict.failed(`never say ${found.join(", ")}`),
-    );
+    const found = this.bannedWords.words.filter((word) => output.text.includes(word));
+    return found.length === 0
+      ? JudgeVerdict.passed({ metrics: { words: output.text.split(" ").length, tenantId } })
+      : JudgeVerdict.failed(`never say ${found.join(", ")}`);
   }
 }
 
@@ -130,16 +128,15 @@ export class SecondOpinion {
 /** A code judge that reaches for a model through a service. */
 @Judge({
   name: "second-opinion-judge",
-  decidedBy: DecidedBy.Code,
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [SecondOpinion],
 })
 export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly secondOpinion: SecondOpinion) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const tries = await Promise.allSettled([
-      this.secondOpinion.ask(reply.text),
+      this.secondOpinion.ask(output.text),
       this.secondOpinion.decide(),
       Promise.resolve()
         .then(() => this.secondOpinion.model()),

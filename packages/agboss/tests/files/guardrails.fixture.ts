@@ -81,13 +81,13 @@ export const judged: { files: FileContent[][]; verdicts: string[] } = {
 };
 
 /** A judge that asks its model whether the reply is grounded in the files, and keeps the files it got. */
-@Judge({ name: "grounded-judge", model: "local/reader", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "grounded-judge", model: "local/reader", output: PlainTextDto, deps: [JudgeModel] })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, files }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, files }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     judged.files.push([...files]);
-    const said = await this.judgeModel.invoke(`Is "${reply.text}" grounded in the files?`);
+    const said = await this.judgeModel.invoke(`Is "${output.text}" grounded in the files?`);
     judged.verdicts.push(said);
     return JudgeVerdict.passed();
   }

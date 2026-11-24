@@ -15,8 +15,8 @@ import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentD
 import type { ApprovalAgent, ChargeCardAction, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
 import type { CompanyDto, CompanyScoreDto, CustomerReplyDto, DraftChangesDto, ExpertDraftDto, FastDraftDto, LoyaltyOfferDto, OrderStatusDto, SearchRequestDto } from "../tests/flow/fixtures/data-dtos.js";
 import type { ArticleDto, ArticleRequestDto, ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, OfferSentDto, OpeningsDto, OrderRequestDto, OrderShippedDto, ProfileDto, ResumeMissingDto, ReviewDto, ShortlistDto, StockReservationDto, WorkflowStartTextDto } from "../tests/flow/fixtures/dtos.js";
-import type { DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, GetOrderTool, HandOverDto, HandOverWorkflowFinish, RefundTool } from "../tests/flow/fixtures/eval-desk.fixture.js";
-import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupTool, LookupWorkflow } from "../tests/flow/fixtures/evals.fixture.js";
+import type { AnswerGroundedJudge, DeleteOrderTool, DeskAgent, DeskAnswerDto, DeskExecutionContext, DeskTenantContext, DeskWorkflowFinish, DeskWorkflowStart, EvalDeskWorkflow, GetOrderTool, HandOverDto, HandOverWorkflowFinish, RefundRecordedJudge, RefundTool } from "../tests/flow/fixtures/eval-desk.fixture.js";
+import type { AnswerWorkflowFinish, AskDto, AskWorkflowStart, LookupAgent, LookupTool, LookupWorkflow, QuotesLookupJudge } from "../tests/flow/fixtures/evals.fixture.js";
 import type { PublicExpiryWorkflow, PublicExpiryWorkflowStart } from "../tests/flow/fixtures/expiry-public.fixture.js";
 import type { DirectorQuestion, ExpiryDoneDto, ExpiryWorkflow, ExpiryWorkflowFinish, ExpiryWorkflowStart, ManagerQuestion, OwnerQuestion, OwnerWorkflow, OwnerWorkflowStart, PlainWorkflow, PlainWorkflowStart, RecordEscalatedAction, RecordExpiryAction, ReviewerQuestion, ReviewerWorkflow, ReviewerWorkflowStart, ShortExpiryWorkflow, ShortExpiryWorkflowStart, SlowEscalationAction, SlowExpiryWorkflow, SlowExpiryWorkflowStart } from "../tests/flow/fixtures/expiry.fixture.js";
 import type { DraftEditorAgent, DraftHistoryAction, DraftHistoryWorkflowFinish, FirstDraftAgent, HistoryOfferWorkflow, HistoryOfferWorkflowStart, ReviewDraftAction } from "../tests/flow/fixtures/history.fixture.js";
@@ -1151,6 +1151,11 @@ declare module "../src/flow/generated-types.js" {
       "verdict-agent": never;
       "writer-agent": never;
     }
+    interface JudgeOutputs {
+      "answer-grounded-judge": DeskAnswerDto;
+      "quotes-lookup-judge": WorkflowFinishTextDto;
+      "refund-recorded-judge": DeskAnswerDto;
+    }
     interface DtoBrands {
       "AgentBatchSummaryDto": AgentBatchSummaryDto;
       "AgentRefundDoneDto": AgentRefundDoneDto;
@@ -1731,6 +1736,9 @@ declare module "../tests/flow/fixtures/dtos.js" {
 }
 
 declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
+  interface AnswerGroundedJudge {
+    readonly [agbossComponent]?: { readonly name: "answer-grounded-judge" };
+  }
   interface DeleteOrderTool {
     readonly [agbossComponent]?: { readonly name: "delete-order-tool" };
   }
@@ -1758,6 +1766,9 @@ declare module "../tests/flow/fixtures/eval-desk.fixture.js" {
   interface HandOverWorkflowFinish {
     readonly [agbossComponent]?: { readonly name: "hand-over-workflow-finish"; readonly kind: NodeKind.Finish };
   }
+  interface RefundRecordedJudge {
+    readonly [agbossComponent]?: { readonly name: "refund-recorded-judge" };
+  }
   interface RefundTool {
     readonly [agbossComponent]?: { readonly name: "refund-tool" };
   }
@@ -1781,6 +1792,9 @@ declare module "../tests/flow/fixtures/evals.fixture.js" {
   }
   interface LookupWorkflow {
     readonly [agbossComponent]?: { readonly name: "lookup-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface QuotesLookupJudge {
+    readonly [agbossComponent]?: { readonly name: "quotes-lookup-judge" };
   }
 }
 

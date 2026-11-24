@@ -4,7 +4,6 @@ import { callerFile } from "../../components/call-site.js";
 import type { Class } from "../../components/injection.js";
 import type { ToolHandler } from "../../components/decorators.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
-import type { JudgeHandlerClass } from "../../components/judge-decorators.js";
 import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
 import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { Reasoning } from "../../models/reasoning.js";
@@ -65,7 +64,7 @@ export interface AgentOptions {
   readonly cache?: CacheSetting;
   readonly maxToolCalls?: number;
   /** `@Judge` classes. */
-  readonly judges?: readonly JudgeHandlerClass[];
+  readonly judges?: readonly Class<object>[];
   readonly maxRetries?: number;
   /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
   readonly guardrails?: readonly Class[];

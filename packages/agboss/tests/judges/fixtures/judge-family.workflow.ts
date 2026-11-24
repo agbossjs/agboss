@@ -2,6 +2,7 @@ import {
   Agent,
   DecidedBy,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   Workflow,
   WorkflowFinish,
@@ -22,22 +23,22 @@ import { onStart } from "../../helpers/flow.js";
 
 const passes = (): Promise<JudgeVerdict> => Promise.resolve(JudgeVerdict.passed());
 
-@Judge({ name: "open-ai-judge", model: "openai/gpt-6", reply: PlainTextDto })
+@Judge({ name: "open-ai-judge", model: "openai/gpt-6", output: PlainTextDto, deps: [JudgeModel] })
 export class OpenAiJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
 
-@Judge({ name: "jev-judge", model: "typesafe/jev-1.13", reply: PlainTextDto })
+@Judge({ name: "jev-judge", model: "typesafe/jev-1.13", output: PlainTextDto, deps: [JudgeModel] })
 export class JevJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
 
-@Judge({ name: "length-judge", decidedBy: DecidedBy.Code, reply: PlainTextDto })
+@Judge({ name: "length-judge", output: PlainTextDto })
 export class LengthJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
 
-@Judge({ name: "bare-judge", model: "gpt-6", reply: PlainTextDto })
+@Judge({ name: "bare-judge", model: "gpt-6", output: PlainTextDto, deps: [JudgeModel] })
 export class BareJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }

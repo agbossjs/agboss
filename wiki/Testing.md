@@ -1099,12 +1099,12 @@ it("looks the order up in the book it is given", async () => {
 <!-- snippet-context
 import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
-@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", output: PlainTextDto, deps: [JudgeModel] })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, reply: reply.text },
+      state: { task, reply: output.text },
       questions: { grounded: Decision.boolean("Is the reply grounded in the task?") },
     });
     return answers.grounded.probability > 0.5

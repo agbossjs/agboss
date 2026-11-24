@@ -90,7 +90,7 @@ function decideOf(
 function noModelOf(judge: string): JudgeModel {
   const refuse = (member: string): never => {
     throw new ComponentError({
-      message: `[judge.model-on-code-judge] judge "${judge}" is decided by code (DecidedBy.Code) and has no model — judgeModel.${member} is not available`,
+      message: `[judge.model-on-code-judge] judge "${judge}" is decided by code and has no model — judgeModel.${member} is not available`,
     });
   };
   return {

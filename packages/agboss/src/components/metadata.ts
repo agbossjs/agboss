@@ -99,9 +99,7 @@ export type ComponentMeta =
     }
   | {
       readonly kind: "judge";
-      readonly meta: import("./judge-decorators.js").JudgeMeta & {
-        readonly deps: readonly Token[];
-      };
+      readonly meta: import("./judge-decorators.js").JudgeRecord;
     }
   /** `@Budget` (#261): a money limit, listed in `@Application({ budgets })`. */
   | { readonly kind: "budget"; readonly meta: import("../budgets/budget.js").BudgetMeta }

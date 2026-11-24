@@ -2,7 +2,6 @@ import type { PromptValue } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
 import type { RagMode } from "../rag/types.js";
-import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { AgentToolClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { ModelCascade } from "../models/model-cascade.js";
@@ -84,7 +83,7 @@ export interface AgentMeta
   /** `@Tool` classes, and question roles (#712). */
   readonly tools?: readonly AgentToolClass[];
   /** `@Judge` classes. */
-  readonly judges?: readonly JudgeHandlerClass[];
+  readonly judges?: readonly Class<object>[];
   readonly maxRetries?: number;
   /** Knowledge bases: `{ use: CompanyDocs, mode: RagMode.Tool }` — `mode` is required. */
   readonly rag?: readonly RagBinding[];

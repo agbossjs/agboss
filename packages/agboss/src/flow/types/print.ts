@@ -4,6 +4,7 @@ import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
 import { channelBrandOf } from "./channel-roles.js";
 import { toolComponentNameOf } from "./agent-tools.js";
+import { judgeComponentNameOf } from "./judge-outputs.js";
 
 /**
  * Prints `.agboss/types.d.ts` (#272 S3, S39): the imports, the tables augmented into the tables
@@ -74,7 +75,8 @@ function brandLines(imported: ClassImport, names: ImportTable): readonly string[
   const name =
     declarationOf(imported.component)?.options.name ??
     channelBrandOf(imported.component) ??
-    toolComponentNameOf(imported.component);
+    toolComponentNameOf(imported.component) ??
+    judgeComponentNameOf(imported.component);
   const header = `  interface ${imported.component.name} {`;
   if (name !== undefined) {
     const kind = kindText(imported.component, names);
@@ -119,6 +121,7 @@ export function printTypes(
     readonly channelRoles?: TypeTable;
     readonly pauseTargets?: TypeTable;
     readonly agentTools?: TypeTable;
+    readonly judgeOutputs?: TypeTable;
   },
   names: ImportTable,
   tablesModule: string,
@@ -136,6 +139,7 @@ export function printTypes(
       tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
       tableLines("PauseTargets", tables.pauseTargets ?? new Map()),
       tableLines("AgentTools", tables.agentTools ?? new Map()),
+      tableLines("JudgeOutputs", tables.judgeOutputs ?? new Map()),
       tableLines("DtoBrands", dtoBrands(names)),
     ]),
   ];

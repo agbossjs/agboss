@@ -45,7 +45,7 @@ const recordOf = (
   schemaHash: string | undefined,
 ): ComponentRecord => ({ name, kind, promptHash, schemaHash });
 
-/** The model judges of the agents: the reply each judges. */
+/** The model judges of the agents: the output each judges. */
 const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
   [...judgeClassesOf(agentMetasOf(graph)).values()].flatMap(({ meta }) =>
     isCodeJudge(meta)
@@ -55,7 +55,7 @@ const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
             meta.name,
             ComponentKind.Judge,
             undefined,
-            versionOf(describedShapeOf(meta.reply)),
+            versionOf(describedShapeOf(meta.output)),
           ),
         ],
   );

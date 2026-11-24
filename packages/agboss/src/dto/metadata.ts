@@ -37,7 +37,10 @@ export function fieldsOf(dto: DtoClass): readonly FieldSpec[] {
     if (own !== undefined) chain.unshift(own);
     metadata = Object.getPrototypeOf(metadata);
   }
-  return chain.flatMap((table) => [...table.values()]);
+  // a subclass that redeclares an inherited field replaces it, keeping its place: one entry per name
+  const byName = new Map<string, FieldSpec>();
+  for (const table of chain) for (const field of table.values()) byName.set(field.name, field);
+  return [...byName.values()];
 }
 
 /** DTOs that hold any JSON object (internal: tool arguments). */

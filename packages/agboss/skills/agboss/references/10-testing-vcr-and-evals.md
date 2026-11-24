@@ -174,13 +174,13 @@ The judges, the guardrail and the PII policy:
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { VerdictDto } from "../../dto/verdict.dto.js";
 
-@Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", reply: VerdictDto, deps: [JudgeModel] })
+@Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", output: VerdictDto, deps: [JudgeModel] })
 export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { decision: reply.decision, reason: reply.reason },
+      state: { decision: output.decision, reason: output.reason },
       questions: { reasoned: Decision.boolean("Does the reason support the decision?") },
     });
     return answers.reasoned.probability >= 0.5
@@ -195,12 +195,12 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
 import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { VerdictDto } from "../../dto/verdict.dto.js";
 
-@Judge({ name: "short-reason-judge", decidedBy: DecidedBy.Code, reply: VerdictDto })
+@Judge({ name: "short-reason-judge", output: VerdictDto })
 export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
-  judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
-    const words: number = reply.reason.split(" ").length;
+  judge({ output }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+    const words: number = output.reason.split(" ").length;
     return Promise.resolve(
-      reply.reason.trim() !== "" && words <= 30
+      output.reason.trim() !== "" && words <= 30
         ? JudgeVerdict.passed({ metrics: { words } })
         : JudgeVerdict.failed("give the reason in one sentence, at most 30 words"),
     );
@@ -213,13 +213,13 @@ export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
 import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { HireSavedDto } from "../../dto/hire-saved.dto.js";
 
-@Judge({ name: "hire-saved-judge", decidedBy: DecidedBy.Code, reply: HireSavedDto })
+@Judge({ name: "hire-saved-judge", output: HireSavedDto })
 export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
-  judge({ reply }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
+  judge({ output }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.hireId.startsWith("hire-")
+      output.hireId.startsWith("hire-")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed(`not a hire id: ${reply.hireId}`),
+        : JudgeVerdict.failed(`not a hire id: ${output.hireId}`),
     );
   }
 }
@@ -1300,12 +1300,12 @@ it("testRag: retrieve with topK", async () => {
   expect(output[0]?.source).toBe("policy.md#bar");
 });
 
-it("testJudge: the reply as a plain object of its DTO", async () => {
+it("testJudge: the output as a plain object of its DTO", async () => {
   const runJudge = testJudge(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
 
   const { output } = await runJudge({
     variant: VerdictDto,
-    reply: { decision: "hire", reason: "n/a" },
+    output: { decision: "hire", reason: "n/a" },
     task: "Decide",
     attempt: 0,
   });
@@ -1319,7 +1319,7 @@ it("testJudge of a code judge: no model script, no spend", async () => {
 
   const { output, spend } = await runJudge({
     variant: VerdictDto,
-    reply: { decision: "reject", reason: "" },
+    output: { decision: "reject", reason: "" },
     task: "Decide",
     attempt: 0,
   });
@@ -1487,7 +1487,7 @@ tests/desk-cassette.test.ts` in `examples/flow-patterns`. A replay never creates
 **Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
 component's `promptHash` / `schemaHash` (the join keys of `npx agboss describe --json`). A replay
 of a component whose prompt or schema changed since — an agent, a model router, and every other
-component that calls a model (a model judge by the `reply` it judges, a guardrail, an arbiter, a
+component that calls a model (a model judge by the `output` it judges, a guardrail, an arbiter, a
 compaction, a reply interpreter, a PII policy that detects with a model) — or that the application
 no longer has, fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
 — `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
@@ -1642,7 +1642,7 @@ export class ScreeningEvalSuite {}
 ```
 
 - **The cascade order is a declaration, not a convention:** free trajectory invariants first
-  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  (`checkTrajectory()`), then code judges (`@Judge({ })`), then model
   judges (`@Judge({ model })`) — with `EvalCascade.StopAtFirstFailure` a paid judge runs only on a
   run the free checks passed; the rest are `CheckStatus.Skipped`, and a skipped check fails the run.
   `EvalCascade.RunAll` runs every check whatever came before.
@@ -1650,12 +1650,12 @@ export class ScreeningEvalSuite {}
   grow the prompt. Propose moving the check into deterministic code — a `@ToolInterceptor`, a code
   `@InputGuardrail` / `@OutputGuardrail` (`decidedBy: DecidedBy.Code`), `DecidedBy.Code` on a
   `@Router` or an `@Arbiter`, or an `@Action`.
-- An eval judge judges the output of the finish the run ended at: its `reply` is a finish's
-  `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-reply]`. A case's
+- An eval judge judges the output of the finish the run ended at: its `output` is a finish's
+  `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-output]`. A case's
   own `judges: [judgedBy(X)]` run after the suite's checks.
 - Assembled on its application before anything runs, every violation at once:
   `[name.kind-suffix]`, `[eval.unknown-start]` (the start is not one of the application's),
-  `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-reply]`, the
+  `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-output]`, the
   judges' own `[judge.*]` rules; then the cases' values — `EvalCaseInvalidError`
   (`eval.case-invalid`, each issue as `case "x": tenant.plan — reason`, never a value).
 

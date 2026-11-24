@@ -4,6 +4,7 @@ import {
   EmptyEnvironment,
   Injectable,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   QualityGateError,
   Tool,
@@ -72,8 +73,8 @@ export class TrajectoryLog {
 @Judge({
   name: "looked-up-judge",
   model: "local/judge",
-  reply: PlainTextDto,
-  deps: [TrajectoryLog],
+  output: PlainTextDto,
+  deps: [TrajectoryLog, JudgeModel],
 })
 export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly trajectoryLog: TrajectoryLog) {}

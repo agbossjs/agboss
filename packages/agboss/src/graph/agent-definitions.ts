@@ -1,7 +1,6 @@
 import type { AgentSettingsOf, AgentsConfigOf } from "../config/types.js";
 import { AnswerFiles } from "../files/model-files.js";
 import { NodeKind } from "../flow/ast.js";
-import { DecidedBy } from "../flow/decorators/router.js";
 import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtime/answer-tools.js";
 import { resolveAgentLimits, type AgentDefinition, type AgentJudge } from "./agent-loop/index.js";
 import type { GraphDeps } from "./deps.js";
@@ -34,12 +33,12 @@ function judgesOf<TName extends string>(
   const judges = (agent?.judges ?? []).map((name): AgentJudge => {
     const judge = deps.judges?.get(name);
     if (judge === undefined) throw new MissingJudgeError(`Judge "${name}" has no instance`);
-    const { handler, reply } = judge;
-    // a code judge (#396) has no model; a model judge always has its binding
-    if (judge.decidedBy === DecidedBy.Code) return { name, handler, reply };
+    const { handler, output } = judge;
+    // a code judge has no model; a judge with `JudgeModel` always has its binding
+    if (!judge.hasModel) return { name, handler, output };
     const binding = deps.registry.judges.get(name);
     if (binding === undefined) throw new MissingJudgeError(`Judge "${name}" has no model`);
-    return { name, handler, reply, binding };
+    return { name, handler, output, binding };
   });
   return { judges, maxRetries: agent?.maxRetries ?? 0 };
 }

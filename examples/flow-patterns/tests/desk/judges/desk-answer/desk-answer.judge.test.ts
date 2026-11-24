@@ -8,7 +8,7 @@ it("testJudge: the eval suite's judge on a finish's output, with the metrics cal
   const answer = (text: string) =>
     runJudge({
       variant: WorkflowFinishTextDto,
-      reply: { text },
+      output: { text },
       task: "Answer",
       attempt: 0,
       toolCalls: [],

@@ -2207,10 +2207,10 @@ Environments has more.
 
 ### Judges and decision models
 
-`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ name, model, reply,
-deps })` (`implements JudgeHandler<TReply>`) on the agent's answer **as its DTO** (#262 S115):
-`judge({ variant, reply, task, attempt }: JudgeInput<TReply>)` gets the validated answer object —
-`reply` is a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`),
+`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs each `@Judge({ output, deps })` (a class with `judge(input)`, sync or async, no `implements`) on the agent's answer **as its DTO** (#262 S115):
+`judge({ variant, output, task, attempt }: JudgeInput<Self>)` gets the validated answer object —
+`JudgeInput<T>` takes the judge class (its `output` is read from the generated `AGBossTypes.JudgeOutputs`) or the output type (`JudgeInput<PlainTextDto>`);
+`output` is a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`),
 `listOf(oneOf(A, B))` (`readonly VariantOf<A | B>[]`, each item `{ variant, value }`) or
 `PlainTextDto` for a text agent (`{ text }`) — the shapes of `output`. `variant` (#262 S125) is the
 class the answer validated as, from the answer tool the agent used (never guessed from its shape):
@@ -2218,22 +2218,21 @@ class the answer validated as, from the answer tool the agent used (never guesse
 `isVariant(item, A)`); a single DTO, `listOf(XDto)` or `PlainTextDto` judge has that one class; a
 `listOf(oneOf(…))` judge has none of its own, only its items'. an agent whose `output` its judge does not judge (a
 text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
-value or the other way round) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
+value or the other way round) fails assembly with `[judge.wrong-output]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason, { metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
-`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ variant, reply,
-task, attempt })` takes `reply` as a plain object, typed by the judge (a `variant` with another
+`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ variant, output,
+task, attempt })` takes `output` as a plain object, typed by the judge (a `variant` with another
 class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
 `Decision.boolean` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
 served by `DecisionsModelProvider`). The wrong call for the model's kind throws `ModelKindError`.
 Routers and guardrails use decision models too. README → Quality gates has a full judge. **Code
-judges (#396):** `@Judge({ decidedBy: DecidedBy.Code })` (absent = `DecidedBy.Model`; options
-discriminated — a model judge requires `model` (`[judge.no-model]`), on a code judge it does not
-compile) decides by its `judge(input)` alone — no model call, cost 0, its services and the
-execution through `deps`; a `model` or an injected `JudgeModel` is `[judge.model-on-code-judge]` at
-assembly (a `JudgeModel` reached through a service throws it when called); it works in an agent's
+judges (#396):** a `@Judge` with no `JudgeModel` in its `deps` (no `DecidedBy`; `model` / `modelProvider`
+compile only with `JudgeModel` in `deps` — then a hybrid, `model` left out = its provider's default role) decides by its `judge(input)` alone — no model call, cost 0, its services and the
+execution through `deps`; a `model` without `JudgeModel` is `[judge.model-on-code-judge]` at
+assembly (a `JudgeModel` reached through a service throws it when called); `WorkflowFinishTextDto extends PlainTextDto`, so one `PlainTextDto` judge serves a text agent and a text finish; it works in an agent's
 quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testJudge(J)`
 takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
 `openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
@@ -2246,7 +2245,7 @@ partial)], forbidden: [Tool], invariants: [toolInvariant(Tool, (input) => …)] 
 typed by the start's input, the application's contexts and each tool's input. Assembled on its
 application by `checkEvalSuite` (`@agboss/core/internal`; run by `runEvalSuite`, PR 2 — `agboss eval run`):
 `[name.kind-suffix]`
-(name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]` (an
+(name and class), `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]` (an
 eval judge judges a finish output its start reaches, one value), then `EvalCaseInvalidError`
 (`eval.case-invalid`: tenant / execution, turns, variants and history validated, every issue, no
 value). At run time (#396 PR 2, `src/eval/run/`) `checkTrajectory()` reads the last turn's

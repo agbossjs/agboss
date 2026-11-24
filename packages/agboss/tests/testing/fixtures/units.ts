@@ -118,15 +118,15 @@ export class BrokenJobsTool {
 @Judge({
   name: "grounded-judge",
   model: "typesafe/jev-1.13",
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [JudgeModel],
 })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, reply: reply.text },
+      state: { task, output: output.text },
       questions: {
         grounded: Decision.boolean("Is every claim of the reply grounded in the task?"),
       },
@@ -140,15 +140,15 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 @Judge({
   name: "tone-judge",
   model: "moonshotai/kimi-k2.6",
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [JudgeModel],
 })
 export class ToneJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(
-      `Is this polite? Answer PASS or FAIL.\n${reply.text}`,
+      `Is this polite? Answer PASS or FAIL.\n${output.text}`,
     );
     return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed("rude");
   }

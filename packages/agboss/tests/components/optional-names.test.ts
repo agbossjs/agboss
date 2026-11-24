@@ -96,7 +96,7 @@ class AwsBedrock {
   }
 }
 
-@Judge({ reply: WorkflowStartTextDto, decidedBy: DecidedBy.Code })
+@Judge({ output: WorkflowStartTextDto })
 class FairAnswer {
   judge() {
     return Promise.resolve(JudgeVerdict.passed());

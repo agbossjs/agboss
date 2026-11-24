@@ -24,12 +24,12 @@ import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 
 /** What the judge's model is asked: it answers `PASS…` or `FAIL…`. */
-@Judge({ name: "audit-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class AuditJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`INTERNAL RUBRIC. Is this fine? ${reply.text}`);
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`INTERNAL RUBRIC. Is this fine? ${output.text}`);
     return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }

@@ -12,12 +12,12 @@ import {
 } from "../../src/index.js";
 import { PlainTextDto, Text } from "../../src/dto/index.js";
 
-@Judge({ name: "flow-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "flow-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class FlowJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`Is this fine? ${reply.text}`);
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`Is this fine? ${output.text}`);
     return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }
@@ -57,12 +57,12 @@ export class ColorDto {
   color!: string;
 }
 
-@Judge({ name: "shape-judge", model: "local/judge", reply: ShapeDto, deps: [JudgeModel] })
+@Judge({ name: "shape-judge", model: "local/judge", output: ShapeDto, deps: [JudgeModel] })
 export class ShapeJudge implements JudgeHandler<ShapeDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<ShapeDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`Is this shape fine? ${reply.shape}`);
+  async judge({ output }: JudgeInput<ShapeDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`Is this shape fine? ${output.shape}`);
     return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }

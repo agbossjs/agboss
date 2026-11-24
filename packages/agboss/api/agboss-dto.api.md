@@ -581,7 +581,7 @@ export class WorkflowFinishFilesDto {
 }
 
 // @public
-export class WorkflowFinishTextDto {
+export class WorkflowFinishTextDto extends PlainTextDto {
     // (undocumented)
     text: string;
 }
@@ -687,7 +687,6 @@ enum Wrapper {
 // src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "files".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "author".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "question".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "options".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "replyWith".
@@ -700,6 +699,7 @@ enum Wrapper {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "overrideArguments".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "source".

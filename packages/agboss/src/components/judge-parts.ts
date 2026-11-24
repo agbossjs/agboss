@@ -1,14 +1,14 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
-import { DecidedBy } from "../flow/decorators/router.js";
+import { DEFAULT_MODEL_ALIAS } from "../models/model-cascade.js";
+import { modelProviderOf } from "../models/model-provider.decorator.js";
 import {
   isCodeJudge,
-  JudgeModel,
   type JudgeInstance,
-  type JudgeMeta,
+  type JudgeRecord,
   type RunnableJudge,
 } from "./judge-decorators.js";
-import { tokenName, type Class, type Token } from "./injection.js";
+import { tokenName, type Class } from "./injection.js";
 import { ComponentError, componentOf } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { containerFor } from "./runtime.js";
@@ -16,30 +16,30 @@ import { containerFor } from "./runtime.js";
 /** A judge class with its `@Judge` settings. */
 export interface JudgeClass {
   readonly cls: Class;
-  readonly meta: JudgeMeta;
-}
-
-/** `[judge.no-model]` / `[judge.model-on-code-judge]`: a model judge names one, a code judge none. */
-function modelProblemOf(cls: Class, meta: JudgeMeta, deps: readonly Token[]): string | undefined {
-  const judge = `@Judge ${tokenName(cls)} ("${meta.name}")`;
-  if (isCodeJudge(meta)) {
-    // forbidden by the type; plain JS still reaches here
-    const { model }: { readonly model?: unknown } = meta;
-    if (model !== undefined)
-      return `[judge.model-on-code-judge] ${judge}: decided by code (DecidedBy.Code), but it names model ${JSON.stringify(model)} — remove model, or decide by the model (DecidedBy.Model)`;
-    if (deps.includes(JudgeModel))
-      return `[judge.model-on-code-judge] ${judge}: decided by code (DecidedBy.Code), but it injects JudgeModel — a code judge has no model: remove JudgeModel from deps`;
-    return undefined;
-  }
-  // a model is required by the type; plain JS or an empty string still reaches here
-  if (typeof meta.model !== "string" || meta.model.trim() === "")
-    return `[judge.no-model] ${judge}: no model — set @Judge({ model }), or decide by code (decidedBy: DecidedBy.Code); a judge never borrows its agent's model`;
-  return undefined;
+  readonly meta: JudgeRecord;
 }
 
 /**
- * A `@Judge` class with its settings, checked: a model judge names its model, a code judge (#396)
- * names none and injects no `JudgeModel`. `where` names who lists it (`@Agent "x"`, `testJudge`).
+ * `[judge.model-on-code-judge]`: a judge that injects no `JudgeModel` names no model; `[judge.no-model]`:
+ * a model named as an empty string (a model left out is its provider's role, #1313).
+ */
+function modelProblemOf(cls: Class, meta: JudgeRecord): string | undefined {
+  const judge = `@Judge ${tokenName(cls)} ("${meta.name}")`;
+  // forbidden by the type; plain JS still reaches here
+  const { model, modelProvider }: { readonly model?: unknown; readonly modelProvider?: unknown } =
+    meta;
+  if (!isCodeJudge(meta)) {
+    if (typeof model === "string" && model.trim() === "")
+      return `[judge.no-model] ${judge}: an empty model — name one with @Judge({ model }), or leave it out for its provider's default role; a judge never borrows its agent's model`;
+    return undefined;
+  }
+  if (model === undefined && modelProvider === undefined) return undefined;
+  return `[judge.model-on-code-judge] ${judge}: names a model, but it does not inject JudgeModel — a judge with no JudgeModel in deps is decided by code alone: remove model and modelProvider, or add JudgeModel to deps`;
+}
+
+/**
+ * A `@Judge` class with its settings, checked: a judge that injects no `JudgeModel` (a `$0` code
+ * judge) names no model. `where` names who lists it (`@Agent "x"`, `testJudge`).
  */
 export function checkedJudgeOf(where: string, cls: Class): JudgeClass {
   const component = componentOf(cls);
@@ -48,7 +48,7 @@ export function checkedJudgeOf(where: string, cls: Class): JudgeClass {
       message: `[judge.not-a-judge] ${where}: ${tokenName(cls)} in judges is not a @Judge class`,
     });
   }
-  const problem = modelProblemOf(cls, component.meta, component.meta.deps);
+  const problem = modelProblemOf(cls, component.meta);
   if (problem !== undefined) throw new ComponentError({ message: problem });
   return { cls, meta: component.meta };
 }
@@ -81,12 +81,27 @@ export function judgeClassesOf(agents: readonly AgentMeta[]): ReadonlyMap<string
   return byName;
 }
 
-/** The judges' models as the config holds them (`judges.<name>`): a code judge (#396) has none. */
+/**
+ * The judges' models as the config holds them (`judges.<name>`): a judge that injects `JudgeModel` has
+ * one — the role its provider maps when it names none (#1313); a code judge has none.
+ */
 export function judgeSettingsOf(
   judges: ReadonlyMap<string, JudgeClass>,
 ): Pick<AgentsConfigOf<string>, "judges"> {
   const models = [...judges].flatMap(([name, { meta }]) =>
-    isCodeJudge(meta) ? [] : [[name, { model: meta.model }] as const],
+    isCodeJudge(meta)
+      ? []
+      : [
+          [
+            name,
+            {
+              model: meta.model ?? DEFAULT_MODEL_ALIAS,
+              ...(meta.modelProvider === undefined
+                ? {}
+                : { modelProvider: modelProviderOf(meta.modelProvider).name }),
+            },
+          ] as const,
+        ],
   );
   return models.length === 0 ? {} : { judges: Object.fromEntries(models) };
 }
@@ -105,8 +120,8 @@ export function judgePartsOf(
           name,
           {
             handler: container.get(cls) as RunnableJudge,
-            reply: meta.reply,
-            decidedBy: meta.decidedBy ?? DecidedBy.Model,
+            output: meta.output,
+            hasModel: !isCodeJudge(meta),
           },
         ]),
       );

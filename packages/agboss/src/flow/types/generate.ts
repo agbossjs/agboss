@@ -18,6 +18,7 @@ import { tablesOf, type AnalysedWorkflow, type TypeTable, type TypeTables } from
 import { agentToolsTableOf, standaloneAgentToolsOf } from "./agent-tools.js";
 import { contextTypesOf } from "./contexts.js";
 import { channelTablesOf } from "./channel-roles.js";
+import { judgeOutputsTableOf } from "./judge-outputs.js";
 import { standaloneTablesOf, type StandaloneTables } from "./standalone.js";
 
 /**
@@ -229,6 +230,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
       ...tables,
       ...channels,
       agentTools,
+      judgeOutputs: judgeOutputsTableOf(request.components ?? [], names),
       workflowStarts: contexts.workflowStarts,
       environments: contracts,
     },

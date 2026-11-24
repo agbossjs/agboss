@@ -10,6 +10,7 @@ import {
   CompactionStrategy,
   DecidedBy,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   PiiKind,
   PiiPolicy,
@@ -18,7 +19,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type JudgeHandler,
-  type JudgeHandlerClass,
 } from "../../src/index.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -74,9 +74,14 @@ function compactionOf(variant: DeskVariant): Class {
   return QueueCompaction;
 }
 
-function judgesOf(variant: DeskVariant): readonly JudgeHandlerClass[] {
+function judgesOf(variant: DeskVariant): readonly Class<object>[] {
   if (variant.judgeModel === undefined) return [];
-  @Judge({ name: "polite-judge", model: variant.judgeModel, reply: PlainTextDto })
+  @Judge({
+    name: "polite-judge",
+    model: variant.judgeModel,
+    output: PlainTextDto,
+    deps: [JudgeModel],
+  })
   class PoliteJudge implements JudgeHandler<PlainTextDto> {
     judge(): Promise<JudgeVerdict> {
       return Promise.resolve(JudgeVerdict.passed());

@@ -4,58 +4,80 @@ import type { DtoClass } from "../dto/types.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { FileContent } from "../files/file-bytes.js";
 import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
-import { DecidedBy } from "../flow/decorators/router.js";
+import type {
+  AGBossTypes,
+  GeneratedEntry,
+  InstanceOrSelf,
+  MissingGeneratedTypes,
+  NameOf,
+} from "../flow/generated-types.js";
 import { resolvedName } from "../flow/names.js";
 import { recordComponent } from "./metadata.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
 /**
  * What a judge judges (#262 S115) — every shape an agent's `output` can have: one DTO class,
- * `oneOf(A, B)` (the reply is `A | B`, told apart by `variant`), `listOf(XDto)` (a `readonly` list),
+ * `oneOf(A, B)` (the output is `A | B`, told apart by `variant`), `listOf(XDto)` (a `readonly` list),
  * `listOf(oneOf(A, B))` (a `readonly` list of `VariantOf<A | B>`) or `PlainTextDto` for a text
  * agent's reply (`{ text }`). The agent's output has the same shape and
- * every class it may answer with is one of the judge's, else `[judge.wrong-reply]`.
+ * every class it may answer with is one of the judge's, else `[judge.wrong-output]`.
  */
-export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
-
-/** A judge that judges with its own model (`DecidedBy.Model`, the default). */
-export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
-  /** Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller (`judge:<name>`). */
-  readonly name: string;
-  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
-  readonly reply: TReply;
-  readonly description?: string;
-  /** Who decides (#396): the judge's model — the default when absent. */
-  readonly decidedBy?: DecidedBy.Model;
-  /**
-   * The judge's own model, required (`judge.no-model`): a chat model (`judgeModel.invoke`) or a
-   * decision model such as `openai/gpt-6-luna-decisions` or `typesafe/jev-1.13` (`judgeModel.decide`).
-   */
-  readonly model: string;
-}
+export type JudgeOutputShape = DtoClass | OneOfWrapper | ListWrapper;
 
 /**
- * A judge decided by its class's code alone (`DecidedBy.Code`, #396): no model, no model call, cost
- * 0 — a `model` does not compile (`[judge.model-on-code-judge]` at assembly), nor does injecting
- * `JudgeModel`. Its services and the execution come through `deps`.
+ * `@Judge({ … })`'s options of a judge that decides by its class's `judge(input)`: by code alone
+ * (`$0`, no model call), or — with `JudgeModel` in `deps` — by code and its own model (hybrid).
+ * Without `JudgeModel` in `deps` a `model` / `modelProvider` does not compile.
  */
-export interface CodeJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
-  /** Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller (`judge:<name>`). */
-  readonly name: string;
-  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `reply`). */
-  readonly reply: TReply;
+export interface CodeJudgeOptions<
+  TOutput extends JudgeOutputShape = JudgeOutputShape,
+  TDeps extends readonly Token[] = readonly Token[],
+> {
+  /**
+   * Unique in the workflow: the judge's settings key (`judges.<name>`) and its cost caller
+   * (`judge:<name>`); the class name in kebab-case when left out (`JobReport` → `job-report`).
+   */
+  readonly name?: string;
+  /** What it judges: the agent's answer as this DTO (`judge(input)`'s `output`). */
+  readonly output: TOutput;
   readonly description?: string;
-  readonly decidedBy: DecidedBy.Code;
-  readonly model?: never;
+  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+  readonly deps?: TDeps;
+  /** A judge with its own model does not declare a `prompt`: its class asks `JudgeModel`. */
+  readonly prompt?: never;
 }
 
-/** `@Judge` — a quality gate of an agent's reply: decided by its model, or by code (#396). */
-export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> =
-  ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
+/** The `model` / `modelProvider` a judge may name: only one that injects `JudgeModel` has a model. */
+export type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
+  Extract<TDeps[number], typeof JudgeModel>,
+] extends [never]
+  ? { readonly model?: never; readonly modelProvider?: never }
+  : {
+      /**
+       * The judge's own model: a chat model (`judgeModel.invoke`) or a decision model such as
+       * `openai/gpt-6-luna-decisions` (`judgeModel.decide`); a role of its provider when left out.
+       */
+      readonly model?: string;
+      /** The `@ModelProvider` that serves it: its workflow's, its application's when left out. */
+      readonly modelProvider?: Class;
+    };
 
-/** Whether a judge is decided by its class's code (`DecidedBy.Code`): it has no model. */
-export const isCodeJudge = (meta: JudgeMeta): meta is CodeJudgeMeta =>
-  meta.decidedBy === DecidedBy.Code;
+/** `@Judge` — a quality gate of an agent's output: decided by code, or by code and its own model. */
+export type JudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> =
+  CodeJudgeOptions<TOutput> & {
+    readonly model?: string;
+    readonly modelProvider?: Class;
+  };
+
+/** What `@Judge` recorded on a class: its options with the name and `deps` resolved. */
+export type JudgeRecord = Omit<JudgeOptions, "name" | "deps"> & {
+  readonly name: string;
+  readonly deps: readonly Token[];
+};
+
+/** Whether a judge decides by its class's code alone: it does not inject `JudgeModel`. */
+export const isCodeJudge = (meta: Pick<JudgeRecord, "deps">): boolean =>
+  !meta.deps.includes(JudgeModel);
 
 /**
  * The judge's own model (`@Judge({ model })`), through the model gateway: every call is in the
@@ -78,20 +100,27 @@ export abstract class JudgeModel {
 
 /**
  * What a judge judges (#280: data only, no context — the execution comes through
- * `deps: [ExecutionContext]`, the agent as its `step.component`): `reply` — the agent's answer,
- * validated, a value of the judge's `reply` (`{ text }` for a text agent); `variant` — the class it
+ * `deps: [ExecutionContext]`, the agent as its `step.component`): `output` — the agent's answer,
+ * validated, a value of the judge's `output` (`{ text }` for a text agent); `variant` — the class it
  * validated as (#262 S125), the class of the answer tool the agent used, never guessed from the
  * answer's shape; `task` — the run's task (the agent's input message); `attempt` — retries so far,
  * 0 for the agent's first reply; `toolCalls` — the agent's tool calls in this visit, every attempt's,
  * in call order (#395: `toolCallsOf(Tool, toolCalls)` types one tool's), with real values; `files` —
  * what the model read of files (#899).
  *
- * For a `oneOf(A, B)` reply a discriminated union on `variant`: `isVariant(input, A)` narrows
- * `reply` to `A`. A single DTO, `listOf(XDto)` or `PlainTextDto` judge has `variant` as that one
- * class; a `listOf(oneOf(A, B))` judge reads `reply: readonly VariantOf<A | B>[]`, each item with its
+ * `T` is the `@Judge` class itself (`JudgeInput<Self>`, its `output` read from the generated
+ * `AGBossTypes.JudgeOutputs`), or the output value it judges (`JudgeInput<PlainTextDto>`, for a
+ * library with no generated types).
+ *
+ * For a `oneOf(A, B)` output a discriminated union on `variant`: `isVariant(input, A)` narrows
+ * `output` to `A`. A single DTO, `listOf(XDto)` or `PlainTextDto` judge has `variant` as that one
+ * class; a `listOf(oneOf(A, B))` judge reads `output: readonly VariantOf<A | B>[]`, each item with its
  * own `variant`, and has no `variant` of its own.
  */
-export type JudgeInput<TReply> = JudgedReply<TReply> & {
+export type JudgeInput<T> = JudgedInput<JudgeOutputValueOf<T>>;
+
+/** What a judge reads of a value of its `output`: the output itself and the visit's trajectory. */
+export type JudgedInput<TOutput> = JudgedOutput<TOutput> & {
   readonly toolCalls: readonly ToolCallRecord[];
   /**
    * The files the agent's model read in this visit (#899 §8), in the views it got them — an original
@@ -102,20 +131,42 @@ export type JudgeInput<TReply> = JudgedReply<TReply> & {
   readonly files: readonly FileContent[];
 };
 
-/** What a judge reads of the reply itself, in the shape of its `reply` (`JudgeInput` without the trajectory). */
-export type JudgedReply<TReply> = TReply extends readonly VariantOf<unknown>[]
-  ? { readonly reply: TReply; readonly task: string; readonly attempt: number }
-  : TReply extends readonly (infer TItem)[]
+/**
+ * The output value a `JudgeInput<T>` reads: the `JudgeOutputs` entry of a `@Judge` class (named by
+ * its generated brand), `MissingGeneratedTypes` for a judge class before `agboss check`, else `T`
+ * itself — the output value a library without generated types names.
+ */
+export type JudgeOutputValueOf<T> = [NameOf<InstanceOrSelf<T>>] extends [never]
+  ? false extends (
+      InstanceOrSelf<T> extends infer TInstance
+        ? TInstance extends unknown
+          ? // a `judge` method, or no members at all (a declarative judge): a judge, not a DTO value
+            "judge" extends keyof TInstance
+            ? true
+            : [keyof TInstance] extends [never]
+              ? true
+              : false
+          : never
+        : never
+    )
+    ? T
+    : MissingGeneratedTypes
+  : GeneratedEntry<AGBossTypes.JudgeOutputs, InstanceOrSelf<T>>;
+
+/** What a judge reads of the output itself, in the shape of its `output` (`JudgeInput` without the trajectory). */
+export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[]
+  ? { readonly output: TOutput; readonly task: string; readonly attempt: number }
+  : TOutput extends readonly (infer TItem)[]
     ? {
         readonly variant: DtoClass<TItem>;
-        readonly reply: TReply;
+        readonly output: TOutput;
         readonly task: string;
         readonly attempt: number;
       }
-    : TReply extends unknown
+    : TOutput extends unknown
       ? {
-          readonly variant: DtoClass<TReply>;
-          readonly reply: TReply;
+          readonly variant: DtoClass<TOutput>;
+          readonly output: TOutput;
           readonly task: string;
           readonly attempt: number;
         }
@@ -182,79 +233,69 @@ export const JudgeVerdict = {
   },
 } as const;
 
-/** What a `@Judge` class implements: `JudgeHandler<JobReportDto>` judges a `JobReportDto` reply. */
-export interface JudgeHandler<TReply> {
-  /** Judges one reply of the agent: `JudgeVerdict.passed(…)` or `JudgeVerdict.failed(reason)`. */
-  judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
+/** What a `@Judge` class with a `judge(input)` reads: `JudgeHandler<JobReportDto>` judges a `JobReportDto` output. */
+export interface JudgeHandler<TOutput> {
+  /** Judges one output of the agent: `JudgeVerdict.passed(…)` or `JudgeVerdict.failed(reason)`; sync or async. */
+  judge: (input: JudgeInput<TOutput>) => JudgeVerdict | Promise<JudgeVerdict>;
 }
 
 /** Any judge's input as the agent's loop builds it (internal): one class, or items of several. */
-export type AnyJudgeInput = JudgeInput<unknown> | JudgeInput<readonly VariantOf<unknown>[]>;
+export type AnyJudgeInput = JudgedInput<unknown> | JudgedInput<readonly VariantOf<unknown>[]>;
 
-/** A judge's instance as the agent's loop calls it (internal), whatever reply it judges. */
+/** A judge's instance as the agent's loop calls it (internal), whatever output it judges. */
 export interface RunnableJudge {
-  readonly judge: (input: AnyJudgeInput) => Promise<JudgeVerdict>;
+  readonly judge: (input: AnyJudgeInput) => JudgeVerdict | Promise<JudgeVerdict>;
 }
 
 /**
  * A judge as an agent's loop runs it (internal): its instance, created by the container, and what
- * it judges (`@Judge({ reply })`) — the shape of the input it is given (#262 S125).
+ * it judges (`@Judge({ output })`) — the shape of the input it is given (#262 S125).
  */
 export interface JudgeInstance {
   readonly handler: RunnableJudge;
-  readonly reply: JudgeReplyShape;
-  /** Who decides (#396): a code judge has no model binding. */
-  readonly decidedBy: DecidedBy;
+  readonly output: JudgeOutputShape;
+  /** Whether it has its own model (`JudgeModel` in its `deps`): a code judge has none (`$0`). */
+  readonly hasModel: boolean;
 }
 
-/** What `judges: [...]` takes: `@Judge` classes, whatever reply they judge. */
-export type JudgeHandlerClass = Class<JudgeHandler<never>>;
-
-/** The input a judge class reads: its `judge(input)`'s parameter. */
-export type JudgeInputOf<TJudge extends JudgeHandlerClass> = Parameters<
-  InstanceType<TJudge>["judge"]
->[0];
-
-/** The reply a judge class judges: `JobReportDto` for `implements JudgeHandler<JobReportDto>`. */
-export type JudgeReplyOf<TJudge extends JudgeHandlerClass> =
-  JudgeInputOf<TJudge> extends { readonly reply: infer TReply } ? TReply : never;
-
 /**
- * The value a judge of a `reply` shape reads: the shape's value (`ValueOf`), except a
+ * The value a judge of an `output` shape reads: the shape's value (`ValueOf`), except a
  * `listOf(oneOf(A, B))`, whose items are `VariantOf<A | B>` — each with the class it validated as.
  */
-export type JudgedValueOf<TShape extends JudgeReplyShape> =
+export type JudgedValueOf<TShape extends JudgeOutputShape> =
   TShape extends ListWrapper<OneOfWrapper<infer TVariants>>
     ? readonly VariantOf<InstanceType<TVariants[number]>>[]
     : ValueOf<TShape>;
 
-/** `@Judge({ … })`'s options: its settings, what it judges and its constructor's dependencies. */
-export type JudgeOptions<
-  TReply extends JudgeReplyShape,
-  D extends readonly Token[],
-> = (JudgeMeta<TReply> extends infer TMeta
-  ? TMeta extends unknown
-    ? Omit<TMeta, "name"> & {
-        /** Unique in the workflow; kebab-case; the class name in kebab-case when left out (`JobReport` → `job-report`). */
-        readonly name?: string;
-      }
+/**
+ * The output a judge class judges: the value its `judge(input)` reads as `output`, or — for a judge
+ * without `judge` — its generated `JudgeOutputs` entry.
+ */
+export type JudgeOutputOf<TJudge extends Class<object>> = "judge" extends keyof InstanceType<TJudge>
+  ? Parameters<
+      Extract<InstanceType<TJudge>["judge" & keyof InstanceType<TJudge>], (input: never) => unknown>
+    >[0] extends {
+      readonly output: infer TOutput;
+    }
+    ? TOutput
     : never
-  : never) & {
-  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
-  readonly deps?: D;
-};
+  : GeneratedEntry<AGBossTypes.JudgeOutputs, InstanceType<TJudge>>;
+
+/** The class `@Judge({ … })` decorates: `judge(input)` reads the declared output. */
+export interface JudgeMethod<TOutput extends JudgeOutputShape> {
+  judge(input: JudgedOutput<JudgedValueOf<TOutput>>): JudgeVerdict | Promise<JudgeVerdict>;
+}
 
 /**
- * A quality gate of an agent's reply (`@Agent({ judges: [...], maxRetries })`), created by the
- * workflow's container with its `deps`; its model calls go through the model gateway. With
- * `decidedBy: DecidedBy.Code` (#396) it has no model: `judge(input)` decides by code alone.
+ * A quality gate of an agent's output (`@Agent({ judges: [...], executionLimits })`), created by the
+ * workflow's container with its `deps`; its model calls go through the model gateway. A class with
+ * `judge(input)` decides by code at `$0`; with `JudgeModel` in `deps` it asks its own model too (hybrid).
  */
-export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(
-  options: JudgeOptions<TReply, D>,
-) {
-  return <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(
-    value: C,
-  ): C => {
+export function Judge<
+  const TOutput extends JudgeOutputShape,
+  const TDeps extends readonly Token[] = [],
+>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>) {
+  return <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C): C => {
     const name = resolvedName(options.name, value);
     recordComponent(value, {
       kind: "judge",

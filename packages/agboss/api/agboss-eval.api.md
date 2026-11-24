@@ -621,12 +621,12 @@ export interface ExpectedToolCall<TTool extends Class<ToolHandler<never, unknown
 }
 
 // @public
-export const judgedBy: (judge: JudgeHandlerClass) => JudgeEvalCheck;
+export const judgedBy: (judge: Class<object>) => JudgeEvalCheck;
 
 // @public
 export interface JudgeEvalCheck {
     // (undocumented)
-    readonly judge: JudgeHandlerClass;
+    readonly judge: Class<object>;
 }
 
 // @public

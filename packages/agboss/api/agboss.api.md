@@ -375,6 +375,10 @@ export namespace AGBossTypes {
         // (undocumented)
         readonly [notGenerated]?: never;
     }
+    export interface JudgeOutputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
     export interface Outputs {
         // (undocumented)
         readonly [notGenerated]?: never;
@@ -497,7 +501,7 @@ export interface AgentOptions {
     readonly files?: ModelFiles;
     readonly guardrails?: readonly Class[];
     readonly input?: InputFields;
-    readonly judges?: readonly JudgeHandlerClass[];
+    readonly judges?: readonly Class<object>[];
     // (undocumented)
     readonly maxRetries?: number;
     // (undocumented)
@@ -1737,15 +1741,13 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
 }
 
 // @public
-export interface CodeJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Code;
+export interface CodeJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape, TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
     // (undocumented)
     readonly description?: string;
-    // (undocumented)
-    readonly model?: never;
-    readonly name: string;
-    readonly reply: TReply;
+    readonly name?: string;
+    readonly output: TOutput;
+    readonly prompt?: never;
 }
 
 // @public
@@ -4776,6 +4778,17 @@ export interface HostContext {
 }
 
 // @public
+export type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
+Extract<TDeps[number], typeof JudgeModel>
+] extends [never] ? {
+    readonly model?: never;
+    readonly modelProvider?: never;
+} : {
+    readonly model?: string;
+    readonly modelProvider?: Class;
+};
+
+// @public
 export type IdempotencyError = IdempotencyError.KeyConflict | IdempotencyError.InvalidKey | IdempotencyError.InvalidName | IdempotencyError.FingerprintRequired | IdempotencyError.FingerprintNotJson | IdempotencyError.SecretKeyMissing | IdempotencyError.ResultTooLarge | IdempotencyError.StoreMismatch | IdempotencyError.OutsideTransaction | IdempotencyError.NestedRunOnce | IdempotencyError.ExternalCallInTransaction;
 
 // @public
@@ -5270,27 +5283,33 @@ export type JsonValue<T> = T extends JsonPrimitive ? T : T extends (...args: nev
 } : never;
 
 // @public
-export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
+export function Judge<const TOutput extends JudgeOutputShape, const TDeps extends readonly Token[] = []>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
 
 // @public
-export type JudgedReply<TReply> = TReply extends readonly VariantOf<unknown>[] ? {
-    readonly reply: TReply;
+export type JudgedInput<TOutput> = JudgedOutput<TOutput> & {
+    readonly toolCalls: readonly ToolCallRecord[];
+    readonly files: readonly FileContent[];
+};
+
+// @public
+export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[] ? {
+    readonly output: TOutput;
     readonly task: string;
     readonly attempt: number;
-} : TReply extends readonly (infer TItem)[] ? {
+} : TOutput extends readonly (infer TItem)[] ? {
     readonly variant: DtoClass<TItem>;
-    readonly reply: TReply;
+    readonly output: TOutput;
     readonly task: string;
     readonly attempt: number;
-} : TReply extends unknown ? {
-    readonly variant: DtoClass<TReply>;
-    readonly reply: TReply;
+} : TOutput extends unknown ? {
+    readonly variant: DtoClass<TOutput>;
+    readonly output: TOutput;
     readonly task: string;
     readonly attempt: number;
 } : never;
 
 // @public
-export type JudgedValueOf<TShape extends JudgeReplyShape> = TShape extends ListWrapper<OneOfWrapper<infer TVariants>> ? readonly VariantOf<InstanceType<TVariants[number]>>[] : ValueOf<TShape>;
+export type JudgedValueOf<TShape extends JudgeOutputShape> = TShape extends ListWrapper<OneOfWrapper<infer TVariants>> ? readonly VariantOf<InstanceType<TVariants[number]>>[] : ValueOf<TShape>;
 
 // @public
 export interface JudgeEndEvent extends NodeEvent {
@@ -5303,24 +5322,18 @@ export interface JudgeEndEvent extends NodeEvent {
 }
 
 // @public
-export interface JudgeHandler<TReply> {
-    judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
+export interface JudgeHandler<TOutput> {
+    judge: (input: JudgeInput<TOutput>) => JudgeVerdict | Promise<JudgeVerdict>;
 }
 
 // @public
-export type JudgeHandlerClass = Class<JudgeHandler<never>>;
+export type JudgeInput<T> = JudgedInput<JudgeOutputValueOf<T>>;
 
 // @public
-export type JudgeInput<TReply> = JudgedReply<TReply> & {
-    readonly toolCalls: readonly ToolCallRecord[];
-    readonly files: readonly FileContent[];
-};
-
-// @public
-export type JudgeInputOf<TJudge extends JudgeHandlerClass> = Parameters<InstanceType<TJudge>["judge"]>[0];
-
-// @public
-export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> = ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
+export interface JudgeMethod<TOutput extends JudgeOutputShape> {
+    // (undocumented)
+    judge(input: JudgedOutput<JudgedValueOf<TOutput>>): JudgeVerdict | Promise<JudgeVerdict>;
+}
 
 // @public
 export type JudgeMetrics = Readonly<Record<string, number | string | boolean>>;
@@ -5333,11 +5346,21 @@ export abstract class JudgeModel {
 }
 
 // @public
-export type JudgeOptions<TReply extends JudgeReplyShape, D extends readonly Token[]> = (JudgeMeta<TReply> extends infer TMeta ? TMeta extends unknown ? Omit<TMeta, "name"> & {
-    readonly name?: string;
-} : never : never) & {
-    readonly deps?: D;
+export type JudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> = CodeJudgeOptions<TOutput> & {
+    readonly model?: string;
+    readonly modelProvider?: Class;
 };
+
+// @public
+export type JudgeOutputOf<TJudge extends Class<object>> = "judge" extends keyof InstanceType<TJudge> ? Parameters<Extract<InstanceType<TJudge>["judge" & keyof InstanceType<TJudge>], (input: never) => unknown>>[0] extends {
+    readonly output: infer TOutput;
+} ? TOutput : never : GeneratedEntry<AGBossTypes.JudgeOutputs, InstanceType<TJudge>>;
+
+// @public
+export type JudgeOutputShape = DtoClass | OneOfWrapper | ListWrapper;
+
+// @public
+export type JudgeOutputValueOf<T> = [NameOf<InstanceOrSelf<T>>] extends [never] ? false extends (InstanceOrSelf<T> extends infer TInstance ? TInstance extends unknown ? "judge" extends keyof TInstance ? true : [keyof TInstance] extends [never] ? true : false : never : never) ? T : MissingGeneratedTypes : GeneratedEntry<AGBossTypes.JudgeOutputs, InstanceOrSelf<T>>;
 
 // @public
 export interface JudgeRejection {
@@ -5346,14 +5369,6 @@ export interface JudgeRejection {
     // (undocumented)
     readonly reason: string;
 }
-
-// @public
-export type JudgeReplyOf<TJudge extends JudgeHandlerClass> = JudgeInputOf<TJudge> extends {
-    readonly reply: infer TReply;
-} ? TReply : never;
-
-// @public
-export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
 // @public
 export interface JudgeStartEvent extends NodeEvent {
@@ -6131,16 +6146,6 @@ export class ModelImageRedactor extends FileRedactor {
     redact(): Promise<RedactionResult>;
     // (undocumented)
     supports(mediaType: string): boolean;
-}
-
-// @public
-export interface ModelJudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> {
-    readonly decidedBy?: DecidedBy.Model;
-    // (undocumented)
-    readonly description?: string;
-    readonly model: string;
-    readonly name: string;
-    readonly reply: TReply;
 }
 
 // @public
@@ -8864,7 +8869,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -11410,11 +11415,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "model".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "passed".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "judge".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "name".
@@ -12040,6 +12043,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
+// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".

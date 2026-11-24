@@ -25,7 +25,7 @@ import { GroundedJudge, ToneJudge } from "../fixtures/units.js";
 const input = {
   variant: PlainTextDto,
   task: "Find TS jobs",
-  reply: { text: "Acme hires TS engineers [acme.example]" },
+  output: { text: "Acme hires TS engineers [acme.example]" },
   attempt: 0,
 };
 
@@ -94,7 +94,7 @@ describe("testJudge", () => {
 
     const { output } = await runJudge({
       variant: JobReportDto,
-      reply,
+      output: reply,
       task: "Find TS jobs",
       attempt: 1,
     });
@@ -108,9 +108,9 @@ describe("testJudge", () => {
 
     const task = { variant: JobReportDto, task: "t", attempt: 0 } as const;
     // @ts-expect-error -- AnswerGroundedJudge judges a JobReportDto, not text
-    const wrong = runReport({ reply: { text: "jobs" }, ...task });
+    const wrong = runReport({ output: { text: "jobs" }, ...task });
     // @ts-expect-error -- ToneJudge judges a PlainTextDto: its reply is { text }, never a string
-    const text = runText({ variant: PlainTextDto, reply: "PASS", task: "t", attempt: 0 });
+    const text = runText({ variant: PlainTextDto, output: "PASS", task: "t", attempt: 0 });
 
     await expect(wrong).rejects.toThrow(TypeError);
     await expect(text).resolves.toMatchObject({ output: { passed: true } });

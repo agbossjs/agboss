@@ -16,7 +16,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Action` (`actions/<name>.action.ts`)                                                          | `ActionHandler<Self>`: `execute(input)`                                            | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                                                                                |
 | `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                                        | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                                                               |
 | `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: one `@OnAnswer(Agent)` method per agent of the launch                        | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                                                   |
-| `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `JudgeHandler<TReply>`: `judge(input)`                                             | `name`, `model`, `reply` (the answer's shape), `deps`                                                                                                                                                                                                                                                                                                                                                                             |
+| `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `judge(input)`, sync or async                                                      | `name`, `output` (the answer's shape), `model` / `modelProvider` (with `JudgeModel` in `deps`), `deps`                                                                                                                                                                                                                                                                                                                            |
 | `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagConnector`: `retrieve(query, { topK, signal, tenantId })`                      | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                                                                                                    |
 | `@Compaction` (`compactions/<name>/<name>.compaction.ts` (+ `<name>.prompt.md`))                | none; `Custom`: `CompactionHandler`: `compact(input)`                              | `strategy`, `model`, `prompt`, `turnsBetweenCompactions`, `summaryQueueLength`, `summaryMaxTokens`; `Custom`: `turnsBetweenCompactions`, `deps`                                                                                                                                                                                                                                                                                   |
 | `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                | code: `InputGuardrailHandler` / `OutputGuardrailHandler`                           | `name`, `description`, `decidedBy`; model: `model`, `prompt`, `refusalMessage`; code: `deps`                                                                                                                                                                                                                                                                                                                                      |
@@ -322,15 +322,15 @@ import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 @Judge({
   name: "cites-source-judge",
   model: "typesafe/jev-1.13", // a decision model: judgeModel.decide; a chat model: judgeModel.invoke
-  reply: DeskAnswerDto, // the agent's output shape: a DTO, oneOf(A, B), listOf(X) or PlainTextDto
+  output: DeskAnswerDto, // the agent's output shape: a DTO, oneOf(A, B), listOf(X) or PlainTextDto
   deps: [JudgeModel],
 })
 export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, answer: reply.text },
+      state: { task, answer: output.text },
       questions: { cites: Decision.boolean("Does every claim of the answer cite a [source]?") },
     });
     return answers.cites.probability >= 0.5
@@ -581,11 +581,11 @@ Injected like any dependency, read only while a step runs (outside → `Executio
 
 ## Judges in short
 
-- `@Judge({ reply })` must match the agent's `output` (`[judge.wrong-reply]` otherwise): a DTO,
+- `@Judge({ output })` must match the agent's `output` (`[judge.wrong-output]` otherwise): a DTO,
   `oneOf(A, B)`, `listOf(X)`, `listOf(oneOf(A, B))`, or `PlainTextDto` for a text agent.
-- `JudgeInput<TReply>` is `{ variant, reply, task, attempt }`; for a `oneOf` reply narrow with
+- `JudgeInput<Self>` (or `JudgeInput<PlainTextDto>`, the output directly) is `{ variant, output, task, attempt }`; for a `oneOf` output narrow with
   `isVariant(input, OfferDto)` (`input.variant` is the class the answer validated as); a
-  `listOf(oneOf(…))` reply's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
+  `listOf(oneOf(…))` output's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
   `isVariant(item, A)`).
 - Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason)`; when
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
@@ -604,12 +604,12 @@ class RefusalDto {
 -->
 
 ```ts file=src/desk/judges/offer-range/offer-range.judge.ts
-@Judge({ name: "offer-range-judge", model: "moonshotai/kimi-k2.6", reply: oneOf(OfferDto, RefusalDto) })
+@Judge({ name: "offer-range-judge", model: "moonshotai/kimi-k2.6", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
     if (!isVariant(input, OfferDto)) return Promise.resolve(JudgeVerdict.passed());
     return Promise.resolve(
-      input.reply.salary > 0 // narrowed: input.reply is an OfferDto here
+      input.output.salary > 0 // narrowed: input.output is an OfferDto here
         ? JudgeVerdict.passed()
         : JudgeVerdict.failed("the salary must be positive"),
     );
@@ -1004,7 +1004,7 @@ export class SeatWorkflow {}
 | `[environment.missing-field]`              | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
 | `[prompt.input-in-instructions]`           | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
 | `[prompt.unknown-variable]`                | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
-| `[judge.wrong-reply]`                      | the judge's `reply` is not the agent's `output` shape → make them the same                                                          |
+| `[judge.wrong-output]`                     | the judge's `output` is not the agent's `output` shape → make them the same                                                         |
 | `[compaction.uncompacted-turns-invalid]`   | `uncompactedTurns: 0` or a fraction → a whole number from 1, or `TurnLimit.ALL`                                                     |
 | `[compaction.missing-handler]`             | a `CompactionStrategy.Custom` class without `compact(input)` → `implements CompactionHandler`                                       |
 | `[health.not-a-health-check]`              | a class in `healthChecks` without `@HealthCheck` → decorate it                                                                      |

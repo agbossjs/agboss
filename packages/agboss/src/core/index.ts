@@ -77,8 +77,6 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type JudgeHandler,
   /** @deprecated Import from "@agboss/core" (#195). */
-  type JudgeMeta,
-  /** @deprecated Import from "@agboss/core" (#195). */
   type JudgeModel,
   /** @deprecated Import from "@agboss/core" (#195). */
   type JudgeStartEvent,

@@ -202,28 +202,25 @@ export const judgeReadings: {
 @Judge({
   name: "refund-recorded-judge",
   description: "The refund is in the ledger once",
-  decidedBy: DecidedBy.Code,
-  reply: DeskAnswerDto,
+  output: DeskAnswerDto,
   deps: [RefundLedger, DeskTenantContext, DeskExecutionContext],
 })
-export class RefundRecordedJudge implements JudgeHandler<DeskAnswerDto> {
+export class RefundRecordedJudge {
   constructor(
     private readonly refundLedger: RefundLedger,
     private readonly deskTenantContext: DeskTenantContext,
     private readonly deskExecutionContext: DeskExecutionContext,
   ) {}
 
-  judge({ toolCalls }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+  judge({ toolCalls }: JudgeInput<RefundRecordedJudge>): JudgeVerdict {
     const { tenantId, plan } = this.deskTenantContext;
     const { executionId, userId } = this.deskExecutionContext;
     judgeReadings.push({ tenantId, plan, executionId, userId });
     const refunds = toolCallsOf(RefundTool, toolCalls).length;
     const entries = this.refundLedger.findByTenantIdAndExecutionId(tenantId, executionId).length;
-    return Promise.resolve(
-      refunds === 1 && entries === 1
-        ? JudgeVerdict.passed({ metrics: { entries, plan } })
-        : JudgeVerdict.failed(`${String(refunds)} refund call(s), ${String(entries)} entries`),
-    );
+    return refunds === 1 && entries === 1
+      ? JudgeVerdict.passed({ metrics: { entries, plan } })
+      : JudgeVerdict.failed(`${String(refunds)} refund call(s), ${String(entries)} entries`);
   }
 }
 
@@ -232,17 +229,15 @@ export class RefundRecordedJudge implements JudgeHandler<DeskAnswerDto> {
   name: "answer-grounded-judge",
   description: "The answer says what the tools found",
   model: "test/judge",
-  reply: DeskAnswerDto,
+  output: DeskAnswerDto,
   deps: [JudgeModel],
 })
 export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
-    const answer = await this.judgeModel.invoke(`Is this grounded? ${reply.text}`);
-    return answer.trim() === "yes"
-      ? JudgeVerdict.passed()
-      : JudgeVerdict.failed("not grounded");
+  async judge({ output }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+    const answer = await this.judgeModel.invoke(`Is this grounded? ${output.text}`);
+    return answer.trim() === "yes" ? JudgeVerdict.passed() : JudgeVerdict.failed("not grounded");
   }
 }
 

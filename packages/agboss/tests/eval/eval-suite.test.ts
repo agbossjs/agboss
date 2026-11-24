@@ -1,7 +1,7 @@
 /**
  * #396 PR 1 — `@agboss/core/eval`: `@EvalSuite` and the builders of its cases and checks, typed by the
  * suite's start and each tool's input, and its assembly on the application it runs on —
- * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]`,
+ * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]`,
  * then the cases' values (`eval.case-invalid`). Nothing runs: no runner yet.
  */
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   DecidedBy,
   GraphRuleError,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   type JudgeHandler,
 } from "../../src/index.js";
@@ -44,11 +45,11 @@ import {
 } from "../flow/fixtures/clinic.fixture.js";
 
 /** A code judge of the refunds' finish: the refund is reported. */
-@Judge({ name: "refunded-judge", decidedBy: DecidedBy.Code, reply: RefundCardOutputDto })
+@Judge({ name: "refunded-judge", output: RefundCardOutputDto })
 class RefundedJudge implements JudgeHandler<RefundCardOutputDto> {
-  judge({ reply }: { readonly reply: RefundCardOutputDto }): Promise<JudgeVerdict> {
+  judge({ output }: { readonly output: RefundCardOutputDto }): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.status.startsWith("refunded")
+      output.status.startsWith("refunded")
         ? JudgeVerdict.passed()
         : JudgeVerdict.failed("no refund reported"),
     );
@@ -56,7 +57,7 @@ class RefundedJudge implements JudgeHandler<RefundCardOutputDto> {
 }
 
 /** A model judge of the clinic's finish: no reply of the refunds desk. */
-@Judge({ name: "beds-judge", model: "local/judge", reply: BedsDto })
+@Judge({ name: "beds-judge", model: "local/judge", output: BedsDto, deps: [JudgeModel] })
 class BedsJudge implements JudgeHandler<BedsDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -64,7 +65,7 @@ class BedsJudge implements JudgeHandler<BedsDto> {
 }
 
 /** A judge of a list: never a finish's output. */
-@Judge({ name: "refund-list-judge", decidedBy: DecidedBy.Code, reply: listOf(RefundCardOutputDto) })
+@Judge({ name: "refund-list-judge", output: listOf(RefundCardOutputDto) })
 class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -259,7 +260,7 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     );
   });
 
-  it("[eval.judge-wrong-reply]: a judge of no finish the start reaches, or of a list", () => {
+  it("[eval.judge-wrong-output]: a judge of no finish the start reaches, or of a list", () => {
     @EvalSuite({
       name: "judged-eval-suite",
       description: "judges of the wrong replies",
@@ -277,8 +278,8 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     class JudgedEvalSuite {}
 
     expect(codesOf(SlackRefundsApplication, JudgedEvalSuite)).toEqual([
-      "eval.judge-wrong-reply",
-      "eval.judge-wrong-reply",
+      "eval.judge-wrong-output",
+      "eval.judge-wrong-output",
     ]);
     expect(() => checkEvalSuite(SlackRefundsApplication, JudgedEvalSuite)).toThrow(
       /judged-eval-suite: beds-judge judges BedsDto, but the runs of refund-workflow-start end at finishes with RefundCardOutputDto — it judges none of them/u,
@@ -289,8 +290,12 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     class NotAJudge {
       readonly isJudge = false;
     }
-    // @ts-expect-error -- a code judge takes no model
-    @Judge({ name: "x-judge", decidedBy: DecidedBy.Code, model: "m", reply: RefundCardOutputDto })
+    @Judge({
+      name: "x-judge",
+      // @ts-expect-error -- a code judge takes no model
+      model: "m",
+      output: RefundCardOutputDto,
+    })
     class ModelledJudge implements JudgeHandler<RefundCardOutputDto> {
       judge(): Promise<JudgeVerdict> {
         return Promise.resolve(JudgeVerdict.passed());

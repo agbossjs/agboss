@@ -38,7 +38,7 @@ import { quorumRules } from "./rules/quorum.js";
 import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
 import { switchRules } from "./rules/switch.js";
-import { judgeReplyRules, textAgentRules } from "./rules/text-agents.js";
+import { judgeOutputRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
 import { worstCaseStepsWarnings } from "./strongly-connected.js";
 import { walkFlow } from "./walk.js";
@@ -84,7 +84,7 @@ const RULES: readonly FlowRule[] = [
   countLimitRules,
   switchRules,
   textAgentRules,
-  judgeReplyRules,
+  judgeOutputRules,
   errorRules,
   routerRules,
   modelRules,

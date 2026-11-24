@@ -5,8 +5,7 @@ import { runJudgeCall } from "../../components/judge-call.js";
 import {
   isCodeJudge,
   type AnyJudgeInput,
-  type JudgeHandlerClass,
-  type JudgeMeta,
+  type JudgeRecord,
   type JudgeVerdict,
   type RunnableJudge,
 } from "../../components/judge-decorators.js";
@@ -19,6 +18,9 @@ import { isJudgedBy, judgedShapeOf } from "../../flow/analyse/rules/text-agents.
 import { runInFrame } from "../../flow/context/frame.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import { meteredModel } from "../../graph/agent-loop/judge-model.js";
+import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
+import { modelProviderOf } from "../../models/model-provider.decorator.js";
+import type { Class } from "../../components/injection.js";
 import { judgeBindingOf, type JudgeBinding } from "../../llm/registry.js";
 import { CheckStatus } from "../suite/checks.js";
 import { judgeFrameOf, type JudgedExecution } from "./case-frame.js";
@@ -50,21 +52,32 @@ function finishOutputOf(deps: AppDeps, finish: string): DtoClass | undefined {
 }
 
 /** Why a judge cannot judge the run's output; undefined = it can, as this class. */
-function notJudged(meta: JudgeMeta, output: DtoClass | undefined, finish: string | undefined) {
+function notJudged(meta: JudgeRecord, output: DtoClass | undefined, finish: string | undefined) {
   if (finish === undefined) return "the run ended at no finish";
-  const { classes } = judgedShapeOf(meta.reply);
-  if (output !== undefined && classes.some((reply) => isJudgedBy(output, reply))) return undefined;
+  const { classes } = judgedShapeOf(meta.output);
+  if (output !== undefined && classes.some((judged) => isJudgedBy(output, judged)))
+    return undefined;
   return `the run ended at ${finish}, whose output ${meta.name} does not judge`;
 }
 
 /** The judge's own model: an agent's binding when one lists it, else bound for the eval now. */
-function bindingOf(deps: AppDeps, meta: JudgeMeta): JudgeBinding | undefined {
+function bindingOf(deps: AppDeps, meta: JudgeRecord): JudgeBinding | undefined {
   if (isCodeJudge(meta)) return undefined;
   const known = deps.registry.judges.get(meta.name);
   if (known !== undefined) return known;
   const { gateway } = deps.evaluation;
   if (gateway === undefined) throw new Error(`${meta.name}: the application has no models`);
-  return judgeBindingOf(meta.name, { model: meta.model }, deps.config, gateway);
+  return judgeBindingOf(
+    meta.name,
+    {
+      model: meta.model ?? DEFAULT_MODEL_ALIAS,
+      ...(meta.modelProvider === undefined
+        ? {}
+        : { modelProvider: modelProviderOf(meta.modelProvider).name }),
+    },
+    deps.config,
+    gateway,
+  );
 }
 
 const verdictResult = (
@@ -82,7 +95,7 @@ const verdictResult = (
 /** Runs one judge check on a case's last turn. */
 export async function runJudgeCheck(
   deps: AppDeps,
-  judge: JudgeHandlerClass,
+  judge: Class<object>,
   turn: JudgedTurn,
 ): Promise<EvalCheckResult> {
   const { meta } = checkedJudgeOf(`eval judge`, judge);
@@ -95,7 +108,7 @@ export async function runJudgeCheck(
   const handler = deps.container.get(judge) as RunnableJudge;
   const input: AnyJudgeInput = {
     variant: output,
-    reply: turn.output,
+    output: turn.output,
     task: turn.task,
     attempt: 0,
     toolCalls: turn.toolCalls,

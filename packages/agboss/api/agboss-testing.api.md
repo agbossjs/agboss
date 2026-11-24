@@ -543,13 +543,13 @@ export interface InvalidToolCallTurn<TName extends string = string> {
 type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
 
 // @public
-export interface JudgeRunner<TReply> extends UnitClock {
+export interface JudgeRunner<TOutput> extends UnitClock {
     // (undocumented)
-    (input: JudgeRunnerInput<TReply>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+    (input: JudgeRunnerInput<TOutput>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
 }
 
 // @public
-export type JudgeRunnerInput<TReply> = JudgedReply<TReply> & {
+export type JudgeRunnerInput<TOutput> = JudgedOutput<TOutput> & {
     readonly toolCalls?: readonly ToolCallRecord[];
     readonly files?: readonly FileContent[];
 };
@@ -1057,7 +1057,7 @@ export interface TestInstanceOptions {
 }
 
 // @public
-export function testJudge<TJudge extends JudgeHandlerClass, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: TJudge, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner<JudgeReplyOf<TJudge>>;
+export function testJudge<TJudge extends Class<object>, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(judge: TJudge, options?: UnitModelOptions<unknown, TExecution, TTenant>): JudgeRunner<JudgeOutputOf<TJudge>>;
 
 // @public
 export interface TestLeases {

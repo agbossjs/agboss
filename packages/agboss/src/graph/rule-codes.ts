@@ -227,13 +227,13 @@ export type RuleCode =
   | "di.missing-implementation"
   | "di.ambiguous-implementation"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
-  | "judge.wrong-reply"
+  | "judge.wrong-output"
   // a judge of its own model family (#396 PR 5): a warning, an error under --strict
   | "judge.same-model-family"
   // eval suites (#396 PR 1), reported when a suite is assembled on its application
   | "eval.unknown-start"
   | "eval.duplicate-case"
-  | "eval.judge-wrong-reply"
+  | "eval.judge-wrong-output"
   // child placement (#333 PR 2): one placement per child in a flow
   | "flow.conflicting-placement"
   // an agent's files for its model (#899)

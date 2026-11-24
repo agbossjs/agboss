@@ -82,7 +82,7 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
     await expect(
       judge.judge({
         variant: KeptDto,
-        reply: { text: "leaks s3cret" },
+        output: { text: "leaks s3cret" },
         task: "",
         attempt: 0,
         toolCalls: [],

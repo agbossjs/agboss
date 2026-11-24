@@ -6,6 +6,7 @@ import {
   EmptyEnvironment,
   Injectable,
   Judge,
+  JudgeModel,
   TokenLimit,
   Router,
   Workflow,
@@ -31,7 +32,7 @@ import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixtu
  * every kind of model use (agents, model routers, the default router, guards, compaction, judges).
  */
 
-@Judge({ name: "nowhere-judge", model: "nowhere/judge", reply: PlainTextDto })
+@Judge({ name: "nowhere-judge", model: "nowhere/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class NowhereJudge implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());

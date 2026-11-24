@@ -258,7 +258,7 @@ export class InjectionToken<T> {
 }
 
 // @public
-export function Judge<const TReply extends JudgeReplyShape, const D extends readonly Token[] = []>(options: JudgeOptions<TReply, D>): <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(value: C) => C;
+export function Judge<const TOutput extends JudgeOutputShape, const TDeps extends readonly Token[] = []>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
 
 // @public
 export interface JudgeEndEvent extends NodeEvent {
@@ -271,12 +271,9 @@ export interface JudgeEndEvent extends NodeEvent {
 }
 
 // @public
-export interface JudgeHandler<TReply> {
-    judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
+export interface JudgeHandler<TOutput> {
+    judge: (input: JudgeInput<TOutput>) => JudgeVerdict | Promise<JudgeVerdict>;
 }
-
-// @public
-export type JudgeMeta<TReply extends JudgeReplyShape = JudgeReplyShape> = ModelJudgeMeta<TReply> | CodeJudgeMeta<TReply>;
 
 // @public
 export abstract class JudgeModel {

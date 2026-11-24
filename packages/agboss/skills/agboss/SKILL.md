@@ -129,7 +129,7 @@ npm test                                                           # scripted mo
 - **Evals on a live model** are declared as an `@EvalSuite` (`@agboss/core/eval`,
   `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
   `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants
-  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  (`checkTrajectory()`), then code judges (`@Judge({ })`), then model
   judges. `npx agboss check` assembles them too (Loop 0).
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
 <run.json> [--save-baseline <baseline.json>]` — each case k times on the real application (`--env`), the cascade per run, pass@k and

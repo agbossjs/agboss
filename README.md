@@ -814,20 +814,21 @@ export class AuditStoreService {
 ## Quality gates (judges)
 
 `@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs every judge on the agent's reply. A
-judge is a `@Judge({ name, model, reply, deps })` class implementing `JudgeHandler<TReply>`; the
-container creates it with its `deps`, and its **own** model is called through the model gateway, so
-its spend is in the run's cost report (`judge:<name>`, category `review`). A judge sees the agent's
-answer **as its DTO** (#262 S115): `reply` names what it judges, in every shape an agent's `output`
-has — a DTO class, `oneOf(A, B)` (the reply is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
-`PlainTextDto` for a text agent (`{ text }`) — and `judge({ variant, reply, task, attempt })` gets
+judge is a `@Judge({ output, deps })` class with a `judge(input)` method (sync or async); the
+container creates it with its `deps`. One that injects `JudgeModel` (`deps: [JudgeModel]`) calls its
+**own** model through the model gateway, so its spend is in the run's cost report (`judge:<name>`,
+category `review`); one that does not is decided by code, at `$0`. A judge sees the agent's
+answer **as its DTO** (#262 S115): `output` names what it judges, in every shape an agent's `output`
+has — a DTO class, `oneOf(A, B)` (the output is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
+`PlainTextDto` for a text agent (`{ text }`) — and `judge({ variant, output, task, attempt })` gets
 the validated answer object, never a serialized string, and `variant`, the class it validated as
 (#262 S125): the class of the answer tool the agent used, never guessed from the answer's shape. For
 a `oneOf(A, B)` judge `JudgeInput<A | B>` is a discriminated union on `variant`, and
-`isVariant(input, A)` narrows `reply` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
+`isVariant(input, A)` narrows `output` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
 has `variant` as that one class; a `listOf(oneOf(A, B))` judge reads
-`reply: readonly VariantOf<A | B>[]` — each item `{ variant, value }`, narrowed by
+`output: readonly VariantOf<A | B>[]` — each item `{ variant, value }`, narrowed by
 `isVariant(item, A)`. An agent whose `output` its judge does not judge
-fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a DTO agent with another
+fails assembly with `[judge.wrong-output]`: a text agent with a DTO judge, a DTO agent with another
 class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
 other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
 `JudgeVerdict.failed(reason, { metrics? })` — the only way; a failed verdict's `reason` goes back to
@@ -883,7 +884,7 @@ import {
 @Judge({
   name: "answer-grounded-judge",
   model: "openai/gpt-6-luna-decisions",
-  reply: JobReportDto, // what it judges: the agent's output, as its DTO
+  output: JobReportDto, // what it judges: the agent's output, as its DTO
   deps: [JudgeModel, JOB_SEARCH],
 })
 export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
@@ -892,13 +893,13 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     private readonly jobSearch: JobSearch,
   ) {}
 
-  async judge({ reply, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
-    const [first] = reply.jobs;
+  async judge({ output, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+    const [first] = output.jobs;
     if (first === undefined || !(await this.jobSearch.exists(first.url))) {
       return JudgeVerdict.failed("the first job does not exist");
     }
     const a = await this.judgeModel.decide({
-      state: { task, jobs: reply.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
+      state: { task, jobs: output.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
       questions: {
         grounded: Decision.boolean("Every job of the report appears in the results"),
         tone: Decision.choice("Tone of the report", {
@@ -919,7 +920,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
 `mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
-on its own, `testJudge(AnswerGroundedJudge, …)({ variant, reply, task, attempt })` takes `reply` as a
+on its own, `testJudge(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
 plain object of its DTO, typed by the judge — another shape, or a `variant` with another class's
 value, does not compile.
 
@@ -939,20 +940,20 @@ export class RefusalDto {
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { isVariant, oneOf } from "@agboss/core/dto";
 
-@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
+@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
     if (isVariant(input, OfferDto)) {
-      // input.variant is OfferDto, the class of the answer tool; input.reply is an OfferDto
+      // input.variant is OfferDto, the class of the answer tool; input.output is an OfferDto
       return Promise.resolve(
-        input.reply.salary > 0
+        input.output.salary > 0
           ? JudgeVerdict.passed()
           : JudgeVerdict.failed("an offer pays something"),
       );
     }
-    // input.reply is a RefusalDto
+    // input.output is a RefusalDto
     return Promise.resolve(
-      input.reply.why.trim() === ""
+      input.output.why.trim() === ""
         ? JudgeVerdict.failed("a refusal says why")
         : JudgeVerdict.passed(),
     );
@@ -1137,7 +1138,7 @@ it("a grounded reply passes", async () => {
   const runJudge = testJudge(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
 
   const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
-  const { output } = await runJudge({ variant: PlainTextDto, reply, task: "Find TS jobs", attempt: 0 });
+  const { output } = await runJudge({ variant: PlainTextDto, output: reply, task: "Find TS jobs", attempt: 0 });
 
   expect(output.passed).toBe(true);
 });

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { Agent, InputGuardrail, Injectable, Judge, JudgeVerdict, Tool } from "../../src/index.js";
+import {
+  Agent,
+  InputGuardrail,
+  Injectable,
+  Judge,
+  JudgeModel,
+  JudgeVerdict,
+  Tool,
+} from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
 import {
   Integer,
@@ -35,7 +43,7 @@ class Search {
   }
 }
 
-@Judge({ name: "fair", model: "test/judge", reply: PlainTextDto })
+@Judge({ name: "fair", model: "test/judge", output: PlainTextDto, deps: [JudgeModel] })
 class Fair {
   judge(_input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -71,8 +79,6 @@ describe("#200 AC2: slots are typed by component kind", () => {
       prompt: "p",
       // @ts-expect-error -- JobFitJudge is not a @Tool (no `run`)
       tools: [JobFitJudge],
-      // @ts-expect-error -- JobFitJudge is not a @Judge (no `judge`)
-      judges: [JobFitJudge],
     })
     class Wrong {}
 
@@ -83,16 +89,21 @@ describe("#200 AC2: slots are typed by component kind", () => {
 describe("#262 S115: a judge judges the reply it declares, with a built verdict", () => {
   it("its handler's reply is its @Judge reply; a plain-object verdict does not compile", () => {
     // @ts-expect-error -- it declares reply: Query but judges a PlainTextDto
-    @Judge({ name: "mismatched-judge", model: "test/judge", reply: Query })
+    @Judge({ name: "mismatched-judge", model: "test/judge", output: Query, deps: [JudgeModel] })
     class Mismatched {
       judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
         return Promise.resolve(
-          input.reply.text === "" ? JudgeVerdict.failed("empty") : JudgeVerdict.passed(),
+          input.output.text === "" ? JudgeVerdict.failed("empty") : JudgeVerdict.passed(),
         );
       }
     }
 
-    @Judge({ name: "plain-verdict-judge", model: "test/judge", reply: PlainTextDto })
+    @Judge({
+      name: "plain-verdict-judge",
+      model: "test/judge",
+      output: PlainTextDto,
+      deps: [JudgeModel],
+    })
     class PlainVerdict {
       judge(): Promise<JudgeVerdict> {
         // @ts-expect-error -- a verdict is built with JudgeVerdict.passed / JudgeVerdict.failed only
@@ -114,12 +125,17 @@ class ReasonDto {
 
 describe("#262 S125: a oneOf judge reads its variant", () => {
   it("a listOf(oneOf(…)) judge reads VariantOf items, never bare values", () => {
-    @Judge({ name: "items-judge", model: "test/judge", reply: listOf(oneOf(SalaryDto, ReasonDto)) })
+    @Judge({
+      name: "items-judge",
+      model: "test/judge",
+      output: listOf(oneOf(SalaryDto, ReasonDto)),
+      deps: [JudgeModel],
+    })
     class Items {
       judge({
-        reply,
+        output,
       }: JudgeInput<readonly VariantOf<SalaryDto | ReasonDto>[]>): Promise<JudgeVerdict> {
-        const paid = reply.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
+        const paid = output.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
         return Promise.resolve(paid ? JudgeVerdict.passed() : JudgeVerdict.failed("unpaid"));
       }
     }
@@ -128,7 +144,8 @@ describe("#262 S125: a oneOf judge reads its variant", () => {
     @Judge({
       name: "bare-items-judge",
       model: "test/judge",
-      reply: listOf(oneOf(SalaryDto, ReasonDto)),
+      output: listOf(oneOf(SalaryDto, ReasonDto)),
+      deps: [JudgeModel],
     })
     class BareItems {
       judge(_input: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {

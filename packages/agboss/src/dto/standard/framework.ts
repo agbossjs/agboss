@@ -16,12 +16,6 @@ export class WorkflowStartTextDto {
   author?: string;
 }
 
-/** The text a workflow run finishes with (the output of a text `@WorkflowFinish`). */
-export class WorkflowFinishTextDto {
-  @Text({ prompt: "the text the run finishes with, in plain words" })
-  text!: string;
-}
-
 /** What a workflow pause asks outside the run — a person or a system. */
 export class WorkflowPauseQuestionDto {
   @Text({ prompt: "the question to ask, in one sentence" })
@@ -108,6 +102,15 @@ export class NoInputDto extends Object {}
 export class PlainTextDto {
   @Text({ prompt: "the text" })
   text!: string;
+}
+
+/**
+ * The text a workflow run finishes with (the output of a text `@WorkflowFinish`). It is a
+ * `PlainTextDto`, so one text `@Judge({ output: PlainTextDto })` judges an agent's text and a finish's.
+ */
+export class WorkflowFinishTextDto extends PlainTextDto {
+  @Text({ prompt: "the text the run finishes with, in plain words" })
+  override text = "";
 }
 
 /** A piece of text a knowledge base (`@Rag`) found for a query. */

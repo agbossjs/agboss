@@ -33,7 +33,7 @@ export const RUBRIC = new InjectionToken<string>("RUBRIC");
 @Judge({
   name: "grounded",
   model: "local/judge",
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [RUBRIC, JudgeModel],
 })
 export class Grounded implements JudgeHandler<PlainTextDto> {
@@ -42,9 +42,9 @@ export class Grounded implements JudgeHandler<PlainTextDto> {
     private readonly judgeModel: JudgeModel,
   ) {}
 
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const verdict = await this.judgeModel.invoke(
-      `${this.rubric}\n\nTask: ${task}\nReply: ${reply.text}`,
+      `${this.rubric}\n\nTask: ${task}\nReply: ${output.text}`,
     );
     return verdict.startsWith("PASS")
       ? JudgeVerdict.passed()
@@ -106,7 +106,7 @@ export class JudgedDesk {}
 export class JudgedDeskApplication {}
 
 /** A judge with no model: assembly must refuse it. */
-@Judge({ name: "modelless", model: "", reply: PlainTextDto })
+@Judge({ name: "modelless", model: "", output: PlainTextDto, deps: [JudgeModel] })
 export class Modelless implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());

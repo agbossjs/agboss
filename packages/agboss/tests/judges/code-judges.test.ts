@@ -1,5 +1,5 @@
 /**
- * #396 PR 1 — `@Judge({ decidedBy: DecidedBy.Code })`: a judge decided by its `judge(input)` alone,
+ * #396 PR 1 — `@Judge({ })`: a judge decided by its `judge(input)` alone,
  * in an agent's quality gate beside a model judge (its services and the execution through `deps`,
  * no model call, no spend), refused at assembly with a model (`[judge.model-on-code-judge]`) or an
  * injected `JudgeModel`, and run by `testJudge` without a model script.
@@ -11,7 +11,6 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import {
   Agent,
-  DecidedBy,
   EmptyEnvironment,
   Judge,
   JudgeModel,
@@ -78,12 +77,11 @@ describe("#396: a code judge in an agent's quality gate", () => {
   });
 });
 
-// @ts-expect-error -- a code judge takes no model ([judge.model-on-code-judge] for plain JS)
 @Judge({
   name: "named-model-judge",
-  decidedBy: DecidedBy.Code,
+  // @ts-expect-error -- a code judge takes no model ([judge.model-on-code-judge] for plain JS)
   model: "local/judge",
-  reply: PlainTextDto,
+  output: PlainTextDto,
 })
 class NamedModelJudge implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
@@ -91,24 +89,8 @@ class NamedModelJudge implements JudgeHandler<PlainTextDto> {
   }
 }
 
-@Judge({
-  name: "injected-model-judge",
-  decidedBy: DecidedBy.Code,
-  reply: PlainTextDto,
-  deps: [JudgeModel],
-})
-class InjectedModelJudge implements JudgeHandler<PlainTextDto> {
-  constructor(private readonly judgeModel: JudgeModel) {}
-
-  async judge(): Promise<JudgeVerdict> {
-    return (await this.judgeModel.invoke("ok?")) === "yes"
-      ? JudgeVerdict.passed()
-      : JudgeVerdict.failed("no");
-  }
-}
-
 /** One application whose only agent is gated by `judge`. */
-function gatedBy(judge: typeof NamedModelJudge | typeof InjectedModelJudge, name: string) {
+function gatedBy(judge: typeof NamedModelJudge, name: string) {
   @Agent({
     name: `${name}-agent`,
     prompt: "Write.",
@@ -138,30 +120,28 @@ function gatedBy(judge: typeof NamedModelJudge | typeof InjectedModelJudge, name
   return GatedApplication;
 }
 
+/** A class that is no judge model provider: a `modelProvider` of a judge with no `JudgeModel` does not compile. */
+class SomeProvider {
+  readonly name = "some-provider";
+}
+
 describe("#396: [judge.model-on-code-judge] at assembly", () => {
   it("a code judge that names a model is refused", async () => {
     await expect(createAppWith(gatedBy(NamedModelJudge, "named"), offline())).rejects.toThrow(
-      /^\[judge\.model-on-code-judge\] @Judge NamedModelJudge \("named-model-judge"\): decided by code \(DecidedBy\.Code\), but it names model "local\/judge"/u,
+      /^\[judge\.model-on-code-judge\] @Judge NamedModelJudge \("named-model-judge"\): names a model, but it does not inject JudgeModel/u,
     );
   });
 
-  it("a code judge that injects JudgeModel is refused", async () => {
-    await expect(createAppWith(gatedBy(InjectedModelJudge, "injected"), offline())).rejects.toThrow(
-      /^\[judge\.model-on-code-judge\] @Judge InjectedModelJudge .*remove JudgeModel from deps/u,
-    );
-  });
+  it("model and modelProvider need JudgeModel in deps", () => {
+    // @ts-expect-error -- a judge with no JudgeModel in deps is decided by code: it names no model
+    Judge({ name: "a-judge", model: "x", output: PlainTextDto });
+    // @ts-expect-error -- nor a modelProvider
+    Judge({ name: "b-judge", modelProvider: SomeProvider, output: PlainTextDto });
 
-  it("decidedBy and model are discriminated: a model judge needs a model, a code judge none", () => {
-    // @ts-expect-error -- a model judge (the default) names its model
-    Judge({ name: "a-judge", reply: PlainTextDto });
-    // @ts-expect-error -- DecidedBy.Model names its model too
-    Judge({ name: "b-judge", decidedBy: DecidedBy.Model, reply: PlainTextDto });
-    // @ts-expect-error -- DecidedBy.Code takes no model
-    Judge({ name: "c-judge", decidedBy: DecidedBy.Code, model: "x", reply: PlainTextDto });
-
-    expect(Judge({ name: "d-judge", decidedBy: DecidedBy.Code, reply: PlainTextDto })).toBeTypeOf(
-      "function",
-    );
+    expect(Judge({ name: "c-judge", output: PlainTextDto })).toBeTypeOf("function");
+    expect(
+      Judge({ name: "d-judge", model: "x", output: PlainTextDto, deps: [JudgeModel] }),
+    ).toBeTypeOf("function");
   });
 });
 
@@ -171,13 +151,13 @@ describe("#396: testJudge on a code judge", () => {
 
     const passed = await run({
       variant: PlainTextDto,
-      reply: { text: "We will try." },
+      output: { text: "We will try." },
       task: "?",
       attempt: 0,
     });
     const failed = await run({
       variant: PlainTextDto,
-      reply: { text: "We guarantee." },
+      output: { text: "We guarantee." },
       task: "?",
       attempt: 1,
     });
@@ -189,7 +169,7 @@ describe("#396: testJudge on a code judge", () => {
 
   it("a model script for a code judge is a mistake in the test", () => {
     expect(() => testJudge(NoBannedWordsJudge, { model: replyWith("PASS") })).toThrow(
-      /no-banned-words-judge is decided by code \(DecidedBy\.Code\) — it calls no model; leave out model/u,
+      /no-banned-words-judge injects no JudgeModel \(it is decided by code\) — it calls no model; leave out model/u,
     );
   });
 
@@ -202,7 +182,7 @@ describe("#396: testJudge on a code judge", () => {
 
     const { output } = await run({
       variant: PlainTextDto,
-      reply: { text: "x" },
+      output: { text: "x" },
       task: "?",
       attempt: 0,
     });
@@ -211,7 +191,7 @@ describe("#396: testJudge on a code judge", () => {
     expect(reasons).toEqual(
       ["invoke", "decide", "model"].map(
         (member) =>
-          `[judge.model-on-code-judge] judge "second-opinion-judge" is decided by code (DecidedBy.Code) and has no model — judgeModel.${member} is not available`,
+          `[judge.model-on-code-judge] judge "second-opinion-judge" is decided by code and has no model — judgeModel.${member} is not available`,
       ),
     );
   });
