@@ -13,7 +13,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../../src/index.js";
-import { McpExpose } from "../../../src/mcp/index.js";
+import { McpEndpoint } from "../../../src/mcp/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -218,8 +218,8 @@ export class ShopA2AExpose {}
 })
 export class QuoteA2AExpose {}
 
-@McpExpose({ name: "shop-mcp-expose", version: "1.0.0", exports: [RefundWorkflowStart] })
-export class ShopMcpExpose {}
+@McpEndpoint({ name: "shop-mcp-expose", version: "1.0.0", tools: [RefundWorkflowStart] })
+export class ShopMcpEndpoint {}
 
 /** The shop served over A2A: two exported starts, one listed expose left out of `exposes`. */
 @Application({
@@ -228,7 +228,7 @@ export class ShopMcpExpose {}
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpExpose],
+  exposes: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopApplication {}
 
@@ -239,6 +239,6 @@ export class ShopApplication {}
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpExpose],
+  exposes: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopKbApplication {}

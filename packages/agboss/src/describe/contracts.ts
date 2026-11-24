@@ -27,7 +27,7 @@ export type * from "./contracts-types.js";
 /**
  * The application's declared contracts (#398 PR 3), as `agboss describe --json` lists them under
  * `application.contracts`: what it **exports** — each `@A2AExpose` start (its input and its
- * finishes' outputs) and each `@McpExpose` tool listed in `@Application({ exposes })` — and what
+ * finishes' outputs) and each `@McpEndpoint` tool listed in `@Application({ exposes })` — and what
  * it **consumes** — each `@A2AAgent` (its target, input, output, price and the tools that use it)
  * and each `@McpServer` tool (its target, or `null` for a third-party server). Every DTO is named
  * with its `schemaHash`; `schemas` holds the JSON Schema of each, what `check --federation`
@@ -98,8 +98,8 @@ function a2aExportsOf(
 
 function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
   const meta = componentOf(expose);
-  if (meta?.kind !== "mcp-expose") return [];
-  return meta.meta.exports.flatMap((exported): McpExportContract[] => {
+  if (meta?.kind !== "mcp-endpoint") return [];
+  return meta.meta.tools.flatMap((exported): McpExportContract[] => {
     const start = declarationOf(exported);
     const tool = componentOf(exported);
     const base = { kind: "mcp" as const, expose: meta.meta.name, version: meta.meta.version };

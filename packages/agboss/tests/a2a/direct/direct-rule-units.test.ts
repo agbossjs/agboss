@@ -21,7 +21,7 @@ import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { McpExpose } from "../../../src/mcp/mcp-expose.decorator.js";
+import { McpEndpoint } from "../../../src/mcp/mcp-endpoint.decorator.js";
 import {
   OnceLevelWorkflow,
   OnceLevelWorkflowStart,
@@ -172,11 +172,11 @@ describe("#860: what the direct-reply rule reads past", () => {
 
   it("a workflow, an export or an expose of no decorator, an MCP expose: nothing thrown, nothing found", () => {
     const { start: exported, workflow } = skillOf([PlainAgent]);
-    @McpExpose({ name: "unit-rule-mcp-expose", version: "1.0.0", exports: [exported] })
-    class UnitMcpExpose {}
+    @McpEndpoint({ name: "unit-rule-mcp-expose", version: "1.0.0", tools: [exported] })
+    class UnitMcpEndpoint {}
 
     expect(violationsOf([PlainTool, workflow], [exposeOf([exported, PlainTool])])).toEqual([]);
-    expect(violationsOf([workflow], [UnitMcpExpose, PlainTool])).toEqual([]);
+    expect(violationsOf([workflow], [UnitMcpEndpoint, PlainTool])).toEqual([]);
   });
 
   it("an option of no reply for no export is no unknown reply; an export of no name never answers with a message", () => {

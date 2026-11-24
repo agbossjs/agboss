@@ -25,7 +25,7 @@ export interface MeshPeer {
   /** The peer's application name: the `issuer` of its envelopes and of its `X-AGBoss-Mesh` header. */
   readonly application: string;
   readonly verifyKeys: readonly MeshVerifyKey[];
-  /** The `@A2AExpose` / `@McpExpose` classes the peer may call; none listed → any. */
+  /** The `@A2AExpose` / `@McpEndpoint` classes the peer may call; none listed → any. */
   readonly allowEndpoints?: readonly Class[];
   /** Whether the peer's signed `tenantId` is the caller's tenant for the requests it makes. */
   readonly propagateTenant?: boolean;

@@ -1,28 +1,15 @@
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { jsonSchemaOf } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
-import type { McpExposeOptions } from "./mcp-expose.decorator.js";
+import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import type { InboundMesh } from "../mesh/inbound-mesh.js";
 import { MESH_ERROR_META_KEY } from "../mesh/mesh-envelope.js";
 import { RecordedError } from "../core/error-record.js";
 import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 
-/** Helpers for `McpService`: reading `@McpExpose` options, tool schemas, results and the resume tool. */
-
-/** The part of the SDK's SSE server transport that `McpService` uses. */
-export interface SseTransport extends Transport {
-  readonly sessionId: string;
-  handlePostMessage(req: IncomingMessage, res: ServerResponse, parsedBody?: unknown): Promise<void>;
-}
-
-export const createSseTransport = (endpoint: string, res: ServerResponse): SseTransport =>
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- SSE kept as the HTTP transport; migrating to StreamableHTTPServerTransport changes the wire protocol (out of scope for #180)
-  new SSEServerTransport(endpoint, res);
+/** Helpers for the MCP server: reading `@McpEndpoint` options, tool schemas, results and the resume tool. */
 
 /** One `tools/call` as the service sees it: the raw arguments, the client's cancel signal. */
 export interface McpCall {
@@ -46,10 +33,10 @@ export interface ToolRegistry {
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-/** The `@McpExpose` options recorded on `config`. */
-export function mcpServerOptionsOf(config: Class): McpExposeOptions | undefined {
+/** The `@McpEndpoint` options recorded on `config`. */
+export function mcpServerOptionsOf(config: Class): McpEndpointOptions | undefined {
   const component = componentOf(config);
-  return component?.kind === "mcp-expose" ? component.meta : undefined;
+  return component?.kind === "mcp-endpoint" ? component.meta : undefined;
 }
 
 /** A DTO as an MCP object schema (`inputSchema` / `outputSchema`). */

@@ -7,7 +7,7 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 | You want to…                                          | Use                                                                                                           |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in a `@Tool`'s `deps` (the tool calls it)                            |
-| let Claude Desktop / another agent call your workflow | `@McpExpose` + `createMcpService(app, Expose)` (`@agboss/core/mcp`)                                           |
+| let Claude Desktop / another agent call your workflow | `@McpEndpoint` + `connectMcpStdio` / `connectMcp` / `mcpHttpListener` (`@agboss/core/mcp`)                    |
 | call a workflow of another AGBoss application         | `@A2AAgent({ target, input, output })` (`extends A2AClient<In, Out>`) in `providers`, injected into a `@Tool` |
 | serve your workflow to A2A callers                    | `@A2AExpose` in `@Application({ exposes })` + `a2aHttpListener(app, { expose, authenticator })`               |
 
@@ -423,7 +423,7 @@ export class SupportApplication {}
   Pass `executionContext.signal` so a cancel or a timeout aborts the HTTP call.
 - `agboss describe --json` lists every `@A2AAgent` under `application.contracts.imports` (target,
   `usedBy`, input and output with their `schemaHash`, price) and every listed `@A2AExpose` /
-  `@McpExpose` under `exports` (an A2A export by its `skill` — the start's name). Save each
+  `@McpEndpoint` under `exports` (an A2A export by its `skill` — the start's name). Save each
   neighbour's as a file and run `npx agboss check --federation snapshots/`: no network, every
   consumed contract whose target is among the snapshots compared field by field — an `@A2AAgent`
   is paired by `(target.application, target.skill)` with the export `skill` of that application,
@@ -440,14 +440,14 @@ Over MCP — the workflow's tools and starts become MCP tools; a start runs `app
 start exported `resume_workflow` (`app.resume`) is offered too:
 
 ```ts file=src/support/mcp/support.expose.ts
-import { McpExpose } from "@agboss/core/mcp";
+import { McpEndpoint } from "@agboss/core/mcp";
 import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 import { SearchIssuesTool } from "./search-issues.mcp.js";
 
-@McpExpose({
+@McpEndpoint({
   name: "support-mcp",
   version: "1.0.0",
-  exports: [SearchIssuesTool, SupportWorkflowStart], // tools of the workflow, and its starts
+  tools: [SearchIssuesTool, SupportWorkflowStart], // tools of the workflow, and its starts
 })
 export class SupportMcp {}
 ```
@@ -459,13 +459,12 @@ import { SupportMcp } from "./src/support/mcp/support.expose.js";
 -->
 
 ```ts
-// server.ts — local clients over stdio; for HTTP: service.handleSse(req, res, "/mcp/messages", session)
-// and service.handleMessage(req, res, sessionId) in your HTTP framework
-import { createMcpService } from "@agboss/core/mcp";
+// server.ts — local clients over stdio; for HTTP: http.createServer(mcpHttpListener(app, { endpoint,
+// authenticator, publicUrl, base })) — each request is judged on its own, a session is its opener's
+import { connectMcpStdio } from "@agboss/core/mcp";
 
 const app = await createApp(SupportApplication);
-const service = createMcpService(app, SupportMcp);
-await service.connectStdio(); // serves until stdin closes
+await using connection = await connectMcpStdio(app, { endpoint: SupportMcp }); // serves until closed
 ```
 
 Over A2A — an `@A2AExpose({ name, version, description, exports, skills? })`
@@ -868,7 +867,7 @@ mTLS or a token) and the envelope carries that peer's valid signature (`signedBy
 authenticator the listener checks a signed envelope of a known issuer — its signature and its
 `issuedAt` + `expiresIn` (60 s) on the `Clock` — and refuses a bad one with `401`
 `mesh.signature-invalid` / `mesh.envelope-expired`; a trusted one must carry the body it signed
-(`bodyHash`, else `401 mesh.body-mismatch`). Over MCP, `createMcpService(app, X).connect(transport, { peer })` names
+(`bodyHash`, else `401 mesh.body-mismatch`). Over MCP, `connectMcp(app, { endpoint: X, transport, session: { peer } })` names
 the session's peer. A test signs as a peer with `signedMeshEnvelope({ issuer, audience?,
 signingKey, body, issuedAt, origin, callChain, budget?, deadline? })` (`@agboss/core/testing`,
 #521) for an MCP call — the framework's own encoder, the very `_meta` value a real client sends. An

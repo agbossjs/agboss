@@ -123,7 +123,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   readonly mesh?: Class;
   /**
    * What the application serves to other applications (#398 PR 3): its `@A2AExpose` and
-   * `@McpExpose` classes — `a2aHttpListener` serves only a listed one
+   * `@McpEndpoint` classes — `a2aHttpListener` serves only a listed one
    * (`[application.expose-unlisted]`), and `agboss describe --json` lists them as exported contracts.
    */
   readonly exposes?: readonly Class[];

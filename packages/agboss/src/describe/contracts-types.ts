@@ -27,7 +27,7 @@ export interface A2AExportContract {
   readonly cardFileFields: A2ACardFileFields;
 }
 
-/** An `@McpExpose` tool: an exported start or tool. */
+/** An `@McpEndpoint` tool: an exported start or tool. */
 export interface McpExportContract {
   readonly kind: "mcp";
   readonly expose: string;

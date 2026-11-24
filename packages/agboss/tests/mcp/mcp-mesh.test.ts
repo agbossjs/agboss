@@ -10,7 +10,8 @@ import type { App } from "../../src/app/types.js";
 import { McpServerClient } from "../../src/components/mcp-client.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../src/index.js";
-import { createMcpService, McpExpose } from "../../src/mcp/index.js";
+import { connectMcp, McpEndpoint } from "../../src/mcp/index.js";
+import { plainApp } from "../helpers/mcp-plain-app.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import type { MeshHop } from "../../src/mesh/mesh-hop.js";
 import { connectMcpServers, mcpResultValue, mcpServer } from "../../src/tools/index.js";
@@ -54,12 +55,12 @@ async function served(book: ScriptBook, peerUrl: string, maxMeshHops?: number) {
     peerUrl,
     ...(maxMeshHops === undefined ? {} : { maxMeshHops }),
   });
-  @McpExpose({ name: "orders-mcp", version: "1.0.0", exports: [parts.MeshStart, parts.CallPeer] })
+  @McpEndpoint({ name: "orders-mcp", version: "1.0.0", tools: [parts.MeshStart, parts.CallPeer] })
   class OrdersMcp {}
   const app = await createAppWith(parts.MeshApplication, offline(book));
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, OrdersMcp).connect(serverSide);
+  await connectMcp(plainApp(app), { endpoint: OrdersMcp, transport: serverSide });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   await client.connect(clientSide);
   return { client, parts };

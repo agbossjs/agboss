@@ -794,8 +794,8 @@ export class AskBillingTool {
   check; over MCP an error result with that code, on the A2A listener `401`, #810) — else any
   receiver could replay it to another application as its issuer's signed word.
 
-**The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
-`@McpExpose`s in `@Application({ exposes })`:
+**The receiver** — an `@A2AExpose` (mirrors `@McpEndpoint`) names what it serves, listed with its
+`@McpEndpoint`s in `@Application({ exposes })`:
 
 <!-- snippet-context
 import { Application, EmptyEnvironment, WorkflowStart } from "@agboss/core";

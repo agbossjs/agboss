@@ -4,7 +4,7 @@ import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelOptions } from "./decorators.js";
-import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
+import type { McpEndpointOptions } from "../mcp/mcp-endpoint.decorator.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** `@Tool` — its options as recorded. */
@@ -44,8 +44,8 @@ export type ComponentMeta =
         readonly tools: ServerTools;
       };
     }
-  /** `@McpExpose` (`@agboss/core/mcp`): what `createMcpService` exposes to MCP clients. */
-  | { readonly kind: "mcp-expose"; readonly meta: McpExposeOptions }
+  /** `@McpEndpoint` (`@agboss/core/mcp`): what `connectMcp` / `mcpHttpListener` expose to MCP clients. */
+  | { readonly kind: "mcp-endpoint"; readonly meta: McpEndpointOptions }
   /** `@A2AExpose` (`@agboss/core/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
   | {
       readonly kind: "a2a-expose";
@@ -195,7 +195,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",
-  "mcp-expose": "McpExpose",
+  "mcp-endpoint": "McpEndpoint",
   "a2a-expose": "A2AExpose",
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",

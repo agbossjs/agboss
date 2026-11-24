@@ -12,7 +12,8 @@ import {
   type WorkflowDefinition,
   Tool,
 } from "../../src/index.js";
-import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/mcp/index.js";
+import { connectMcp, McpEndpoint, type McpSessionOptions } from "../../src/mcp/index.js";
+import { plainApp } from "../helpers/mcp-plain-app.js";
 import { Text } from "../../src/dto/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
@@ -122,10 +123,10 @@ class ClerkDesk implements WorkflowDefinition {
 })
 export class ClerkDeskApplication {}
 
-@McpExpose({
+@McpEndpoint({
   name: "desk-mcp",
   version: "1.0.0",
-  exports: [OrderStatus, EchoCall, Broken, ChatStart, Clerk],
+  tools: [OrderStatus, EchoCall, Broken, ChatStart, Clerk],
 })
 class DeskMcp {}
 
@@ -140,7 +141,7 @@ async function connected(
   const app = await createAppWith(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, DeskMcp).connect(serverSide, session);
+  await connectMcp(plainApp(app), { endpoint: DeskMcp, transport: serverSide, session: session });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   await client.connect(clientSide);
   return client;
@@ -312,8 +313,8 @@ describe("McpService over an in-memory MCP transport", () => {
     opened.push(app);
     const [, serverSide] = InMemoryTransport.createLinkedPair();
 
-    await expect(createMcpService(app, DeskMcp).connect(serverSide)).rejects.toThrow(
-      /exports EchoCall, which is not a tool of application "desk-application"/,
-    );
+    await expect(
+      connectMcp(plainApp(app), { endpoint: DeskMcp, transport: serverSide }),
+    ).rejects.toThrow(/exports EchoCall, which is not a tool of application "desk-application"/);
   });
 });

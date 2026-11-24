@@ -58,7 +58,7 @@ export interface MeshSettings {
 
 /** What a verified peer may do here: the endpoints it may call and whether its tenant is trusted. */
 export interface MeshPeerRules {
-  /** The `@A2AExpose` / `@McpExpose` classes it may call; `undefined` → any. */
+  /** The `@A2AExpose` / `@McpEndpoint` classes it may call; `undefined` → any. */
   readonly allowEndpoints: readonly Class[] | undefined;
   /** Whether its signed `tenantId` is the caller's tenant. */
   readonly propagateTenant: boolean;

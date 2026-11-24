@@ -881,12 +881,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ]),
   ...reviewed("the loader of an application's sources: tooling", ["src/loader/**"]),
   ...reviewed(
-    "the MCP exports and the `@McpExpose` declaration: re-exports and a decorator that records its options",
-    ["src/mcp/index.ts", "src/mcp/mcp-expose.decorator.ts"],
+    "the MCP exports and the `@McpEndpoint` declaration: re-exports and a decorator that records its options",
+    ["src/mcp/index.ts", "src/mcp/mcp-endpoint.decorator.ts"],
   ),
   ...reviewed(
-    "the MCP server's sessions and transports: the order of its call path (the mesh gate, then the deduplication of `once-mesh`, then the run) is tested end to end only; the rules themselves are in the files beside it",
-    ["src/mcp/mcp-service.ts"],
+    "the MCP server's call path and its connections: the order of the call path (the mesh gate, then the deduplication of `once-mesh`, then the run) is tested end to end only; the rules themselves are in the files beside it; the HTTP sessions' identity is `mcp-http-listener.ts`, sharded",
+    ["src/mcp/mcp-server-instance.ts", "src/mcp/mcp-connect.ts"],
   ),
   ...reviewed(
     "the MCP server's text helpers: tool schemas, a result's and an error's text, a decision's JSON, the SSE transport; the mesh limit an error result carries is tested end to end; no spend, lease or cancel logic",

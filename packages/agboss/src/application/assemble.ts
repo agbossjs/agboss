@@ -89,7 +89,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly maxMeshHops: number;
   /** `@Application({ mesh })` (#398 PR 2, #1320): its `@Mesh`, as recorded. */
   readonly mesh?: MeshMeta;
-  /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpExpose` contracts. */
+  /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpEndpoint` contracts. */
   readonly exposes: readonly Class[];
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;

@@ -39,7 +39,7 @@ export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "e
 };
 
 /**
- * What an `@McpExpose` exposes: its `@Tool` exports (run through the same adapter as
+ * What an `@McpEndpoint` exposes: its `@Tool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
@@ -82,7 +82,7 @@ function addTool(registry: ToolRegistry, exported: ExportedTool): void {
   const instance: unknown = app.hasTool(meta.name) ? app.resolve(exp) : undefined;
   if (!isToolHandler(instance)) {
     throw new Error(
-      `@McpExpose exports ${exp.name}, which is not a tool of application "${app.name}"`,
+      `@McpEndpoint exports ${exp.name}, which is not a tool of application "${app.name}"`,
     );
   }
   const tool = adapt(instance, meta);

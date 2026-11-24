@@ -12,7 +12,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { MeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
-import { createMcpService, McpExpose } from "../../src/mcp/index.js";
+import { connectMcp, McpEndpoint } from "../../src/mcp/index.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { offline } from "../a2a/fixtures/remote.workflow.js";
@@ -58,7 +58,7 @@ async function billing(tenantId: string) {
     peerUrl: "http://unused",
     mesh: meshOf("orders-application"),
   });
-  @McpExpose({ name: "billing-mcp", version: "1.0.0", exports: [parts.MeshStart] })
+  @McpEndpoint({ name: "billing-mcp", version: "1.0.0", tools: [parts.MeshStart] })
   class BillingMcp {}
   const book = new ScriptBook();
   const app = await createAppWith(parts.MeshApplication, {
@@ -68,9 +68,13 @@ async function billing(tenantId: string) {
   });
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, BillingMcp).connect(serverSide, {
-    peer: "orders-application",
-    tenant: { tenantId },
+  await connectMcp(app, {
+    endpoint: BillingMcp,
+    transport: serverSide,
+    session: {
+      peer: "orders-application",
+      tenant: { tenantId },
+    },
   });
   const client = new Client({ name: "orders", version: "1.0.0" });
   await client.connect(clientSide);

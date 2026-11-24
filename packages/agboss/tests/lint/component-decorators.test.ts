@@ -197,7 +197,7 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   Workflow: "the module: metadata only, never instantiated",
   Application: "the application: metadata only, never instantiated",
   ChannelRole: "an abstract role: its @Channel implementation is the component",
-  McpExpose: "what createMcpService exposes: an empty configuration class",
+  McpEndpoint: "what connectMcp and mcpHttpListener expose: an empty configuration class",
   A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
   OnAnswer: "a method decorator (of a code @Arbiter)",
   SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",

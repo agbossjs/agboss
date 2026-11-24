@@ -17,7 +17,7 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SqliteA2ATaskRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
-import { McpExpose } from "../../src/mcp/mcp-expose.decorator.js";
+import { McpEndpoint } from "../../src/mcp/mcp-endpoint.decorator.js";
 import { ReleaseWorkflowStart } from "../app/fixtures/fence.workflow.js";
 import {
   BillingLeases,
@@ -49,8 +49,8 @@ class OtherFileA2ATasks extends InMemoryA2ATaskRepository {
 })
 class AuditA2AExpose {}
 
-@McpExpose({ name: "release-mcp-expose", version: "1.0.0", exports: [ReleaseWorkflowStart] })
-class ReleaseMcpExpose {}
+@McpEndpoint({ name: "release-mcp-expose", version: "1.0.0", tools: [ReleaseWorkflowStart] })
+class ReleaseMcpEndpoint {}
 
 class NotAnExpose {
   readonly role = "no expose";
@@ -107,7 +107,7 @@ describe("#824 AC3: the rule's refusals, word for word", () => {
 
 describe("#824 AC3: no refusal where no A2A task is served", () => {
   it("MCP only, or no exposes at all, or no providers: nothing", () => {
-    expect(ruleOf([ReleaseMcpExpose], [PostgresLeases])).toEqual([]);
+    expect(ruleOf([ReleaseMcpEndpoint], [PostgresLeases])).toEqual([]);
     expect(ruleOf(undefined, [PostgresLeases])).toEqual([]);
     expect(ruleOf([ReleaseA2AExpose])).toEqual([]);
   });

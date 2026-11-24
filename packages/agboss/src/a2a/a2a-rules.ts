@@ -12,7 +12,7 @@ import type { A2AAgentMeta } from "./a2a-decorator.js";
 
 /**
  * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
- * or `@McpExpose` classes (`[application.not-an-expose]`), each name once
+ * or `@McpEndpoint` classes (`[application.not-an-expose]`), each name once
  * (`[application.duplicate-expose]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
  * workflows (`[application.expose-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
  */
@@ -41,8 +41,8 @@ function exposeViolations(options: ApplicationOptions): RuleViolation[] {
   const seen = new Set<string>();
   return (options.exposes ?? []).flatMap((expose): RuleViolation[] => {
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose" && meta?.kind !== "mcp-expose") {
-      const message = `${expose.name} in ${where}'s exposes is neither an @A2AExpose nor an @McpExpose`;
+    if (meta?.kind !== "a2a-expose" && meta?.kind !== "mcp-endpoint") {
+      const message = `${expose.name} in ${where}'s exposes is neither an @A2AExpose nor an @McpEndpoint`;
       return [violation("application.not-an-expose", message, [where])];
     }
     const found: RuleViolation[] = [];
@@ -51,7 +51,7 @@ function exposeViolations(options: ApplicationOptions): RuleViolation[] {
       found.push(violation("application.duplicate-expose", message, [where]));
     }
     seen.add(meta.meta.name);
-    if (meta.kind === "mcp-expose") return found;
+    if (meta.kind === "mcp-endpoint") return found;
     found.push(...contractNameViolations(meta.meta.name, "@A2AExpose", where));
     if (meta.meta.description.trim() === "") {
       const message = `${meta.meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;

@@ -53,7 +53,7 @@ export interface A2AExposeOptions {
 }
 
 /**
- * `@A2AExpose` (#398 PR 3, mirrors `@McpExpose`) — what an application serves over A2A v1.0 (#808):
+ * `@A2AExpose` (#398 PR 3, mirrors `@McpEndpoint`) — what an application serves over A2A v1.0 (#808):
  * its Agent Card's name, version and description, and the starts a caller may run — one skill each,
  * named by the start. Put it on an empty class, list it in `@Application({ exposes })` and serve it
  * with `a2aHttpListener(app, { expose, authenticator, publicUrl })`; `agboss describe --json` lists

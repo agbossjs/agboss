@@ -1875,7 +1875,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `tests/a2a/mesh/a2a-mesh-read-repair.test.ts`). What
   an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
 [Start], skills? })` (`a2a/*.a2a-expose.ts`) listed in
-  `@Application({ exposes })` with its `@McpExpose`s (`[application.expose-unknown-start]`,
+  `@Application({ exposes })` with its `@McpEndpoint`s (`[application.expose-unknown-start]`,
   `[application.not-an-expose]`) and served as an **A2A v1.0 agent** (#808) by
   `a2aHttpListener(app, { expose, authenticator, publicUrl, base?, provider?, onError?, maxBodySize?, maxTaskDuration? })`
   (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own

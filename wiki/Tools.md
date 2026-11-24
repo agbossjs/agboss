@@ -353,7 +353,7 @@ tool does not run after a failed before hook.
 
 **What is intercepted**: an agent's calls to the project's `@Tool` classes — never
 its answer tools, a knowledge base's `search-…-tool`, or a tool called on its own (over MCP,
-`createMcpService`).
+`connectMcp`).
 
 **Visible**: `agboss describe` prints
 

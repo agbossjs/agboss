@@ -6,11 +6,17 @@
  */
 import { generateKeyPairSync } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { Readable } from "node:stream";
-import { describe, expect, it, vi } from "vitest";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { afterEach, describe, expect, it } from "vitest";
 import { admitMcpHttp } from "../../src/mcp/mcp-http-gate.js";
-import { McpExpose } from "../../src/mcp/mcp-expose.decorator.js";
-import { McpService } from "../../src/mcp/mcp-service.js";
+import { McpEndpoint } from "../../src/mcp/mcp-endpoint.decorator.js";
+import { mcpHttpListener } from "../../src/mcp/mcp-http-listener.js";
+import { servedEndpointOf } from "../../src/mcp/mcp-server-instance.js";
+import { Clock, SystemClock } from "../../src/infrastructure/clock.js";
+import { Logger, SilentLogger } from "../../src/infrastructure/logger.js";
+import { HttpAuthenticator } from "../../src/http/http-authenticator.js";
+import { HttpAuthResult } from "../../src/http/http-auth.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
 import { signMeshHttp } from "../../src/mesh/mesh-http.js";
@@ -25,9 +31,9 @@ const other = generateKeyPairSync("ed25519");
 const ORIGIN = "https://b.example";
 const OPEN_URL = `${ORIGIN}/mcp/sse`;
 
-@McpExpose({ name: "orders-mcp-expose", version: "1.0.0", exports: [] })
+@McpEndpoint({ name: "orders-mcp-expose", version: "1.0.0", tools: [] })
 class OrdersMcp {}
-@McpExpose({ name: "admin-mcp-expose", version: "1.0.0", exports: [] })
+@McpEndpoint({ name: "admin-mcp-expose", version: "1.0.0", tools: [] })
 class AdminMcp {}
 
 function appOf(
@@ -155,14 +161,14 @@ describe("#1320: the mesh's gate of an MCP HTTP request", () => {
     expect(answer.admitted?.session).toEqual({});
   });
 
-  it("a Strict mesh serves no endpoint its application does not list: the service is not made", () => {
-    @McpExpose({ name: "stray-mcp-expose", version: "1.0.0", exports: [] })
+  it("a Strict mesh serves no endpoint its application does not list: it is not served", () => {
+    @McpEndpoint({ name: "stray-mcp-expose", version: "1.0.0", tools: [] })
     class StrayMcp {}
 
-    expect(() => new McpService(appOf() as never, StrayMcp)).toThrow(
+    expect(() => servedEndpointOf(appOf() as never, StrayMcp)).toThrow(
       "[application.expose-unlisted] StrayMcp",
     );
-    expect(() => new McpService(appOf() as never, OrdersMcp, { publicUrl: ORIGIN })).not.toThrow();
+    expect(() => servedEndpointOf(appOf() as never, OrdersMcp)).not.toThrow();
   });
 
   it("a signature made for another server's origin is refused here", async () => {
@@ -174,138 +180,141 @@ describe("#1320: the mesh's gate of an MCP HTTP request", () => {
     expect(answer.status).toBe(401);
     expect(JSON.parse(answer.answer ?? "{}")).toMatchObject({ code: "mesh.audience-mismatch" });
   });
-
-  it("under a @Mesh an HTTP session is not served without a publicUrl; a bad publicUrl is no service", async () => {
-    const service = new McpService(appOf() as never, OrdersMcp);
-    const req = { method: "GET", url: "/mcp/sse", headers: {} } as unknown as IncomingMessage;
-
-    await expect(service.handleSse(req, {} as ServerResponse, "/mcp/messages")).rejects.toThrow(
-      "[mcp.public-url-required]",
-    );
-    expect(
-      () => new McpService(appOf() as never, OrdersMcp, { publicUrl: "ftp://secret-host" }),
-    ).toThrow(/^\[mcp.public-url-invalid\] [^]*$/);
-  });
 });
 
-/** The SSE end of a service: a session opened by `opener`, and its POSTs. */
-async function opened(
-  opener: { headerOf?: string; session?: object; mode?: MeshInboundMode } = {},
-) {
-  const app = appOf({ mode: opener.mode });
-  const service = new McpService(app as never, OrdersMcp, { publicUrl: ORIGIN });
-  const open = {
-    method: "GET",
-    url: "/mcp/sse",
-    headers: opener.headerOf === undefined ? {} : { "x-agboss-mesh": opener.headerOf },
-  } as unknown as IncomingMessage;
-  const sse = {
-    writeHead() {
-      return this;
-    },
-    write: () => true,
-    on: () => sse,
-    end: () => undefined,
-  } as unknown as ServerResponse;
-  const session = await service.handleSse(open, sse, "/mcp/messages", opener.session);
-  const forwarded = vi.fn(() => Promise.resolve());
-  const kept = (
-    service as unknown as {
-      activeTransports: Map<string, { transport: { handlePostMessage: unknown } }>;
-    }
-  ).activeTransports.get(session?.sessionId ?? "");
-  if (kept) kept.transport.handlePostMessage = forwarded;
-  return { service, session, forwarded };
+@HttpAuthenticator()
+class KeyAuthenticator {
+  authenticate(request: { http: { headers: Record<string, string | string[] | undefined> } }) {
+    const key = request.http.headers["x-key"];
+    return typeof key === "string"
+      ? HttpAuthResult.authenticated({ ownerId: key })
+      : HttpAuthResult.unauthenticated("no key");
+  }
 }
 
-/** One POST to the session, and what was answered. */
-async function posted(
-  service: McpService,
-  sessionId: string,
-  options: { header?: string; caller?: object } = {},
-) {
-  const body = '{"jsonrpc":"2.0"}';
-  const req = Object.assign(Readable.from([Buffer.from(body)]), {
-    method: "POST",
-    url: "/mcp/messages?sessionId=1",
-    headers: options.header === undefined ? {} : { "x-agboss-mesh": options.header },
-  }) as unknown as IncomingMessage;
-  const written: { status?: number } = {};
-  const res = {
-    set statusCode(value: number) {
-      written.status = value;
-    },
-    writeHead(status: number) {
-      written.status = status;
-      return this;
-    },
-    end: () => undefined,
-  } as unknown as ServerResponse;
-  await service.handleMessage(req, res, sessionId, undefined, options.caller);
-  return written.status;
+const servers: Server[] = [];
+afterEach(() => {
+  for (const server of servers.splice(0)) server.close();
+});
+
+/** The listener on a local port; `publicUrl` is the origin the peers sign for. */
+async function listening(mode: MeshInboundMode) {
+  const base = appOf({ mode }) as Record<string, unknown>;
+  const authenticator = new KeyAuthenticator();
+  const app = Object.assign(base, {
+    resolve: (token: unknown) =>
+      token === Logger ? new SilentLogger() : token === Clock ? new SystemClock() : authenticator,
+  });
+  const server = createServer(
+    mcpHttpListener(app as never, {
+      endpoint: OrdersMcp,
+      authenticator: KeyAuthenticator,
+      publicUrl: ORIGIN,
+      base: "/mcp",
+    }),
+  );
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return `http://127.0.0.1:${String((server.address() as AddressInfo).port)}/mcp`;
 }
 
-describe("#1320: an MCP session admits each message by its own verified identity", () => {
-  const body = '{"jsonrpc":"2.0"}';
+const INIT = JSON.stringify({
+  jsonrpc: "2.0",
+  id: 1,
+  method: "initialize",
+  params: {
+    protocolVersion: "2025-03-26",
+    capabilities: {},
+    clientInfo: { name: "t", version: "1" },
+  },
+});
+const PING = JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" });
+const MCP = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 
-  it("an unsigned message on a session a peer opened is refused, nothing forwarded", async () => {
-    const { service, session, forwarded } = await opened({
-      headerOf: header("", OPEN_URL, undefined, "GET"),
+describe("#1320: an MCP HTTP session admits each message by its own verified identity", () => {
+  it("a session id reused by another caller (or none) is answered as no such session", async () => {
+    const url = await listening(MeshInboundMode.AllowExternal);
+    const opened = await fetch(url, {
+      method: "POST",
+      headers: { ...MCP, "x-key": "alice" },
+      body: INIT,
     });
+    const id = opened.headers.get("mcp-session-id") ?? "";
+    await opened.text();
+    expect(opened.status).toBe(200);
 
-    expect(await posted(service, session?.sessionId ?? "")).toBe(401);
-    expect(forwarded).not.toHaveBeenCalled();
+    const post = (headers: Record<string, string>) =>
+      fetch(url, {
+        method: "POST",
+        headers: { ...MCP, "mcp-session-id": id, ...headers },
+        body: PING,
+      });
+
+    expect((await post({ "x-key": "bob" })).status).toBe(404);
+    expect((await post({})).status).toBe(401);
+    expect((await post({ "x-key": "alice" })).status).toBe(200);
   });
 
-  it("a message signed by another peer is refused, nothing forwarded", async () => {
-    const { service, session, forwarded } = await opened({
-      headerOf: header("", OPEN_URL, undefined, "GET"),
+  it("a signed peer's session takes only that peer's signed messages", async () => {
+    const url = await listening(MeshInboundMode.Strict);
+    const path = "/mcp";
+    const signed = (
+      body: string,
+      as = { application: "a", key: caller.privateKey },
+      method = "POST",
+    ) => header(body, `${ORIGIN}${path}`, as, method);
+    const opened = await fetch(url, {
+      method: "POST",
+      headers: { ...MCP, "x-agboss-mesh": signed(INIT) },
+      body: INIT,
     });
-    const foreign = header(body, undefined, { application: "c", key: other.privateKey });
+    const id = opened.headers.get("mcp-session-id") ?? "";
+    await opened.text();
+    expect(opened.status).toBe(200);
 
-    expect(await posted(service, session?.sessionId ?? "", { header: foreign })).toBe(403);
-    expect(forwarded).not.toHaveBeenCalled();
+    const post = (headers: Record<string, string>) =>
+      fetch(url, {
+        method: "POST",
+        headers: { ...MCP, "mcp-session-id": id, ...headers },
+        body: PING,
+      });
+
+    expect((await post({})).status).toBe(401);
+    const otherPeer = signed(PING, { application: "c", key: other.privateKey });
+    expect((await post({ "x-agboss-mesh": otherPeer })).status).toBe(404);
+    const own = signed(PING);
+    expect((await post({ "x-agboss-mesh": own })).status).toBe(200);
+    expect((await post({ "x-agboss-mesh": own })).status).toBe(401); // a replay
   });
 
-  it("the opening peer's own signed message is forwarded, once", async () => {
-    const { service, session, forwarded } = await opened({
-      headerOf: header("", OPEN_URL, undefined, "GET"),
-    });
-    const signed = header(body);
+  it("a signature made for another server's origin is refused by the listener", async () => {
+    const url = await listening(MeshInboundMode.Strict);
+    const foreign = header(INIT, "https://evil.example/mcp");
 
-    expect(await posted(service, session?.sessionId ?? "", { header: signed })).toBeUndefined();
-    expect(forwarded).toHaveBeenCalledTimes(1);
-    expect(await posted(service, session?.sessionId ?? "", { header: signed })).toBe(401);
-    expect(forwarded).toHaveBeenCalledTimes(1);
+    const answer = await fetch(url, {
+      method: "POST",
+      headers: { ...MCP, "x-agboss-mesh": foreign },
+      body: INIT,
+    });
+
+    expect(answer.status).toBe(401);
+    expect(await answer.json()).toMatchObject({ code: "mesh.audience-mismatch" });
   });
 
-  it("a peer's signed message on a session a host caller opened is refused", async () => {
-    const { service, session, forwarded } = await opened({
-      mode: MeshInboundMode.AllowExternal,
-      session: { ownerId: "alice" },
+  it("a listener with no authenticator needs a Strict mesh with a tenant-propagating peer", () => {
+    const app = Object.assign(appOf(), {
+      resolve: (token: unknown) => (token === Logger ? new SilentLogger() : new SystemClock()),
     });
 
-    expect(await posted(service, session?.sessionId ?? "", { header: header(body) })).toBe(403);
-    expect(forwarded).not.toHaveBeenCalled();
-  });
-
-  it("a session id reused by another caller is refused as no session; its own caller passes", async () => {
-    const { service, session, forwarded } = await opened({
-      mode: MeshInboundMode.AllowExternal,
-      session: { ownerId: "alice", tenant: { tenantId: "t1" } },
-    });
-    const id = session?.sessionId ?? "";
-
-    expect(
-      await posted(service, id, { caller: { ownerId: "bob", tenant: { tenantId: "t1" } } }),
-    ).toBe(404);
-    expect(
-      await posted(service, id, { caller: { ownerId: "alice", tenant: { tenantId: "t2" } } }),
-    ).toBe(404);
-    expect(await posted(service, id)).toBe(404);
-    expect(forwarded).not.toHaveBeenCalled();
-
-    await posted(service, id, { caller: { ownerId: "alice", tenant: { tenantId: "t1" } } });
-    expect(forwarded).toHaveBeenCalledTimes(1);
+    expect(() => mcpHttpListener(app as never, { endpoint: OrdersMcp, publicUrl: ORIGIN })).toThrow(
+      "[http.authenticator-required-for-tenant-context]",
+    );
+    expect(() =>
+      mcpHttpListener(app as never, {
+        endpoint: OrdersMcp,
+        authenticator: KeyAuthenticator,
+        publicUrl: "ftp://secret-host",
+      }),
+    ).toThrow(/^\[mcp.public-url-invalid\] [^]*$/);
   });
 });
