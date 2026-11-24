@@ -626,7 +626,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
 ChildPlacement.AnyWorker })` on the child (#1286: never on the flow; else `@Application({ defaults: {
 workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never claimed by the instance that
   queued it and fails the parent's step with `ChildWorkerUnavailableError` after `childClaimTimeout`;
-  `IsolatedWorker` is `[workflow.isolated-worker-unavailable]` until #1286b) — the parent's node queues the child in the application's
+  `IsolatedWorker` runs in a forked process of its own — `@Application({ isolatedWorker: { entry } })`, `app/remote/isolated-supervisor.ts` forks, the fork's one worker claims the child by its id with `claimIsolatedWorkerByTenantIdAndExecutionId`, `[application.isolated-worker-invalid]` — #1286b; a timed-out `OtherWorker` child's row is withdrawn atomically, `withdrawByTenantIdAndExecutionIdIfQueued`, #1286a) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
   (woken in-process by its worker, after the worker has completed the row and announced the child's
   end while still holding the child's lease and before the lease's cleanup, #917 — else every second

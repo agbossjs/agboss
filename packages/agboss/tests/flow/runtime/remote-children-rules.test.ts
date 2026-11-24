@@ -123,24 +123,6 @@ describe("#1286: placement is the child's, never the flow's", () => {
     expect(treeLaunchesQueued(withBare, ChildPlacement.OtherWorker)).toBe(true);
   });
 
-  it("IsolatedWorker fails assembly until it runs (#1286b)", () => {
-    const parent = workflowWith([
-      onStart(ReviewOneWorkflowStart).toWorkflow(childWith(ChildPlacement.IsolatedWorker)),
-    ]);
-
-    expect(checkWorkflow(parent).errors.map((found) => found.code)).toContain(
-      "workflow.isolated-worker-unavailable",
-    );
-    expect(
-      checkWorkflow(
-        workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(childWith(undefined))]),
-        {
-          applicationDefaults: { workflows: { placement: ChildPlacement.IsolatedWorker } },
-        },
-      ).errors.map((found) => found.code),
-    ).toContain("workflow.isolated-worker-unavailable");
-  });
-
   it("a child that can pause may run on any worker (#333 PR 4)", () => {
     const parent = workflowWith([
       onStart(ReviewOneWorkflowStart)

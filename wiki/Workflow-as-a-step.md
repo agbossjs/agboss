@@ -489,7 +489,16 @@ export const anyInstancePaths = [
   `AnyWorker` (any live worker claims it), `OtherWorker` (a worker other than the launching instance;
   with none, the parent's step fails with `ChildWorkerUnavailableError` after
   `@Application({ childClaimTimeout })`, default one minute) and `IsolatedWorker` (a process of its
-  own: declared, not running yet, `[workflow.isolated-worker-unavailable]`).
+  own: `@Application({ isolatedWorker: { entry: import.meta.url } })` is required, the module a forked
+  process loads — its default export is the `@Application` class —, and the child queue must be a
+  shared store, `[application.isolated-worker-invalid]`; the instance forks one process per child, a
+  worker of its own with its own `instanceId` that claims that child by its id, and each fork holds
+  one of the instance's step slots; a cancel, the budgets and the ledger work across the process
+  boundary through the shared stores, a pause or the child's end ends the fork and a resume forks
+  another, a fork that dies is a lost lease the child is taken over from, and the application's close
+  ends its forks). An `OtherWorker` child no worker claimed in time is withdrawn from the queue
+  atomically before its parent's step fails, so it never runs later; a claim that wins that race
+  keeps the parent waiting.
 - **How the parent waits — inside its step (#333 S6, S9)**: the parent's node saves the child to the
   application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
   waits again, no second row) and waits on that row — woken at once when the child ends in the same

@@ -151,6 +151,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes: readonly Class[];
     readonly healthChecks: readonly Class[];
+    readonly isolatedWorker?: IsolatedWorkerOptions;
     readonly ledgerEntryRetention?: Milliseconds | undefined;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
@@ -163,6 +164,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     readonly outboundMasking: OutboundMasking;
     readonly pauseRecordRetention: Milliseconds;
     readonly piiPolicies: readonly Class[];
+    readonly profileSelection?: ProfileSelection;
     readonly providers: readonly Provider[];
     readonly shutdownTimeout: Milliseconds;
     readonly source?: string;

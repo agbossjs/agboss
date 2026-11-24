@@ -51,6 +51,7 @@ export function fenceWorkersShard() {
     configFile: "vitest.mutation-fence-workers.config.ts",
     mutate: [
       "src/app/remote/child-workers.ts",
+      "src/app/remote/claimed-child-run.ts",
       "src/app/remote/pre-held.ts",
       "src/flow/runtime/step-frame.ts",
     ],

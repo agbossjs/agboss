@@ -387,10 +387,12 @@ export interface ChildExecutionQueueCounts {
 // @public
 export abstract class ChildExecutionQueueRepository {
     abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
+    abstract claimIsolatedWorkerByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
     abstract completeByTenantIdAndExecutionId(tenantId: string, executionId: string, end: ChildExecutionEnd): Promise<boolean>;
     abstract countByStatus(): Promise<ChildExecutionQueueCounts>;
     abstract deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
+    abstract findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(child: QueuedChildExecution): Promise<boolean>;
     watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;

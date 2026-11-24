@@ -35,6 +35,7 @@ import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { releaseAll, startAll } from "./instance-lifecycle.js";
+import { isolatedPartsOf } from "./instance-workers.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -164,7 +165,7 @@ async function builtOn(
     await releaseAll(workflows);
     throw error;
   }
-  const surface = { ...common, log, contexts, quiet };
+  const surface = { ...common, log, contexts, quiet, isolated: isolatedPartsOf(seams, contexts) };
   return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
 

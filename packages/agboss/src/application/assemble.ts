@@ -12,7 +12,11 @@ import { childFieldsOf } from "./child-fields.js";
 import type { ChildPlacement } from "../flow/child-placement.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { requireApplication, type ApplicationOptions } from "./application.js";
+import {
+  requireApplication,
+  type ApplicationOptions,
+  type IsolatedWorkerOptions,
+} from "./application.js";
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
@@ -31,6 +35,7 @@ import { checkObservers } from "../components/observer-checks.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
 import type { ApplicationAssembly } from "./assembly-options.js";
+import type { ProfileSelection } from "../config/profile-names.js";
 import { meshOptionsOf } from "../mesh/mesh-assembly.js";
 import type { MeshMeta } from "../mesh/mesh.decorator.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
@@ -87,6 +92,10 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly childClaimTimeout: Milliseconds;
   /** `@Application({ defaults: { workflows: { placement } } })` (#1286); absent = `CurrentProcess`. */
   readonly childPlacement?: ChildPlacement;
+  /** `@Application({ isolatedWorker })` (#1286b): where a forked process of an `IsolatedWorker` child starts. */
+  readonly isolatedWorker?: IsolatedWorkerOptions;
+  /** The profiles `createApp({ profile })` named, as given: a fork is started with the same (#1286b). */
+  readonly profileSelection?: ProfileSelection;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Mesh({ maxHops })` (#398): the longest call chain it accepts. */
@@ -240,6 +249,7 @@ export async function applicationOf(
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     outboundMasking: new OutboundMasking({ requiresMask: hasPiiPolicies(options, assembled) }),
     ...childFieldsOf(options),
+    ...(assembly.profile === undefined ? {} : { profileSelection: assembly.profile }),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

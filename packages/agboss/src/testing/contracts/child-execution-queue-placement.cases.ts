@@ -133,4 +133,61 @@ export const QUEUE_PLACEMENT_CASES: readonly ContractCase<ChildExecutionQueueRep
       expect(claimed !== undefined).toBe(!withdrawn);
     },
   },
+  {
+    name: "the queued IsolatedWorker children are listed, the deepest first, never the other ones (#1286b)",
+    run: async ({ first }: Instances): Promise<void> => {
+      const isolated = { placement: ChildPlacement.IsolatedWorker } as const;
+      await first.saveIfAbsent(child("shallow", { ...isolated, depth: 2 }));
+      await first.saveIfAbsent(child("deep", { ...isolated, depth: 5 }));
+      await first.saveIfAbsent(child("plain", { placement: ChildPlacement.AnyWorker, depth: 9 }));
+
+      expect(
+        (await first.findQueuedIsolatedWorkerChildren(10)).map((one) => one.executionId),
+      ).toEqual(["deep", "shallow"]);
+      expect(await first.findQueuedIsolatedWorkerChildren(1)).toHaveLength(1);
+    },
+  },
+  {
+    name: "the targeted claim takes an IsolatedWorker child once, for the instance that asks (#1286b)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.saveIfAbsent(child("c-1", { placement: ChildPlacement.IsolatedWorker }));
+
+      const claims = await Promise.all([
+        first.claimIsolatedWorkerByTenantIdAndExecutionId("default", "c-1"),
+        second.claimIsolatedWorkerByTenantIdAndExecutionId("default", "c-1"),
+      ]);
+
+      const claimed = claims.filter((found) => found !== undefined);
+      expect(claimed).toHaveLength(1);
+      expect(claimed[0]).toMatchObject({
+        executionId: "c-1",
+        status: ExecutionRecordStatus.Running,
+      });
+      expect(["instance-1", "instance-2"]).toContain(claimed[0]?.instanceId);
+      expect(await first.findQueuedIsolatedWorkerChildren(10)).toEqual([]);
+    },
+  },
+  {
+    name: "the targeted claim takes no child but an IsolatedWorker one, and none that is claimed or unknown (#1286b)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.saveIfAbsent(child("plain", { placement: ChildPlacement.AnyWorker }));
+      await first.saveIfAbsent(child("iso", { placement: ChildPlacement.IsolatedWorker }));
+
+      expect(
+        await first.claimIsolatedWorkerByTenantIdAndExecutionId("default", "plain"),
+      ).toBeUndefined();
+      expect(
+        await first.claimIsolatedWorkerByTenantIdAndExecutionId("default", "none"),
+      ).toBeUndefined();
+      expect(
+        await first.claimIsolatedWorkerByTenantIdAndExecutionId("default", "iso"),
+      ).toBeDefined();
+      expect(
+        await second.claimIsolatedWorkerByTenantIdAndExecutionId("default", "iso"),
+      ).toBeUndefined();
+      expect(await first.findByTenantIdAndExecutionId("default", "plain")).toMatchObject({
+        status: ExecutionRecordStatus.Queued,
+      });
+    },
+  },
 ];

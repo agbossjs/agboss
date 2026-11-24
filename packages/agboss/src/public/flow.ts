@@ -31,6 +31,7 @@ export {
   type ValueMetadata,
 } from "../flow/metadata.js";
 export { ChildPlacement } from "../flow/child-placement.js";
+export type { IsolatedWorkerOptions } from "../application/application.js";
 
 export type {
   AfterStep,

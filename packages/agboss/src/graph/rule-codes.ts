@@ -236,7 +236,7 @@ export type RuleCode =
   | "eval.unknown-start"
   | "eval.duplicate-case"
   | "eval.judge-wrong-output"
-  // child placement (#1286): IsolatedWorker is declared, its runtime is #1286b
-  | "workflow.isolated-worker-unavailable"
+  // child placement (#1286b): IsolatedWorker needs the application's fork entry and a shared child queue
+  | "application.isolated-worker-invalid"
   // an agent's files for its model (#899)
   | ExtraRuleCode;

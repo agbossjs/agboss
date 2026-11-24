@@ -33,7 +33,6 @@ import { nameRules } from "./rules/names.js";
 import { countLimitRules, optionsRules } from "./rules/options.js";
 import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
-import { childPlacementRules } from "./rules/child-placement.js";
 import { quorumRules } from "./rules/quorum.js";
 import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
@@ -81,7 +80,6 @@ const RULES: readonly FlowRule[] = [
   dtoCycleRules,
   graphRules,
   placementRules,
-  childPlacementRules,
   cycleRules,
   countLimitRules,
   switchRules,

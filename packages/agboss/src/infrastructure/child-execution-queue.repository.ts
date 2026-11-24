@@ -3,6 +3,7 @@ import { Injectable } from "../components/decorators.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
 import { ExecutionRecordStatus } from "./execution-record.repository.js";
+import { claimOrder, queueCountsOf } from "./child-queue-order.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
@@ -104,6 +105,24 @@ export abstract class ChildExecutionQueueRepository {
    */
   abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
   /**
+   * The `Queued` children with `placement` `IsolatedWorker`, the deepest first, then the longest
+   * waiting, at most `limit` (#1286b): what an instance's supervisor forks a process for. A read —
+   * nothing is claimed.
+   */
+  abstract findQueuedIsolatedWorkerChildren(
+    limit: number,
+  ): Promise<readonly QueuedChildExecution[]>;
+  /**
+   * The targeted claim of an `IsolatedWorker` child (#1286b): claims that one child for this instance
+   * — `Running`, with its `instanceId` and `claimedAt` — when it is `Queued` and its `placement` is
+   * `IsolatedWorker`; `undefined` otherwise. Atomic like the general claim: of two forks of one child
+   * exactly one gets it.
+   */
+  abstract claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined>;
+  /**
    * Ends a child this instance claimed (`Running`, its `instanceId`); `false` when it is not this
    * instance's running child (its tree ended and its rows were removed).
    */
@@ -146,25 +165,6 @@ export abstract class ChildExecutionQueueRepository {
    */
   watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
 }
-
-/** The depth of `children`: what `countByStatus()` answers for these rows. */
-export function queueCountsOf(children: Iterable<QueuedChildExecution>): ChildExecutionQueueCounts {
-  let queued = 0;
-  let running = 0;
-  let oldest: number | undefined;
-  for (const child of children) {
-    if (child.status === ExecutionRecordStatus.Running) running += 1;
-    if (child.status !== ExecutionRecordStatus.Queued) continue;
-    queued += 1;
-    const at = child.queuedAt.getTime();
-    oldest = oldest === undefined ? at : Math.min(oldest, at);
-  }
-  return { queued, running, oldestQueuedAt: oldest === undefined ? undefined : new Date(oldest) };
-}
-
-/** The order of the claims: the deepest first, then the longest waiting. */
-export const claimOrder = (left: QueuedChildExecution, right: QueuedChildExecution): number =>
-  right.depth - left.depth || left.queuedAt.getTime() - right.queuedAt.getTime();
 
 /** A `Paused` child (resumed) or a `Running` claim whose worker lost its lease may be queued again. */
 const canRequeue = (stored: QueuedChildExecution, next: QueuedChildExecution): boolean =>
@@ -230,6 +230,40 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
       claimedAt: this.clock.now(),
     };
     this.database.childQueue.set(treeKeyOf(first.tenantId, first.executionId), claimed);
+    return Promise.resolve(claimed);
+  }
+
+  findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]> {
+    return Promise.resolve(
+      [...this.database.childQueue.values()]
+        .filter(
+          (child) =>
+            child.status === ExecutionRecordStatus.Queued &&
+            child.placement === ChildPlacement.IsolatedWorker,
+        )
+        .sort(claimOrder)
+        .slice(0, limit),
+    );
+  }
+
+  claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined> {
+    const key = treeKeyOf(tenantId, executionId);
+    const stored = this.database.childQueue.get(key);
+    if (
+      stored?.status !== ExecutionRecordStatus.Queued ||
+      stored.placement !== ChildPlacement.IsolatedWorker
+    )
+      return Promise.resolve(undefined);
+    const claimed: QueuedChildExecution = {
+      ...stored,
+      status: ExecutionRecordStatus.Running,
+      instanceId: this.applicationContext.instanceId,
+      claimedAt: this.clock.now(),
+    };
+    this.database.childQueue.set(key, claimed);
     return Promise.resolve(claimed);
   }
 

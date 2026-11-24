@@ -39,6 +39,7 @@ import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
 import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { limitViolations } from "./limit-rules.js";
+import { isolatedWorkerViolations } from "./isolated-worker-rules.js";
 import { keyFieldViolations } from "./key-field-rules.js";
 import { storageOwnedClassesOf } from "../storage/storage-assembly.js";
 import { storageViolations } from "../storage/storage-rules.js";
@@ -202,6 +203,7 @@ export function applicationRuleViolations(
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
     ...storageViolations(options.name, options),
     ...limitViolations(options),
+    ...isolatedWorkerViolations(options),
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
     ...movedRetentionViolations(options.name, options),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)

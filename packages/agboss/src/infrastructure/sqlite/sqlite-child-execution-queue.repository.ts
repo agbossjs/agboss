@@ -1,4 +1,5 @@
 import { childOf, dateOf, DepthRow } from "./sqlite-child-queue-rows.js";
+import { isolatedClaimOf, queuedIsolatedOf } from "./sqlite-isolated-claim.js";
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../clock.js";
@@ -123,6 +124,21 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
       };
     });
     return Promise.resolve(claimed);
+  }
+
+  findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]> {
+    return Promise.resolve(queuedIsolatedOf(this.connection.database, limit));
+  }
+
+  claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined> {
+    const at = this.clock.now().getTime();
+    const claim = { tenantId, executionId, instanceId: this.applicationContext.instanceId, at };
+    return Promise.resolve(
+      this.connection.transaction(() => isolatedClaimOf(this.connection, claim)),
+    );
   }
 
   completeByTenantIdAndExecutionId(

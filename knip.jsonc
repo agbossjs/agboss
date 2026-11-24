@@ -27,6 +27,8 @@
         // the fault suite (#484) and the pod's entry, which the suite spawns by path
         "src/testing/faults/index.ts",
         "src/testing/faults/pod-main.ts",
+        // the process of an isolated worker (#1286b), which its supervisor forks by path
+        "src/app/remote/isolated-fork-main.ts",
         "src/testing/vitest.ts",
         "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`

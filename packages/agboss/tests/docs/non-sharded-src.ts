@@ -242,6 +242,20 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/pause-notices.ts"],
   ),
   ...reviewed(
+    "an isolated worker's process (#1286b, D9): the supervisor only forks (it claims nothing, spends nothing, holds no lease: the step slot it holds per fork is the instance's own cap), the fork's entry and the targeted claim's wrapper run the same lease-held child as a general worker (the sharded claimed-child-run); covered by tests/app/isolated-supervisor.test.ts (one fork per queued child, the cap in step slots, a fork again after a resume, a stop that ends the forks) and tests/app/isolated-worker-processes.test.ts (real processes: another pid and instance, a cancel, the spend in one ledger, a pause and a resume, a fork killed and the child taken over, the close)",
+    [
+      "src/app/remote/isolated-supervisor.ts",
+      "src/app/remote/isolated-fork.ts",
+      "src/app/remote/isolated-fork-main.ts",
+      "src/app/remote/child-target-worker.ts",
+      "src/application/instance-workers.ts",
+    ],
+  ),
+  ...reviewed(
+    "the rule on an application's isolated worker (#1286b): the entry's form, the child queue it needs and the workflows that run isolated — no number, price or deadline; covered by tests/application/isolated-worker-rules.test.ts",
+    ["src/application/isolated-worker-rules.ts"],
+  ),
+  ...reviewed(
     "a queued child's start and run: wiring beside the sharded queue, lease and spend files",
     [
       "src/app/remote/child-completion.ts",
@@ -514,7 +528,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/rules/arbiters.ts",
       "src/flow/analyse/rules/branch-outdating.ts",
       "src/flow/analyse/rules/child-failure.ts",
-      "src/flow/analyse/rules/child-placement.ts",
       "src/flow/analyse/rules/children.ts",
       "src/flow/analyse/rules/compensation.ts",
       "src/flow/analyse/rules/context.ts",
@@ -1386,7 +1399,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (oldest queued max) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/testing/contracts/conformance-sabotage.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/infrastructure/child-execution-queue.repository.ts"],
+    [
+      "src/infrastructure/child-execution-queue.repository.ts",
+      "src/infrastructure/child-queue-order.ts",
+    ],
   ),
   ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 87 mutants, 66 killed in the final run; the 35 that had lived in the first run each got a test (24), an equivalence reason (7) or was classed message text (4); covered by tests/sweep-1366h/llm/decision-response-1366h.test.ts, tests/llm/decision-cost.test.ts, tests/judges/decision-wire.test.ts; survivors listed in the #1366 round-8 notes",

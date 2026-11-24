@@ -59,6 +59,8 @@ export function sqliteStoresShard() {
       // #1286: the claim of a queued child — a row an instance excludes or an isolated worker owns is never its claim
       "src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts",
       "src/infrastructure/sqlite/sqlite-child-queue-rows.ts",
+      // #1286b: the targeted claim of an isolated worker's child, once, by its id
+      "src/infrastructure/sqlite/sqlite-isolated-claim.ts",
     ],
   };
 }

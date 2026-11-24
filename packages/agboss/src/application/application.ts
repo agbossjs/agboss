@@ -15,6 +15,20 @@ import type { RetentionOptions } from "./retention.js";
 import { withStorageProviders, type ApplicationStorage } from "../storage/storage-assembly.js";
 
 /**
+ * `@Application({ isolatedWorker })` (#1286b, D9): the module a forked process loads to build the
+ * application — its default export is the `@Application` class (usually the module that declares
+ * it, `{ entry: import.meta.url }`). The fork builds it with the same settings and the same shared
+ * stores as this instance (the child queue must be one the processes share: a SQLite file, PostgreSQL,
+ * MongoDB, Redis — not the in-memory one), claims one child by its id, runs it and exits when it
+ * ends or pauses. A fork that dies is a lost lease: another worker takes over and the child is
+ * forked again.
+ */
+export interface IsolatedWorkerOptions {
+  /** A file URL (`import.meta.url`) or an absolute path of the entry module. */
+  readonly entry: string;
+}
+
+/**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
  * `testWith(App)` take. It lists the top-level workflows, the infrastructure (`providers`: a
  * framework contract's implementation, found by inheritance; none → the built-in in-memory default;
@@ -142,6 +156,13 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * at most 24 hours (`[limits.timeout-invalid]`, #1141).
    */
   readonly childClaimTimeout?: Milliseconds;
+  /**
+   * Where the processes of the children with `ChildPlacement.IsolatedWorker` start (#1286b, D9),
+   * required when a workflow of the application runs with it (`[application.isolated-worker-invalid]`).
+   * Each such child runs in a process of its own, forked by this instance, which is a worker with its
+   * own `instanceId` that claims only that child. See `IsolatedWorkerOptions`.
+   */
+  readonly isolatedWorker?: IsolatedWorkerOptions;
   /**
    * How long each kind of row the application keeps stays (#834): pause records, execution
    * records, the audit log, cost ledger entries, idempotent effects, outbound calls, mesh answers and

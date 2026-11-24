@@ -44,8 +44,14 @@ export interface StepCapacity {
   holdsSlot(holder: string): boolean;
 }
 
+/** What a holder of a step slot outside a step reads and takes: an isolated worker's fork (#1286b). */
+export interface StepHolds extends StepCapacity {
+  /** A slot for one holder, at once when one is free; `undefined` when `signal` aborts first. */
+  take(claim: QueueClaim, signal: AbortSignal): Promise<SlotHold | undefined>;
+}
+
 /** The instance's step slots: a priority semaphore of `maxConcurrentSteps` steps. */
-export class StepSlots implements StepCapacity {
+export class StepSlots implements StepHolds {
   #busy = 0;
   /** The slots held now per lease (`scopeKey`), for `holdsSlot`; a lease with none is absent. */
   readonly #heldBy = new Map<string, number>();
