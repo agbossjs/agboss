@@ -3659,6 +3659,7 @@ export abstract class ExecutionRecordRepository {
     abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
+        readonly isSwept?: true;
     } | undefined>;
     abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
     abstract uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]>;
@@ -9294,6 +9295,7 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     // (undocumented)
     threadOwner(...args: Parameters<ExecutionRecordRepository["threadOwner"]>): Promise<{
         readonly owner: string | undefined;
+        readonly isSwept?: true;
     } | undefined>;
     // (undocumented)
     turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;

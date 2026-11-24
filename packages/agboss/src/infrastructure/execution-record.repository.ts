@@ -54,7 +54,7 @@ export abstract class ExecutionRecordRepository {
     workflow: string,
     tenantId: string,
     threadId: string,
-  ): Promise<{ readonly owner: string | undefined } | undefined>;
+  ): Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined>;
   abstract append(turn: NewTurn): Promise<Turn>;
   /** Completes a paused record (same id) with its final outcome. */
   abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;

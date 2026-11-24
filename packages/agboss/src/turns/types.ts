@@ -194,7 +194,7 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     bundle: string,
     tenantId: string,
     threadId: string,
-  ) => Promise<{ readonly owner: string | undefined } | undefined>;
+  ) => Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined>;
   readonly append: (turn: NewTurn) => Promise<Turn>;
   /** Completes a paused Turn (same id) with its final outcome. */
   readonly complete: (turnId: string, outcome: TurnOutcome) => Promise<void>;

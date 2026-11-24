@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { removeExpired, type RetentionSources } from "../../src/infrastructure/retention-sweep.js";
 import { TurnStoreRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { createSqliteTurnStore, type NewTurn, type TurnStatus } from "../../src/turns/index.js";
-import { checkThreadOwner } from "../../src/run/thread.js";
+import { checkThreadOwner, isNewThread } from "../../src/run/thread.js";
 import { answerOf } from "../../src/testing/contracts/pause-answer-log.cases.js";
 
 /** #1303c: the sweep of idle threads, on the SQLite Turn store and through the retention sweep. */
@@ -81,7 +81,7 @@ describe("#1303c: deleteIdleThreads", () => {
     expect(await store.deleteIdleThreads(cutoffs(now()), ended)).toBe(1);
 
     // an owned thread stays as a tombstone: its owner is kept, nothing else of it
-    expect(await store.threadOwner(WORKFLOW, "default", thread)).toEqual({ owner: "dana" });
+    expect(await store.threadOwner(WORKFLOW, "default", thread)).toMatchObject({ owner: "dana" });
     expect(await store.lastTurns("default", thread, 5)).toEqual([]);
     expect(await store.summaryCount("default", thread, "desk-memory")).toBe(0);
     expect(await store.pauseAnswersOf("default", "run-1")).toEqual([]);
@@ -112,21 +112,29 @@ describe("#1303c: deleteIdleThreads", () => {
     advance(hours(2));
     await store.deleteIdleThreads(cutoffs(now()), ended);
 
-    // another owner asks for the id: it stays dana's, whatever a store still holds under it
-    await store.createThread({
-      workflow: WORKFLOW,
-      tenantId: "default",
-      ownerId: "mallory",
-      threadId: "case-7",
+    // another owner, or none, asks for the id: refused, and the tombstone stays
+    for (const ownerId of ["mallory", undefined])
+      await expect(
+        store.createThread({
+          workflow: WORKFLOW,
+          tenantId: "default",
+          ownerId,
+          threadId: "case-7",
+        }),
+      ).rejects.toThrow(/another owner/);
+    // nothing writes to it either: a record needs the owner to restart the thread first
+    await expect(store.append(turn("case-7", "run-x"))).rejects.toThrow(/swept/);
+    expect(await store.threadOwner(WORKFLOW, "default", "case-7")).toEqual({
+      owner: "dana",
+      isSwept: true,
     });
-    expect(await store.threadOwner(WORKFLOW, "default", "case-7")).toEqual({ owner: "dana" });
     expect(await store.lastTurns("default", "case-7", 10)).toEqual([]);
     expect(await store.deleteIdleThreads(cutoffs(now()), ended)).toBe(0);
     const asMallory = { tenantId: "default", threadId: "case-7", ownerId: "mallory" };
     await expect(checkThreadOwner(store, WORKFLOW, asMallory)).rejects.toThrow();
-    await expect(
-      checkThreadOwner(store, WORKFLOW, { ...asMallory, ownerId: "dana" }),
-    ).resolves.toBeUndefined();
+    await expect(isNewThread(store, WORKFLOW, asMallory)).rejects.toThrow();
+    // the owner's run sees a thread to create again, not one to continue
+    expect(await isNewThread(store, WORKFLOW, { ...asMallory, ownerId: "dana" })).toBe(true);
 
     // the same owner restarts: empty, then a live thread again until it idles anew
     await store.createThread({

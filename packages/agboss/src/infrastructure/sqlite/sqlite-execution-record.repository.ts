@@ -66,7 +66,7 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
 
   threadOwner(
     ...args: Parameters<ExecutionRecordRepository["threadOwner"]>
-  ): Promise<{ readonly owner: string | undefined } | undefined> {
+  ): Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined> {
     return this.#records.threadOwner(...args);
   }
 

@@ -11,8 +11,8 @@ const COMPLETE = `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, r
   cost_usd = ? WHERE id = ?`;
 
 /** A write to a thread's Turn is its activity: what a memory's `ttl` counts from (#1303). */
-const TOUCH_THREAD = `UPDATE threads SET last_active_at = ?, is_swept = 0 WHERE tenant_id = ? AND id = ?`;
-const TOUCH_THREAD_OF_TURN = `UPDATE threads SET last_active_at = ?, is_swept = 0 WHERE (tenant_id, id) =
+const TOUCH_THREAD = `UPDATE threads SET last_active_at = ? WHERE tenant_id = ? AND id = ? AND is_swept = 0`;
+const TOUCH_THREAD_OF_TURN = `UPDATE threads SET last_active_at = ? WHERE (tenant_id, id) =
   (SELECT tenant_id, thread_id FROM terns WHERE id = ?)`;
 
 /**
@@ -80,6 +80,11 @@ export function pauseAnswerWrites(
 
 /** The row of a Turn, and its thread's activity (the caller's transaction holds both). */
 function insertTurn(db: DatabaseSync, t: Turn): void {
+  // a swept thread (#1303c) takes no record until its owner creates it again: the tombstone is
+  // cleared only by `createThread`, which checks the owner
+  const { changes } = db.prepare(TOUCH_THREAD).run(t.createdAt, t.tenantId, t.threadId);
+  if (Number(changes) !== 1)
+    throw new Error("the thread was swept: its owner restarts it by creating it again");
   db.prepare(
     `INSERT INTO terns (id, thread_id, bundle, created_at, task, replyWith, status, stop_reason,
          route, steps, cost_usd, prompt_version, model_version, replay_of, config_version,
@@ -104,7 +109,6 @@ function insertTurn(db: DatabaseSync, t: Turn): void {
     t.runId,
     t.tenantId,
   );
-  db.prepare(TOUCH_THREAD).run(t.createdAt, t.tenantId, t.threadId);
 }
 
 /** Appending a Turn and completing it — unconditionally, or only from an expected status (#265 S66 h). */
@@ -132,13 +136,15 @@ export function turnWrites(
       });
       return Promise.resolve(isDone);
     },
-    append: (turn) => {
-      const t: Turn = { ...turn, id: randomUUID(), createdAt: now().toISOString() };
-      inWriteTransaction(db, () => {
-        insertTurn(db, t);
-      });
-      return Promise.resolve(t);
-    },
+    // in a promise's executor: a refused write (a swept thread) rejects, never throws at the call
+    append: (turn) =>
+      new Promise<Turn>((resolve) => {
+        const t: Turn = { ...turn, id: randomUUID(), createdAt: now().toISOString() };
+        inWriteTransaction(db, () => {
+          insertTurn(db, t);
+        });
+        resolve(t);
+      }),
   };
 }
 

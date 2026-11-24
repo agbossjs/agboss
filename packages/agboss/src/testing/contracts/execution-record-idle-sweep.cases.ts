@@ -70,7 +70,7 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 
       expect(removed).toBe(1);
       // an owned thread stays as a tombstone: its owner is kept, nothing else of it
-      expect(await first.threadOwner(WORKFLOW, "default", thread)).toEqual({ owner: "dana" });
+      expect(await first.threadOwner(WORKFLOW, "default", thread)).toMatchObject({ owner: "dana" });
       expect(await first.lastTurns("default", thread, 10)).toEqual([]);
       expect(await first.summaryCount("default", thread, "desk-memory")).toBe(0);
       expect(await first.findPauseAnswersByTenantIdAndRootExecutionId("default", "run-1")).toEqual(
@@ -92,14 +92,22 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       await clock.advance(hours(2));
       await second.deleteIdleThreads(hourAgo(clock.now()), ended);
 
-      await second.createThread({
-        workflow: WORKFLOW,
-        tenantId: "default",
-        ownerId: "mallory",
-        threadId: "case-7",
-      });
+      for (const ownerId of ["mallory", undefined])
+        await expect(
+          second.createThread({
+            workflow: WORKFLOW,
+            tenantId: "default",
+            ...(ownerId === undefined ? {} : { ownerId }),
+            threadId: "case-7",
+          }),
+        ).rejects.toThrow();
+      await expect(
+        second.append(record("case-7", "run-x", ExecutionRecordStatus.Answered)),
+      ).rejects.toThrow();
 
-      expect(await first.threadOwner(WORKFLOW, "default", "case-7")).toEqual({ owner: "dana" });
+      expect(await first.threadOwner(WORKFLOW, "default", "case-7")).toMatchObject({
+        owner: "dana",
+      });
       expect(await first.lastTurns("default", "case-7", 10)).toEqual([]);
       await second.createThread({
         workflow: WORKFLOW,

@@ -79,7 +79,8 @@ export async function isNewThread(
   const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) return true;
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
-  return false;
+  // a swept thread (#1303c) is its owner's to restart: created again, once the budgets pass
+  return thread.isSwept === true;
 }
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
