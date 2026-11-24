@@ -172,7 +172,7 @@ TernRecords` → `turns: TurnRecords`, `TernStoreRecordRepository` → `TurnStor
     `LeaseEventStep` → `ExecutionAuditEventRecord` / `ExecutionAuditEventBase` /
     `ExecutionAuditEventKind` / `AuditEventStep`, `app.leaseEventsOf(tree)` →
     `app.auditLogOf(tree: ExecutionTreeQuery)` (`LeaseEventsQuery` → `ExecutionTreeQuery`, also
-    `outboundCallsOf`'s), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (and in `agboss records
+    `outboundCallsOf`'s), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (and in `agboss executions
 export`), `@Application({ retention: { leaseEvents } })` → `retention.auditLog` (the old key is
     refused by `[application.retention-invalid]` naming the new one), the contract suite
     `executionLeaseEventContract` → `executionAuditLogContract` and
@@ -452,7 +452,7 @@ index` (as before) — a running instance does not re-read a folder on its own.
   export const answeredByManager = pauses.filter((pause) => pause.answeredBy === "manager-17");
   ```
 
-  The same goes for a column of an export of `result.record.pauses` or of `agboss records export`:
+  The same goes for a column of an export of `result.record.pauses` or of `agboss executions export`:
   `answeredBy` is the person now (`responder` holds the same value until 0.2), `answerer` the kind.
   **`PauseRecord.answeredBy`** (the store contract's record, deprecated) is **never filled from
   0.1.1**: a record the core returns has `answerer` and no `answeredBy` (`undefined`), so a 0.1.0
@@ -1267,7 +1267,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   new execution joined. The core's stores mint the next id instead.
 
 - **A tree whose undo a takeover finished keeps its undo actions** (#541, found by #484) — its kept
-  record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
+  record (`ExecutionHistoryRecord.compensations`, what `agboss executions export` writes) listed none;
   it lists every undo action that ran, as its `onExecutionError` does.
 
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
@@ -1315,7 +1315,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   call under one is never deduplicated (its refusal was kept as the answer, under the merged key);
   its `onExecutionRejected` names the tenant `"default"`, as the event's documentation says, never
   the refused id. A tree's reads check its root execution id the same way (#580) (`dto.invalid` naming
-  `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss records export
+  `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss executions export
 --tenant` and `agboss generate eval-case --tenant` refuse a tenant id that is no key's text (exit 2,
   `usage.option-value`, the rule named, never the id) instead of reading nothing.
 
@@ -1520,7 +1520,7 @@ fencedEffects: { maxResultSize, retention } })` (64 KB, 24 h; `[application.fenc
   `app.outboundCallsOf({ tenantId, rootExecutionId })` and `app.pendingOutboundCalls({ tenantId })`;
   `@Application({ outboundCalls: { maxPayloadSize, retention } })` (64 KB, 168 h; a `Pending`
   intent is never swept). Every move is told, never with its payload: `onOutboundCall`, the lease
-  log's row and `ExecutionHistoryRecord.outboundCalls` (so `agboss records export` carries them).
+  log's row and `ExecutionHistoryRecord.outboundCalls` (so `agboss executions export` carries them).
   An `AnyInstance` child's run context carried no mask and a `ParentInstance` child its parent's:
   both carry the child workflow's own now. The flow-patterns travel desk books through it. The
   reads and defaults were reviewed since: see #795 and #825.
@@ -1607,7 +1607,7 @@ fencedEffects: { maxResultSize, retention } })` (64 KB, 24 h; `[application.fenc
   caller's disconnect, its row in flight 30 s), never continued by a recovery
   (`withoutRecovery`: an instance taking its lease over ends it as cancelled — and, for a skill
   that can call a model, keeps one call of unknown cost in its record, `spend.unknownCalls`, what
-  `agboss records export` writes, under the run's ledger key `unknown:lost-run:<tenantId>:<runId>`,
+  `agboss executions export` writes, under the run's ledger key `unknown:lost-run:<tenantId>:<runId>`,
   counted in `agboss.instance.costs.unknown`, as #853's lost passes), and one lost — a crash — is
   taken over once by a resend or the sweep, which removes its files. The sweep removes completed
   replies only: an attempt in flight keeps its row and its id's claim however old its message, and a
@@ -1773,7 +1773,7 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
   `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
   a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
-  `agboss records export`). Every call of a fenced effect from a step is told and kept as well:
+  `agboss executions export`). Every call of a fenced effect from a step is told and kept as well:
   `onFencedEffect` (`FencedEffectEvent`, `FencedEffectEventOutcome`: ran, replayed, joined,
   refused — never the result) and a `FencedEffect` row, so the public log alone tells a zombie
   refused at its write from one that never reached it, and a replay from a new write.
@@ -2128,7 +2128,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `app.checkReadiness()`) (#265, #335, #360, #367, #300). Execution history (#401): with
   `@Application({ executionRecordRetention })` every root execution's record — with its identity,
   masked like its traces — is kept in the new `ExecutionHistoryRepository` (in memory or
-  `SqliteExecutionHistoryRepository`) and swept after it; `agboss records export` writes it as JSON
+  `SqliteExecutionHistoryRepository`) and swept after it; `agboss executions export` writes it as JSON
   Lines.
 - **Models and FinOps** — model providers as infrastructure (OpenRouter and the Decisions API built
   in) with retry, rate-limit and circuit-breaker policies; `@Budget`s per execution, tenant and

@@ -1801,7 +1801,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
       )
       .toFinish(LoanOfferedWorkflowFinish),
   ],
-  maxSteps: 2,
+  maxSteps: 8,
   providers: [CreditBureauService, FundsLedgerService],
 })
 export class LoanWorkflow {}

@@ -204,7 +204,7 @@ export class ExecutionMetricsObserver {
 
   onModelEnd(event: ModelEndEvent): void {
     if (event.step.component.name !== nameOf(DeskAgent)) return; // filter by name, never by nodeId
-    this.metricsService.observe("model_tokens", event.usage.totalTokens, { model: event.model });
+    this.metricsService.observe("model_tokens", event.usage.inputTokens + event.usage.outputTokens, { model: event.model });
   }
 }
 ```

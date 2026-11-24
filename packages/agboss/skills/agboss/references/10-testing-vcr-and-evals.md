@@ -442,7 +442,7 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
         route(RejectedWorkflowFinish),
       ),
   ],
-  maxSteps: 4,
+  maxSteps: 8,
   providers: [CandidateArchiveService, HiringStoreService],
 })
 export class ScreeningWorkflow {}
