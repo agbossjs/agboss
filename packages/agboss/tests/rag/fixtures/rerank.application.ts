@@ -19,7 +19,7 @@ import {
 import type { RagSearchResultDto } from "../../../src/dto/standard/framework.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #703 — reranking: 30 candidates, the one that answers ranked 27th by the retriever. A model
@@ -168,7 +168,7 @@ function workflowWith(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [start(Start).returns(WorkflowStartTextDto).toAgent(ReaderAgent).toFinish(Finish)],
+    flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(ReaderAgent).toFinish(Finish)],
     defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
   })
   class ReaderWorkflow {}

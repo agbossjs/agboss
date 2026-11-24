@@ -35,7 +35,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { agent, returnsEach, route, start } from "../fixtures/paths.js";
+import { onAgent, returnsEach, route, onStart } from "../fixtures/paths.js";
 import {
   FastAnswerAgent,
   LoyaltyAgent,
@@ -51,7 +51,7 @@ import {
   name: "overwrite-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -80,7 +80,7 @@ class DraftsKitAgent {}
   name: "list-is-not-single-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftsKitAgent)
       .returns(listOf(OfferDraftDto))
@@ -124,7 +124,7 @@ class StrictRouter {}
   name: "witness-workflow",
   version: "1.0.0",
   flow: [
-    start(SupportWorkflowStart)
+    onStart(SupportWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrderAgent)
       .returns(OrderStatusDto)
@@ -134,7 +134,7 @@ class StrictRouter {}
         route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(StrictExpertAgent),
         route(StrictExpertAgent),
       ),
-    agent(StrictExpertAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
+    onAgent(StrictExpertAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
   ],
 })
 class WitnessWorkflow {}
@@ -172,7 +172,7 @@ class ContractWorkflowFinish {}
   name: "contract-workflow",
   version: "1.0.0",
   flow: [
-    start(ContractWorkflowStart)
+    onStart(ContractWorkflowStart)
       .returns(ReviewDto)
       .returns(ReviewDto)
       .toAgent(ContractSummaryAgent)
@@ -219,7 +219,7 @@ class WideWorkflowFinish {
   name: "wide-workflow",
   version: "1.0.0",
   flow: [
-    returnsEach(start(WideWorkflowStart), manyDtos.map(optional)).toFinish(WideWorkflowFinish),
+    returnsEach(onStart(WideWorkflowStart), manyDtos.map(optional)).toFinish(WideWorkflowFinish),
   ],
 })
 class WideWorkflow {}
@@ -274,7 +274,7 @@ class ScreenedWorkflowFinish {}
   name: "screen-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(ScreenAgent)
       .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
@@ -288,7 +288,7 @@ class ScreenWorkflow {}
   name: "filtered-screen-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(ScreenAgent)
       .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))

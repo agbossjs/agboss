@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { anyOf, group, start, toFinish } from "../../src/flow/builder.js";
+import { anyOf, group, onStart, toFinish } from "../../src/flow/builder.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
 import { Arbiter, OnAnswer } from "../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../src/flow/decorators/router.js";
@@ -45,15 +45,15 @@ import { GoodScoreArbiter, ValidScoreArbiter } from "./fixtures/quorum.fixture.j
 /** #279 — quorums at compile time: what may follow a launch, what `.returns` may promise, arbiters. */
 
 const scores = () =>
-  start(CandidateReviewWorkflowStart)
+  onStart(CandidateReviewWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent);
 const fit = () =>
-  start(FitReviewWorkflowStart)
+  onStart(FitReviewWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
 const deal = () =>
-  start(DealWorkflowStart)
+  onStart(DealWorkflowStart)
     .returns(DealDto)
     .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, AuditorAgent, FastScreenAgent, {
       maxConcurrency: 4,

@@ -23,7 +23,7 @@ import {
   MortalExecutionLeaseRepository,
   RecoveryLog,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ChargeWorkflow, FencedExecutionBudget } from "./fenced-effect.workflow.js";
 
 /**
@@ -81,7 +81,7 @@ export class SlotWorkflowFinish {}
   name: "slot-workflow",
   version: "1.0.0",
   flow: [
-    start(SlotWorkflowStart)
+    onStart(SlotWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(TakeSlotAction)
       .returns(SlotReceiptDto)

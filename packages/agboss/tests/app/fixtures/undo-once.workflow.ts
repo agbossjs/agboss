@@ -12,7 +12,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, route, start, toFinish } from "../../helpers/flow.js";
+import { caseOf, route, onStart, toFinish } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { hours } from "../../../src/units/index.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
@@ -51,7 +51,7 @@ export class OnceRootWorkflowFinish {}
   name: "once-root-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceRootWorkflowStart)
+    onStart(OnceRootWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)
@@ -72,7 +72,7 @@ export class OnceRemoteChildWorkflowFinish {}
   name: "once-remote-child-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceRemoteChildWorkflowStart)
+    onStart(OnceRemoteChildWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)
@@ -93,7 +93,7 @@ export class OnceJoinWorkflowFinish {}
   name: "once-join-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceJoinWorkflowStart)
+    onStart(OnceJoinWorkflowStart)
       .returns(ItemDto)
       .toParallelActions(PaidBookingAction, GatedItemAction)
       .join()
@@ -122,7 +122,7 @@ export class OnceJoinSideFailedWorkflowFinish {}
   name: "once-join-side-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceJoinSideWorkflowStart)
+    onStart(OnceJoinSideWorkflowStart)
       .returns(ItemDto)
       .toParallelActions(PaidBookingAction, GatedItemAction)
       .join()
@@ -144,7 +144,7 @@ export class OnceLocalWorkflowFinish {}
   name: "once-local-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceLocalWorkflowStart)
+    onStart(OnceLocalWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(OnceRootWorkflow)
       .returns(ItemResultDto)
@@ -162,7 +162,7 @@ export class OnceAnyWorkflowFinish {}
   name: "once-any-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceAnyWorkflowStart)
+    onStart(OnceAnyWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(OnceRemoteChildWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)
@@ -195,7 +195,7 @@ export class OnceBudgetRouter {
   name: "once-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceBudgetWorkflowStart)
+    onStart(OnceBudgetWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)
@@ -223,7 +223,7 @@ export class OnceHeldWorkflowFinish {}
   name: "once-held-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceHeldWorkflowStart)
+    onStart(OnceHeldWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)
@@ -249,7 +249,7 @@ export class OnceBranchWorkflowFinish {}
   name: "once-branch-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceBranchWorkflowStart)
+    onStart(OnceBranchWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)
@@ -272,7 +272,7 @@ export class OnceLevelWorkflowFinish {}
   name: "once-level-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceLevelWorkflowStart)
+    onStart(OnceLevelWorkflowStart)
       .returns(ItemDto)
       .toAction(PaidBookingAction)
       .returns(BookingDto)

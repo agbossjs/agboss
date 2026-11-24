@@ -83,7 +83,7 @@ holds from its type**, not guess it from the name.
 ## Agents (LangGraph)
 
 - **The workflow file is the graph.** `@Workflow({ flow: [...] })` is a list of paths —
-  `start(…)` / `agent(…)` / `router(…)` / `action(…)` with `.returns`, `.toAgent` / `.toRouter` /
+  `onStart(…)` / `onAgent(…)` / `onRouter(…)` / `onAction(…)` with `.returns`, `.toAgent` / `.toRouter` /
   `.toAction` / `.toFinish`, `.chooseOne(route(…)…)`, `.switch(caseOf(…)…)` and `.onError(…)`
   (CLAUDE.md → The flow: paths); nodes are `@WorkflowStart`, `@Router`, `@Agent`, `@Action`,
   `@WorkflowFinish`. Each node reads its `input` from the path's scope; `.agboss/types.d.ts`

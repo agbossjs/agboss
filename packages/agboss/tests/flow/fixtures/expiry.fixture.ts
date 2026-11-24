@@ -31,7 +31,7 @@ import { Clock } from "../../../src/infrastructure/clock.js";
 import { hours, minutes, seconds } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { start, toAction, toQuestion } from "./paths.js";
+import { onStart, toAction, toExternalTask } from "./paths.js";
 
 /**
  * #941 — a pause with a deadline: an order the manager approves within 24 hours; when nobody
@@ -240,12 +240,12 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
   name: "expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(ExpiryWorkflowStart)
+    onStart(ExpiryWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion)
+      .toExternalTask(ManagerQuestion)
       .onError(
         PauseExpiredError,
-        toQuestion(DirectorQuestion)
+        toExternalTask(DirectorQuestion)
           .returns(ExpiryDecisionDto)
           .toAction(RecordEscalatedAction)
           .returns(ExpiryDoneDto)
@@ -271,9 +271,9 @@ export class ShortExpiryWorkflowStart {}
   name: "short-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(ShortExpiryWorkflowStart)
+    onStart(ShortExpiryWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion, { expiresIn: hours(4) })
+      .toExternalTask(ManagerQuestion, { expiresIn: hours(4) })
       .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
       .returns(ExpiryDoneDto)
@@ -313,9 +313,9 @@ export class SlowExpiryWorkflowStart {}
   name: "slow-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(SlowExpiryWorkflowStart)
+    onStart(SlowExpiryWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion, { expiresIn: seconds(3) })
+      .toExternalTask(ManagerQuestion, { expiresIn: seconds(3) })
       .onError(
         PauseExpiredError,
         toAction(SlowEscalationAction)
@@ -338,9 +338,9 @@ export class ReviewerWorkflowStart {}
   name: "reviewer-workflow",
   version: "1.0.0",
   flow: [
-    start(ReviewerWorkflowStart)
+    onStart(ReviewerWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ReviewerQuestion)
+      .toExternalTask(ReviewerQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
       .returns(ExpiryDoneDto)
@@ -382,9 +382,9 @@ export class OwnerWorkflowStart {}
   name: "owner-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnerWorkflowStart)
+    onStart(OwnerWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(OwnerQuestion)
+      .toExternalTask(OwnerQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
       .returns(ExpiryDoneDto)
@@ -409,9 +409,9 @@ export class PlainWorkflowStart {}
   name: "plain-workflow",
   version: "1.0.0",
   flow: [
-    start(PlainWorkflowStart)
+    onStart(PlainWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(DirectorQuestion)
+      .toExternalTask(DirectorQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
       .returns(ExpiryDoneDto)

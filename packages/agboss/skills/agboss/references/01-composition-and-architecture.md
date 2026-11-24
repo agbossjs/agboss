@@ -226,7 +226,7 @@ export class JobSearchWorkflowStart {}
 
 ```ts file=src/shortlist/workflows/shortlist/shortlist.workflow.ts
 // workflows/shortlist/shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
-import { Workflow, caseOf, oneOf, route, start } from "@agboss/core";
+import { Workflow, caseOf, oneOf, route, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
 import { ScreeningAgent } from "../../agents/screening/screening.agent.js";
@@ -244,7 +244,7 @@ import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
   name: "shortlist-workflow",
   version: "1.0.0",
   flow: [
-    start(JobSearchWorkflowStart)
+    onStart(JobSearchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
       .returns(oneOf(ShortlistDto, NoMatchDto))

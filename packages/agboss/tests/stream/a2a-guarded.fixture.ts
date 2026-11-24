@@ -5,7 +5,7 @@ import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../..
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { GuardedAgent } from "./guarded.fixture.js";
 
@@ -34,7 +34,7 @@ export class WireCallerResolver implements A2ACallerResolver<typeof WireGuardedS
   name: "wire-guarded-workflow",
   version: "1.0.0",
   flow: [
-    start(WireGuardedStart)
+    onStart(WireGuardedStart)
       .returns(WorkflowStartTextDto)
       .toAgent(GuardedAgent)
       .toFinish(WireGuardedFinish),

@@ -24,7 +24,7 @@ import { OneOf, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dt
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 
 /** The execution's own field: the sender's language. */
 export class ClinicExecutionContext extends ExecutionContext {
@@ -149,7 +149,7 @@ export class TriageRouter {}
   name: "clinic-workflow",
   version: "1.0.0",
   flow: [
-    start(ClinicStart)
+    onStart(ClinicStart)
       .returns(WorkflowStartTextDto)
       .toRouter(TriageRouter)
       .chooseOne(

@@ -62,7 +62,7 @@ export const FILES_APPLICATION = `import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
+  onStart,
 } from "@agboss/core";
 import { A2AFileDto, WorkflowFinishFileDto } from "@agboss/core/a2a";
 import { Nested } from "@agboss/core/dto";
@@ -90,7 +90,7 @@ export class FilesWorkflowFinish {}
   name: "files-workflow",
   version: "1.0.0",
   flow: [
-    start(FilesWorkflowStart)
+    onStart(FilesWorkflowStart)
       .returns(DocumentDto)
       .toAction(FilesAction)
       .returns(WorkflowFinishFileDto)

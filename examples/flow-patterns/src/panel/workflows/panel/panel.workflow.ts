@@ -1,4 +1,4 @@
-import { listOf, QuorumNotReachedError, start, toFinish, Workflow } from "@agboss/core";
+import { listOf, QuorumNotReachedError, onStart, toFinish, Workflow } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CultureScoreAgent } from "../../agents/culture-score/culture-score.agent.js";
 import { HireScoreAgent } from "../../agents/hire-score/hire-score.agent.js";
@@ -23,7 +23,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
   name: "panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, HireScoreAgent)
       .acceptedBy(InRangeArbiter)

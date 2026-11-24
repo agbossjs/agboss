@@ -18,7 +18,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { caseOf, start } from "../fixtures/paths.js";
+import { caseOf, onStart } from "../fixtures/paths.js";
 
 /**
  * `.switch(caseOf(…)…)` is exhaustive over the `oneOf` it follows (#272 AC5), written after
@@ -26,7 +26,7 @@ import { caseOf, start } from "../fixtures/paths.js";
  */
 
 const reviewed = () =>
-  start(KitWorkflowStart)
+  onStart(KitWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftKitAgent)
     .returns(OfferDraftDto)
@@ -69,7 +69,7 @@ class UnknownCaseWorkflow {}
   name: "switch-without-one-of-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .switch(caseOf(OfferDraftDto).toFinish(DraftKitWorkflowFinish)),

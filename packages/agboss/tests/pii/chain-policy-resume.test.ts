@@ -34,7 +34,7 @@ import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { answerOf, execute, start } from "../helpers/flow.js";
+import { answerOf, execute, onStart } from "../helpers/flow.js";
 import {
   resetSharedDatabase,
   SharedCheckpointSaver,
@@ -106,7 +106,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
     name: "cr-child-workflow",
     version: "1.0.0",
     flow: [
-      start(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
+      onStart(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
     ],
     piiPolicies: own,
   })
@@ -116,7 +116,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
     name: "cr-root-workflow",
     version: "1.0.0",
     flow: [
-      start(CrRootStart)
+      onStart(CrRootStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(CrChild)
         .returns(WorkflowFinishTextDto)
@@ -156,7 +156,7 @@ function nested(middle: readonly Class[]): Class {
     name: "cr-leaf-workflow",
     version: "1.0.0",
     flow: [
-      start(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
+      onStart(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
     ],
   })
   class CrLeaf {}
@@ -179,7 +179,7 @@ function nested(middle: readonly Class[]): Class {
     name: "cr-middle-workflow",
     version: "1.0.0",
     flow: [
-      start(CrMiddleStart)
+      onStart(CrMiddleStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(CrLeaf)
         .returns(WorkflowFinishTextDto)
@@ -193,7 +193,7 @@ function nested(middle: readonly Class[]): Class {
     name: "cr-root-workflow",
     version: "1.0.0",
     flow: [
-      start(CrRootStart)
+      onStart(CrRootStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(CrMiddle)
         .returns(WorkflowFinishTextDto)

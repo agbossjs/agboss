@@ -11,7 +11,8 @@ import type { AnalysisContext } from "./context.js";
 
 function noWorkflowStart(context: AnalysisContext): readonly RuleViolation[] {
   if (context.graph.starts.length > 0) return [];
-  const message = "the flow has no workflow start — begin a path with start(…) of a @WorkflowStart";
+  const message =
+    "the flow has no workflow start — begin a path with onStart(…) of a @WorkflowStart";
   return [violation("graph.no-workflow-start", message, [])];
 }
 

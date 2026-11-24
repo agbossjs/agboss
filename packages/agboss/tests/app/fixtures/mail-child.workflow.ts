@@ -12,7 +12,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   SharedCheckpointSaver,
@@ -112,7 +112,7 @@ const child = { name: "mail-child-workflow", defaults: { tools: { maxToolCalls: 
   ...child,
   version: "1.0.0",
   flow: [
-    start(MailChildStart)
+    onStart(MailChildStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChildMailerV1)
       .toFinish(MailChildFinish),
@@ -124,7 +124,7 @@ export class MailChildV1 {}
   ...child,
   version: "2.0.0",
   flow: [
-    start(MailChildStart)
+    onStart(MailChildStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChildMailerV2)
       .toFinish(MailChildFinish),
@@ -137,7 +137,7 @@ export class MailChildV2 {}
   name: "mail-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(MailParentStart)
+    onStart(MailParentStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV1)
       .returns(WorkflowFinishTextDto)
@@ -151,7 +151,7 @@ export class MailParentV1 {}
   name: "mail-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(MailParentStart)
+    onStart(MailParentStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV2)
       .returns(WorkflowFinishTextDto)
@@ -165,7 +165,7 @@ export class MailParentV2 {}
   name: "mail-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(MailParentStart)
+    onStart(MailParentStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV2)
       .returns(WorkflowFinishTextDto)

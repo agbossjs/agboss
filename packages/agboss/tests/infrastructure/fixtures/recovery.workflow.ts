@@ -29,7 +29,7 @@ import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-dat
 import { createSqliteTurnStore, type Turn } from "../../../src/turns/index.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
@@ -290,7 +290,7 @@ export class ReceiptWorkflowFinish {}
   },
   uncompactedTurns: 1,
   flow: [
-    start(OrderWorkflowStart)
+    onStart(OrderWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .returns(ReceiptDto)

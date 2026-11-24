@@ -7,7 +7,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { EndOnceLocalWorkflow, EndOnceLog } from "./child-end-once.workflow.js";
@@ -39,7 +39,7 @@ export class UndoLocalWorkflowFinish {}
   name: "undo-local-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoLocalWorkflowStart)
+    onStart(UndoLocalWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(UndoChildWorkflow)
       .returns(ItemResultDto)
@@ -73,7 +73,7 @@ export class SidePathFailedWorkflowFinish {}
   name: "side-path-local-workflow",
   version: "1.0.0",
   flow: [
-    start(SidePathLocalWorkflowStart)
+    onStart(SidePathLocalWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow)
       .onError(ChildExecutionFailedError, toFinish(SidePathFailedWorkflowFinish))

@@ -3,7 +3,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
@@ -53,7 +53,7 @@ export function workflowWith(prompts: FlowPrompts): {
     version: "1.0.0",
     defaults: testDefaults,
     flow: [
-      start(TestChat)
+      onStart(TestChat)
         .returns(WorkflowStartTextDto)
         .toRouter(Main)
         .chooseOne(

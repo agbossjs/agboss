@@ -27,7 +27,7 @@ import type { Usd } from "../../../src/units/index.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 
 /**
  * One application of a mesh (#398): its agent asks a peer application over A2A through one tool,
@@ -152,12 +152,12 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
 
   const flow =
     spec.handlesLoop === true
-      ? start(MeshStart)
+      ? onStart(MeshStart)
           .returns(WorkflowStartTextDto)
           .toAgent(MeshDesk)
           .onError(MeshLoopDetectedError, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
-      : start(MeshStart)
+      : onStart(MeshStart)
           .returns(WorkflowStartTextDto)
           .toAgent(MeshDesk)
           .toFinish(MeshAnswer);

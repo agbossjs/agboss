@@ -1,5 +1,5 @@
 /**
- * #289: one call per line in flow chains. AC1 — a workflow module with `start(A).returns(B).toFinish(C)`
+ * #289: one call per line in flow chains. AC1 — a workflow module with `onStart(A).returns(B).toFinish(C)`
  * on one line fails the repo's ESLint (the `eslint .` of `make check`) with `newline-per-chained-call`;
  * the same chain one call per line passes and `make fmt` (scripts/format-flows.mjs) keeps it.
  * AC2 — a doc's flow snippet with two calls on one line fails `check:docs`, naming the doc, the line
@@ -39,18 +39,18 @@ async function generateTypes(): Promise<void> {
 }
 
 const imports = [
-  'import { start } from "@agboss/core";',
+  'import { onStart } from "@agboss/core";',
   'import { OfferRequestDto } from "../../dto/offer.dto.js";',
   'import { OfferConfirmedWorkflowFinish } from "./offer-confirmed.workflow-finish.js";',
   'import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";',
   "",
 ].join("\n");
 const JOINED = `${imports}
-export const paths = [start(SendOfferWorkflowStart).returns(OfferRequestDto).toFinish(OfferConfirmedWorkflowFinish)];
+export const paths = [onStart(SendOfferWorkflowStart).returns(OfferRequestDto).toFinish(OfferConfirmedWorkflowFinish)];
 `;
 const SPLIT = `${imports}
 export const paths = [
-  start(SendOfferWorkflowStart)
+  onStart(SendOfferWorkflowStart)
     .returns(OfferRequestDto)
     .toFinish(OfferConfirmedWorkflowFinish),
 ];
@@ -121,7 +121,7 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
   it("a flow snippet with two calls on one line fails check:docs, naming the doc, the line and the rule", async () => {
     const dir = scratch();
     dirs.push(dir);
-    const doc = `# Guide\n\n${fence("export const paths = [", "  start(A).toFinish(B),", "];")}\n`;
+    const doc = `# Guide\n\n${fence("export const paths = [", "  onStart(A).toFinish(B),", "];")}\n`;
 
     const result = await checkDocs(dir, writeDocs(dir, { "guide.md": doc }));
 
@@ -137,7 +137,7 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
     const doc = [
       "# Guide",
       "",
-      fence("export const paths = [", "  start(A)", "    .toFinish(B),", "];"),
+      fence("export const paths = [", "  onStart(A)", "    .toFinish(B),", "];"),
       "",
       fence('const text = ["a"].map(String).join(", ");'),
       "",
@@ -150,7 +150,7 @@ describe("#289 AC2: docs show flow chains one call per line", { timeout: 60_000 
   });
 
   it("Prettier leaves a doc's ts block as written", async () => {
-    const markdown = `# Guide\n\n${fence("export const paths = [", "  start(A)", "    .toFinish(B),", "];")}\n`;
+    const markdown = `# Guide\n\n${fence("export const paths = [", "  onStart(A)", "    .toFinish(B),", "];")}\n`;
     const options = (await prettier.resolveConfig(join(repo, "README.md"))) ?? {};
 
     expect(await prettier.format(markdown, { ...options, filepath: join(repo, "guide.md") })).toBe(

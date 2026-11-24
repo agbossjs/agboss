@@ -27,7 +27,7 @@ import {
 import type { Milliseconds } from "../../../../../src/units/index.js";
 import { usd } from "../../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../../flow/fixtures/budgets.js";
-import { start } from "../../../../helpers/flow.js";
+import { onStart } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import {
   A2ATaskState,
@@ -192,7 +192,7 @@ export class PeerAnswerWorkflowFinish {}
   name: "peer-workflow",
   version: "1.0.0",
   flow: [
-    start(PeerAskWorkflowStart)
+    onStart(PeerAskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(PeerAnswerAction)
       .returns(WorkflowFinishTextDto)

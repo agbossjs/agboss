@@ -9,7 +9,7 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { LimitExceededError } from "../../../../src/graph/limits.js";
-import { route, start, toFinish } from "../../../helpers/flow.js";
+import { route, onStart, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -117,7 +117,7 @@ export class AskRouter {
   name: "ask-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(AskDto)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
@@ -147,7 +147,7 @@ export class AskApplication {}
   name: "ask-caught-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(AskDto)
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))

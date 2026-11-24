@@ -9,7 +9,7 @@ import {
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { DateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -105,7 +105,7 @@ export class MainRouter {}
   uncompactedTurns: 5,
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
-    start(TestChat)
+    onStart(TestChat)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(

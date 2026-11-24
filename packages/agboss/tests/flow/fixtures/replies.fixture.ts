@@ -33,7 +33,7 @@ import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/i
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #267 PR 3 — free-text replies: a payout approved by a finance desk that passes the manager's
@@ -364,7 +364,7 @@ export class TreasuryWorkflowFinish {}
   name: "treasury-workflow",
   version: "1.0.0",
   flow: [
-    start(TreasuryWorkflowStart)
+    onStart(TreasuryWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(TreasurerAgent)
       .toFinish(TreasuryWorkflowFinish),
@@ -394,7 +394,7 @@ export class TreasuryDeskWorkflowFinish {}
   name: "treasury-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TreasuryDeskWorkflowStart)
+    onStart(TreasuryDeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(TreasuryWorkflow)
       .returns(WorkflowFinishTextDto)
@@ -447,7 +447,7 @@ export class TreasuryBatchWorkflowFinish {}
   name: "treasury-batch-workflow",
   version: "1.0.0",
   flow: [
-    start(TreasuryBatchWorkflowStart)
+    onStart(TreasuryBatchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(SplitRequestsAction)
       .returns(listOf(WorkflowStartTextDto))

@@ -16,7 +16,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { YieldCheckWorkflow, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
@@ -85,7 +85,7 @@ export class EndOnceLocalWorkflowFinish {}
   name: "end-once-local-workflow",
   version: "1.0.0",
   flow: [
-    start(EndOnceLocalWorkflowStart)
+    onStart(EndOnceLocalWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow)
       .returns(ItemResultDto)

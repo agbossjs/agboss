@@ -32,7 +32,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { parseWireRequest, wireFetch } from "../../src/models/wire.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub } from "./stub.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 @WorkflowStart({ name: "task-workflow-start", description: "A task", input: WorkflowStartTextDto })
 class Start {}
@@ -173,7 +173,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
     @Workflow({
       name: "normalised-workflow",
       version: "1",
-      flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Finish)],
+      flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Finish)],
       defaults: {
         models: { temperature: 0 },
         router: { model: "typesafe/jev-1.13" },

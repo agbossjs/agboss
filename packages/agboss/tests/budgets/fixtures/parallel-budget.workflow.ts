@@ -27,7 +27,7 @@ import {
   TestExecutionBudget,
   TestTenantDailyBudget,
 } from "../../flow/fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../helpers/flow.js";
+import { onStart, toAction, toFinish } from "../../helpers/flow.js";
 
 /**
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
@@ -206,7 +206,7 @@ const onBudget = toAction(NoteBudgetStopAction)
   name: "parallel-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(ParallelBudgetWorkflowStart)
+    onStart(ParallelBudgetWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
@@ -222,7 +222,7 @@ export class ParallelBudgetWorkflow {}
   name: "unhandled-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(ParallelBudgetWorkflowStart)
+    onStart(ParallelBudgetWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
@@ -237,7 +237,7 @@ export class UnhandledBudgetWorkflow {}
   name: "quorum-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(ParallelBudgetWorkflowStart)
+    onStart(ParallelBudgetWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .joinQuorum({ min: 2 })
@@ -272,7 +272,7 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskWorkflowStart)
+    onStart(TaskWorkflowStart)
       .returns(TaskDto)
       .toAgent(TaskAgent)
       .returns(NoteDto)
@@ -293,7 +293,7 @@ export class TasksWorkflowStart {}
   name: "tasks-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(TasksWorkflowStart)
+    onStart(TasksWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxItems: 4 })
       .join()
@@ -345,7 +345,7 @@ export class TaskAction {
   name: "task-actions-budget-workflow",
   version: "1.0.0",
   flow: [
-    start(TasksWorkflowStart)
+    onStart(TasksWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelActions(TaskAction, { maxItems: 4 })
       .join()

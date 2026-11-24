@@ -2,7 +2,7 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #646 — the documented pattern: two executions started and the clock advanced at once. Each one's
@@ -35,7 +35,7 @@ export class ChunkWorkflowFinish {}
   name: "chunk-workflow",
   version: "1.0.0",
   flow: [
-    start(ChunkWorkflowStart)
+    onStart(ChunkWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChunkWorkerAgent)
       .returns(ChunkDraftDto)

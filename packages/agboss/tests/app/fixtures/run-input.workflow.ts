@@ -21,7 +21,7 @@ import {
   type ToolHandler,
   type ToolStartEvent,
 } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -158,7 +158,7 @@ export class Done {}
   uncompactedTurns: 1,
   providers: [Shortlist],
   flow: [
-    start(SearchStart)
+    onStart(SearchStart)
       .returns(SearchInDto)
       .toAgent(Searcher)
       .returns(ShortlistDto)
@@ -195,7 +195,7 @@ export class Typo {}
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   uncompactedTurns: 1,
   flow: [
-    start(SearchStart)
+    onStart(SearchStart)
       .returns(SearchInDto)
       .toAgent(Typo)
       .returns(ShortlistDto)

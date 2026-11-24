@@ -30,7 +30,7 @@ import {
 } from "../../src/index.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
 
@@ -81,7 +81,7 @@ class AskRouter {}
 class OwnRouter {}
 
 const flowThrough = (router: Class) => [
-  start(AskWorkflowStart)
+  onStart(AskWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(router)
     .chooseOne(route(HelperAgent).toFinish(AnswerWorkflowFinish)),

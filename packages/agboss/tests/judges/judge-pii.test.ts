@@ -20,7 +20,7 @@ import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./fixtures/judged.workflow.js";
@@ -68,7 +68,7 @@ class ContactFinish {}
   name: "contact-workflow",
   version: "1.0.0",
   flow: [
-    start(ContactStart)
+    onStart(ContactStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ContactWriter)
       .toFinish(ContactFinish),

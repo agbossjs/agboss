@@ -33,7 +33,7 @@ import {
 } from "../fixtures/children.fixture.js";
 import { CompanyDto } from "../fixtures/data-dtos.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { caseOf, start, toAction, toAgent, toFinish } from "../fixtures/paths.js";
+import { caseOf, onStart, toAction, toAgent, toFinish } from "../fixtures/paths.js";
 
 /**
  * #263 AC12: a side path that can catch a limit leads only to actions and finishes —
@@ -81,7 +81,7 @@ const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedD
 
 /** `.toWorkflow(CompanyReviewWorkflow)` caught by `error` on the side path `side`. */
 const reviewed = (error: ErrorClass, side: PathBuilder) =>
-  start(JobOfferWorkflowStart)
+  onStart(JobOfferWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(CompanyPickerAgent)
     .returns(CompanyDto)
@@ -143,7 +143,7 @@ describe("#263 AC12: limit handler uses model", () => {
   });
 
   it("the join's .onJoinError(LimitExceededError, …) leading to an agent", () => {
-    const joined = start(JobOfferWorkflowStart)
+    const joined = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyFinderAgent)
       .returns(listOf(CompanyDto))

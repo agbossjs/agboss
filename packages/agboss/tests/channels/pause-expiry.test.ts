@@ -239,7 +239,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
   const edge = testWith(PublicExpiryApplication);
 
   edge(
-    ".toQuestion(Manager, { expiresIn }).onError(PauseExpiredError, toQuestion(Director, { expiresIn })…): the manager's pause expires, the director is asked with his own deadline, the answer goes on the path",
+    ".toExternalTask(Manager, { expiresIn }).onError(PauseExpiredError, toExternalTask(Director, { expiresIn })…): the manager's pause expires, the director is asked with his own deadline, the answer goes on the path",
     async ({ app, clock }) => {
       const paused = await execute(app, PublicExpiryWorkflowStart, ORDER, THREAD);
       expect(paused.pending[0]?.expiresAt).toBe(AT(clock, hours(4)));

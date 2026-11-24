@@ -41,7 +41,7 @@ export function implementationsOf(role: Class, modules: readonly ProviderModule[
 
 /**
  * A tool approved through a role must take the role's `approves` DTO; a question role (#659) approves
- * none — it is asked by a flow step, `.toQuestion(Role)`.
+ * none — it is asked by a flow step, `.toExternalTask(Role)`.
  */
 function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return uses.flatMap((use) => {
@@ -50,7 +50,7 @@ function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
     const { options } = found;
     if (!isQuestionRole(options) && options.approves === use.toolInput) return [];
     const why = isQuestionRole(options)
-      ? `${options.name} asks a question (ask / answer), it approves no tool — ask it with .toQuestion(${nameOf(found.role)})`
+      ? `${options.name} asks a question (ask / answer), it approves no tool — ask it with .toExternalTask(${nameOf(found.role)})`
       : `${options.name} approves ${nameOf(options.approves)}`;
     return [
       violation(

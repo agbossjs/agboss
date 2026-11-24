@@ -61,7 +61,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
    file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`). Every custom error is an
    `AGBossError` subclass in `errors/<name>.error.ts` ending with `Error`.
-3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
+3. **The flow is paths, written one call per line.** `@Workflow({ flow: [onStart(S) … .toFinish(F)] })`;
    `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
    position. Every path ends in a finish.

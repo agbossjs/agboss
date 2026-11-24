@@ -8,7 +8,7 @@ import {
   NotifyKitAction,
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
-import { side, start, toAction, toFinish } from "../fixtures/paths.js";
+import { side, onStart, toAction, toFinish } from "../fixtures/paths.js";
 
 /** `.onError(E, …)` right after the step that throws, one handler per class (#272 AC7). */
 
@@ -19,7 +19,7 @@ class MailError extends Error {}
   name: "two-handlers-workflow",
   version: "1.0.0",
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
@@ -34,7 +34,7 @@ class TwoHandlersWorkflow {}
   name: "duplicate-handler-workflow",
   version: "1.0.0",
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
@@ -49,7 +49,7 @@ class DuplicateHandlerWorkflow {}
   name: "empty-handler-workflow",
   version: "1.0.0",
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, side())

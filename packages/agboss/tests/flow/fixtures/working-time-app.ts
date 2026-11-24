@@ -16,7 +16,7 @@ import { RecordExtensionAction } from "./pause-extension.fixture.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { AgentRefundDoneDto, AgentRefundDto } from "./agent-expiry.fixture.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #944: an application with one question role (its times and calendar) and a workflow that asks it —
@@ -102,9 +102,9 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(SomeStart)
+      onStart(SomeStart)
         .returns(ExpiryOrderDto)
-        .toQuestion(
+        .toExternalTask(
           SomeQuestion,
           config.step === undefined ? undefined : { expiresIn: config.step },
         )
@@ -199,7 +199,7 @@ export function workingToolApp(
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(SomeStart)
+      onStart(SomeStart)
         .returns(AgentRefundDto)
         .toAgent(SomeAgent)
         .returns(AgentRefundDoneDto)

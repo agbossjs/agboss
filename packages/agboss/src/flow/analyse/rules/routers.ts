@@ -126,7 +126,7 @@ export function routerRules(context: AnalysisContext): readonly RuleViolation[] 
     if (node === undefined) return [];
     if (node.declaration.kind === NodeKind.Router)
       return choiceViolations(node, node.declaration, site);
-    const message = `${node.name} is not a router — .chooseOne(…) follows .toRouter(…) or router(…)`;
+    const message = `${node.name} is not a router — .chooseOne(…) follows .toRouter(…) or onRouter(…)`;
     return [violation("graph.choose-from-non-router", message, [node.name])];
   });
   return [

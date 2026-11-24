@@ -29,7 +29,7 @@ import {
 import { Workflow } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { testDefaults } from "../helpers.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 class ShopApplication {
   readonly fixture = true;
@@ -99,7 +99,7 @@ class PlainService {
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(OrdersWorkflowStart)
+    onStart(OrdersWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrdersAgent)
       .toFinish(OrdersWorkflowFinish),
@@ -251,7 +251,7 @@ describe("#1366: applicationRuleViolations", () => {
       version: "1.0.0",
       defaults: testDefaults,
       flow: [
-        start(OrdersWorkflowStart)
+        onStart(OrdersWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(OrdersAgent)
           .toFinish(OrdersWorkflowFinish),
@@ -266,7 +266,7 @@ describe("#1366: applicationRuleViolations", () => {
       version: "1.0.0",
       defaults: testDefaults,
       flow: [
-        start(OrdersWorkflowStart)
+        onStart(OrdersWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(OrdersAgent)
           .toFinish(OrdersWorkflowFinish),

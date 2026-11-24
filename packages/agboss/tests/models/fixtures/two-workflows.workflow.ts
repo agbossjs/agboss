@@ -9,7 +9,7 @@ import {
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
 
@@ -41,7 +41,7 @@ export class DraftingStart {}
   name: "drafting-workflow",
   version: "1.0.0",
   flow: [
-    start(DraftingStart)
+    onStart(DraftingStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DraftingAgent)
       .toFinish(NotesFinish),
@@ -70,7 +70,7 @@ export class PolishingStart {}
   name: "polishing-workflow",
   version: "1.0.0",
   flow: [
-    start(PolishingStart)
+    onStart(PolishingStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PolishingAgent)
       .toFinish(NotesFinish),

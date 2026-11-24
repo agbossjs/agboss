@@ -39,7 +39,7 @@ export interface ChannelRoleBaseOptions {
   /**
    * How long a pause of this role waits for its answer (#941): `hours(24)`; at least `seconds(1)`;
    * `workingHours(2)` counts the calendar's working time (#944). The deadline is fixed when the pause is made (a deploy that changes this never moves an open
-   * one); a question step (`.toQuestion(Role, { expiresIn })`) and a tool (`@Tool({ expiresIn })`)
+   * one); a question step (`.toExternalTask(Role, { expiresIn })`) and a tool (`@Tool({ expiresIn })`)
    * override it. None: the pause waits forever — or until its run's deadline.
    */
   readonly expiresIn?: Milliseconds | WorkingDuration;
@@ -73,7 +73,7 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
 }
 
 /**
- * A workflow question (#659): asked by a flow step, `.toQuestion(Role)` — the role is that step's
+ * A workflow question (#659): asked by a flow step, `.toExternalTask(Role)` — the role is that step's
  * node (its `name` ends with `-question`). The step reads one `ask` value from the path, pauses on
  * the role's channel and puts the `answer` on the path (`.returns(AnswerDto)`).
  */

@@ -3,7 +3,7 @@ import { file } from "../../../src/components/file.js";
 import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
@@ -54,7 +54,7 @@ export class Answer {}
   name: "priced-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Summariser)
       .returns(SummaryDto)

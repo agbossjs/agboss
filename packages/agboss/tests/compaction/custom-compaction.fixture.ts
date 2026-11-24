@@ -27,7 +27,7 @@ import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 /** A knowledge graph: keeps the facts, answers one summary per turn after the previous ones. */
 @Injectable()
@@ -111,7 +111,9 @@ export class GraphAgent {}
 @Workflow({
   name: "graph-desk-workflow",
   version: "1.0.0",
-  flow: [start(GraphStart).returns(WorkflowStartTextDto).toAgent(GraphAgent).toFinish(GraphAnswer)],
+  flow: [
+    onStart(GraphStart).returns(WorkflowStartTextDto).toAgent(GraphAgent).toFinish(GraphAnswer),
+  ],
   uncompactedTurns: 1,
   providers: [KnowledgeGraphService],
 })

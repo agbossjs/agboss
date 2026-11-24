@@ -19,7 +19,7 @@ import {
   TripRequestDto,
   TripWorkflowStart,
 } from "../flow/fixtures/compensation-parts.js";
-import { start, toAction } from "../flow/fixtures/paths.js";
+import { onStart, toAction } from "../flow/fixtures/paths.js";
 
 /**
  * #339 AC4 — `agboss describe` prints each action's `compensateWith` / `committedBy`, and
@@ -31,7 +31,7 @@ import { start, toAction } from "../flow/fixtures/paths.js";
   name: "booking-workflow",
   version: "1.0.0",
   flow: [
-    start(TripWorkflowStart)
+    onStart(TripWorkflowStart)
       .returns(TripRequestDto)
       .toAction(BookTripAction)
       .returns(BookingDto)

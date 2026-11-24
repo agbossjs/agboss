@@ -10,7 +10,7 @@ import {
 } from "./children.fixture.js";
 import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { agent, start } from "./paths.js";
+import { onAgent, onStart } from "./paths.js";
 
 /**
  * #263 — a child with two starts that take one class (`[graph.ambiguous-start]`): its generated
@@ -46,13 +46,13 @@ export class CompanyGraderAgent {}
   name: "twin-grade-workflow",
   version: "1.0.0",
   flow: [
-    start(QuickGradeWorkflowStart)
+    onStart(QuickGradeWorkflowStart)
       .returns(CompanyDto)
       .toAgent(CompanyGraderAgent),
-    start(FullGradeWorkflowStart)
+    onStart(FullGradeWorkflowStart)
       .returns(CompanyDto)
       .toAgent(CompanyGraderAgent),
-    agent(CompanyGraderAgent)
+    onAgent(CompanyGraderAgent)
       .returns(CompanyGradeDto)
       .toFinish(CompanyGradedWorkflowFinish),
   ],
@@ -70,7 +70,7 @@ export class BrokenReviewWorkflowStart {}
   name: "broken-review-workflow",
   version: "1.0.0",
   flow: [
-    start(BrokenReviewWorkflowStart)
+    onStart(BrokenReviewWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto)

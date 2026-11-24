@@ -18,7 +18,7 @@ import { callTool, replyWith } from "../../../../src/testing/index.js";
 import { ScriptBook } from "../../../../src/testing/script-book.js";
 import type { Milliseconds, Usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { execute, start } from "../../../helpers/flow.js";
+import { execute, onStart } from "../../../helpers/flow.js";
 import { MeshEnvironment } from "../../fixtures/environments/mesh.environment.js";
 import { meshEnvOf, meshOf, type MeshKeyPair } from "../../fixtures/mesh-keys.js";
 import { offline } from "../../fixtures/remote.workflow.js";
@@ -139,7 +139,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(Answer)],
+    flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(Answer)],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
     providers: [PeerA2AAgent],
   })

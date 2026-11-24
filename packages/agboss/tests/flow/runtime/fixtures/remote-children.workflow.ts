@@ -13,7 +13,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish } from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 
 /**
@@ -141,7 +141,7 @@ export class RemoteItemCheckedWorkflowFinish {}
   name: "remote-item-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteItemWorkflowStart)
+    onStart(RemoteItemWorkflowStart)
       .returns(ItemDto)
       .toAction(RemoteCheckAction)
       .returns(ItemResultDto)
@@ -190,7 +190,7 @@ export class RemoteChecksFailedWorkflowFinish {
   name: "remote-items-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteItemsWorkflowStart)
+    onStart(RemoteItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
@@ -224,7 +224,7 @@ export class RemoteOneCheckedWorkflowFinish {}
   name: "remote-one-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteOneWorkflowStart)
+    onStart(RemoteOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)

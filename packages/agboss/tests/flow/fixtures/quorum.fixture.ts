@@ -1,10 +1,10 @@
 import {
-  action,
-  agent,
+  onAction,
+  onAgent,
   anyOf,
   group,
   route,
-  start,
+  onStart,
   toAction,
   toFinish,
 } from "../../../src/flow/builder.js";
@@ -120,7 +120,7 @@ export class ValidScoreArbiter {}
   name: "candidate-review-workflow",
   version: "1.0.0",
   flow: [
-    start(CandidateReviewWorkflowStart)
+    onStart(CandidateReviewWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
       .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
@@ -138,7 +138,7 @@ export class CandidateReviewWorkflow {}
   name: "fit-review-workflow",
   version: "1.0.0",
   flow: [
-    start(FitReviewWorkflowStart)
+    onStart(FitReviewWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent)
       .joinQuorum({ min: 2 })
@@ -179,7 +179,7 @@ export class ConvincingReasonArbiter {}
   version: "1.0.0",
   maxSteps: 60, // a launch of up to 50 items
   flow: [
-    start(CompanySearchWorkflowStart)
+    onStart(CompanySearchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(BoardSearchAgent)
       .returns(listOf(CompanyDto))
@@ -213,7 +213,7 @@ export class DueDiligenceArbiter {}
   name: "due-diligence-workflow",
   version: "1.0.0",
   flow: [
-    start(DealWorkflowStart)
+    onStart(DealWorkflowStart)
       .returns(DealDto)
       .toParallelAgents(
         LegalAgent,
@@ -248,11 +248,11 @@ export class DueDiligenceArbiter {}
       )
       .onJoinError(StepFailedError, toAction(NotifyReviewerAction)),
 
-    agent(FullReviewAgent)
+    onAgent(FullReviewAgent)
       .returns(DueDiligenceReportDto)
       .toFinish(DueDiligenceReportWorkflowFinish),
 
-    action(NotifyReviewerAction)
+    onAction(NotifyReviewerAction)
       .toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })

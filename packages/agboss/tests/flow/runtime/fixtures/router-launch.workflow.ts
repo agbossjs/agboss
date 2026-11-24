@@ -29,7 +29,7 @@ import {
   RefundPolicyAgent,
 } from "../../fixtures/launch.fixture.js";
 import { RefundPolicyDto } from "../../fixtures/launch-dtos.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 
 /**
  * #273 PR 2 — routers before a launch, beside the issue's help desk: a chat-model router whose
@@ -88,7 +88,7 @@ export class PickyWorkflowFinish {}
   name: "picky-workflow",
   version: "1.0.0",
   flow: [
-    start(PickyWorkflowStart)
+    onStart(PickyWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(PickyRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
@@ -148,7 +148,7 @@ export class StrictRouter {
   name: "strict-workflow",
   version: "1.0.0",
   flow: [
-    start(StrictWorkflowStart)
+    onStart(StrictWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(StrictRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
@@ -197,7 +197,7 @@ export class BudgetAnswerAgent {}
   name: "budget-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(BudgetDeskWorkflowStart)
+    onStart(BudgetDeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent, {

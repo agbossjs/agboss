@@ -26,7 +26,7 @@ import {
 } from "../../../src/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { execute, start, toFinish } from "../../helpers/flow.js";
+import { execute, onStart, toFinish } from "../../helpers/flow.js";
 import { offline } from "../fixtures/remote.workflow.js";
 import {
   FileSummaryWorkflow,
@@ -93,7 +93,7 @@ class HandedOverFinish {}
   name: "ask-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(AskPeerAction)
       .onError(A2AUnexpectedFinishError, toFinish(HandedOverFinish))

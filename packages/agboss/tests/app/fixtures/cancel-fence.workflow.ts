@@ -18,7 +18,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { gate } from "./fenced-effect.workflow.js";
 
@@ -274,7 +274,7 @@ export class FenceFarFinish {}
   name: "fence-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(FenceChargeStart)
+    onStart(FenceChargeStart)
       .returns(WorkflowStartTextDto)
       .toAction(ReserveOrderAction)
       .returns(ReservationDto)
@@ -289,7 +289,7 @@ export class FenceChargeWorkflow {}
   name: "fence-pay-workflow",
   version: "1.0.0",
   flow: [
-    start(FencePayStart)
+    onStart(FencePayStart)
       .returns(WorkflowStartTextDto)
       .toAction(ReserveOrderAction)
       .returns(ReservationDto)
@@ -304,7 +304,7 @@ export class FencePayWorkflow {}
   name: "fence-child-workflow",
   version: "1.0.0",
   flow: [
-    start(FenceChildStart)
+    onStart(FenceChildStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeTextAction)
       .returns(ReceiptDto)
@@ -317,7 +317,7 @@ export class FenceChildWorkflow {}
   name: "fence-far-workflow",
   version: "1.0.0",
   flow: [
-    start(FenceFarStart)
+    onStart(FenceFarStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(FenceChildWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ReceiptDto)

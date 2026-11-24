@@ -35,7 +35,7 @@ import {
 import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { ArticleDraftDto } from "../../../flow/fixtures/launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
-import { start, toAction, toFinish } from "../../../flow/fixtures/paths.js";
+import { onStart, toAction, toFinish } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
 import { returnsEach } from "../../../flow/fixtures/paths.js";
 
@@ -72,7 +72,7 @@ const agentOf = (name: string, input: Record<string, unknown>) => {
   return ReadsAgent;
 };
 
-const kit = () => start(KitWorkflowStart).returns(ShortlistDto);
+const kit = () => onStart(KitWorkflowStart).returns(ShortlistDto);
 
 describe("#1366: a field no path brings", () => {
   it("a required field is [input.missing-on-path], an optional one [input.never-produced], both name the node", () => {
@@ -126,7 +126,7 @@ describe("#1366: several values where one field reads", () => {
     class SummaryAgent {}
 
     const flow: Flow = [
-      start(ContractStart)
+      onStart(ContractStart)
         .returns(ReviewDto)
         .returns(ReviewDto)
         .toAgent(SummaryAgent)
@@ -146,7 +146,7 @@ describe("#1366: several values where one field reads", () => {
 
 /** A planner's parallel agents joined: a research and two critiques (a list of one class), read by `reader`. */
 const joinedInto = (reader: abstract new () => unknown): Flow => [
-  start(ResearchWorkflowStart)
+  onStart(ResearchWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(PlannerAgent)
     .returns(PlanDto)
@@ -219,7 +219,7 @@ class SettledRequiredAction {
 describe("#1366: a side path of a join error reads a settled answer", () => {
   it("as required it is [input.missing-on-path] for an answer its branch may not have given, naming the node", () => {
     const flow: Flow = [
-      start(ResearchWorkflowStart)
+      onStart(ResearchWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toAgent(PlannerAgent)
         .returns(PlanDto)
@@ -321,7 +321,7 @@ describe("#1366: a node reached by too many scopes", () => {
     }
   }
   const wide: Flow = [
-    returnsEach(start(WideStart), [ShortlistDto, ...manyDtos.map(optional)]).toFinish(WideFinish),
+    returnsEach(onStart(WideStart), [ShortlistDto, ...manyDtos.map(optional)]).toFinish(WideFinish),
   ];
 
   it(`more than ${String(MAX_SCOPES_PER_NODE)} scopes at a node are [flow.analysis-too-large] naming the node`, () => {
@@ -415,7 +415,7 @@ describe("#1366: a oneOf field beside two lists of its classes", () => {
     class ListsStart {}
     const reader = agentOf("either-lists-1366h-agent", { either });
     const flow: Flow = [
-      returnsEach(start(ListsStart), [listOf(either), listOf(either)])
+      returnsEach(onStart(ListsStart), [listOf(either), listOf(either)])
         .toAgent(reader)
         .returns(OfferDraftDto)
         .toFinish(DraftKitWorkflowFinish),

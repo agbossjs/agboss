@@ -1,4 +1,4 @@
-import { caseOf, route, router, start } from "../../../src/flow/builder.js";
+import { caseOf, route, onRouter, onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -84,11 +84,11 @@ export class NoReplyWorkflowFinish {}
 export class MainRouter {}
 
 export const chatPaths = [
-  start(IntakeWorkflowStart)
+  onStart(IntakeWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(MainRouter),
 
-  router(MainRouter)
+  onRouter(MainRouter)
     .chooseOne(
       route(ProfilerAgent)
         .returns(oneOf(ProfileDto, ResumeMissingDto))

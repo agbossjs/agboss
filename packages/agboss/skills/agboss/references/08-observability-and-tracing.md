@@ -118,7 +118,7 @@ export class DeskWorkflowFinish {}
 ```
 
 ```ts file=src/desk/workflows/desk/desk.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OpenTicketAction } from "../../actions/open-ticket.action.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";
@@ -131,7 +131,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   name: "desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskWorkflowStart)
+    onStart(DeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DeskAgent)
       .returns(DeskAnswerDto)

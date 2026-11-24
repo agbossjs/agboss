@@ -12,7 +12,7 @@ import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { Reply } from "../testing/fixtures/desk.workflow.js";
 
@@ -40,7 +40,7 @@ class EchoNoteAction {
   name: "note-workflow",
   version: "1.0.0",
   flow: [
-    start(NoteWorkflowStart)
+    onStart(NoteWorkflowStart)
       .returns(NoteDto)
       .toAction(EchoNoteAction)
       .returns(WorkflowFinishTextDto)
@@ -70,7 +70,7 @@ class NoteWriterAgent {}
 @Workflow({
   name: "noted-workflow",
   version: "1.0.0",
-  flow: [start(NoteWorkflowStart).returns(NoteDto).toAgent(NoteWriterAgent).toFinish(Reply)],
+  flow: [onStart(NoteWorkflowStart).returns(NoteDto).toAgent(NoteWriterAgent).toFinish(Reply)],
 })
 class NotedWorkflow {}
 

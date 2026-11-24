@@ -101,7 +101,7 @@ export class ClaimWorkflowFinish {}
 import {
   Workflow,
   WorkflowSettings,
-  start,
+  onStart,
   type IncompatibleResume,
   type ResumeDecision,
   type WorkflowDefinition,
@@ -120,7 +120,7 @@ const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
   name: "claim-workflow",
   version: "1.1.0",
   flow: [
-    start(ClaimWorkflowStart)
+    onStart(ClaimWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ClaimAssessorAgent)
       .returns(ClaimAssessmentDto)

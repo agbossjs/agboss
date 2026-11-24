@@ -16,7 +16,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { EmptyEnvironment, type Produced } from "../../../src/index.js";
 import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { BearerCallerResolver } from "./bearer-caller-resolver.js";
 
 export class SkuDto {
@@ -70,7 +70,7 @@ export class QuoteWorkflowFinish {}
   name: "quote-workflow",
   version: "1.0.0",
   flow: [
-    start(QuoteWorkflowStart)
+    onStart(QuoteWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(QuoteAgent)
       .toFinish(QuoteWorkflowFinish),
@@ -117,7 +117,7 @@ export class QuoteFileWorkflowFinish {}
   name: "quote-file-workflow",
   version: "1.0.0",
   flow: [
-    start(QuoteFileWorkflowStart)
+    onStart(QuoteFileWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(QuoteFileAction)
       .returns(WorkflowFinishFileDto)
@@ -159,7 +159,7 @@ export class AckWorkflowFinish {}
   name: "ack-workflow",
   version: "1.0.0",
   flow: [
-    start(AckWorkflowStart)
+    onStart(AckWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(AckAction)
       .returns(WorkflowFinishTextDto)

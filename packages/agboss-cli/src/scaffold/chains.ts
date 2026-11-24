@@ -1,8 +1,8 @@
 import ts from "typescript";
 
 /**
- * One call per line in a workflow module's chains (#289): `start(A).returns(B).toFinish(C)` is
- * written `start(A)` / `.returns(B)` / `.toFinish(C)`, as `@stylistic/newline-per-chained-call`
+ * One call per line in a workflow module's chains (#289): `onStart(A).returns(B).toFinish(C)` is
+ * written `onStart(A)` / `.returns(B)` / `.toFinish(C)`, as `@stylistic/newline-per-chained-call`
  * (`ignoreChainWithDepth: 1`) wants. Prettier joins a short chain onto one line unless the chain
  * holds a comment, so every chained call gets a marker line comment after its object before
  * Prettier runs (a trailing line comment does not count in its line width), removed afterwards.

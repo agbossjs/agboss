@@ -6,7 +6,7 @@ import {
   WorkflowStart,
   type Produced,
 } from "../../../../src/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   GroupDto,
@@ -54,7 +54,7 @@ export class GroupWorkflowStart {}
 export class GroupDoneWorkflowFinish {}
 
 const groupPath = (from: typeof GroupWorkflowStart) =>
-  start(from)
+  onStart(from)
     .returns(GroupDto)
     .toAction(GroupTasksAction)
     .returns(listOf(TaskDto))
@@ -105,7 +105,7 @@ export class GroupsDoneWorkflowFinish {
   name: "groups-workflow",
   version: "1.0.0",
   flow: [
-    start(GroupsWorkflowStart)
+    onStart(GroupsWorkflowStart)
       .returns(listOf(GroupDto))
       .toParallelWorkflows(GroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
@@ -128,7 +128,7 @@ export class NarrowGroupsWorkflowStart {}
   name: "narrow-groups-workflow",
   version: "1.0.0",
   flow: [
-    start(NarrowGroupsWorkflowStart)
+    onStart(NarrowGroupsWorkflowStart)
       .returns(listOf(GroupDto))
       .toParallelWorkflows(NarrowGroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()

@@ -11,7 +11,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingCostLedger } from "../../helpers.js";
 import {
   BatchWorkflowFinish,
@@ -85,7 +85,7 @@ export function costLedger(): SeenCostLedgerRepository {
   version: "1.0.0",
   maxSteps: 20,
   flow: [
-    start(BatchWorkflowStart)
+    onStart(BatchWorkflowStart)
       .returns(listOf(RefundRequestDto))
       .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()

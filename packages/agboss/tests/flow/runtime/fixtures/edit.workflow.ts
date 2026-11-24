@@ -11,7 +11,7 @@ import {
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
-import { agent, route, start, toFinish } from "../../../helpers/flow.js";
+import { onAgent, route, onStart, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -79,10 +79,10 @@ export class GateRouter {}
   name: "edit-workflow",
   version: "1.0.0",
   flow: [
-    start(EditStart)
+    onStart(EditStart)
       .returns(WorkflowStartTextDto)
       .toAgent(EditorAgent),
-    agent(EditorAgent)
+    onAgent(EditorAgent)
       .returns(DraftDto)
       .toRouter(GateRouter)
       .chooseOne(route(EditorAgent), route(DoneFinish)),
@@ -122,10 +122,10 @@ export class PatientGateRouter {}
   name: "patient-edit-workflow",
   version: "1.0.0",
   flow: [
-    start(EditStart)
+    onStart(EditStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PatientEditorAgent),
-    agent(PatientEditorAgent)
+    onAgent(PatientEditorAgent)
       .onError(VisitsLimitExceededError, toFinish(GaveUpFinish))
       .returns(DraftDto)
       .toRouter(PatientGateRouter)
@@ -144,10 +144,10 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  start(EditStart)
+  onStart(EditStart)
     .returns(WorkflowStartTextDto)
     .toAgent(EditorAgent),
-  agent(EditorAgent)
+  onAgent(EditorAgent)
     .returns(DraftDto)
     .toRouter(GateRouter)
     .chooseOne(route(EditorAgent), route(DoneFinish)),

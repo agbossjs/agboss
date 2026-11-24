@@ -19,7 +19,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ReviewRequestDto } from "../fixtures/files.application.js";
 
 /** A list item that carries a file of its own. */
@@ -66,7 +66,7 @@ function servedWith(
   @Workflow({
     name: "nested-workflow",
     version: "1.0.0",
-    flow: [start(NestedStart).returns(input).toFinish(NestedFinish)],
+    flow: [onStart(NestedStart).returns(input).toFinish(NestedFinish)],
   })
   class NestedWorkflow {}
 

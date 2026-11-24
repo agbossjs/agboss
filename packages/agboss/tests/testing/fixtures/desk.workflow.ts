@@ -18,7 +18,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -235,7 +235,7 @@ export class MainRouter {}
   version: "1.0.0",
   maxSteps: 12,
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(

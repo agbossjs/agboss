@@ -23,7 +23,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   ItemDto,
@@ -193,7 +193,7 @@ export class YieldCheckedWorkflowFinish {}
   name: "yield-check-workflow",
   version: "1.0.0",
   flow: [
-    start(YieldCheckWorkflowStart)
+    onStart(YieldCheckWorkflowStart)
       .returns(ItemDto)
       .toAction(GatedItemAction)
       .returns(ItemResultDto)
@@ -220,7 +220,7 @@ export class YieldReviewedWorkflowFinish {}
   name: "yield-review-workflow",
   version: "1.0.0",
   flow: [
-    start(YieldReviewWorkflowStart)
+    onStart(YieldReviewWorkflowStart)
       .returns(ItemDto)
       .toAgent(YieldReviewerAgent)
       .returns(ItemResultDto)
@@ -249,7 +249,7 @@ export class YieldOneWorkflowFinish {}
   name: "yield-one-workflow",
   version: "1.0.0",
   flow: [
-    start(YieldOneWorkflowStart)
+    onStart(YieldOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)
@@ -269,7 +269,7 @@ export class YieldReviewsWorkflowStart {}
   name: "yield-reviews-workflow",
   version: "1.0.0",
   flow: [
-    start(YieldReviewsWorkflowStart)
+    onStart(YieldReviewsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(YieldReviewWorkflow, {
         maxConcurrency: 2,

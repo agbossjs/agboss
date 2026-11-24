@@ -26,7 +26,7 @@ import {
   ScoreDto,
   ScoreReviewDto,
 } from "./quorum-dtos.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import {
   CopyArbiter,
   CriticPanelAgent,
@@ -66,7 +66,7 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
   name: "quick-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .joinQuorum({ min: 2 })
@@ -82,7 +82,7 @@ export class QuickPanelWorkflow {}
   name: "checked-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
@@ -101,7 +101,7 @@ export class CheckedPanelWorkflow {}
   name: "strict-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
@@ -118,7 +118,7 @@ export class StrictPanelWorkflow {}
   name: "model-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(PanelModelArbiter)
@@ -136,7 +136,7 @@ export class ModelPanelWorkflow {}
   name: "chat-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(PanelChatArbiter)
@@ -153,7 +153,7 @@ export class ChatPanelWorkflow {}
   name: "chain-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
@@ -171,7 +171,7 @@ export class ChainPanelWorkflow {}
   name: "any-of-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(anyOf(InRangeArbiter, PanelModelArbiter))
@@ -189,7 +189,7 @@ export class AnyOfPanelWorkflow {}
   version: "1.0.0",
   maxSteps: 10,
   flow: [
-    start(PanelItemsWorkflowStart)
+    onStart(PanelItemsWorkflowStart)
       .returns(listOf(CandidateDto))
       .toParallelAgents(SkillsPanelAgent, { maxItems: 5 })
       .acceptedBy(EvenItemArbiter)
@@ -206,7 +206,7 @@ export class ItemPanelWorkflow {}
   name: "copies-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(SkillsPanelAgent, SkillsPanelAgent, SkillsPanelAgent)
       .acceptedBy(CopyArbiter)
@@ -225,7 +225,7 @@ export class CopiesPanelWorkflow {}
   name: "recovery-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(300) })
@@ -241,7 +241,7 @@ export class RecoveryPanelWorkflow {}
   name: "deal-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(DealPanelWorkflowStart)
+    onStart(DealPanelWorkflowStart)
       .returns(DealDto)
       .toParallelAgents(LegalPanelAgent, CriticPanelAgent, FastPanelAgent)
       .joinQuorumGroups(

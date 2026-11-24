@@ -256,7 +256,7 @@ A tool error or a denied call reaches the model as the call's result; the loop c
 
 <!--
 ```ts file=data.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 import { SecureDataTool } from "./secure-data.tool.js";
@@ -271,7 +271,7 @@ export class DataAgent {}
   version: "1.0.0",
   providers: [RoleService],
   flow: [
-    start(DataWorkflowStart)
+    onStart(DataWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DataAgent)
       .toFinish(DataWorkflowFinish),

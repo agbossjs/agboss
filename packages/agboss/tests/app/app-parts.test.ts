@@ -20,7 +20,7 @@ import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { Desk, OrderBook, Reply } from "../testing/fixtures/desk.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -51,7 +51,7 @@ class TicketWriter {}
 @Workflow({
   name: "tickets-workflow",
   version: "1.0.0",
-  flow: [start(TicketStart).returns(TicketDto).toAgent(TicketWriter).toFinish(Reply)],
+  flow: [onStart(TicketStart).returns(TicketDto).toAgent(TicketWriter).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

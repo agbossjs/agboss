@@ -17,7 +17,7 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
 
 /**
  * #340 PR 2 — undoable reservations: a seat (undone by its release, committed by its
@@ -271,7 +271,7 @@ export class SeatConfirmedWorkflowFinish {}
   name: "undo-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoWorkflowStart)
+    onStart(UndoWorkflowStart)
       .returns(UndoRequestDto)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
@@ -289,7 +289,7 @@ export class UndoWorkflow {}
   name: "undo-unhandled-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoUnhandledWorkflowStart)
+    onStart(UndoUnhandledWorkflowStart)
       .returns(UndoRequestDto)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
@@ -309,7 +309,7 @@ export class UndoUnhandledWorkflow {}
   name: "undo-path-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoPathWorkflowStart)
+    onStart(UndoPathWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
       .returns(SeatDto)

@@ -15,7 +15,7 @@ import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../../src/graph/errors.js";
 import { ArticleRequestDto, WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { CriticAgent } from "../../../flow/fixtures/launch.fixture.js";
-import { agent, caseOf, start, toAction } from "../../../flow/fixtures/paths.js";
+import { onAgent, caseOf, onStart, toAction } from "../../../flow/fixtures/paths.js";
 import { ApprovalDto, CritiqueDto, DraftDto, PlanDto } from "../../../flow/fixtures/review-dtos.js";
 
 const problemsOf = (workflow: object) =>
@@ -76,8 +76,8 @@ describe("#1366: a cycle that only the join's error path closes", () => {
       name: "retry-workflow",
       version: "1.0.0",
       flow: [
-        start(RetryStart).returns(WorkflowStartTextDto).toAgent(RetryPlannerAgent),
-        agent(RetryPlannerAgent)
+        onStart(RetryStart).returns(WorkflowStartTextDto).toAgent(RetryPlannerAgent),
+        onAgent(RetryPlannerAgent)
           .returns(PlanDto)
           .toParallelAgents(LeftNoteAgent, CriticAgent)
           .join()
@@ -138,8 +138,8 @@ const aboutLoop = (name: string): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(AboutStart).returns(ArticleRequestDto).toAgent(AboutWriterAgent),
-      agent(AboutWriterAgent)
+      onStart(AboutStart).returns(ArticleRequestDto).toAgent(AboutWriterAgent),
+      onAgent(AboutWriterAgent)
         .returns(DraftDto, { about: PlanDto })
         .toAgent(AboutPlannerAgent)
         .returns(PlanDto)

@@ -22,7 +22,7 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   RecoveryLog,
@@ -173,7 +173,7 @@ export class ToolWorkflowFinish {}
   name: "slow-workflow",
   version: "1.0.0",
   flow: [
-    start(SlowWorkflowStart)
+    onStart(SlowWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(SlowAction)
       .returns(ReceiptDto)
@@ -188,7 +188,7 @@ export class SlowWorkflow {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(ToolWorkflowStart)
+    onStart(ToolWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(WorkerAgent)
       .returns(ReceiptDto)

@@ -29,7 +29,7 @@ import { FaultPayAction } from "./pay.action.js";
  * The path builder without its generated types: the fixture ships inside the package, where no
  * `.agboss/types.d.ts` types its workflows (the same AST as the typed `start`).
  */
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 @WorkflowStart({
@@ -50,7 +50,7 @@ export class FaultOrderWorkflowFinish {}
   name: "fault-order-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultOrderWorkflowStart)
+    onStart(FaultOrderWorkflowStart)
       .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
       .returns(FaultReservationDto)
@@ -88,7 +88,7 @@ export class FaultBatchWorkflowFinish {
   name: "fault-batch-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultBatchWorkflowStart)
+    onStart(FaultBatchWorkflowStart)
       .returns(listOf(FaultOrderDto))
       .toParallelWorkflows(FaultOrderWorkflow, {
         maxConcurrency: 4,

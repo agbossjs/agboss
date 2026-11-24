@@ -16,7 +16,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import type { OnExecutionRejected } from "../../../src/core/observer-hooks.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -211,7 +211,7 @@ export class BedsWorkflowFinish {}
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [UnitDirectoryService],
   flow: [
-    start(BedRequestWorkflowStart)
+    onStart(BedRequestWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(BedAgent)
       .returns(BedsDto)

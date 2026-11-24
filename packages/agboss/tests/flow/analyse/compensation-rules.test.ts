@@ -11,7 +11,7 @@ import {
   TripRequestDto,
   TripWorkflowStart,
 } from "../fixtures/compensation-parts.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 
 /**
  * #339 AC1 — `@Action({ compensateWith, committedBy })` name `@Action` classes; an action does not
@@ -90,7 +90,7 @@ class CommitOnlyAction extends UndecoratedUndo {}
   name: "broken-undo-workflow",
   version: "1.0.0",
   flow: [
-    start(TripWorkflowStart)
+    onStart(TripWorkflowStart)
       .returns(TripRequestDto)
       .toAction(WrongUndoAction)
       .toAction(WrongCommitAction)

@@ -19,7 +19,7 @@ import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 
@@ -61,7 +61,7 @@ export class AuditFinish {}
   name: "audit-workflow",
   version: "1.0.0",
   flow: [
-    start(AuditStart).returns(WorkflowStartTextDto).toAgent(AuditWriter).toFinish(AuditFinish),
+    onStart(AuditStart).returns(WorkflowStartTextDto).toAgent(AuditWriter).toFinish(AuditFinish),
   ],
   defaults: DEFAULTS,
 })

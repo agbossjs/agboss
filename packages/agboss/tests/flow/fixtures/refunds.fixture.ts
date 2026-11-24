@@ -12,7 +12,7 @@ import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #267 PR 1 — a card refund approved through a channel role: the tool names the role, the role
@@ -130,7 +130,7 @@ export class RefundWorkflowFinish {}
   name: "card-refunds-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundWorkflowStart)
+    onStart(RefundWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(RefundClerkAgent)
       .returns(RefundCardOutputDto)

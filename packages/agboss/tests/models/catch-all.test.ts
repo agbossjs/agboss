@@ -37,7 +37,7 @@ import {
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { LocalMirrorModelProvider, LocalModelProvider } from "./providers.fixture.js";
 
 /** A transport provider for its own prefix (#385), as flow-patterns' harness is. */
@@ -115,11 +115,11 @@ class CatchAllFinish {}
   name: "catch-all-workflow",
   version: "1.0.0",
   flow: [
-    start(CatchAllStart)
+    onStart(CatchAllStart)
       .returns(WorkflowStartTextDto)
       .toAgent(HarnessAgent)
       .toFinish(CatchAllFinish),
-    start(CatchAllKimiStart)
+    onStart(CatchAllKimiStart)
       .returns(WorkflowStartTextDto)
       .toAgent(KimiAgent)
       .toFinish(CatchAllFinish),

@@ -10,7 +10,7 @@ import {
   type Produced,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 export class AnswerDto {
   @Text({ prompt: "an answer" })
@@ -58,7 +58,7 @@ export function arbiterWorkflow(model: string): Class {
     name: "ans-workflow",
     version: "1.0.0",
     flow: [
-      start(AnsStart)
+      onStart(AnsStart)
         .returns(WorkflowStartTextDto)
         .toParallelAgents(AnsAgent, AnsAgent)
         .acceptedBy(AnsArbiter)

@@ -14,7 +14,7 @@ import {
   WorkflowStart,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { testAction, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -139,7 +139,7 @@ describe("#505 AC4: an operator reads a stored result masked", () => {
   name: "masked-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(MaskedChargeWorkflowStart)
+    onStart(MaskedChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       .returns(ChargeReceiptDto)

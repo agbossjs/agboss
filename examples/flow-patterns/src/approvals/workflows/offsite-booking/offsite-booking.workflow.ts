@@ -1,4 +1,4 @@
-import { start, Workflow } from "@agboss/core";
+import { onStart, Workflow } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FlightBuyerAgent } from "../../agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../agents/venue-buyer/venue-buyer.agent.js";
@@ -19,7 +19,7 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
   name: "offsite-booking-workflow",
   version: "1.0.0",
   flow: [
-    start(OffsiteBookingWorkflowStart)
+    onStart(OffsiteBookingWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(VenueBuyerAgent, FlightBuyerAgent)
       .join()

@@ -252,7 +252,7 @@
           }
         ],
         "flow": [
-          "start(DeskWorkflowStart)",
+          "onStart(DeskWorkflowStart)",
           "  .returns(DeskQuestionDto)",
           "  .toAgent(DeskAgent)",
           "  .toFinish(DeskAnswerWorkflowFinish)"

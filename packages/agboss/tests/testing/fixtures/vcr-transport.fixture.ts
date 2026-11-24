@@ -21,7 +21,7 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /** #439: an application whose only model provider is a transport — what a VCR test records from. */
 
@@ -89,7 +89,9 @@ function echoWorkflowOn(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(EchoStart).returns(WorkflowStartTextDto).toAgent(EchoAgent).toFinish(EchoFinish)],
+    flow: [
+      onStart(EchoStart).returns(WorkflowStartTextDto).toAgent(EchoAgent).toFinish(EchoFinish),
+    ],
   })
   class EchoWorkflow {}
 

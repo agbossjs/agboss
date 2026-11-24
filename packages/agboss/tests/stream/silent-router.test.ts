@@ -7,7 +7,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, route, start } from "../helpers/flow.js";
+import { execute, route, onStart } from "../helpers/flow.js";
 import {
   answer,
   BedrockModelProvider,
@@ -50,7 +50,7 @@ class AuditChatRouter {}
   name: "routed-audit-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toRouter(AuditChatRouter)
       .chooseOne(route(RoutedAgent).toFinish(Reply), route(HandOver)),

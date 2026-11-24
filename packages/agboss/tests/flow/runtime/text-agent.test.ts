@@ -6,7 +6,7 @@ import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
 import { StarApplication } from "../../fixtures/test-flow/star.workflow.js";
-import { execute, start } from "../../helpers/flow.js";
+import { execute, onStart } from "../../helpers/flow.js";
 
 const star = testWith(StarApplication);
 
@@ -26,7 +26,7 @@ class ChattyAgent {}
   name: "wrong-text-workflow",
   version: "1.0.0",
   flow: [
-    start(TestChat).returns(WorkflowStartTextDto).toAgent(ChattyAgent).toFinish(SummaryFinish),
+    onStart(TestChat).returns(WorkflowStartTextDto).toAgent(ChattyAgent).toFinish(SummaryFinish),
   ],
 })
 class WrongTextWorkflow {}

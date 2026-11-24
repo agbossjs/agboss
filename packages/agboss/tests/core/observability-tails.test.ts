@@ -37,7 +37,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
@@ -168,7 +168,7 @@ class FinishNode {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(StartNode)
+    onStart(StartNode)
       .returns(WorkflowStartTextDto)
       .toAction(FormatAction)
       .toAgent(SafeAgent)

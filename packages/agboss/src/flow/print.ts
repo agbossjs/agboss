@@ -1,14 +1,12 @@
 import type { Class } from "../components/injection.js";
-import { aboutLabel, shapeLabel } from "./analyse/labels.js";
+import { aboutLabel, shapeLabel, sourceCallOf, toCallOf } from "./analyse/labels.js";
 import { spanText } from "../units/working-time.js";
 import {
-  NodeKind,
   StepKind,
   type FlowPath,
   type GroupsQuorum,
   type JoinStep,
   type LaunchStep,
-  type PathSource,
   type ReturnedValue,
   type Step,
   type ToStep,
@@ -38,19 +36,6 @@ export const byClassName: ComponentLabel = (component) => component.name || "(an
 /** A component by its `name` (what records and checkpoints are keyed by). */
 export const byComponentName: ComponentLabel = (component) =>
   declarationOf(component)?.options.name ?? byClassName(component);
-
-const TO_CALL: Readonly<Record<NodeKind, string>> = {
-  [NodeKind.Agent]: "toAgent",
-  [NodeKind.Router]: "toRouter",
-  [NodeKind.Action]: "toAction",
-  [NodeKind.Finish]: "toFinish",
-  [NodeKind.Workflow]: "toWorkflow",
-  [NodeKind.Question]: "toQuestion",
-  [NodeKind.Start]: "start",
-};
-
-const sourceCall = (source: PathSource): string =>
-  source.kind === NodeKind.Start ? "start" : source.kind;
 
 /** `XDto`, `XDto, { about: PlanDto }` — a `.returns(…)` or a `caseOf(…)`'s arguments. */
 const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: string }): string =>
@@ -126,7 +111,7 @@ class Printer {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
-        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)}${toOptions(first)})`
+        ? `${toCallOf(first.targetKind)}(${this.label(first.target)}${toOptions(first)})`
         : "";
     this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
@@ -179,7 +164,7 @@ class Printer {
       case StepKind.To:
         this.line(
           depth,
-          `.${TO_CALL[step.targetKind]}(${this.label(step.target)}${toOptions(step)})`,
+          `.${toCallOf(step.targetKind)}(${this.label(step.target)}${toOptions(step)})`,
         );
         return;
       case StepKind.Switch:
@@ -214,7 +199,7 @@ class Printer {
 /** One path as lines: its source, then its steps indented. */
 export function pathLines(path: FlowPath, label: ComponentLabel = byClassName): readonly string[] {
   const printer = new Printer(label);
-  printer.lines.push(`${sourceCall(path.source)}(${label(path.source.node)})`);
+  printer.lines.push(`${sourceCallOf(path.source.kind)}(${label(path.source.node)})`);
   printer.steps(path.steps, 1);
   return printer.lines;
 }

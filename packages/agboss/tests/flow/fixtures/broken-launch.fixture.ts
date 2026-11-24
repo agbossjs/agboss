@@ -10,7 +10,7 @@ import {
   ScreeningAgent,
   ScreeningWorkflowStart,
 } from "./launch.fixture.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 /**
  * #273 — a per-item launch whose target reads no item (`[launch.item-not-read]`): its generated
  * `InputOf` is the rule's message, so the typed builder refuses `.toParallelAgents(ItemBlindAgent)`.
@@ -32,7 +32,7 @@ export class ItemBlindAgent {}
   name: "broken-screening-workflow",
   version: "1.0.0",
   flow: [
-    start(ScreeningWorkflowStart)
+    onStart(ScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
       .returns(listOf(CompanyDto))

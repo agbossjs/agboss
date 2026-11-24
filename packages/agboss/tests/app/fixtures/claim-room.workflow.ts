@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -104,7 +104,7 @@ export class ClaimRoomItemWorkflowFinish {}
   name: "claim-room-item-workflow",
   version: "1.0.0",
   flow: [
-    start(ClaimRoomItemWorkflowStart)
+    onStart(ClaimRoomItemWorkflowStart)
       .returns(ItemDto)
       .toAction(ClaimRoomHoldAction)
       .returns(ItemResultDto)
@@ -142,7 +142,7 @@ export class ClaimRoomBatchWorkflowFinish {
   version: "1.0.0",
   maxConcurrentExecutions: 30,
   flow: [
-    start(ClaimRoomBatchWorkflowStart)
+    onStart(ClaimRoomBatchWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ClaimRoomItemWorkflow, {
         maxConcurrency: 12,

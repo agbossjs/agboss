@@ -1,4 +1,4 @@
-import { Workflow, start, toFinish } from "@agboss/core";
+import { Workflow, onStart, toFinish } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
 import { TripFlightDto, TripHotelDto, TripRequestDto } from "../../dto/trip.dto.js";
@@ -17,7 +17,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
   name: "trip-workflow",
   version: "1.0.0",
   flow: [
-    start(TripWorkflowStart)
+    onStart(TripWorkflowStart)
       .returns(TripRequestDto)
       .toParallelActions(BookFlightAction, BookHotelAction)
       .join()

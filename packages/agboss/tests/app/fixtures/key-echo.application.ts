@@ -23,7 +23,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
@@ -153,7 +153,7 @@ export class HandKeyedFinish {}
   name: "keyed-effect-workflow",
   version: "1.0.0",
   flow: [
-    start(KeyedEffectStart)
+    onStart(KeyedEffectStart)
       .returns(WorkflowStartTextDto)
       .toAction(KeyedEffectAction)
       .returns(WorkflowFinishTextDto)
@@ -166,7 +166,7 @@ export class KeyedEffectWorkflow {}
   name: "hand-keyed-workflow",
   version: "1.0.0",
   flow: [
-    start(HandKeyedStart)
+    onStart(HandKeyedStart)
       .returns(WorkflowStartTextDto)
       .toAction(HandKeyedSendAction)
       .returns(WorkflowFinishTextDto)

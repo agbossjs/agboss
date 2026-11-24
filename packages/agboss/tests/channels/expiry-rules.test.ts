@@ -32,7 +32,7 @@ import { WorkingWeek, type WorkingCalendarSource } from "../../src/index.js";
 import { TEL_AVIV } from "../calendar/helpers.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { question, start, toQuestion } from "../flow/fixtures/paths.js";
+import { onExternalTask, onStart, toExternalTask } from "../flow/fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
@@ -98,11 +98,11 @@ function askingApplication(
   options: readonly unknown[],
 ): Class {
   const [main, again] = options;
-  const asked = start(PurchaseWorkflowStart)
+  const asked = onStart(PurchaseWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAction(DraftQuestionAction)
     .returns(PurchaseQuestionDto)
-    .toQuestion(role, main);
+    .toExternalTask(role, main);
   const placed = (path: typeof asked) =>
     path
       .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
@@ -112,8 +112,8 @@ function askingApplication(
       ? [placed(asked).returns(PurchasePlacedDto).toFinish(PurchaseWorkflowFinish)]
       : [
           asked,
-          placed(question(role))
-            .onError(StepFailedError, toQuestion(role, again))
+          placed(onExternalTask(role))
+            .onError(StepFailedError, toExternalTask(role, again))
             .returns(PurchasePlacedDto)
             .toFinish(PurchaseWorkflowFinish),
         ];
@@ -254,10 +254,10 @@ describe("#941 AC1: a question step's expiresIn", () => {
 
   it("an expiresIn that is no duration is a flow syntax error at the call", () => {
     const { role } = roleWith("syntax-question", undefined);
-    const path = start(PurchaseWorkflowStart).returns(WorkflowStartTextDto);
+    const path = onStart(PurchaseWorkflowStart).returns(WorkflowStartTextDto);
 
-    expect(() => path.toQuestion(role, { expiresIn: "soon" })).toThrow(FlowSyntaxError);
-    expect(() => path.toQuestion(role, 5)).toThrow(FlowSyntaxError);
+    expect(() => path.toExternalTask(role, { expiresIn: "soon" })).toThrow(FlowSyntaxError);
+    expect(() => path.toExternalTask(role, 5)).toThrow(FlowSyntaxError);
   });
 });
 
@@ -294,7 +294,7 @@ describe("#941 AC1: a tool's expiresIn", () => {
       name: `${name}-workflow`,
       version: "1.0.0",
       flow: [
-        start(PurchaseWorkflowStart)
+        onStart(PurchaseWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(SomeAgent)
           .returns(PurchasePlacedDto)

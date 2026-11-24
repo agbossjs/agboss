@@ -10,7 +10,7 @@ same `app`.
 
 <!--
 ```ts file=job-scout.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
@@ -22,7 +22,7 @@ export class ShortlistAgent {}
   name: "job-scout-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatWorkflowStart)
+    onStart(ChatWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ShortlistAgent)
       .toFinish(ChatWorkflowFinish),

@@ -24,7 +24,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 
 const JEV = "typesafe/jev-1.13";
 
@@ -128,7 +128,7 @@ export class HelpRouter {}
   name: "help-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskStart)
+    onStart(DeskStart)
       .returns(WorkflowStartTextDto)
       .toRouter(HelpRouter)
       .chooseOne(route(AnswerAgent).toFinish(DeskAnswer), route(ContactAgent).toFinish(DeskAnswer)),
@@ -159,7 +159,7 @@ export class NoteAgent {}
 @Workflow({
   name: "notes-desk-workflow",
   version: "1.0.0",
-  flow: [start(DeskStart).returns(WorkflowStartTextDto).toAgent(NoteAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(NoteAgent).toFinish(DeskAnswer)],
   compaction: NoteCompaction,
   uncompactedTurns: 1,
 })
@@ -202,7 +202,7 @@ export class WindowRouter {}
   name: "window-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskStart)
+    onStart(DeskStart)
       .returns(WorkflowStartTextDto)
       .toRouter(WindowRouter)
       .chooseOne(route(ArchiveAgent).toFinish(DeskAnswer), route(DeskHandOver)),
@@ -244,7 +244,7 @@ export class EagerAgent {}
 @Workflow({
   name: "eager-desk-workflow",
   version: "1.0.0",
-  flow: [start(DeskStart).returns(WorkflowStartTextDto).toAgent(EagerAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(EagerAgent).toFinish(DeskAnswer)],
   compaction: EagerCompaction,
   uncompactedTurns: 0,
 })

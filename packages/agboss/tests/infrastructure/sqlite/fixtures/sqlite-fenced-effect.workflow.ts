@@ -20,7 +20,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import {
   book,
@@ -110,7 +110,7 @@ export class SqliteChargedWorkflowFinish {}
   name: "sqlite-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(SqliteChargeWorkflowStart)
+    onStart(SqliteChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(SqliteChargeOrderAction)
       .returns(ChargeReceiptDto)

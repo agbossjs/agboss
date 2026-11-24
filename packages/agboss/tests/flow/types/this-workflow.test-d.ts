@@ -1,5 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { caseOf, route, start, toAction, toWorkflow, workflow } from "../../../src/flow/builder.js";
+import {
+  caseOf,
+  route,
+  onStart,
+  toAction,
+  toWorkflow,
+  onWorkflow,
+} from "../../../src/flow/builder.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { ThisWorkflowOutputs } from "../../../src/flow/generated-types.js";
@@ -46,7 +53,7 @@ import {
  */
 
 /** The org chart's per-item launch, joined as `listOf(TJoined)`. */
-const orgChartPath = start(OrgChartWorkflowStart)
+const orgChartPath = onStart(OrgChartWorkflowStart)
   .returns(OrgUnitDto)
   .toAgent(OrgMapperAgent)
   .returns(oneOf(TeamChartDto, OrgSplitDto));
@@ -87,7 +94,7 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
       name: "deep-research-workflow",
       version: "1.0.0",
       flow: [
-        start(DeepResearchWorkflowStart)
+        onStart(DeepResearchWorkflowStart)
           .returns(ResearchTopicDto)
           .toAgent(TopicResearcherAgent)
           .returns(oneOf(ResearchReportDto, ResearchTooBroadDto))
@@ -176,8 +183,8 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
   });
 });
 
-describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and the side-path starter", () => {
-  const drill = start(OrgDrillWorkflowStart).returns(OrgUnitDto).toRouter(OrgDepthRouter);
+describe("#264 S112: a single child — .toWorkflow, route, onWorkflow(…) and the side-path starter", () => {
+  const drill = onStart(OrgDrillWorkflowStart).returns(OrgUnitDto).toRouter(OrgDepthRouter);
   const failed = toAction(MarkUnitFailedAction)
     .returns(OrgChartFailedDto)
     .toFinish(OrgChartFailedWorkflowFinish);
@@ -208,7 +215,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
                 ),
             ),
         ),
-        workflow(ThisWorkflow)
+        onWorkflow(ThisWorkflow)
           .returns(oneOf(OrgChartFailedDto, TeamChartDto))
           .switch(
             caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
@@ -221,7 +228,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
       name: "org-retry-workflow",
       version: "1.0.0",
       flow: [
-        start(OrgRetryWorkflowStart)
+        onStart(OrgRetryWorkflowStart)
           .returns(OrgUnitDto)
           .toAgent(UnitCharterAgent)
           .onError(
@@ -292,10 +299,10 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
     Workflow({
       name: "org-drill-workflow",
       version: "1.0.0",
-      // @ts-expect-error — workflow(ThisWorkflow) gives TeamChartDto | OrgChartFailedDto
+      // @ts-expect-error — onWorkflow(ThisWorkflow) gives TeamChartDto | OrgChartFailedDto
       flow: [
         drill.chooseOne(route(ThisWorkflow), route(UnitPickerAgent)),
-        workflow(ThisWorkflow).returns(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
+        onWorkflow(ThisWorkflow).returns(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
       ],
       maxDepth: 3,
     });
@@ -307,7 +314,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
       version: "1.0.0",
       // @ts-expect-error — the side path's child gives TeamChartDto | OrgChartFailedDto
       flow: [
-        start(OrgRetryWorkflowStart)
+        onStart(OrgRetryWorkflowStart)
           .returns(OrgUnitDto)
           .toAgent(UnitCharterAgent)
           .onError(
@@ -332,7 +339,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
       version: "1.0.0",
       // @ts-expect-error — the nested child gives TeamChartDto | OrgChartFailedDto
       flow: [
-        start(OrgRetryWorkflowStart)
+        onStart(OrgRetryWorkflowStart)
           .returns(OrgUnitDto)
           .toWorkflow(ThisWorkflow)
           .onError(
@@ -357,7 +364,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
       version: "1.0.0",
       // @ts-expect-error — no ThisWorkflowOutputs["unchecked-workflow"] before agboss check
       flow: [
-        start(OrgRetryWorkflowStart)
+        onStart(OrgRetryWorkflowStart)
           .returns(OrgUnitDto)
           .toWorkflow(ThisWorkflow)
           .returns(TeamChartDto)
@@ -372,7 +379,7 @@ describe("#264 S112: a single child — .toWorkflow, route, workflow(…) and th
       name: "unchecked-workflow",
       version: "1.0.0",
       flow: [
-        start(OrgRetryWorkflowStart)
+        onStart(OrgRetryWorkflowStart)
           .returns(OrgUnitDto)
           .toAgent(UnitCharterAgent)
           .returns(TeamChartDto)

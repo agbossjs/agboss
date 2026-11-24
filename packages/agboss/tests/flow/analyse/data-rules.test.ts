@@ -18,7 +18,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { action, route, start } from "../fixtures/paths.js";
+import { onAction, route, onStart } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 
 /** The data rules of #270 (AC7, AC19, AC22) on the abstract scopes. */
@@ -41,7 +41,7 @@ class NeedsUnrelatedAgent {}
   name: "missing-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(NeedsUnrelatedAgent)
       .returns(OfferDraftDto)
@@ -66,7 +66,7 @@ class RedraftKitAgent {}
   name: "dead-store-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -96,7 +96,7 @@ class BranchRouter {}
   name: "read-on-one-branch-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -160,14 +160,14 @@ class ShortlistKitWorkflowFinish {}
   name: "optional-list-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toRouter(DraftsRouter)
       .chooseOne(
         route(DraftsAgent).returns(listOf(OfferDraftDto)).toAction(CollectDraftsAction),
         route(CollectDraftsAction),
       ),
-    action(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
+    onAction(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
   ],
 })
 class OptionalListWorkflow {}
@@ -176,7 +176,7 @@ class OptionalListWorkflow {}
   name: "no-list-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAction(CollectDraftsAction)
       .toFinish(DraftKitWorkflowFinish),

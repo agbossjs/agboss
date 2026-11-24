@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { GatedItemAction, YieldLog } from "./remote-child-yield.workflow.js";
@@ -101,7 +101,7 @@ export class UndoChildWorkflowFinish {}
   name: "undo-child-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoChildWorkflowStart)
+    onStart(UndoChildWorkflowStart)
       .returns(ItemDto)
       .toAction(BookItemAction)
       .returns(BookingDto)
@@ -131,7 +131,7 @@ export class UndoOneWorkflowFinish {}
   name: "undo-one-workflow",
   version: "1.0.0",
   flow: [
-    start(UndoOneWorkflowStart)
+    onStart(UndoOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(UndoChildWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)

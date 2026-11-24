@@ -43,7 +43,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "oneOf",
     "caseOf",
     "route",
-    "start",
+    "onStart",
     "WorkflowStart",
     "WorkflowFinish",
     "Text",
@@ -179,7 +179,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "FinishHandler", "WorkflowStartTextDto"],
-    ...["start", "agent", "action", "workflow", "route", "caseOf", "group", "anyOf"],
+    ...["onStart", "onAgent", "onAction", "onWorkflow", "route", "caseOf", "group", "anyOf"],
     ...["toAction", "toAgent", "toRouter", "toWorkflow", "toFinish", "ThisWorkflow"],
     ...["oneOf", "listOf", "optional", "historyOf", "variant", "SpawnPolicy", "FailurePolicy"],
     ...["Arbiter", "OnAnswer", "ArbiterAnswerOf", "BranchVerdict", "BranchStatus"],
@@ -326,7 +326,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "createApp", "testWith"],
     ...["Agent", "Action", "Router", "DecidedBy", "Tool", "ToolHandler", "Injectable"],
     ...["ActionHandler", "RouterHandler", "InputOf", "OutputOf", "Route", "ExecutionContext"],
-    ...["oneOf", "caseOf", "listOf", "historyOf", "route", "agent", "start", "toFinish"],
+    ...["oneOf", "caseOf", "listOf", "historyOf", "route", "onAgent", "onStart", "toFinish"],
     ...[
       "ChannelRole",
       "Channel",

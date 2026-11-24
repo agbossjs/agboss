@@ -1,5 +1,5 @@
-// One call per line in the docs' flow chains (#289): the ts snippets that hold a path (`start(…)`,
-// `agent(…)`, `router(…)`, `action(…)`, `route(…)`, `caseOf(…)`) are linted with the rule the
+// One call per line in the docs' flow chains (#289): the ts snippets that hold a path (`onStart(…)`,
+// `onAgent(…)`, `onRouter(…)`, `onAction(…)`, `route(…)`, `caseOf(…)`) are linted with the rule the
 // workflow modules follow, `@stylistic/newline-per-chained-call` (scripts/flow-style.mjs). Prettier
 // leaves the docs' code blocks alone (`embeddedLanguageFormatting: "off"` for `*.md`).
 import stylistic from "@stylistic/eslint-plugin";
@@ -8,7 +8,8 @@ import tseslint from "typescript-eslint";
 import { FLOW_CHAIN_RULE } from "../flow-style.mjs";
 import { sourceOf } from "./snippets.mjs";
 
-const PATH_SOURCE = /(?<![\w.$])(?:start|agent|router|action|route|caseOf)\(/;
+const PATH_SOURCE =
+  /(?<![\w.$])(?:onStart|onAgent|onRouter|onAction|onWorkflow|onExternalTask|route|caseOf)\(/;
 const TYPESCRIPT = new Set(["ts", "typescript"]);
 const linter = new Linter({ configType: "flat" });
 const CONFIG = [

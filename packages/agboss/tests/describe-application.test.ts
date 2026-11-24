@@ -23,7 +23,7 @@ import {
 import { ImplementationReason } from "../src/application/implementations.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { usd, type Usd } from "../src/units/index.js";
-import { start } from "./helpers/flow.js";
+import { onStart } from "./helpers/flow.js";
 import { RecordingCostLedgerRepository } from "./application/fixtures/desks.application.js";
 
 @Agent({
@@ -52,7 +52,7 @@ class ToldWorkflowFinish {}
   defaults: { models: { temperature: 0 } },
   uncompactedTurns: 1,
   flow: [
-    start(TellWorkflowStart)
+    onStart(TellWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(TellerAgent)
       .toFinish(ToldWorkflowFinish),

@@ -53,7 +53,7 @@ memory
   case-notes-compaction — strategy: custom (CaseNotesCompaction.compact()) every 1 turns · older than 2 turns
 pause     on — tools with channel wait for external signal
 flow
-  start(DeskWorkflowStart)
+  onStart(DeskWorkflowStart)
     .returns(DeskQuestionDto)
     .toAgent(DeskAgent)
     .toFinish(DeskAnswerWorkflowFinish)

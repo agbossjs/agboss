@@ -1,4 +1,4 @@
-import { start, toAction } from "../../../src/flow/builder.js";
+import { onStart, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -108,7 +108,7 @@ export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
 }
 
 export const orderPaths = [
-  start(OrderWorkflowStart)
+  onStart(OrderWorkflowStart)
     .returns(OrderRequestDto)
     .toAction(ReserveStockAction)
     .returns(StockReservationDto)

@@ -20,7 +20,7 @@ import type {
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { EmptyEnvironment, Workflow, WorkflowStart } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Desk, DeskAnswer } from "./remote.workflow.js";
 
 /** What one API key grants: its client, its tenant and whether it may answer pauses. */
@@ -124,7 +124,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as c
   name: "tenant-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TenantAskStart)
+    onStart(TenantAskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Desk)
       .toFinish(DeskAnswer),
@@ -166,7 +166,7 @@ export class ListedAskStart {}
   name: "listed-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(ListedAskStart)
+    onStart(ListedAskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Desk)
       .toFinish(DeskAnswer),

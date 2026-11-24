@@ -20,7 +20,7 @@ import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 
 /** What a caller sends: a document and a note. */
 export class ReadRequestDto {
@@ -121,7 +121,7 @@ export class ReaderFinish {}
   name: "reader-workflow",
   version: "1.0.0",
   flow: [
-    start(ReaderStart)
+    onStart(ReaderStart)
       .returns(ReadRequestDto)
       .toRouter(ReaderRouter)
       .chooseOne(route(ReaderAgent).toFinish(ReaderFinish)),

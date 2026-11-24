@@ -31,7 +31,7 @@ import { Application } from "../../../src/application/application.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import {
@@ -139,7 +139,7 @@ export class QuorumExpirySecondWorkflowFinish {
   name: "quorum-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(QuorumExpiryWorkflowStart)
+    onStart(QuorumExpiryWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
@@ -161,7 +161,7 @@ export class QuorumExpiryOneWorkflowStart {}
   name: "quorum-expiry-one-workflow",
   version: "1.0.0",
   flow: [
-    start(QuorumExpiryOneWorkflowStart)
+    onStart(QuorumExpiryOneWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
@@ -251,7 +251,7 @@ export class QuorumExpiryShortWorkflowStart {}
   name: "quorum-expiry-short-workflow",
   version: "1.0.0",
   flow: [
-    start(QuorumExpiryShortWorkflowStart)
+    onStart(QuorumExpiryShortWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
@@ -272,7 +272,7 @@ export class QuorumExpiryShortOneWorkflowStart {}
   name: "quorum-expiry-short-one-workflow",
   version: "1.0.0",
   flow: [
-    start(QuorumExpiryShortOneWorkflowStart)
+    onStart(QuorumExpiryShortOneWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
@@ -304,7 +304,7 @@ export class QuorumExpiryGroupsWorkflowStart {}
   name: "quorum-expiry-groups-workflow",
   version: "1.0.0",
   flow: [
-    start(QuorumExpiryGroupsWorkflowStart)
+    onStart(QuorumExpiryGroupsWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent, QuickScoreAgent)
       .joinQuorumGroups(
@@ -341,7 +341,7 @@ export class PlainExpiryEscalatedWorkflowFinish {}
   name: "plain-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(PlainExpiryWorkflowStart)
+    onStart(PlainExpiryWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
@@ -363,7 +363,7 @@ export class PlainExpiryHandledWorkflowStart {}
   name: "plain-expiry-handled-workflow",
   version: "1.0.0",
   flow: [
-    start(PlainExpiryHandledWorkflowStart)
+    onStart(PlainExpiryHandledWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
@@ -400,7 +400,7 @@ export class SkipExpiryWorkflowStart {}
   name: "skip-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(SkipExpiryWorkflowStart)
+    onStart(SkipExpiryWorkflowStart)
       .returns(RefundRequestDto)
       .toRouter(SkipPanelRouter)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent)

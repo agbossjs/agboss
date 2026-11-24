@@ -13,7 +13,7 @@ env.optional("OPENROUTER_BASE_URL")`, unset → the provider's `baseUrl`). A pro
 the provider's, app-wide ([Model providers](Model-providers#retry-rate-limit-and-circuit-breaker)).
 
 <!-- snippet-context
-import { Agent, Compaction, CompactionStrategy, InputGuardrail, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Agent, Compaction, CompactionStrategy, InputGuardrail, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient } from "@agboss/core/mcp";
 @Compaction({ name: "conversation-compaction", description: "Summarises old turns", model: "moonshotai/kimi-k2.6", strategy: CompactionStrategy.SummaryQueue, turnsBetweenCompactions: 5, summaryQueueLength: 10, summaryMaxTokens: 400 })
@@ -36,7 +36,7 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
   name: "job-scout-workflow", // kebab-case, ends with -workflow — unique in the application
   version: "2.0.0", // labels every run; profiles set their own
   flow: [
-    start(ChatWorkflowStart)
+    onStart(ChatWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScoutAgent)
       .toFinish(ChatWorkflowFinish),
@@ -66,7 +66,7 @@ the workflow's own; a component's own field (`@Agent({ maxTokens })`, `@Router({
 wins; nothing set → the framework's built-in.
 
 <!-- snippet-context
-import { Application, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Application, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "ask-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class AskWorkflowStart {}
@@ -81,7 +81,7 @@ import { EmptyEnvironment } from "@agboss/core";
   name: "ask-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(AskWorkflowFinish),
   ],

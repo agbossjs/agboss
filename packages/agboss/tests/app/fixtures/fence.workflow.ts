@@ -22,7 +22,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 
 /**
@@ -404,7 +404,7 @@ export class NotReleasedWorkflowFinish {}
   name: "booked-release-workflow",
   version: "1.0.0",
   flow: [
-    start(BookedReleaseWorkflowStart)
+    onStart(BookedReleaseWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(BookAction)
       .returns(BookingDto)
@@ -443,7 +443,7 @@ export class AgentReleaseWorkflowFinish {}
   name: "release-workflow",
   version: "1.0.0",
   flow: [
-    start(ReleaseWorkflowStart)
+    onStart(ReleaseWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ReleaseAction)
       // a catch-all side path: a business error takes it, a fenced write never does
@@ -460,7 +460,7 @@ export class ReleaseWorkflow {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(AgentReleaseWorkflowStart)
+    onStart(AgentReleaseWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ReleaseAgent)
       .returns(ReceiptDto)

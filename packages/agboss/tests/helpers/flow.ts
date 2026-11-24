@@ -19,19 +19,19 @@ import {
  * under tests/flow/fixtures and the compile-time tests.
  */
 
-export const start = (source: Class): PathBuilder<PathSource> =>
+export const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-export const agent = (source: Class): PathBuilder<PathSource> =>
+export const onAgent = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Agent, source);
 
-export const router = (source: Class): PathBuilder<PathSource> =>
+export const onRouter = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Router, source);
 
-export const action = (source: Class): PathBuilder<PathSource> =>
+export const onAction = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
-export const workflow = (source: Class): PathBuilder<PathSource> =>
+export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
 export const route = (target: Class, options?: unknown): PathBuilder<undefined> => {

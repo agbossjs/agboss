@@ -19,7 +19,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { action, caseOf, route, start, toAction } from "../../../helpers/flow.js";
+import { onAction, caseOf, route, onStart, toAction } from "../../../helpers/flow.js";
 
 /**
  * #264 — recursion at run time. `topic-research-workflow` (the issue's example, `maxDepth: 3`): a
@@ -159,7 +159,7 @@ export class TopicFailedWorkflowFinish {}
   name: "topic-research-workflow",
   version: "1.0.0",
   flow: [
-    start(TopicResearchWorkflowStart)
+    onStart(TopicResearchWorkflowStart)
       .returns(TopicDto)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction))
@@ -178,7 +178,7 @@ export class TopicFailedWorkflowFinish {}
           .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
       ),
-    action(MarkTopicFailedAction)
+    onAction(MarkTopicFailedAction)
       .returns(TopicFailedDto)
       .toFinish(TopicFailedWorkflowFinish),
   ],
@@ -252,7 +252,7 @@ export class CountStoppedWorkflowFinish {}
 
 /** One level deeper while the count lasts; past `maxDepth` the side path finishes. */
 const countdownPath = (from: typeof CountdownWorkflowStart) =>
-  start(from)
+  onStart(from)
     .returns(CountDto)
     .toAction(CountdownAction)
     .returns(oneOf(CountDto, CountDoneDto))
@@ -346,7 +346,7 @@ export class SumAction {
   name: "split-workflow",
   version: "1.0.0",
   flow: [
-    start(SplitWorkflowStart)
+    onStart(SplitWorkflowStart)
       .returns(CountDto)
       .toAction(SplitAction)
       .returns(listOf(CountDto))
@@ -412,7 +412,7 @@ export class ChainDoneWorkflowFinish {}
   name: "chain-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainWorkflowStart)
+    onStart(ChainWorkflowStart)
       .returns(LinkDto)
       .toRouter(LinkRouter)
       .chooseOne(
@@ -450,7 +450,7 @@ export class DeeperRouter {
   name: "code-chain-workflow",
   version: "1.0.0",
   flow: [
-    start(CodeChainWorkflowStart)
+    onStart(CodeChainWorkflowStart)
       .returns(LinkDto)
       .toRouter(DeeperRouter)
       .chooseOne(

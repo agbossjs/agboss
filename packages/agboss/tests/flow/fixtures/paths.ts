@@ -18,22 +18,22 @@ import {
  * (`builder.ts`) would not let compile. The AST it writes is the same.
  */
 
-export const start = (source: Class): PathBuilder<PathSource> =>
+export const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-export const agent = (source: Class): PathBuilder<PathSource> =>
+export const onAgent = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Agent, source);
 
-export const router = (source: Class): PathBuilder<PathSource> =>
+export const onRouter = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Router, source);
 
-export const action = (source: Class): PathBuilder<PathSource> =>
+export const onAction = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
-export const workflow = (source: Class): PathBuilder<PathSource> =>
+export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const question = (source: Class): PathBuilder<PathSource> =>
+export const onExternalTask = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Question, source);
 
 export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route", target });
@@ -64,10 +64,10 @@ export const toFinish = (target: Class): PathBuilder =>
   side()
     .toFinish(target);
 
-/** The side path `.onError(E, toQuestion(Q)…)` (#910). */
-export const toQuestion = (target: Class, options?: unknown): PathBuilder =>
+/** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
+export const toExternalTask = (target: Class, options?: unknown): PathBuilder =>
   side()
-    .toQuestion(target, options);
+    .toExternalTask(target, options);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
 export const toWorkflow = (target: Class): PathBuilder =>

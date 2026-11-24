@@ -9,7 +9,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   ConfirmOrderTool,
@@ -60,7 +60,7 @@ export class ChildRefundAgent {}
   name: "refund-one-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundOneWorkflowStart)
+    onStart(RefundOneWorkflowStart)
       .returns(RefundRequestDto)
       .toAgent(ChildRefundAgent)
       .returns(RefundDoneDto)
@@ -88,7 +88,7 @@ export class SingleChildWorkflowFinish {}
   name: "single-child-workflow",
   version: "1.0.0",
   flow: [
-    start(SingleChildWorkflowStart)
+    onStart(SingleChildWorkflowStart)
       .returns(RefundRequestDto)
       .toWorkflow(RefundOneWorkflow)
       .returns(RefundDoneDto)
@@ -127,7 +127,7 @@ export class ChildBatchWorkflowFinish {
   name: "child-batch-workflow",
   version: "1.0.0",
   flow: [
-    start(ChildBatchWorkflowStart)
+    onStart(ChildBatchWorkflowStart)
       .returns(listOf(RefundRequestDto))
       .toParallelWorkflows(RefundOneWorkflow, { maxConcurrency: 3, maxItems: 5 })
       .join()

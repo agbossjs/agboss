@@ -4,7 +4,7 @@ import type { Class } from "../../../src/components/injection.js";
 import type { ToolHandlerClass } from "../../../src/components/decorators.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
@@ -61,7 +61,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     name: "tools-workflow",
     version: "1.0.0",
     flow: [
-      start(TestChat)
+      onStart(TestChat)
         .returns(WorkflowStartTextDto)
         .toAgent(ToolAlpha)
         .toFinish(TestAnswer),

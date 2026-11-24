@@ -1,5 +1,5 @@
 import { Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { BookingDto, BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
 import { GatedItemAction } from "./remote-child-yield.workflow.js";
@@ -28,7 +28,7 @@ export class JoinUndoWorkflowFinish {}
   name: "join-undo-workflow",
   version: "1.0.0",
   flow: [
-    start(JoinUndoWorkflowStart)
+    onStart(JoinUndoWorkflowStart)
       .returns(ItemDto)
       .toParallelActions(BookItemAction, GatedItemAction)
       .join()
@@ -59,7 +59,7 @@ export class RootUndoWorkflowFinish {}
   name: "root-undo-workflow",
   version: "1.0.0",
   flow: [
-    start(RootUndoWorkflowStart)
+    onStart(RootUndoWorkflowStart)
       .returns(ItemDto)
       .toAction(BookItemAction)
       .returns(BookingDto)

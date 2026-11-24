@@ -1,6 +1,6 @@
 import { EmptyEnvironment, listOf, Workflow, WorkflowStart } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
   MortalExecutionLeaseRepository,
@@ -36,7 +36,7 @@ export class ItemsWorkflowStart {}
   name: "items-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemsWorkflowStart)
+    onStart(ItemsWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })
       .join()

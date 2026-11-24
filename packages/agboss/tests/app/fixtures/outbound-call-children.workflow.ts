@@ -19,7 +19,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import { PaymentGateway } from "./payment-gateway.js";
@@ -137,7 +137,7 @@ export class ChildChargedWorkflowFinish {}
   name: "child-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChildChargeWorkflowStart)
+    onStart(ChildChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChildChargeAction)
       .returns(ChargedDto)
@@ -175,7 +175,7 @@ export class FarChargedWorkflowFinish {}
   name: "near-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(NearChargeWorkflowStart)
+    onStart(NearChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChildChargeWorkflow)
       .returns(ChargedDto)
@@ -188,7 +188,7 @@ export class NearChargeWorkflow {}
   name: "far-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(FarChargeWorkflowStart)
+    onStart(FarChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChildChargeWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ChargedDto)

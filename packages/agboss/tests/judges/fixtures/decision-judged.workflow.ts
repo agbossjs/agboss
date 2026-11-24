@@ -7,7 +7,7 @@ import {
 } from "../../../src/index.js";
 import { PlainTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { ImageDetail } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -87,7 +87,7 @@ export class Illustrator {}
   name: "decision-judged-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Writer)
       .toFinish(Reply),
@@ -111,7 +111,7 @@ export class DecisionDeskApplication {}
   name: "image-judged-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Illustrator)
       .toFinish(Reply),

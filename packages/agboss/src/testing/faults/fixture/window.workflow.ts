@@ -35,7 +35,7 @@ import { FaultPauseQuestion, FaultPauseWorkflow } from "./pause.workflow.js";
  *   takes its answer too.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 @WorkflowStart({
@@ -56,7 +56,7 @@ export class FaultChildPauseWorkflowFinish {}
   name: "fault-child-pause-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultChildPauseWorkflowStart)
+    onStart(FaultChildPauseWorkflowStart)
       .returns(FaultOrderDto)
       .toWorkflow(FaultPauseWorkflow)
       .returns(FaultPaymentDto)
@@ -126,18 +126,18 @@ export class FaultTwicePauseWorkflowFinish {}
   name: "fault-twice-pause-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultTwicePauseWorkflowStart)
+    onStart(FaultTwicePauseWorkflowStart)
       .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
       .returns(FaultReservationDto)
       .toAction(FaultAskAction)
       .returns(FaultApprovalAskDto)
-      .toQuestion(FaultPauseQuestion)
+      .toExternalTask(FaultPauseQuestion)
       .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultAskAgainAction)
       .returns(FaultApprovalAskDto)
-      .toQuestion(FaultSecondPauseQuestion)
+      .toExternalTask(FaultSecondPauseQuestion)
       .returns(FaultApprovalDto)
       .toAction(FaultApprovedAgainAction)
       .toAction(FaultChargeAction)

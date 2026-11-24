@@ -13,7 +13,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
 
 @WorkflowStart({
@@ -42,7 +42,7 @@ export class AnsweringAgent {}
   name: "ask-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(AnsweringAgent)
       .toFinish(AnswerWorkflowFinish),

@@ -9,7 +9,7 @@ import {
   type Produced,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { route, start } from "../../../helpers/flow.js";
+import { route, onStart } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -39,7 +39,7 @@ export class StrictVoteWorkflowStart {}
   name: "strict-vote-workflow",
   version: "1.0.0",
   flow: [
-    start(StrictVoteWorkflowStart)
+    onStart(StrictVoteWorkflowStart)
       .returns(TaskDto)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
@@ -70,7 +70,7 @@ export class StrictMixedWorkflowStart {}
   name: "strict-mixed-workflow",
   version: "1.0.0",
   flow: [
-    start(StrictMixedWorkflowStart)
+    onStart(StrictMixedWorkflowStart)
       .returns(TaskDto)
       .toRouter(StrictTaskKindRouter)
       .chooseOne(
@@ -109,7 +109,7 @@ export class StrictVotingDoneWorkflowFinish {
   name: "strict-voting-workflow",
   version: "1.0.0",
   flow: [
-    start(StrictVotingWorkflowStart)
+    onStart(StrictVotingWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelWorkflows(StrictMixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
       .join()

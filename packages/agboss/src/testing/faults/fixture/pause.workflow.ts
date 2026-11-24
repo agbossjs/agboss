@@ -37,7 +37,7 @@ import { seconds } from "../../../units/index.js";
  * A2A only): the scenarios kill a pod around its pause.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 @ChannelRole({
@@ -99,13 +99,13 @@ export class FaultPauseWorkflowFinish {}
   name: "fault-pause-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultPauseWorkflowStart)
+    onStart(FaultPauseWorkflowStart)
       .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
       .returns(FaultReservationDto)
       .toAction(FaultAskAction)
       .returns(FaultApprovalAskDto)
-      .toQuestion(FaultPauseQuestion)
+      .toExternalTask(FaultPauseQuestion)
       .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
@@ -173,13 +173,13 @@ export class FaultExpiringWorkflowFinish {}
   name: "fault-expiring-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultExpiringWorkflowStart)
+    onStart(FaultExpiringWorkflowStart)
       .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
       .returns(FaultReservationDto)
       .toAction(FaultAskAction)
       .returns(FaultApprovalAskDto)
-      .toQuestion(FaultExpiringQuestion)
+      .toExternalTask(FaultExpiringQuestion)
       .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)

@@ -18,7 +18,7 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish } from "../../../helpers/flow.js";
 
 /**
  * #273 PR 2 — per-item actions whose timing the test sets: each item waits `delay` ms (or until
@@ -169,7 +169,7 @@ export class FanOutLog implements OnLaunchItemsTruncated {
   name: "fan-out-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemsWorkflowStart)
+    onStart(ItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
       .join()
@@ -197,7 +197,7 @@ export class FanOutApplication {}
   name: "fan-out-unbounded-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemsWorkflowStart)
+    onStart(ItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelActions(ProcessItemAction, { maxItems: 4 })
       .join()
@@ -267,7 +267,7 @@ export class StampsWorkflowFinish {
   name: "copies-workflow",
   version: "1.0.0",
   flow: [
-    start(OneItemWorkflowStart)
+    onStart(OneItemWorkflowStart)
       .returns(ItemDto)
       .toParallelActions(StampAction, StampAction)
       .join()

@@ -2,7 +2,7 @@ import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { start as publicStart, toQuestion as publicToQuestion } from "../../../src/flow/builder.js";
+import { onStart as publicStart, toExternalTask as publicToQuestion } from "../../../src/flow/builder.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -23,8 +23,8 @@ import {
 } from "./expiry.fixture.js";
 
 /**
- * #941 (the scope note of #933's acceptance) — `.toQuestion(Manager, { expiresIn })` and the side
- * path `toQuestion(Director, { expiresIn })`, written with the SHIPPED starters of `builder.ts`:
+ * #941 (the scope note of #933's acceptance) — `.toExternalTask(Manager, { expiresIn })` and the side
+ * path `toExternalTask(Director, { expiresIn })`, written with the SHIPPED starters of `builder.ts`:
  * the manager's pause expires, the director is asked (with a deadline of its own), the answer goes
  * on the path.
  */
@@ -42,7 +42,7 @@ export class PublicExpiryWorkflowStart {}
   flow: [
     publicStart(PublicExpiryWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion, { expiresIn: hours(4) })
+      .toExternalTask(ManagerQuestion, { expiresIn: hours(4) })
       .onError(
         PauseExpiredError,
         publicToQuestion(DirectorQuestion, { expiresIn: hours(1) })

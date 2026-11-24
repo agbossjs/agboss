@@ -23,7 +23,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
@@ -51,11 +51,11 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(PurchaseWorkflowStart)
+      onStart(PurchaseWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toAction(DraftQuestionAction)
         .returns(PurchaseQuestionDto)
-        .toQuestion(role)
+        .toExternalTask(role)
         .returns(SpendingLimitAnswerDto)
         .toAction(PlacePurchaseAction)
         .returns(PurchasePlacedDto)
@@ -147,7 +147,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
       name: "tool-question-workflow",
       version: "1.0.0",
       flow: [
-        start(PurchaseWorkflowStart)
+        onStart(PurchaseWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(LimitAgent)
           .returns(PurchasePlacedDto)
@@ -171,7 +171,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
         expect.objectContaining({
           code: "channel.wrong-tool",
           message: expect.stringContaining(
-            "spending-limit-question asks a question (ask / answer), it approves no tool — ask it with .toQuestion(SpendingLimitQuestion)",
+            "spending-limit-question asks a question (ask / answer), it approves no tool — ask it with .toExternalTask(SpendingLimitQuestion)",
           ),
         }),
       ]),

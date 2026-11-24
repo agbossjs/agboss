@@ -29,7 +29,7 @@ import {
 } from "../../../flow/runtime/fixtures/recursion.workflow.js";
 import { CompanyDto } from "../../../flow/fixtures/data-dtos.js";
 import { CompanyReviewWorkflow } from "../../../flow/fixtures/children.fixture.js";
-import { start as pathStart } from "../../../helpers/flow.js";
+import { onStart as pathStart } from "../../../helpers/flow.js";
 import { graphOf, edge, node } from "../../../flow/analyse/graph-fixture.js";
 
 const Desk = Object;

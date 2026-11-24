@@ -61,7 +61,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, start, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
@@ -122,7 +122,7 @@ export class MainRouter {}
   name: "job-scout-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatWorkflowStart)
+    onStart(ChatWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(

@@ -28,7 +28,7 @@ import {
   ScreeningWorkflow,
   SendReceiptAction,
 } from "./fixtures/launch.fixture.js";
-import { agent, action, router, start, toFinish } from "./fixtures/paths.js";
+import { onAgent, onAction, onRouter, onStart, toFinish } from "./fixtures/paths.js";
 import { PlanDto, ResearchDto } from "./fixtures/review-dtos.js";
 import { WorkflowStartTextDto } from "./fixtures/dtos.js";
 
@@ -78,7 +78,7 @@ describe("#273: a launch and its join in the AST", () => {
   });
 
   it("one target after a single value is a plain launch, not per item", () => {
-    const path = agent(PlannerAgent).returns(PlanDto).toParallelAgents(CriticAgent).join();
+    const path = onAgent(PlannerAgent).returns(PlanDto).toParallelAgents(CriticAgent).join();
     expect(path.steps[1]).toMatchObject({ kind: StepKind.Launch, perItem: false });
   });
 
@@ -109,7 +109,8 @@ describe("#273: a launch and its join in the AST", () => {
 });
 
 describe("#273: the order around a launch holds for untyped code too (FlowSyntaxError)", () => {
-  const launched = () => agent(PlannerAgent).returns(PlanDto).toParallelAgents(PlanResearcherAgent);
+  const launched = () =>
+    onAgent(PlannerAgent).returns(PlanDto).toParallelAgents(PlanResearcherAgent);
 
   it("a launch is followed by .join()", () => {
     expect(() => launched().toAgent(CriticAgent)).toThrow(FlowSyntaxError);
@@ -119,7 +120,7 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
   });
 
   it(".join() follows a launch, .onJoinError stands before the join's .returns", () => {
-    expect(() => agent(PlannerAgent).join()).toThrow(".join() follows a parallel launch");
+    expect(() => onAgent(PlannerAgent).join()).toThrow(".join() follows a parallel launch");
     const valued = launched().join().returns(ResearchDto);
     expect(() =>
       valued.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
@@ -136,7 +137,7 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
   });
 
   it("targets are classes, the options last, the limits positive integers", () => {
-    const planned = () => agent(PlannerAgent).returns(PlanDto);
+    const planned = () => onAgent(PlannerAgent).returns(PlanDto);
     expect(() => planned().toParallelAgents()).toThrow("takes one or more component classes");
     expect(() => planned().toParallelAgents("critic")).toThrow(
       "takes one or more component classes",
@@ -153,17 +154,17 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
   });
 
   it("a router launches agents only", () => {
-    expect(() => router(HelpDeskRouter).toParallelActions(SendReceiptAction)).toThrow(
+    expect(() => onRouter(HelpDeskRouter).toParallelActions(SendReceiptAction)).toThrow(
       "a router launches agents only",
     );
     expect(() =>
-      start(HelpDeskWorkflowStart)
+      onStart(HelpDeskWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toRouter(HelpDeskRouter)
         .toParallelActions(SendReceiptAction),
     ).toThrow("a router launches agents only");
     expect(
-      action(ChargePaymentAction).returns(PaymentDto).toParallelActions(SendReceiptAction).steps,
+      onAction(ChargePaymentAction).returns(PaymentDto).toParallelActions(SendReceiptAction).steps,
     ).toHaveLength(2);
   });
 });
@@ -171,7 +172,7 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
 describe("#273: describe prints launches and joins in the grammar", () => {
   it("one call per line: the launch with its options, the join, its side path and values", () => {
     expect(flowLines(flowOf(ScreeningWorkflow))).toEqual([
-      "start(ScreeningWorkflowStart)",
+      "onStart(ScreeningWorkflowStart)",
       "  .returns(WorkflowStartTextDto)",
       "  .toAgent(ScreeningAgent)",
       "  .returns(listOf(CompanyDto))",

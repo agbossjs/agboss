@@ -31,7 +31,7 @@ import {
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
 import {
@@ -183,7 +183,7 @@ function workflowReading(dependency: object): object {
     name: "reading-workflow",
     version: "1.0.0",
     flow: [
-      start(LeaseReadingWorkflowStart)
+      onStart(LeaseReadingWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toAction(ReadingAction)
         .toFinish(LeaseReadWorkflowFinish),

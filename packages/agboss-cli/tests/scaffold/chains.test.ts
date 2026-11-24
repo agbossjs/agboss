@@ -6,8 +6,8 @@ import { markChains, unmarkChains } from "../../src/scaffold/chains.js";
 import { formatFiles } from "../../src/scaffold/format.js";
 
 const root = mkdtempSync(join(tmpdir(), "agboss-chains-"));
-const JOINED = "export const flow = [start(A).returns(B).toFinish(C)];\n";
-const SPLIT = "export const flow = [\n  start(A)\n    .returns(B)\n    .toFinish(C),\n];\n";
+const JOINED = "export const flow = [onStart(A).returns(B).toFinish(C)];\n";
+const SPLIT = "export const flow = [\n  onStart(A)\n    .returns(B)\n    .toFinish(C),\n];\n";
 
 const formatted = async (path: string, content: string): Promise<string> => {
   const [file] = await formatFiles(root, [{ path, content }]);
@@ -36,10 +36,10 @@ describe("#289: generated workflow modules keep one call per line", () => {
   });
 
   it("a comment between a call and the next one stays", async () => {
-    const text = "export const x = start(A) // the start\n  .toFinish(C);\n";
+    const text = "export const x = onStart(A) // the start\n  .toFinish(C);\n";
 
     expect(await formatted("src/x.workflow.ts", text)).toBe(
-      "export const x = start(A) // the start\n  .toFinish(C);\n",
+      "export const x = onStart(A) // the start\n  .toFinish(C);\n",
     );
   });
 });

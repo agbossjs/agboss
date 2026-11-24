@@ -1,4 +1,4 @@
-import { agent, caseOf, route, start } from "../../../src/flow/builder.js";
+import { onAgent, caseOf, route, onStart } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -88,13 +88,13 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  start(StoryWorkflowStart)
+  onStart(StoryWorkflowStart)
     .returns(ArticleRequestDto)
     .toAgent(ResearcherAgent)
     .returns(ResearchDto)
     .toAgent(StoryWriterAgent),
 
-  agent(StoryWriterAgent)
+  onAgent(StoryWriterAgent)
     .returns(DraftDto)
     .toAgent(StoryReviewerAgent)
     .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -180,10 +180,10 @@ export class CritiqueRouter {}
   name: "polish-workflow",
   version: "1.0.0",
   flow: [
-    start(StoryWorkflowStart)
+    onStart(StoryWorkflowStart)
       .returns(ArticleRequestDto)
       .toAgent(PolishAgent),
-    agent(PolishAgent)
+    onAgent(PolishAgent)
       .returns(DraftDto)
       .toAction(CritiqueAction)
       .returns(listOf(CritiqueDto), { about: DraftDto })

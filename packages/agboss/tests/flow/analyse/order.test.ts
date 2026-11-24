@@ -32,7 +32,7 @@ import {
   SendOfferAction,
   VisitsLimitExceededError,
 } from "../fixtures/offer.fixture.js";
-import { agent, caseOf, route, start, toAction } from "../fixtures/paths.js";
+import { onAgent, caseOf, route, onStart, toAction } from "../fixtures/paths.js";
 import {
   AnswerRouter,
   ExpertAnswerAgent,
@@ -50,8 +50,8 @@ import {
   name: "support-workflow",
   version: "1.0.0",
   flow: [
-    agent(ExpertAnswerAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
-    start(SupportWorkflowStart)
+    onAgent(ExpertAnswerAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
+    onStart(SupportWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrderAgent)
       .returns(OrderStatusDto)
@@ -69,7 +69,7 @@ class ReorderedSupportWorkflow {}
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    agent(ReviewerAgent)
+    onAgent(ReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
         caseOf(DraftApprovedDto)
@@ -85,7 +85,7 @@ class ReorderedSupportWorkflow {}
           .returns(OfferDraftDto)
           .toAgent(ReviewerAgent),
       ),
-    start(OfferWorkflowStart)
+    onStart(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftAgent)
       .returns(OfferDraftDto)

@@ -27,7 +27,7 @@ import { FaultPayAction } from "./pay.action.js";
  * by the pause's atomic transition: the scenario reads which won from the charge and the payment.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 /** What the question asks: the order to approve. */
@@ -103,13 +103,13 @@ export class FaultApprovalWorkflowFinish {}
   name: "fault-approval-workflow",
   version: "1.0.0",
   flow: [
-    start(FaultApprovalWorkflowStart)
+    onStart(FaultApprovalWorkflowStart)
       .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
       .returns(FaultReservationDto)
       .toAction(FaultAskAction)
       .returns(FaultApprovalAskDto)
-      .toQuestion(FaultApprovalQuestion)
+      .toExternalTask(FaultApprovalQuestion)
       .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)

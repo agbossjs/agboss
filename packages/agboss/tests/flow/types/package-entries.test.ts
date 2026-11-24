@@ -18,7 +18,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
 import { packageModules } from "../../../src/flow/types/write.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 @WorkflowStart({
   name: "file-out-workflow-start",
@@ -50,7 +50,7 @@ export class FileOutWorkflowFinish {}
   name: "file-out-workflow",
   version: "1.0.0",
   flow: [
-    start(FileOutWorkflowStart)
+    onStart(FileOutWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(FileOutAction)
       .returns(WorkflowFinishFileDto)

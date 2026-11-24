@@ -22,7 +22,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #261 PR 5: an application whose budgets read the execution — the tenant's own daily amount from
@@ -100,7 +100,7 @@ export class ReviewerAgent {}
   name: "brief-workflow",
   version: "1.0.0",
   flow: [
-    start(BriefStart)
+    onStart(BriefStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DrafterAgent)
       .returns(DraftDto)

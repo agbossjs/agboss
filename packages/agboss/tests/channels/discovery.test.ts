@@ -16,7 +16,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import {
   CardRefundsWorkflow,
   DoubledRefundsApplication,
@@ -45,7 +45,7 @@ const offline = (book = new ScriptBook()) => ({
   name: "front-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundWorkflowStart)
+    onStart(RefundWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(CardRefundsWorkflow)
       .returns(RefundCardOutputDto)
@@ -154,7 +154,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
       name: "misplaced-refunds-workflow",
       version: "1.0.0",
       flow: [
-        start(RefundWorkflowStart)
+        onStart(RefundWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(RefundClerkAgent)
           .returns(RefundCardOutputDto)
@@ -251,7 +251,7 @@ describe("#267 AC8 (PR 1 part): one interpreter belongs to one role", () => {
       name: "replies-workflow",
       version: "1.0.0",
       flow: [
-        start(RefundWorkflowStart)
+        onStart(RefundWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAgent(RepliesAgent)
           .returns(RefundCardOutputDto)

@@ -39,7 +39,7 @@ import type { TestApp } from "../../src/testing/test-app.js";
 import type { ExecutionOutput } from "../../src/app/types.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import {
   AnswerAgent,
   ArchiveAgent,
@@ -192,7 +192,7 @@ class OddAgent {}
 @Workflow({
   name: "odd-workflow",
   version: "1.0.0",
-  flow: [start(DeskStart).returns(WorkflowStartTextDto).toAgent(OddAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(OddAgent).toFinish(DeskAnswer)],
   compaction: MisnamedCompaction,
   uncompactedTurns: 2.5,
 })

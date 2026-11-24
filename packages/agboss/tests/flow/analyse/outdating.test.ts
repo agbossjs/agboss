@@ -12,7 +12,7 @@ import type { ComponentName } from "../../../src/flow/registry.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { agent, caseOf, route, router, start } from "../fixtures/paths.js";
+import { onAgent, caseOf, route, onRouter, onStart } from "../fixtures/paths.js";
 import {
   ApprovalDto,
   CandidateProfileDto,
@@ -77,8 +77,8 @@ class EditorRouter {}
   name: "hub-workflow",
   version: "1.0.0",
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toRouter(EditorRouter),
-    router(EditorRouter).chooseOne(
+    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toRouter(EditorRouter),
+    onRouter(EditorRouter).chooseOne(
       route(ResearcherAgent).returns(ResearchDto).toRouter(EditorRouter),
       route(StoryWriterAgent).returns(DraftDto).toRouter(EditorRouter),
       route(StoryReviewerAgent)
@@ -149,7 +149,7 @@ class PickWorkflowFinish {}
   name: "stale-scores-workflow",
   version: "1.0.0",
   flow: [
-    start(JobsWorkflowStart)
+    onStart(JobsWorkflowStart)
       .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
       .returns(JobListDto)
@@ -168,7 +168,7 @@ class StaleScoresWorkflow {}
   name: "fresh-scores-workflow",
   version: "1.0.0",
   flow: [
-    start(JobsWorkflowStart)
+    onStart(JobsWorkflowStart)
       .returns(CandidateProfileDto)
       .toAgent(ProfileEditorAgent)
       .returns(CandidateProfileDto)
@@ -197,7 +197,7 @@ class JobsRouter {}
   name: "stale-router-workflow",
   version: "1.0.0",
   flow: [
-    start(JobsWorkflowStart)
+    onStart(JobsWorkflowStart)
       .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
       .returns(JobListDto)
@@ -361,11 +361,11 @@ const gateWorkflow = (name: string, publisher: object): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
-      agent(GateWriterAgent)
+      onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
+      onAgent(GateWriterAgent)
         .returns(DraftDto)
         .toRouter(gate as never),
-      router(gate as never).chooseOne(
+      onRouter(gate as never).chooseOne(
         route(StoryReviewerAgent)
           .returns(oneOf(ApprovalDto, DraftChangesDto))
           .switch(
@@ -449,14 +449,14 @@ const pickLoop = (name: string, picker: object): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(ThreadWorkflowStart)
+      onStart(ThreadWorkflowStart)
         .returns(WorkflowStartTextDto)
         .returns(CandidateProfileDto)
         .toAgent(picker as never),
-      agent(picker as never)
+      onAgent(picker as never)
         .returns(JobPickDto)
         .toRouter(PickRouter),
-      router(PickRouter).chooseOne(
+      onRouter(PickRouter).chooseOne(
         route(picker as never),
         route(ProfileEditorAgent).returns(CandidateProfileDto).toFinish(PickWorkflowFinish),
       ),
@@ -503,8 +503,8 @@ class LoopReviewerAgent {}
   name: "broken-review-workflow",
   version: "1.0.0",
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
-    agent(GateWriterAgent)
+    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
+    onAgent(GateWriterAgent)
       .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -609,9 +609,9 @@ class ReplanRouter {}
   name: "one-writer-workflow",
   version: "1.0.0",
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    agent(OuterPlannerAgent).returns(PlanDto).toAgent(NotesDraftAgent),
-    agent(NotesDraftAgent)
+    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent).returns(PlanDto).toAgent(NotesDraftAgent),
+    onAgent(NotesDraftAgent)
       .returns(DraftDto)
       .toAgent(InnerReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -632,13 +632,13 @@ class OneWriterWorkflow {}
   name: "two-writers-workflow",
   version: "1.0.0",
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    agent(OuterPlannerAgent)
+    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent)
       .returns(PlanDto)
       .toAgent(PlanDraftAgent)
       .returns(DraftDto)
       .toAgent(InnerReviewerAgent),
-    agent(InnerReviewerAgent)
+    onAgent(InnerReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
         caseOf(DraftChangesDto, { about: DraftDto })

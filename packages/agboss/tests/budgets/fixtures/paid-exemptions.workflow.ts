@@ -1,5 +1,5 @@
 import { BudgetExceededError, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { action, start, toAction } from "../../helpers/flow.js";
+import { onAction, onStart, toAction } from "../../helpers/flow.js";
 import {
   AuditOrderAction,
   CheckOrderAction,
@@ -50,7 +50,7 @@ export class LimitLaunchWorkflowStart {}
   name: "limit-launch-workflow",
   version: "1.0.0",
   flow: [
-    start(LimitLaunchWorkflowStart)
+    onStart(LimitLaunchWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -70,7 +70,7 @@ export class JoinLimitWorkflowStart {}
   name: "join-limit-workflow",
   version: "1.0.0",
   flow: [
-    start(JoinLimitWorkflowStart)
+    onStart(JoinLimitWorkflowStart)
       .returns(OrderDto)
       .toParallelActions(ChargeOrderAction, NoteOrderAction)
       .join()
@@ -89,7 +89,7 @@ export class HeldLimitWorkflowStart {}
   name: "held-limit-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldLimitWorkflowStart)
+    onStart(HeldLimitWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -116,7 +116,7 @@ export class HeldLaunchWorkflowStart {}
   name: "held-launch-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldLaunchWorkflowStart)
+    onStart(HeldLaunchWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -150,14 +150,14 @@ export class RefundStepWorkflowFinish {}
   name: "refund-step-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundStepWorkflowStart)
+    onStart(RefundStepWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
       .onError(OrderDeclinedError, toAction(RefundOrderAction))
       .returns(OrderDto)
       .toAction(RefundOrderAction),
-    action(RefundOrderAction)
+    onAction(RefundOrderAction)
       .toFinish(RefundStepWorkflowFinish),
   ],
 })
@@ -174,7 +174,7 @@ export class RebookWorkflowStart {}
   name: "rebook-workflow",
   version: "1.0.0",
   flow: [
-    start(RebookWorkflowStart)
+    onStart(RebookWorkflowStart)
       .returns(OrderDto)
       .toAction(RejectOrderAction)
       .onError(
@@ -201,7 +201,7 @@ export class NestedLimitWorkflowFinish {}
   name: "nested-limit-workflow",
   version: "1.0.0",
   flow: [
-    start(NestedLimitWorkflowStart)
+    onStart(NestedLimitWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -232,7 +232,7 @@ export class RefundToldWorkflowFinish {}
   name: "refund-handled-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundHandledWorkflowStart)
+    onStart(RefundHandledWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)

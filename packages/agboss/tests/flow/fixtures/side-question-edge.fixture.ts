@@ -14,7 +14,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { start as publicStart, toQuestion as publicToQuestion } from "../../../src/flow/builder.js";
+import { onStart as publicStart, toExternalTask as publicToQuestion } from "../../../src/flow/builder.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
@@ -22,7 +22,7 @@ import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { question, start, toQuestion } from "./paths.js";
+import { onExternalTask, onStart, toExternalTask } from "./paths.js";
 import {
   DraftQuestionAction,
   InboxSpendingLimitChannel,
@@ -177,20 +177,20 @@ export class EdgeOnceStart {}
 @WorkflowStart({ name: "edge-twice-workflow-start", description: "d", input: WorkflowStartTextDto })
 export class EdgeTwiceStart {}
 
-/** One node: `.toQuestion(R)` on the main path, `question(R)…` its path, the side path back to R. */
+/** One node: `.toExternalTask(R)` on the main path, `onExternalTask(R)…` its path, the side path back to R. */
 export const sharedEdgeFlow = (
   startClass: abstract new () => unknown,
   role: abstract new () => unknown,
 ): PathBuilder<PathSource>[] => [
-  start(startClass)
+  onStart(startClass)
     .returns(WorkflowStartTextDto)
     .toAction(DraftQuestionAction)
     .returns(PurchaseQuestionDto)
-    .toQuestion(role),
-  question(role)
+    .toExternalTask(role),
+  onExternalTask(role)
     .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
     .toAction(FailFirstPlaceAction)
-    .onError(StepFailedError, toQuestion(role))
+    .onError(StepFailedError, toExternalTask(role))
     .returns(PurchasePlacedDto)
     .toFinish(PurchaseWorkflowFinish),
 ];
@@ -200,16 +200,16 @@ export const inlineTwiceEdgeFlow = (
   startClass: abstract new () => unknown,
   role: abstract new () => unknown,
 ): PathBuilder<PathSource>[] => [
-  start(startClass)
+  onStart(startClass)
     .returns(WorkflowStartTextDto)
     .toAction(DraftQuestionAction)
     .returns(PurchaseQuestionDto)
-    .toQuestion(role)
+    .toExternalTask(role)
     .returns(SpendingLimitAnswerDto)
     .toAction(FailFirstPlaceAction)
     .onError(
       StepFailedError,
-      toQuestion(role)
+      toExternalTask(role)
         .returns(SpendingLimitAnswerDto)
         .toAction(PlacePurchaseAction)
         .returns(PurchasePlacedDto)

@@ -26,7 +26,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
 import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
@@ -127,7 +127,7 @@ const DEFAULTS = {
   name: "clerk-workflow",
   version: "1.0.0",
   flow: [
-    start(ClerkStart)
+    onStart(ClerkStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ClerkAgent)
       .toFinish(ClerkFinish),
@@ -163,7 +163,7 @@ export class HandOverFinish {}
   name: "front-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(FrontDeskStart)
+    onStart(FrontDeskStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ClerkWorkflow)
       .onError(ChildExecutionFailedError, toFinish(HandOverFinish))
@@ -197,7 +197,7 @@ export class StrictClerkStart {}
   name: "strict-clerk-workflow",
   version: "1.0.0",
   flow: [
-    start(StrictClerkStart)
+    onStart(StrictClerkStart)
       .returns(WorkflowStartTextDto)
       .toAgent(StrictClerkAgent)
       .onError(QualityGateError, toFinish(HandOverFinish))

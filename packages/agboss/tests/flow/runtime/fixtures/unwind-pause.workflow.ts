@@ -16,7 +16,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   ReservedDto,
   ReserveRoomAction,
@@ -92,7 +92,7 @@ export class UnwindGuestWorkflowStart {}
   name: "unwind-guest-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindGuestWorkflowStart)
+    onStart(UnwindGuestWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(ReserveRoomAction)
       .returns(RoomDto)
@@ -131,7 +131,7 @@ export class SeatReservedWorkflowFinish {
   name: "unwind-paused-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindPausedWorkflowStart)
+    onStart(UnwindPausedWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(ReserveSeatAction)
       .returns(SeatDto)

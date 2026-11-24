@@ -80,7 +80,7 @@ export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly S
 }
 
 /**
- * The placements of the flow's child workflows; the path a child is continued in (`workflow(W)…`)
+ * The placements of the flow's child workflows; the path a child is continued in (`onWorkflow(W)…`)
  * is its source, not a mention.
  */
 export function childPlacementsOf(flow: readonly FlowPath[]): ChildPlacements {

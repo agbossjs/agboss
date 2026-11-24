@@ -23,7 +23,7 @@ import {
   type VariantOf,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { caseOf, onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 
@@ -105,7 +105,7 @@ export class ReportWorkflowFinish {}
   name: "typed-judge-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScoutAgent)
       .returns(JobReportDto)
@@ -190,7 +190,7 @@ export class RefusalWorkflowFinish {}
   name: "variant-judge-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScreenerAgent)
       .returns(oneOf(OfferDto, RefusalDto))
@@ -278,7 +278,7 @@ export class ListJudgedScoutAgent {}
   name: "wrong-reply-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OfferJudgedScreenerAgent)
       .returns(oneOf(OfferDto, RefusalDto))
@@ -300,7 +300,7 @@ export class WrongReplyWorkflow {}
   name: "wrong-report-reply-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(TextJudgedScoutAgent)
       .returns(JobReportDto)
@@ -325,7 +325,7 @@ export class JobsSummaryAgent {}
   name: "wrong-list-reply-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ListJudgedScoutAgent)
       .returns(listOf(JobDto))
@@ -386,7 +386,7 @@ export class JobsScoutAgent {}
   name: "list-judge-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(JobsScoutAgent)
       .returns(listOf(JobDto))
@@ -458,7 +458,7 @@ export class DecisionsSummaryAgent {}
   name: "variant-list-judge-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PanelScreenerAgent)
       .returns(listOf(oneOf(OfferDto, RefusalDto)))
@@ -495,7 +495,7 @@ export class ListJudgedReporterAgent {}
   name: "wrong-value-reply-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ListJudgedReporterAgent)
       .returns(JobReportDto)

@@ -16,7 +16,7 @@ import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-m
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testDefaults } from "../helpers.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   OrdersAgent,
   OrdersWorkflow,
@@ -70,7 +70,7 @@ class OtherFinish {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(RefundsWorkflowStart)
+    onStart(RefundsWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OtherOrdersAgent)
       .toFinish(OtherFinish),
@@ -92,7 +92,7 @@ class ClashingApplication {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(RefundsWorkflowStart)
+    onStart(RefundsWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrdersAgent)
       .toFinish(OrdersWorkflowFinish),

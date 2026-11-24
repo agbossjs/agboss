@@ -24,7 +24,7 @@ import {
   TestApplicationDailyBudget,
   TestTenantDailyBudget,
 } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { LocalMirrorModelProvider, LocalModelProvider } from "../models/providers.fixture.js";
 import { DecisionsModelProvider } from "../../src/models/index.js";
 
@@ -74,7 +74,7 @@ function childAndParent(
     name: `rules-child-${n}-workflow`,
     version: "1.0.0",
     flow: [
-      start(ChildStart)
+      onStart(ChildStart)
         .returns(WorkflowStartTextDto)
         .toAgent(agent)
         .toFinish(options.finish ?? ChildFinish),
@@ -98,7 +98,7 @@ function childAndParent(
     name: `rules-parent-${n}-workflow`,
     version: "1.0.0",
     flow: [
-      start(ParentStart)
+      onStart(ParentStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(ChildWorkflow)
         .returns(WorkflowFinishTextDto)
@@ -169,7 +169,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
       name: "rules-other-workflow",
       version: "1.0.0",
       flow: [
-        start(OtherStart)
+        onStart(OtherStart)
           .returns(WorkflowStartTextDto)
           .toWorkflow(ParentWorkflow)
           .returns(WorkflowFinishTextDto)

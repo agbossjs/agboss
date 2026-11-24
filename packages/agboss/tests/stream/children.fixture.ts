@@ -10,7 +10,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ChildWriter } from "./agents.fixture.js";
 
@@ -33,7 +33,7 @@ class ChildFinish {}
   name: "child-writer-workflow",
   version: "1.0.0",
   flow: [
-    start(ChildStart).returns(WorkflowStartTextDto).toAgent(ChildWriter).toFinish(ChildFinish),
+    onStart(ChildStart).returns(WorkflowStartTextDto).toAgent(ChildWriter).toFinish(ChildFinish),
   ],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
@@ -54,7 +54,7 @@ class OnceFinish {}
   name: "once-workflow",
   version: "1.0.0",
   flow: [
-    start(OnceStart)
+    onStart(OnceStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChildWriterWorkflow)
       .returns(WorkflowFinishTextDto)
@@ -89,7 +89,7 @@ class FanFinish {
   name: "fan-workflow",
   version: "1.0.0",
   flow: [
-    start(FanStart)
+    onStart(FanStart)
       .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(ChildWriterWorkflow, { maxItems: 4 })
       .join()

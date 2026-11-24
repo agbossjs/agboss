@@ -23,7 +23,7 @@ import { Application } from "../../../../src/application/application.js";
 import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   Clerk,
   levers,
@@ -137,7 +137,7 @@ export class SqliteRecoveryApplication {}
   },
   uncompactedTurns: 1,
   flow: [
-    start(OrderWorkflowStart)
+    onStart(OrderWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .returns(ReceiptDto)

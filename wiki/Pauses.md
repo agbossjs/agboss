@@ -199,7 +199,7 @@ Both new forms side by side — a decision model for a deposit return, and an ow
 code:
 
 <!-- snippet-context
-import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "@agboss/core";
+import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class DepositReturnDto {
@@ -321,7 +321,7 @@ export class OfficeWorkflowFinish {}
   name: "office-workflow",
   version: "1.0.0",
   flow: [
-    start(OfficeWorkflowStart)
+    onStart(OfficeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OfficeAgent)
       .toFinish(OfficeWorkflowFinish),
@@ -373,12 +373,12 @@ The payment guarantees do not depend on the interpreter: a fenced effect still r
 an outbound call is still sent once per key and reconciled, one business key is still charged once
 ([Payments](Payments), [Guarantees](Guarantees)) — whatever the interpreter read.
 
-## A question the workflow asks: `.toQuestion(Role)` (#659)
+## A question the workflow asks: `.toExternalTask(Role)` (#659)
 
 A **question role** — `@ChannelRole({ name: "…-question", description, ask: AskDto, answer:
 AnswerDto, answerer, replyInterpreter?, maxVisits? })` on an abstract class that `extends
 ChannelOf<Self>`, its one `@Channel` implementation in `@Application({ providers })` — is asked by a
-flow step: `.returns(AskDto).toQuestion(Role).returns(AnswerDto)` (or `question(Role)…` for its own
+flow step: `.returns(AskDto).toExternalTask(Role).returns(AnswerDto)` (or `onExternalTask(Role)…` for its own
 path, a question asked again on a cycle; `maxVisits` its limit there). The role is the step's node
 (`NodeKind.Question`; its name ends with `-question`, `[name.kind-suffix]`); the step reads one
 `AskDto` from the path (`[input.missing-on-path]` when none comes), asks the channel —
@@ -401,8 +401,8 @@ value for the steps after it. Everything else is a pause like an approval's:
   checked before it asks (a question when the money is gone asks nobody), its holder's fence right
   before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
   is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`; `question`
-  the step, also in `details`) — `.onError(E, …)` right after `.toQuestion(Role)` takes it.
-- **As an `.onError` side-path start (#933):** `.onError(E, toQuestion(Role).returns(AnswerDto)…)` — a
+  the step, also in `details`) — `.onError(E, …)` right after `.toExternalTask(Role)` takes it.
+- **As an `.onError` side-path start (#933):** `.onError(E, toExternalTask(Role).returns(AnswerDto)…)` — a
   question role's step handles the failure (the escalation "the manager did not answer, ask the
   director"); it reads its `ask` from the path as it stood before the failed step, and its answer goes
   on the path. One role is one node: its `maxVisits` counts the main path and the side path together.
@@ -619,7 +619,7 @@ export class RefundRequest {
   @Text() orderId!: string;
 }
 // @snippet
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Tool({ name: "refund-tool", description: "Refunds an order", input: RefundRequest, output: RefundRequest, channel: RefundApprovalChannel })
 export class RefundTool implements ToolHandler<RefundRequest, RefundRequest> {
@@ -636,7 +636,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  flow: [onStart(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackClient],
 })
 export class RefundWorkflow {}
@@ -811,8 +811,8 @@ A child workflow cannot be a quorum branch: a quorum launches agents only, so th
 
 A pause can have a deadline — an approval nobody answers should escalate, or go on with a default,
 not wait forever. `@ChannelRole({ expiresIn: hours(24) })` gives every pause of the role one
-(at least `seconds(1)`); `.toQuestion(Role, { expiresIn })` — and the side path
-`toQuestion(Role, { expiresIn })` of an `.onError` — overrides it for a question step (a question node
+(at least `seconds(1)`); `.toExternalTask(Role, { expiresIn })` — and the side path
+`toExternalTask(Role, { expiresIn })` of an `.onError` — overrides it for a question step (a question node
 has one value: two edges with different ones are `[question.expires-in-conflict]`), and
 `@Tool({ channel, expiresIn })` (`@McpTool` too) for a tool (`[tool.expires-in-without-channel]`;
 `[channel.expires-in-invalid]` for a value under `seconds(1)` or no finite duration). The step's or the
@@ -840,8 +840,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
-  toQuestion,
+  onStart,
+  toExternalTask,
   type ActionHandler,
   type ChannelAsk,
   type InputOf,
@@ -968,12 +968,12 @@ export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedD
   name: "desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskWorkflowStart)
+    onStart(DeskWorkflowStart)
       .returns(DeskOrderDto)
-      .toQuestion(DeskManagerQuestion)
+      .toExternalTask(DeskManagerQuestion)
       .onError(
         PauseExpiredError,
-        toQuestion(DeskDirectorQuestion)
+        toExternalTask(DeskDirectorQuestion)
           .returns(DeskDecisionDto)
           .toAction(RecordEscalatedDeskAction)
           .returns(DeskDoneDto)
@@ -1341,7 +1341,7 @@ applies (`expiryBound` `RunDeadline`).
 **The reminder.** Both working: `remindAt = calendar.add(askedAt, expiresIn − remindBefore)`; a working
 `expiresIn` with a plain `remindBefore`: `remindAt = expiresAt − remindBefore`; a **plain** `expiresIn` with a
 working `remindBefore` is `[channel.remind-before-working-without-working-expiry]` (a calendar can only add) —
-on the role and on every override site: a `.toQuestion(Role, { expiresIn: hours(4) })` or `@Tool({ expiresIn:
+on the role and on every override site: a `.toExternalTask(Role, { expiresIn: hours(4) })` or `@Tool({ expiresIn:
 hours(4) })` over a role whose `remindBefore` is working fails the same rule. `[channel.remind-before-invalid]`
 compares the working amounts when both are working. A reminder is kept only when `askedAt < remindAt <
 expiresAt`, checked after the run's or a quorum's deadline clamped `expiresAt` — otherwise none; when

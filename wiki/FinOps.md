@@ -160,7 +160,7 @@ export class ExecutionBudget implements BudgetHandler {
   such as `BillingService` — a trusted source, never the request body.
 
 <!-- snippet-context
-import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
+import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler } from "@agboss/core";
 import { Decimal, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 export class ShopTenantContext extends TenantContext {
@@ -175,7 +175,7 @@ export class ScreeningWorkflowFinish {}
   name: "screening-workflow",
   version: "1.0.0",
   flow: [
-    start(ScreeningWorkflowStart)
+    onStart(ScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(ScreeningWorkflowFinish),
   ],
@@ -329,7 +329,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   too (#634), so a branch listed after the one that spent the last of the budget never runs.
 
 ```ts no-check: a fragment of a flow
-start(ReviewWorkflowStart)
+onStart(ReviewWorkflowStart)
   .returns(DraftDto)
   .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
   .join()

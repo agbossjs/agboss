@@ -18,7 +18,7 @@ import { WorkflowStart } from "../../../../agboss/src/flow/decorators/workflow-s
 import { listOf } from "../../../../agboss/src/flow/dto-wrappers.js";
 import { Text } from "../../../../agboss/src/dto/index.js";
 import type { Usd } from "../../../../agboss/src/units/index.js";
-import { start } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
 
 /** One item of the batch. */
 export class ReportItemDto {
@@ -66,7 +66,7 @@ export class ItemReportWorkflowFinish {}
   name: "item-report-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemReportWorkflowStart)
+    onStart(ItemReportWorkflowStart)
       .returns(ReportItemDto)
       .toAgent(ItemReporterAgent)
       .returns(ItemReportDto)
@@ -115,7 +115,7 @@ export class BatchReportWorkflowFinish {}
   name: "batch-report-workflow",
   version: "1.0.0",
   flow: [
-    start(BatchReportWorkflowStart)
+    onStart(BatchReportWorkflowStart)
       .returns(listOf(ReportItemDto))
       .toAction(PickItemsAction)
       .returns(listOf(ReportItemDto))

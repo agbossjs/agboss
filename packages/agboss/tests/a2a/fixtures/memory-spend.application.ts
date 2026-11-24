@@ -19,7 +19,7 @@ import {
 } from "../../../src/memory/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /** What one memory update costs. */
 export const MEMORY_UPDATE_COST = 0.5;
@@ -65,7 +65,7 @@ export class MemoFinish {}
 @Workflow({
   name: "memo-workflow",
   version: "1.0.0",
-  flow: [start(MemoStart).returns(WorkflowStartTextDto).toAgent(MemoAgent).toFinish(MemoFinish)],
+  flow: [onStart(MemoStart).returns(WorkflowStartTextDto).toAgent(MemoAgent).toFinish(MemoFinish)],
 })
 export class MemoWorkflow {}
 

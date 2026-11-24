@@ -14,7 +14,7 @@ import {
 } from "../../../src/rag/index.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #700 AC1 — two tenants, each its own folder of documents on one SQLite FTS index: tenant B's
@@ -101,7 +101,10 @@ const PROVIDERS = [
   name: "search-workflow",
   version: "1.0.0",
   flow: [
-    start(SearchStart).returns(WorkflowStartTextDto).toAgent(SearchingAgent).toFinish(SearchFinish),
+    onStart(SearchStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(SearchingAgent)
+      .toFinish(SearchFinish),
   ],
   defaults: DEFAULTS,
   providers: PROVIDERS,
@@ -111,7 +114,9 @@ export class SearchWorkflow {}
 @Workflow({
   name: "read-workflow",
   version: "1.0.0",
-  flow: [start(ReadStart).returns(WorkflowStartTextDto).toAgent(ReadingAgent).toFinish(ReadFinish)],
+  flow: [
+    onStart(ReadStart).returns(WorkflowStartTextDto).toAgent(ReadingAgent).toFinish(ReadFinish),
+  ],
   defaults: DEFAULTS,
   providers: PROVIDERS,
 })

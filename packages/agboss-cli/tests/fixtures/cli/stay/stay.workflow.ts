@@ -9,7 +9,7 @@ import {
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../../agboss/tests/flow/fixtures/paths.js";
 import { BookingDto as HotelBookingDto, HotelWorkflowStart } from "./hotel.workflow.js";
 
 export class BookingDto {
@@ -36,7 +36,7 @@ export class StayWorkflowFinish {}
   name: "stay-workflow",
   version: "1.0.0",
   flow: [
-    start(HotelWorkflowStart)
+    onStart(HotelWorkflowStart)
       .returns(HotelBookingDto)
       .toAction(ConfirmAction)
       .returns(BookingDto)

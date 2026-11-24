@@ -16,7 +16,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { EmployeeDirectory, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** Employee ids by token: a project's detector, with the application's key. */
@@ -79,7 +79,9 @@ export class KeyedFinish {}
 @Workflow({
   name: "keyed-workflow",
   version: "1.0.0",
-  flow: [start(KeyedStart).returns(WorkflowStartTextDto).toAgent(KeyedAgent).toFinish(KeyedFinish)],
+  flow: [
+    onStart(KeyedStart).returns(WorkflowStartTextDto).toAgent(KeyedAgent).toFinish(KeyedFinish),
+  ],
   defaults: { models: { temperature: 0 } },
   piiPolicies: [EmployeeTokenPiiPolicy, OwnKeyPiiPolicy, AppKeyPiiPolicy],
   providers: [EmployeeDirectory],

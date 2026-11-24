@@ -1,5 +1,5 @@
 import { Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import {
   BookOrderAction,
   DeclineOrderAction,
@@ -25,7 +25,7 @@ export class PaidNestedWorkflowFinish {}
   name: "paid-nested-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidNestedWorkflowStart)
+    onStart(PaidNestedWorkflowStart)
       .returns(OrderDto)
       .toWorkflow(PaidActionWorkflow)
       .returns(OrderNoteDto)
@@ -48,7 +48,7 @@ export class PaidRefundWorkflowFinish {}
   name: "paid-refund-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidRefundWorkflowStart)
+    onStart(PaidRefundWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(DeclineOrderAction)

@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import { CheckOrderAction, ExemptionsLog } from "./paid-exemptions.actions.js";
 import {
@@ -45,7 +45,7 @@ export class HeldBranchWorkflowFinish {}
   name: "held-branch-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldBranchWorkflowStart)
+    onStart(HeldBranchWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
@@ -86,7 +86,7 @@ export class HeldItemsWorkflowFinish {}
   name: "held-items-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldItemsWorkflowStart)
+    onStart(HeldItemsWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(SplitOrderAction)
@@ -108,7 +108,7 @@ export class HeldLocalWorkflowFinish {}
   name: "held-local-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldLocalWorkflowStart)
+    onStart(HeldLocalWorkflowStart)
       .returns(OrderDto)
       .toWorkflow(HeldBranchWorkflow)
       .returns(OrderDto)
@@ -127,7 +127,7 @@ export class HeldAnyWorkflowFinish {}
   name: "held-any-workflow",
   version: "1.0.0",
   flow: [
-    start(HeldAnyWorkflowStart)
+    onStart(HeldAnyWorkflowStart)
       .returns(OrderDto)
       .toWorkflow(HeldBranchWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(OrderDto)

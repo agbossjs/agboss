@@ -52,7 +52,7 @@ export type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never]
             ? GroupHead<TNames, TGiven, TClaims | TNew>
             : never;
 
-/** `.toWorkflow(ThisWorkflow).returns(X)` (and `route(…)`, `workflow(…)`): X is what it gives. */
+/** `.toWorkflow(ThisWorkflow).returns(X)` (and `route(…)`, `onWorkflow(…)`): X is what it gives. */
 export interface ThisWorkflowStepClaim<TValue> {
   readonly step: TValue;
 }

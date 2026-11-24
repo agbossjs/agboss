@@ -19,7 +19,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { seconds } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   FinanceDeskRefundApprovalChannel,
@@ -121,7 +121,7 @@ export class RefundEscalatedWorkflowFinish {
   name: "refund-panel-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundPanelWorkflowStart)
+    onStart(RefundPanelWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2 })
@@ -142,7 +142,7 @@ export class RefundGroupsWorkflowStart {}
   name: "refund-groups-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundGroupsWorkflowStart)
+    onStart(RefundGroupsWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent)
       .joinQuorumGroups(
@@ -181,7 +181,7 @@ export class RefundRecoveryWorkflowStart {}
   name: "refund-recovery-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundRecoveryWorkflowStart)
+    onStart(RefundRecoveryWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: seconds(300) })

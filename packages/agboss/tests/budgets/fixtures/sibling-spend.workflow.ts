@@ -21,7 +21,7 @@ import {
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import {
   ItemDto,
@@ -183,7 +183,7 @@ class GrandPayWorkflowFinish {}
   name: "grand-pay-workflow",
   version: "1.0.0",
   flow: [
-    start(GrandPayWorkflowStart)
+    onStart(GrandPayWorkflowStart)
       .returns(ItemDto)
       .toAction(GrandOne)
       .returns(ItemDto)
@@ -208,7 +208,7 @@ class SiblingItemWorkflowFinish {}
   name: "sibling-item-workflow",
   version: "1.0.0",
   flow: [
-    start(SiblingItemWorkflowStart)
+    onStart(SiblingItemWorkflowStart)
       .returns(ItemDto)
       .toAction(SiblingPayAction)
       .returns(ItemDto)
@@ -230,7 +230,7 @@ export class SiblingItemsWorkflowStart {}
   name: "sibling-items-workflow",
   version: "1.0.0",
   flow: [
-    start(SiblingItemsWorkflowStart)
+    onStart(SiblingItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(SiblingItemWorkflow, {
         maxItems: 2,

@@ -42,7 +42,7 @@ import {
   TaskStart,
   CodeReviewApplication,
 } from "../testing/fixtures/code-review.workflow.js";
-import { agent, execute, start, answerOf } from "../helpers/flow.js";
+import { onAgent, execute, onStart, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -91,8 +91,8 @@ const defaults = {
   name: "two-starts-workflow",
   version: "1.0.0",
   flow: [
-    start(TicketStart).returns(TicketDto).toAgent(TicketAgent).toFinish(Reply),
-    start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
+    onStart(TicketStart).returns(TicketDto).toAgent(TicketAgent).toFinish(Reply),
+    onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
   uncompactedTurns: 2,
@@ -114,8 +114,8 @@ export class TwoStartsApplication {}
   name: "broken-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
-    agent(Support).toFinish(Reply),
+    onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
+    onAgent(Support).toFinish(Reply),
   ],
   defaults,
   uncompactedTurns: 2,

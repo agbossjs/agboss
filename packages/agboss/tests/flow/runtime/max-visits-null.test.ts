@@ -28,7 +28,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
 
 @Agent({
   name: "null-bound-edit-agent",
@@ -55,12 +55,12 @@ class NullBoundReviewAgent {}
   name: "null-bound-loop-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toAgent(NullBoundReviewAgent),
-    agent(NullBoundReviewAgent)
+    onAgent(NullBoundReviewAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto)

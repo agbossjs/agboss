@@ -28,7 +28,7 @@ import {
   ClinicTenantContext,
   UnitDirectoryService,
 } from "../flow/fixtures/clinic.fixture.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   OrdersAgent,
@@ -53,7 +53,7 @@ class UnitNamesService {
 }
 
 const flow = [
-  start(RefundsWorkflowStart)
+  onStart(RefundsWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(OrdersAgent)
     .toFinish(OrdersWorkflowFinish),

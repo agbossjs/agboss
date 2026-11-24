@@ -39,7 +39,7 @@ export interface ChannelUse {
   readonly channel: Class;
   /** The workflow whose agent has the tool, or whose flow asks the question. */
   readonly workflow: string;
-  /** A question step (`.toQuestion(Role)`, #659), not a tool — or an agent's question call (#712). */
+  /** A question step (`.toExternalTask(Role)`, #659), not a tool — or an agent's question call (#712). */
   readonly isQuestion?: true;
   /** The agent that asks it through its tool loop (#712); absent for a question step. */
   readonly askedBy?: string;

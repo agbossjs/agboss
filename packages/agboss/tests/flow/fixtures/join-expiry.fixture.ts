@@ -35,7 +35,7 @@ import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error
 import { minutes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { start, toAction } from "./paths.js";
+import { onStart, toAction } from "./paths.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
@@ -263,7 +263,7 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
   name: "join-expiry-workflow",
   version: "1.0.0",
   flow: [
-    start(JoinExpiryWorkflowStart)
+    onStart(JoinExpiryWorkflowStart)
       .returns(ApprovalRequestDto)
       .toParallelAgents(
         LegalApproverAgent,

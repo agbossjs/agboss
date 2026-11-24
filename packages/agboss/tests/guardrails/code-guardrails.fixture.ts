@@ -31,7 +31,7 @@ import { OneOf, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dt
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 
 /** The tenant's own field: which shop it is (its blocklist). */
 export class ShopTenantContext extends TenantContext {
@@ -193,7 +193,7 @@ export class ShopRouter {}
   name: "shop-workflow",
   version: "1.0.0",
   flow: [
-    start(ShopStart)
+    onStart(ShopStart)
       .returns(WorkflowStartTextDto)
       .toRouter(ShopRouter)
       .chooseOne(

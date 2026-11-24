@@ -11,7 +11,7 @@ import {
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
-import { agent, route, start } from "../../../helpers/flow.js";
+import { onAgent, route, onStart } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "./fan-out.workflow.js";
 import { ItemCheckWorkflow, ShopExecutionContext, ShopTenantContext } from "./children.workflow.js";
 
@@ -64,10 +64,10 @@ export class PickAgainRouter {
   name: "pick-loop-workflow",
   version: "1.0.0",
   flow: [
-    start(PickLoopWorkflowStart)
+    onStart(PickLoopWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ItemPickerAgent),
-    agent(ItemPickerAgent)
+    onAgent(ItemPickerAgent)
       .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
       .returns(ItemResultDto)

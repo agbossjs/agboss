@@ -33,7 +33,7 @@ import {
   WorkflowStart,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 
 /** A workflow none of whose components can write under a business key. */
@@ -52,7 +52,7 @@ class PlainFinish {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
-  flow: [start(PlainStart).returns(WorkflowStartTextDto).toFinish(PlainFinish)],
+  flow: [onStart(PlainStart).returns(WorkflowStartTextDto).toFinish(PlainFinish)],
 })
 class PlainWorkflow {}
 

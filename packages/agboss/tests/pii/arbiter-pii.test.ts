@@ -22,7 +22,7 @@ import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { decideWith, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
@@ -80,7 +80,7 @@ class OwnersFinish {
   name: "owners-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnersStart)
+    onStart(OwnersStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
       .acceptedBy(ContactArbiter)

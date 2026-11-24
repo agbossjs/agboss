@@ -1,8 +1,8 @@
 import {
-  agent,
+  onAgent,
   caseOf,
   oneOf,
-  start,
+  onStart,
   toAction,
   VisitsLimitExceededError,
   Workflow,
@@ -32,13 +32,13 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    start(OfferWorkflowStart)
+    onStart(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftAgent)
       .returns(OfferDraftDto)
       .toAgent(ReviewerAgent),
 
-    agent(ReviewerAgent)
+    onAgent(ReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft

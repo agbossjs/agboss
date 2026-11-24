@@ -30,7 +30,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, route, start } from "../helpers/flow.js";
+import { caseOf, route, onStart } from "../helpers/flow.js";
 import { oneOf } from "../../src/flow/dto-wrappers.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
 
@@ -154,7 +154,7 @@ export class ChainChildStart {}
   name: "chain-child-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainChildStart)
+    onStart(ChainChildStart)
       .returns(WorkflowStartTextDto)
       .toRouter(ChainChildRouter)
       .chooseOne(route(ChainChildAgent).toFinish(ChainChildFinish), route(ChainChildDirectFinish)),
@@ -182,7 +182,7 @@ export class ChainPeekFinish {}
   name: "chain-peek-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainPeekStart)
+    onStart(ChainPeekStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChainPeekAgent)
       .toFinish(ChainPeekFinish),
@@ -210,7 +210,7 @@ export class ChainOpenFinish {}
   name: "chain-open-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainOpenStart)
+    onStart(ChainOpenStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChainOpenAgent)
       .toFinish(ChainOpenFinish),
@@ -248,7 +248,7 @@ export class ChainFarAgent {}
   name: "chain-far-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainFarStart)
+    onStart(ChainFarStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChainFarAgent)
       .toFinish(ChainFarFinish),
@@ -288,7 +288,7 @@ export class ChainRootDirectFinish {}
   name: "chain-root-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainRootStart)
+    onStart(ChainRootStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainChildWorkflow)
       .returns(oneOf(WorkflowFinishTextDto, WorkflowStartTextDto))
@@ -296,17 +296,17 @@ export class ChainRootDirectFinish {}
         caseOf(WorkflowFinishTextDto).toFinish(ChainRootFinish),
         caseOf(WorkflowStartTextDto).toFinish(ChainRootDirectFinish),
       ),
-    start(ChainPeekRootStart)
+    onStart(ChainPeekRootStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainPeekWorkflow)
       .returns(WorkflowFinishTextDto)
       .toFinish(ChainRootFinish),
-    start(ChainOpenRootStart)
+    onStart(ChainOpenRootStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainOpenWorkflow)
       .returns(WorkflowFinishTextDto)
       .toFinish(ChainRootFinish),
-    start(ChainFarRootStart)
+    onStart(ChainFarRootStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainFarWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(WorkflowFinishTextDto)
@@ -321,7 +321,7 @@ export class ChainRootWorkflow {}
   name: "chain-plain-root-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainPlainRootStart)
+    onStart(ChainPlainRootStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainPeekWorkflow)
       .returns(WorkflowFinishTextDto)

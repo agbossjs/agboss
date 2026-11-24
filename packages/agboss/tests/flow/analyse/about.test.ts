@@ -14,7 +14,7 @@ import { historyOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../fixtures/dtos.js";
-import { agent, caseOf, route, start } from "../fixtures/paths.js";
+import { onAgent, caseOf, route, onStart } from "../fixtures/paths.js";
 import { ApprovalDto, CritiqueDto, DraftDto, PlanDto } from "../fixtures/review-dtos.js";
 import {
   PolishWorkflow,
@@ -82,8 +82,8 @@ const reviewLoop = (name: string, target: DtoClass | undefined): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(LoopWriterAgent),
-      agent(LoopWriterAgent)
+      onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(LoopWriterAgent),
+      onAgent(LoopWriterAgent)
         .returns(DraftDto)
         .toAgent(ReviewerAgent)
         .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -197,8 +197,8 @@ function critiqueLoop(target: DtoClass | undefined): object {
     name: `${suffix}-critique-workflow`,
     version: "1.0.0",
     flow: [
-      start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(CritiquedWriterAgent),
-      agent(CritiquedWriterAgent)
+      onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(CritiquedWriterAgent),
+      onAgent(CritiquedWriterAgent)
         .returns(DraftDto)
         .toAction(SingleCritiqueAction)
         .returns(CritiqueDto, aboutOf(target))
@@ -251,8 +251,8 @@ const planLoop = (
     name: `${name}-plan-workflow`,
     version: "1.0.0",
     flow: [
-      start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(PlannerAgent),
-      agent(PlannerAgent)
+      onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(PlannerAgent),
+      onAgent(PlannerAgent)
         .returns(PlanDto)
         .toAgent(PlanWriterAgent)
         .returns(DraftDto, aboutOf(writerAbout))
@@ -324,8 +324,8 @@ describe("#299: [io.ambiguous-about] — a value about T whose producer reads T 
       name: `${name}-edit-workflow`,
       version: "1.0.0",
       flow: [
-        start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(LoopWriterAgent),
-        agent(LoopWriterAgent)
+        onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(LoopWriterAgent),
+        onAgent(LoopWriterAgent)
           .returns(DraftDto)
           .toAgent(DiffReviewerAgent)
           .returns(oneOf(ApprovalDto, DraftChangesDto))

@@ -26,7 +26,7 @@ import { depsOf } from "../../src/components/container/container.js";
 import { readingClassesOf } from "../../src/environments/contract.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 /** A store's connection: what it reads from the environment. */
 @Injectable({
@@ -68,7 +68,7 @@ class ConnectedFinish {}
 @Workflow({
   name: "connected-workflow",
   version: "1.0.0",
-  flow: [start(ConnectedStart).returns(WorkflowStartTextDto).toFinish(ConnectedFinish)],
+  flow: [onStart(ConnectedStart).returns(WorkflowStartTextDto).toFinish(ConnectedFinish)],
   providers: [PostgresLikeLeaseStore],
 })
 class ConnectedWorkflow {}

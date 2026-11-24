@@ -16,7 +16,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { AGENT_URL } from "./client/support/sdk-agent.js";
 
 /** Where the `@A2AAgent` is provided. */
@@ -61,7 +61,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Workflow({
     name: `placed-child-${n}-workflow`,
     version: "1.0.0",
-    flow: [start(ChildStart).returns(WorkflowStartTextDto).toFinish(ChildFinish)],
+    flow: [onStart(ChildStart).returns(WorkflowStartTextDto).toFinish(ChildFinish)],
     ...providers("child workflow"),
   })
   class ChildWorkflow {}
@@ -82,7 +82,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
     name: `placed-parent-${n}-workflow`,
     version: "1.0.0",
     flow: [
-      start(ParentStart)
+      onStart(ParentStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(ChildWorkflow)
         .returns(WorkflowFinishTextDto)

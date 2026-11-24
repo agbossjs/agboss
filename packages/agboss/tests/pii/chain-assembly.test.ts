@@ -30,7 +30,7 @@ import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { ChainApplication, ChildSecretPiiPolicy, RootSecretPiiPolicy } from "./chain.fixture.js";
 import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
 
@@ -132,7 +132,7 @@ class ConflictAgent {}
   name: "cc-child-workflow",
   version: "1.0.0",
   flow: [
-    start(ConflictChildStart)
+    onStart(ConflictChildStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ConflictAgent)
       .toFinish(ConflictChildFinish),
@@ -163,7 +163,7 @@ class ConflictSummaryAgent {}
   name: "cc-root-workflow",
   version: "1.0.0",
   flow: [
-    start(ConflictRootStart)
+    onStart(ConflictRootStart)
       .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(ConflictChildWorkflow, { maxItems: 2 })
       .join()

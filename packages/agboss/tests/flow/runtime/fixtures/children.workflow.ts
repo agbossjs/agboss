@@ -30,7 +30,7 @@ import { Application } from "../../../../src/application/application.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { agent, caseOf, start, toAgent, toFinish, toWorkflow } from "../../../helpers/flow.js";
+import { onAgent, caseOf, onStart, toAgent, toFinish, toWorkflow } from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 
 /**
@@ -186,7 +186,7 @@ export class ItemCheckedWorkflowFinish {}
   name: "item-check-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemCheckWorkflowStart)
+    onStart(ItemCheckWorkflowStart)
       .returns(ItemDto)
       .toAction(CheckItemAction)
       .returns(ItemResultDto)
@@ -239,7 +239,7 @@ export class ChecksFailedWorkflowFinish {
   name: "check-items-workflow",
   version: "1.0.0",
   flow: [
-    start(CheckItemsWorkflowStart)
+    onStart(CheckItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemCheckWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
@@ -281,7 +281,7 @@ export class OneFailedWorkflowFinish {
   name: "check-one-workflow",
   version: "1.0.0",
   flow: [
-    start(CheckOneWorkflowStart)
+    onStart(CheckOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
       .onError(ItemFailedError, toFinish(OneFailedWorkflowFinish))
@@ -303,7 +303,7 @@ export class CheckBareWorkflowStart {}
   name: "check-bare-workflow",
   version: "1.0.0",
   flow: [
-    start(CheckBareWorkflowStart)
+    onStart(CheckBareWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
       .returns(ItemResultDto)
@@ -332,7 +332,7 @@ export class ItemDeepCheckedWorkflowFinish {}
   name: "item-deep-check-workflow",
   version: "1.0.0",
   flow: [
-    start(ItemDeepCheckWorkflowStart)
+    onStart(ItemDeepCheckWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
       .returns(ItemResultDto)
@@ -352,7 +352,7 @@ export class DeepCheckItemsWorkflowStart {}
   name: "deep-check-items-workflow",
   version: "1.0.0",
   flow: [
-    start(DeepCheckItemsWorkflowStart)
+    onStart(DeepCheckItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemDeepCheckWorkflow, { maxItems: 10 })
       .join()
@@ -394,7 +394,7 @@ export class FallbackCheckedWorkflowFinish {}
   name: "fallback-check-workflow",
   version: "1.0.0",
   flow: [
-    start(FallbackCheckWorkflowStart)
+    onStart(FallbackCheckWorkflowStart)
       .returns(ItemDto)
       .toAction(FallbackCheckAction)
       .returns(ItemResultDto)
@@ -422,7 +422,7 @@ export class RecheckedWorkflowFinish {}
   name: "check-or-fallback-workflow",
   version: "1.0.0",
   flow: [
-    start(CheckOrFallbackWorkflowStart)
+    onStart(CheckOrFallbackWorkflowStart)
       .returns(ItemDto)
       .toAction(CheckItemAction)
       .onError(
@@ -488,10 +488,10 @@ export class ItemReviewedWorkflowFinish {}
   version: "1.0.0",
   maxSteps: 2,
   flow: [
-    start(ItemReviewWorkflowStart)
+    onStart(ItemReviewWorkflowStart)
       .returns(ItemDto)
       .toAgent(ItemReviewerAgent),
-    agent(ItemReviewerAgent)
+    onAgent(ItemReviewerAgent)
       .returns(oneOf(ItemResultDto, ItemNoteDto))
       .switch(
         caseOf(ItemResultDto)
@@ -549,7 +549,7 @@ export class ReviewsSummaryWorkflowFinish {
   version: "1.0.0",
   maxSteps: 4,
   flow: [
-    start(ReviewItemsWorkflowStart)
+    onStart(ReviewItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemReviewWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
@@ -589,7 +589,7 @@ export class ReviewStoppedWorkflowFinish {
   name: "review-one-workflow",
   version: "1.0.0",
   flow: [
-    start(ReviewOneWorkflowStart)
+    onStart(ReviewOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(ItemReviewWorkflow)
       .onError(StepsLimitExceededError, toFinish(ReviewStoppedWorkflowFinish))

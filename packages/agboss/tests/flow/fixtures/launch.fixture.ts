@@ -1,4 +1,4 @@
-import { start, toAction } from "../../../src/flow/builder.js";
+import { onStart, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import {
@@ -102,7 +102,7 @@ export class ArticleDraftWorkflowFinish {}
   name: "research-workflow",
   version: "1.0.0",
   flow: [
-    start(ResearchWorkflowStart)
+    onStart(ResearchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PlannerAgent)
       .returns(PlanDto)
@@ -194,7 +194,7 @@ export class ScreeningFailedWorkflowFinish {}
   name: "screening-workflow",
   version: "1.0.0",
   flow: [
-    start(ScreeningWorkflowStart)
+    onStart(ScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
       .returns(listOf(CompanyDto))
@@ -290,7 +290,7 @@ export class PaymentWorkflowFinish {}
   name: "checkout-workflow",
   version: "1.0.0",
   flow: [
-    start(CheckoutWorkflowStart)
+    onStart(CheckoutWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargePaymentAction)
       .returns(PaymentDto)
@@ -395,7 +395,7 @@ export class HelpDeskWorkflowFinish {}
   name: "help-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(HelpDeskWorkflowStart)
+    onStart(HelpDeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
@@ -458,7 +458,7 @@ export class OffersWorkflowFinish {}
   name: "offers-workflow",
   version: "1.0.0",
   flow: [
-    start(OffersWorkflowStart)
+    onStart(OffersWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(OffersRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)

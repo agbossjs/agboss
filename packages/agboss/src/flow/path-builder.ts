@@ -110,9 +110,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Finish);
   }
 
-  /** `.toQuestion(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
-  toQuestion(target: Class, options?: unknown): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toQuestion(Q, {…})"));
+  /** `.toExternalTask(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
+  toExternalTask(target: Class, options?: unknown): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toExternalTask(Q, {…})"));
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */

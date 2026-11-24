@@ -39,7 +39,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
-import { execute, route, start } from "../helpers/flow.js";
+import { execute, route, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
@@ -184,7 +184,7 @@ class ObsRouter {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(ObsStart)
+    onStart(ObsStart)
       .returns(WorkflowStartTextDto)
       .toRouter(ObsRouter)
       .chooseOne(route(ObsAgent).toFinish(ObsFinish), route(ObsNoReply)),

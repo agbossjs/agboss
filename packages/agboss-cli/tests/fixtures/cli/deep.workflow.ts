@@ -3,7 +3,7 @@
 // the untyped builder: this package has no generated types for the framework's fixtures
 import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { OfferDraftDto } from "../../../../agboss/tests/flow/fixtures/dtos.js";
@@ -57,7 +57,7 @@ export class DeepFifthAction {
   name: "deep-workflow",
   version: "1.0.0",
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(

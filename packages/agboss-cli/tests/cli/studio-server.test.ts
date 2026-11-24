@@ -61,7 +61,7 @@ const APPLICATION = `import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
+  onStart,
 } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd } from "@agboss/core/units";
@@ -88,7 +88,7 @@ export class EchoWorkflowFinish {}
   name: "echo-workflow",
   version: "1.0.0",
   flow: [
-    start(EchoWorkflowStart)
+    onStart(EchoWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(EchoAction)
       .returns(WorkflowFinishTextDto)

@@ -1,11 +1,11 @@
 import {
-  action,
-  agent,
+  onAction,
+  onAgent,
   caseOf,
-  start,
+  onStart,
   toAction,
   toFinish,
-  workflow,
+  onWorkflow,
 } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -122,16 +122,16 @@ export class CompanyReviewFailedWorkflowFinish {}
   name: "company-review-workflow",
   version: "1.0.0",
   flow: [
-    start(CompanyReviewWorkflowStart)
+    onStart(CompanyReviewWorkflowStart)
       .returns(CompanyDto)
       .toAgent(CompanyReviewerAgent),
 
-    start(CompanyLinkReviewWorkflowStart)
+    onStart(CompanyLinkReviewWorkflowStart)
       .returns(CompanyLinkDto)
       .toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
-    agent(CompanyReviewerAgent)
+    onAgent(CompanyReviewerAgent)
       .returns(oneOf(PromisingCompanyDto, CompanyRejectedDto))
       .switch(
         caseOf(PromisingCompanyDto)
@@ -147,7 +147,7 @@ export class CompanyReviewFailedWorkflowFinish {}
       ),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
-    action(MarkReviewFailedAction)
+    onAction(MarkReviewFailedAction)
       .returns(CompanyReviewFailedDto)
       .toFinish(CompanyReviewFailedWorkflowFinish),
   ],
@@ -213,7 +213,7 @@ export class ScreeningStoppedWorkflowFinish {}
   name: "company-screening-workflow",
   version: "1.0.0",
   flow: [
-    start(CompanyScreeningWorkflowStart)
+    onStart(CompanyScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyFinderAgent)
       .returns(listOf(CompanyDto)) // each element enters company-review-workflow-start
@@ -293,7 +293,7 @@ export class ReviewErrorWorkflowFinish {}
   name: "job-offer-workflow",
   version: "1.0.0",
   flow: [
-    start(JobOfferWorkflowStart)
+    onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto) // enters company-review-workflow-start
@@ -334,19 +334,19 @@ export class LinkOfferWorkflowStart {}
   name: "link-offer-workflow",
   version: "1.0.0",
   flow: [
-    start(PickedOfferWorkflowStart)
+    onStart(PickedOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
-    start(LinkOfferWorkflowStart)
+    onStart(LinkOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .returns(CompanyLinkDto) // enters company-link-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
     // two ways in → its own path
-    workflow(CompanyReviewWorkflow)
+    onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .returns(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))
       .switch(

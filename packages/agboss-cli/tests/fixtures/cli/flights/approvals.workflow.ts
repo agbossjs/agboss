@@ -1,6 +1,6 @@
 // `agboss check` fixture (#371): a workflow with its own FlightBookingDto — the other has one too
 // the untyped builder: this package has no generated types for the framework's fixtures
-import { start } from "../../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../../agboss/tests/flow/fixtures/paths.js";
 import { Workflow } from "../../../../../agboss/src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../../agboss/src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../../agboss/src/flow/decorators/workflow-start.js";
@@ -30,7 +30,7 @@ export class ApprovalsWorkflowFinish {}
   name: "approvals-workflow",
   version: "1.0.0",
   flow: [
-    start(ApprovalsWorkflowStart)
+    onStart(ApprovalsWorkflowStart)
       .returns(FlightBookingDto)
       .toFinish(ApprovalsWorkflowFinish),
   ],

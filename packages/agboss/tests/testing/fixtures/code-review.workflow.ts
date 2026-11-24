@@ -11,7 +11,7 @@ import {
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { agent, route, start } from "../../helpers/flow.js";
+import { onAgent, route, onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -90,10 +90,10 @@ export class Unused {}
   name: "code-review-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Coder),
-    agent(Coder)
+    onAgent(Coder)
       .returns(CodeDto)
       .toAgent(Reviewer)
       .returns(ReviewDto, { about: CodeDto }) // the review is about this code (#271)

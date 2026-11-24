@@ -9,7 +9,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -79,7 +79,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
     },
     uncompactedTurns: 1,
     flow: [
-      start(Start)
+      onStart(Start)
         .returns(WorkflowStartTextDto)
         .toAgent(Worker)
         .toFinish(Finish),

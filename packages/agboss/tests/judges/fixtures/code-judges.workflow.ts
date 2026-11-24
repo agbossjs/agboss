@@ -20,7 +20,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, Grounded, MODEL_PROVIDERS, RUBRIC } from "./judged.workflow.js";
 
@@ -89,7 +89,7 @@ export class PromiseFinish {}
   name: "promise-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(PromiseStart)
+    onStart(PromiseStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PromiseAgent)
       .toFinish(PromiseFinish),

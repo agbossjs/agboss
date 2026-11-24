@@ -1,4 +1,4 @@
-import { agent, caseOf, start, toAction } from "../../../src/flow/builder.js";
+import { onAgent, caseOf, onStart, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -121,13 +121,13 @@ export class OfferFailedWorkflowFinish {}
 export class OfferSentWorkflowFinish {}
 
 export const offerPaths = [
-  start(OfferWorkflowStart)
+  onStart(OfferWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftAgent)
     .returns(OfferDraftDto)
     .toAgent(ReviewerAgent),
 
-  agent(ReviewerAgent)
+  onAgent(ReviewerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto, { about: OfferDraftDto })

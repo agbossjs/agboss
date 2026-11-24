@@ -38,7 +38,7 @@ function check(): string {
 /** How `agboss describe` prints the generated flow with these agents, one call per line. */
 const FLOW_OF = (agents: readonly string[]): string =>
   [
-    "  start(TextWorkflowStart)",
+    "  onStart(TextWorkflowStart)",
     "    .returns(WorkflowStartTextDto)",
     "    .toRouter(MainRouter)",
     "    .chooseOne(",

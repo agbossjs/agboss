@@ -81,28 +81,28 @@ The result — one row per DTO, its producer and its readers — is the plan for
 
 ## Step 2 — The translation table
 
-| LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                        |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@ListOf`, `@Nested`, …), one per producer — Step 1                                                                                              |
-| `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                              |
-| `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                                |
-| `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                                    |
-| an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                                 |
-| a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                                      |
-| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                                                                                                   |
-| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                                   |
-| `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                                     |
-| a cycle `critic → editor → critic`                             | the reviewer in its own path `agent(Reviewer)…`; `caseOf(ChangesDto, { about: DraftDto })` (or `.returns(CritiqueDto, { about: DraftDto })`); `historyOf(DraftDto, { maxPrevious })` to read earlier versions |
-| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ maxSteps })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                                                     |
-| `new Send(node, item)` per list item                           | `.returns(listOf(ItemDto)).toParallelAgents(Agent, { maxConcurrency, maxItems })` (or `.toParallelWorkflows(Child, …)`) then `.join().returns(listOf(OutDto))`                                                |
-| `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.acceptedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                                        |
-| a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                      |
-| a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                                 |
-| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`         |
-| `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                            |
-| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its last `uncompactedTurns`, older ones through a `@Compaction`; within one, an agent's tool loop keeps its own messages                               |
-| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                         |
-| `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                         |
+| LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                          |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@ListOf`, `@Nested`, …), one per producer — Step 1                                                                                                |
+| `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                                |
+| `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                                  |
+| `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                                      |
+| an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                                   |
+| a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                                        |
+| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                                                                                                     |
+| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                                     |
+| `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                                       |
+| a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; `caseOf(ChangesDto, { about: DraftDto })` (or `.returns(CritiqueDto, { about: DraftDto })`); `historyOf(DraftDto, { maxPrevious })` to read earlier versions |
+| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ maxSteps })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                                                       |
+| `new Send(node, item)` per list item                           | `.returns(listOf(ItemDto)).toParallelAgents(Agent, { maxConcurrency, maxItems })` (or `.toParallelWorkflows(Child, …)`) then `.join().returns(listOf(OutDto))`                                                  |
+| `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.acceptedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                                          |
+| a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                        |
+| a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                                   |
+| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`           |
+| `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                              |
+| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its last `uncompactedTurns`, older ones through a `@Compaction`; within one, an agent's tool loop keeps its own messages                                 |
+| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                           |
+| `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                           |
 
 There is no pause step in an AGBoss flow: a pause is always a tool call through a channel. An
 `interrupt()` inside plain code therefore becomes a tool an agent calls (as in Step 3's sign-off
@@ -110,7 +110,7 @@ agent), with the approval asked before the tool runs; the decision is validated 
 
 **Where a node goes in `flow`.** A node reached from one place is continued inline, right where it
 is reached; a node reached from two or more places (the reviewer: from the writer and from the
-editor) is continued once, in its own path that starts with `agent(X)` / `router(R)` / `action(A)`,
+editor) is continued once, in its own path that starts with `onAgent(X)` / `onRouter(R)` / `onAction(A)`,
 and every path into it ends with the step of its kind (`.toAgent(X)`, `.toRouter(R)`, …). The other way round is `[flow.shared-node-inline]`
 or `[flow.single-entry-own-path]`.
 
@@ -699,7 +699,7 @@ writer and from the editor). The `Send` fan-out is a per-item launch, the reduce
 review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the editor's `maxVisits`:
 
 ```ts file=src/support/workflows/support/support.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, listOf, oneOf, route, start, toFinish } from "@agboss/core";
+import { VisitsLimitExceededError, Workflow, onAgent, caseOf, listOf, oneOf, route, onStart, toFinish } from "@agboss/core";
 import { IssueRefundAction } from "../../actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../agents/order-researcher/order-researcher.agent.js";
 import { RefundSignOffAgent } from "../../agents/refund-sign-off/refund-sign-off.agent.js";
@@ -727,7 +727,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
   name: "support-workflow",
   version: "1.0.0",
   flow: [
-    start(SupportWorkflowStart)
+    onStart(SupportWorkflowStart)
       .returns(SupportRequestDto)
       .toRouter(SupportTriageRouter)
       .chooseOne(
@@ -742,7 +742,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
         route(HandOverWorkflowFinish),
       ),
 
-    agent(ReplyReviewerAgent)
+    onAgent(ReplyReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, ReplyApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto, { about: ReplyDraftDto }) // the changes are about this draft
@@ -843,7 +843,7 @@ bugs as rule codes — fix each in the design, never by widening a DTO:
 | `[flow.unused-output]`           | a key written and read by nobody                                                              | drop it from the DTO, or read it below                                                       |
 | `[launch.max-items-required]`    | a `Send` per item with no bound — a long list fanned out without limit                        | `maxItems` (and `maxConcurrency`) on the launch                                              |
 | `[launch.item-not-read]`         | the parallel node does not read the item it is launched for                                   | an `input` field of the item's DTO                                                           |
-| `[flow.shared-node-inline]`      | a node reached from two places was continued inline                                           | its own path `agent(X)…`, every path into it ending `.toAgent(X)`                            |
+| `[flow.shared-node-inline]`      | a node reached from two places was continued inline                                           | its own path `onAgent(X)…`, every path into it ending `.toAgent(X)`                          |
 | `[router.routes-mismatch]`       | a conditional edge's targets and the router's `chooseOne` differ                              | one `route(…)` per `@Router` route                                                           |
 | `[prompt.input-in-instructions]` | state interpolated into the prompt                                                            | an `input` field; the prompt stays static                                                    |
 | `[limits.max-steps-too-low]`     | `recursionLimit` was the only bound                                                           | a `maxSteps` the longest path fits, `maxVisits` on each node of a loop                       |

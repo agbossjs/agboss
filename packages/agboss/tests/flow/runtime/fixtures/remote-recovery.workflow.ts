@@ -17,7 +17,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
-import { start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
@@ -73,7 +73,7 @@ export class RemotePrepItemAction {
   name: "remote-hold-check-workflow",
   version: "1.0.0",
   flow: [
-    start(HoldCheckWorkflowStart)
+    onStart(HoldCheckWorkflowStart)
       .returns(ItemDto)
       .toAction(RemotePrepItemAction)
       .returns(ItemDto)
@@ -95,7 +95,7 @@ export class RemoteHoldItemsWorkflowStart {}
   name: "remote-hold-items-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteHoldItemsWorkflowStart)
+    onStart(RemoteHoldItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteHoldCheckWorkflow, {
         maxItems: 10,
@@ -120,7 +120,7 @@ export class RemoteReviewOneWorkflowStart {}
   name: "remote-review-one-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteReviewOneWorkflowStart)
+    onStart(RemoteReviewOneWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)
@@ -140,7 +140,7 @@ export class RemoteReviewItemsWorkflowStart {}
   name: "remote-review-items-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteReviewItemsWorkflowStart)
+    onStart(RemoteReviewItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemReviewWorkflow, {
         maxConcurrency: 2,

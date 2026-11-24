@@ -6,7 +6,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 
 /** Names (#272 AC13; #270 AC14, S5): kind suffixes, the `Dto` suffix, unique DTO names. */
 
@@ -38,7 +38,7 @@ class CritiqueWorkflowFinish {}
   name: "offer",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(ScoreSummaryAgent)
       .returns(Critique)
@@ -71,7 +71,7 @@ class ShortlistWorkflowFinish {}
   name: "renamed-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(RenamedLaterAgent)
       .returns(ShortlistDto)
@@ -120,7 +120,7 @@ class ResultWorkflowFinish {}
   name: "clashing-dtos-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(SearchAgent)
       .returns(searchResult)

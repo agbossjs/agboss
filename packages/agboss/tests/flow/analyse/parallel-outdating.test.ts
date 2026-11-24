@@ -10,7 +10,7 @@ import { CompanyDto } from "../fixtures/data-dtos.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
 import { PlannerAgent, ResearchWorkflowStart } from "../fixtures/launch.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
@@ -153,7 +153,10 @@ function errorsOf(flow: WorkflowOptions["flow"]): readonly { code: string; messa
 }
 
 const planned = () =>
-  start(ResearchWorkflowStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent).returns(PlanDto);
+  onStart(ResearchWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(PlannerAgent)
+    .returns(PlanDto);
 
 /** Every value of the join read by an agent without input (it reads the whole scope). */
 const summed = (path: PathBuilder<PathSource>): PathBuilder<PathSource> =>

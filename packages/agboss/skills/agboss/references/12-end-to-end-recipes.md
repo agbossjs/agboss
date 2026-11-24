@@ -227,7 +227,7 @@ export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
 The workflow wires them:
 
 ```ts file=offers/src/workflows/offer-letter/offer-letter.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, route, start, toFinish } from "@agboss/core";
+import { VisitsLimitExceededError, Workflow, onAgent, caseOf, oneOf, route, onStart, toFinish } from "@agboss/core";
 import { MailOfferAction } from "../../actions/mail-offer.action.js";
 import { LetterEditorAgent } from "../../agents/letter-editor/letter-editor.agent.js";
 import { LetterReviewerAgent } from "../../agents/letter-reviewer/letter-reviewer.agent.js";
@@ -249,13 +249,13 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
   name: "offer-letter-workflow",
   version: "1.0.0",
   flow: [
-    start(OfferLetterWorkflowStart)
+    onStart(OfferLetterWorkflowStart)
       .returns(OfferRequestDto)
       .toAgent(LetterWriterAgent)
       .returns(OfferLetterDto)
       .toAgent(LetterReviewerAgent),
 
-    agent(LetterReviewerAgent)
+    onAgent(LetterReviewerAgent)
       .returns(oneOf(LetterChangesDto, LetterApprovedDto))
       .switch(
         caseOf(LetterChangesDto, { about: OfferLetterDto })
@@ -545,7 +545,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -559,7 +559,7 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
   name: "supplier-check-workflow",
   version: "1.0.0",
   flow: [
-    start(SupplierCheckWorkflowStart)
+    onStart(SupplierCheckWorkflowStart)
       .returns(SupplierDto)
       .toAgent(SupplierCheckerAgent)
       .onError(
@@ -808,7 +808,7 @@ export class PurchaseUnreviewedWorkflowFinish {}
 The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, start, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, onStart, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { minutes } from "@agboss/core/units";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
@@ -834,7 +834,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
   name: "sourcing-workflow",
   version: "1.0.0",
   flow: [
-    start(SourcingWorkflowStart)
+    onStart(SourcingWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(SupplierFinderAgent)
       .returns(listOf(SupplierDto))
@@ -1169,7 +1169,7 @@ export class HelpdeskWorkflowFinish {}
 ```
 
 ```ts file=helpdesk/src/workflows/helpdesk/helpdesk.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { BillingDeskA2AAgent } from "../../a2a/billing-desk.a2a-agent.js";
 import { HelpdeskAgent } from "../../agents/helpdesk/helpdesk.agent.js";
@@ -1181,7 +1181,7 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
   name: "helpdesk-workflow",
   version: "1.0.0",
   flow: [
-    start(HelpdeskWorkflowStart)
+    onStart(HelpdeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(HelpdeskAgent)
       .toFinish(HelpdeskWorkflowFinish),
@@ -1810,7 +1810,7 @@ export class FundsLedgerHealthCheck implements HealthCheckHandler {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";
@@ -1829,7 +1829,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
   name: "loan-workflow",
   version: "1.0.0",
   flow: [
-    start(LoanWorkflowStart)
+    onStart(LoanWorkflowStart)
       .returns(LoanApplicationDto)
       .toAgent(UnderwriterAgent)
       .returns(LoanDecisionDto)

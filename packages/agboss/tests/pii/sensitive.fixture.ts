@@ -17,7 +17,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** Who the execution talks to: identity, marked for PII. */
@@ -85,7 +85,7 @@ export class DeskRouter {}
   name: "sensitive-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskStart)
+    onStart(DeskStart)
       .returns(WorkflowStartTextDto)
       .toRouter(DeskRouter)
       .chooseOne(route(DeskAgent).toFinish(DeskFinish), route(HandOverFinish)),

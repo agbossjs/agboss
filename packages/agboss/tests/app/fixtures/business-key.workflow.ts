@@ -25,7 +25,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
@@ -244,7 +244,7 @@ export class CashierFinish {}
   name: "cashier-workflow",
   version: "1.0.0",
   flow: [
-    start(CashierStart)
+    onStart(CashierStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CashierAgent)
       .toFinish(CashierFinish),
@@ -272,7 +272,7 @@ export class OrderChargedFinish {}
   name: "charge-order-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeOrderStart)
+    onStart(ChargeOrderStart)
       .returns(ChargeRequestDto)
       .toAction(ChargeOrderAction)
       .returns(ChargeResultDto)
@@ -299,7 +299,7 @@ export class ChargeSentFinish {}
   name: "send-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(SendChargeStart)
+    onStart(SendChargeStart)
       .returns(ChargeRequestDto)
       .toAction(SendChargeAction)
       .returns(ChargeResultDto)
@@ -344,7 +344,7 @@ export class ChargesSentFinish {
   name: "send-charges-workflow",
   version: "1.0.0",
   flow: [
-    start(SendChargesStart)
+    onStart(SendChargesStart)
       .returns(listOf(ChargeRequestDto))
       .toParallelActions(SendChargeAction, { maxItems: 4 })
       .join()

@@ -151,12 +151,12 @@ describe("#305: the project skills in check:docs", { timeout: 300_000 }, () => {
       "references/02-flow-dsl-all-combinations.md": [
         "# Flow",
         "",
-        "Workflow start WorkflowStart WorkflowFinish WorkflowStartTextDto",
+        "Workflow onStart WorkflowStart WorkflowFinish WorkflowStartTextDto",
         "",
         fence(
-          'import { start } from "@agboss/core";',
+          'import { onStart } from "@agboss/core";',
           "declare const A: never;",
-          "start(A).returns(A).toFinish(A);",
+          "onStart(A).returns(A).toFinish(A);",
         ),
         "",
       ].join("\n"),

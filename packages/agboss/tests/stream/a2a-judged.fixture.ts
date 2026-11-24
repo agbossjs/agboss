@@ -16,7 +16,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 
 @Judge({ name: "a2a-audit-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
@@ -58,7 +58,7 @@ export class AuditCallerResolver implements A2ACallerResolver<typeof A2AStart> {
 @Workflow({
   name: "a2a-audit-workflow",
   version: "1.0.0",
-  flow: [start(A2AStart).returns(WorkflowStartTextDto).toAgent(A2AWriter).toFinish(A2AFinish)],
+  flow: [onStart(A2AStart).returns(WorkflowStartTextDto).toAgent(A2AWriter).toFinish(A2AFinish)],
   defaults: DEFAULTS,
   providers: [AuditCallerResolver],
 })

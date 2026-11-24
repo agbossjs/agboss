@@ -20,7 +20,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   levers,
   MortalExecutionLeaseRepository,
@@ -154,7 +154,9 @@ export class FollowUpFinish {}
 @Workflow({
   name: "follow-up-workflow",
   version: "1.0.0",
-  flow: [start(FollowUpStart).returns(DeskNoteDto).toAgent(FollowUpAgent).toFinish(FollowUpFinish)],
+  flow: [
+    onStart(FollowUpStart).returns(DeskNoteDto).toAgent(FollowUpAgent).toFinish(FollowUpFinish),
+  ],
   defaults,
 })
 export class FollowUpWorkflow {}
@@ -178,7 +180,7 @@ export class DeskFinish {}
   name: "instance-key-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskStart)
+    onStart(DeskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DeskAgent)
       .returns(DeskNoteDto)

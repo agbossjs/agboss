@@ -28,7 +28,7 @@ import {
   type TurnOutcome,
 } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
@@ -242,7 +242,7 @@ export class ReceiptWorkflowFinish {}
   },
   uncompactedTurns: 1,
   flow: [
-    start(OrderWorkflowStart)
+    onStart(OrderWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .returns(ReceiptDto)

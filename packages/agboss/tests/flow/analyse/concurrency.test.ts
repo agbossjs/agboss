@@ -4,7 +4,7 @@ import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/wor
 import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
@@ -38,7 +38,7 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
     name: `cap-${String(count)}-workflow`,
     version: "1.0.0",
     flow: [
-      start(BatchWorkflowStart)
+      onStart(BatchWorkflowStart)
         .returns(listOf(TaskDto))
         .toParallelWorkflows(child, { maxItems: 10 })
         .join()
@@ -58,7 +58,7 @@ function cappedTask(cap: number): Workflowish {
     name: `capped-task-${String(count)}-workflow`,
     version: "1.0.0",
     flow: [
-      start(TaskWorkflowStart)
+      onStart(TaskWorkflowStart)
         .returns(TaskDto)
         .toAction(WorkAction)
         .returns(TaskDoneDto)

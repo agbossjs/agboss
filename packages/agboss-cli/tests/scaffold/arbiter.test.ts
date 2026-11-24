@@ -26,7 +26,7 @@ function projectWith(launches: readonly (readonly string[])[]): string {
     })
     .join("\n");
   const paths = launches
-    .map((launch) => `start(S).toParallelAgents(${launch.join(", ")}).joinQuorum({ min: 1 })`)
+    .map((launch) => `onStart(S).toParallelAgents(${launch.join(", ")}).joinQuorum({ min: 1 })`)
     .join(",\n");
   const review = {
     module: "src/review/review.workflow.ts",

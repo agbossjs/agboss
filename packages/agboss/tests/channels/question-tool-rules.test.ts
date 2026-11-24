@@ -24,7 +24,7 @@ import { ScriptBook } from "../../src/testing/script-book.js";
 import { RefundApprovalChannel } from "./approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import { ApproverAnswerDto } from "../flow/fixtures/question-tools.fixture.js";
 import { PurchaseQuestionDto } from "../flow/fixtures/questions.fixture.js";
 import {
@@ -56,7 +56,7 @@ function buyingApplication(
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(BuyerWorkflowStart)
+      onStart(BuyerWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toAgent(BuyingAgent)
         .toFinish(BuyerWorkflowFinish),

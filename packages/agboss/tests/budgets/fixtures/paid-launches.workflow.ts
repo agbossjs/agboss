@@ -7,7 +7,7 @@ import {
   oneOf,
   type Produced,
 } from "../../../src/index.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { caseOf, onStart } from "../../helpers/flow.js";
 import {
   ChargeOrderAction,
   HoldOrderAction,
@@ -40,7 +40,7 @@ export class NoteChildWorkflowFinish {}
   name: "note-child-workflow",
   version: "1.0.0",
   flow: [
-    start(NoteChildWorkflowStart)
+    onStart(NoteChildWorkflowStart)
       .returns(OrderDto)
       .toAction(NoteOrderAction)
       .returns(OrderNoteDto)
@@ -58,7 +58,7 @@ export class PaidChildWorkflowFinish {}
   name: "paid-child-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidChildWorkflowStart)
+    onStart(PaidChildWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -96,7 +96,7 @@ export class PaidItemsWorkflowFinish {
   name: "paid-items-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidItemsWorkflowStart)
+    onStart(PaidItemsWorkflowStart)
       .returns(listOf(OrderDto))
       .toAction(OverspendOrdersAction)
       .returns(listOf(OrderDto))
@@ -118,7 +118,7 @@ export class PaidLevelWorkflowFinish {}
   name: "paid-level-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidLevelWorkflowStart)
+    onStart(PaidLevelWorkflowStart)
       .returns(OrderDto)
       .toAction(LevelOrderAction)
       .returns(oneOf(OrderDto, OrderNoteDto))
@@ -145,7 +145,7 @@ export class PaidLaunchWorkflowFinish {}
   name: "paid-launch-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidLaunchWorkflowStart)
+    onStart(PaidLaunchWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -167,7 +167,7 @@ export class PaidRaceWorkflowFinish {}
   name: "paid-race-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidRaceWorkflowStart)
+    onStart(PaidRaceWorkflowStart)
       .returns(OrderDto)
       .toParallelActions(ChargeOrderAction, NoteOrderAction)
       .join()
@@ -187,7 +187,7 @@ export class PaidHoldWorkflowFinish {}
   name: "paid-hold-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidHoldWorkflowStart)
+    onStart(PaidHoldWorkflowStart)
       .returns(OrderDto)
       .toAction(HoldOrderAction)
       .returns(OrderDto)

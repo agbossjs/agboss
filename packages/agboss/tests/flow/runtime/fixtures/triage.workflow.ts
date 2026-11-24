@@ -9,7 +9,7 @@ import {
   WorkflowStart,
   type Produced,
 } from "../../../../src/index.js";
-import { caseOf, start } from "../../../helpers/flow.js";
+import { caseOf, onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -82,7 +82,7 @@ export class TicketStart {}
   name: "triage-workflow",
   version: "1.0.0",
   flow: [
-    start(TicketStart)
+    onStart(TicketStart)
       .returns(TicketDto)
       .toAction(ClassifyAction)
       .returns(oneOf(BugDto, QuestionDto))

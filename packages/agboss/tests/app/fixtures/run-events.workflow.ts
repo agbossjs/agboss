@@ -36,7 +36,7 @@ import {
   type ToolHandler,
   type ToolStartEvent,
 } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -210,7 +210,7 @@ export class Done {}
   uncompactedTurns: 1,
   providers: [FileAway],
   flow: [
-    start(Ask)
+    onStart(Ask)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .returns(AnswerDto)

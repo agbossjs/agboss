@@ -1,4 +1,4 @@
-import { start } from "../../../src/flow/builder.js";
+import { onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -62,7 +62,7 @@ export class FinalReviewerAgent {}
 export class ArticleWorkflowFinish {}
 
 export const articlePaths = [
-  start(ArticleWorkflowStart)
+  onStart(ArticleWorkflowStart)
     .returns(ArticleRequestDto)
     .toAgent(ArticleDraftAgent)
     .returns(ArticleDto)

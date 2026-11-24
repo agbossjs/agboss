@@ -12,7 +12,7 @@ import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../agboss/src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../agboss/src/flow/decorators/workflow-start.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
 
 /** #659 — a question the terminal answers: the limit of a purchase, typed as JSON. */
 
@@ -55,9 +55,9 @@ export class LimitWorkflowFinish {}
   name: "limit-workflow",
   version: "1.0.0",
   flow: [
-    start(LimitWorkflowStart)
+    onStart(LimitWorkflowStart)
       .returns(LimitQuestionDto)
-      .toQuestion(LimitQuestion)
+      .toExternalTask(LimitQuestion)
       .returns(LimitAnswerDto)
       .toFinish(LimitWorkflowFinish),
   ],

@@ -499,7 +499,7 @@ the execution.
 ## Example: a tracer
 
 <!-- snippet-context
-import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, start, type BudgetHandler } from "@agboss/core";
+import { Agent, Budget, BudgetPeriod, BudgetScope, WorkflowFinish, WorkflowStart, Workflow, onStart, type BudgetHandler } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 @WorkflowStart({ name: "support-workflow-start", description: "A message", input: WorkflowStartTextDto })
@@ -511,7 +511,7 @@ export class ChatWorkflowFinish {}
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
-  flow: [start(ChatWorkflowStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(ChatWorkflowFinish)],
+  flow: [onStart(ChatWorkflowStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(ChatWorkflowFinish)],
 })
 export class SupportWorkflow {}
 @Budget({ name: "support-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })

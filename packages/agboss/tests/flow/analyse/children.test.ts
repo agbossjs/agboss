@@ -44,7 +44,7 @@ import {
   CompanyCheckWorkflow,
   CompanyScoreWorkflowFinish,
 } from "../fixtures/starts.fixture.js";
-import { agent, caseOf, route, start, toFinish, toWorkflow } from "../fixtures/paths.js";
+import { onAgent, caseOf, route, onStart, toFinish, toWorkflow } from "../fixtures/paths.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -88,7 +88,7 @@ class SoloGraderAgent {}
   name: "solo-grade-workflow",
   version: "1.0.0",
   flow: [
-    start(SoloGradeWorkflowStart)
+    onStart(SoloGradeWorkflowStart)
       .returns(CompanyDto)
       .toAgent(SoloGraderAgent)
       .returns(CompanyGradeDto)
@@ -117,7 +117,7 @@ class FallbackGradeWorkflowFinish {
   name: "twice-grade-workflow",
   version: "1.0.0",
   flow: [
-    start(TwiceGradeWorkflowStart)
+    onStart(TwiceGradeWorkflowStart)
       .returns(CompanyDto)
       .toAgent(SoloGraderAgent)
       .onError(StepFailedError, toFinish(FallbackGradeWorkflowFinish))
@@ -142,12 +142,12 @@ class PlainCheckWorkflowStart {}
   name: "narrowed-check-workflow",
   version: "1.0.0",
   flow: [
-    start(ScopedCheckWorkflowStart)
+    onStart(ScopedCheckWorkflowStart)
       .returns(CompanyDto)
       .returns(SearchRequestDto)
       .toAgent(CompanyCheckAgent),
-    start(PlainCheckWorkflowStart).returns(CompanyDto).toAgent(CompanyCheckAgent),
-    agent(CompanyCheckAgent).returns(CompanyScoreDto).toFinish(CompanyScoreWorkflowFinish),
+    onStart(PlainCheckWorkflowStart).returns(CompanyDto).toAgent(CompanyCheckAgent),
+    onAgent(CompanyCheckAgent).returns(CompanyScoreDto).toFinish(CompanyScoreWorkflowFinish),
   ],
 })
 class NarrowedCheckWorkflow {}
@@ -183,20 +183,20 @@ class LogRequestAction {
 // ── paths of the parents ──
 
 const picked = () =>
-  start(JobOfferWorkflowStart)
+  onStart(JobOfferWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(CompanyPickerAgent)
     .returns(CompanyDto);
 
 const searched = () =>
-  start(SearchOfferWorkflowStart)
+  onStart(SearchOfferWorkflowStart)
     .returns(WorkflowStartTextDto)
     .returns(SearchRequestDto)
     .toAgent(CompanyPickerAgent)
     .returns(CompanyDto);
 
 const found = () =>
-  start(JobOfferWorkflowStart)
+  onStart(JobOfferWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(CompanyFinderAgent)
     .returns(listOf(CompanyDto));
@@ -265,7 +265,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
   });
 
   it("one start → it, also after an action without output; its fields must be on the path", () => {
-    const after = start(JobOfferWorkflowStart)
+    const after = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(LogRequestAction)
       .toWorkflow(SoloGradeWorkflow);
@@ -280,7 +280,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
   });
 
   it("no matching: no start takes the chain's value — the starts and their inputs listed", () => {
-    const path = start(JobOfferWorkflowStart)
+    const path = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(CompanyReviewWorkflow)
       .returns(REVIEWED)
@@ -293,7 +293,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
   });
 
   it("no matching: the path brings no value and the child has two starts", () => {
-    const path = start(JobOfferWorkflowStart)
+    const path = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(LogRequestAction)
       .toWorkflow(CompanyReviewWorkflow)
@@ -360,7 +360,7 @@ describe("#263 AC18 / AC21: list and map start inputs", () => {
         .toAgent(ScoreListAgent)
         .returns(GradedShortlistDto)
         .toFinish(GradedShortlistWorkflowFinish);
-    const withRequest = start(SearchOfferWorkflowStart)
+    const withRequest = onStart(SearchOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .returns(SearchRequestDto)
       .toAgent(CompanyFinderAgent)
@@ -457,7 +457,7 @@ describe("#263 AC7: the child's scope is its start input", () => {
     name: "isolated-grade-workflow",
     version: "1.0.0",
     flow: [
-      start(SoloGradeWorkflowStart)
+      onStart(SoloGradeWorkflowStart)
         .returns(CompanyDto)
         .toAgent(JobOfferAgent) // reads a CompanyGradeDto: only the parent's path has one
         .returns(JobOfferDto)

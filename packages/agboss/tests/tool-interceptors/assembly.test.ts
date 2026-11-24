@@ -23,7 +23,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { configSnapshot } from "../../src/run/versions.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { ShopApplication } from "../guardrails/code-guardrails.fixture.js";
 import { ScoutAnswer, ScoutApplication, ScoutStart } from "./application.fixture.js";
 import {
@@ -92,7 +92,7 @@ function appWith(agentClass: object, lists: { app?: object[]; workflow?: object[
     name: "bad-workflow",
     version: "1.0.0",
     flow: [
-      start(ScoutStart)
+      onStart(ScoutStart)
         .returns(WorkflowStartTextDto)
         .toAgent(agentClass as never)
         .toFinish(ScoutAnswer),

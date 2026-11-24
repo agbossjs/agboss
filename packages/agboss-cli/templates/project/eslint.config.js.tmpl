@@ -36,7 +36,7 @@ export default tseslint.config(
     rules: { "agboss/no-internal-import": "error" },
   },
   {
-    // one call per line in every chain of a workflow module: start(A) / .returns(B) / .toFinish(C)
+    // one call per line in every chain of a workflow module: onStart(A) / .returns(B) / .toFinish(C)
     files: ["**/*.workflow.ts"],
     plugins: { "@stylistic": stylistic },
     rules: FLOW_CHAIN_RULE,

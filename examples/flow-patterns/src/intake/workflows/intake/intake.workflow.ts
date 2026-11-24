@@ -1,4 +1,4 @@
-import { group, start, Workflow } from "@agboss/core";
+import { group, onStart, Workflow } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CandidateDto } from "../../../panel/dto/candidate.dto.js";
 import { FastScreenAgent } from "../../agents/fast-screen/fast-screen.agent.js";
@@ -17,7 +17,7 @@ import { IntakeWorkflowStart } from "./intake.workflow-start.js";
   name: "intake-workflow",
   version: "1.0.0",
   flow: [
-    start(IntakeWorkflowStart)
+    onStart(IntakeWorkflowStart)
       .returns(CandidateDto)
       .toParallelAgents(LegalCheckAgent, FastScreenAgent)
       .joinQuorumGroups(

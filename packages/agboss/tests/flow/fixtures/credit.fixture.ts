@@ -1,5 +1,5 @@
 import { Injectable } from "../../../src/components/decorators.js";
-import { action, route, start, toFinish } from "../../../src/flow/builder.js";
+import { onAction, route, onStart, toFinish } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -144,7 +144,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 export class DeskRouter {}
 
 export const creditPaths = [
-  start(CreditWorkflowStart)
+  onStart(CreditWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(DeskRouter)
     .chooseOne(
@@ -162,7 +162,7 @@ export const creditPaths = [
     ),
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
-  action(ChargeCardAction)
+  onAction(ChargeCardAction)
     .returns(ChargeResultDto)
     .toFinish(CreditWorkflowFinish),
 ] as const;
@@ -201,7 +201,7 @@ export class CreditApplication {}
 export class CreditLimitByModelRouter {}
 
 export const creditByModelPaths = [
-  start(CreditWorkflowStart)
+  onStart(CreditWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(DeskRouter)
     .chooseOne(
@@ -216,7 +216,7 @@ export const creditByModelPaths = [
         ),
       route(NoOrderWorkflowFinish),
     ),
-  action(ChargeCardAction)
+  onAction(ChargeCardAction)
     .returns(ChargeResultDto)
     .toFinish(CreditWorkflowFinish),
 ] as const;

@@ -28,7 +28,7 @@ import {
   VisitsLimitExceededError,
   offerPaths,
 } from "../fixtures/offer.fixture.js";
-import { agent, caseOf, start, toAction } from "../fixtures/paths.js";
+import { onAgent, caseOf, onStart, toAction } from "../fixtures/paths.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 
 const OFFER_START = "offer-workflow-start" as ComponentName;
@@ -59,12 +59,12 @@ class RewriterAgent {}
 const reviewPaths = (
   handled = VisitsLimitExceededError as abstract new (...args: never[]) => Error,
 ) => [
-  start(OfferWorkflowStart)
+  onStart(OfferWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftAgent)
     .returns(OfferDraftDto)
     .toAgent(OfficerAgent),
-  agent(OfficerAgent)
+  onAgent(OfficerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto, { about: OfferDraftDto })
@@ -147,7 +147,7 @@ describe("#643 AC2: what is not warned", () => {
     const walked = walkFlow(reviewPaths());
     expect(boundedStepsFrom(walked.graph, OFFER_START)?.most).toBe(8);
     const straight = walkFlow([
-      start(OfferWorkflowStart)
+      onStart(OfferWorkflowStart)
         .returns(ShortlistDto)
         .toAgent(DraftAgent)
         .returns(OfferDraftDto)

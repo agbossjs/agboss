@@ -20,10 +20,10 @@ import {
   SpendingLimitAnswerDto,
   SpendingLimitQuestion,
 } from "./questions.fixture.js";
-import { start, toQuestion } from "./paths.js";
+import { onStart, toExternalTask } from "./paths.js";
 
 /**
- * #933 — `.onError(E, toQuestion(Q)…)`: a purchase whose placing check fails asks the thread's owner
+ * #933 — `.onError(E, toExternalTask(Q)…)`: a purchase whose placing check fails asks the thread's owner
  * for a spending limit on the side path (the question of `questions.fixture.ts`), then places the
  * purchase within the answered limit.
  */
@@ -48,14 +48,14 @@ export class SideQuestionWorkflowStart {}
   name: "side-question-workflow",
   version: "1.0.0",
   flow: [
-    start(SideQuestionWorkflowStart)
+    onStart(SideQuestionWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
       .returns(PurchaseQuestionDto)
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
-        toQuestion(SpendingLimitQuestion)
+        toExternalTask(SpendingLimitQuestion)
           .returns(SpendingLimitAnswerDto)
           .toAction(PlacePurchaseAction)
           .returns(PurchasePlacedDto)

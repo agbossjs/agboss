@@ -17,7 +17,7 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
 import {
   ChargeCardAction,
   ConfirmSeatAction,
@@ -96,7 +96,7 @@ export class UnwindWorkflowStart {}
   name: "unwind-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindWorkflowStart)
+    onStart(UnwindWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
       .returns(SeatDto)
@@ -123,7 +123,7 @@ export class UnwindCommittedWorkflowStart {}
   name: "unwind-committed-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindCommittedWorkflowStart)
+    onStart(UnwindCommittedWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
       .returns(SeatDto)
@@ -150,7 +150,7 @@ export class UnwindSidePathWorkflowStart {}
   name: "unwind-side-path-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindSidePathWorkflowStart)
+    onStart(UnwindSidePathWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
       .returns(SeatDto)
@@ -187,7 +187,7 @@ export class RoomReservedWorkflowFinish {}
   name: "unwind-room-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindRoomWorkflowStart)
+    onStart(UnwindRoomWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(ReserveRoomAction)
       .returns(RoomDto)
@@ -226,7 +226,7 @@ export class RoomsReservedWorkflowFinish {
   name: "unwind-many-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindManyWorkflowStart)
+    onStart(UnwindManyWorkflowStart)
       .returns(listOf(UndoRequestDto))
       .toParallelWorkflows(UnwindRoomWorkflow, { maxConcurrency: 2, maxItems: 5 })
       .join()
@@ -248,7 +248,7 @@ export class UnwindParentWorkflowStart {}
   name: "unwind-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(UnwindParentWorkflowStart)
+    onStart(UnwindParentWorkflowStart)
       .returns(UndoRequestDto)
       .toAction(ReserveSeatAction)
       .returns(SeatDto)

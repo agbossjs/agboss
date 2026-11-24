@@ -9,7 +9,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { caseOf, route, start, toAction } from "../../../helpers/flow.js";
+import { caseOf, route, onStart, toAction } from "../../../helpers/flow.js";
 import {
   ChainDoneWorkflowFinish,
   CountDoneDto,
@@ -44,7 +44,7 @@ export class RemoteCountdownWorkflowStart {}
   name: "remote-countdown-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteCountdownWorkflowStart)
+    onStart(RemoteCountdownWorkflowStart)
       .returns(CountDto)
       .toAction(CountdownAction)
       .returns(oneOf(CountDto, CountDoneDto))
@@ -83,7 +83,7 @@ export class RemoteChainWorkflowStart {}
   name: "remote-chain-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteChainWorkflowStart)
+    onStart(RemoteChainWorkflowStart)
       .returns(LinkDto)
       .toRouter(DeeperRouter)
       .chooseOne(

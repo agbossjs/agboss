@@ -35,66 +35,66 @@ import {
 import type { GroupStart } from "./quorum-types.js";
 
 /**
- * The path builder (#272): `start(S)…`, `agent(X)…`, `router(R)…`, `action(X)…`, `workflow(W)…`
- * (#263), `question(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
- * `toRouter(R)…`, `toQuestion(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
+ * The path builder (#272): `onStart(S)…`, `onAgent(X)…`, `onRouter(R)…`, `onAction(X)…`, `onWorkflow(W)…`
+ * (#263), `onExternalTask(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
+ * `toRouter(R)…`, `toExternalTask(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
  * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
  */
 
 export { FlowSyntaxError } from "./path-builder.js";
 export { anyOf } from "./quorum-step.js";
 
-/** A path from a start: `start(S).returns(InputDto)…`. */
-export function start<const TClass extends Class>(
+/** A path from a start: `onStart(S).returns(InputDto)…`. */
+export function onStart<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function start(source: Class): PathBuilder<PathSource> {
+export function onStart(source: Class): PathBuilder<PathSource> {
   return fromSource({ kind: NodeKind.Start, node: source });
 }
 
 /** The own path of an agent reached from two or more places. */
-export function agent<const TClass extends Class>(
+export function onAgent<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function agent(source: Class): PathBuilder<PathSource> {
+export function onAgent(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Agent, source);
 }
 
-/** The own path of a router reached from two or more places: `router(R).chooseOne(…)`. */
-export function router<const TClass extends Class>(
+/** The own path of a router reached from two or more places: `onRouter(R).chooseOne(…)`. */
+export function onRouter<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function router(source: Class): PathBuilder<PathSource> {
+export function onRouter(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Router, source);
 }
 
 /** The own path of an action reached from two or more places. */
-export function action<const TClass extends Class>(
+export function onAction<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function action(source: Class): PathBuilder<PathSource> {
+export function onAction(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Action, source);
 }
 
 /**
  * The own path of a child workflow reached from two or more places (#263):
- * `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+ * `onWorkflow(W).onError(…).returns(oneOf(…)).switch(…)`.
  */
-export function workflow<const TClass extends Class>(
+export function onWorkflow<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function workflow(source: Class): PathBuilder<PathSource> {
+export function onWorkflow(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Workflow, source);
 }
 
 /**
  * The own path of a question role's step reached from two or more places (#659):
- * `question(Q).returns(AnswerDto)…` — a question asked again on a cycle.
+ * `onExternalTask(Q).returns(AnswerDto)…` — a question asked again on a cycle.
  */
-export function question<const TClass extends Class>(
+export function onExternalTask<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function question(source: Class): PathBuilder<PathSource> {
+export function onExternalTask(source: Class): PathBuilder<PathSource> {
   return fromComponent(NodeKind.Question, source);
 }
 
@@ -149,17 +149,17 @@ export function toRouter(target: Class): PathBuilder<undefined> {
 }
 
 /**
- * The side path `.onError(E, toQuestion(Q)…)` (#910): a question role's step handles the failure —
- * it reads its `ask` from the path like `.toQuestion(Q)` does, pauses on the role's channel and puts
+ * The side path `.onError(E, toExternalTask(Q)…)` (#910): a question role's step handles the failure —
+ * it reads its `ask` from the path like `.toExternalTask(Q)` does, pauses on the role's channel and puts
  * its `answer` on the path. A side path that can catch a limit leads only to actions and finishes
  * (`[graph.limit-handler-uses-model]`: a reply interpreter may call a model).
  */
-export function toQuestion<const TClass extends Class>(
+export function toExternalTask<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
   options?: QuestionStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toQuestion(target: Class, options?: unknown): PathBuilder<undefined> {
-  return sidePath().toQuestion(target, options);
+export function toExternalTask(target: Class, options?: unknown): PathBuilder<undefined> {
+  return sidePath().toExternalTask(target, options);
 }
 
 /**

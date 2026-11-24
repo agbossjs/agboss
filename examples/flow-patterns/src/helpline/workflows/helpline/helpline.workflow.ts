@@ -1,4 +1,4 @@
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeskA2AAgent } from "../../a2a/desk.a2a-agent.js";
 import { HelplineAgent } from "../../agents/helpline/helpline.agent.js";
@@ -14,7 +14,7 @@ import { HelplineWorkflowStart } from "./helpline.workflow-start.js";
   name: "helpline-workflow",
   version: "1.0.0",
   flow: [
-    start(HelplineWorkflowStart)
+    onStart(HelplineWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(HelplineAgent)
       .toFinish(HelplineAnswerWorkflowFinish),

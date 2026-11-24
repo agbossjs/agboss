@@ -131,7 +131,7 @@ describe("the root entry has no side effects (#195)", () => {
     const root = await importInFreshProcess(fileURLToPath(new URL("index.js", dist)));
 
     expect(root.exports).toEqual(
-      expect.arrayContaining(["createApp", "Agent", "Workflow", "start"]),
+      expect.arrayContaining(["createApp", "Agent", "Workflow", "onStart"]),
     );
     expect(root.loaded.filter((url) => FORBIDDEN.test(url))).toEqual([]);
     expect(root.reads).toEqual([]);

@@ -4,7 +4,7 @@ import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { FlowPath } from "../../../src/flow/ast.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 
 const price = { inputPerMTok: 3, outputPerMTok: 6 };
 
@@ -73,7 +73,7 @@ export class TestMain {}
 
 /** The star: workflow start → main router → alpha / beta → the answer (or no answer). */
 export const testPaths: readonly FlowPath[] = [
-  start(TestChat)
+  onStart(TestChat)
     .returns(WorkflowStartTextDto)
     .toRouter(TestMain)
     .chooseOne(

@@ -28,7 +28,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { BedrockModelProvider, BedrockSdkClient } from "./bedrock-provider.fixture.js";
 
 /** #385: workflows and applications on a transport provider — alone, with PII, in a fallback. */
@@ -118,7 +118,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(TextAgent).toFinish(Reply)],
+    flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(TextAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
   })
   class TextWorkflow {}
@@ -127,7 +127,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     name: `${prefix}-verdict-workflow`,
     version: "1.0.0",
     flow: [
-      start(VerdictStart)
+      onStart(VerdictStart)
         .returns(WorkflowStartTextDto)
         .toAgent(VerdictAgent)
         .returns(VerdictDto)
@@ -140,7 +140,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-lookup-workflow`,
     version: "1.0.0",
-    flow: [start(LookupStart).returns(WorkflowStartTextDto).toAgent(LookupAgent).toFinish(Reply)],
+    flow: [onStart(LookupStart).returns(WorkflowStartTextDto).toAgent(LookupAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
   })
   class LookupWorkflow {}

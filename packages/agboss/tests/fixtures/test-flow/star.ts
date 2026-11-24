@@ -2,7 +2,7 @@ import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { FlowPath } from "../../../src/flow/ast.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "./test.flow.js";
 
 /**
@@ -25,7 +25,7 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
   })
   class MainRouter {}
   return [
-    start(TestChat)
+    onStart(TestChat)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(

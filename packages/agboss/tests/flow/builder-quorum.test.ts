@@ -31,7 +31,7 @@ import {
   QuickScoreArbiter,
   ValidScoreArbiter,
 } from "./fixtures/quorum.fixture.js";
-import { group, start } from "./fixtures/paths.js";
+import { group, onStart } from "./fixtures/paths.js";
 
 /** #279 PR 1 — quorums in the path builder, the printout, `describe` and assembly. */
 
@@ -42,7 +42,7 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
 };
 
 const launched = () =>
-  start(FitReviewWorkflowStart).returns(CandidateDto).toParallelAgents(ScoreAAgent, ScoreBAgent);
+  onStart(FitReviewWorkflowStart).returns(CandidateDto).toParallelAgents(ScoreAAgent, ScoreBAgent);
 
 const lastJoin = (steps: FlowPath["steps"]): JoinStep | undefined =>
   steps.flatMap((step) => (step.kind === StepKind.Join ? [step] : [])).pop();
@@ -98,13 +98,13 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
     ],
     [
       "acceptedBy without a launch",
-      () => start(FitReviewWorkflowStart).acceptedBy(GoodScoreArbiter),
+      () => onStart(FitReviewWorkflowStart).acceptedBy(GoodScoreArbiter),
       "right after",
     ],
     [
       "acceptedBy after actions",
       () =>
-        start(FitReviewWorkflowStart)
+        onStart(FitReviewWorkflowStart)
           .toParallelActions(OpenDealRoomAction)
           .acceptedBy(GoodScoreArbiter),
       "judges agents",
@@ -112,7 +112,9 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
     [
       "a quorum of actions",
       () =>
-        start(FitReviewWorkflowStart).toParallelActions(OpenDealRoomAction).joinQuorum({ min: 1 }),
+        onStart(FitReviewWorkflowStart)
+          .toParallelActions(OpenDealRoomAction)
+          .joinQuorum({ min: 1 }),
       "agents' answers",
     ],
     ["acceptedBy of a non-class", () => launched().acceptedBy("x"), "an @Arbiter class"],

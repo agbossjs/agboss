@@ -9,7 +9,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { caseOf, onStart } from "../../helpers/flow.js";
 import {
   HoldItemAction,
   PayAfterAction,
@@ -48,7 +48,7 @@ export class SpendItemWorkflowFinish {}
   name: "spend-item-workflow",
   version: "1.0.0",
   flow: [
-    start(SpendItemWorkflowStart)
+    onStart(SpendItemWorkflowStart)
       .returns(SpendItemDto)
       .toAction(PayItemAction)
       .returns(SpendNoteDto)
@@ -78,7 +78,7 @@ export class SpendRemoteItemWorkflowFinish {}
   name: "spend-remote-item-workflow",
   version: "1.0.0",
   flow: [
-    start(SpendRemoteItemWorkflowStart)
+    onStart(SpendRemoteItemWorkflowStart)
       .returns(SpendRemoteItemDto)
       .toAction(PayRemoteItemAction)
       .returns(SpendItemDto)
@@ -100,7 +100,7 @@ export class SpendTreeWorkflowFinish {}
   name: "spend-tree-workflow",
   version: "1.0.0",
   flow: [
-    start(SpendTreeWorkflowStart)
+    onStart(SpendTreeWorkflowStart)
       .returns(SpendNodeDto)
       .toAction(PayLevelAction)
       .returns(listOf(SpendItemDto))
@@ -150,7 +150,7 @@ export class RemoteSpendTreeWorkflowFinish {}
   name: "remote-spend-tree-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteSpendTreeWorkflowStart)
+    onStart(RemoteSpendTreeWorkflowStart)
       .returns(SpendNodeDto)
       .toAction(PayLevelAction)
       .returns(listOf(SpendItemDto))

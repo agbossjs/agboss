@@ -1,4 +1,4 @@
-import { caseOf, route, start, toAction, toWorkflow, workflow } from "../../../src/flow/builder.js";
+import { caseOf, route, onStart, toAction, toWorkflow, onWorkflow } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -18,7 +18,7 @@ import { Integer, ListOf, Text } from "../../../src/dto/index.js";
  * classes than the research of recursion.fixture.ts (`TeamChartDto | OrgChartFailedDto`), each typed
  * by its own `ThisWorkflowOutputs` entry. `org-chart-workflow`: a per-item launch with its
  * `.onJoinError(…)`; `org-drill-workflow`: `route(ThisWorkflow)` and `.toWorkflow(ThisWorkflow)`
- * continued on the own path `workflow(ThisWorkflow)…`; `org-retry-workflow`: the side-path starter
+ * continued on the own path `onWorkflow(ThisWorkflow)…`; `org-retry-workflow`: the side-path starter
  * `.onError(E, toWorkflow(ThisWorkflow)…)`.
  */
 
@@ -115,7 +115,7 @@ export class OrgChartFailedWorkflowFinish {}
   name: "org-chart-workflow",
   version: "1.0.0",
   flow: [
-    start(OrgChartWorkflowStart)
+    onStart(OrgChartWorkflowStart)
       .returns(OrgUnitDto)
       .toAgent(OrgMapperAgent)
       .returns(oneOf(TeamChartDto, OrgSplitDto))
@@ -178,7 +178,7 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   name: "org-drill-workflow",
   version: "1.0.0",
   flow: [
-    start(OrgDrillWorkflowStart)
+    onStart(OrgDrillWorkflowStart)
       .returns(OrgUnitDto)
       .toRouter(OrgDepthRouter)
       .chooseOne(
@@ -192,7 +192,7 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
               .toWorkflow(ThisWorkflow),
           ),
       ),
-    workflow(ThisWorkflow)
+    onWorkflow(ThisWorkflow)
       .onError(
         StepFailedError,
         toAction(MarkUnitFailedAction)
@@ -232,7 +232,7 @@ export class UnitCharterAgent {}
   name: "org-retry-workflow",
   version: "1.0.0",
   flow: [
-    start(OrgRetryWorkflowStart)
+    onStart(OrgRetryWorkflowStart)
       .returns(OrgUnitDto)
       .toAgent(UnitCharterAgent)
       .onError(

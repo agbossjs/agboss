@@ -19,7 +19,7 @@ import {
   type ToolHandler,
   type WorkflowDescriptor,
 } from "../../../../src/index.js";
-import { agent, route, start } from "../../../helpers/flow.js";
+import { onAgent, route, onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -200,10 +200,10 @@ export class ReviewRouter {}
   version: "2.1.0",
   providers: [PublishAction],
   flow: [
-    start(ContextStart)
+    onStart(ContextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(WriterAgent),
-    agent(WriterAgent)
+    onAgent(WriterAgent)
       .returns(DraftDto)
       .toRouter(ReviewRouter)
       .chooseOne(
@@ -231,7 +231,7 @@ export class ContextApplication {}
   version: "1.0.0",
   defaults: { router: { model: "typesafe/jev-1.13" } },
   flow: [
-    start(ContextStart)
+    onStart(ContextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(JudgedWriterAgent)
       .returns(DraftDto)
@@ -282,7 +282,7 @@ export class QuickWriterAgent {}
   version: "1.0.0",
   providers: [LazyAuditService],
   flow: [
-    start(ContextStart)
+    onStart(ContextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(QuickWriterAgent)
       .returns(DraftDto)
@@ -306,7 +306,7 @@ export class AuditApplication {}
   version: "1.0.0",
   providers: [EagerAuditService],
   flow: [
-    start(ContextStart)
+    onStart(ContextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(QuickWriterAgent)
       .returns(DraftDto)

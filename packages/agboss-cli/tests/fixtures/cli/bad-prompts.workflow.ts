@@ -9,7 +9,7 @@ import {
 } from "../../../../agboss/src/index.js";
 import { WorkflowStartTextDto } from "../../../../agboss/src/dto/index.js";
 import { testDefaults } from "../../../../agboss/tests/helpers.js";
-import { route, start } from "../../../../agboss/tests/helpers/flow.js";
+import { route, onStart } from "../../../../agboss/tests/helpers/flow.js";
 import {
   NoAnswer,
   TestAnswer,
@@ -47,7 +47,7 @@ export class Main {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(TestChat)
+    onStart(TestChat)
       .returns(WorkflowStartTextDto)
       .toRouter(Main)
       .chooseOne(

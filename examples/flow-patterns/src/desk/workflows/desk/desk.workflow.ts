@@ -1,4 +1,4 @@
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { DeskA2aCallerResolver } from "../../a2a/desk.a2a-caller-resolver.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";
 import { CaseNotesCompaction } from "../../compactions/case-notes/case-notes.compaction.js";
@@ -18,7 +18,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   name: "desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskWorkflowStart)
+    onStart(DeskWorkflowStart)
       .returns(DeskQuestionDto)
       .toAgent(DeskAgent)
       .toFinish(DeskAnswerWorkflowFinish),

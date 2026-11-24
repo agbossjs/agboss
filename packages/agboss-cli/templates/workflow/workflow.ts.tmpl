@@ -1,4 +1,4 @@
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, route, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { TextWorkflowStart } from "./text.workflow-start.js";
 import { TextWorkflowFinish } from "./text.workflow-finish.js";
@@ -11,7 +11,7 @@ import { {{routerClass}} } from "{{routerFrom}}";
   version: "0.1.0",
   // the graph, one path: the text goes to the main router, which picks the agent that answers
   flow: [
-    start(TextWorkflowStart)
+    onStart(TextWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter({{routerClass}})
       .chooseOne(

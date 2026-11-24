@@ -19,7 +19,7 @@ import {
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { OrderDto } from "./paid-steps.dto.js";
 
@@ -136,7 +136,7 @@ export class LostAnswerWorkflowFinish {
   name: "lost-answer-workflow",
   version: "1.0.0",
   flow: [
-    start(LostAnswerWorkflowStart)
+    onStart(LostAnswerWorkflowStart)
       .returns(OrderDto)
       .toParallelActions(PayThriceAction, WorkAction)
       .join()

@@ -11,7 +11,7 @@ import { Text } from "../../../../../agboss/src/dto/index.js";
 import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { SplitWorkflow } from "../../../../../agboss/tests/flow/runtime/fixtures/recursion.workflow.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StudioEnvironment } from "./environments/app.environment.js";
 
 export class StudioItemDto {
@@ -60,7 +60,7 @@ export class ItemCheckedWorkflowFinish {}
   name: "studio-item-workflow",
   version: "1.0.0",
   flow: [
-    start(StudioItemWorkflowStart)
+    onStart(StudioItemWorkflowStart)
       .returns(StudioItemDto)
       .toAction(CheckItemAction)
       .returns(StudioResultDto)
@@ -106,7 +106,7 @@ export class SummaryWorkflowFinish {}
   name: "studio-items-workflow",
   version: "1.0.0",
   flow: [
-    start(StudioItemsWorkflowStart)
+    onStart(StudioItemsWorkflowStart)
       .returns(listOf(StudioItemDto))
       .toParallelWorkflows(StudioItemWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
@@ -133,7 +133,7 @@ export class OneCheckedWorkflowFinish {}
   name: "studio-one-workflow",
   version: "1.0.0",
   flow: [
-    start(StudioOneWorkflowStart)
+    onStart(StudioOneWorkflowStart)
       .returns(StudioItemDto)
       .toWorkflow(StudioItemWorkflow)
       .returns(StudioResultDto)

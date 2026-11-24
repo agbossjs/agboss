@@ -34,7 +34,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
 
 const BAD: readonly (readonly [string, unknown, string])[] = [
   ["NaN", Number.NaN, "NaN"],
@@ -89,12 +89,12 @@ function loopOf(
     name: `limit-${String(count)}-loop-workflow`,
     version: "1.0.0",
     flow: [
-      start(KitWorkflowStart)
+      onStart(KitWorkflowStart)
         .returns(ShortlistDto)
         .toAgent(DraftKitAgent)
         .returns(OfferDraftDto)
         .toAgent(LimitReviewAgent),
-      agent(LimitReviewAgent)
+      onAgent(LimitReviewAgent)
         .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
         .switch(
           caseOf(ChangesRequestedDto)

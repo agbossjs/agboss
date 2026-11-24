@@ -3,7 +3,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /** #272 S2 — a component and a DTO the generated types need but no module exports. */
 
@@ -34,7 +34,7 @@ export class HiddenWorkflowFinish {}
   name: "hidden-workflow",
   version: "1.0.0",
   flow: [
-    start(HiddenWorkflowStart)
+    onStart(HiddenWorkflowStart)
       .returns(HiddenDto)
       .toAgent(HiddenAgent)
       .returns(HiddenDto)

@@ -11,7 +11,7 @@ import { usd, type Usd } from "../../../src/units/index.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
@@ -102,7 +102,7 @@ export class OrdersAgent {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(OrdersWorkflowStart)
+    onStart(OrdersWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrdersAgent)
       .toFinish(OrdersWorkflowFinish),
@@ -138,7 +138,7 @@ export class RefundsAgent {}
   version: "2.0.0",
   defaults: testDefaults,
   flow: [
-    start(RefundsWorkflowStart)
+    onStart(RefundsWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(RefundsAgent)
       .toFinish(RefundsWorkflowFinish),
@@ -163,7 +163,7 @@ export class DesksApplication {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    start(OrdersWorkflowStart)
+    onStart(OrdersWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(RefundsAgent)
       .toFinish(RefundsWorkflowFinish),

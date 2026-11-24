@@ -19,7 +19,7 @@ import {
   TripRequestDto,
   TripWorkflowStart,
 } from "../fixtures/compensation-parts.js";
-import { start, toAction, toFinish } from "../fixtures/paths.js";
+import { onStart, toAction, toFinish } from "../fixtures/paths.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 
 /**
@@ -56,7 +56,7 @@ function checked(flow: Flow) {
 
 /** Book, charge, then a letter that may fail: `side` takes its failure; the confirmation commits. */
 const booked = (side: PathBuilder): Flow => [
-  start(TripWorkflowStart)
+  onStart(TripWorkflowStart)
     .returns(TripRequestDto)
     .toAction(BookTripAction)
     .returns(BookingDto)
@@ -121,7 +121,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
 
   it("after its committing action a side path owes nothing for the committed action", () => {
     const flow: Flow = [
-      start(TripWorkflowStart)
+      onStart(TripWorkflowStart)
         .returns(TripRequestDto)
         .toAction(BookTripAction)
         .returns(BookingDto)
@@ -138,7 +138,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
 
   it("the undoable action's own failure owes only the actions before it", () => {
     const flow: Flow = [
-      start(TripWorkflowStart)
+      onStart(TripWorkflowStart)
         .returns(TripRequestDto)
         .toAction(BookTripAction)
         .returns(BookingDto)
@@ -159,7 +159,7 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
 
 describe("#339 AC2: a failed join's side path owes what was open before the launch", () => {
   const joined = (side: PathBuilder): Flow => [
-    start(TripWorkflowStart)
+    onStart(TripWorkflowStart)
       .returns(TripRequestDto)
       .toAction(BookTripAction)
       .returns(BookingDto)
@@ -188,7 +188,7 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
 describe("#339: committedBy — the committer or the undo on every path", () => {
   it("a path to a finish with neither is [flow.uncommitted-action]", () => {
     const flow: Flow = [
-      start(TripWorkflowStart)
+      onStart(TripWorkflowStart)
         .returns(TripRequestDto)
         .toAction(BookTripAction)
         .returns(BookingDto)
@@ -207,7 +207,7 @@ describe("#339: committedBy — the committer or the undo on every path", () => 
 
   it("a committer no path reaches is a warning", () => {
     const flow: Flow = [
-      start(TripWorkflowStart)
+      onStart(TripWorkflowStart)
         .returns(TripRequestDto)
         .toAction(BookTripAction)
         .returns(BookingDto)

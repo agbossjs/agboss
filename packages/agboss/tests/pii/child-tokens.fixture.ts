@@ -20,7 +20,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start, toAgent } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
@@ -161,7 +161,7 @@ export class NotifyFinish {}
   name: "notify-workflow",
   version: "1.0.0",
   flow: [
-    start(NotifyStart)
+    onStart(NotifyStart)
       .returns(WorkflowStartTextDto)
       .toAgent(NotifierAgent)
       .returns(NoteDto)
@@ -189,7 +189,7 @@ export class FailingNotifyFinish {}
   name: "failing-notify-workflow",
   version: "1.0.0",
   flow: [
-    start(FailingNotifyStart)
+    onStart(FailingNotifyStart)
       .returns(WorkflowStartTextDto)
       .toAgent(NotifierAgent)
       .returns(NoteDto)
@@ -219,7 +219,7 @@ export class HandoverFinish {}
   name: "handover-workflow",
   version: "1.0.0",
   flow: [
-    start(HandoverStart)
+    onStart(HandoverStart)
       .returns(WorkflowStartTextDto)
       .toAgent(IntakeAgent)
       .returns(IntakeDto)
@@ -259,7 +259,7 @@ export class FailedHandoverRecoveredFinish {}
   name: "failed-handover-workflow",
   version: "1.0.0",
   flow: [
-    start(FailedHandoverStart)
+    onStart(FailedHandoverStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(FailingNotifyWorkflow)
       .onError(
@@ -299,7 +299,7 @@ export class FailedListRecoveredFinish {}
   name: "failed-list-workflow",
   version: "1.0.0",
   flow: [
-    start(FailedListStart)
+    onStart(FailedListStart)
       .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(FailingNotifyWorkflow, { maxConcurrency: 1, maxItems: 1 })
       .join()

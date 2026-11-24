@@ -106,14 +106,14 @@ export class JobFitJudge {}
 
 ```ts file=src/job-scout.workflow.ts
 // src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, route, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatWorkflowStart)
+    onStart(ChatWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(MainRouter) // picks one of its @Router({ routes })
       .chooseOne(
@@ -363,7 +363,7 @@ start, else the one taking the chain's current value; `[graph.no-matching-start]
 branched by class — `.returns(oneOf(CompanyScoreDto, CompanyRejectedDto)).switch(caseOf(…)…)`, one
 case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
 maxItems: 50 })` runs one child per item, joined as `.join().returns(listOf(oneOf(…)))`; a child
-reached from two places has its own path `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+reached from two places has its own path `onWorkflow(W).onError(…).returns(oneOf(…)).switch(…)`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
@@ -476,7 +476,7 @@ of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem
 ### In-Repository Example
 
 [`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
-(no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
+(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
 `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
@@ -497,8 +497,8 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
   `@PiiPolicy`, `@ChannelRole`, `@Compaction`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
-  `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
-  `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
+  `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`onStart`,
+  `onAgent`, `onRouter`, `onAction`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
   `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
@@ -538,7 +538,7 @@ One set per application, in `environments/` next to the application file (#261).
 plain class with declared fields only, declared once in the application:
 
 <!-- snippet-context
-import { Application, Workflow, WorkflowStart, start, WorkflowFinish } from "@agboss/core";
+import { Application, Workflow, WorkflowStart, onStart, WorkflowFinish } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
@@ -550,7 +550,7 @@ export class AuditWorkflowFinish {}
   name: "audit-workflow",
   version: "1.0.0",
   flow: [
-    start(AuditWorkflowStart)
+    onStart(AuditWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(AuditWorkflowFinish),
   ],
@@ -1258,7 +1258,7 @@ or a cancel; there is no redelivery API.
 
 **A deadline for the answer** (#941). `@ChannelRole({ expiresIn: hours(24) })` gives every pause of
 the role a deadline, fixed when the pause is made (a deploy that changes it never moves an open
-pause); `.toQuestion(Role, { expiresIn })` (also the side path `toQuestion(Role, { expiresIn })`)
+pause); `.toExternalTask(Role, { expiresIn })` (also the side path `toExternalTask(Role, { expiresIn })`)
 overrides it for a question step, `@Tool({ channel, expiresIn })` for a tool; at least `seconds(1)`
 (`[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`, `[question.expires-in-conflict]`).
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is

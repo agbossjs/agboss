@@ -100,7 +100,7 @@ describe("describe a workflow", () => {
 
     expect(section("flow", "inputs")).toEqual([
       "flow",
-      "  start(TestChat)",
+      "  onStart(TestChat)",
       "    .returns(WorkflowStartTextDto)",
       "    .toRouter(MainRouter)",
       "    .chooseOne(",

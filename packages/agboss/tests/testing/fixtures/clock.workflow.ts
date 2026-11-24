@@ -15,7 +15,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
 
 /**
@@ -165,7 +165,7 @@ export class ClockWorkflowStart {}
 export class ClockReceiptWorkflowFinish {}
 
 const flow = [
-  start(ClockWorkflowStart)
+  onStart(ClockWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(ClockClerk)
     .returns(ReceiptDto)

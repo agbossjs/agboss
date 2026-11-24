@@ -39,7 +39,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
  * resume). What ran is counted per step.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 /** One checkpoint write as the saver was asked for it. */
@@ -381,11 +381,11 @@ export class WindowChildWorkflowFinish {}
   name: "window-child-workflow",
   version: "1.0.0",
   flow: [
-    start(WindowChildWorkflowStart)
+    onStart(WindowChildWorkflowStart)
       .returns(WindowOrderDto)
       .toAction(WindowAskAction)
       .returns(WindowOrderDto)
-      .toQuestion(WindowQuestion)
+      .toExternalTask(WindowQuestion)
       .returns(WindowApprovalDto)
       .toAction(WindowApprovedAction)
       .returns(WindowReceiptDto)
@@ -412,7 +412,7 @@ export class WindowParentWorkflowFinish {}
   name: "window-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(WindowParentWorkflowStart)
+    onStart(WindowParentWorkflowStart)
       .returns(WindowOrderDto)
       .toWorkflow(WindowChildWorkflow)
       .returns(WindowReceiptDto)
@@ -443,15 +443,15 @@ export class WindowTwiceWorkflowFinish {}
   name: "window-twice-workflow",
   version: "1.0.0",
   flow: [
-    start(WindowTwiceWorkflowStart)
+    onStart(WindowTwiceWorkflowStart)
       .returns(WindowOrderDto)
       .toAction(WindowAskAction)
       .returns(WindowOrderDto)
-      .toQuestion(WindowQuestion)
+      .toExternalTask(WindowQuestion)
       .returns(WindowApprovalDto)
       .toAction(WindowAskAgainAction)
       .returns(WindowOrderDto)
-      .toQuestion(WindowSecondQuestion)
+      .toExternalTask(WindowSecondQuestion)
       .returns(WindowApprovalDto)
       .toAction(WindowApprovedAction)
       .returns(WindowReceiptDto)

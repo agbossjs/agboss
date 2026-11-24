@@ -27,7 +27,7 @@ import { EmptyEnvironment, type Produced } from "../../../src/index.js";
 import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { caseOf, onStart } from "../../helpers/flow.js";
 import { BearerCallerResolver } from "./bearer-caller-resolver.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
@@ -169,14 +169,14 @@ export class FileReturnedFinish {}
   name: "file-review-workflow",
   version: "1.0.0",
   flow: [
-    start(FileReviewWorkflowStart)
+    onStart(FileReviewWorkflowStart)
       .returns(ReviewRequestDto)
       .toAction(FileReviewAction)
       .returns(oneOf(ReviewResultDto, ReviewAskDto))
       .switch(
         caseOf(ReviewResultDto).toFinish(FileReviewFinish),
         caseOf(ReviewAskDto)
-          .toQuestion(FileReviewQuestion)
+          .toExternalTask(FileReviewQuestion)
           .returns(ReviewReplyDto)
           .toAction(FileAnsweredAction)
           .returns(WorkflowFinishFileDto)
@@ -221,7 +221,7 @@ export class FileSummaryWorkflowStart {}
   name: "file-summary-workflow",
   version: "1.0.0",
   flow: [
-    start(FileSummaryWorkflowStart)
+    onStart(FileSummaryWorkflowStart)
       .returns(ReviewRequestDto)
       .toAction(FileSummaryAction)
       .returns(ReviewResultDto)

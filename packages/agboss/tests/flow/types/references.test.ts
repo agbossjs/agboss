@@ -9,7 +9,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ImportTable, moduleSpecifier } from "../../../src/flow/types/imports.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 
 /**
  * How the generated file names classes (#272 S2, S3): import paths from the modules that export
@@ -45,7 +45,7 @@ const workflowOf = (name: string, startClass: Class, input: DtoClass = TextDto):
   @Workflow({
     name,
     version: "1.0.0",
-    flow: [start(startClass).returns(input).toFinish(TextWorkflowFinish)],
+    flow: [onStart(startClass).returns(input).toFinish(TextWorkflowFinish)],
   })
   class SomeWorkflow {}
   return SomeWorkflow;

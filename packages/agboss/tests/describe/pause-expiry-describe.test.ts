@@ -35,8 +35,8 @@ describe("#941 AC1: describe shows the deadlines", () => {
   it("a question step's expiresIn is in the flow", async () => {
     const text = describeApplication(await applicationOf(PublicExpiryApplication)).join("\n");
 
-    expect(text).toContain(".toQuestion(ManagerQuestion, { expiresIn: 14400000 })");
-    expect(text).toContain("toQuestion(DirectorQuestion, { expiresIn: 3600000 })");
+    expect(text).toContain(".toExternalTask(ManagerQuestion, { expiresIn: 14400000 })");
+    expect(text).toContain("toExternalTask(DirectorQuestion, { expiresIn: 3600000 })");
   });
 
   it("durations read as people write them", () => {

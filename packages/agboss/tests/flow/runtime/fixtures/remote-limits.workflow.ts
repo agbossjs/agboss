@@ -11,7 +11,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
@@ -38,7 +38,7 @@ export class RemoteCappedWorkflowStart {}
   name: "remote-capped-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteCappedWorkflowStart)
+    onStart(RemoteCappedWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
@@ -100,7 +100,7 @@ export class RemoteSpentWorkflowFinish {}
   name: "remote-spender-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteSpenderWorkflowStart)
+    onStart(RemoteSpenderWorkflowStart)
       .returns(ItemDto)
       .toAgent(RemoteSpenderAgent)
       .returns(ItemResultDto)
@@ -130,7 +130,7 @@ export class RemoteSpendCheckedWorkflowFinish {}
   name: "remote-spend-workflow",
   version: "1.0.0",
   flow: [
-    start(RemoteSpendWorkflowStart)
+    onStart(RemoteSpendWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(RemoteSpenderWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(SummaryDto)

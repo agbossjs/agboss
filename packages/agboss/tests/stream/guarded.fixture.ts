@@ -24,7 +24,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { FlowJudge } from "./agents.fixture.js";
 
@@ -112,7 +112,10 @@ class GuardedFinish {}
   name: "guarded-workflow",
   version: "1.0.0",
   flow: [
-    start(GuardedStart).returns(WorkflowStartTextDto).toAgent(GuardedAgent).toFinish(GuardedFinish),
+    onStart(GuardedStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(GuardedAgent)
+      .toFinish(GuardedFinish),
   ],
   defaults: DEFAULTS,
 })
@@ -132,7 +135,7 @@ class CardFinish {}
   name: "card-workflow",
   version: "1.0.0",
   flow: [
-    start(CardStart).returns(WorkflowStartTextDto).toAgent(CardOnlyAgent).toFinish(CardFinish),
+    onStart(CardStart).returns(WorkflowStartTextDto).toAgent(CardOnlyAgent).toFinish(CardFinish),
   ],
   defaults: DEFAULTS,
 })
@@ -156,7 +159,7 @@ class GuardrailFinish {}
   name: "guardrail-workflow",
   version: "1.0.0",
   flow: [
-    start(GuardrailStart)
+    onStart(GuardrailStart)
       .returns(WorkflowStartTextDto)
       .toAgent(GuardrailOnlyAgent)
       .toFinish(GuardrailFinish),

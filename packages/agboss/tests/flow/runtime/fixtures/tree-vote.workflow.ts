@@ -12,7 +12,7 @@ import {
   type Produced,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { caseOf, route, start, toFinish } from "../../../helpers/flow.js";
+import { caseOf, route, onStart, toFinish } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -97,7 +97,7 @@ export class NotVotedWorkflowFinish {
   name: "vote-workflow",
   version: "1.0.0",
   flow: [
-    start(VoteWorkflowStart)
+    onStart(VoteWorkflowStart)
       .returns(TaskDto)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
@@ -139,7 +139,7 @@ export class MixedNotVotedWorkflowFinish {}
   name: "mixed-workflow",
   version: "1.0.0",
   flow: [
-    start(MixedWorkflowStart)
+    onStart(MixedWorkflowStart)
       .returns(TaskDto)
       .toRouter(TaskKindRouter)
       .chooseOne(
@@ -183,7 +183,7 @@ export class VotingDoneWorkflowFinish {
   name: "voting-workflow",
   version: "1.0.0",
   flow: [
-    start(VotingWorkflowStart)
+    onStart(VotingWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelWorkflows(MixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
       .join()

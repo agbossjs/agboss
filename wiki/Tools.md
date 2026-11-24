@@ -417,7 +417,7 @@ either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,
 and who may answer:
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 export class RefundCardInputDto {
   @Text() orderId!: string;
@@ -442,7 +442,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [start(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  flow: [onStart(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackService],
 })
 export class RefundWorkflow {}
@@ -518,7 +518,7 @@ export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCar
 - **`@ChannelRole({ name, description, answeredBy, approves, replyInterpreter? })`** — a tool
   approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
   answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
-  `answer`, #659) is asked by a flow step — `.toQuestion(Role)`
+  `answer`, #659) is asked by a flow step — `.toExternalTask(Role)`
   ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)) — or by an agent that lists the
   role itself in its `tools` (#712, [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712));
   a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `answeredBy` is required —

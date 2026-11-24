@@ -26,7 +26,7 @@ import { Integer, OneOf, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { caseOf, start } from "./paths.js";
+import { caseOf, onStart } from "./paths.js";
 
 /**
  * #396 PR 2 — a refunds desk to run eval suites on: one text agent with three tools, the project's
@@ -179,7 +179,7 @@ export class HandOverWorkflowFinish {}
   name: "eval-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskWorkflowStart)
+    onStart(DeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DeskAgent)
       .returns(oneOf(DeskAnswerDto, HandOverDto))

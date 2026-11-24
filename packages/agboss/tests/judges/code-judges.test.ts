@@ -24,7 +24,7 @@ import { replyWith, testJudge, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import {
   NoBannedWordsJudge,
   PromiseAgent,
@@ -122,7 +122,10 @@ function gatedBy(judge: typeof NamedModelJudge | typeof InjectedModelJudge, name
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(PromiseStart).returns(WorkflowStartTextDto).toAgent(GatedAgent).toFinish(PromiseFinish),
+      onStart(PromiseStart)
+        .returns(WorkflowStartTextDto)
+        .toAgent(GatedAgent)
+        .toFinish(PromiseFinish),
     ],
     defaults: DEFAULTS,
   })

@@ -241,7 +241,7 @@ export interface Transitions<THead extends PathHead> {
    * channel and gives its `answer` — `.returns(AnswerDto)`; `.onError(…)` right after takes a
    * failed `send`.
    */
-  toQuestion<const TClass extends Class>(
+  toExternalTask<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
     options?: QuestionStepOptions,
   ): AfterStep<InstanceType<TClass>, THead>;

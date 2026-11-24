@@ -17,7 +17,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   SharedCheckpointSaver,
@@ -131,7 +131,7 @@ export class SentWorkflowFinish {}
   defaults: { models: { temperature: 0 } },
   uncompactedTurns: 1,
   flow: [
-    start(NoteWorkflowStart)
+    onStart(NoteWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ScribeAgent)
       .toFinish(NoteWorkflowFinish),
@@ -146,7 +146,7 @@ export class NoteWorkflow {}
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   uncompactedTurns: 1,
   flow: [
-    start(SendWorkflowStart)
+    onStart(SendWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(SenderAgent)
       .toFinish(SentWorkflowFinish),

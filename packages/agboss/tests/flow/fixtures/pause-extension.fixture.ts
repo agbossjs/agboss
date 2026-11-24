@@ -26,7 +26,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #942 — a pause that is extended and reminded: a manager's approval (24 h, a reminder 2 h before),
@@ -258,9 +258,9 @@ export class ExtendManagerWorkflowStart {}
   name: "extend-manager-workflow",
   version: "1.0.0",
   flow: [
-    start(ExtendManagerWorkflowStart)
+    onStart(ExtendManagerWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ExtendManagerQuestion)
+      .toExternalTask(ExtendManagerQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
       .returns(ExpiryDoneDto)
@@ -281,9 +281,9 @@ export class ExtendOwnerWorkflowStart {}
   name: "extend-owner-workflow",
   version: "1.0.0",
   flow: [
-    start(ExtendOwnerWorkflowStart)
+    onStart(ExtendOwnerWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ExtendOwnerQuestion)
+      .toExternalTask(ExtendOwnerQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
       .returns(ExpiryDoneDto)
@@ -304,9 +304,9 @@ export class ExtendOpenWorkflowStart {}
   name: "extend-open-workflow",
   version: "1.0.0",
   flow: [
-    start(ExtendOpenWorkflowStart)
+    onStart(ExtendOpenWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ExtendOpenQuestion)
+      .toExternalTask(ExtendOpenQuestion)
       .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
       .returns(ExpiryDoneDto)
@@ -327,9 +327,9 @@ export class ExtendTightWorkflowStart {}
   name: "extend-tight-workflow",
   version: "1.0.0",
   flow: [
-    start(ExtendTightWorkflowStart)
+    onStart(ExtendTightWorkflowStart)
       .returns(ExpiryOrderDto)
-      .toQuestion(ExtendManagerQuestion, { expiresIn: hours(1) })
+      .toExternalTask(ExtendManagerQuestion, { expiresIn: hours(1) })
       .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
       .returns(ExpiryDoneDto)

@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../../src/index.js";
-import { route, start, toAction, toFinish } from "../../helpers/flow.js";
+import { route, onStart, toAction, toFinish } from "../../helpers/flow.js";
 import {
   BookOrderAction,
   DeclineOrderAction,
@@ -39,7 +39,7 @@ export class PaidActionWorkflowFinish {}
   name: "paid-action-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidActionWorkflowStart)
+    onStart(PaidActionWorkflowStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(OverspendOrderAction)
@@ -73,7 +73,7 @@ export class PaidRouterWorkflowFinish {}
   name: "paid-router-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidRouterWorkflowStart)
+    onStart(PaidRouterWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -105,7 +105,7 @@ export class PaidAgentWorkflowFinish {}
   name: "paid-agent-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidAgentWorkflowStart)
+    onStart(PaidAgentWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -127,7 +127,7 @@ export class PaidOrderWorkflowFinish {}
   name: "paid-finish-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidFinishWorkflowStart)
+    onStart(PaidFinishWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)
@@ -148,7 +148,7 @@ export class DeclinedNotedWorkflowFinish {}
   name: "paid-declined-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidDeclinedWorkflowStart)
+    onStart(PaidDeclinedWorkflowStart)
       .returns(OrderDto)
       .toAction(DeclineOrderAction)
       .onError(
@@ -177,7 +177,7 @@ export class OverBudgetWorkflowFinish {}
   name: "paid-limit-workflow",
   version: "1.0.0",
   flow: [
-    start(PaidLimitWorkflowStart)
+    onStart(PaidLimitWorkflowStart)
       .returns(OrderDto)
       .toAction(OverspendOrderAction)
       .returns(OrderDto)

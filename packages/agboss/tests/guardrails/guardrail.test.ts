@@ -24,7 +24,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { effectiveGuardrails, GuardedElementKind } from "../../src/guardrails/levels.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { route, onStart } from "../helpers/flow.js";
 import {
   LegalAdviceGuardrail,
   NoLegalAdviceGuardrail,
@@ -253,7 +253,7 @@ class GuardedRouter {}
   name: "gr-workflow",
   version: "1.0.0",
   flow: [
-    start(GuardedStart)
+    onStart(GuardedStart)
       .returns(WorkflowStartTextDto)
       .toRouter(GuardedRouter)
       .chooseOne(route(GuardedAgent).toFinish(GuardedFinish)),

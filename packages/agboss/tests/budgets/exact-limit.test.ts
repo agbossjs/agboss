@@ -27,7 +27,7 @@ import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledg
 import { testWith } from "../../src/testing/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { ledgerEntryOf } from "../helpers.js";
 import { ItemDto, ItemResultDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 
@@ -139,7 +139,7 @@ class DimesFinish {}
   name: "dimes-workflow",
   version: "1.0.0",
   flow: [
-    start(DimesStart)
+    onStart(DimesStart)
       .returns(ItemDto)
       .toAction(DimesAction)
       .returns(ItemResultDto)

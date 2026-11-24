@@ -21,7 +21,7 @@ export enum NodeKind {
   Action = "action",
   Router = "router",
   Workflow = "workflow",
-  /** A question role's step (#659): `.toQuestion(Role)` — it pauses on the role's channel. */
+  /** A question role's step (#659): `.toExternalTask(Role)` — it pauses on the role's channel. */
   Question = "question",
 }
 
@@ -86,7 +86,7 @@ export interface ToStep {
   readonly targetKind: NodeKind;
   /** `.toWorkflow(W, { placement })` (#333 PR 2): where the child runs; absent = its parent's instance. */
   readonly placement?: ChildPlacement;
-  /** `.toQuestion(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
+  /** `.toExternalTask(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
   readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 

@@ -15,7 +15,7 @@ import {
   NotifyKitAction,
   ReviewKitAgent,
 } from "../fixtures/kit.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 
 /**
  * `.returns(…)` follows every step with an `output` and never one without (#272 AC2, AC15) — the
@@ -36,7 +36,7 @@ describe("#299: { about } on a start's .returns", () => {
       name: "about-start-workflow",
       version: "1.0.0",
       flow: [
-        start(KitWorkflowStart)
+        onStart(KitWorkflowStart)
           .returns(ShortlistDto, { about: OfferDraftDto })
           .toAgent(DraftKitAgent)
           .returns(OfferDraftDto)
@@ -57,7 +57,7 @@ describe("#299: { about } on a start's .returns", () => {
 
 describe("AC15: .returns(…) is exactly where values are", () => {
   it("a missing .returns after a step with output fails", () => {
-    const paths = start(KitWorkflowStart)
+    const paths = onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .toFinish(DraftKitWorkflowFinish);
@@ -68,7 +68,7 @@ describe("AC15: .returns(…) is exactly where values are", () => {
   });
 
   it("a .returns of another class than the output fails", () => {
-    const paths = start(KitWorkflowStart)
+    const paths = onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(ShortlistDto)
@@ -80,7 +80,7 @@ describe("AC15: .returns(…) is exactly where values are", () => {
   });
 
   it("a .returns after an action without output fails", () => {
-    const paths = start(KitWorkflowStart)
+    const paths = onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -93,8 +93,8 @@ describe("AC15: .returns(…) is exactly where values are", () => {
     ]);
   });
 
-  it("AC2: start(S).returns(…) gives the start's input", () => {
-    const paths = start(KitWorkflowStart).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish);
+  it("AC2: onStart(S).returns(…) gives the start's input", () => {
+    const paths = onStart(KitWorkflowStart).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish);
 
     expect(returnsErrorsOf(paths)).toEqual([
       "returns-workflow: kit-workflow-start gives ShortlistDto — write .returns(ShortlistDto) after it, not .returns(OfferDraftDto)",
@@ -102,7 +102,7 @@ describe("AC15: .returns(…) is exactly where values are", () => {
   });
 
   it("a oneOf output is written .returns(oneOf(…)) and branched by a switch", () => {
-    const paths = start(KitWorkflowStart)
+    const paths = onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -116,7 +116,7 @@ describe("AC15: .returns(…) is exactly where values are", () => {
   });
 
   it("#299 S54 c: .returns(oneOf(…)) is followed by its .switch, never by a .to…", () => {
-    const paths = start(KitWorkflowStart)
+    const paths = onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)

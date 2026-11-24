@@ -21,7 +21,7 @@ decision }, { tenantId, answeredBy | ownerId })` — or with free text, `{ pause
    given); rejected → the model reads `Tool error: the call was rejected …` and goes on.
 
 A pause is a tool call through a channel — or a **question step** of the flow,
-`.toQuestion(QuestionRole)` (below: Questions). Nothing waits in memory — a pause survives a
+`.toExternalTask(QuestionRole)` (below: Questions). Nothing waits in memory — a pause survives a
 restart when the pause store and the checkpointer are durable.
 
 ## A worked example: refunds approved in Slack
@@ -209,7 +209,7 @@ export class RefundWorkflowFinish {}
 ```
 
 ```ts file=src/refunds/workflows/refund/refund.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { RefundAgent } from "../../agents/refund/refund.agent.js";
 import { SlackClientService } from "../../services/slack-client.service.js";
@@ -220,7 +220,7 @@ import { RefundWorkflowStart } from "./refund.workflow-start.js";
   name: "refund-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundWorkflowStart)
+    onStart(RefundWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(RefundAgent)
       .toFinish(RefundWorkflowFinish),
@@ -412,7 +412,7 @@ export class PurchaseWorkflowFinish {}
 ```
 
 ```ts file=src/purchases/workflows/purchase/purchase.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { SpendingLimitQuestion } from "../../channels/spending-limit.channel-role.js";
 import { PurchaseDto } from "../../dto/purchase.dto.js";
 import { SpendingLimitDto } from "../../dto/spending-limit.dto.js";
@@ -424,9 +424,9 @@ import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
   name: "purchase-workflow",
   version: "1.0.0",
   flow: [
-    start(PurchaseWorkflowStart)
+    onStart(PurchaseWorkflowStart)
       .returns(PurchaseDto) // the ask, on the path (an agent or an action may build it)
-      .toQuestion(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow
+      .toExternalTask(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow
       .returns(SpendingLimitDto) // the typed answer: later steps read it like any value
       .toFinish(PurchaseWorkflowFinish),
   ],
@@ -449,9 +449,9 @@ call and no step of `maxSteps`; the execution's budgets are checked before it as
 names a question role is `[channel.wrong-tool]`.
 
 A question may also start an `.onError` side path (#933): `.onError(StepFailedError,
-toQuestion(DirectorQuestion).returns(DirectorAnswerDto)…)` — the failure is handled by asking, the
+toExternalTask(DirectorQuestion).returns(DirectorAnswerDto)…)` — the failure is handled by asking, the
 question reads its `ask` from the path as it stood before the failed step (field rules as for
-`.toQuestion`), and its answer goes on the path. One role is one node: its `maxVisits` counts the
+`.toExternalTask`), and its answer goes on the path. One role is one node: its `maxVisits` counts the
 main path and the side path together. A side path that can catch a limit (`LimitExceededError`,
 `BudgetExceededError`, a parent such as `AGBossError`) still leads only to actions and finishes —
 a question there is `[graph.limit-handler-uses-model]` (a reply interpreter may call a model).
@@ -541,8 +541,8 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   `DtoValidationError`.
 - **A deadline for the answer** (#941): `@ChannelRole({ expiresIn: hours(24) })` — at least
   `seconds(1)` — gives every pause of the role an absolute deadline, fixed when the pause is made (a
-  deploy that changes `expiresIn` never moves an open pause); `.toQuestion(Role, { expiresIn })` (and
-  the side path `toQuestion(Role, { expiresIn })`) overrides it for a question step (one value per
+  deploy that changes `expiresIn` never moves an open pause); `.toExternalTask(Role, { expiresIn })` (and
+  the side path `toExternalTask(Role, { expiresIn })`) overrides it for a question step (one value per
   node: `[question.expires-in-conflict]`), `@Tool({ channel, expiresIn })` for a tool
   (`[tool.expires-in-without-channel]`, `[channel.expires-in-invalid]`); a run's deadline bounds
   every pause too, the smaller wins and a tie goes to the run. `result.pending[].expiresAt` shows it.
@@ -611,7 +611,7 @@ days: [Weekday.Sunday, …], hours: [{ from: "09:00", to: "18:00" }], breaks?, h
 role })` and may read the application's own data. The deadline is computed **once**, when the pause opens
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — extend it. Reminder: both working → `calendar.add(askedAt, expiresIn − remindBefore)`; a working
-  `remindBefore` needs a working `expiresIn` (also on `.toQuestion` / `@Tool` overrides and in `extendPause`,
+  `remindBefore` needs a working `expiresIn` (also on `.toExternalTask` / `@Tool` overrides and in `extendPause`,
   which refuses a plain `expiresIn` there with `DtoValidationError`). A calendar that throws, times out,
   answers no `Date` or a date not after `from` fails the step — `QuestionFailedError` / `AgentFailedError` with
   a `WorkingCalendarError` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
@@ -679,7 +679,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | Code / error                                             | Cause → fix                                                                                                                                                               |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[channel.wrong-tool]`                                   | the role's `approves` is not the tool's `input` → make them the same DTO                                                                                                  |
-| `[channel.wrong-tool]` (question)                        | a tool names a question role → ask it with `.toQuestion(Role)`                                                                                                            |
+| `[channel.wrong-tool]` (question)                        | a tool names a question role → ask it with `.toExternalTask(Role)`                                                                                                        |
 | `[channel.role-form]`                                    | both `approves` and `ask` / `answer`, or half a question → one form                                                                                                       |
 | `[reply-interpreter.decision-model]`                     | a question role's interpreter on a decision model → a chat model, or `DecidedBy.Code`                                                                                     |
 | `QuestionFailedError`                                    | a question's `send` threw or `decided(…)` was not the answer DTO (`step.question`, `question`) → `.onError`                                                               |
@@ -694,7 +694,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[working-calendar.duplicate-name]`                      | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
 | `WorkingCalendarError`                                   | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
 | `[tool.expires-in-without-channel]`                      | `@Tool({ expiresIn })` with no `channel` → add `channel`, or drop `expiresIn`                                                                                             |
-| `[question.expires-in-conflict]`                         | two `.toQuestion(Q, …)` edges to one question with different `expiresIn` → one value                                                                                      |
+| `[question.expires-in-conflict]`                         | two `.toExternalTask(Q, …)` edges to one question with different `expiresIn` → one value                                                                                  |
 | `[di.missing-implementation]`                            | a role named on a tool, no `@Channel` that `extends` it listed → list one in the application                                                                              |
 | `[di.ambiguous-implementation]`                          | two implementations of one role → keep one (one per application)                                                                                                          |
 | `[di.infrastructure-in-workflow]`                        | the implementation in `@Workflow({ providers })` → `@Application({ providers })`                                                                                          |

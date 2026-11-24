@@ -11,7 +11,7 @@ import {
   type ToolHandler,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import {
   TEST_BUDGETS,
@@ -135,7 +135,7 @@ export class SpendStart {}
 export class ShippedFinish {}
 
 const paths = [
-  start(SpendStart)
+  onStart(SpendStart)
     .returns(WorkflowStartTextDto)
     .toAgent(SearcherAgent)
     .returns(ResultDto)

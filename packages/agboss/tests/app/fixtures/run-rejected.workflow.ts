@@ -11,7 +11,7 @@ import {
   type BudgetHandler,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { AnswerDto, Apply, Done, Lookup, RunLog } from "./run-events.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestExecutionBudget } from "../../flow/fixtures/budgets.js";
@@ -58,7 +58,7 @@ export class VoucherClerk {}
   },
   uncompactedTurns: 1,
   flow: [
-    start(Redeem)
+    onStart(Redeem)
       .returns(VoucherDto)
       .toAgent(VoucherClerk)
       .returns(AnswerDto)

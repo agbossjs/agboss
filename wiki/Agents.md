@@ -163,7 +163,7 @@ DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
@@ -179,7 +179,7 @@ export class SupportAgent {}
   name: "support-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toAgent(SupportAgent)
       .toFinish(ChatFinish),

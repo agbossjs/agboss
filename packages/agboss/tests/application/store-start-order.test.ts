@@ -24,7 +24,7 @@ import {
   type OnInit,
 } from "../../src/index.js";
 import { logged, resetLogged, RecordingLogger } from "../helpers/log.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /** The record store's calls made before its `onInit`, by method name (the test reads it). */
@@ -106,7 +106,7 @@ class NoteAction {
   name: "note-workflow",
   version: "1.0.0",
   flow: [
-    start(NoteWorkflowStart)
+    onStart(NoteWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(NoteAction)
       .returns(WorkflowFinishTextDto)

@@ -41,7 +41,7 @@ import { Rag, RagMode, RagTenancy, Reranker, ModelReranker } from "../../../src/
 import type { RagConnector, RagRetrieval } from "../../../src/rag/index.js";
 import type { ModelUseKind } from "../../../src/models/uses.js";
 import { arbiterWorkflow, AnswerDto } from "./arbiter.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 
 /** The model each kind of model use is given: the keyless `local/llama`, or the one under test. */
 export type KindModels = Readonly<Record<ModelUseKind, string>>;
@@ -184,7 +184,7 @@ export function everyKindWorkflows(models: KindModels): {
     name: "desk-workflow",
     version: "1.0.0",
     flow: [
-      start(DeskStart)
+      onStart(DeskStart)
         .returns(WorkflowStartTextDto)
         .toRouter(DeskRouter)
         .chooseOne(

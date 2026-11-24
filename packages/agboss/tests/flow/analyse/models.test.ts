@@ -8,7 +8,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { ProfileDto, ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 
 /** Answer tools of agents with `output` (#272 S6): their names and the model's tool calling. */
 
@@ -40,7 +40,7 @@ class LongWorkflowFinish {}
   name: "long-answer-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(LongAnswerAgent)
       .returns(ShortlistOfTheBestCandidatesWithTheirScoresAndTheReviewersNotesDto)

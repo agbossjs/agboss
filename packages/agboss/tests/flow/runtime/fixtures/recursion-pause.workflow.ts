@@ -21,7 +21,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { caseOf, start } from "../../../helpers/flow.js";
+import { caseOf, onStart } from "../../../helpers/flow.js";
 import {
   CountDoneDto,
   CountDoneWorkflowFinish,
@@ -77,7 +77,7 @@ export class DiggerAgent {}
   name: "dig-workflow",
   version: "1.0.0",
   flow: [
-    start(DigWorkflowStart)
+    onStart(DigWorkflowStart)
       .returns(CountDto)
       .toAgent(DiggerAgent)
       .returns(oneOf(CountDto, CountDoneDto))
@@ -139,7 +139,7 @@ export class HoldDepthAction {
   name: "hold-depth-workflow",
   version: "1.0.0",
   flow: [
-    start(HoldDepthWorkflowStart)
+    onStart(HoldDepthWorkflowStart)
       .returns(CountDto)
       .toAction(HoldDepthAction)
       .returns(oneOf(CountDto, CountDoneDto))

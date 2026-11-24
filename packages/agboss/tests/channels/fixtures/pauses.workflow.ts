@@ -37,7 +37,7 @@ import { minutes } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #267 PR 2 — pauses and resume: a refund approval answered through its channel (a finance desk
@@ -461,7 +461,7 @@ export class DeskClerkAgent {}
   name: "desk-workflow",
   version: "1.0.0",
   flow: [
-    start(DeskWorkflowStart)
+    onStart(DeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DeskClerkAgent)
       .toFinish(DeskWorkflowFinish),
@@ -517,7 +517,7 @@ export class BatchWorkflowFinish {
   version: "1.0.0",
   maxSteps: 20,
   flow: [
-    start(BatchWorkflowStart)
+    onStart(BatchWorkflowStart)
       .returns(listOf(RefundRequestDto))
       .toParallelAgents(BatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
@@ -572,7 +572,7 @@ export class AuditWorkflowFinish {
   name: "audit-workflow",
   version: "1.0.0",
   flow: [
-    start(AuditWorkflowStart)
+    onStart(AuditWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(AuditRefundAgent, AuditCheckAgent)
       .join()

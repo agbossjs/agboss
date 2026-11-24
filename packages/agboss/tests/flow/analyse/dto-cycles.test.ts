@@ -17,7 +17,7 @@ import {
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { applicationWith, workflowWith } from "../../components/fixture/deps-contract.workflow.js";
@@ -102,7 +102,7 @@ describe("#1080: an agent's output that holds itself", () => {
       name: "diamond-workflow",
       version: "1.0.0",
       flow: [
-        start(DiamondStart)
+        onStart(DiamondStart)
           .returns(DiamondDto)
           .toAgent(DiamondAgent)
           .returns(DiamondDto)
@@ -141,7 +141,7 @@ describe("#1080: an input that holds itself", () => {
     @Workflow({
       name: "keep-workflow",
       version: "1.0.0",
-      flow: [start(KeepStart).returns(SelfDto).toAction(Keep).toFinish(KeepFinish)],
+      flow: [onStart(KeepStart).returns(SelfDto).toAction(Keep).toFinish(KeepFinish)],
       ...workflowDefaults,
     })
     class KeepWorkflow {}

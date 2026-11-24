@@ -1,5 +1,5 @@
 /**
- * #933 AC1: `.onError(E, toQuestion(Q)…)` — a question role's step starts a side path: the failure
+ * #933 AC1: `.onError(E, toExternalTask(Q)…)` — a question role's step starts a side path: the failure
  * is handled by asking, and the answer goes on the path. A question after a limit stays refused.
  */
 import { describe, expect, it } from "vitest";
@@ -12,9 +12,9 @@ import { PauseKind } from "../../src/pause/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "./fixtures/dtos.js";
-import { toQuestion as publicToQuestion } from "../../src/flow/builder.js";
+import { toExternalTask as publicToQuestion } from "../../src/flow/builder.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
-import { side, start, toQuestion } from "./fixtures/paths.js";
+import { side, onStart, toExternalTask } from "./fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
@@ -46,7 +46,7 @@ const test = testWith(SideQuestionApplication);
 const asking = { threadId: "side-1", ownerId: "alice" };
 
 describe("#933 AC1: a question starts an .onError side path", () => {
-  test("AC1: onError(StepFailedError, toQuestion(Q)…) runs the question", async ({ app }) => {
+  test("AC1: onError(StepFailedError, toExternalTask(Q)…) runs the question", async ({ app }) => {
     const paused = await execute(
       app,
       SideQuestionWorkflowStart,
@@ -98,14 +98,14 @@ describe("#933 AC1: assembly", () => {
       name: `side-question-case-${String(count)}-workflow`,
       version: "1.0.0",
       flow: [
-        start(SideQuestionWorkflowStart)
+        onStart(SideQuestionWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAction(DraftQuestionAction)
           .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             error,
-            toQuestion(SpendingLimitQuestion)
+            toExternalTask(SpendingLimitQuestion)
               .returns(SpendingLimitAnswerDto)
               .toAction(PlacePurchaseAction)
               .returns(PurchasePlacedDto)
@@ -129,10 +129,10 @@ describe("#933 AC1: assembly", () => {
 });
 
 describe("#933: the shipped toQuestion starter", () => {
-  it("toQuestion(Q) builds the same path as side().toQuestion(Q)", () => {
+  it("toExternalTask(Q) builds the same path as side().toExternalTask(Q)", () => {
     // a starter that records another node kind (toAgent) builds a different path
     expect(publicToQuestion(SpendingLimitQuestion)).toEqual(
-      side().toQuestion(SpendingLimitQuestion),
+      side().toExternalTask(SpendingLimitQuestion),
     );
   });
 
@@ -165,7 +165,7 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
   const edgeTest = testWith(SideQuestionEdgeApplication);
 
   edgeTest(
-    "written once with question(R) it is one node; maxVisits 2 pauses twice, then finishes",
+    "written once with onExternalTask(R) it is one node; maxVisits 2 pauses twice, then finishes",
     async ({ app }) => {
       const first = await execute(app, EdgeTwiceStart, { text: "laptop for 900" }, asking);
       expect(first.pending.map(({ step }) => step)).toEqual(["edge-twice-question"]);
@@ -213,7 +213,7 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
     return checkWorkflow(EdgeWorkflow).errors.map(({ code, message }) => `[${code}] ${message}`);
   };
 
-  it("written once with question(R) it passes assembly", () => {
+  it("written once with onExternalTask(R) it passes assembly", () => {
     expect(codesOf(sharedEdgeFlow(EdgeOnceStart, EdgeOnceQuestion))).toEqual([]);
   });
 
@@ -230,14 +230,14 @@ describe("#933: a concrete channel class as the question", () => {
       name: "channel-class-question-workflow",
       version: "1.0.0",
       flow: [
-        start(SideQuestionWorkflowStart)
+        onStart(SideQuestionWorkflowStart)
           .returns(WorkflowStartTextDto)
           .toAction(DraftQuestionAction)
           .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             StepFailedError,
-            toQuestion(InboxSpendingLimitChannel)
+            toExternalTask(InboxSpendingLimitChannel)
               .returns(SpendingLimitAnswerDto)
               .toFinish(PurchaseWorkflowFinish),
           )

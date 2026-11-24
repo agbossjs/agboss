@@ -12,7 +12,7 @@ import {
   OrderStatusDto,
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { agent, route, start } from "./paths.js";
+import { onAgent, route, onStart } from "./paths.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -106,7 +106,7 @@ export class SupportWorkflowFinish {
 export class AnswerRouter {}
 
 export const supportPaths = [
-  start(SupportWorkflowStart)
+  onStart(SupportWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(OrderAgent)
     .returns(OrderStatusDto)
@@ -120,7 +120,7 @@ export const supportPaths = [
         .toAgent(ExpertAnswerAgent),
       route(ExpertAnswerAgent),
     ),
-  agent(ExpertAnswerAgent)
+  onAgent(ExpertAnswerAgent)
     .returns(ExpertDraftDto)
     .toFinish(SupportWorkflowFinish),
 ];

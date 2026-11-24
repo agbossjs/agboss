@@ -8,7 +8,7 @@ import {
 import { LUNA } from "./decision-judged.workflow.js";
 import { PlainTextDto, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -61,7 +61,7 @@ export class DecisionJudged {}
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ChatJudged)
       .toFinish(Reply),
@@ -84,7 +84,7 @@ export class ChatDeciderDeskApplication {}
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(DecisionJudged)
       .toFinish(Reply),
@@ -143,7 +143,7 @@ export class Triage {}
   name: "luna-routed-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Intake)
       .returns(AskDto)

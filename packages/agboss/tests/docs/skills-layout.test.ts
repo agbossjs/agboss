@@ -227,7 +227,7 @@ describe("#474: the layout rules find what they guard against", () => {
   });
 
   it("AC4: a ts block with file=, or without a class, needs nothing more", () => {
-    const flow = "export const paths = [start(A).toFinish(B)] as const;\n";
+    const flow = "export const paths = [onStart(A).toFinish(B)] as const;\n";
 
     expect(classWithoutFileOf(sample("ts", "src/dto/a.dto.ts", "export class ADto {}"))).toEqual(
       [],

@@ -313,9 +313,6 @@ export interface AcceptedBy {
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(value: TClass) => TClass;
 
 // @public
-export function action<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public
 export type ActionEndEvent = EndEvent<unknown>;
 
 // @public
@@ -404,9 +401,6 @@ export interface AGBossErrorOptions {
 
 // @public
 export function Agent(options: AgentOptions): <TClass extends Class>(value: TClass) => TClass;
-
-// @public
-export function agent<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export class AgentAnswerInvalidError extends AgentFailedError {
@@ -6093,6 +6087,9 @@ export type ObserverClass = Class<ExecutionObserver>;
 // @public
 export type ObserverHook = keyof ExecutionObserver;
 
+// @public
+export function onAction<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
+
 // @public (undocumented)
 export interface OnActionEnd {
     // (undocumented)
@@ -6104,6 +6101,9 @@ export interface OnActionStart {
     // (undocumented)
     onActionStart(event: ActionStartEvent): HookResult;
 }
+
+// @public
+export function onAgent<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public (undocumented)
 export interface OnAgentEnd {
@@ -6215,6 +6215,9 @@ export interface OnExecutionStart {
 }
 
 // @public
+export function onExternalTask<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
+
+// @public
 export interface OnFencedEffect {
     onFencedEffect(event: FencedEffectEvent): HookResult;
 }
@@ -6287,6 +6290,9 @@ export interface OnRagStart {
     onRagStart(event: RagStartEvent): HookResult;
 }
 
+// @public
+export function onRouter<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SourceHead>;
+
 // @public (undocumented)
 export interface OnRouterEnd {
     // (undocumented)
@@ -6303,6 +6309,9 @@ export interface OnRouterStart {
 export interface OnStart {
     onStart(): Promise<void> | void;
 }
+
+// @public
+export function onStart<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface OnStepHandedOver {
@@ -6331,6 +6340,9 @@ export interface OnValuesOutdated {
     // (undocumented)
     onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
+
+// @public
+export function onWorkflow<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
@@ -7937,9 +7949,6 @@ export interface QualityGateErrorOptions {
 }
 
 // @public
-export function question<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public
 export type QuestionAsk = Readonly<{
     [questionAsk]: true;
 }>;
@@ -8462,9 +8471,6 @@ export function Router(options: ModelRouterOptions): ModelRouterDecorator;
 
 // @public
 export function Router<const TDeps extends readonly Token[] = []>(options: CodeRouterOptions<TDeps>): CodeRouterDecorator<TDeps>;
-
-// @public
-export function router<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
@@ -9133,9 +9139,6 @@ export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
     // (undocumented)
     readonly expected: number;
 }
-
-// @public
-export function start<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface StartEvent<I> extends NodeEvent {
@@ -9854,6 +9857,9 @@ export function toAction<const TClass extends Class>(target: TClass & TargetChec
 export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
+
+// @public
 export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead>;
 
 // @public (undocumented)
@@ -10075,9 +10081,6 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
-
-// @public
 export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
@@ -10125,9 +10128,9 @@ export interface Transitions<THead extends PathHead> {
     toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, THead>;
     // (undocumented)
     toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, THead>;
+    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, THead>;
     // (undocumented)
     toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<THead>;
-    toQuestion<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, THead>;
     // (undocumented)
     toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, THead>;
     toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, THead>;
@@ -10473,9 +10476,6 @@ type Without<TLeft, TValue> = TLeft extends unknown ? Same<TLeft, Member<TValue>
 
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
-
-// @public
-export function workflow<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export type WorkflowClass = Class;

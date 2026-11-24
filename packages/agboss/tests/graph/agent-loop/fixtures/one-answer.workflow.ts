@@ -20,7 +20,7 @@ import {
 } from "../../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 
 /**
  * #649 — an agent whose only tool is its answer tool, on a real OpenAI-compatible HTTP provider: it
@@ -95,7 +95,7 @@ export class ReadingWorkflowFinish {}
   name: "review-workflow",
   version: "1.0.0",
   flow: [
-    start(ReviewWorkflowStart)
+    onStart(ReviewWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(LegalReviewAgent)
       .returns(LegalReviewDto)
@@ -108,7 +108,7 @@ export class ReviewWorkflow {}
   name: "reading-workflow",
   version: "1.0.0",
   flow: [
-    start(ReadingWorkflowStart)
+    onStart(ReadingWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ClauseReaderAgent)
       .returns(LegalReviewDto)

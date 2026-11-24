@@ -23,7 +23,7 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 
 /**
  * #396 PR 6 — what chaos exercises: a reservation (undone by its release, #340), then an agent on a
@@ -107,7 +107,7 @@ export class ReleasedWorkflowFinish {}
   name: "chaos-workflow",
   version: "1.0.0",
   flow: [
-    start(ChaosWorkflowStart)
+    onStart(ChaosWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ReserveAction)
       .returns(ReservationDto)

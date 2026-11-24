@@ -32,7 +32,7 @@ import {
   SaveNote,
   DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
@@ -101,7 +101,7 @@ class Clerk {}
 @Workflow({
   name: "clerk-desk-workflow",
   version: "1.0.0",
-  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(Clerk).toFinish(Reply)],
+  flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Clerk).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

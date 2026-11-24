@@ -25,7 +25,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { RecordExtensionAction } from "../flow/fixtures/pause-extension.fixture.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import { AgentRefundDoneDto, AgentRefundDto } from "../flow/fixtures/agent-expiry.fixture.js";
 import {
   ExpiryDecisionDto,
@@ -75,9 +75,9 @@ function questionFlow(name: string, role: Times, step?: Milliseconds) {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(SomeStart)
+      onStart(SomeStart)
         .returns(ExpiryOrderDto)
-        .toQuestion(SomeQuestion, step === undefined ? undefined : { expiresIn: step })
+        .toExternalTask(SomeQuestion, step === undefined ? undefined : { expiresIn: step })
         .returns(ExpiryDecisionDto)
         .toAction(RecordExtensionAction)
         .returns(ExpiryDoneDto)
@@ -149,7 +149,7 @@ function toolFlow(
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(SomeStart)
+      onStart(SomeStart)
         .returns(AgentRefundDto)
         .toAgent(SomeAgent)
         .returns(AgentRefundDoneDto)

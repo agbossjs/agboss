@@ -15,7 +15,7 @@ import {
   HistoryOfferWorkflow,
   HistoryOfferWorkflowStart,
 } from "../fixtures/history.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 import { ResearchDto } from "../fixtures/review-dtos.js";
 
 /**
@@ -42,7 +42,7 @@ class DraftHistoryAgent {}
   name: "no-draft-workflow",
   version: "1.0.0",
   flow: [
-    start(HistoryOfferWorkflowStart)
+    onStart(HistoryOfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftHistoryAgent)
       .returns(DraftChangesDto)
@@ -86,7 +86,7 @@ class ResearchAgainAgent {}
   name: "stale-draft-workflow",
   version: "1.0.0",
   flow: [
-    start(HistoryOfferWorkflowStart)
+    onStart(HistoryOfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(ResearchAgent)
       .returns(ResearchDto)
@@ -115,7 +115,7 @@ class LimitlessAgent {}
   name: "bad-limit-workflow",
   version: "1.0.0",
   flow: [
-    start(HistoryOfferWorkflowStart)
+    onStart(HistoryOfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(FirstDraftAgent)
       .returns(OfferDraftDto)

@@ -16,29 +16,29 @@ result with `npx agboss describe`.
 
 A workflow's `flow` is a list of **paths**. A path starts at a **source**, goes through **steps**,
 and ends at a finish (or at a node that has its own path). Write **one call per line** — the gate's
-`@stylistic/newline-per-chained-call` fails `start(A).returns(B)` on one line.
+`@stylistic/newline-per-chained-call` fails `onStart(A).returns(B)` on one line.
 
-| Form                                                                                    | What it says                                                                                                                                               | Rules it can hit                                                                                             |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start(S)`                                                                              | where an execution begins (a `@WorkflowStart`)                                                                                                             | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
-| `agent(X)` / `router(R)` / `action(A)` / `workflow(W)`                                  | the own path of a node reached from two or more places, written once                                                                                       | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
-| `.returns(XDto)`                                                                        | what the step before put on the path (its scope); after `start(S)` its input                                                                               | `[flow.returns-mismatch]`, `[flow.unused-output]`                                                            |
-| `.returns(A).returns(optional(B))`                                                      | several values of one step (a start's map of fields, a join), any order                                                                                    | `[flow.returns-mismatch]`                                                                                    |
-| `.returns(XDto, { about: YDto })`                                                       | in a cycle: what the value is an answer about                                                                                                              | `[io.ambiguous-cycle]`, `[io.ambiguous-about]`, `[io.about-on-start]`                                        |
-| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`             | the next step, by its kind (another kind does not compile)                                                                                                 | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
-| `.toRouter(R).chooseOne(route(X)…, …)`                                                  | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                 | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
-| `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                  | a branch per variant of a `oneOf` output; `caseOf(A, { about: T })` in a cycle                                                                             | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
-| `.onError(E, side path)`                                                                | right after the step that throws (before its `.returns`): what happens when it throws `E`                                                                  | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
-| side-path starters `toAction` `toAgent` `toRouter` `toQuestion` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                     | as for the steps                                                                                             |
-| `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`              | a launch: each listed target runs once, a repeat is a copy                                                                                                 | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
-| `.returns(listOf(XDto)).toParallelAgents(X, { maxItems })`                              | one run per item of the list                                                                                                                               | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
-| `.join()` → `.onJoinError(E, …)` → `.returns(…)`                                        | where a launch's values meet; a failed branch's side path                                                                                                  | `[flow.returns-mismatch]`, `[launch.branch-outdates-sibling]`                                                |
-| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`   | count the accepted answers instead of waiting for all                                                                                                      | `[flow.quorum-impossible]`, `[flow.quorum-return-not-optional]`, `[arbiter.*]`                               |
-| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                          | the first complete group (by priority) continues its own path                                                                                              | `[flow.quorum-impossible]`, `[flow.returns-mismatch]`                                                        |
-| `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                 | a child workflow: one, chosen by a router, or one per item                                                                                                 | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
-| `.toQuestion(Q)` / `question(Q)`                                                        | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` (`.returns(AnswerDto)`) — `05-channels-and-human-in-the-loop.md` | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
-| `ThisWorkflow` + `@Workflow({ maxDepth })`                                              | the workflow launches itself                                                                                                                               | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
-| `@Action({ compensateWith, committedBy })`                                              | the action's undo and its commit point; side paths must run the undo                                                                                       | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
+| Form                                                                                        | What it says                                                                                                                                               | Rules it can hit                                                                                             |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `onStart(S)`                                                                                | where an execution begins (a `@WorkflowStart`)                                                                                                             | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
+| `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)`                              | the own path of a node reached from two or more places, written once                                                                                       | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
+| `.returns(XDto)`                                                                            | what the step before put on the path (its scope); after `onStart(S)` its input                                                                             | `[flow.returns-mismatch]`, `[flow.unused-output]`                                                            |
+| `.returns(A).returns(optional(B))`                                                          | several values of one step (a start's map of fields, a join), any order                                                                                    | `[flow.returns-mismatch]`                                                                                    |
+| `.returns(XDto, { about: YDto })`                                                           | in a cycle: what the value is an answer about                                                                                                              | `[io.ambiguous-cycle]`, `[io.ambiguous-about]`, `[io.about-on-start]`                                        |
+| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`                 | the next step, by its kind (another kind does not compile)                                                                                                 | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
+| `.toRouter(R).chooseOne(route(X)…, …)`                                                      | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                 | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
+| `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                      | a branch per variant of a `oneOf` output; `caseOf(A, { about: T })` in a cycle                                                                             | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
+| `.onError(E, side path)`                                                                    | right after the step that throws (before its `.returns`): what happens when it throws `E`                                                                  | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
+| side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                     | as for the steps                                                                                             |
+| `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                 | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
+| `.returns(listOf(XDto)).toParallelAgents(X, { maxItems })`                                  | one run per item of the list                                                                                                                               | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
+| `.join()` → `.onJoinError(E, …)` → `.returns(…)`                                            | where a launch's values meet; a failed branch's side path                                                                                                  | `[flow.returns-mismatch]`, `[launch.branch-outdates-sibling]`                                                |
+| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`       | count the accepted answers instead of waiting for all                                                                                                      | `[flow.quorum-impossible]`, `[flow.quorum-return-not-optional]`, `[arbiter.*]`                               |
+| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                              | `[flow.quorum-impossible]`, `[flow.returns-mismatch]`                                                        |
+| `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                 | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
+| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` (`.returns(AnswerDto)`) — `05-channels-and-human-in-the-loop.md` | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
+| `ThisWorkflow` + `@Workflow({ maxDepth })`                                                  | the workflow launches itself                                                                                                                               | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
+| `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                       | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
 `optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only), `variant(XDto, value)` (tests).
@@ -48,13 +48,13 @@ Placement rules that hold everywhere:
 - **One class is one node.** A class mentioned again is the same node (a loop, a merge). Two stages
   that look alike are two classes (`[flow.continuation-twice]`).
 - **A node reached from one place is continued inline**; one reached from two or more places has its
-  own path — `agent(X)…`, `action(A)…` — and every path into it ends at it.
+  own path — `onAgent(X)…`, `onAction(A)…` — and every path into it ends at it.
 - **Finishes are terminal and always inline**: `.toFinish(F)` or `route(F)`, from any number of places.
 - **Position never carries meaning**: paths, routes and cases can be reordered.
 
 ## 1. A straight path, a start with several fields
 
-A start's input is a DTO, a `listOf(…)` or a map of fields; `start(S)` returns each field with one
+A start's input is a DTO, a `listOf(…)` or a map of fields; `onStart(S)` returns each field with one
 `.returns(…)`. A node reads its `input` fields from the scope by class — never by position. An action
 gets each field as `{ producer, value }`.
 
@@ -164,7 +164,7 @@ export class TicketFiledWorkflowFinish {}
 ```
 
 ```ts file=src/ticket/workflows/ticket/ticket.workflow.ts
-import { Workflow, optional, start } from "@agboss/core";
+import { Workflow, optional, onStart } from "@agboss/core";
 import { FileTicketAction } from "../../actions/file-ticket.action.js";
 import { TicketTriageAgent } from "../../agents/ticket-triage/ticket-triage.agent.js";
 import { CustomerDto } from "../../dto/customer.dto.js";
@@ -178,7 +178,7 @@ import { TicketWorkflowStart } from "./ticket.workflow-start.js";
   name: "ticket-workflow",
   version: "1.0.0",
   flow: [
-    start(TicketWorkflowStart)
+    onStart(TicketWorkflowStart)
       .returns(TicketDto) // a start's map of fields: one .returns per field, any order
       .returns(optional(CustomerDto))
       .toAgent(TicketTriageAgent)
@@ -389,7 +389,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 ```
 
 ```ts file=src/credit/workflows/credit/credit.workflow.ts
-import { Workflow, action, route, start, toFinish } from "@agboss/core";
+import { Workflow, onAction, route, onStart, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeOrderAction } from "../../actions/charge-order.action.js";
 import { CreditApprovalAgent } from "../../agents/credit-approval/credit-approval.agent.js";
@@ -410,7 +410,7 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
   name: "credit-workflow",
   version: "1.0.0",
   flow: [
-    start(CreditWorkflowStart)
+    onStart(CreditWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(CreditDeskRouter)
       .chooseOne(
@@ -432,7 +432,7 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
       ),
 
     // reached from two places (the approval and the limit router): its own path, written once
-    action(ChargeOrderAction)
+    onAction(ChargeOrderAction)
       .returns(ChargeResultDto)
       .toFinish(OrderChargedWorkflowFinish),
   ],
@@ -624,7 +624,7 @@ export class OfferFailedWorkflowFinish {}
 ```
 
 ```ts file=src/offer/workflows/offer/offer.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, start, toAction } from "@agboss/core";
+import { VisitsLimitExceededError, Workflow, onAgent, caseOf, oneOf, onStart, toAction } from "@agboss/core";
 import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../../actions/send-offer.action.js";
 import { OfferDraftAgent } from "../../agents/offer-draft/offer-draft.agent.js";
@@ -643,13 +643,13 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    start(OfferWorkflowStart)
+    onStart(OfferWorkflowStart)
       .returns(CandidateShortlistDto)
       .toAgent(OfferDraftAgent)
       .returns(OfferDraftDto)
       .toAgent(OfferReviewerAgent), // the reviewer is reached from two places: its own path below
 
-    agent(OfferReviewerAgent)
+    onAgent(OfferReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
@@ -934,7 +934,7 @@ export class ReviewIncompleteWorkflowFinish {}
 ```
 
 ```ts file=src/review/workflows/article-review/article-review.workflow.ts
-import { StepFailedError, Workflow, listOf, start, toFinish } from "@agboss/core";
+import { StepFailedError, Workflow, listOf, onStart, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ArchiveArticleAction } from "../../actions/archive-article.action.js";
 import { IndexArticleAction } from "../../actions/index-article.action.js";
@@ -960,7 +960,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
   name: "article-review-workflow",
   version: "1.0.0",
   flow: [
-    start(ArticleReviewWorkflowStart)
+    onStart(ArticleReviewWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(SectionSplitterAgent)
       .returns(listOf(ArticleSectionDto))
@@ -982,7 +982,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
       .toFinish(ReviewSummaryWorkflowFinish),
 
     // side effects at once: actions without output give the join nothing to name
-    start(ArticlePublishWorkflowStart)
+    onStart(ArticlePublishWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelActions(ArchiveArticleAction, IndexArticleAction)
       .join() // no .returns
@@ -1146,7 +1146,7 @@ export class SupportLaunchRouter {}
 ```
 
 ```ts file=src/support/workflows/support-launch/support-launch.workflow.ts
-import { Workflow, optional, start } from "@agboss/core";
+import { Workflow, optional, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
 import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
@@ -1164,7 +1164,7 @@ import { SupportReplyWorkflowFinish } from "./support-reply.workflow-finish.js";
   name: "support-launch-workflow",
   version: "1.0.0",
   flow: [
-    start(SupportLaunchWorkflowStart)
+    onStart(SupportLaunchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(SupportLaunchRouter)
       .toParallelAgents(OrderLookupAgent, RefundTermsAgent, LoyaltyOfferAgent) // exactly its routes
@@ -1360,7 +1360,7 @@ export class ScoreRangeArbiter {
 ```
 
 ```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
-import { Arbiter, DecidedBy, agent } from "@agboss/core";
+import { Arbiter, DecidedBy, onAgent } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
@@ -1407,7 +1407,7 @@ export class HasReasonArbiter {
 ```
 
 ```ts file=src/panel/workflows/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, start, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, anyOf, listOf, onStart, toFinish } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
@@ -1427,7 +1427,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
   name: "panel-workflow",
   version: "1.0.0",
   flow: [
-    start(PanelWorkflowStart)
+    onStart(PanelWorkflowStart)
       .returns(PanelCandidateDto)
       .toParallelAgents(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
       .acceptedBy(ScoreRangeArbiter) // AND, in path order: the cheap check first
@@ -1568,7 +1568,7 @@ export class DealUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/deal/workflows/deal/deal.workflow.ts
-import { QuorumNotReachedError, Workflow, group, listOf, start, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, group, listOf, onStart, toFinish } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
 import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
@@ -1588,7 +1588,7 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
   name: "deal-workflow",
   version: "1.0.0",
   flow: [
-    start(DealWorkflowStart)
+    onStart(DealWorkflowStart)
       .returns(DealDto)
       .toParallelAgents(DealLegalAgent, DealCriticAgent, DealCriticAgent, DealScreenAgent)
       .joinQuorumGroups(
@@ -1629,7 +1629,7 @@ Quorum rules:
 ## 6. Child workflows
 
 Any `@Workflow` of the application can be a step: `.toWorkflow(W)` (one child), `route(W)` (a router
-picks it), `.toParallelWorkflows(W, { maxItems })` (one child per item), `workflow(W)` (its own path),
+picks it), `.toParallelWorkflows(W, { maxItems })` (one child per item), `onWorkflow(W)` (its own path),
 or `toWorkflow(W)` as a side-path starter. The child's scope starts with its start's input only; its
 result is one of its finishes' outputs.
 
@@ -1751,7 +1751,7 @@ export class VendorCheckFailedWorkflowFinish {}
 
 ```ts file=src/vendor/workflows/vendor-check/vendor-check.workflow.ts
 // the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
-import { StepFailedError, Workflow, caseOf, oneOf, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, caseOf, oneOf, onStart, toAction } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
@@ -1767,7 +1767,7 @@ import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";
   name: "vendor-check-workflow",
   version: "1.0.0",
   flow: [
-    start(VendorCheckWorkflowStart)
+    onStart(VendorCheckWorkflowStart)
       .returns(VendorDto)
       .toAgent(VendorCheckerAgent)
       .onError(
@@ -1879,7 +1879,7 @@ export class VendorCrashedWorkflowFinish {}
 ```
 
 ```ts file=src/vendor/workflows/vendor-screening/vendor-screening.workflow.ts
-import { Workflow, listOf, oneOf, start } from "@agboss/core";
+import { Workflow, listOf, oneOf, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
@@ -1898,7 +1898,7 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
   flow: [
     // one child per item: each VendorDto enters vendor-check-workflow-start; the join is the list
     // of the child's finish output classes
-    start(VendorScreeningWorkflowStart)
+    onStart(VendorScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(VendorFinderAgent)
       .returns(listOf(VendorDto))
@@ -1914,7 +1914,7 @@ export class VendorScreeningWorkflow {}
 ```
 
 ```ts file=src/vendor/workflows/single-vendor/single-vendor.workflow.ts
-import { ChildExecutionFailedError, Workflow, caseOf, oneOf, start, toFinish } from "@agboss/core";
+import { ChildExecutionFailedError, Workflow, caseOf, oneOf, onStart, toFinish } from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
@@ -1933,7 +1933,7 @@ import { VendorCrashedWorkflowFinish } from "./vendor-crashed.workflow-finish.js
   name: "single-vendor-workflow",
   version: "1.0.0",
   flow: [
-    start(SingleVendorWorkflowStart)
+    onStart(SingleVendorWorkflowStart)
       .returns(VendorDto)
       .toWorkflow(VendorCheckWorkflow)
       .onError(
@@ -2043,7 +2043,7 @@ export class RecoveredWorkflowFinish {}
 ```
 
 ```ts file=src/payment/workflows/payment-recovery/payment-recovery.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart } from "@agboss/core";
 import { SendInvoiceAction } from "../../actions/send-invoice.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2054,7 +2054,7 @@ import { PaymentRecoveryWorkflowStart } from "./payment-recovery.workflow-start.
   name: "payment-recovery-workflow",
   version: "1.0.0",
   flow: [
-    start(PaymentRecoveryWorkflowStart)
+    onStart(PaymentRecoveryWorkflowStart)
       .returns(PaymentRequestDto)
       .toAction(SendInvoiceAction)
       .returns(PaymentDoneDto)
@@ -2065,7 +2065,7 @@ export class PaymentRecoveryWorkflow {}
 ```
 
 ```ts file=src/payment/workflows/pay/pay.workflow.ts
-import { StepFailedError, Workflow, start, toWorkflow } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toWorkflow } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2078,7 +2078,7 @@ import { RecoveredWorkflowFinish } from "./recovered.workflow-finish.js";
   name: "pay-workflow",
   version: "1.0.0",
   flow: [
-    start(PayWorkflowStart)
+    onStart(PayWorkflowStart)
       .returns(PaymentRequestDto)
       .toAction(ChargeCardAction)
       .onError(
@@ -2100,7 +2100,7 @@ Child rules:
   start with a required field of the item's type (per item) or of the chain's current value. None →
   `[graph.no-matching-start]`; two → `[graph.ambiguous-start]` (fix: make one start's input a
   subclass, `class QuickVendorDto extends VendorDto {}`). Both are compile errors too.
-- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `workflow(W)`; `.onJoinError(E, …)`
+- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`; `.onJoinError(E, …)`
   right after a per-item join. An uncaught error of the child — its step, its `maxSteps`, a node's
   `maxVisits` — is the parent's `ChildExecutionFailedError` (a `StepFailedError`: `cause`,
   `childExecutionId`, `itemIndex`, `workflow`), so its handler may be an agent. An exhausted budget,
@@ -2250,7 +2250,7 @@ export class TopicFailedWorkflowFinish {}
 ```
 
 ```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
-import { StepFailedError, ThisWorkflow, Workflow, action, caseOf, listOf, oneOf, start, toAction } from "@agboss/core";
+import { StepFailedError, ThisWorkflow, Workflow, onAction, caseOf, listOf, oneOf, onStart, toAction } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SplitTopicAction } from "../../actions/split-topic.action.js";
 import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
@@ -2267,7 +2267,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
   name: "topic-research-workflow",
   version: "1.0.0",
   flow: [
-    start(TopicResearchWorkflowStart)
+    onStart(TopicResearchWorkflowStart)
       .returns(TopicDto)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic ends softly
@@ -2288,7 +2288,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
       ),
 
     // two ways in (the researcher's error, the merge's error): its own path
-    action(MarkTopicFailedAction)
+    onAction(MarkTopicFailedAction)
       .returns(TopicFailedDto)
       .toFinish(TopicFailedWorkflowFinish),
   ],
@@ -2520,7 +2520,7 @@ export class OrderShippedWorkflowFinish {}
 ```
 
 ```ts file=src/order/workflows/order/order.workflow.ts
-import { Workflow, action, start, toAction } from "@agboss/core";
+import { Workflow, onAction, onStart, toAction } from "@agboss/core";
 import { ChargeOrderCardAction } from "../../actions/charge-order-card.action.js";
 import { ConfirmOrderAction } from "../../actions/confirm-order.action.js";
 import { NotifyFinanceAction } from "../../actions/notify-finance.action.js";
@@ -2542,7 +2542,7 @@ import { OrderWorkflowStart } from "./order.workflow-start.js";
   name: "order-workflow",
   version: "1.0.0",
   flow: [
-    start(OrderWorkflowStart)
+    onStart(OrderWorkflowStart)
       .returns(OrderRequestDto)
       .toAction(ReserveStockAction)
       .returns(StockReservationDto)
@@ -2563,7 +2563,7 @@ import { OrderWorkflowStart } from "./order.workflow-start.js";
       .toAction(ConfirmOrderAction) // the commit point of the payment
       .toFinish(OrderShippedWorkflowFinish), // a finish commits what is still open (the reservation)
 
-    action(ReleaseStockAction) // reached from two places: its own path
+    onAction(ReleaseStockAction) // reached from two places: its own path
       .toFinish(OrderFailedWorkflowFinish),
   ],
 })
@@ -2708,7 +2708,7 @@ export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflo
 ```
 
 ```ts file=src/trip/workflows/trip/trip.workflow.ts
-import { Workflow, start, toFinish } from "@agboss/core";
+import { Workflow, onStart, toFinish } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
 import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
@@ -2723,7 +2723,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
   name: "trip-workflow",
   version: "1.0.0",
   flow: [
-    start(TripWorkflowStart)
+    onStart(TripWorkflowStart)
       .returns(TripRequestDto)
       .toParallelActions(BookFlightAction, BookHotelAction)
       .join()
@@ -2814,7 +2814,7 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 ## Pitfalls
 
-- `start(A).returns(B).toFinish(C)` on one line — one call per line, always.
+- `onStart(A).returns(B).toFinish(C)` on one line — one call per line, always.
 - `.onError` after `.returns(…)`: it goes right after the step that throws, before its `.returns`.
 - `.onError` after a join, or `.onJoinError` after a single step — the other one does not compile.
 - Continuing a shared node inline in two places (`[flow.shared-node-inline]`) — give it its own path.

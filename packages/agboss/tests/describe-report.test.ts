@@ -38,7 +38,7 @@ import {
   NoteCompaction,
   NotesDeskApplication,
 } from "./compaction/compaction.fixture.js";
-import { start } from "./helpers/flow.js";
+import { onStart } from "./helpers/flow.js";
 
 /** A block rule with its own text, beside one whose class computes it. */
 @PiiPolicy({
@@ -68,7 +68,7 @@ class ClerkWorkflowFinish {}
   name: "clerk-workflow",
   version: "1.0.0",
   flow: [
-    start(ClerkWorkflowStart)
+    onStart(ClerkWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ClerkAgent)
       .toFinish(ClerkWorkflowFinish),
@@ -254,7 +254,7 @@ class OwnNoteWorkflowFinish {}
   name: "own-note-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnNoteWorkflowStart)
+    onStart(OwnNoteWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OwnNoteAgent)
       .toFinish(OwnNoteWorkflowFinish),

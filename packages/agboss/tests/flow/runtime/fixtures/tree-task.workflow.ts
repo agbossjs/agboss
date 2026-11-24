@@ -10,7 +10,7 @@ import {
   type Produced,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 
 /**
  * #264 PR 2 — the tree's concurrency cap, `@Workflow({ maxConcurrentExecutions })`. Every task is a
@@ -129,7 +129,7 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskWorkflowStart)
+    onStart(TaskWorkflowStart)
       .returns(TaskDto)
       .toAction(WorkAction)
       .returns(TaskDoneDto)

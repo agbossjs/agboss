@@ -20,7 +20,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { CardPiiPolicy, ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
 
 const KEY = secret("PII_UNIT_KEY");
@@ -207,7 +207,9 @@ class LevelAgent {}
 @Workflow({
   name: "lv-workflow",
   version: "1.0.0",
-  flow: [start(LevelStart).returns(WorkflowStartTextDto).toAgent(LevelAgent).toFinish(LevelFinish)],
+  flow: [
+    onStart(LevelStart).returns(WorkflowStartTextDto).toAgent(LevelAgent).toFinish(LevelFinish),
+  ],
   piiPolicies: [EmailKindPiiPolicy],
 })
 class LevelWorkflow {}

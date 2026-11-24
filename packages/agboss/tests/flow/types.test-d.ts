@@ -1,17 +1,17 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../src/flow/ast.js";
 import {
-  agent,
-  action,
+  onAgent,
+  onAction,
   caseOf,
   route,
-  router,
-  start,
+  onRouter,
+  onStart,
   toAction,
   toAgent,
   toFinish,
   toRouter,
-  workflow,
+  onWorkflow,
 } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent, RagMode, type AgentOptions } from "../../src/flow/decorators/agent.js";
@@ -178,25 +178,25 @@ class FreshAgent {}
 
 describe("AC1: a path starts with its source's kind", () => {
   it("a source of the wrong kind does not compile", () => {
-    start(OfferWorkflowStart);
-    agent(ReviewerAgent);
-    router(MainRouter);
-    action(SendOfferAction);
+    onStart(OfferWorkflowStart);
+    onAgent(ReviewerAgent);
+    onRouter(MainRouter);
+    onAction(SendOfferAction);
     // @ts-expect-error — MainRouter is not an agent
-    agent(MainRouter);
+    onAgent(MainRouter);
     // @ts-expect-error — DraftAgent is not a workflow start
-    start(DraftAgent);
+    onStart(DraftAgent);
     // @ts-expect-error — DraftAgent is not a router
-    router(DraftAgent);
+    onRouter(DraftAgent);
     // @ts-expect-error — DraftAgent is not an action
-    action(DraftAgent);
-    expectTypeOf(start(OfferWorkflowStart)).toExtend<FlowPath>();
+    onAction(DraftAgent);
+    expectTypeOf(onStart(OfferWorkflowStart)).toExtend<FlowPath>();
   });
 });
 
 describe("AC2: transitions name the target's kind", () => {
   it("a target of the wrong kind does not compile", () => {
-    const shortlist = start(OfferWorkflowStart).returns(ShortlistDto);
+    const shortlist = onStart(OfferWorkflowStart).returns(ShortlistDto);
     shortlist.toAgent(DraftAgent);
     // @ts-expect-error — MainRouter is not an agent
     shortlist.toAgent(MainRouter);
@@ -212,10 +212,10 @@ describe("AC2: transitions name the target's kind", () => {
   });
 
   it("returns is checked against output", () => {
-    start(OfferWorkflowStart).returns(ShortlistDto);
+    onStart(OfferWorkflowStart).returns(ShortlistDto);
     // @ts-expect-error — the start's input is ShortlistDto
-    start(OfferWorkflowStart).returns(OfferDraftDto);
-    const drafted = start(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
+    onStart(OfferWorkflowStart).returns(OfferDraftDto);
+    const drafted = onStart(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
     drafted.returns(OfferDraftDto);
     // @ts-expect-error — draft-agent gives OfferDraftDto, not a list of it
     drafted.returns(listOf(OfferDraftDto));
@@ -225,7 +225,7 @@ describe("AC2: transitions name the target's kind", () => {
   });
 
   it("a next node that cannot take what the path carries does not compile", () => {
-    const drafted = start(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
+    const drafted = onStart(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
     // @ts-expect-error — broken-agent's generated input reports [input.missing-on-path]
     drafted.returns(OfferDraftDto).toAgent(BrokenAgent);
     expectTypeOf<InputOf<BrokenAgent>>().toHaveProperty("__error");
@@ -235,9 +235,9 @@ describe("AC2: transitions name the target's kind", () => {
 describe("S3: before generation every check names the fix", () => {
   it("an unbranded class resolves to the diagnostic type", () => {
     // @ts-expect-error — Missing generated types — run `agboss check`
-    agent(FreshAgent);
+    onAgent(FreshAgent);
     // @ts-expect-error — Missing generated types — run `agboss check`
-    start(OfferWorkflowStart).returns(ShortlistDto).toAgent(FreshAgent);
+    onStart(OfferWorkflowStart).returns(ShortlistDto).toAgent(FreshAgent);
     expectTypeOf<InputOf<FreshAgent>>().toEqualTypeOf<MissingGeneratedTypes>();
     expectTypeOf<OutputOf<FreshAgent>>().toEqualTypeOf<MissingGeneratedTypes>();
   });
@@ -245,11 +245,11 @@ describe("S3: before generation every check names the fix", () => {
 
 describe("AC15: .returns follows every step with an output and no step without one", () => {
   it("returns required after output, impossible after void action", () => {
-    const drafted = start(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
+    const drafted = onStart(OfferWorkflowStart).returns(ShortlistDto).toAgent(DraftAgent);
     // @ts-expect-error — draft-agent has an output: .returns(OfferDraftDto) comes first
     drafted.toAgent(ReviewerAgent);
     // @ts-expect-error — a start returns its input first
-    start(OfferWorkflowStart).toAgent(DraftAgent);
+    onStart(OfferWorkflowStart).toAgent(DraftAgent);
     const notified = toAction(NotifyRecruiterAction);
     notified.toFinish(OfferSentWorkflowFinish);
     // @ts-expect-error — notify-recruiter-action has no output: nothing to return
@@ -262,7 +262,7 @@ describe("AC15: .returns follows every step with an output and no step without o
 
 describe("AC5: .returns(oneOf(…)).switch(caseOf(…)) after a oneOf output (#299 S54 c)", () => {
   it("caseOf outside oneOf does not compile, nor a missing case", () => {
-    const reviewed = agent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, DraftApprovedDto));
+    const reviewed = onAgent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, DraftApprovedDto));
     reviewed.switch(
       caseOf(ChangesRequestedDto).toAgent(EditorAgent),
       caseOf(DraftApprovedDto).toAction(SendOfferAction),
@@ -276,31 +276,31 @@ describe("AC5: .returns(oneOf(…)).switch(caseOf(…)) after a oneOf output (#2
     // @ts-expect-error — the switch is not exhaustive: DraftApprovedDto has no case
     reviewed.switch(caseOf(ChangesRequestedDto).toAgent(EditorAgent));
     // @ts-expect-error — a oneOf output is returned whole, oneOf(…), never one of its classes
-    agent(ReviewerAgent).returns(ChangesRequestedDto);
+    onAgent(ReviewerAgent).returns(ChangesRequestedDto);
     // @ts-expect-error — the oneOf is the step's own: the same classes
-    agent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, OfferSentDto));
+    onAgent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, OfferSentDto));
     // @ts-expect-error — a single output is returned, not switched
-    agent(DraftAgent).returns(OfferDraftDto).switch(caseOf(OfferDraftDto).toAgent(ReviewerAgent));
+    onAgent(DraftAgent).returns(OfferDraftDto).switch(caseOf(OfferDraftDto).toAgent(ReviewerAgent));
     expectTypeOf<ProducerOutputOf<ProfilerAgent>>().toEqualTypeOf<ProfileDto | ResumeMissingDto>();
   });
 });
 
 describe("AC6: a router continues with chooseOne(route(…)…)", () => {
   it("chooseOne takes routes only", () => {
-    router(MainRouter).chooseOne(
+    onRouter(MainRouter).chooseOne(
       route(ScoutAgent).returns(OpeningsDto).toFinish(ChatWorkflowFinish),
     );
     // @ts-expect-error — chooseOne takes route(…) paths, not caseOf(…)
-    router(MainRouter).chooseOne(caseOf(ProfileDto).toRouter(MainRouter));
+    onRouter(MainRouter).chooseOne(caseOf(ProfileDto).toRouter(MainRouter));
     // @ts-expect-error — a router gives no value to return
-    router(MainRouter).returns(ProfileDto);
-    expectTypeOf(router(MainRouter)).toHaveProperty("chooseOne");
+    onRouter(MainRouter).returns(ProfileDto);
+    expectTypeOf(onRouter(MainRouter)).toHaveProperty("chooseOne");
   });
 });
 
 describe("AC7: .onError stands right after the step that throws", () => {
   it("onError takes a toAction side path and does not follow .returns", () => {
-    const edited = agent(EditorAgent).onError(
+    const edited = onAgent(EditorAgent).onError(
       VisitsLimitExceededError,
       toAction(NotifyRecruiterAction),
     );
@@ -309,14 +309,14 @@ describe("AC7: .onError stands right after the step that throws", () => {
     // @ts-expect-error — .onError comes before the step's .returns, never after it
     returned.onError(VisitsLimitExceededError, sidePath);
     // @ts-expect-error — the side path is toAction(…)…, not a route
-    agent(EditorAgent).onError(VisitsLimitExceededError, route(EditorAgent));
+    onAgent(EditorAgent).onError(VisitsLimitExceededError, route(EditorAgent));
     expectTypeOf(edited).toHaveProperty("returns");
   });
 });
 
 describe("AC7: a side path starts with any transition, kinds checked", () => {
   it("toAction, toAgent, toRouter and toFinish begin a side path", () => {
-    const edited = agent(EditorAgent)
+    const edited = onAgent(EditorAgent)
       .onError(VisitsLimitExceededError, toFinish(OfferSentWorkflowFinish))
       .onError(Error, toAgent(DraftAgent).returns(OfferDraftDto).toAgent(ReviewerAgent))
       .onError(
@@ -370,7 +370,7 @@ describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
     // @ts-expect-error — the option is maxPrevious, `limit` is gone (#1285)
     historyOf(DraftDto, { limit: 2 });
     // @ts-expect-error — a step returns values, never a history of them
-    agent(DraftAgent).returns(historyOf(OfferDraftDto));
+    onAgent(DraftAgent).returns(historyOf(OfferDraftDto));
   });
 
   it("a component declares a plain output; historyOf is no output and no start input", () => {
@@ -712,9 +712,9 @@ describe("#280 AC1, AC2: code routers — options by decidedBy, route(input) typ
 });
 
 describe("#273: parallel launches and their joins", () => {
-  const planned = () => agent(PlannerAgent).returns(PlanDto);
-  const screened = () => agent(ScreeningAgent).returns(listOf(CompanyDto));
-  const charged = () => action(ChargePaymentAction).returns(PaymentDto);
+  const planned = () => onAgent(PlannerAgent).returns(PlanDto);
+  const screened = () => onAgent(ScreeningAgent).returns(listOf(CompanyDto));
+  const charged = () => onAction(ChargePaymentAction).returns(PaymentDto);
 
   it("AC4: launch without join — a launch is followed by .join() only", () => {
     const launched = planned().toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent);
@@ -724,7 +724,7 @@ describe("#273: parallel launches and their joins", () => {
     launched.returns(ResearchDto);
     const flow: readonly FlowPath[] = [
       // @ts-expect-error — a path that stops at a launch is not a path
-      start(OfferWorkflowStart)
+      onStart(OfferWorkflowStart)
         .returns(ShortlistDto)
         .toAgent(DraftAgent)
         .returns(OfferDraftDto)
@@ -739,7 +739,7 @@ describe("#273: parallel launches and their joins", () => {
     charged().toParallelAgents(SendReceiptAction);
     // @ts-expect-error — critic-agent is not an action
     planned().toParallelActions(CriticAgent);
-    const routed = start(OfferWorkflowStart).returns(ShortlistDto).toRouter(MainRouter);
+    const routed = onStart(OfferWorkflowStart).returns(ShortlistDto).toRouter(MainRouter);
     // @ts-expect-error — a router launches agents only
     routed.toParallelActions(SendOfferAction);
     expectTypeOf(charged()).toHaveProperty("toParallelActions");
@@ -790,7 +790,7 @@ describe("#273: parallel launches and their joins", () => {
   });
 
   it("AC6 / AC8: a router launch — optional for OnDemand and Skip, a code router's list", () => {
-    const joined = start(OfferWorkflowStart)
+    const joined = onStart(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
@@ -813,8 +813,8 @@ describe("#273: parallel launches and their joins", () => {
 });
 
 describe("#263: child workflows", () => {
-  const picked = () => agent(CompanyPickerAgent).returns(CompanyDto);
-  const found = () => agent(CompanyFinderAgent).returns(listOf(CompanyDto));
+  const picked = () => onAgent(CompanyPickerAgent).returns(CompanyDto);
+  const found = () => onAgent(CompanyFinderAgent).returns(listOf(CompanyDto));
   const graded = () =>
     caseOf(CompanyGradeDto)
       .toAgent(JobOfferAgent)
@@ -874,13 +874,13 @@ describe("#263: child workflows", () => {
     expectTypeOf(joined).toHaveProperty("returns");
   });
 
-  it("own path workflow(W), the kind of every child checked, the start choice a compile error", () => {
-    workflow(CompanyReviewWorkflow)
+  it("own path onWorkflow(W), the kind of every child checked, the start choice a compile error", () => {
+    onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .returns(REVIEWED)
       .switch(graded(), rejected(), failed());
     // @ts-expect-error — company-picker-agent is not a workflow
-    workflow(CompanyPickerAgent);
+    onWorkflow(CompanyPickerAgent);
     // @ts-expect-error — job-offer-agent is not a workflow
     picked().toWorkflow(JobOfferAgent);
     // @ts-expect-error — company-review-workflow is not an agent

@@ -14,7 +14,7 @@ import {
   type ValuesOutdatedEvent,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
-import { agent, caseOf, route, start } from "../../../helpers/flow.js";
+import { onAgent, caseOf, route, onStart } from "../../../helpers/flow.js";
 import { DraftChangesDto } from "../../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../../fixtures/dtos.js";
 import {
@@ -129,12 +129,12 @@ export class LoopWorkflowFinish {}
   version: "1.0.0",
   maxSteps: 30,
   flow: [
-    start(LoopWorkflowStart)
+    onStart(LoopWorkflowStart)
       .returns(ArticleRequestDto)
       .toAgent(LoopResearcherAgent)
       .returns(ResearchDto)
       .toAgent(LoopWriterAgent),
-    agent(LoopWriterAgent)
+    onAgent(LoopWriterAgent)
       .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -251,10 +251,10 @@ export class JobsRouter {}
   version: "1.0.0",
   maxSteps: 20,
   flow: [
-    start(JobsWorkflowStart)
+    onStart(JobsWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ProfileAgent),
-    agent(ProfileAgent)
+    onAgent(ProfileAgent)
       .returns(CandidateProfileDto)
       .toAgent(SearchAgent)
       .returns(JobListDto)

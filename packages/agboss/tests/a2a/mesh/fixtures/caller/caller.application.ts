@@ -24,7 +24,7 @@ import {
   TestApplicationDailyBudget,
   TestTenantDailyBudget,
 } from "../../../../flow/fixtures/budgets.js";
-import { start } from "../../../../helpers/flow.js";
+import { onStart } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import { CALLER_TOKEN, PEER_APPLICATION } from "../peer/peer.application.js";
 
@@ -237,7 +237,7 @@ export class CallerAnswerWorkflowFinish {}
   name: "caller-workflow",
   version: "1.0.0",
   flow: [
-    start(CallerWorkflowStart)
+    onStart(CallerWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(AskPeerAction)
       .returns(WorkflowFinishTextDto)

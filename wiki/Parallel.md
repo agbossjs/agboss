@@ -20,7 +20,7 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "@agboss/core";
+import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -123,7 +123,7 @@ export class ValidScoreArbiter {}
 
 export const quorumPaths = [
   // any two of three: the counted answers only, the third cancelled
-  start(CandidateWorkflowStart)
+  onStart(CandidateWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
     .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
@@ -134,7 +134,7 @@ export const quorumPaths = [
     .toFinish(ScoreReviewWorkflowFinish),
 
   // groups: the first complete one (by priority) continues its own path
-  start(DealWorkflowStart)
+  onStart(DealWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
     .joinQuorumGroups(
@@ -181,7 +181,7 @@ agents' answers.
 - Every group continues its own path: `group(…).priority(n).returns(…).toAgent / .toAction /
   .toRouter / .toWorkflow / .toFinish(…)`; a group without a continuation does not compile (and is
   `[graph.dead-end]` for the untyped builder). A node reached from two groups (or a group and a
-  route, or `.onJoinError`) has its own path, by the general rules — `agent(FullReviewAgent)…`.
+  route, or `.onJoinError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
   `.joinQuorumGroups` counts as one nesting level (`[flow.path-too-deep]`).
 
 ## What `.returns(…)` may promise

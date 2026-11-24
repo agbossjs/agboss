@@ -9,8 +9,8 @@ import type { FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
 
 /**
- * The deadlines of a flow's question steps (#941): every `.toQuestion(Q, { expiresIn })` of every
- * path and sub-path (the side path `toQuestion(Q, …)` of an `.onError` too). One class is one node,
+ * The deadlines of a flow's question steps (#941): every `.toExternalTask(Q, { expiresIn })` of every
+ * path and sub-path (the side path `toExternalTask(Q, …)` of an `.onError` too). One class is one node,
  * so one question has one `expiresIn` (`[question.expires-in-conflict]` otherwise); a value that is
  * no duration of at least `seconds(1)` is `[channel.expires-in-invalid]`.
  */

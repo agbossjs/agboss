@@ -392,7 +392,7 @@ export class MainRouter {}
 
 ```ts file=src/desk/desk.workflow.ts
 // desk.workflow.ts — the module: the paths (`flow`), defaults, memory, providers; money: the application's budgets
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, route, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "./agents/support.agent.js";
 import { MainRouter } from "./routers/main.router.js";
@@ -405,7 +405,7 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
   name: "desk-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatWorkflowStart)
+    onStart(ChatWorkflowStart)
       .returns(WorkflowStartTextDto) // what the step put on the path: its scope
       .toRouter(MainRouter)
       .chooseOne(
@@ -540,15 +540,15 @@ provider and guardrail) and its first workflow `<project>-workflow` in `src/<pro
 `@Workflow({ flow: [...] })` is a list of paths, each from a source to its finishes — built into
 one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
 
-- **Sources:** `start(Start)` (where an execution begins); `agent(X)` / `router(R)` / `action(A)` /
-  `workflow(W)` (#263) / `question(Q)` (#659) — the path of a node reached from two places (a review loop), written once.
+- **Sources:** `onStart(Start)` (where an execution begins); `onAgent(X)` / `onRouter(R)` / `onAction(A)` /
+  `onWorkflow(W)` (#263) / `onExternalTask(Q)` (#659) — the path of a node reached from two places (a review loop), written once.
 - **Steps:** `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)`
-  (#263), `.toQuestion(Q)` (#659: a question role's step, Components → Channels); `.returns(Dto)` says
+  (#263), `.toExternalTask(Q)` (#659: a question role's step, Components → Channels); `.returns(Dto)` says
   what the step before put on the path (its **scope**: later nodes read their `input` fields from
   it, `[input.missing-on-path]` when no path brings one) — one value per `.returns`, several as a
   chain `.returns(A).returns(optional(B))` (#299); `.chooseOne(route(X)…)` — the router's
   choice, one `route(…)` per `@Router` route; `.returns(oneOf(A, B)).switch(caseOf(A)…)` — a branch
-  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toQuestion(…)… | toWorkflow(…)… | toFinish(…))` — the side
+  per variant of a `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toExternalTask(…)… | toWorkflow(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   before the step's `.returns(…)`.
 - **Parallel launches (#273):** `.toParallelAgents(A, B, B, { maxConcurrency })` /
@@ -592,7 +592,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   finishes' outputs — `.returns(XDto)` for one class, `.returns(oneOf(…)).switch(caseOf(…)…)` with one
   case per class (two finishes of one class are one case; a case counts as read), and
   `.join().returns(listOf(oneOf(…)))` after a per-item launch (S53: one polymorphic list). Errors:
-  `.onError(E, …)` right after `.toWorkflow(W)` or `workflow(W)`, `.onJoinError(E, …)` right after
+  `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, `.onJoinError(E, …)` right after
   the join (the other does not compile). A per-item child with no finish reachable from one of its
   `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
   Any side path that can catch a `LimitExceededError` (the class, a subclass, a parent such as
@@ -666,7 +666,7 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
 - **Recursion (#264):** `ThisWorkflow` — a marker for the enclosing workflow (a decorator's
   arguments are evaluated before its class exists) — is a child like any other: `.toWorkflow(ThisWorkflow)`,
   `route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxItems })`, the node `this-workflow`
-  (one class = one node; its own path `workflow(ThisWorkflow)…` from two places). It is the workflow's
+  (one class = one node; its own path `onWorkflow(ThisWorkflow)…` from two places). It is the workflow's
   own compiled graph, run from the registry — never its own subgraph (Studio: the node
   `this-workflow`, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
   `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
@@ -820,7 +820,7 @@ OfferDraftDto })` (`[io.ambiguous-cycle]`, #299); a node reads the earlier versi
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction } from "@agboss/core";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction } from "@agboss/core";
 import { Flag, Text, oneOf } from "@agboss/core/dto";
 
 export class ShortlistDto {
@@ -873,13 +873,13 @@ export class OfferWorkflow {}
 ```ts
 // a review loop: the reviewer is reached from the draft and from the editor — its path is its own
 export const offerPaths = [
-  start(OfferWorkflowStart)
+  onStart(OfferWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(DraftAgent)
     .returns(OfferDraftDto)
     .toAgent(ReviewerAgent),
 
-  agent(ReviewerAgent)
+  onAgent(ReviewerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
@@ -900,7 +900,7 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Flag, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
 
 export class CompanyDto {
@@ -975,7 +975,7 @@ export class LaunchWorkflow {}
 ```ts
 export const launchPaths = [
   // one agent per item of a list: its join gives one value per item
-  start(ScreeningWorkflowStart)
+  onStart(ScreeningWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(ScreeningAgent)
     .returns(listOf(CompanyDto))
@@ -987,7 +987,7 @@ export const launchPaths = [
     .toFinish(RankingWorkflowFinish),
 
   // a router decides who is launched; OnDemand / Skip routes give optional(…) values
-  start(SupportWorkflowStart)
+  onStart(SupportWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(SupportRouter)
     .toParallelAgents(OrderAgent, RefundPolicyAgent, LoyaltyAgent)
@@ -1002,7 +1002,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, start, toAction } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction } from "@agboss/core";
 import { Flag, Text, WorkflowStartTextDto, listOf, oneOf } from "@agboss/core/dto";
 
 export class VendorDto {
@@ -1060,7 +1060,7 @@ export class VendorScreeningWorkflow {}
   name: "vendor-check-workflow",
   version: "1.0.0",
   flow: [
-    start(VendorCheckWorkflowStart)
+    onStart(VendorCheckWorkflowStart)
       .returns(VendorDto)
       .toAgent(VendorCheckerAgent)
       .onError(
@@ -1083,7 +1083,7 @@ export class VendorCheckWorkflow {}
 export const childPaths = [
   // one child per item: each VendorDto enters vendor-check-workflow-start; the join is the list
   // of the child's finish output classes
-  start(VendorScreeningWorkflowStart)
+  onStart(VendorScreeningWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(VendorFinderAgent)
     .returns(listOf(VendorDto))
@@ -1097,7 +1097,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "@agboss/core";
+import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -1200,7 +1200,7 @@ export class ValidScoreArbiter {}
 
 export const quorumPaths = [
   // any two of three: the counted answers only, the third cancelled
-  start(CandidateWorkflowStart)
+  onStart(CandidateWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
     .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
@@ -1211,7 +1211,7 @@ export const quorumPaths = [
     .toFinish(ScoreReviewWorkflowFinish),
 
   // groups: the first complete one (by priority) continues its own path
-  start(DealWorkflowStart)
+  onStart(DealWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
     .joinQuorumGroups(
@@ -1592,8 +1592,8 @@ output })` on a successful result, inner first, each output validated against th
   (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
   (`[channel.shared-interpreter]`). **Question roles (#659):** `@ChannelRole({ name: "…-question",
 description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVisits? })` is a
-  workflow question asked by a flow step — `.returns(AskDto).toQuestion(Role).returns(AnswerDto)`
-  (`question(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
+  workflow question asked by a flow step — `.returns(AskDto).toExternalTask(Role).returns(AnswerDto)`
+  (`onExternalTask(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
   `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
   from the path (its field `ask`, #802), asks the role's channel through the pause seam like an
   approval (`result.pending[i].kind === PauseKind.Question`, `ask` the masked question — an opaque
@@ -2322,7 +2322,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   **Pause deadlines (#941):** a pause's record carries `expiresAt` / `expiryBound` (`Pause` | `RunDeadline` | `Quorum`) / `boundAt`, fixed
   when the record is made (`flow/runtime/pause-record-made.ts` `deadlineOf`: `min(askedAt + expiresIn, frame.execution.deadline.at)`, a
   tie → `RunDeadline`; `expiresIn` of the step/tool over the role's: `PauseQuestion.expiresIn ?? PauseChannel.expiresIn`; a question
-  node's own value from its `.toQuestion` edges, `analyse/question-expiry.ts`). `app/resume.ts` refuses an answer at `expiresAt ≤ now`
+  node's own value from its `.toExternalTask` edges, `analyse/question-expiry.ts`). `app/resume.ts` refuses an answer at `expiresAt ≤ now`
   before the interpreter and before the mark; the store's `resolve` condition (`expires_at > at`) is the final word (I2). The expiry look
   (`application/pause-expiry-look.ts`, a look of the pause timers: `findPendingByExpiresAtBefore(now, 50)`, grouped by root, the root's
   workflow by its record's `bundle`, `BuiltApp.expire` = `app/expire-root.ts`) calls `TreeMoves.expired`: `leases.tryHold(…, Expired)` →
@@ -3029,7 +3029,7 @@ page. Locally: `scripts/wiki.sh check`. Snippet conventions (README, CLAUDE, Wik
   declarations; a line `// @snippet` in it marks where the block goes (to wrap a fragment). A
   workflow snippet is loaded to write its types: its classes are real (exported), not `declare`d.
 - ` ```ts no-check: <reason> ` opts a block out — the reason is required; use it sparingly.
-- **One call per line in flow chains** (#289): `start(A)` / `.returns(B)` / `.toFinish(C)`, also
+- **One call per line in flow chains** (#289): `onStart(A)` / `.returns(B)` / `.toFinish(C)`, also
   `route(X)` / `.toFinish(F)`. `*.workflow.ts` and the flow fixtures (`FLOW_FILES` in
   `scripts/flow-style.mjs` = `.prettierignore`) are formatted by `make fmt`
   (`node scripts/format-flows.mjs`), not Prettier, and checked by ESLint

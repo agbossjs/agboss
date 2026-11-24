@@ -38,7 +38,7 @@ import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { oneOf, variant, type Variant } from "../../src/flow/dto-wrappers.js";
 import { EmptyEnvironment, type Produced } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, start } from "../helpers/flow.js";
+import { caseOf, onStart } from "../helpers/flow.js";
 
 /** The header the TCK adapter (`tck-serve.ts`) names a message's scenario in. */
 export const TCK_SCENARIO_HEADER = "x-agboss-tck-scenario";
@@ -216,7 +216,7 @@ export class TckDataFinish {}
   name: "tck-workflow",
   version: "1.0.0",
   flow: [
-    start(TckWorkflowStart)
+    onStart(TckWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(TckScenarioAction)
       .returns(oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto))
@@ -225,7 +225,7 @@ export class TckDataFinish {}
         caseOf(WorkflowFinishFileDto).toFinish(TckFileFinish),
         caseOf(TckDataDto).toFinish(TckDataFinish),
         caseOf(TckAskDto)
-          .toQuestion(TckInputQuestion)
+          .toExternalTask(TckInputQuestion)
           .returns(TckReplyDto)
           .toAction(TckAnsweredAction)
           .returns(WorkflowFinishTextDto)
@@ -283,7 +283,7 @@ export class TckMessageFinish {}
   name: "tck-message-workflow",
   version: "1.0.0",
   flow: [
-    start(TckMessageWorkflowStart)
+    onStart(TckMessageWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(TckMessageAction)
       .returns(WorkflowFinishTextDto)

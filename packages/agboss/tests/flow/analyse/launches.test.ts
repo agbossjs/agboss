@@ -63,7 +63,7 @@ import {
   SendReceiptAction,
   UpdateCrmAction,
 } from "../fixtures/launch.fixture.js";
-import { agent, start, toAction } from "../fixtures/paths.js";
+import { onAgent, onStart, toAction } from "../fixtures/paths.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
 
 /** #273 PR 1 — launches in the analyser: scopes, joins, policies, widths, steps. */
@@ -89,9 +89,12 @@ const codesOf = (flow: Flow, options: Partial<WorkflowOptions> = {}): readonly s
   errorsOf(flow, options).map((found) => found.code);
 
 const planned = () =>
-  start(ResearchWorkflowStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent).returns(PlanDto);
+  onStart(ResearchWorkflowStart)
+    .returns(WorkflowStartTextDto)
+    .toAgent(PlannerAgent)
+    .returns(PlanDto);
 const screened = () =>
-  start(ScreeningWorkflowStart)
+  onStart(ScreeningWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(ScreeningAgent)
     .returns(listOf(CompanyDto));
@@ -277,7 +280,7 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
 
 describe("#273 AC8: a value that may be missing is optional(…) for every consumer", () => {
   const helpDesk = () =>
-    start(HelpDeskWorkflowStart)
+    onStart(HelpDeskWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
@@ -364,7 +367,7 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
         .toAgent(CritiquesAgent)
         .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
-      agent(CriticAgent).returns(CritiqueDto).toFinish(ArticleDraftWorkflowFinish),
+      onAgent(CriticAgent).returns(CritiqueDto).toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual(
       expect.objectContaining({
@@ -400,7 +403,7 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
 
   it("AC11: a .returns after an output-less actions join fails", () => {
     const flow = [
-      start(CheckoutWorkflowStart)
+      onStart(CheckoutWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toAction(ChargePaymentAction)
         .returns(PaymentDto)
@@ -438,7 +441,7 @@ const routerFlow = (
   launcher: abstract new () => unknown,
   targets: readonly (abstract new () => unknown)[],
 ): Flow => [
-  start(HelpDeskWorkflowStart)
+  onStart(HelpDeskWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toRouter(launcher)
     .toParallelAgents(...targets)
@@ -486,7 +489,7 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
       { target: RefundPolicyAgent, spawn: SpawnPolicy.Always },
     ]);
     const flow: Flow = [
-      start(HelpDeskWorkflowStart)
+      onStart(HelpDeskWorkflowStart)
         .returns(WorkflowStartTextDto)
         .toRouter(always)
         .toParallelAgents(OrderLookupAgent, RefundPolicyAgent)

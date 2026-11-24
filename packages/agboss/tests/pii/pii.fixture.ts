@@ -22,7 +22,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 /** The variable the test key is read from. */
 export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
@@ -179,7 +179,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 3 } } as c
 @Workflow({
   name: "pii-workflow",
   version: "1.0.0",
-  flow: [start(PiiStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(PiiFinish)],
+  flow: [onStart(PiiStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(PiiFinish)],
   defaults,
   piiPolicies: [CardPiiPolicy, EmployeeIdPiiPolicy],
   providers: [Outbox, EmployeeDirectory],
@@ -189,7 +189,7 @@ export class PiiWorkflow {}
 @Workflow({
   name: "open-workflow",
   version: "1.0.0",
-  flow: [start(OpenStart).returns(WorkflowStartTextDto).toAgent(OpenAgent).toFinish(OpenFinish)],
+  flow: [onStart(OpenStart).returns(WorkflowStartTextDto).toAgent(OpenAgent).toFinish(OpenFinish)],
   defaults,
 })
 export class OpenWorkflow {}

@@ -44,7 +44,7 @@ class Start {}
 })
 class Finish {}
 
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -58,7 +58,7 @@ import { EmptyEnvironment } from "../../src/index.js";
     tools: { maxToolCalls: 1 },
   },
   uncompactedTurns: 1,
-  flow: [start(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
+  flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
 })
 class ObsWf {}
 

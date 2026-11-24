@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
-import { start } from "../../src/flow/builder.js";
+import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent, RagMode } from "../../src/flow/decorators/agent.js";
 import { declarationOf, declared } from "../../src/flow/decorators/declaration.js";
@@ -107,7 +107,7 @@ describe("@Workflow records the flow as plain paths", () => {
     @Workflow({
       name: "limited-workflow",
       version: "2.0.0",
-      flow: [start(OrderWorkflowStart)],
+      flow: [onStart(OrderWorkflowStart)],
       maxSteps: 12,
       maxDepth: 2,
       maxConcurrentExecutions: 4,
@@ -139,7 +139,7 @@ describe("#261: @Workflow keeps its own services", () => {
     @Workflow({
       name: "serviced-workflow",
       version: "1.0.0",
-      flow: [start(OrderWorkflowStart)],
+      flow: [onStart(OrderWorkflowStart)],
       providers: [OfferBook, limit],
     })
     class ServicedWorkflow {}

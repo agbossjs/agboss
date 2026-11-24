@@ -20,7 +20,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 import {
   BudgetOwnerQuestion,
   InboxBudgetOwnerChannel,
@@ -181,7 +181,7 @@ export class BuyerWorkflowFinish {}
   name: "buyer-workflow",
   version: "1.0.0",
   flow: [
-    start(BuyerWorkflowStart)
+    onStart(BuyerWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(BuyerAgent)
       .toFinish(BuyerWorkflowFinish),
@@ -208,7 +208,7 @@ export class OwnerBuyerWorkflowFinish {}
   name: "owner-buyer-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnerBuyerWorkflowStart)
+    onStart(OwnerBuyerWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OwnerBuyerAgent)
       .toFinish(OwnerBuyerWorkflowFinish),

@@ -3,7 +3,7 @@ import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../..
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import {
   ColorDto,
@@ -30,7 +30,7 @@ class ChainFinish {}
   name: "chain-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainStart)
+    onStart(ChainStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Shaper)
       .returns(ShapeDto)
@@ -51,7 +51,7 @@ class ShapeFinish {}
   name: "shape-workflow",
   version: "1.0.0",
   flow: [
-    start(ShapeStart)
+    onStart(ShapeStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Shaper)
       .returns(ShapeDto)
@@ -80,7 +80,7 @@ class LaunchFinish {}
   name: "launch-workflow",
   version: "1.0.0",
   flow: [
-    start(LaunchStart)
+    onStart(LaunchStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(LaunchShape, LaunchColor)
       .join()

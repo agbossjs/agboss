@@ -16,7 +16,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { BookingDto, BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
@@ -84,7 +84,7 @@ export class DeclineCheckedWorkflowFinish {}
   name: "decline-check-workflow",
   version: "1.0.0",
   flow: [
-    start(DeclineCheckWorkflowStart)
+    onStart(DeclineCheckWorkflowStart)
       .returns(ItemDto)
       .toAction(DeclinableChargeAction)
       .returns(ItemResultDto)
@@ -104,7 +104,7 @@ export class DeclineBookedWorkflowFinish {}
   name: "decline-booking-workflow",
   version: "1.0.0",
   flow: [
-    start(DeclineBookingWorkflowStart)
+    onStart(DeclineBookingWorkflowStart)
       .returns(ItemDto)
       .toAction(BookItemAction)
       .returns(BookingDto)
@@ -130,7 +130,7 @@ function parentOf(name: string, child: object, placement: ChildPlacement) {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(ParentStart)
+      onStart(ParentStart)
         .returns(ItemDto)
         .toWorkflow(child as typeof DeclineCheckWorkflow, { placement })
         .onError(PaymentDeclinedError, toFinish(DeclinedWorkflowFinish))

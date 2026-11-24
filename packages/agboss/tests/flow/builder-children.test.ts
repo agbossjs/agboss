@@ -17,7 +17,7 @@ import {
   LinkOfferWorkflow,
 } from "./fixtures/children.fixture.js";
 import { HelpDeskRouter } from "./fixtures/launch.fixture.js";
-import { router, start } from "./fixtures/paths.js";
+import { onRouter, onStart } from "./fixtures/paths.js";
 
 /** #263 PR 1 — child workflows in the AST: what the builder writes, what it refuses, the printout. */
 
@@ -28,13 +28,13 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
 };
 
 const found = () =>
-  start(JobOfferWorkflowStart)
+  onStart(JobOfferWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(CompanyFinderAgent)
     .returns(listOf(CompanyDto));
 
 describe("#263: a child workflow in the AST", () => {
-  it("toWorkflow is a transition of kind workflow; workflow(W) the source of its own path", () => {
+  it("toWorkflow is a transition of kind workflow; onWorkflow(W) the source of its own path", () => {
     const [, , own] = flowOf(LinkOfferWorkflow);
     expect(flowOf(JobOfferWorkflow)[0]?.steps).toContainEqual({
       kind: StepKind.To,
@@ -59,7 +59,7 @@ describe("#263: a child workflow in the AST", () => {
   });
 
   it("refused: not per item, two children, after a router, a missing join", () => {
-    const picked = start(JobOfferWorkflowStart)
+    const picked = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto);
@@ -75,7 +75,7 @@ describe("#263: a child workflow in the AST", () => {
       "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class",
     );
     expect(() =>
-      router(HelpDeskRouter).toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 }),
+      onRouter(HelpDeskRouter).toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 }),
     ).toThrow("a router launches agents only — .toParallelAgents(…), not toParallelWorkflows(…)");
     expect(() =>
       found()
@@ -84,9 +84,9 @@ describe("#263: a child workflow in the AST", () => {
     ).toThrow("a parallel launch is followed by .join()");
   });
 
-  it("describe / print: the flow in its grammar — toWorkflow, workflow(W), toParallelWorkflows", () => {
+  it("describe / print: the flow in its grammar — toWorkflow, onWorkflow(W), toParallelWorkflows", () => {
     expect(flowLines(flowOf(CompanyScreeningWorkflow)).slice(0, 6)).toEqual([
-      "start(CompanyScreeningWorkflowStart)",
+      "onStart(CompanyScreeningWorkflowStart)",
       "  .returns(WorkflowStartTextDto)",
       "  .toAgent(CompanyFinderAgent)",
       "  .returns(listOf(CompanyDto))",
@@ -96,7 +96,7 @@ describe("#263: a child workflow in the AST", () => {
     expect(flowLines(flowOf(LinkOfferWorkflow))).toEqual(
       expect.arrayContaining([
         "  .toWorkflow(CompanyReviewWorkflow)",
-        "workflow(CompanyReviewWorkflow)",
+        "onWorkflow(CompanyReviewWorkflow)",
         "  .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))",
       ]),
     );

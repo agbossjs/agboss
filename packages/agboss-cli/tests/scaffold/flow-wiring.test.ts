@@ -14,7 +14,7 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
   const TRIAGE = "      route(TriageAgent)\n        .toFinish(TextWorkflowFinish)";
   const BILLING = "      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)";
   const STAR = (routes: string) =>
-    `flow: [\n  start(TextWorkflowStart)\n    .returns(WorkflowStartTextDto)\n    .toRouter(MainRouter)\n    .chooseOne(\n${routes},\n    ),\n]`;
+    `flow: [\n  onStart(TextWorkflowStart)\n    .returns(WorkflowStartTextDto)\n    .toRouter(MainRouter)\n    .chooseOne(\n${routes},\n    ),\n]`;
 
   it("#272: adds route(Agent).toFinish(Finish) after the router's last route, one call per line (#289)", () => {
     const file = workflow(STAR(TRIAGE));
@@ -26,17 +26,17 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
 
   it("#289: a route written on the chooseOne line gets the new one on its own lines, a step in", () => {
     const file = workflow(
-      "[\n  router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done)),\n]",
+      "[\n  onRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(Done)),\n]",
     );
 
     expect(addAgentToFlow(file, "BillingAgent", "MainRouter", "Done").content).toBe(
-      "[\n  router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done),\n    route(BillingAgent)\n      .toFinish(Done)),\n]",
+      "[\n  onRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(Done),\n    route(BillingAgent)\n      .toFinish(Done)),\n]",
     );
   });
 
   it("an unexpected flow is not guessed: an error naming the file", () => {
     const file = workflow(
-      "[start(TextWorkflowStart).returns(WorkflowStartTextDto).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
+      "[onStart(TextWorkflowStart).returns(WorkflowStartTextDto).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
     );
 
     expect(() => addAgentToFlow(file, "BillingAgent", "MainRouter", "TextWorkflowFinish")).toThrow(
@@ -49,7 +49,7 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
 
   it("adding an agent that is already in the choice doubles nothing: it is reported as skipped", () => {
     const file = workflow(
-      "[router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done), route(BillingAgent).toFinish(Done))]",
+      "[onRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(Done), route(BillingAgent).toFinish(Done))]",
     );
 
     const again = addAgentToFlow(file, "BillingAgent", "MainRouter", "Done");

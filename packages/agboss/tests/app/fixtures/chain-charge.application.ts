@@ -15,7 +15,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import {
@@ -47,7 +47,7 @@ export class ChainFarChargeChildStart {}
   name: "chain-far-charge-child-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainFarChargeChildStart)
+    onStart(ChainFarChargeChildStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChildChargeAction)
       .returns(ChargedDto)
@@ -82,7 +82,7 @@ export class ChainChargedFinish {}
   name: "chain-near-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainNearChargeStart)
+    onStart(ChainNearChargeStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChildChargeWorkflow)
       .returns(ChargedDto)
@@ -96,7 +96,7 @@ export class ChainNearChargeWorkflow {}
   name: "chain-far-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChainFarChargeStart)
+    onStart(ChainFarChargeStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(ChainFarChargeChildWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ChargedDto)

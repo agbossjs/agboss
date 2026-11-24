@@ -20,7 +20,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { EndOnceLog } from "./child-end-once.workflow.js";
@@ -92,7 +92,7 @@ export class SideKeptWorkflowFinish {}
   name: "side-undo-workflow",
   version: "1.0.0",
   flow: [
-    start(SideUndoWorkflowStart)
+    onStart(SideUndoWorkflowStart)
       .returns(ItemDto)
       .toAction(BookItemAction)
       .returns(BookingDto)
@@ -115,7 +115,7 @@ export class ChargedWorkflowFinish {}
   name: "charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeWorkflowStart)
+    onStart(ChargeWorkflowStart)
       .returns(ItemDto)
       .toAction(GatedItemAction)
       .returns(ItemResultDto)

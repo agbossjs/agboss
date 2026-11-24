@@ -13,7 +13,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
@@ -94,7 +94,7 @@ export class LoopPaidWorkflowFinish {}
   name: "loop-pay-workflow",
   version: "1.0.0",
   flow: [
-    start(LoopPayWorkflowStart)
+    onStart(LoopPayWorkflowStart)
       .returns(ItemDto)
       .toAgent(LoopPayAgent)
       .returns(ItemResultDto)
@@ -113,7 +113,7 @@ export class LoopParentWorkflowFinish {}
   name: "loop-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(LoopParentWorkflowStart)
+    onStart(LoopParentWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(LoopPayWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ItemResultDto)

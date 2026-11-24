@@ -20,7 +20,7 @@ import {
   TestOpenRouterProvider,
 } from "./providers.fixture.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { providerStub } from "./stub.js";
 
 class AnsDto {
@@ -61,7 +61,7 @@ class AnsFinish {
   name: "ans-workflow",
   version: "1.0.0",
   flow: [
-    start(AnsStart)
+    onStart(AnsStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(AnsAgent, AnsAgent)
       .acceptedBy(AnsArbiter)

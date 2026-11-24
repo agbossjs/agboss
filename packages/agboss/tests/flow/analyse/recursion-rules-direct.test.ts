@@ -13,7 +13,7 @@ import {
 } from "../../../src/flow/analyse/rules/recursion.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { named } from "./graph-fixture.js";
 import {
   CountDoneWorkflowFinish,
@@ -30,7 +30,7 @@ const shown = (found: readonly { code: string; message: string; nodes: readonly 
 const contextOf = (workflow: object): AnalysisContext => ({ workflow }) as never;
 
 const launching = (other: abstract new () => unknown): Flow => [
-  start(CountdownWorkflowStart)
+  onStart(CountdownWorkflowStart)
     .returns(CountDto)
     .toWorkflow(other)
     .returns(CountDoneDto)

@@ -13,7 +13,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { ApprovalDesk, ChatAppChannel } from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { ContactPiiPolicy, EmailSend, EmailSent, Outbox } from "./pii.fixture.js";
 
@@ -69,7 +69,9 @@ export class MailFinish {}
 @Workflow({
   name: "mail-workflow",
   version: "1.0.0",
-  flow: [start(MailStart).returns(WorkflowStartTextDto).toAgent(MailerAgent).toFinish(MailFinish)],
+  flow: [
+    onStart(MailStart).returns(WorkflowStartTextDto).toAgent(MailerAgent).toFinish(MailFinish),
+  ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [ApprovalDesk, Outbox],
 })

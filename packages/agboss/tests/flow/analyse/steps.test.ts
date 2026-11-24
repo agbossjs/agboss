@@ -11,7 +11,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { start, toFinish } from "../fixtures/paths.js";
+import { onStart, toFinish } from "../fixtures/paths.js";
 import { supportPaths } from "../fixtures/support.fixture.js";
 
 /** `maxSteps` bounds at assembly (#261 AC17): agent and router visits, only a hand-set value. */
@@ -33,7 +33,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
     version: "1.0.0",
     maxSteps,
     flow: [
-      start(SecondKitWorkflowStart)
+      onStart(SecondKitWorkflowStart)
         .returns(OfferDraftDto)
         .toAction(SendKitAction)
         .returns(OfferSentDto)
@@ -49,7 +49,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
   version: "1.0.0",
   maxSteps: 1,
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .returns(OfferDraftDto)

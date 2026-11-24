@@ -15,7 +15,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { fenceSeenOf, ReceiptDto, type FenceSeen } from "./fence.workflow.js";
 
@@ -136,7 +136,7 @@ export class FarChildWorkflowFinish {}
   name: "near-child-workflow",
   version: "1.0.0",
   flow: [
-    start(NearChildWorkflowStart)
+    onStart(NearChildWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ScopeNearChildAction)
       .returns(ReceiptDto)
@@ -149,7 +149,7 @@ export class NearChildWorkflow {}
   name: "far-child-workflow",
   version: "1.0.0",
   flow: [
-    start(FarChildWorkflowStart)
+    onStart(FarChildWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ScopeFarChildAction)
       .returns(ReceiptDto)
@@ -182,7 +182,7 @@ export class FarParentWorkflowFinish {}
   name: "near-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(NearParentWorkflowStart)
+    onStart(NearParentWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ScopeRootAction)
       .returns(WorkflowStartTextDto)
@@ -197,7 +197,7 @@ export class NearParentWorkflow {}
   name: "far-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(FarParentWorkflowStart)
+    onStart(FarParentWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(FarChildWorkflow, { placement: ChildPlacement.AnyInstance })
       .returns(ReceiptDto)

@@ -26,7 +26,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 const none = (): readonly PiiMatch[] => [];
 
@@ -77,7 +77,10 @@ class FhChildFinish {}
   name: "fh-child-workflow",
   version: "1.0.0",
   flow: [
-    start(FhChildStart).returns(WorkflowStartTextDto).toAgent(FhChildAgent).toFinish(FhChildFinish),
+    onStart(FhChildStart)
+      .returns(WorkflowStartTextDto)
+      .toAgent(FhChildAgent)
+      .toFinish(FhChildFinish),
   ],
   piiPolicies: [OwnMaskPiiPolicy],
 })
@@ -97,7 +100,7 @@ const rootOf = (name: string, piiPolicies: readonly (new () => object)[]) => {
     name,
     version: "1.0.0",
     flow: [
-      start(RootStart)
+      onStart(RootStart)
         .returns(WorkflowStartTextDto)
         .toWorkflow(FhChildWorkflow)
         .returns(WorkflowFinishTextDto)

@@ -17,7 +17,7 @@ import {
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { start, toAction, toFinish } from "../fixtures/paths.js";
+import { onStart, toAction, toFinish } from "../fixtures/paths.js";
 
 /**
  * #945 V3.6 — the settled answers on the error path: the `EdgeKind.JoinError` edge makes each branch
@@ -56,7 +56,7 @@ let count = 0;
 function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
   count += 1;
   const flow: Flow = [
-    start(ResearchWorkflowStart)
+    onStart(ResearchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(PlannerAgent)
       .returns(PlanDto)

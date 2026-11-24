@@ -18,7 +18,7 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { CritiqueDto, PlanDto } from "../../fixtures/review-dtos.js";
-import { agent, route, start, toFinish } from "../../../helpers/flow.js";
+import { onAgent, route, onStart, toFinish } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -97,10 +97,10 @@ export class PlanLoopRouter {
   name: "plan-loop-workflow",
   version: "1.0.0",
   flow: [
-    start(PlanLoopWorkflowStart)
+    onStart(PlanLoopWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(LoopPlannerAgent),
-    agent(LoopPlannerAgent)
+    onAgent(LoopPlannerAgent)
       .returns(PlanDto)
       .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
       .join()
@@ -157,7 +157,7 @@ export class ItemClerkAgent {}
   version: "1.0.0",
   maxSteps: 20,
   flow: [
-    start(ItemsWorkflowStart)
+    onStart(ItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelAgents(ItemClerkAgent, { maxConcurrency: 2, maxItems: 10 })
       .join()
@@ -230,10 +230,10 @@ export class TiredLoopRouter {
   name: "tired-workflow",
   version: "1.0.0",
   flow: [
-    start(TiredWorkflowStart)
+    onStart(TiredWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(TiredPlannerAgent),
-    agent(TiredPlannerAgent)
+    onAgent(TiredPlannerAgent)
       .returns(PlanDto)
       .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
       .join()

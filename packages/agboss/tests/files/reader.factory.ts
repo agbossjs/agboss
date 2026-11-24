@@ -27,7 +27,7 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import type { A2AFileKey, A2AFileMetadata } from "../../src/infrastructure/a2a-file.repository.js";
 import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 
 /** What a caller sends: a document, more pages, a note. */
 export class BundleDto {
@@ -117,7 +117,7 @@ export interface ReaderApp {
 
 /** start → agent → finish, the agent answering in `output` when it has one. */
 function flowOf(output: DtoClass | undefined, startNode: Class, agent: Class, finish: Class) {
-  const toAgent = start(startNode).returns(BundleDto).toAgent(agent);
+  const toAgent = onStart(startNode).returns(BundleDto).toAgent(agent);
   return output === undefined ? toAgent.toFinish(finish) : toAgent.returns(output).toFinish(finish);
 }
 

@@ -9,7 +9,7 @@ import {
   EditKitAgent,
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
-import { start, toAction } from "../fixtures/paths.js";
+import { onStart, toAction } from "../fixtures/paths.js";
 
 /** `[flow.path-too-deep]` (#272 AC10): a warning past 4 levels, an error under strict. */
 
@@ -67,7 +67,7 @@ const workflowNesting = (
     name: "nesting-workflow",
     version: "1.0.0",
     flow: [
-      start(SecondKitWorkflowStart)
+      onStart(SecondKitWorkflowStart)
         .returns(OfferDraftDto)
         .toAgent(EditKitAgent)
         .onError(DeliveryError, nested(levels))
@@ -86,7 +86,7 @@ const fiveLevels = [...fourLevels, Deep5Action];
 const tooDeep = {
   code: "flow.path-too-deep",
   message:
-    "nesting-workflow: the path start(SecondKitWorkflowStart) nests 5 levels at deep-5-action (limit 4) — move the branch into a child workflow (agboss generate workflow …)",
+    "nesting-workflow: the path onStart(SecondKitWorkflowStart) nests 5 levels at deep-5-action (limit 4) — move the branch into a child workflow (agboss generate workflow …)",
   nodes: ["deep-5-action"],
 };
 

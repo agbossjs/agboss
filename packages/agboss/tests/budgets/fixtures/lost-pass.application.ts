@@ -26,7 +26,7 @@ import {
 import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #853 — a step whose pass is lost mid model call: one agent (its model scripted, the first call
@@ -174,7 +174,7 @@ export class HoldReportAction {
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(LostPassWorkflowStart)
+    onStart(LostPassWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(WriterAgent)
       .returns(ReportDto)
@@ -248,7 +248,7 @@ export class MergeReportAction {
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(LostBranchWorkflowStart)
+    onStart(LostBranchWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(DrafterAgent, CheckerAgent)
       .join()

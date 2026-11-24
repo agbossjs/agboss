@@ -18,7 +18,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 
 @OutputGuardrail({
@@ -58,7 +58,7 @@ class GuardedTextFinish {}
   name: "guarded-text-workflow",
   version: "1.0.0",
   flow: [
-    start(GuardedTextStart)
+    onStart(GuardedTextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(GuardedTextAgent)
       .toFinish(GuardedTextFinish),
@@ -118,7 +118,7 @@ class OwnersFinish {
   name: "owners-quorum-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnersStart)
+    onStart(OwnersStart)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(OwnerAgent, OwnerAgent)
       .acceptedBy(ChatArbiter)

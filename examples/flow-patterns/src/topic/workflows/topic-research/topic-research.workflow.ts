@@ -1,9 +1,9 @@
 import {
-  action,
+  onAction,
   caseOf,
   listOf,
   oneOf,
-  start,
+  onStart,
   StepFailedError,
   ThisWorkflow,
   toAction,
@@ -31,7 +31,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
   name: "topic-research-workflow",
   version: "1.0.0",
   flow: [
-    start(TopicResearchWorkflowStart)
+    onStart(TopicResearchWorkflowStart)
       .returns(TopicDto)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
@@ -52,7 +52,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
       ),
 
     // two ways in (the researcher's error, the merge's error): its own path
-    action(MarkTopicFailedAction)
+    onAction(MarkTopicFailedAction)
       .returns(TopicFailedDto)
       .toFinish(TopicFailedWorkflowFinish),
   ],

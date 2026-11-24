@@ -58,7 +58,7 @@ export interface RuntimeNode {
    * children are queued for any instance; absent — they run inside the parent's step.
    */
   readonly placement?: ChildPlacement;
-  /** A question step's own `expiresIn` (#941, `.toQuestion(Q, { expiresIn })`); absent — its role's. */
+  /** A question step's own `expiresIn` (#941, `.toExternalTask(Q, { expiresIn })`); absent — its role's. */
   readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 

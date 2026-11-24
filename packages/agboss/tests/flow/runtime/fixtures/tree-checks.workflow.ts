@@ -8,7 +8,7 @@ import {
   WorkflowStart,
   type ToolHandler,
 } from "../../../../src/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
 
@@ -50,7 +50,7 @@ export class TaskCheckWorkflowStart {}
   name: "task-check-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskCheckWorkflowStart)
+    onStart(TaskCheckWorkflowStart)
       .returns(TaskDto)
       .toAgent(TaskCheckerAgent)
       .returns(TaskDoneDto)
@@ -70,7 +70,7 @@ export class ChecksWorkflowStart {}
   name: "checks-workflow",
   version: "1.0.0",
   flow: [
-    start(ChecksWorkflowStart)
+    onStart(ChecksWorkflowStart)
       .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskCheckWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()

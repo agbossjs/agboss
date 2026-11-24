@@ -16,7 +16,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -111,7 +111,7 @@ const defaults = {
   name: "remote-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(AskStart)
+    onStart(AskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Desk)
       .toFinish(DeskAnswer),

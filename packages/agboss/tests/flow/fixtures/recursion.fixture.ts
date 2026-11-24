@@ -1,4 +1,4 @@
-import { action, caseOf, route, start, toAction } from "../../../src/flow/builder.js";
+import { onAction, caseOf, route, onStart, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -113,7 +113,7 @@ export class ResearchFailedWorkflowFinish {}
   name: "deep-research-workflow",
   version: "1.0.0",
   flow: [
-    start(DeepResearchWorkflowStart)
+    onStart(DeepResearchWorkflowStart)
       .returns(ResearchTopicDto)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(FailTopicAction))
@@ -132,7 +132,7 @@ export class ResearchFailedWorkflowFinish {}
           .returns(ResearchReportDto)
           .toFinish(ResearchReportWorkflowFinish),
       ),
-    action(FailTopicAction)
+    onAction(FailTopicAction)
       .returns(ResearchFailedDto)
       .toFinish(ResearchFailedWorkflowFinish),
   ],
@@ -176,7 +176,7 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   name: "outline-workflow",
   version: "1.0.0",
   flow: [
-    start(OutlineWorkflowStart)
+    onStart(OutlineWorkflowStart)
       .returns(ResearchTopicDto)
       .toRouter(OutlineDepthRouter)
       .chooseOne(

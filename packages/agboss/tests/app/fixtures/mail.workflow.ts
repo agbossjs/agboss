@@ -18,7 +18,7 @@ import {
 } from "../../../src/index.js";
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
 import type { ToolHandler } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
@@ -117,7 +117,7 @@ const workflow = {
   },
   uncompactedTurns: 1,
   flow: [
-    start(Start)
+    onStart(Start)
       .returns(WorkflowStartTextDto)
       .toAgent(Mailer)
       .toFinish(Finish),

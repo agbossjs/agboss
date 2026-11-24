@@ -21,7 +21,7 @@ import {
 } from "../../../src/dto/index.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -85,7 +85,7 @@ export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
   name: "judged-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Writer)
       .toFinish(Reply),
@@ -127,7 +127,7 @@ export class Careless {}
   name: "modelless-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Careless)
       .toFinish(Reply),

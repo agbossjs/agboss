@@ -5,22 +5,22 @@
  * `.agboss/types.d.ts` fills and their lookups, and the workflow settings and limits.
  */
 export {
-  action,
-  agent,
+  onAction,
+  onAgent,
   anyOf,
   caseOf,
   group,
-  question,
+  onExternalTask,
   route,
-  router,
-  start,
+  onRouter,
+  onStart,
   toAction,
   toAgent,
   toFinish,
-  toQuestion,
+  toExternalTask,
   toRouter,
   toWorkflow,
-  workflow,
+  onWorkflow,
 } from "../flow/builder.js";
 export { ThisWorkflow, type ThisWorkflowOutputs } from "../flow/this-workflow.js";
 export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";

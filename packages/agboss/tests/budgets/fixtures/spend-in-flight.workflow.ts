@@ -21,7 +21,7 @@ import {
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import {
   ItemDto,
@@ -193,7 +193,7 @@ function payItemWorkflowOf(name: string): Class {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(Start)
+      onStart(Start)
         .returns(ItemDto)
         .toAction(PayOne)
         .returns(ItemDto)
@@ -233,7 +233,7 @@ export class AnyPayItemsWorkflowStart {}
   name: "local-pay-items-workflow",
   version: "1.0.0",
   flow: [
-    start(LocalPayItemsWorkflowStart)
+    onStart(LocalPayItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(LocalPayItemWorkflow, {
         maxItems: 2,
@@ -250,7 +250,7 @@ export class LocalPayItemsWorkflow {}
   name: "any-pay-items-workflow",
   version: "1.0.0",
   flow: [
-    start(AnyPayItemsWorkflowStart)
+    onStart(AnyPayItemsWorkflowStart)
       .returns(listOf(ItemDto))
       .toParallelWorkflows(AnyPayItemWorkflow, {
         maxItems: 2,
@@ -275,7 +275,7 @@ class ChildPayWorkflowFinish {}
   name: "child-pay-workflow",
   version: "1.0.0",
   flow: [
-    start(ChildPayWorkflowStart)
+    onStart(ChildPayWorkflowStart)
       .returns(ItemDto)
       .toAction(ChildOne)
       .returns(ItemDto)
@@ -295,7 +295,7 @@ export class ParentPayWorkflowStart {}
   name: "parent-pay-workflow",
   version: "1.0.0",
   flow: [
-    start(ParentPayWorkflowStart)
+    onStart(ParentPayWorkflowStart)
       .returns(ItemDto)
       .toAction(ParentPay)
       .returns(ItemDto)

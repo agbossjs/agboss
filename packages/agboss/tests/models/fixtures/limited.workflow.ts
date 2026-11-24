@@ -16,7 +16,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * #266 AC3/AC4: a provider whose plan allows two calls in flight — one limit for the whole
@@ -62,7 +62,7 @@ export class LimitedAgent {}
   name: "limited-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toAgent(LimitedAgent)
       .toFinish(Reply),

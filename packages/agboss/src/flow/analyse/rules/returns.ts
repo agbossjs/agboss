@@ -8,7 +8,7 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * `.returns(…)` is exactly where values are (#272 AC2, AC15; #270 "checked by the compiler and again
- * by assembly"): `start(S).returns(…)` gives the start's input; after a step with `output`
+ * by assembly"): `onStart(S).returns(…)` gives the start's input; after a step with `output`
  * `.returns(output)` is required; after a step without one (an `@Action` done for its side effect, a
  * router) it is impossible; a `oneOf` output is written `.returns(oneOf(…))` and branched by
  * `.switch(caseOf(…)…)` (#299 S54 c, checked with the switch in `switch.ts`).

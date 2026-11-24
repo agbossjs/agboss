@@ -5,7 +5,7 @@ import type { FileToWrite } from "./write.js";
 
 /**
  * A router's choice in the flow (#272): `….toRouter(R).chooseOne(route(A)…, …)` or
- * `router(R).chooseOne(…)` — the router and the `route(…)` paths it lists.
+ * `onRouter(R).chooseOne(…)` — the router and the `route(…)` paths it lists.
  */
 export interface FlowCall {
   readonly router: string;
@@ -21,10 +21,10 @@ const firstIdentifier = (call: ts.CallExpression): string | undefined => {
   return first !== undefined && ts.isIdentifier(first) ? first.text : undefined;
 };
 
-/** The router a `.chooseOne(…)` belongs to: the `toRouter(R)` / `router(R)` it is called on. */
+/** The router a `.chooseOne(…)` belongs to: the `toRouter(R)` / `onRouter(R)` it is called on. */
 function routerOf(receiver: ts.Expression): string | undefined {
   if (!ts.isCallExpression(receiver)) return undefined;
-  return isCallOf(receiver, "toRouter") || isCallOf(receiver, "router")
+  return isCallOf(receiver, "toRouter") || isCallOf(receiver, "onRouter")
     ? firstIdentifier(receiver)
     : undefined;
 }

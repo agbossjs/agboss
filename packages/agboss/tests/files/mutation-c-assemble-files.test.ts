@@ -38,7 +38,7 @@ import { kilobytes } from "../../src/units/index.js";
 import { Agent, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
 import { Nested, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { BundleDto, readerApplication } from "./reader.factory.js";
 
 class OwnTranscriber extends FileTranscriber {
@@ -126,7 +126,7 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults) {
   @Workflow({
     name: `mini-${suffix}-workflow`,
     version: "1.0.0",
-    flow: [start(MiniStart).returns(BundleDto).toAgent(MiniAgent).toFinish(MiniFinish)],
+    flow: [onStart(MiniStart).returns(BundleDto).toAgent(MiniAgent).toFinish(MiniFinish)],
     ...(defaults === undefined ? {} : { defaults }),
   })
   class MiniWorkflow {}

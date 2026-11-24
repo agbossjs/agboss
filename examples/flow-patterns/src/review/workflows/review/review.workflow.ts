@@ -1,4 +1,4 @@
-import { listOf, start, StepFailedError, toFinish, Workflow } from "@agboss/core";
+import { listOf, onStart, StepFailedError, toFinish, Workflow } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
@@ -24,7 +24,7 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
   name: "review-workflow",
   version: "1.0.0",
   flow: [
-    start(ReviewWorkflowStart)
+    onStart(ReviewWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(SectionSplitterAgent)
       .returns(listOf(SectionDto))

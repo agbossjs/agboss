@@ -1,4 +1,4 @@
-import { action, caseOf, start } from "../../../src/flow/builder.js";
+import { onAction, caseOf, onStart } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -102,12 +102,12 @@ export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWor
 }
 
 export const historyPaths = [
-  start(HistoryOfferWorkflowStart)
+  onStart(HistoryOfferWorkflowStart)
     .returns(ShortlistDto)
     .toAgent(FirstDraftAgent)
     .returns(OfferDraftDto)
     .toAction(ReviewDraftAction),
-  action(ReviewDraftAction)
+  onAction(ReviewDraftAction)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto, { about: OfferDraftDto })

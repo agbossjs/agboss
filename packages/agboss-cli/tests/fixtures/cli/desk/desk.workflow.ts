@@ -18,7 +18,7 @@ import {
   SearchRequestDto,
 } from "../../../../../agboss/tests/flow/fixtures/data-dtos.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { DeskEnvironment } from "./environments/app.environment.js";
 
 @WorkflowStart({
@@ -124,7 +124,7 @@ export class ScoreWorkflowFinish {}
   name: "inbox-workflow",
   version: "1.0.0",
   flow: [
-    start(InboxWorkflowStart)
+    onStart(InboxWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(EchoAction)
       .returns(WorkflowFinishTextDto)
@@ -137,17 +137,17 @@ export class InboxWorkflow {}
   name: "screening-workflow",
   version: "1.0.0",
   flow: [
-    start(ScreeningWorkflowStart)
+    onStart(ScreeningWorkflowStart)
       .returns(CompanyDto)
       .toAction(ScreenAction)
       .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
-    start(BatchScreeningWorkflowStart)
+    onStart(BatchScreeningWorkflowStart)
       .returns(listOf(CompanyDto))
       .toAction(RankAction)
       .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
-    start(CriteriaScreeningWorkflowStart)
+    onStart(CriteriaScreeningWorkflowStart)
       .returns(CompanyDto)
       .returns(optional(SearchRequestDto))
       .toAction(CriteriaAction)

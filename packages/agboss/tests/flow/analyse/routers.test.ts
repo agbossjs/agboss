@@ -16,25 +16,25 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { CreditWorkflow } from "../fixtures/credit.fixture.js";
-import { route, router, start } from "../fixtures/paths.js";
+import { route, onRouter, onStart } from "../fixtures/paths.js";
 import { TopicsWorkflow } from "../fixtures/topics.fixture.js";
 
 /** Router rules (#272 AC6, #270, #280): routes as sets, input, model. */
 
-const entry = () => start(SecondKitWorkflowStart).returns(OfferDraftDto).toRouter(KitRouter);
+const entry = () => onStart(SecondKitWorkflowStart).returns(OfferDraftDto).toRouter(KitRouter);
 const editAgain = () => route(EditKitAgent).returns(OfferDraftDto).toRouter(KitRouter);
 
 @Workflow({
   name: "reordered-routes-workflow",
   version: "1.0.0",
-  flow: [entry(), router(KitRouter).chooseOne(route(DraftKitWorkflowFinish), editAgain())],
+  flow: [entry(), onRouter(KitRouter).chooseOne(route(DraftKitWorkflowFinish), editAgain())],
 })
 class ReorderedRoutesWorkflow {}
 
 @Workflow({
   name: "mismatched-routes-workflow",
   version: "1.0.0",
-  flow: [entry(), router(KitRouter).chooseOne(editAgain(), route(SentKitWorkflowFinish))],
+  flow: [entry(), onRouter(KitRouter).chooseOne(editAgain(), route(SentKitWorkflowFinish))],
 })
 class MismatchedRoutesWorkflow {}
 
@@ -43,7 +43,7 @@ class MismatchedRoutesWorkflow {}
   version: "1.0.0",
   flow: [
     entry(),
-    router(KitRouter).chooseOne(
+    onRouter(KitRouter).chooseOne(
       route(DraftKitWorkflowFinish),
       route(DraftKitWorkflowFinish),
       editAgain(),
@@ -65,7 +65,7 @@ class DuplicateRouteWorkflow {}
 class BlindRouter {}
 
 const blindPaths = [
-  start(SecondKitWorkflowStart)
+  onStart(SecondKitWorkflowStart)
     .returns(OfferDraftDto)
     .toRouter(BlindRouter)
     .chooseOne(route(DraftKitWorkflowFinish)),
@@ -86,7 +86,7 @@ class DefaultModelWorkflow {}
   name: "choose-after-agent-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .chooseOne(route(DraftKitWorkflowFinish)),
@@ -152,7 +152,7 @@ describe("AC11: router assembly rules — input and model (#270, #280)", () => {
     expect(errorsOf(ChooseAfterAgentWorkflow)).toContainEqual({
       code: "graph.choose-from-non-router",
       message:
-        "choose-after-agent-workflow: draft-kit-agent is not a router — .chooseOne(…) follows .toRouter(…) or router(…)",
+        "choose-after-agent-workflow: draft-kit-agent is not a router — .chooseOne(…) follows .toRouter(…) or onRouter(…)",
     });
   });
 });
@@ -190,7 +190,7 @@ class BlindCodeRouter {
   name: "blind-code-router-workflow",
   version: "1.0.0",
   flow: [
-    start(SecondKitWorkflowStart)
+    onStart(SecondKitWorkflowStart)
       .returns(OfferDraftDto)
       .toRouter(BlindCodeRouter)
       .chooseOne(route(DraftKitWorkflowFinish)),

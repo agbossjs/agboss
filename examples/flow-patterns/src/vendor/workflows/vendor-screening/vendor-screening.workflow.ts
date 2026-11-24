@@ -1,4 +1,4 @@
-import { listOf, oneOf, start, Workflow } from "@agboss/core";
+import { listOf, oneOf, onStart, Workflow } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
@@ -21,7 +21,7 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
   name: "vendor-screening-workflow",
   version: "1.0.0",
   flow: [
-    start(VendorScreeningWorkflowStart)
+    onStart(VendorScreeningWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(VendorFinderAgent)
       .returns(listOf(VendorDto))

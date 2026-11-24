@@ -1,4 +1,4 @@
-import { route, start } from "../../../src/flow/builder.js";
+import { route, onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import {
   DecidedBy,
@@ -93,7 +93,7 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
   name: "topics-workflow",
   version: "1.0.0",
   flow: [
-    start(TopicsWorkflowStart)
+    onStart(TopicsWorkflowStart)
       .returns(SupportIntentDto)
       .toRouter(TopicsRouter)
       .chooseOne(

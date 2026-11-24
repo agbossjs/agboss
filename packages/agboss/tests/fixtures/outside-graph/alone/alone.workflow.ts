@@ -1,6 +1,6 @@
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
 
 /** #497: a workflow no application lists — assembled on its own, no error. */
@@ -8,7 +8,7 @@ import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
   name: "alone-probe-workflow",
   version: "1.0.0",
   flow: [
-    start(ProbeWorkflowStart)
+    onStart(ProbeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(ProbeWorkflowFinish),
   ],

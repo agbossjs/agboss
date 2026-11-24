@@ -1,4 +1,4 @@
-import { action, route, start, toFinish, Workflow } from "@agboss/core";
+import { onAction, route, onStart, toFinish, Workflow } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { ApprovalAgent } from "../../agents/approval/approval.agent.js";
@@ -26,7 +26,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
   name: "credit-workflow",
   version: "1.0.0",
   flow: [
-    start(CreditWorkflowStart)
+    onStart(CreditWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(DeskRouter)
       .chooseOne(
@@ -44,7 +44,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
       ),
 
     // two ways in (ApprovalAgent, CreditLimitRouter): the charge's path is its own
-    action(ChargeCardAction)
+    onAction(ChargeCardAction)
       .returns(ChargeResultDto)
       .toFinish(CreditWorkflowFinish),
   ],

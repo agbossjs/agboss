@@ -13,7 +13,7 @@ import {
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * `[judge.same-model-family]` (#396 PR 5, S2 Q9): judges of an agent's own model family, of another
@@ -65,7 +65,7 @@ export class FamilyReply {}
   name: "judge-family-workflow",
   version: "1.0.0",
   flow: [
-    start(FamilyTaskStart)
+    onStart(FamilyTaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(FamilyWriter)
       .toFinish(FamilyReply),

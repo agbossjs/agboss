@@ -7,7 +7,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { TokenLimit } from "../../src/config/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   StreamBackupModelProvider,
   StreamModelProvider,
@@ -57,7 +57,7 @@ export function heldApplication(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(HeldAgent).toFinish(Reply)],
+    flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(HeldAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
   })
   class HeldWorkflow {}

@@ -18,7 +18,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { kilobytes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   AuditToolInterceptor,
   BoardLookupTool,
@@ -61,7 +61,9 @@ export class ScoutAgent {}
 @Workflow({
   name: "scout-workflow",
   version: "1.0.0",
-  flow: [start(ScoutStart).returns(WorkflowStartTextDto).toAgent(ScoutAgent).toFinish(ScoutAnswer)],
+  flow: [
+    onStart(ScoutStart).returns(WorkflowStartTextDto).toAgent(ScoutAgent).toFinish(ScoutAnswer),
+  ],
   toolInterceptors: [TenantScopeToolInterceptor],
   mcp: [JobBoardServer],
   defaults: { tools: { maxResultSize: kilobytes(1) } },
@@ -92,7 +94,9 @@ export class QuietAgent {}
 @Workflow({
   name: "quiet-workflow",
   version: "1.0.0",
-  flow: [start(QuietStart).returns(WorkflowStartTextDto).toAgent(QuietAgent).toFinish(QuietAnswer)],
+  flow: [
+    onStart(QuietStart).returns(WorkflowStartTextDto).toAgent(QuietAgent).toFinish(QuietAnswer),
+  ],
 })
 export class QuietWorkflow {}
 

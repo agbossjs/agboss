@@ -13,7 +13,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { BookingDto } from "./finished-undo.workflow.js";
@@ -100,7 +100,7 @@ export class KeyedUndoWorkflowFinish {}
   name: "keyed-undo-workflow",
   version: "1.0.0",
   flow: [
-    start(KeyedUndoWorkflowStart)
+    onStart(KeyedUndoWorkflowStart)
       .returns(ItemDto)
       .toAction(KeyedBookingAction)
       .returns(BookingDto)
@@ -124,7 +124,7 @@ export class KeyedParentWorkflowFinish {}
   name: "keyed-parent-workflow",
   version: "1.0.0",
   flow: [
-    start(KeyedParentWorkflowStart)
+    onStart(KeyedParentWorkflowStart)
       .returns(ItemDto)
       .toWorkflow(KeyedUndoWorkflow)
       .returns(ItemResultDto)

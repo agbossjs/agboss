@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workflow.js";
 import {
   CustomerOrderConfirmationChannel,
@@ -135,7 +135,7 @@ export class EchoWorkflowFinish {}
   name: "echo-workflow",
   version: "1.0.0",
   flow: [
-    start(EchoWorkflowStart)
+    onStart(EchoWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(EchoWorkflowFinish),
   ],

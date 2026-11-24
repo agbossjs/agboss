@@ -18,7 +18,7 @@ import { historyOf, listOf, oneOf, optional } from "../../../../src/flow/dto-wra
 import { DraftChangesDto } from "../../../flow/fixtures/data-dtos.js";
 import { ArticleRequestDto, WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { CriticAgent, PlanResearcherAgent } from "../../../flow/fixtures/launch.fixture.js";
-import { agent, caseOf, returnsEach, start, toAction } from "../../../flow/fixtures/paths.js";
+import { onAgent, caseOf, returnsEach, onStart, toAction } from "../../../flow/fixtures/paths.js";
 import {
   ApprovalDto,
   CritiqueDto,
@@ -97,15 +97,15 @@ const joinLoop = (
     version: "1.0.0",
     flow: [
       options.preJoin === true
-        ? start(LoopStart)
+        ? onStart(LoopStart)
             .returns(WorkflowStartTextDto)
             .toParallelAgents(PreCriticAgent, PreNoteAgent)
             .join()
             .returns(CritiqueDto)
             .returns(LeftDto)
             .toAgent(PlannerAgent)
-        : start(LoopStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
-      agent(PlannerAgent)
+        : onStart(LoopStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
+      onAgent(PlannerAgent)
         .returns(PlanDto)
         .toParallelAgents(PlanResearcherAgent, options.critic ?? CriticAgent)
         .join()
@@ -232,8 +232,8 @@ const fanOutLoop = (
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(FanStart).returns(WorkflowStartTextDto).toAgent(DrafterAgent),
-      agent(DrafterAgent)
+      onStart(FanStart).returns(WorkflowStartTextDto).toAgent(DrafterAgent),
+      onAgent(DrafterAgent)
         .returns(DraftDto)
         .toParallelAgents(DraftResearcherAgent, DraftResearcherAgent)
         .join()
@@ -329,8 +329,8 @@ const loopWithJoinAfter = (name: string): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      start(AfterStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
-      agent(PlannerAgent)
+      onStart(AfterStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent),
+      onAgent(PlannerAgent)
         .returns(PlanDto)
         .toParallelAgents(PlanResearcherAgent, CriticAgent)
         .join()
@@ -392,8 +392,8 @@ describe("#1366: an about-writer that reads the class in one field and others of
       name: "wide-workflow",
       version: "1.0.0",
       flow: [
-        start(WideStart).returns(ArticleRequestDto).toAgent(WideWriterAgent),
-        agent(WideWriterAgent)
+        onStart(WideStart).returns(ArticleRequestDto).toAgent(WideWriterAgent),
+        onAgent(WideWriterAgent)
           .returns(DraftDto)
           .toAgent(WideReviewerAgent)
           .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -459,8 +459,8 @@ describe("#1366: a producer whose values are about two classes, each read in two
       name: "two-targets-workflow",
       version: "1.0.0",
       flow: [
-        start(TwoStart).returns(ArticleRequestDto).toAgent(TwoPlannerAgent),
-        agent(TwoPlannerAgent)
+        onStart(TwoStart).returns(ArticleRequestDto).toAgent(TwoPlannerAgent),
+        onAgent(TwoPlannerAgent)
           .returns(PlanDto)
           .toAgent(TwoWriterAgent)
           .returns(DraftDto)
@@ -546,9 +546,9 @@ describe("#1366: past the scope guard a cycle is not judged, even when the wide 
       name: "guarded-workflow",
       version: "1.0.0",
       flow: [
-        start(GuardedStart).returns(ArticleRequestDto).toAgent(GuardedWriterAgent),
-        returnsEach(start(GuardedWideStart), wideDtos.map(optional)).toFinish(GuardedWideFinish),
-        agent(GuardedWriterAgent)
+        onStart(GuardedStart).returns(ArticleRequestDto).toAgent(GuardedWriterAgent),
+        returnsEach(onStart(GuardedWideStart), wideDtos.map(optional)).toFinish(GuardedWideFinish),
+        onAgent(GuardedWriterAgent)
           .returns(DraftDto)
           .toAgent(GuardedReviewerAgent)
           .returns(oneOf(ApprovalDto, DraftChangesDto))
@@ -592,7 +592,7 @@ describe("#1366: a node that is not in a cycle is never judged for one", () => {
       name: "pair-workflow",
       version: "1.0.0",
       flow: [
-        returnsEach(start(PairStart), [LeftDto, RightDto])
+        returnsEach(onStart(PairStart), [LeftDto, RightDto])
           .toAgent(PairAgent)
           .returns(oneOf(LeftDto, RightDto))
           .switch(
@@ -651,8 +651,8 @@ describe("#1366: a per-item launch's item is not written by its launcher", () =>
       name: "items-workflow",
       version: "1.0.0",
       flow: [
-        start(ItemsStart).returns(WorkflowStartTextDto).toAgent(ItemsPlannerAgent),
-        agent(ItemsPlannerAgent)
+        onStart(ItemsStart).returns(WorkflowStartTextDto).toAgent(ItemsPlannerAgent),
+        onAgent(ItemsPlannerAgent)
           .returns(listOf(PlanDto))
           .toParallelAgents(ItemCriticAgent, { maxConcurrency: 2, maxItems: 5 })
           .join()
@@ -720,8 +720,8 @@ describe("#1366: a cycle that only the join's error path closes", () => {
       name: "retry-workflow",
       version: "1.0.0",
       flow: [
-        start(RetryStart).returns(WorkflowStartTextDto).toAgent(RetryPlannerAgent),
-        agent(RetryPlannerAgent)
+        onStart(RetryStart).returns(WorkflowStartTextDto).toAgent(RetryPlannerAgent),
+        onAgent(RetryPlannerAgent)
           .returns(PlanDto)
           .toParallelAgents(PlanResearcherAgent, CriticAgent)
           .join()

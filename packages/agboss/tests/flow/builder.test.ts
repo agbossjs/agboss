@@ -5,7 +5,7 @@ import {
   FlowSyntaxError,
   caseOf,
   route,
-  start,
+  onStart,
   toAction,
   toAgent,
   toFinish,
@@ -98,19 +98,19 @@ const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => (
 
 describe("AC1: a path starts with its source's kind", () => {
   it("records start, agent, router and action sources", () => {
-    expect(start(OfferWorkflowStart).source).toEqual({
+    expect(onStart(OfferWorkflowStart).source).toEqual({
       kind: NodeKind.Start,
       node: OfferWorkflowStart,
     });
-    expect(builder.agent(ReviewerAgent).source).toEqual({
+    expect(builder.onAgent(ReviewerAgent).source).toEqual({
       kind: NodeKind.Agent,
       node: ReviewerAgent,
     });
-    expect(builder.router(MainRouter).source).toEqual({
+    expect(builder.onRouter(MainRouter).source).toEqual({
       kind: NodeKind.Router,
       node: MainRouter,
     });
-    expect(builder.action(SendOfferAction).source).toEqual({
+    expect(builder.onAction(SendOfferAction).source).toEqual({
       kind: NodeKind.Action,
       node: SendOfferAction,
     });
@@ -269,7 +269,7 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
 describe("AC7: a side path may start with any transition", () => {
   it("toFinish ends the side path at a finish", () => {
     const shipped = builder
-      .action(ShipOrderAction)
+      .onAction(ShipOrderAction)
       .onError(CarrierError, toFinish(OrderFailedWorkflowFinish));
 
     expect(shipped.steps).toEqual([
@@ -283,7 +283,7 @@ describe("AC7: a side path may start with any transition", () => {
 
   it("toAgent continues the side path through an agent", () => {
     const edited = builder
-      .agent(EditorAgent)
+      .onAgent(EditorAgent)
       .onError(
         VisitsLimitExceededError,
         toAgent(DraftAgent).returns(OfferDraftDto).toAgent(ReviewerAgent),
@@ -304,7 +304,7 @@ describe("AC7: a side path may start with any transition", () => {
 
   it("toRouter continues the side path with the router's chooseOne", () => {
     const escalated = builder
-      .agent(EditorAgent)
+      .onAgent(EditorAgent)
       .onError(
         VisitsLimitExceededError,
         toRouter(MainRouter).chooseOne(
@@ -335,11 +335,11 @@ describe("AC7: a side path may start with any transition", () => {
 
 describe("#299 S54: one value per .returns, { about } in the flow", () => {
   it("records { about } on returns — one class or a list of them — and on caseOf", () => {
-    const critiqued = start(OfferWorkflowStart)
+    const critiqued = onStart(OfferWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftAgent)
       .returns(OfferDraftDto, { about: ShortlistDto });
-    const both = callUntyped(builder.agent(DraftAgent), "returns", [
+    const both = callUntyped(builder.onAgent(DraftAgent), "returns", [
       OfferDraftDto,
       { about: [ShortlistDto, ReviewDto] },
     ]);
@@ -350,7 +350,7 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
       returns(OfferDraftDto, [ShortlistDto, ReviewDto]),
     ]);
     expect(
-      callUntyped(builder.agent(ReviewerAgent), "switch", [aboutCase, caseOf(DraftApprovedDto)]),
+      callUntyped(builder.onAgent(ReviewerAgent), "switch", [aboutCase, caseOf(DraftApprovedDto)]),
     ).toEqual(
       expect.objectContaining({
         steps: [
@@ -371,7 +371,7 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
   });
 
   it("several values are a chain of .returns, each one value with its wrappers", () => {
-    const listed = start(OfferWorkflowStart);
+    const listed = onStart(OfferWorkflowStart);
     const values = [listOf(ShortlistDto), optional(OfferDraftDto)] as const;
 
     const path = callUntyped(callUntyped(listed, "returns", [values[0]]) as object, "returns", [
@@ -384,27 +384,27 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
   it.each([
     [
       "two values in one .returns",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, ShortlistDto]),
+      () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, ShortlistDto]),
     ],
     [
       "three arguments",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, {}, ShortlistDto]),
+      () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, {}, ShortlistDto]),
     ],
     [
       "{ about } on a oneOf",
       () =>
-        callUntyped(builder.agent(ReviewerAgent), "returns", [
+        callUntyped(builder.onAgent(ReviewerAgent), "returns", [
           oneOf(ChangesRequestedDto, DraftApprovedDto),
           { about: OfferDraftDto },
         ]),
     ],
     [
       "an empty { about }",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: [] }]),
+      () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, { about: [] }]),
     ],
     [
       "{ about } that is not a class",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: "X" }]),
+      () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, { about: "X" }]),
     ],
   ])("refuses %s from untyped code", (_name, misuse) => {
     expect(misuse).toThrow(FlowSyntaxError);
@@ -413,7 +413,7 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
 
 describe("paths are immutable", () => {
   it("a builder continued twice gives two independent paths, frozen", () => {
-    const shortlisted = start(OfferWorkflowStart).returns(ShortlistDto);
+    const shortlisted = onStart(OfferWorkflowStart).returns(ShortlistDto);
 
     const drafted = shortlisted.toAgent(DraftAgent);
     const failed = shortlisted.toFinish(OfferFailedWorkflowFinish);
@@ -427,9 +427,9 @@ describe("paths are immutable", () => {
 });
 
 describe("misuse from untyped code fails with FlowSyntaxError", () => {
-  const reviewer = builder.agent(ReviewerAgent);
-  const router = builder.router(MainRouter);
-  const edited = builder.agent(EditorAgent);
+  const reviewer = builder.onAgent(ReviewerAgent);
+  const router = builder.onRouter(MainRouter);
+  const edited = builder.onAgent(EditorAgent);
 
   it.each([
     ["switch takes caseOf paths", () => callUntyped(reviewer, "switch", [route(DraftAgent)])],
@@ -452,22 +452,22 @@ describe("AC4 / AC8: removed forms do not exist", () => {
   it("removed forms do not exist", () => {
     expect(Object.keys(builder).sort()).toEqual([
       "FlowSyntaxError",
-      "action",
-      "agent",
       "anyOf",
       "caseOf",
       "group",
-      "question",
+      "onAction",
+      "onAgent",
+      "onExternalTask",
+      "onRouter",
+      "onStart",
+      "onWorkflow",
       "route",
-      "router",
-      "start",
       "toAction",
       "toAgent",
+      "toExternalTask",
       "toFinish",
-      "toQuestion",
       "toRouter",
       "toWorkflow",
-      "workflow",
     ]);
   });
 

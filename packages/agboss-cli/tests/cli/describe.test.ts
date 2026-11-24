@@ -107,8 +107,8 @@ describe("#268 AC4: agboss describe on flow-patterns — what the public surface
     expect(call.code).toBe(0);
     expect(lines).toEqual(
       expect.arrayContaining([
-        "  start(OfferWorkflowStart)",
-        "  agent(ReviewerAgent)",
+        "  onStart(OfferWorkflowStart)",
+        "  onAgent(ReviewerAgent)",
         "  reviewer-agent ← draft: draft-agent | editor-agent (latest, historyOf, maxPrevious 1)",
         "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
         "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",

@@ -17,7 +17,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { PaymentGateway } from "../payment-gateway.js";
 import { RotationEnvironment } from "./environments/app.environment.js";
 
@@ -136,7 +136,7 @@ export class ReceiptFinish {}
   name: "book-order-workflow",
   version: "1.0.0",
   flow: [
-    start(BookOrderStart)
+    onStart(BookOrderStart)
       .returns(OrderDto)
       .toAction(BookOrderAction)
       .returns(ReceiptDto)
@@ -149,7 +149,7 @@ export class BookOrderWorkflow {}
   name: "charge-order-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeOrderStart)
+    onStart(ChargeOrderStart)
       .returns(OrderDto)
       .toAction(ChargeOrderAction)
       .returns(ReceiptDto)

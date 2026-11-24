@@ -10,7 +10,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   ConfirmOrderTool,
@@ -100,7 +100,7 @@ const providers = [
   name: "payout-workflow",
   version: "1.0.0",
   flow: [
-    start(PayoutWorkflowStart)
+    onStart(PayoutWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
@@ -128,7 +128,7 @@ export class PayoutsApplication {}
   name: "payout-steps-workflow",
   version: "1.0.0",
   flow: [
-    start(PayoutWorkflowStart)
+    onStart(PayoutWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
@@ -156,7 +156,7 @@ export class PayoutStepsApplication {}
   name: "payout-unhandled-workflow",
   version: "1.0.0",
   flow: [
-    start(PayoutWorkflowStart)
+    onStart(PayoutWorkflowStart)
       .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()

@@ -22,7 +22,7 @@ import {
 import { McpExpose } from "../../../src/mcp/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /**
  * Declared contracts (#398 PR 3): a shop that exports two starts over A2A and one over MCP, and
@@ -178,7 +178,7 @@ export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflo
   name: "quote-workflow",
   version: "1.0.0",
   flow: [
-    start(QuoteWorkflowStart)
+    onStart(QuoteWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(QuoteDeskAgent)
       .toFinish(QuoteWorkflowFinish),
@@ -192,7 +192,7 @@ export class QuoteWorkflow {}
   name: "refund-workflow",
   version: "1.0.0",
   flow: [
-    start(RefundWorkflowStart)
+    onStart(RefundWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toFinish(RefundWorkflowFinish),
   ],
@@ -203,7 +203,7 @@ export class RefundWorkflow {}
   name: "kb-workflow",
   version: "1.0.0",
   flow: [
-    start(KbWorkflowStart)
+    onStart(KbWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(KbDeskAgent)
       .toFinish(KbWorkflowFinish),

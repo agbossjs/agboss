@@ -10,7 +10,7 @@ import {
   maxConcurrentExecutionsOf,
   Workflow,
 } from "../../../src/flow/decorators/workflow.js";
-import { start } from "../../flow/fixtures/paths.js";
+import { onStart } from "../../flow/fixtures/paths.js";
 import { OrderWorkflowStart } from "../../flow/fixtures/order.fixture.js";
 import { NotifyRecruiterAction } from "../../flow/fixtures/offer.fixture.js";
 
@@ -21,12 +21,16 @@ class Undeclared {
 @Workflow({
   name: "capped-1366h-workflow",
   version: "1.0.0",
-  flow: [start(OrderWorkflowStart)],
+  flow: [onStart(OrderWorkflowStart)],
   maxConcurrentExecutions: 4,
 })
 class Capped {}
 
-@Workflow({ name: "uncapped-1366h-workflow", version: "1.0.0", flow: [start(OrderWorkflowStart)] })
+@Workflow({
+  name: "uncapped-1366h-workflow",
+  version: "1.0.0",
+  flow: [onStart(OrderWorkflowStart)],
+})
 class Uncapped {}
 
 describe("#1366: the cap of executions at once", () => {

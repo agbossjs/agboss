@@ -23,7 +23,7 @@ import {
 import type { RagRetrieval } from "../../../../src/rag/types.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { RagTenancy } from "../../../../src/rag/types.js";
 
 /** What the observer saw of each tool call, and every text the PII detector read (tests reset both). */
@@ -166,11 +166,11 @@ export class PageFinish {}
   name: "page-workflow",
   version: "1.0.0",
   flow: [
-    start(PageStart)
+    onStart(PageStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ResearchAgent)
       .toFinish(PageFinish),
-    start(ContextStart)
+    onStart(ContextStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ContextAgent)
       .toFinish(PageFinish),
@@ -236,7 +236,7 @@ export class ZeroBoundStart {}
   name: "zero-bound-workflow",
   version: "1.0.0",
   flow: [
-    start(ZeroBoundStart)
+    onStart(ZeroBoundStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ZeroBoundAgent)
       .toFinish(PageFinish),

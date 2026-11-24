@@ -56,7 +56,7 @@ import {
   GoodScoreArbiter,
   ValidScoreArbiter,
 } from "../fixtures/quorum.fixture.js";
-import { agent, group, start } from "../fixtures/paths.js";
+import { onAgent, group, onStart } from "../fixtures/paths.js";
 
 /** #279 PR 1 — quorums in the analyser: impossible quorums, what `.returns` may promise, arbiters. */
 
@@ -94,14 +94,14 @@ class SkillsReaderAgent {}
 
 /** The fit launch, its quorum and the values it names. */
 const fitLaunch = () =>
-  start(FitReviewWorkflowStart)
+  onStart(FitReviewWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
 const fitValues = (joined: ReturnType<typeof fitLaunch>, skills: unknown) =>
   joined.returns(skills).returns(optional(CultureScoreDto)).returns(optional(SalaryFitDto));
 
 const searched = () =>
-  start(CompanySearchWorkflowStart)
+  onStart(CompanySearchWorkflowStart)
     .returns(WorkflowStartTextDto)
     .toAgent(BoardSearchAgent)
     .returns(listOf(CompanyDto))
@@ -114,13 +114,15 @@ const shortlisted = (joined: ReturnType<typeof searched>) =>
     .toFinish(CompanyShortlistWorkflowFinish);
 
 const dealLaunch = () =>
-  start(DealWorkflowStart)
+  onStart(DealWorkflowStart)
     .returns(DealDto)
     .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, FastScreenAgent);
 const fastGroup = () =>
   group(FastScreenAgent).returns(FastScreenDto).toFinish(QuickRejectWorkflowFinish);
 const reviewPath = () =>
-  agent(FullReviewAgent).returns(DueDiligenceReportDto).toFinish(DueDiligenceReportWorkflowFinish);
+  onAgent(FullReviewAgent)
+    .returns(DueDiligenceReportDto)
+    .toFinish(DueDiligenceReportWorkflowFinish);
 
 describe("#279: the issue's quorums pass the analyser", () => {
   it.each([
@@ -184,7 +186,7 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
 
   it("a counted answer nobody reads is flow.unused-output", () => {
     const flow = [
-      start(FitReviewWorkflowStart)
+      onStart(FitReviewWorkflowStart)
         .returns(CandidateDto)
         .toParallelAgents(ScoreAAgent, ScoreBAgent, SkillsScoreAgent)
         .joinQuorum({ min: 2 })
@@ -358,7 +360,7 @@ class UndecoratedArbiter {
 }
 
 const scored = (arbiter: unknown) => [
-  start(FitReviewWorkflowStart)
+  onStart(FitReviewWorkflowStart)
     .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
     .acceptedBy(arbiter)

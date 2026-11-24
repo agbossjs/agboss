@@ -22,8 +22,8 @@ export interface ChildStepOptions {
 }
 
 /**
- * The options of a question step (#941): `.toQuestion(Q, { expiresIn })` and the side path
- * `toQuestion(Q, { expiresIn })`.
+ * The options of a question step (#941): `.toExternalTask(Q, { expiresIn })` and the side path
+ * `toExternalTask(Q, { expiresIn })`.
  */
 export interface QuestionStepOptions {
   /**

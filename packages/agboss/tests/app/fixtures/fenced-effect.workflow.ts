@@ -19,7 +19,7 @@ import { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
@@ -220,7 +220,7 @@ export class NotChargedWorkflowFinish {}
   name: "charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeWorkflowStart)
+    onStart(ChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       // a catch-all side path: a business error takes it, a fenced write never does
@@ -243,7 +243,7 @@ export class DoubleChargedWorkflowFinish {}
   name: "double-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(DoubleChargeWorkflowStart)
+    onStart(DoubleChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(DoubleChargeAction)
       .returns(ChargeReceiptDto)

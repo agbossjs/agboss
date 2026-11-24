@@ -126,7 +126,7 @@ export class ActionFailedError extends StepFailedError {
 
 /**
  * A question role's step (#659) whose channel's `send` threw (not cancelled): the step's failure,
- * the channel's error as `cause` — `.onError(E, …)` right after `.toQuestion(Role)` takes it by
+ * the channel's error as `cause` — `.onError(E, …)` right after `.toExternalTask(Role)` takes it by
  * class or cause chain.
  */
 export class QuestionFailedError extends StepFailedError {

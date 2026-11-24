@@ -18,7 +18,7 @@ import {
   type ToolHandler,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -148,7 +148,7 @@ class NoLimits implements WorkflowDefinition {
   name: "refunds-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .toFinish(Reply),

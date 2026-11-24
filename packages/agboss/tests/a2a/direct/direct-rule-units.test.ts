@@ -26,7 +26,7 @@ import {
   OnceLevelWorkflow,
   OnceLevelWorkflowStart,
 } from "../../app/fixtures/undo-once.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   AskingAgent,
   CallingAction,
@@ -53,7 +53,7 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
   const id = `unit-rule-${String((made += 1))}`;
   @WorkflowStart({ name: `${id}-workflow-start`, description: id, input: WorkflowStartTextDto })
   class Start {}
-  let path = start(Start).returns(WorkflowStartTextDto);
+  let path = onStart(Start).returns(WorkflowStartTextDto);
   for (const node of nodes)
     path = declarationOf(node)?.kind === NodeKind.Agent ? path.toAgent(node) : path.toAction(node);
   @Workflow({ name: `${id}-workflow`, version: "1.0.0", flow: [path.toFinish(UnitRuleFinish)] })

@@ -15,7 +15,7 @@ import {
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
-import { start, toFinish } from "../helpers/flow.js";
+import { onStart, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -112,7 +112,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
   name: "shop-workflow",
   version: "1.0.0",
   flow: [
-    start(Order)
+    onStart(Order)
       .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
       .returns(PurchaseDto)
@@ -139,7 +139,7 @@ export class ShopApplication {}
   name: "shop-limits-workflow",
   version: "1.0.0",
   flow: [
-    start(Order)
+    onStart(Order)
       .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
       .returns(PurchaseDto)
@@ -166,7 +166,7 @@ export class ShopCatchingLimitsApplication {}
   name: "shop-uncaught-workflow",
   version: "1.0.0",
   flow: [
-    start(Order)
+    onStart(Order)
       .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
       .returns(PurchaseDto)

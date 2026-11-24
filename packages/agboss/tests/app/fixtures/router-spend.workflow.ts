@@ -10,7 +10,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { route, start } from "../../flow/fixtures/paths.js";
+import { route, onStart } from "../../flow/fixtures/paths.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
@@ -61,7 +61,7 @@ export class OrderRouter {}
   name: "routed-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(RoutedChargeWorkflowStart)
+    onStart(RoutedChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toRouter(OrderRouter)
       .chooseOne(

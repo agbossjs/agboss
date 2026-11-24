@@ -12,7 +12,7 @@ import {
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { ApprovalDesk, ChatAppChannel, ChatStart, Reply } from "../channels/approval.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budgets.js";
@@ -85,7 +85,7 @@ const defaults = {
   name: "payments-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Cashier)
       .toFinish(Reply),
@@ -153,7 +153,7 @@ export class Editor {}
   name: "capped-workflow",
   version: "1.0.0",
   flow: [
-    start(ChatStart)
+    onStart(ChatStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Drafter)
       .returns(DraftDto)

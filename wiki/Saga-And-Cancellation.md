@@ -10,7 +10,7 @@ itself, newest first (#340, [Rollback](Rollback#an-execution-that-ends-without-a
 effects of an agent's tool calls are not undone. The explicit form:
 
 ```ts no-check: the pattern only — the full, compiled example is on the Rollback page
-start(OrderWorkflowStart)
+onStart(OrderWorkflowStart)
   .returns(OrderRequestDto)
   .toAction(ChargeCardAction)
   .returns(PaymentDto)
@@ -77,7 +77,7 @@ the external API (most payment APIs accept an idempotency key) and duplicates ar
 
 <!--
 ```ts file=refund.workflow.ts
-import { Action, Workflow, WorkflowFinish, WorkflowStart, start, type ActionHandler, type InputOf } from "@agboss/core";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, onStart, type ActionHandler, type InputOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment id" })
@@ -91,10 +91,10 @@ export class RefundedWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Action, ExecutionContext, Workflow, start, type ActionHandler, type InputOf } from "@agboss/core";
+import { Action, ExecutionContext, Workflow, onStart, type ActionHandler, type InputOf } from "@agboss/core";
 import { PaymentDto, RefundWorkflowStart, RefundedWorkflowFinish } from "./refund.workflow.js";
 // @snippet
-@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [start(RefundWorkflowStart).returns(PaymentDto).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
+@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [onStart(RefundWorkflowStart).returns(PaymentDto).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
 export class RefundWorkflow {}
 -->
 

@@ -23,7 +23,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { caseOf, question, start, toFinish } from "./paths.js";
+import { caseOf, onExternalTask, onStart, toFinish } from "./paths.js";
 import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
 
 /**
@@ -235,11 +235,11 @@ export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   name: "purchase-workflow",
   version: "1.0.0",
   flow: [
-    start(PurchaseWorkflowStart)
+    onStart(PurchaseWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
       .returns(PurchaseQuestionDto)
-      .toQuestion(SpendingLimitQuestion)
+      .toExternalTask(SpendingLimitQuestion)
       .onError(QuestionFailedError, toFinish(PurchaseUnaskedWorkflowFinish))
       .returns(SpendingLimitAnswerDto)
       .toAction(PlacePurchaseAction)
@@ -260,12 +260,12 @@ export class OwnerPurchaseWorkflowFinish {}
   name: "owner-purchase-workflow",
   version: "1.0.0",
   flow: [
-    start(OwnerPurchaseWorkflowStart)
+    onStart(OwnerPurchaseWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
       .returns(PurchaseQuestionDto)
-      .toQuestion(BudgetOwnerQuestion),
-    question(BudgetOwnerQuestion)
+      .toExternalTask(BudgetOwnerQuestion),
+    onExternalTask(BudgetOwnerQuestion)
       .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
       .toAction(CheckLimitAction)
       .returns(oneOf(PurchasePlacedDto, PurchaseQuestionDto))
@@ -273,7 +273,7 @@ export class OwnerPurchaseWorkflowFinish {}
         caseOf(PurchasePlacedDto)
           .toFinish(OwnerPurchaseWorkflowFinish),
         caseOf(PurchaseQuestionDto)
-          .toQuestion(BudgetOwnerQuestion),
+          .toExternalTask(BudgetOwnerQuestion),
       ),
   ],
   providers: [QuestionInbox],

@@ -20,7 +20,7 @@ import {
 } from "../../../src/memory/index.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -123,7 +123,7 @@ const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
   name: "memory-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Recaller)
       .returns(RecallDto)
@@ -165,7 +165,7 @@ export class DeskCompaction {}
   name: "compacting-desk-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Recaller)
       .returns(RecallDto)

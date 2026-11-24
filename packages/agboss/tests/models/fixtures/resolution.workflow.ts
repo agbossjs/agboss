@@ -21,7 +21,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { route, start } from "../../helpers/flow.js";
+import { route, onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixture.js";
@@ -97,7 +97,7 @@ export class NowhereCompaction {}
   name: "every-kind-workflow",
   version: "1.0.0",
   flow: [
-    start(ResolutionStart)
+    onStart(ResolutionStart)
       .returns(WorkflowStartTextDto)
       .toRouter(NowhereRouter)
       .chooseOne(
@@ -139,7 +139,7 @@ export class LocalStart {}
   name: "local-workflow",
   version: "1.0.0",
   flow: [
-    start(LocalStart)
+    onStart(LocalStart)
       .returns(WorkflowStartTextDto)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),
@@ -192,7 +192,7 @@ export class NotInfrastructure {}
   name: "misplaced-provider-workflow",
   version: "1.0.0",
   flow: [
-    start(LocalStart)
+    onStart(LocalStart)
       .returns(WorkflowStartTextDto)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),

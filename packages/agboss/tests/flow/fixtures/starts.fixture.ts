@@ -1,4 +1,4 @@
-import { start } from "../../../src/flow/builder.js";
+import { onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -61,13 +61,13 @@ export class BatchRankAgent {}
 export class CompanyScoreWorkflowFinish {}
 
 export const startsPaths = [
-  start(CompanyCheckWorkflowStart)
+  onStart(CompanyCheckWorkflowStart)
     .returns(CompanyDto)
     .returns(optional(SearchRequestDto))
     .toAgent(CompanyCheckAgent)
     .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),
-  start(CompanyBatchWorkflowStart)
+  onStart(CompanyBatchWorkflowStart)
     .returns(listOf(CompanyDto))
     .toAgent(BatchRankAgent)
     .returns(CompanyScoreDto)

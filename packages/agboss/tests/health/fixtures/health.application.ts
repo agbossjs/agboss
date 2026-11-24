@@ -22,7 +22,7 @@ import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-li
 import type { Turn } from "../../../src/turns/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SharedCheckpointSaver } from "../../helpers/shared-infrastructure.js";
 
 /**
@@ -136,7 +136,7 @@ export class ProbeWorkflowFinish {}
   name: "probe-workflow",
   version: "1.0.0",
   flow: [
-    start(ProbeWorkflowStart)
+    onStart(ProbeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(ProbeAgent)
       .toFinish(ProbeWorkflowFinish),

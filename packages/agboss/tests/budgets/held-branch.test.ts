@@ -12,7 +12,7 @@ import { BudgetExceededError, Workflow } from "../../src/index.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import type { WorkflowOptions } from "../../src/flow/decorators/workflow.js";
 import { testWith } from "../../src/testing/index.js";
-import { execute, start, toAction } from "../helpers/flow.js";
+import { execute, onStart, toAction } from "../helpers/flow.js";
 import {
   HeldAnyWorkflowStart,
   HeldBranchApplication,
@@ -112,7 +112,7 @@ function brokenRules(flow: WorkflowOptions["flow"]): readonly string[] {
   return checkWorkflow(HeldCaseWorkflow).errors.map((error) => error.code);
 }
 
-const launched = start(HeldBranchWorkflowStart)
+const launched = onStart(HeldBranchWorkflowStart)
   .returns(OrderDto)
   .toAction(BookOrderAction)
   .toAction(CheckOrderAction)
@@ -145,7 +145,7 @@ describe("#683: no side path takes the held branch's failure with the booking op
 
   it("a refund launched on a side path is no undo of it either", () => {
     const flow = [
-      start(HeldBranchWorkflowStart)
+      onStart(HeldBranchWorkflowStart)
         .returns(OrderDto)
         .toAction(BookOrderAction)
         .toAction(DeclineOrderAction)

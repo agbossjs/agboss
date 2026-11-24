@@ -8,7 +8,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
 
 export { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
@@ -42,7 +42,7 @@ export class CompatibleBillingWorkflowFinish {}
   name: "billing-workflow",
   version: "1.0.0",
   flow: [
-    start(CompatibleBillingWorkflowStart)
+    onStart(CompatibleBillingWorkflowStart)
       .returns(BillingQuestionDto)
       .toAgent(CompatibleBillingDeskAgent)
       .returns(BillingAnswerDto)

@@ -16,7 +16,7 @@ terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests a
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, start, type ToolHandler } from "@agboss/core";
+import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
 class EmailSent { @Text() id!: string; }
@@ -47,7 +47,7 @@ export class Assistant {}
   name: "errands-workflow",
   version: "1.0.0",
   flow: [
-    start(TaskStart)
+    onStart(TaskStart)
       .returns(WorkflowStartTextDto)
       .toAgent(Assistant)
       .toFinish(Done),

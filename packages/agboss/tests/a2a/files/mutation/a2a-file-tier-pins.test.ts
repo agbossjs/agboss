@@ -17,7 +17,7 @@ import { WorkflowFinish } from "../../../../src/flow/decorators/workflow-finish.
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import type { Bytes } from "../../../../src/units/index.js";
 import { oneOf, variant, type Variant } from "../../../../src/flow/dto-wrappers.js";
-import { caseOf, start } from "../../../helpers/flow.js";
+import { caseOf, onStart } from "../../../helpers/flow.js";
 import {
   FileReviewFinish,
   FilesA2AExpose,
@@ -59,7 +59,7 @@ function skill(input: new () => object, output: new () => object, files?: A2AFil
   @Workflow({
     name: `${id}-workflow`,
     version: "1.0.0",
-    flow: [start(TierStart).returns(input).toFinish(TierFinish)],
+    flow: [onStart(TierStart).returns(input).toFinish(TierFinish)],
   })
   class TierWorkflow {}
 
@@ -130,7 +130,7 @@ describe("fileTierSizeOf", () => {
     @Workflow({
       name: `${id}-workflow`,
       version: "1.0.0",
-      flow: [start(MapStart).returns(TextDto).toFinish(MapFinish)],
+      flow: [onStart(MapStart).returns(TextDto).toFinish(MapFinish)],
     })
     class MapWorkflow {}
 
@@ -218,7 +218,7 @@ class MixedTextFinish {}
   name: "tier-mixed-workflow",
   version: "1.0.0",
   flow: [
-    start(FileReviewWorkflowStart)
+    onStart(FileReviewWorkflowStart)
       .returns(ReviewRequestDto)
       .toAction(MixedAction)
       .returns(oneOf(ReviewResultDto, TextDto))

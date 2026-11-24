@@ -30,7 +30,7 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /** A question to the desk (its own DTO: the fixture's module exports every class it uses). */
 export class AskDto {
@@ -114,7 +114,7 @@ export class AnswerWorkflowFinish {}
   name: "lookup-workflow",
   version: "1.0.0",
   flow: [
-    start(AskWorkflowStart)
+    onStart(AskWorkflowStart)
       .returns(AskDto)
       .toAgent(LookupAgent)
       .toFinish(AnswerWorkflowFinish),

@@ -543,7 +543,7 @@ would loop again) — so a whole chain `A → B → A` fails at every hop, deter
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
+import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: "Answer.", model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
@@ -560,7 +560,7 @@ export class LoopedWorkflowFinish {}
   name: "orders-workflow",
   version: "1.0.0",
   flow: [
-    start(OrdersWorkflowStart)
+    onStart(OrdersWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(

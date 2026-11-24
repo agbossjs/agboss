@@ -16,7 +16,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { Produced } from "../../../src/index.js";
 import { FencedEffectRepository } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import {
   BoardLookupTool,
@@ -141,7 +141,7 @@ export class BusyWorkflowFinish {}
   name: "busy-workflow",
   version: "1.0.0",
   flow: [
-    start(BusyWorkflowStart)
+    onStart(BusyWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeAction)
       .toAction(PayAction)
@@ -149,7 +149,7 @@ export class BusyWorkflowFinish {}
       .toWorkflow(QuoteWorkflow)
       .returns(WorkflowFinishTextDto)
       .toFinish(BusyWorkflowFinish),
-    start(BusyAgentWorkflowStart)
+    onStart(BusyAgentWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(BusyAgent)
       .toFinish(BusyWorkflowFinish),

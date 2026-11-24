@@ -10,7 +10,7 @@ import { Application } from "../../../src/application/application.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { LocalModelProvider } from "../../models/providers.fixture.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 
 /** The child's agent: `profiles/profile-kid-workflow/*.yaml` change its settings. */
 @Agent({ name: "kid-agent", description: "Answers", prompt: "Answer.", model: "local/llama" })
@@ -33,7 +33,7 @@ class KidFinish {}
 @Workflow({
   name: "profile-kid-workflow",
   version: "1.0.0",
-  flow: [start(KidStart).returns(WorkflowStartTextDto).toAgent(Kid).toFinish(KidFinish)],
+  flow: [onStart(KidStart).returns(WorkflowStartTextDto).toAgent(Kid).toFinish(KidFinish)],
 })
 export class KidWorkflow {}
 
@@ -52,7 +52,7 @@ class BossFinish {}
   name: "profile-boss-workflow",
   version: "1.0.0",
   flow: [
-    start(BossStart)
+    onStart(BossStart)
       .returns(WorkflowStartTextDto)
       .toWorkflow(KidWorkflow)
       .returns(WorkflowFinishTextDto)

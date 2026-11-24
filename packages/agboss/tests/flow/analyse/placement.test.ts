@@ -19,7 +19,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OrderWorkflow } from "../fixtures/order.fixture.js";
-import { agent, caseOf, start, workflow } from "../fixtures/paths.js";
+import { onAgent, caseOf, onStart, onWorkflow } from "../fixtures/paths.js";
 import {
   CompanyGradeDto,
   CompanyLinkDto,
@@ -59,7 +59,7 @@ const reviewSwitch = () =>
   name: "inline-shared-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
@@ -74,12 +74,12 @@ class InlineSharedWorkflow {}
   name: "own-path-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent),
-    agent(ReviewKitAgent)
+    onAgent(ReviewKitAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(...reviewSwitch()),
   ],
@@ -90,8 +90,8 @@ class OwnPathWorkflow {}
   name: "single-entry-own-path-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart).returns(ShortlistDto).toAgent(DraftKitAgent),
-    agent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
+    onStart(KitWorkflowStart).returns(ShortlistDto).toAgent(DraftKitAgent),
+    onAgent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
   ],
 })
 class SingleEntryOwnPathWorkflow {}
@@ -100,12 +100,12 @@ class SingleEntryOwnPathWorkflow {}
   name: "continued-twice-workflow",
   version: "1.0.0",
   flow: [
-    start(KitWorkflowStart)
+    onStart(KitWorkflowStart)
       .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
-    agent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
+    onAgent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
   ],
 })
 class ContinuedTwiceWorkflow {}
@@ -119,7 +119,7 @@ describe("AC3: one way in → inline, two or more → own path", () => {
       {
         code: "flow.shared-node-inline",
         message:
-          "inline-shared-workflow: review-kit-agent is reached from 2 paths — continue it in its own path agent(ReviewKitAgent)…",
+          "inline-shared-workflow: review-kit-agent is reached from 2 paths — continue it in its own path onAgent(ReviewKitAgent)…",
       },
     ]);
   });
@@ -133,7 +133,7 @@ describe("AC3: one way in → inline, two or more → own path", () => {
       {
         code: "flow.single-entry-own-path",
         message:
-          "single-entry-own-path-workflow: draft-kit-agent is reached from 1 path — continue it inline after .toAgent(DraftKitAgent) and remove its own path agent(DraftKitAgent)…",
+          "single-entry-own-path-workflow: draft-kit-agent is reached from 1 path — continue it inline after .toAgent(DraftKitAgent) and remove its own path onAgent(DraftKitAgent)…",
       },
     ]);
   });
@@ -167,19 +167,19 @@ describe("#263 AC4: child inline / own path", () => {
       caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
     ] as const;
   const picked = () =>
-    start(PickedOfferWorkflowStart)
+    onStart(PickedOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
       .returns(CompanyDto);
   const linked = () =>
-    start(LinkOfferWorkflowStart).returns(WorkflowStartTextDto).returns(CompanyLinkDto);
+    onStart(LinkOfferWorkflowStart).returns(WorkflowStartTextDto).returns(CompanyLinkDto);
 
   @Workflow({
     name: "child-single-own-path-workflow",
     version: "1.0.0",
     flow: [
       picked().toWorkflow(CompanyReviewWorkflow),
-      workflow(CompanyReviewWorkflow)
+      onWorkflow(CompanyReviewWorkflow)
         .returns(REVIEWED)
         .switch(...reviewCases()),
     ],
@@ -204,7 +204,7 @@ describe("#263 AC4: child inline / own path", () => {
       {
         code: "flow.single-entry-own-path",
         message:
-          "child-single-own-path-workflow: company-review-workflow is reached from 1 path — continue it inline after .toWorkflow(CompanyReviewWorkflow) and remove its own path workflow(CompanyReviewWorkflow)…",
+          "child-single-own-path-workflow: company-review-workflow is reached from 1 path — continue it inline after .toWorkflow(CompanyReviewWorkflow) and remove its own path onWorkflow(CompanyReviewWorkflow)…",
       },
     ]);
   });
@@ -213,7 +213,7 @@ describe("#263 AC4: child inline / own path", () => {
     expect(errorsOf(ChildSharedInlineWorkflow)).toContainEqual({
       code: "flow.shared-node-inline",
       message:
-        "child-shared-inline-workflow: company-review-workflow is reached from 2 paths — continue it in its own path workflow(CompanyReviewWorkflow)…",
+        "child-shared-inline-workflow: company-review-workflow is reached from 2 paths — continue it in its own path onWorkflow(CompanyReviewWorkflow)…",
     });
     expect(errorsOf(LinkOfferWorkflow)).toEqual([]);
   });

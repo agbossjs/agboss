@@ -10,7 +10,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import type { StepDescriptor, ToolHandler } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -175,7 +175,7 @@ const defaults = {
   uncompactedTurns: 1,
   providers: [Pay],
   flow: [
-    start(Start)
+    onStart(Start)
       .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .returns(ReceiptDto)

@@ -23,7 +23,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { hours } from "../../../src/units/index.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { isDeclined, PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
 import { untilReached } from "../../helpers/reached.js";
@@ -214,7 +214,7 @@ export class NotifiedWorkflowFinish {}
   name: "charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeWorkflowStart)
+    onStart(ChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       // nobody can say what happened to the charge: the order is set aside for an operator
@@ -230,7 +230,7 @@ export class ChargeWorkflow {}
   name: "charge-and-notify-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeAndNotifyWorkflowStart)
+    onStart(ChargeAndNotifyWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeAndNotifyAction)
       .returns(ChargeReceiptDto)
@@ -258,7 +258,7 @@ export class OutboundCallApplication {}
   name: "kept-charge-workflow",
   version: "1.0.0",
   flow: [
-    start(ChargeWorkflowStart)
+    onStart(ChargeWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))

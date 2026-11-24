@@ -14,7 +14,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction, PiiKind, PiiPolicy, pii } from "../../../src/index.js";
 import { hours } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #943 — pauses to list: a manager's approval (24 h, a channel pause, its workflow masks social
@@ -158,9 +158,9 @@ export class ListManagerWorkflowStart {}
   name: "list-manager-workflow",
   version: "1.0.0",
   flow: [
-    start(ListManagerWorkflowStart)
+    onStart(ListManagerWorkflowStart)
       .returns(ListOrderDto)
-      .toQuestion(ListManagerQuestion)
+      .toExternalTask(ListManagerQuestion)
       .returns(ListDecisionDto)
       .toAction(RecordListedAction)
       .returns(ListDoneDto)
@@ -177,9 +177,9 @@ export class ListOwnerWorkflowStart {}
   name: "list-owner-workflow",
   version: "1.0.0",
   flow: [
-    start(ListOwnerWorkflowStart)
+    onStart(ListOwnerWorkflowStart)
       .returns(ListOrderDto)
-      .toQuestion(ListOwnerQuestion)
+      .toExternalTask(ListOwnerQuestion)
       .returns(ListDecisionDto)
       .toAction(RecordListedAction)
       .returns(ListDoneDto)
@@ -199,9 +199,9 @@ export class ListFinanceWorkflowStart {}
   name: "list-finance-workflow",
   version: "1.0.0",
   flow: [
-    start(ListFinanceWorkflowStart)
+    onStart(ListFinanceWorkflowStart)
       .returns(ListOrderDto)
-      .toQuestion(ListFinanceQuestion)
+      .toExternalTask(ListFinanceQuestion)
       .returns(ListDecisionDto)
       .toAction(RecordListedAction)
       .returns(ListDoneDto)
@@ -217,9 +217,9 @@ export class ListOpenWorkflowStart {}
   name: "list-open-workflow",
   version: "1.0.0",
   flow: [
-    start(ListOpenWorkflowStart)
+    onStart(ListOpenWorkflowStart)
       .returns(ListOrderDto)
-      .toQuestion(ListOpenQuestion)
+      .toExternalTask(ListOpenQuestion)
       .returns(ListDecisionDto)
       .toAction(RecordListedAction)
       .returns(ListDoneDto)
