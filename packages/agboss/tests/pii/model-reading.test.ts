@@ -93,7 +93,7 @@ describe("#708: a model judge's calls", () => {
 
     const request = await reading.request({
       state: [`The answer names ${EMAIL}`, Decision.image(image)],
-      questions: { grounded: Decision.noul(`Is ${EMAIL} in the sources?`) },
+      questions: { grounded: Decision.boolean(`Is ${EMAIL} in the sources?`) },
     });
 
     const sent = JSON.stringify(request);
@@ -110,7 +110,7 @@ describe("#708: a model judge's calls", () => {
         `data:image/x, write to ${EMAIL}`,
         { note: `data:image/png;base64, ${EMAIL}` },
       ] as never,
-      questions: { grounded: Decision.noul(`data:image/png;base64,${EMAIL}`) },
+      questions: { grounded: Decision.boolean(`data:image/png;base64,${EMAIL}`) },
     });
 
     expect(JSON.stringify(request)).not.toContain(EMAIL);
@@ -124,7 +124,7 @@ describe("#708: a model judge's calls", () => {
 
     const request = await reading.request({
       state: { owner: new Owner(EMAIL) },
-      questions: { grounded: Decision.noul("Is the owner known?") },
+      questions: { grounded: Decision.boolean("Is the owner known?") },
     });
 
     expect(JSON.stringify(request)).not.toContain(EMAIL);

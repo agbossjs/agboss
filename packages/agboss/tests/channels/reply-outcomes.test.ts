@@ -1,6 +1,6 @@
 /**
  * #267 S124 (PR 4): (a) a decision model (Jev) reads a reply for an approval role — approve / refuse
- * only, one `Decision.noul("approved")` scripted with `decideWith({ approved: 0.9 })`, no `reason`,
+ * only, one `Decision.boolean("approved")` scripted with `decideWith({ approved: 0.9 })`, no `reason`,
  * no `overrideArguments`; (b) a code interpreter returns `ReplyInterpretation.understood(decision)` or
  * `ReplyInterpretation.notUnderstood({ reason })` — the latter is `UninterpretableReplyError` with
  * that reason and the pause stays pending; a throw is a crash (its error the cause); what is neither
@@ -43,7 +43,7 @@ function depositPauseId(): string {
 }
 
 describe("#267 S124 a: a decision model reads an approval's reply", () => {
-  test("P(yes) above one half approves: one Decision.noul about the question and the reply", async ({
+  test("P(yes) above one half approves: one Decision.boolean about the question and the reply", async ({
     app,
     mockLlm,
   }) => {
@@ -66,7 +66,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
       state: expect.stringMatching(/"leaseId": "L-9"[\s\S]*### reply\n"sure, go ahead"/),
       questions: {
         approved: {
-          type: "noul",
+          type: "boolean",
           instructions: expect.stringContaining("The clerk answered a deposit return."),
         },
       },

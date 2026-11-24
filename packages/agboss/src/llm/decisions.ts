@@ -24,9 +24,9 @@ export interface ChoiceQuestion<O extends string = string> {
   readonly criteria: Readonly<Record<O, string | null>>;
 }
 
-/** Yes or no: the answer is P(yes). */
-export interface NoulQuestion {
-  readonly type: "noul";
+/** Yes or no: the answer is the probability of yes. */
+export interface BooleanQuestion {
+  readonly type: "boolean";
   readonly instructions: string;
   readonly criteria?: { readonly true: string; readonly false: string };
 }
@@ -38,7 +38,7 @@ export interface ScoreQuestion {
   readonly criteria: readonly string[];
 }
 
-export type DecisionQuestion = ChoiceQuestion | NoulQuestion | ScoreQuestion;
+export type DecisionQuestion = ChoiceQuestion | BooleanQuestion | ScoreQuestion;
 
 /** Questions of one decision by id. */
 export type DecisionQuestions = Readonly<Record<string, DecisionQuestion>>;
@@ -50,10 +50,11 @@ export interface ChoiceAnswer<O extends string = string> {
   readonly confidence: number;
 }
 
-export interface NoulAnswer {
-  readonly type: "noul";
-  /** P(yes), 0…1. */
-  readonly noul: number;
+/** The answer to a yes/no question. */
+export interface BooleanAnswer {
+  readonly type: "boolean";
+  /** The probability of yes, 0…1. */
+  readonly probability: number;
 }
 
 export interface ScoreAnswer {
@@ -67,14 +68,14 @@ export interface ScoreAnswer {
   readonly confidence: number;
 }
 
-export type DecisionAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
+export type DecisionAnswer = ChoiceAnswer | BooleanAnswer | ScoreAnswer;
 
-/** The answer a question gets: a choice among its options, P(yes), or a level. */
+/** The answer a question gets: a choice among its options, the probability of yes, or a level. */
 export type AnswerOf<Q> =
   Q extends ChoiceQuestion<infer O>
     ? ChoiceAnswer<O>
-    : Q extends NoulQuestion
-      ? NoulAnswer
+    : Q extends BooleanQuestion
+      ? BooleanAnswer
       : Q extends ScoreQuestion
         ? ScoreAnswer
         : never;
@@ -110,13 +111,13 @@ export const Decision = {
     return { type: "choice", instructions, criteria };
   },
 
-  noul(
+  boolean(
     instructions: string,
     criteria?: { readonly true: string; readonly false: string },
-  ): NoulQuestion {
+  ): BooleanQuestion {
     return criteria === undefined
-      ? { type: "noul", instructions }
-      : { type: "noul", instructions, criteria };
+      ? { type: "boolean", instructions }
+      : { type: "boolean", instructions, criteria };
   },
 
   score(instructions: string, levels: readonly string[]): ScoreQuestion {

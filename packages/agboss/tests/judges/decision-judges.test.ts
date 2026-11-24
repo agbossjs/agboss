@@ -1,6 +1,6 @@
 /**
  * #226: decision models are first-class — a judge decides on any decision model with typed answers
- * (`judgeModel.decide`, `Decision.choice / noul / score / image`), its spend under `judge:<name>`;
+ * (`judgeModel.decide`, `Decision.choice / boolean / score / image`), its spend under `judge:<name>`;
  * routers route on any decision model; the wrong call for a model's kind is a `ModelKindError`.
  */
 import { describe, expect, it } from "vitest";
@@ -54,7 +54,7 @@ describe("AC1: a judge on a decision model", () => {
         reply: "Acme is hiring a TS engineer.",
       },
       questions: {
-        grounded: { type: "noul" },
+        grounded: { type: "boolean" },
         tone: {
           type: "choice",
           criteria: { neutral: "Plain, factual", pushy: "Sells or pressures" },

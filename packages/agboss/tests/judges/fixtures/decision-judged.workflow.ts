@@ -29,7 +29,7 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
     const a = await this.judgeModel.decide({
       state: { task, reply: reply.text },
       questions: {
-        grounded: Decision.noul("Every fact in the reply appears in the task"),
+        grounded: Decision.boolean("Every fact in the reply appears in the task"),
         tone: Decision.choice("Tone of the reply", {
           neutral: "Plain, factual",
           pushy: "Sells or pressures",
@@ -40,7 +40,7 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
     // typed answers: a compile error here if decide's answers lost their types
     const tone: "neutral" | "pushy" = a.tone.choice;
     const quality: number = a.quality.score;
-    const grounded: number = a.grounded.noul;
+    const grounded: number = a.grounded.probability;
     return grounded > 0.7 && tone === "neutral"
       ? JudgeVerdict.passed({ metrics: { quality, grounded } })
       : JudgeVerdict.failed({ reason: "Only state facts from the task, neutrally." });
@@ -55,9 +55,9 @@ export class LooksRight implements JudgeHandler<PlainTextDto> {
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
       state: ["Does the chart match the reply?", Decision.image(PNG, ImageDetail.Low), reply.text],
-      questions: { matches: Decision.noul("The reply describes the chart") },
+      questions: { matches: Decision.boolean("The reply describes the chart") },
     });
-    return a.matches.noul >= 0.5
+    return a.matches.probability >= 0.5
       ? JudgeVerdict.passed()
       : JudgeVerdict.failed({ reason: "Describe the chart." });
   }

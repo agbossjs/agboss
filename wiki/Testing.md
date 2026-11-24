@@ -423,7 +423,7 @@ is a chat request (`system`: the framework's text and its `prompt`; `input`: `##
 `### reply`). An interpreter on a decision model (an approval role's, #267 S124) answers its one
 yes / no question — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
 approves (P(yes) > 0.5), `decideWith({ approved: 0.2 })` refuses, `{ cost: usd(…) }` its spend; its
-request is `{ kind: "decide", state, questions: { approved: { type: "noul", … } } }`, the state the
+request is `{ kind: "decide", state, questions: { approved: { type: "boolean", … } } }`, the state the
 masked `### ask` / `### reply`. A code interpreter calls no model (`mockLlm` of it is a setup error) —
 the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ReplyInterpretation.understood({ approved: false }))`
 (or `ReplyInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
@@ -1108,9 +1108,9 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
       state: { task, reply: reply.text },
-      questions: { grounded: Decision.noul("Is the reply grounded in the task?") },
+      questions: { grounded: Decision.boolean("Is the reply grounded in the task?") },
     });
-    return answers.grounded.noul > 0.5
+    return answers.grounded.probability > 0.5
       ? JudgeVerdict.passed()
       : JudgeVerdict.failed({ reason: "ground every claim in the task" });
   }

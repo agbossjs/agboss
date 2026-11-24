@@ -45,7 +45,9 @@ function scriptedDecisions(): ModelGateway["routeTo"] {
 const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
   Promise.resolve({
     answers: Object.fromEntries(
-      Object.keys(spec.request.questions).map((id) => [id, { type: "noul", noul: 0 }] as const),
+      Object.keys(spec.request.questions).map(
+        (id) => [id, { type: "boolean", probability: 0 }] as const,
+      ),
     ),
     usage: {
       caller: spec.caller,

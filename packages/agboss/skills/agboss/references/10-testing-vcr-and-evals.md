@@ -181,9 +181,9 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
   async judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
       state: { decision: reply.decision, reason: reply.reason },
-      questions: { reasoned: Decision.noul("Does the reason support the decision?") },
+      questions: { reasoned: Decision.boolean("Does the reason support the decision?") },
     });
-    return answers.reasoned.noul >= 0.5
+    return answers.reasoned.probability >= 0.5
       ? JudgeVerdict.passed()
       : JudgeVerdict.failed({ reason: "give a reason that supports the decision" });
   }

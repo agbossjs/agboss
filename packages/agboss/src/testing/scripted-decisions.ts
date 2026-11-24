@@ -53,11 +53,11 @@ function scoreAnswer(question: ScoreQuestion, value: ScriptedAnswer, wrong: Wron
 /** A scripted answer as the Decisions API would give it for its question. */
 function answerOf(question: DecisionQuestion, value: ScriptedAnswer, wrong: Wrong): DecisionAnswer {
   switch (question.type) {
-    case "noul":
+    case "boolean":
       if (typeof value !== "number" || value < 0 || value > 1) {
         throw wrong("is a yes/no question: script P(yes), 0…1");
       }
-      return { type: "noul", noul: value };
+      return { type: "boolean", probability: value };
     case "choice":
       return choiceAnswer(question, value, wrong);
     case "score":
@@ -104,7 +104,7 @@ function routeAnswers(
     throw new TestFailure({ code: "test.not-a-route", message });
   }
   return Object.fromEntries(
-    ids.map((id) => [id, { type: "noul", noul: launched.includes(id) ? 1 : 0 }] as const),
+    ids.map((id) => [id, { type: "boolean", probability: launched.includes(id) ? 1 : 0 }] as const),
   );
 }
 

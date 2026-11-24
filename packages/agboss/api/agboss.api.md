@@ -640,7 +640,7 @@ export enum AnswerFiles {
 export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: ArbiterAnswerOf<TAgent>) => boolean | Promise<boolean>;
 
 // @public
-export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends NoulQuestion ? NoulAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
+export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends BooleanQuestion ? BooleanAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
 
 // @public
 export type AnswersOf<Q extends DecisionQuestions> = {
@@ -888,6 +888,26 @@ export interface BlockAction {
     readonly kind: PiiActionKind.Block;
     // (undocumented)
     readonly refusal?: string;
+}
+
+// @public
+export interface BooleanAnswer {
+    readonly probability: number;
+    // (undocumented)
+    readonly type: "boolean";
+}
+
+// @public
+export interface BooleanQuestion {
+    // (undocumented)
+    readonly criteria?: {
+        readonly true: string;
+        readonly false: string;
+    };
+    // (undocumented)
+    readonly instructions: string;
+    // (undocumented)
+    readonly type: "boolean";
 }
 
 // @public
@@ -2230,16 +2250,16 @@ export interface DecideExpiration<TAnswer> {
 // @public
 export const Decision: {
     readonly choice: <const C extends Readonly<Record<string, string | null>>>(instructions: string, criteria: C) => ChoiceQuestion<keyof C & string>;
-    readonly noul: (instructions: string, criteria?: {
+    readonly boolean: (instructions: string, criteria?: {
         readonly true: string;
         readonly false: string;
-    }) => NoulQuestion;
+    }) => BooleanQuestion;
     readonly score: (instructions: string, levels: readonly string[]) => ScoreQuestion;
     readonly image: (dataUrl: string, detail?: ImageDetail) => DecisionImage;
 };
 
 // @public (undocumented)
-export type DecisionAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
+export type DecisionAnswer = ChoiceAnswer | BooleanAnswer | ScoreAnswer;
 
 // @public
 export type DecisionError = DecisionError.InvalidRequest | DecisionError.InvalidResponse;
@@ -2276,7 +2296,7 @@ export interface DecisionImage {
 }
 
 // @public (undocumented)
-export type DecisionQuestion = ChoiceQuestion | NoulQuestion | ScoreQuestion;
+export type DecisionQuestion = ChoiceQuestion | BooleanQuestion | ScoreQuestion;
 
 // @public
 export type DecisionQuestions = Readonly<Record<string, DecisionQuestion>>;
@@ -6166,26 +6186,6 @@ export interface NotUnderstoodReply {
 export interface NotUnderstoodReplyOptions {
     // (undocumented)
     readonly reason: string;
-}
-
-// @public (undocumented)
-export interface NoulAnswer {
-    readonly noul: number;
-    // (undocumented)
-    readonly type: "noul";
-}
-
-// @public
-export interface NoulQuestion {
-    // (undocumented)
-    readonly criteria?: {
-        readonly true: string;
-        readonly false: string;
-    };
-    // (undocumented)
-    readonly instructions: string;
-    // (undocumented)
-    readonly type: "noul";
 }
 
 // @public (undocumented)
@@ -12515,7 +12515,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "choice".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "probabilities".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "confidence".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "NoulAnswer".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "ScoreAnswer".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".

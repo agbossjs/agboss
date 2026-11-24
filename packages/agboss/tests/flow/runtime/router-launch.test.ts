@@ -52,7 +52,7 @@ const loyalty = replyWith(LoyaltyOfferDto, { offer: "10% off" });
 
 describe("S23: a model router decides its OnDemand routes", () => {
   desk(
-    "OnDemand by yes/no: one decide, a noul per OnDemand route, yes launches",
+    "OnDemand by yes/no: one decide, a boolean question per OnDemand route, yes launches",
     async ({ app, mockLlm }) => {
       mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
       mockLlm(OrderLookupAgent).thenReturn(order);
@@ -75,7 +75,7 @@ describe("S23: a model router decides its OnDemand routes", () => {
       expect(asked).toMatchObject({
         kind: "decide",
         questions: {
-          "refund-policy-agent": { type: "noul", instructions: "The message is about returns" },
+          "refund-policy-agent": { type: "boolean", instructions: "The message is about returns" },
         },
       });
       expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain("30 days");

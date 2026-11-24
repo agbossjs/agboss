@@ -20,7 +20,7 @@ import { withSortedKeys } from "../json.js";
  * How a model router decides the `OnDemand` routes of a parallel launch (#273 S23): one model
  * call, one independent yes/no question per route — its text the route's prompt — keyed by the
  * target's `name` in the order of `@Router({ routes })`. A decision model answers one `decide` with
- * a `Decision.noul` per route; a chat model one answer tool with a boolean field per route (its keys
+ * a `Decision.boolean` per route; a chat model one answer tool with a boolean field per route (its keys
  * sorted, like every tool schema). A route is launched when its answer is yes: P(yes) > 0.5 — no
  * threshold setting. Every probability is kept for the trace. The same yes/no machinery answers a
  * model arbiter (#279), under its own caller and texts (`DecisionVoice`).
@@ -111,7 +111,7 @@ async function decideOnDecisionModel(
       new TypeError(`${voice.caller}: the model gateway has no decisions (${model})`),
     );
   const questions: DecisionQuestions = Object.fromEntries(
-    request.questions.map((question) => [question.target, Decision.noul(question.prompt)]),
+    request.questions.map((question) => [question.target, Decision.boolean(question.prompt)]),
   );
   try {
     const text = `${request.instructions}\n\n${request.input}`;
@@ -121,7 +121,7 @@ async function decideOnDecisionModel(
     const probabilities = Object.fromEntries(
       Object.entries(outcome.answers).map(([id, answer]) => [
         id,
-        answer.type === "noul" ? answer.noul : 0,
+        answer.type === "boolean" ? answer.probability : 0,
       ]),
     );
     return decidedOf(request, probabilities, outcome.usage);

@@ -49,7 +49,7 @@ import { RefusalTextService } from "../../services/refusal-text.service.js";
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
   prompt: "Does the message ask for legal advice?",
-  model: "typesafe/jev-1.13", // a decision model: one Decision.noul; a chat model: one answer tool
+  model: "typesafe/jev-1.13", // a decision model: one Decision.boolean; a chat model: one answer tool
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
 })

@@ -87,7 +87,7 @@ describe("Jev calls: the standard fetch abort signal (#95)", () => {
       clock,
     );
 
-    const decided = jev({ model: "typesafe/jev", input: "x", options: [] } as never);
+    const decided = jev({ model: "typesafe/jev", state: "x", questions: {} });
     const outcome = settledFlag(decided);
     await clock.advance(milliseconds(49));
     expect(outcome.isSettled()).toBe(false);

@@ -46,7 +46,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `openai/gpt-6-luna-decisions`, pplx-decider, Clef, …; OpenRouter Decisions API via
     `DecisionsModelProvider` — probabilities, exact cost) or any chat model. Guardrails use
     `defaults.guardrail.model` (Jev), never `defaults.router`. Judges on a decision model call `judgeModel.decide` with
-    `Decision.noul` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
+    `Decision.boolean` / `Decision.choice` / `Decision.score` / `Decision.image` (typed answers);
     `invoke` or `decide` on the wrong kind of model → `ModelKindError`.
   - Agents: cheap chat models (default `moonshotai/kimi-k2.6`) via `@langchain/openai`, each with
     `maxTokens` (`TokenLimit.MODEL_MAX` = model's maximum), `reasoning` (`Reasoning.on({ effort })`, `@agboss/core/models`), `cache`.
@@ -575,7 +575,7 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   the execution with the branch's error; `FailurePolicy.Skip` drops only a `StepFailedError`, a
   limit in a `Skip` branch fails the launch, and `app.cancel` cancels the whole execution — never a
   branch outcome, never taken by `.onError` (S21). A model router before a
-  launch decides its `OnDemand` routes in one call — a `Decision.noul` per route on a decision
+  launch decides its `OnDemand` routes in one call — a `Decision.boolean` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
 name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
 - **Child workflows (#263):** a step may be an ordinary `@Workflow` of the application —
@@ -1628,7 +1628,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   in a guardrail or the action (a tool interceptor's `beforeToolCall` sees the corrected call before the tool runs);
   `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
   call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
-  role a decision model too — approve / refuse only, one `Decision.noul("approved")`, P(yes) > 0.5,
+  role a decision model too — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
   `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
@@ -2060,7 +2060,7 @@ export class OrderAgent {}
 - **Guardrails (#120 PR 2)** block (safety); judges correct (quality). `@InputGuardrail` /
   `@OutputGuardrail({ name, description, prompt | promptUrls, model?, threshold, refusal?, deps? })`
   (`guardrails/*.guardrail.ts`, `-guardrail`): a yes / no question on a decision model (one
-  `Decision.noul`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`
+  `Decision.boolean`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`
   (`[guardrail.no-model]`), never the router's; P(yes) ≥ `threshold` fails the execution with
   `GuardrailBlockedError` (`guardrail.blocked`; `guard`, `refusal` — the text to send instead —,
   `key: guardrails.<name>.threshold`, `probability`, `threshold`). An input guardrail reads what an
@@ -2240,7 +2240,7 @@ task, attempt })` takes `reply` as a plain object, typed by the judge (a `varian
 class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
 (`judgeModel.decide({ state, questions })` with
-`Decision.noul` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
+`Decision.boolean` / `Decision.choice` / `Decision.score`, answers typed by the questions; `DECISION_MODELS`
 served by `DecisionsModelProvider`). The wrong call for the model's kind throws `ModelKindError`.
 Routers and guardrails use decision models too. README → Quality gates has a full judge. **Code
 judges (#396):** `@Judge({ decidedBy: DecidedBy.Code })` (absent = `DecidedBy.Model`; options

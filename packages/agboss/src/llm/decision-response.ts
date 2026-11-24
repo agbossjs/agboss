@@ -12,7 +12,7 @@ const AnswerSchema = z.discriminatedUnion("type", [
     probabilities: Probabilities,
     confidence: z.number(),
   }),
-  z.object({ type: z.literal("noul"), noul: z.number().min(0).max(1) }),
+  z.object({ type: z.literal("boolean"), probability: z.number().min(0).max(1) }),
   z.object({
     type: z.literal("score"),
     score: z.number().int().nonnegative(),

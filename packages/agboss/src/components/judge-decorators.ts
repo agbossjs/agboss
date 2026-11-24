@@ -68,7 +68,7 @@ export abstract class JudgeModel {
   /** One chat call; returns the reply's text. On a decision model: `ModelKindError`. */
   abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
   /**
-   * One decision (questions from `Decision.choice / noul / score`), its answers typed by them. On a
+   * One decision (questions from `Decision.choice / boolean / score`), its answers typed by them. On a
    * chat model: `ModelKindError`.
    */
   abstract decide<const Q extends DecisionQuestions>(

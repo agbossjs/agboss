@@ -1,6 +1,6 @@
 /**
  * The decision models OpenRouter's Decisions API serves (2026-10): calibrated answers to choice,
- * yes/no (`noul`) and score questions, the exact cost in every answer. Images: Luna, pplx-decider, Clef.
+ * yes/no (`boolean`) and score questions, the exact cost in every answer. Images: Luna, pplx-decider, Clef.
  */
 export const DECISION_MODELS: readonly string[] = [
   "typesafe/jev-1.13",

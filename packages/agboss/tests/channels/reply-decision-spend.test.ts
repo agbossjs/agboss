@@ -39,7 +39,7 @@ describe("#1366: the usage of a decision interpreter's reading", () => {
     const read = await readByDecision(
       interpreter as never,
       input,
-      siteAnswering({ approved: { type: "noul", noul: 0.9 } }),
+      siteAnswering({ approved: { type: "boolean", probability: 0.9 } }),
     );
 
     expect(read).toMatchObject({ kind: "answered", answer: { approved: true } });

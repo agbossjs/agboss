@@ -166,7 +166,7 @@ describe("the default gateway's decide", () => {
 
   it("refuses more than 200 questions before any call", async () => {
     const questions = Object.fromEntries(
-      Array.from({ length: 201 }, (_, i) => [`q${String(i)}`, Decision.noul("Is it?")]),
+      Array.from({ length: 201 }, (_, i) => [`q${String(i)}`, Decision.boolean("Is it?")]),
     );
 
     await expect(

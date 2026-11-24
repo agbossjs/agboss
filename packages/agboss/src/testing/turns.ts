@@ -26,7 +26,7 @@ export interface DecisionDetails {
   readonly cost?: Usd;
 }
 
-/** A scripted answer to one decision question: P(yes) (`noul`), an option (`choice`), a level's index or text (`score`). */
+/** A scripted answer to one decision question: the probability of yes (`boolean`), an option (`choice`), a level's index or text (`score`). */
 export type ScriptedAnswer = number | string;
 
 /** Optional parts of a scripted decision (`decideWith`). */

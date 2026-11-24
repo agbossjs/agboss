@@ -128,9 +128,11 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
       state: { task, reply: reply.text },
-      questions: { grounded: Decision.noul("Is every claim of the reply grounded in the task?") },
+      questions: {
+        grounded: Decision.boolean("Is every claim of the reply grounded in the task?"),
+      },
     });
-    return answers.grounded.noul > 0.5
+    return answers.grounded.probability > 0.5
       ? JudgeVerdict.passed()
       : JudgeVerdict.failed({ reason: "cite the source of every claim" });
   }

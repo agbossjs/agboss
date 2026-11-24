@@ -66,7 +66,7 @@ export class CorrectnessJudge implements JudgeHandler<PlainTextDto> {
 ```
 
 On a **decision model** the judge asks typed questions instead — `judgeModel.decide({ state, questions })`
-with `Decision.noul` (yes/no → P(yes)), `Decision.choice` (an option, probabilities, confidence) and
+with `Decision.boolean` (yes/no → P(yes)), `Decision.choice` (an option, probabilities, confidence) and
 `Decision.score` (levels, lowest first → the level's index); the answers are typed by the questions:
 
 ```ts file=judges/grounded.judge.ts
@@ -93,11 +93,11 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
     const a = await this.judgeModel.decide({
       state: { task, reply: reply.text },
       questions: {
-        grounded: Decision.noul("Every fact in the reply follows from the task"),
+        grounded: Decision.boolean("Every fact in the reply follows from the task"),
         quality: Decision.score("Overall usefulness", ["useless", "partial", "complete"]),
       },
     });
-    return a.grounded.noul > 0.7 && a.quality.score >= 1
+    return a.grounded.probability > 0.7 && a.quality.score >= 1
       ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
       : JudgeVerdict.failed({ reason: "Only state facts you can support, and answer the whole task." });
   }

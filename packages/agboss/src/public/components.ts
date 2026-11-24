@@ -102,6 +102,8 @@ export {
   MAX_DECISION_QUESTIONS,
   type AnswerOf,
   type AnswersOf,
+  type BooleanAnswer,
+  type BooleanQuestion,
   type ChoiceAnswer,
   type ChoiceQuestion,
   type DecisionAnswer,
@@ -111,8 +113,6 @@ export {
   type DecisionRequest,
   type DecisionState,
   ImageDetail,
-  type NoulAnswer,
-  type NoulQuestion,
   type ScoreAnswer,
   type ScoreQuestion,
 } from "../llm/decisions.js";

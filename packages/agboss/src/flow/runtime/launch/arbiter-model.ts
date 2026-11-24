@@ -16,7 +16,7 @@ import {
 
 /**
  * A model arbiter's call (#279): one yes/no decision per arriving answer, on the arbiter's own model
- * — a decision model (`Decision.noul` with the agent's criterion) or a chat model (one answer tool) —
+ * — a decision model (`Decision.boolean` with the agent's criterion) or a chat model (one answer tool) —
  * under the cost caller `arbiter:<name>`, the arbiter's `prompt` as its instructions. The answer
  * counts when P(yes) > 0.5. A failed call or an unreadable answer is a failure, never a rejection.
  */

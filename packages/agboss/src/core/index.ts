@@ -93,10 +93,6 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type ModelStartEvent,
   /** @deprecated Import from "@agboss/core" (#195). */
-  type NoulAnswer,
-  /** @deprecated Import from "@agboss/core" (#195). */
-  type NoulQuestion,
-  /** @deprecated Import from "@agboss/core" (#195). */
   OBSERVER_HOOKS,
   /** @deprecated Import from "@agboss/core" (#195). */
   type ObserverClass,

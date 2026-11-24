@@ -158,7 +158,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   `overrideArguments` pass the tool's own input strictly (an unknown key at any depth is refused,
   never dropped). The kept record keeps the call as asked (`asked`) beside the decision. Tests:
   `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For an approval role the model may be a decision
-  model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.noul("approved")` about
+  model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.boolean("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
   answer `{ approved }` — never a `reason` or `overrideArguments`; a question role's interpreter
@@ -217,7 +217,7 @@ export class DeskDoneDto {
 -->
 
 ```ts
-// approve / refuse on a decision model: one Decision.noul("approved"), no reason, no overrideArguments
+// approve / refuse on a decision model: one Decision.boolean("approved"), no reason, no overrideArguments
 @ReplyInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",

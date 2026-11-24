@@ -25,7 +25,7 @@ import type { ToolBinding } from "../flow/runtime/answer-tools.js";
  * can read — a code interpreter's `ReplyInterpretation.notUnderstood({ reason })` (S124 b) or its
  * crash (a throw), a model that gives no answer, an answer that is not valid — is `unreadable`: the
  * caller throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter
- * spent is reported either way. A decision-model interpreter makes one `Decision.noul` (S124 a,
+ * spent is reported either way. A decision-model interpreter makes one `Decision.boolean` (S124 a,
  * `reply-decision.ts`); a chat-model interpreter makes one chat call under the cost caller
  * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.

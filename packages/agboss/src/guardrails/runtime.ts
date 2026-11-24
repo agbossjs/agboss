@@ -35,7 +35,7 @@ import { carryRecords } from "../flow/runtime/carried-records.js";
 
 /**
  * Guardrails at run time (#120): each one a yes / no decision on its own model — a decision model
- * (one `Decision.noul`) or a chat model (one answer tool) — under the cost caller
+ * (one `Decision.boolean`) or a chat model (one answer tool) — under the cost caller
  * `guardrail:<name>`, its `prompt` the question. Run in list order on the text; the first whose
  * P(yes) reaches its threshold fails the execution with `GuardrailBlockedError`, its refusal (the
  * decorator's text, or the class's `refusal()`) the text to send instead. A model that does not

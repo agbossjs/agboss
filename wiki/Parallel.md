@@ -344,7 +344,7 @@ finds the quorum decided, cancels the unfinished branches and withdraws their pa
 ### Model arbiters
 
 A `DecidedBy.Model` arbiter makes one decision per answer, on its own `model`: a decision model gets
-one `Decision.noul` — the agent's criterion — over the arbiter's `prompt` and the answer as JSON; a
+one `Decision.boolean` — the agent's criterion — over the arbiter's `prompt` and the answer as JSON; a
 chat model answers through one answer tool (`answer-arbiter`) with a boolean. P(yes) > 0.5 counts.
 Its spend is recorded under `arbiter:<name>`; the execution's budgets are checked before every call.
 The arbiter's prompt and criteria are part of the workflow's prompt version, its model of the model

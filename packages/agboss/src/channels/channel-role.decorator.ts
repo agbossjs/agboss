@@ -198,7 +198,7 @@ export function channelRoleOf(cls: Class): FoundChannelRole | undefined {
  * answer — named on the role (`@ChannelRole({ replyInterpreter })`), one interpreter per role. It gets
  * the pause's original question and the reply (`{ ask, reply }`); what it returns is validated like
  * any decision. `DecidedBy.Model` — its chat model answers through one answer tool, a decision model
- * (an approval role's only, `[reply-interpreter.decision-model]` for a question role) through one `Decision.noul("approved")` (static `prompt` / `promptUrls`;
+ * (an approval role's only, `[reply-interpreter.decision-model]` for a question role) through one `Decision.boolean("approved")` (static `prompt` / `promptUrls`;
  * `ask` and `reply` come in the input message); `DecidedBy.Code` — the class's `interpret(input)`
  * (`implements ReplyInterpreterHandler<Self>`), returning a `ReplyInterpretation`. Code downstream
  * decides by types, never by text.
@@ -212,7 +212,7 @@ export interface ModelReplyInterpreterOptions {
   readonly decidedBy: DecidedBy.Model;
   /**
    * A chat model (one answer tool), or — for an approval role only — a decision model (one
-   * `Decision.noul("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
+   * `Decision.boolean("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
    * a decision model for a question role is `[reply-interpreter.decision-model]`.
    */
   readonly model: string;

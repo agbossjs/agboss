@@ -1,7 +1,7 @@
 /**
  * The texts of a guardrail (#120): one yes / no question per check — its `prompt` — about the text a
  * model reads (`@InputGuardrail`) or an agent answered (`@OutputGuardrail`); yes blocks. A decision
- * model gets one `Decision.noul`; a chat model answers through one answer tool with one boolean.
+ * model gets one `Decision.boolean`; a chat model answers through one answer tool with one boolean.
  * Part of the prompt version of a workflow that has a guardrail.
  */
 

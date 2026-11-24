@@ -142,7 +142,7 @@ response contained restricted terms." · on support-agent`, and `configHash` cov
 A guardrail never reads the raw text: it is behind the model boundary like the model it guards
 ([PII policies](#the-model-boundary-s38) below). Its model gets the guardrail's question and the text
 under a heading — `### message (to support-agent)` or `### answer (from support-agent)` — a decision
-model as one `Decision.noul`, a chat model through the answer tool `answer-guardrail` (one boolean).
+model as one `Decision.boolean`, a chat model through the answer tool `answer-guardrail` (one boolean).
 Guardrails of one element run in list order; the first that blocks fails the execution with
 `GuardrailBlockedError` (`guardrail.blocked`):
 

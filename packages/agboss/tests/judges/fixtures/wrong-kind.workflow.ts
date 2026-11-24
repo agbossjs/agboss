@@ -22,9 +22,9 @@ export class ChatDecider implements JudgeHandler<PlainTextDto> {
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
       state: reply.text,
-      questions: { ok: Decision.noul("The reply is fine") },
+      questions: { ok: Decision.boolean("The reply is fine") },
     });
-    return a.ok.noul > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
+    return a.ok.probability > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
   }
 }
 

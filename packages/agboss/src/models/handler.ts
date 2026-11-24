@@ -30,7 +30,7 @@ export interface ChatRequest {
   readonly connection: ProviderConnection;
 }
 
-/** A decision request (OpenRouter Decisions API: every decision model, choice / noul / score questions). */
+/** A decision request (OpenRouter Decisions API: every decision model, choice / yes-no / score questions). */
 export interface DecideRequest {
   readonly decision: JevDecisionRequest;
   readonly connection: ProviderConnection;

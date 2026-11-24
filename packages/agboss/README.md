@@ -716,7 +716,7 @@ every model of OpenRouter's Decisions API:
 `typesafe/jev-1.13`, `openai/gpt-6-luna-decisions`, `perplexity/pplx-decider-v1(.1)-27b`,
 `cloudflare/clef(-flash|-omni)`, `upstage/solar-decide`, `inception/mercury-decide`
 (`DECISION_MODELS`; `DecisionsModelProvider` serves them, `JevModelProvider` is its deprecated alias).
-Questions come from `Decision.noul` (yes/no → `noul` = P(yes)), `Decision.choice` (→ `choice`,
+Questions come from `Decision.boolean` (yes/no → `probability` = P(yes)), `Decision.choice` (→ `choice`,
 `probabilities`, `confidence`) and `Decision.score` (levels lowest first → `score` = the level's index);
 the answers are typed by them. `state` is a text, a JSON object, or text and image parts
 (`Decision.image(dataUrl)` — png/jpeg/webp data URLs; Luna, pplx-decider and Clef read images). At
@@ -775,7 +775,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     const a = await this.judgeModel.decide({
       state: { task, jobs: reply.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
       questions: {
-        grounded: Decision.noul("Every job of the report appears in the results"),
+        grounded: Decision.boolean("Every job of the report appears in the results"),
         tone: Decision.choice("Tone of the report", {
           neutral: "Plain, factual",
           pushy: "Sells or pressures",
@@ -783,8 +783,8 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
         quality: Decision.score("Overall usefulness", ["useless", "partial", "complete"]),
       },
     });
-    // a.grounded.noul: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
-    return a.grounded.noul > 0.7 && a.tone.choice === "neutral"
+    // a.grounded.probability: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
+    return a.grounded.probability > 0.7 && a.tone.choice === "neutral"
       ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
       : JudgeVerdict.failed({ reason: "Only report jobs from the search results, neutrally." });
   }
@@ -1128,7 +1128,7 @@ pause's original question and the reply (`{ ask, reply }`); what it gives is val
 decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
 `promptUrls` its instructions, the question and the reply in the input message. For an approval role
 (`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
-`Decision.noul("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
+`Decision.boolean("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
 and no `overrideArguments`; a question role (#659), whose answer needs more than a yes / no, cannot
 name one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
 resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
@@ -1190,7 +1190,7 @@ export class DepositReturnDto {
 -->
 
 ```ts
-// approve / refuse on a decision model: one Decision.noul("approved") — no reason, no overrideArguments
+// approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideArguments
 @ReplyInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
@@ -1767,7 +1767,7 @@ scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII)
 Guardrails block (safety); judges correct (quality). An `@InputGuardrail` checks what an agent's or
 a model router's model reads — its input message, masked by that element's PII policies, before the
 model is called; an `@OutputGuardrail` checks what an agent answers. Each asks its model one yes / no
-question — its `prompt` — a decision model through one `Decision.noul`, a chat model through one
+question — its `prompt` — a decision model through one `Decision.boolean`, a chat model through one
 answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`; none →
 `[guardrail.no-model]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
 (`guardrail.blocked`): `refusal` is the text to send instead, `key` the setting that decided

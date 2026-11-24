@@ -331,10 +331,10 @@ export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
   async judge({ reply, task }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
       state: { task, answer: reply.text },
-      questions: { cites: Decision.noul("Does every claim of the answer cite a [source]?") },
+      questions: { cites: Decision.boolean("Does every claim of the answer cite a [source]?") },
     });
-    return answers.cites.noul >= 0.5
-      ? JudgeVerdict.passed({ metrics: { cites: answers.cites.noul } })
+    return answers.cites.probability >= 0.5
+      ? JudgeVerdict.passed({ metrics: { cites: answers.cites.probability } })
       : JudgeVerdict.failed({ reason: "cite a [source] for every claim" }); // read by the retry
   }
 }

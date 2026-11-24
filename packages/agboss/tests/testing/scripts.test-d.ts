@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { variant } from "../../src/flow/dto-wrappers.js";
 import {
   decideWith,
@@ -11,7 +11,17 @@ import {
   type WorkflowFixtures,
 } from "../../src/testing/index.js";
 import { seconds, usd } from "../../src/units/index.js";
-import { BudgetExceededError, RouterFailedError } from "../../src/index.js";
+import {
+  type AnswerOf,
+  type BooleanAnswer,
+  type BooleanQuestion,
+  BudgetExceededError,
+  Decision,
+  type DecisionAnswer,
+  type DecisionQuestion,
+  RouterFailedError,
+} from "../../src/index.js";
+import type * as Core from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { ChatApplication } from "../flow/fixtures/chat.fixture.js";
 import { CompanyDto, CompanyScoreDto } from "../flow/fixtures/data-dtos.js";
@@ -152,5 +162,34 @@ describe("#262 AC10, AC11: toFailWith's fields; no limits option", () => {
     expect(failure).toFailWith(RouterFailedError, { nodeID: "main-router" });
     // @ts-expect-error — testWith has no limits option: a limit is reached through mockOf(Budget)
     testWith(ChatApplication, { limits: { perRun: 1 } });
+  });
+});
+
+describe("#1291: a yes/no question is Decision.boolean, its answer a probability", () => {
+  it("Decision.boolean builds a BooleanQuestion whose answer is a BooleanAnswer", () => {
+    expectTypeOf<Parameters<typeof Decision.boolean>>().toEqualTypeOf<
+      [instructions: string, criteria?: { readonly true: string; readonly false: string }]
+    >();
+    expectTypeOf(Decision.boolean("is it?")).toEqualTypeOf<BooleanQuestion>();
+    expectTypeOf<BooleanQuestion["type"]>().toEqualTypeOf<"boolean">();
+    expectTypeOf<BooleanAnswer>().toEqualTypeOf<{
+      readonly type: "boolean";
+      readonly probability: number;
+    }>();
+    expectTypeOf<AnswerOf<BooleanQuestion>>().toEqualTypeOf<BooleanAnswer>();
+    expectTypeOf<Extract<DecisionQuestion, { type: "boolean" }>>().toEqualTypeOf<BooleanQuestion>();
+    expectTypeOf<Extract<DecisionAnswer, { type: "boolean" }>>().toEqualTypeOf<BooleanAnswer>();
+  });
+
+  it("0.1.0's noul names are gone", () => {
+    // @ts-expect-error — Decision.noul is Decision.boolean
+    expectTypeOf(Decision.noul).toBeFunction();
+    // @ts-expect-error — NoulQuestion is BooleanQuestion
+    expectTypeOf<Core.NoulQuestion>().toBeObject();
+    // @ts-expect-error — NoulAnswer is BooleanAnswer
+    expectTypeOf<Core.NoulAnswer>().toBeObject();
+    // @ts-expect-error — BooleanAnswer.noul is BooleanAnswer.probability
+    expectTypeOf<BooleanAnswer["noul"]>().toBeNumber();
+    expectTypeOf<Extract<DecisionQuestion, { type: "noul" }>>().toBeNever();
   });
 });

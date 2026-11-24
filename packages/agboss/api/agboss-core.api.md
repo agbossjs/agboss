@@ -33,7 +33,7 @@ export type AgentEndEvent = EndEvent<NodeValue>;
 export type AgentStartEvent = StartEvent<string>;
 
 // @public
-export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends NoulQuestion ? NoulAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
+export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends BooleanQuestion ? BooleanAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
 
 // @public
 export type AnswersOf<Q extends DecisionQuestions> = {
@@ -117,16 +117,16 @@ export class ComponentError extends AGBossError {
 // @public
 export const Decision: {
     readonly choice: <const C extends Readonly<Record<string, string | null>>>(instructions: string, criteria: C) => ChoiceQuestion<keyof C & string>;
-    readonly noul: (instructions: string, criteria?: {
+    readonly boolean: (instructions: string, criteria?: {
         readonly true: string;
         readonly false: string;
-    }) => NoulQuestion;
+    }) => BooleanQuestion;
     readonly score: (instructions: string, levels: readonly string[]) => ScoreQuestion;
     readonly image: (dataUrl: string, detail?: ImageDetail) => DecisionImage;
 };
 
 // @public (undocumented)
-export type DecisionAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
+export type DecisionAnswer = ChoiceAnswer | BooleanAnswer | ScoreAnswer;
 
 // @public
 export interface DecisionImage {
@@ -140,7 +140,7 @@ export interface DecisionImage {
 }
 
 // @public (undocumented)
-export type DecisionQuestion = ChoiceQuestion | NoulQuestion | ScoreQuestion;
+export type DecisionQuestion = ChoiceQuestion | BooleanQuestion | ScoreQuestion;
 
 // @public
 export type DecisionQuestions = Readonly<Record<string, DecisionQuestion>>;
@@ -285,26 +285,6 @@ export interface ModelStartEvent extends NodeEvent {
     readonly modelName: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
-}
-
-// @public (undocumented)
-export interface NoulAnswer {
-    readonly noul: number;
-    // (undocumented)
-    readonly type: "noul";
-}
-
-// @public
-export interface NoulQuestion {
-    // (undocumented)
-    readonly criteria?: {
-        readonly true: string;
-        readonly false: string;
-    };
-    // (undocumented)
-    readonly instructions: string;
-    // (undocumented)
-    readonly type: "noul";
 }
 
 // @public (undocumented)
@@ -775,17 +755,12 @@ export class WorkflowSettings {
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "instructions".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "criteria".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "instructions".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "criteria".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "DecisionQuestion".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "ChoiceAnswer".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "choice".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "probabilities".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "confidence".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "NoulAnswer".
-// src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "ScoreAnswer".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "type".
 // src/llm/decisions.ts - (ae-undocumented) Missing documentation for "confidence".
