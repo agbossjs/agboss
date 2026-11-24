@@ -1,5 +1,7 @@
 import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
+import { InterruptMode } from "../app/interrupt-types.js";
+import { ExecutionStopFencedError } from "../app/lease-stopped.js";
 import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
@@ -89,9 +91,12 @@ export class InMemoryDatabase {
  * an effect, after the key's lookup (a stored result replays).
  */
 export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
-  if (key.isCompensation === true) return;
   const tree = cancelTreeOf(key);
   const row = database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId));
+  // a cancelled tree's undo runs; a stopped one (`Immediate`) has none, and nothing of it is written
+  if (row?.cancelRequestedAt === undefined && row?.stopMode === InterruptMode.Immediate)
+    throw ExecutionStopFencedError.of(key);
+  if (key.isCompensation === true) return;
   if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
@@ -189,6 +194,12 @@ export interface ExecutionLeaseRow {
    * cancel before the tree's first acquire writes a seed row: token 0, released, never held.
    */
   readonly cancelRequestedAt?: number;
+  /**
+   * How the tree's stop was requested (#1341b, `app.stop`): kept by every later write of the row like
+   * the cancel mark, escalated from `AfterStep` to `Immediate`, never lowered; `Immediate` fences the
+   * tree's new writes (`checkInMemoryCancel`).
+   */
+  readonly stopMode?: InterruptMode;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */

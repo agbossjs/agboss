@@ -35,6 +35,7 @@ export interface TestApp extends Pick<
   | "reassignPause"
   | "close"
   | "cancel"
+  | "stop"
   | "getStatusHistory"
   | "checkLiveness"
   | "checkReadiness"
@@ -139,6 +140,8 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => (await built()).app.reassignPause(request, options)),
     cancel: (thread, options) =>
       checked(environment, async () => (await built()).app.cancel(thread, options)),
+    stop: (thread, options) =>
+      checked(environment, async () => (await built()).app.stop(thread, options)),
     ...probesOf(environment, probed),
     ready: () =>
       checked(environment, async () => {

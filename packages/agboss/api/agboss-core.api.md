@@ -194,6 +194,7 @@ export interface ExecutionObserver {
     // (undocumented)
     onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
     onIdempotencyRun?(event: IdempotencyRunEvent): void | Promise<void>;
+    onInterruptCleanupError?(event: InterruptCleanupErrorEvent): void | Promise<void>;
     // (undocumented)
     onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
     // (undocumented)

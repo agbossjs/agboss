@@ -170,7 +170,9 @@ export class HeldLease extends ReportingLease implements HeldExecutionLease {
   }
 
   enterStep(): Promise<() => void> {
-    return this.#yields.enterStep();
+    // an `AfterStep` stop (#1341b): the step in flight finishes, no new one starts
+    const stopped = this.stoppedAfterStep;
+    return stopped === undefined ? this.#yields.enterStep() : Promise.reject(stopped);
   }
 
   async yieldWhile<T>(wait: () => Promise<T>): Promise<T> {

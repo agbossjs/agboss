@@ -45,7 +45,9 @@ export function cancelShard() {
     configFile: "vitest.mutation-takeover.config.ts",
     mutate: [
       "src/app/cancel-{marks,paused,remote,requests,resting,thread}.ts",
-      "src/app/{lease-lost,lease-releases,lease-reporting}.ts",
+      // #1341b: a stop is a cancel that undoes nothing — its requests, thread call and lease marks
+      "src/app/{interrupt-requests,stop-requests,stop-thread,lease-marks,request-checks}.ts",
+      "src/app/{lease-lost,lease-stopped,lease-releases,lease-reporting}.ts",
     ],
   };
 }

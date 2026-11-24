@@ -1,4 +1,11 @@
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import type { InterruptReason } from "../../app/interrupt-types.js";
+import {
+  interruptCleanups,
+  interruptReasonOf,
+  type InterruptCleanups,
+} from "./interrupt-cleanup.js";
+import type { ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -115,7 +122,7 @@ export interface FrameLease {
    * (#909, `ExecutionCancelFencedError`): the holder stops the tree as cancelled — its signal
    * aborts, the open undos run under this very lease — at once, not at its next renewal.
    */
-  cancelFound?(cause: ExecutionCancelFencedError): void;
+  cancelFound?(cause: ExecutionCancelFencedError | ExecutionStopFencedError): void;
   /**
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.
@@ -187,6 +194,11 @@ export interface FrameServices {
    * later pass never undoes them again.
    */
   readonly keepCompensations?: (entries: readonly CompensationEntry[]) => void;
+  /**
+   * An `onInterrupted` cleanup of the step threw (#1341b): `onInterruptCleanupError` and a log entry;
+   * the remaining cleanups still run. Absent where no observer is (a unit runner): nothing is reported.
+   */
+  readonly interruptCleanupFailed?: (reason: InterruptReason, error: unknown) => Promise<void>;
   /** A tool call's mesh services (#398 PR 2): what its remote calls claim and report. */
   readonly meshCall?: MeshCallServices;
   /**
@@ -209,9 +221,13 @@ export interface FrameSpec {
 export interface Frame extends FrameSpec {
   readonly services: FrameServices;
   readonly isClosed: () => boolean;
+  /** `executionContext.onInterrupted` (#1341b): cleanups run only if this frame's step is interrupted. */
+  readonly interrupts: InterruptCleanups;
 }
 
 const storage = new AsyncLocalStorage<Frame>();
+
+const noReport = (): undefined => undefined;
 
 // an error made inside a step carries its `Span trace` (#1325c)
 registerSpanTraceSource(() => {
@@ -228,10 +244,25 @@ export async function runInFrame<TResult>(
   work: () => Promise<TResult>,
 ): Promise<TResult> {
   let closed = false;
-  const frame: Frame = { ...spec, services: spec.services ?? {}, isClosed: () => closed };
+  const interrupts = interruptCleanups();
+  const services = spec.services ?? {};
+  const frame: Frame = { ...spec, services, isClosed: () => closed, interrupts };
+  const { signal } = spec.execution;
+  // the cleanups run before the frame closes — so `executionContext` still reads inside them — and
+  // before the lease is released or an undo starts: awaited, newest first (#1341b)
+  const interrupted = async (error?: unknown): Promise<void> => {
+    const reason = interruptReasonOf(error, signal);
+    if (reason !== undefined)
+      await interrupts.run(reason, services.interruptCleanupFailed ?? noReport);
+  };
   return storage.run(frame, async () => {
     try {
-      return await work();
+      const result = await work();
+      if (signal.aborted) await interrupted();
+      return result;
+    } catch (error) {
+      await interrupted(error);
+      throw error;
     } finally {
       closed = true;
     }
@@ -278,8 +309,14 @@ export function inToolCallFrame<TResult>(
   const step = currentFrame();
   return step === undefined
     ? work()
-    : runInFrame(toolCallFrameOf(step, callId, services, signal), work);
+    : runInFrame(toolCallFrameOf(step, callId, withReport(step.services, services), signal), work);
 }
+
+/** A tool call's services, told of an `onInterrupted` cleanup failing as its step is (#1341b). */
+const withReport = (parent: FrameServices, own: FrameServices): FrameServices =>
+  parent.interruptCleanupFailed === undefined || own.interruptCleanupFailed !== undefined
+    ? own
+    : { ...own, interruptCleanupFailed: parent.interruptCleanupFailed };
 
 /** Where an agent's loop is (#268 S93): its model call in the visit, the failed validations so far. */
 export interface LoopProgress {

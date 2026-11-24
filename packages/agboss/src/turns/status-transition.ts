@@ -92,6 +92,11 @@ export type StatusContext = Partial<
   Pick<NewStatusTransition, "trigger" | "reason" | "actor" | "leaseToken">
 >;
 
+const ENDING: readonly (ThreadStatus | undefined)[] = [
+  ThreadStatus.Stopping,
+  ThreadStatus.Cancelling,
+];
+
 /**
  * The row a status change writes, or `undefined` when it changes nothing: a repeated command, or
  * a write that leaves the thread's status as it was, is not a transition.
@@ -102,14 +107,15 @@ export function transitionOf(
   at: Date,
 ): ThreadStatusTransition | undefined {
   if (last?.toStatus === next.toStatus) return undefined;
+  // a stop or cancel under way moves its record through `running` while it ends (its recovery
+  // marker): the thread is still stopping or cancelling, never running again
+  if (next.toStatus === ThreadStatus.Running && ENDING.includes(last?.toStatus)) return undefined;
   const { reason, actor, leaseToken, ...base } = next;
   return {
     ...base,
     seq: (last?.seq ?? 0) + 1,
     fromStatus: last?.toStatus ?? null,
-    ...(reason === undefined ? {} : { reason }),
-    ...(actor === undefined ? {} : { actor }),
-    ...(leaseToken === undefined ? {} : { leaseToken }),
+    ...detailsOf({ reason, actor, leaseToken }),
     at,
   };
 }

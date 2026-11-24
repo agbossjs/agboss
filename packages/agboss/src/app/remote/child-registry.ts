@@ -1,6 +1,9 @@
-import { isCancelRequested } from "../cancel-requests.js";
+import { InterruptKind, interruptOf, type InterruptRequest } from "../interrupt-requests.js";
+import { InterruptMode } from "../interrupt-types.js";
+import type { HeldExecutionLease } from "../execution-leases.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
+import { ExecutionStoppedError } from "../../app/lease-stopped.js";
 import { NodeKind } from "../../flow/ast.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type {
@@ -48,6 +51,12 @@ export const childTakeOf = (
     ),
 });
 
+/** Why a child stops: its tree's stop (nothing undone), else its tree's cancel or end. */
+const interruptedChildOf = (request: InterruptRequest | undefined): ExecutionCancelledError =>
+  request?.kind === InterruptKind.Stop
+    ? new ExecutionStoppedError({ message: "the child's tree was stopped" })
+    : new ExecutionCancelledError({ message: "the child's tree was cancelled or ended" });
+
 /** Every 10 s while the child runs: its tree cancelled or ended stops it. */
 export async function watchRunningChild(
   parts: {
@@ -57,6 +66,7 @@ export async function watchRunningChild(
   },
   row: QueuedChildExecution,
   stop: AbortController,
+  lease?: Pick<HeldExecutionLease, "stopAfterStep">,
 ): Promise<void> {
   const { tenantId, executionId, rootExecutionId } = row;
   const tree = { tenantId, rootExecutionId };
@@ -66,10 +76,14 @@ export async function watchRunningChild(
     const still = await parts.queue
       .findByTenantIdAndExecutionId(tenantId, executionId)
       .catch(() => row);
-    if (still === undefined || (await isCancelRequested(parts.trees, tree))) {
-      stop.abort(
-        new ExecutionCancelledError({ message: "the child's tree was cancelled or ended" }),
-      );
+    const request = await interruptOf(parts.trees, tree);
+    if (still !== undefined && request === undefined) continue;
+    const error = interruptedChildOf(request);
+    // an `AfterStep` stop (#1341b): the step in flight finishes, none starts; an escalation aborts
+    if (request?.mode === InterruptMode.AfterStep && lease !== undefined)
+      lease.stopAfterStep(error);
+    else {
+      stop.abort(error);
       return;
     }
   }

@@ -1,5 +1,6 @@
 import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
+import { ExecutionStoppedError } from "../app/lease-stopped.js";
 import { handedOverOf, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -96,7 +97,12 @@ export const runningOutcome = (route: readonly string[], costUsd: Usd): TurnOutc
 /** The record of an execution that ended with `error`: a cancel is `cancelled` (#1341), the rest `failed`. */
 export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TurnOutcome => ({
   replyWith: "",
-  status: error instanceof ExecutionCancelledError ? "cancelled" : "failed",
+  status:
+    error instanceof ExecutionStoppedError
+      ? "stopped"
+      : error instanceof ExecutionCancelledError
+        ? "cancelled"
+        : "failed",
   stopReason: errorMessage(error),
   route: [],
   steps: [],

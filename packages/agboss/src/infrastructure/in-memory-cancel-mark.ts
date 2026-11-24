@@ -1,3 +1,4 @@
+import { InterruptMode } from "../app/interrupt-types.js";
 import { waitOf } from "./clock.js";
 import type { ExecutionTree } from "./execution-tree.repository.js";
 import { memoryStatusLog, type NewStatusTransition } from "../turns/index.js";
@@ -11,14 +12,18 @@ import { treeKeyOf, type ExecutionLeaseRow, type InMemoryDatabase } from "./in-m
 /** The tree's cancel mark of a stored row, for the row written in its place: kept for good. */
 export const markOf = (
   stored: ExecutionLeaseRow | undefined,
-): { readonly cancelRequestedAt?: number } =>
-  stored?.cancelRequestedAt === undefined ? {} : { cancelRequestedAt: stored.cancelRequestedAt };
+): { readonly cancelRequestedAt?: number; readonly stopMode?: InterruptMode } => ({
+  ...(stored?.cancelRequestedAt === undefined
+    ? {}
+    : { cancelRequestedAt: stored.cancelRequestedAt }),
+  ...(stored?.stopMode === undefined ? {} : { stopMode: stored.stopMode }),
+});
 
 /**
  * The row of a tree cancelled before its first acquire: token 0, released, never held — its first
  * acquire is token 1 and no takeover, as of a key with no row.
  */
-const seedRowOf = (tree: ExecutionTree): ExecutionLeaseRow => ({
+export const seedRowOf = (tree: ExecutionTree): ExecutionLeaseRow => ({
   lease: {
     tenantId: tree.tenantId,
     rootExecutionId: tree.rootExecutionId,
@@ -52,3 +57,40 @@ export function markedInMemoryCancel(
 export const isInMemoryCancelMarked = (database: InMemoryDatabase, tree: ExecutionTree): boolean =>
   database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId))
     ?.cancelRequestedAt !== undefined;
+
+/**
+ * Marks the tree's stop on its lease row (#1341b) — a seed row when it has none: the mode only
+ * escalates (`AfterStep` to `Immediate`), a repeat changes nothing. The history row, when given, is
+ * written in the same synchronous step, and only when this call set or escalated the mark.
+ */
+export function markedInMemoryStop(
+  database: InMemoryDatabase,
+  tree: ExecutionTree,
+  stop: {
+    readonly mode: InterruptMode;
+    readonly now: number;
+    readonly transition?: NewStatusTransition;
+  },
+): Promise<void> {
+  const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
+  const stored = database.executionLeases.get(key) ?? seedRowOf(tree);
+  const isNew = stored.stopMode === undefined;
+  const isEscalated =
+    stored.stopMode === InterruptMode.AfterStep && stop.mode === InterruptMode.Immediate;
+  if (!isNew && !isEscalated) return Promise.resolve();
+  database.executionLeases.set(key, { ...stored, stopMode: stop.mode });
+  if (stop.transition !== undefined)
+    memoryStatusLog(database.statusTransitions).appended(stop.transition, new Date(stop.now));
+  return Promise.resolve();
+}
+
+/** The mode of the tree's stop mark, `undefined` for a tree never stopped. */
+export const inMemoryStopOf = (
+  database: InMemoryDatabase,
+  tree: ExecutionTree,
+): { readonly mode: InterruptMode } | undefined => {
+  const mode = database.executionLeases.get(
+    treeKeyOf(tree.tenantId, tree.rootExecutionId),
+  )?.stopMode;
+  return mode === undefined ? undefined : { mode };
+};

@@ -1,3 +1,4 @@
+import type { CancelledErrorCode } from "./cancelled-error-code.js";
 import type { ErrorFormatOptions } from "./diagnostics/error-report.js";
 import type { AGBossErrorOptions, ErrorDetails, MessageErrorOptions } from "./error-options.js";
 import type { ExecutionSpanFrame } from "./diagnostics/span-trace.js";
@@ -58,7 +59,7 @@ installReportMembers(AGBossError.prototype, (error) => error instanceof AGBossEr
 export class ExecutionCancelledError extends AGBossError {
   static override readonly code: string = "execution.cancelled";
   /** This class's code, or its subclass `ExecutionCancelFencedError`'s (#909: `switch (error.code)` narrows). */
-  declare readonly code: "execution.cancelled" | "execution.cancelled.fenced";
+  declare readonly code: CancelledErrorCode;
   override name = "ExecutionCancelledError";
 
   constructor(options: ExecutionCancelledErrorOptions = {}) {

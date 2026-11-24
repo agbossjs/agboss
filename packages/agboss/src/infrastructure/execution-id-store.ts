@@ -11,7 +11,7 @@ import type { ExecutionLeaseRepository } from "./execution-lease.repository.js";
  */
 export type ExecutionIdStore = Pick<
   ExecutionLeaseRepository,
-  "claimExecutionId" | "requestCancel" | "isCancelRequested"
+  "claimExecutionId" | "requestCancel" | "isCancelRequested" | "requestStop" | "stopOf"
 >;
 
 /**

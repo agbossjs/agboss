@@ -482,6 +482,7 @@ export interface App<TApp = unknown> {
     reassignPause(request: ReassignPauseRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseReassignment>;
     resolve<T>(token: Class<T>): T;
     resume(request: ResumeRequest, ...options: TenantPointArgs<TApp, ResumeOptions>): Promise<ExecutionOutput>;
+    stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
     readonly textStart: Class | undefined;
     // (undocumented)
     readonly version: string;
@@ -960,7 +961,10 @@ export interface CallOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | ExecutionStopFencedError | undefined;
+
+// @public
+export type CancelledErrorCode = "execution.cancelled" | "execution.cancelled.fenced" | "execution.stopped" | "execution.stopped.fenced";
 
 // @public
 export interface CancelledExecutionOutput extends ExecutionOutputBase {
@@ -2926,7 +2930,7 @@ export class ExecutionCancelledError extends AGBossError {
     constructor(options?: ExecutionCancelledErrorOptions);
     // (undocumented)
     static readonly code: string;
-    readonly code: "execution.cancelled" | "execution.cancelled.fenced";
+    readonly code: CancelledErrorCode;
     // (undocumented)
     name: string;
 }
@@ -2943,6 +2947,7 @@ export abstract class ExecutionContext {
     readonly executionId: string;
     readonly executionOf: (workflow: WorkflowClass) => this | undefined;
     readonly itemIndex: number | undefined;
+    readonly onInterrupted: (cleanup: InterruptCleanup) => void;
     readonly origin: ExecutionOrigin | undefined;
     readonly ownerId: string | undefined;
     readonly parent: this | undefined;
@@ -3249,7 +3254,7 @@ export interface ExecutionIds {
 }
 
 // @public
-export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested">;
+export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested" | "requestStop" | "stopOf">;
 
 // @public
 export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends {
@@ -3290,12 +3295,15 @@ export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
     abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    abstract requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
+    abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     static readonly store: StoreDescriptor;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
@@ -3351,6 +3359,7 @@ export interface ExecutionObserver {
     // (undocumented)
     onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
     onIdempotencyRun?(event: IdempotencyRunEvent): void | Promise<void>;
+    onInterruptCleanupError?(event: InterruptCleanupErrorEvent): void | Promise<void>;
     // (undocumented)
     onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
     // (undocumented)
@@ -3384,7 +3393,8 @@ export enum ExecutionOperation {
     // (undocumented)
     Execute = "execute",
     // (undocumented)
-    Resume = "resume"
+    Resume = "resume",
+    Stop = "stop"
 }
 
 // @public
@@ -3597,6 +3607,39 @@ export interface ExecutionStepRecord {
 export interface ExecutionStopEvent extends ExecutionEvent {
     readonly reason?: string | undefined;
     readonly spend: CostReport;
+}
+
+// @public
+export class ExecutionStopFencedError extends ExecutionStoppedError {
+    constructor(options: ExecutionCancelFencedErrorOptions);
+    // (undocumented)
+    static readonly code: "execution.stopped.fenced";
+    // (undocumented)
+    readonly code: typeof ExecutionStopFencedError.code;
+    // (undocumented)
+    readonly effect: string;
+    // (undocumented)
+    readonly leaseExecutionId: string;
+    // (undocumented)
+    name: string;
+    static of(key: Parameters<typeof ExecutionCancelFencedError.of>[0]): ExecutionStopFencedError;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    // (undocumented)
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export class ExecutionStoppedError extends ExecutionCancelledError {
+    constructor(options?: ExecutionCancelledErrorOptions);
+    // (undocumented)
+    static readonly code: string;
+    // (undocumented)
+    name: string;
 }
 
 // @public
@@ -5150,6 +5193,31 @@ export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
 
 // @public
 type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => infer TInstance ? TInstance : T;
+
+// @public
+export type InterruptCleanup = (reason: InterruptReason) => void | Promise<void>;
+
+// @public
+export interface InterruptCleanupErrorEvent extends NodeEvent {
+    readonly component: ComponentRecord;
+    readonly error: unknown;
+    readonly reason: InterruptReason;
+}
+
+// @public
+export enum InterruptMode {
+    AfterStep = "after-step",
+    Immediate = "immediate"
+}
+
+// @public
+export enum InterruptReason {
+    Cancelled = "cancelled",
+    HandedOver = "handed-over",
+    Paused = "paused",
+    Stopped = "stopped",
+    TimedOut = "timed-out"
+}
 
 // @public
 export class InvalidMintedIdError extends AGBossError {
@@ -9219,6 +9287,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     isCancelRequested(tree: ExecutionTree): Promise<boolean>;
     // (undocumented)
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
     reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
@@ -9229,7 +9299,11 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     // (undocumented)
     requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     // (undocumented)
+    requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
     retire(executionLease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     // (undocumented)
     static readonly store: StoreDescriptor;
     // (undocumented)
@@ -9824,6 +9898,27 @@ export interface StepsLimitExceededErrorOptions {
 }
 
 // @public
+export interface StopMark {
+    // (undocumented)
+    readonly mode: InterruptMode;
+}
+
+// @public
+export interface StopOptions {
+    readonly mode?: InterruptMode | undefined;
+    readonly ownerId?: string | undefined;
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
+}
+
+// @public
+export interface StopOutput {
+    // (undocumented)
+    readonly state: StopRequestState;
+}
+
+// @public
 export interface StoppedExecutionOutput extends ExecutionOutputBase {
     // (undocumented)
     readonly finish?: undefined;
@@ -9835,6 +9930,13 @@ export interface StoppedExecutionOutput extends ExecutionOutputBase {
     readonly reason?: string | undefined;
     // (undocumented)
     readonly status: ExecutionStatus.Stopped;
+}
+
+// @public
+export enum StopRequestState {
+    NotRunning = "not-running",
+    Stopped = "stopped",
+    Stopping = "stopping"
 }
 
 // @public
@@ -10614,6 +10716,14 @@ export interface Transitions<THead extends PathHead> {
 }
 
 // @public
+export interface TreeMarks {
+    // (undocumented)
+    readonly isCancelRequested: boolean;
+    // (undocumented)
+    readonly stop?: StopMark;
+}
+
+// @public
 export type TryOutcome<T, E> = [T] extends [never] ? Result<never, E> : T extends PromiseLike<infer U> ? Promise<Result<U, E>> : Result<T, E>;
 
 // @public
@@ -11285,6 +11395,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "reason".
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "finish".
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".
+// src/app/interrupt-types.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/interrupt-types.ts - (ae-undocumented) Missing documentation for "state".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
@@ -11307,6 +11419,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "effect".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "scopeKey".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "token".
+// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "effect".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
@@ -12555,8 +12678,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "to".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "stop".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "mode".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "saveScore".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "meanScore".
@@ -12663,6 +12789,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "retire".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "yield".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "requestCancel".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "requestStop".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "stopOf".
+// src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "markedOf".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "reclaim".
 // src/infrastructure/sqlite/sqlite-execution-record.repository.ts - (ae-undocumented) Missing documentation for "ping".

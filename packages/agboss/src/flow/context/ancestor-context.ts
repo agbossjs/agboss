@@ -56,6 +56,8 @@ export function ancestorContextOf(
     enumerable: true,
     get: () => parent?.root ?? context,
   });
+  // an ancestor's step is not the current one: its cleanups are its own frame's (#1341b)
+  Object.defineProperty(context, "onInterrupted", { value: (): void => undefined });
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) =>
       facts.workflow.type === workflow ? context : parent?.executionOf(workflow),

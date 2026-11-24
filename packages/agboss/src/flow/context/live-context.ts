@@ -1,3 +1,5 @@
+import { assertOutsideRunOnce } from "../../app/idempotency-scope.js";
+import type { InterruptCleanup } from "./interrupt-cleanup.js";
 import { ExecutionContextUnavailableError } from "./errors.js";
 import {
   contextFieldNamesOf,
@@ -127,6 +129,12 @@ export function liveExecutionContextOf(
     get: () => {
       frameFor(consumer, "the lease fence");
       return fence;
+    },
+  });
+  Object.defineProperty(live, "onInterrupted", {
+    value: (cleanup: InterruptCleanup) => {
+      assertOutsideRunOnce("executionContext.onInterrupted");
+      frameFor(consumer, "executionContext.onInterrupted").interrupts.add(cleanup);
     },
   });
   Object.defineProperty(live, "executionOf", {

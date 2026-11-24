@@ -33,6 +33,7 @@ export {
   type StatusContext,
   type ThreadStatusTransition,
 } from "../turns/index.js";
+export type { StopMark, TreeMarks } from "../infrastructure/execution-lease.repository.js";
 export type { ExecutionRecordStatusQuery } from "../infrastructure/execution-record.repository.js";
 export {
   ChildExecutionQueueRepository,

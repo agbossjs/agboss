@@ -210,11 +210,12 @@ class TreeMover implements TreeMoves {
     const undo: EndedTreeUndo = {};
     // the tree's terminal record (finished, failed, stopped or cancelled) is durable (#928)
     let isEnded = false;
+    let leaveWatch: (() => void) | undefined;
     try {
       // a cancel requested on another instance stops the passes at a renewal (#360)
       const requests = await cancelRequests();
-      const watch = requests.cancelWatchOf(this.parts.trees, state);
-      requests.watchedBy(lease, watch);
+      const watch = requests.cancelWatchOf(this.parts.trees, state, this.parts.leases);
+      leaveWatch = requests.watchedBy(lease, watch, live, state);
       // the passes up to the terminal record's completion hold the lease (#928): an unanswered call
       // there hands over; the cleanup after them (kept record, keys) stays outside it
       const result = await leaseScope(lease, () =>
@@ -234,6 +235,7 @@ class TreeMover implements TreeMoves {
       }
       throw error;
     } finally {
+      leaveWatch?.();
       await passEnded(live, deps, state);
       await this.#released(lease, state, isEnded);
     }

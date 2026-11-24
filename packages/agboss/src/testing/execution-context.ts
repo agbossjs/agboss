@@ -219,5 +219,7 @@ export function testExecutionContext<
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) => (workflow === context.workflow.type ? context : undefined),
   });
+  // a unit test runs no interruption: a cleanup registered here is accepted and never run (#1341b)
+  Object.defineProperty(context, "onInterrupted", { value: (): void => undefined });
   return Object.freeze(context);
 }

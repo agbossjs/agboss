@@ -1,3 +1,4 @@
+import { InvalidThreadIdError, keyTextRuleOf } from "../core/errors.js";
 import { DtoValidationError } from "../dto/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { tenantRead, treeRead } from "../flow/context/context-values.js";
@@ -102,10 +103,15 @@ export const instanceReadsOf = ({
 }: InstanceSurface): InstanceReads => ({
   ...executionReadsOf(executionHistory),
   // #1341d: a thread's status history, oldest first — another tenant's thread has none
-  getStatusHistory: async (threadId, options) =>
-    tenantRead(options?.tenantId ?? DEFAULT_TENANT_ID, () =>
-      records.statusHistory(options?.tenantId ?? DEFAULT_TENANT_ID, threadId),
-    ),
+  // a thread id is a key's text, as at execute and cancel: refused, never echoed or read
+  getStatusHistory: async (threadId, options) => {
+    const tenantId = options?.tenantId ?? DEFAULT_TENANT_ID;
+    return tenantRead(tenantId, () => {
+      const rule = keyTextRuleOf(threadId);
+      if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+      return records.statusHistory(tenantId, threadId);
+    });
+  },
   // every call that returns a promise is async: a failure rejects, it is never thrown at the call (#1325)
   checkLiveness: async () => health.checkLiveness(),
   checkReadiness: async () => health.checkReadiness(),

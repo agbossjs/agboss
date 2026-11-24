@@ -5,6 +5,7 @@ import { runningOutcome } from "../run/execute.js";
 import type { Turn, TurnOutcome } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
 import { cancelledRecordOutcome } from "./live-runs.js";
+import { isStop, reasonOfError, STOPPED_STOP_REASON } from "./interrupt-requests.js";
 import { executionEventAt } from "./run-events.js";
 import { forgetTree } from "./tree-ends.js";
 import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
@@ -14,7 +15,8 @@ import { lazyLoad } from "../infrastructure/clock.js";
 import { leaseScope } from "./lease-scope.js";
 import { lostRunUsageOf, tallyLostRun } from "./lost-attempt.js";
 import { cancelledOutputOf } from "./cancelled-output.js";
-import type { CancelledExecutionOutput } from "./types.js";
+import { ExecutionStatus } from "./types.js";
+import type { CancelledExecutionOutput, StoppedExecutionOutput } from "./types.js";
 
 /**
  * Ending a tree without a pass, under its lease (#360's cancel request, `app.cancel` of a paused
@@ -41,6 +43,7 @@ export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tur
 /** The record's outcome for the tree's final error: a cancel, or what ended it. */
 function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
   const outcome = cancelledRecordOutcome(record.route, record.costUsd);
+  if (isStop(error)) return { ...outcome, status: "stopped", stopReason: STOPPED_STOP_REASON };
   return error instanceof ExecutionCancelledError
     ? outcome
     : { ...outcome, status: "failed", stopReason: error.message };
@@ -49,9 +52,16 @@ function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
 /** Fails a `running` or `paused` record; `true` when this call did (it is the one). */
 async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<boolean> {
   const outcome = endedOutcomeOf(record, error);
+  // the operator's reason goes to the thread's status history with the record's end (#1341d)
+  const context = { reason: reasonOfError(error) };
   return (
-    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Running, outcome)) ||
-    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome))
+    (await deps.turns.completeIfStatus(
+      record.id,
+      ExecutionRecordStatus.Running,
+      outcome,
+      context,
+    )) ||
+    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome, context))
   );
 }
 
@@ -59,8 +69,8 @@ async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<
 export interface EndedTree {
   readonly error: Error;
   readonly isEnded: boolean;
-  /** The cancelled output, when the tree's final error is the cancel (not an undo that failed). */
-  readonly output?: CancelledExecutionOutput;
+  /** The cancelled or stopped output, when the tree's final error is that (not an undo that failed). */
+  readonly output?: CancelledExecutionOutput | StoppedExecutionOutput;
 }
 
 /** Why and under what the tree ends: its cause, and the signal its undo stops on. */
@@ -102,11 +112,14 @@ export async function endedWithoutPass(
     const event = executionEventAt(state, deps);
     if (output === undefined)
       await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
+    else if (output.status === ExecutionStatus.Stopped)
+      await deps.observer.onExecutionStop({ ...event, reason: output.reason, spend: output.spend });
     else
       await deps.observer.onExecutionCancel({
         ...event,
         compensations: output.compensations,
         spend: output.spend,
+        reason: output.reason,
       });
   }
   return output === undefined ? { error, isEnded } : { error, isEnded, output };

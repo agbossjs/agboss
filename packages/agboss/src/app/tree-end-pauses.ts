@@ -8,6 +8,7 @@ import {
 import { logPauseNotTaken } from "../infrastructure/pause-answer-log.js";
 import { withdrawPause, type PauseStores } from "../flow/runtime/launch/withdrawn-pauses.js";
 import type { Turn } from "../turns/index.js";
+import { isStop } from "./interrupt-requests.js";
 import { cancelledErrorOf } from "./live-runs.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
@@ -41,6 +42,8 @@ export interface TreePauseEnds {
 
 /** Whether an error is a cancel, or was caused by one. */
 function isCancel(error: unknown): boolean {
+  // a stop (#1341b) ends the tree: its pauses close with `TreeEnded`, not as a cancel's withdrawal
+  if (isStop(error)) return false;
   for (let current: unknown = error; current instanceof Error; current = current.cause)
     if (current instanceof ExecutionCancelledError) return true;
   return false;

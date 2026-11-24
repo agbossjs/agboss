@@ -950,8 +950,10 @@ export interface ExecutionControl extends WorkflowExecutionControl {
 export const executionControlOf: (instance: Pick<AnyTenantApp, "execute"> | object) => ExecutionControl | undefined;
 
 // @public
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
+export class ExecutionObserverManager extends AuditObserverHooks implements Required<ExecutionObserver> {
     constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[], unknownCosts?: UnknownCostTally | undefined);
+    // (undocumented)
+    protected each<TEvent>(hook: ObserverHook, event: TEvent, call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void): Promise<void>;
     masked(mask: EventMask): ExecutionObserverManager;
     // (undocumented)
     onActionEnd(event: ActionEndEvent): Promise<void>;
@@ -984,8 +986,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): Promise<void>;
     // (undocumented)
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
-    // (undocumented)
     onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
     // (undocumented)
     onExecutionRejected(event: ExecutionRejectedEvent): Promise<void>;
@@ -1000,8 +1000,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
     // (undocumented)
-    onIdempotencyRun(event: IdempotencyRunEvent): Promise<void>;
-    // (undocumented)
     onJudgeEnd(event: JudgeEndEvent): Promise<void>;
     // (undocumented)
     onJudgeStart(event: JudgeStartEvent): Promise<void>;
@@ -1012,8 +1010,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onModelStart(event: ModelStartEvent): Promise<void>;
     // (undocumented)
-    onOutboundCall(event: OutboundCallEvent): Promise<void>;
-    // (undocumented)
     onQuorumDecided(event: QuorumDecidedEvent): Promise<void>;
     // (undocumented)
     onRagEnd(event: RagEndEvent): Promise<void>;
@@ -1023,8 +1019,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     onRouterEnd(event: RouterEndEvent): Promise<void>;
     // (undocumented)
     onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onStepHandedOver(event: StepHandedOverEvent): Promise<void>;
     // (undocumented)
     onToolEnd(event: ToolEndEvent): Promise<void>;
     // (undocumented)
@@ -1834,6 +1828,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "each".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionResume".
@@ -1869,10 +1864,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onIdempotencyRun".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "scope".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "period".

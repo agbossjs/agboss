@@ -1284,7 +1284,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
   `retire` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
   `claimExecutionId` — #591: every execution id handed out, kept once, never removed —,
-  `requestCancel(tree, transition?)` — #909: the tree's durable cancel mark (#1341d: with a `transition`, the thread's `thread_status_transitions` row is written in the mark's own transaction — `ExecutionRecordRepository.append` / `complete` / `completeIfStatus` write theirs in theirs, `app.getStatusHistory(threadId)` reads them, `statusHistory` / `forgetStatusHistory`), the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); on Redis, which writes no mark of its own, a delegation to the durable lease store under `EXECUTION_ID_STORE`, #1152 and #1198),
+  `requestStop(tree, mode, transition?)` / `stopOf(tree)` — #1341b: the stop's durable mark beside the cancel's, on the same row, `InterruptMode.AfterStep` escalating to `Immediate`, an `Immediate` one fencing new writes with `ExecutionStopFencedError` unless a cancel is marked too (`Cancel > Stop`); `requestCancel(tree, transition?)` — #909: the tree's durable cancel mark (#1341d: with a `transition`, the thread's `thread_status_transitions` row is written in the mark's own transaction — `ExecutionRecordRepository.append` / `complete` / `completeIfStatus` write theirs in theirs, `app.getStatusHistory(threadId)` reads them, `statusHistory` / `forgetStatusHistory`), the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); on Redis, which writes no mark of its own, a delegation to the durable lease store under `EXECUTION_ID_STORE`, #1152 and #1198),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -1666,7 +1666,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   `onExecutionPause` (`pending`, when nothing else can move — again after a partial resume) /
   `onExecutionResume` (`reason: ResumeReason`, `decision`, `answeredBy`) around a pause,
   `onExecutionEnd` once when it ends at a finish (`finish`, `spend`), `onExecutionError` when it
-  fails — also after a resume (a cancel is `onExecutionCancel`, a stop `onExecutionStop`: outcomes, #1341); a root's end only
+  fails — also after a resume (a cancel is `onExecutionCancel`, a stop `onExecutionStop`: outcomes, #1341; `onInterruptCleanupError` — a step's `executionContext.onInterrupted` cleanup threw, #1341b — is a node event, never `onExecutionError`); a root's end only
   while its pass still holds the tree's lease (#597, `observed-pass.ts`: a holder frozen after the
   end became durable, whose tree another instance recovered and ended, stops at its own fence —
   `ExecutionLeaseLostError`, no announcement — at most once, as a child's). A child's end

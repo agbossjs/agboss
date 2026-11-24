@@ -197,6 +197,9 @@ export async function buildApp(
     // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
     cancel: async (threadId, options = {}) =>
       (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
+    // a stop is a cancel that undoes nothing (#1341b): its twin, loaded on the first stop
+    stop: async (threadId, options = {}) =>
+      (await lazyLoad(import("./stop-thread.js"))).stopThread(cancelParts, threadId, options),
     resume: resumeOf(resuming),
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),

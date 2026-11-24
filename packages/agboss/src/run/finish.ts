@@ -99,6 +99,9 @@ export async function finishRun<TName extends string>(
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
   assertEnded(ctx.runId, state, paused);
+  // a finish never lands over a durable stop or cancel mark (#1341b): the run ends as that
+  const interrupted = paused ? undefined : await ctx.deps.compensation?.interrupted?.();
+  if (interrupted !== undefined) throw interrupted;
   const outcome = outcomeOf(state, usage, paused);
   let turnId = existingTurnId;
   if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;

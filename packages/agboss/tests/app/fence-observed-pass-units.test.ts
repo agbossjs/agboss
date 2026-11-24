@@ -110,6 +110,7 @@ describe("#1366: one pass of a tree, observed and settled", () => {
       signal: expect.any(AbortSignal),
       lease: s.held.lease,
       undo: s.held.undo,
+      interrupted: expect.any(Function),
     });
     expect(s.tracked.state).toBe(STATE);
     expect(s.pass).toHaveBeenCalledOnce();

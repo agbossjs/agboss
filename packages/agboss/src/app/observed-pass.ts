@@ -1,8 +1,9 @@
+import { interruptErrorOf, interruptOf, markedInterruptOf } from "./interrupt-requests.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { maskedRecordOf, runResultOf } from "./result.js";
 import { maskedPendingOf } from "./record-masks.js";
 import { executionEventAt, observeLeg } from "./run-events.js";
-import { leasedDeps } from "./tree-ends.js";
+import { leasedDeps, treeOf } from "./tree-ends.js";
 import type { HeldPass, TreeCall, TreeMoveParts, TreePass, TreeState } from "./tree-move-types.js";
 import { unwindingDeps } from "./tree-unwind.js";
 import type { ExecutionOutput } from "./types.js";
@@ -27,7 +28,8 @@ export function observedPass(
   const caller = call.signal === undefined ? stops : [call.signal, ...stops];
   const { undo } = held;
   const signal = AbortSignal.any([held.lease.signal, live.interruption]);
-  const at = { signal, lease: held.lease, undo };
+  const interrupted = interruptedOf(parts, state);
+  const at = { signal, lease: held.lease, undo, interrupted };
   const moving = unwindingDeps(leasedDeps(deps, held.lease), state, at);
   const leg = async (): Promise<ExecutionOutput> => {
     try {
@@ -77,3 +79,15 @@ async function heldAtTheEnd(
   held.lease.assertHeld();
   return result;
 }
+
+/** The cancel or stop the tree's lease row marks, as the error its execution ends with (#1341b). */
+const interruptedOf =
+  (parts: Pick<TreeMoveParts, "leases" | "trees">, state: TreeState) =>
+  async (): Promise<Error | undefined> => {
+    const tree = treeOf(state);
+    // the key has the reason; the lease row's mark is the fallback of a request that died half way
+    const request =
+      (await interruptOf(parts.trees, tree, parts.leases)) ??
+      (await markedInterruptOf(parts.leases, tree));
+    return request === undefined ? undefined : interruptErrorOf(request, state.threadId);
+  };

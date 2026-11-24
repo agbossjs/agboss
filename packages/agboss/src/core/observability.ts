@@ -1,4 +1,5 @@
 import { type Bytes, type Usd } from "../units/index.js";
+import type { InterruptReason } from "../app/interrupt-types.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
@@ -270,11 +271,27 @@ export interface ExecutionErrorEvent extends ExecutionEvent {
   readonly compensations: readonly CompensationRecord[];
 }
 
+/**
+ * A step's `executionContext.onInterrupted` cleanup threw (`onInterruptCleanupError`, #1341b): the
+ * cleanups after it still ran, and the execution's own outcome is unchanged — `onExecutionError` is
+ * only for what an execution fails with. A node event: `step` is the interrupted step.
+ */
+export interface InterruptCleanupErrorEvent extends NodeEvent {
+  /** The component whose step was interrupted. */
+  readonly component: ComponentRecord;
+  /** Why the step was interrupted. */
+  readonly reason: InterruptReason;
+  /** What the cleanup threw. */
+  readonly error: unknown;
+}
+
 /** What a caller asked the app for (#269): `app.execute`, `app.resume` or `app.cancel`. */
 export enum ExecutionOperation {
   Execute = "execute",
   Resume = "resume",
   Cancel = "cancel",
+  /** `app.stop` (#1341b). */
+  Stop = "stop",
 }
 
 /**

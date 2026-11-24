@@ -1,4 +1,6 @@
 import { ExecutionCancelledError } from "../../core/errors.js";
+import { ExecutionStoppedError } from "../../app/lease-stopped.js";
+import { isStop } from "../interrupt-requests.js";
 import type { HeldExecutionLease } from "../execution-leases.js";
 import type { QueuedChildExecution } from "../../infrastructure/child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
@@ -23,10 +25,14 @@ export async function executeClaimed(
   const { queue, interruption, log } = parts;
   const stop = new AbortController();
   const signal = AbortSignal.any([stop.signal, interruption, lease.signal]);
-  const watching = watchRunningChild(parts, row, stop);
+  const watching = watchRunningChild(parts, row, stop, lease);
   // a write of the child refused by its root's cancel stops it at once (#909)
-  lease.whenCancelFound(() => {
-    stop.abort(new ExecutionCancelledError({ message: "the child's tree was cancelled" }));
+  lease.whenCancelFound((cause) => {
+    stop.abort(
+      isStop(cause)
+        ? new ExecutionStoppedError({ message: "the child's tree was stopped" })
+        : new ExecutionCancelledError({ message: "the child's tree was cancelled" }),
+    );
   });
   let isRetired = false;
   try {

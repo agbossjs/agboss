@@ -185,7 +185,9 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
     expect(cancelled).toEqual({ cancelled: false });
     expect(removed).toBe(1);
-    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Finished });
+    // the request key is withdrawn, but the cancel's durable mark is on the lease row: the holder's
+    // finish never lands over it (#1341b) — the run ends cancelled, never recorded `answered`
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.errors).toEqual([]);
   });
 

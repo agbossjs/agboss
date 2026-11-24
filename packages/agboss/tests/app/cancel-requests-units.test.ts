@@ -82,6 +82,8 @@ function partsOf(
   const leases = {
     requestCancel: vi.fn(() => Promise.resolve()),
     isCancelRequested: vi.fn(() => Promise.resolve(options.marked ?? false)),
+    // both marks of the lease row in one read (#1341b): the cancel mark, no stop
+    markedOf: vi.fn(() => Promise.resolve({ isCancelRequested: options.marked ?? false })),
     hold: vi.fn((_tree: unknown, _held: unknown, _take: TakeSeen) => Promise.resolve(lease)),
     tryHold: vi.fn((_tree: unknown, _take: TakeSeen) =>
       Promise.resolve(options.holds === false ? undefined : lease),
@@ -198,7 +200,11 @@ describe("#1356: the holder's watch", () => {
     watchedBy(lease as never, watch);
 
     expect(lease.afterEachRenewal).toHaveBeenCalledWith(watch.check);
-    expect(lease.whenCancelFound).toHaveBeenCalledWith(watch.abortNow);
+    expect(lease.whenCancelFound).toHaveBeenCalledWith(expect.any(Function));
+    // a refusal told to the lease aborts the watch's signal (#909)
+    const [listener] = lease.whenCancelFound.mock.calls[0] ?? [];
+    (listener as (cause: Error) => void)(new Error("refused"));
+    expect(watch.signal.aborted).toBe(true);
   });
 });
 

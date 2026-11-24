@@ -1,3 +1,4 @@
+import type { StopOptions, StopOutput } from "./interrupt-types.js";
 import type { ThreadStatusTransition } from "../turns/index.js";
 import type { Class } from "../components/injection.js";
 import type {
@@ -306,6 +307,18 @@ export interface App<TApp = unknown> {
    * A thread the tenant does not have → `UnknownThreadError`.
    */
   cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
+  /**
+   * Stops the thread's execution where it stands (#1341b): what it did is kept and nothing is undone
+   * (no `compensateWith` runs — that is `cancel`), and its `execute` / `resume` resolves with
+   * `ExecutionStatus.Stopped` (`reason`, the spend, no `finish`). `mode` is `InterruptMode.AfterStep`
+   * by default — the step in flight finishes and commits, none starts after it — or `Immediate`:
+   * the step in flight is aborted (`executionContext.signal`, `onInterrupted` callbacks awaited) and
+   * every new write of the tree is refused. A paused execution is ended at once (its open pauses
+   * close as `TreeEnded`). The call returns `{ state }`: `Stopped` (halted before it returned),
+   * `Stopping` (durable; its holder winds down) or `NotRunning` (nothing to stop, or already over).
+   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `UnknownThreadError`.
+   */
+  stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
   /**
    * Stops the app within the shutdown timeout (#261, #265, #367): no new executions, `onStop`, the
    * running ones awaited — interrupted a grace before its end, staying `running` for another instance —

@@ -10,7 +10,11 @@ import {
   takenOverFromOf,
   type ExecutionIdentity,
   type ExecutionLease,
+  type StopMark,
+  type TreeMarks,
 } from "../execution-lease.repository.js";
+import type { InterruptMode } from "../../app/interrupt-types.js";
+import { marksOf, markedStopRequested, stopModeOf } from "./sqlite-stop.js";
 import type { NewStatusTransition } from "../../turns/index.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
 import {
@@ -183,6 +187,31 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     });
   }
 
+  async requestStop(
+    tree: ExecutionTree,
+    mode: InterruptMode,
+    transition?: NewStatusTransition,
+  ): Promise<void> {
+    const now = this.clock.now().getTime();
+    // one `BEGIN IMMEDIATE` like every fenced method, so the mark and its row serialize with them
+    this.connection.transaction(() => {
+      markedStopRequested(this.connection.database, tree, {
+        mode,
+        now,
+        ...(transition ? { transition } : {}),
+      });
+    });
+  }
+
+  stopOf(tree: ExecutionTree): Promise<StopMark | undefined> {
+    const mode = stopModeOf(this.connection.database, tree);
+    return Promise.resolve(mode === undefined ? undefined : { mode });
+  }
+
+  override markedOf(tree: ExecutionTree): Promise<TreeMarks> {
+    return Promise.resolve(marksOf(this.connection.database, tree));
+  }
+
   isCancelRequested(tree: ExecutionTree): Promise<boolean> {
     const found = this.connection.database
       .prepare(
@@ -215,7 +244,7 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
 // a renewal (and the cancel read after it) is one statement served ahead of the queue: a long
 // `runOnce` can never make its own lease expire (#1317c)
 sqliteImplementation(SqliteExecutionLeaseRepository, {
-  priority: ["renew", "isCancelRequested"],
+  priority: ["renew", "isCancelRequested", "stopOf", "markedOf"],
   renewals: ["renew"],
 });
 

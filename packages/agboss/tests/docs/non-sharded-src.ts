@@ -879,6 +879,22 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/infrastructure/execution-record.repository.ts"],
   ),
   ...reviewed(
+    "the names of a stop and an interruption (#1341b): enums and option types with no logic — what acts on them is the cancel shard's and the flow runtime's",
+    ["src/app/interrupt-types.ts", "src/core/cancelled-error-code.ts", "src/public/interrupt.ts"],
+  ),
+  ...reviewed(
+    "the lease store's contract (#1341b), moved out of `execution-lease.repository.ts` with its docs and the default `markedOf`: what implements it is the fencing shard's, and every store runs `executionLeaseContract`",
+    ["src/infrastructure/execution-lease-contract.ts"],
+  ),
+  ...reviewed(
+    "the observer manager's audit hooks (#1341b): one-line delegations of events to `each`, moved out of the manager for its size bound — an observer's hook is exercised by the app tests that fire it",
+    ["src/core/observer-audit-hooks.ts"],
+  ),
+  ...reviewed(
+    "the `onInterrupted` cleanups of a step (#1341b): run awaited, newest first, only when the step is interrupted, a failing one reported — covered by tests/app/stop.test.ts, not a money, limit or deadline path",
+    ["src/flow/context/interrupt-cleanup.ts"],
+  ),
+  ...reviewed(
     "the abstract contract of the record store, moved out of `execution-record.repository.ts` (#1341d) with its docs; what implements it is reviewed beside it (the same reason)",
     ["src/infrastructure/execution-record-contract.ts"],
   ),

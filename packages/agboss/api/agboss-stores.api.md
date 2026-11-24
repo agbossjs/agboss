@@ -374,7 +374,7 @@ export interface BusinessKeyOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | ExecutionStopFencedError | undefined;
 
 // @public
 export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {
@@ -934,12 +934,15 @@ export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
     abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    abstract requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
+    abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     static readonly store: StoreDescriptor;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
@@ -2971,8 +2974,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "to".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "token".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "saveScore".
 // src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "meanScore".

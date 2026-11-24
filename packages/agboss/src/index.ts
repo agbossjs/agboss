@@ -21,6 +21,7 @@ export * from "./public/http.js";
 export * from "./public/app.js";
 export * from "./public/environments.js";
 export * from "./public/infrastructure.js";
+export * from "./public/interrupt.js";
 // where the application's rows go (#1321)
 export * from "./storage/index.js";
 export * from "./public/mesh.js";

@@ -1,6 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
+import { z } from "zod";
+import { InterruptMode } from "../../app/interrupt-types.js";
+import { ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 
@@ -50,13 +53,22 @@ export function markedCancelRequested(
  * lookup.
  */
 export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void {
-  if (key.isCompensation === true) return;
   const { tenantId, rootExecutionId } = cancelTreeOf(key);
-  const found = database
+  const row = database
     .prepare(
-      `SELECT 1 AS found FROM execution_leases
-       WHERE tenant_id = ? AND root_execution_id = ? AND cancel_requested_at IS NOT NULL`,
+      `SELECT cancel_requested_at IS NOT NULL AS is_cancelled, stop_mode FROM execution_leases
+       WHERE tenant_id = ? AND root_execution_id = ?`,
     )
     .get(tenantId, rootExecutionId);
-  if (found !== undefined) throw ExecutionCancelFencedError.of(key);
+  if (row === undefined) return;
+  const { is_cancelled: isCancelled, stop_mode: stopMode } = FenceRow.parse(row);
+  // a cancelled tree's undo runs; a stopped one (`immediate`) has none, and nothing of it is written
+  if (!isCancelled && stopMode === InterruptMode.Immediate) throw ExecutionStopFencedError.of(key);
+  if (key.isCompensation === true) return;
+  if (isCancelled) throw ExecutionCancelFencedError.of(key);
 }
+
+const FenceRow = z.object({
+  is_cancelled: z.number().transform(Boolean),
+  stop_mode: z.string().nullable(),
+});

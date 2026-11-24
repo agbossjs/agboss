@@ -72,6 +72,12 @@ function partsOf(
         ? Promise.reject(options.marked)
         : Promise.resolve(options.marked ?? false),
     ),
+    // both marks of the lease row in one read (#1341b)
+    markedOf: vi.fn(() =>
+      options.marked instanceof Error
+        ? Promise.reject(options.marked)
+        : Promise.resolve({ isCancelRequested: options.marked ?? false }),
+    ),
     hold: vi.fn((_tree: unknown, _held: unknown, _take: TakeSeen) => Promise.resolve(lease)),
     tryHold: vi.fn((_tree: unknown, _take: TakeSeen) =>
       Promise.resolve(options.holds === false ? undefined : lease),

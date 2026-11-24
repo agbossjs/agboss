@@ -193,18 +193,31 @@ export class AuditLogReports {
 }
 
 /**
- * What a holder does when a write of its steps meets its tree's cancel (#909): the listeners
- * (`whenCancelFound`, the pass's watch and a remote child's stop) run once `cancelFound` is told.
+ * What a holder does when a write of its steps meets its tree's cancel or `Immediate` stop (#909,
+ * #1341b): the listeners (`whenCancelFound`, the pass's watch and a remote child's stop) run once
+ * `cancelFound` is told, with the refusal. And what it does for an `AfterStep` stop: `stopAfterStep`
+ * refuses every step that starts from then on (`stoppedAfterStep`), the step in flight finishing.
  */
 export class CancelFoundHooks {
-  readonly #listeners: (() => void)[] = [];
+  readonly #listeners: ((cause: Error) => void)[] = [];
+  #stoppedAfterStep: Error | undefined;
 
-  whenCancelFound(listener: () => void): void {
+  whenCancelFound(listener: (cause: Error) => void): void {
     this.#listeners.push(listener);
   }
 
-  /** A write of a step under the lease met its tree's cancel: the holder stops as cancelled. */
-  cancelFound(): void {
-    for (const listener of this.#listeners) listener();
+  /** A write of a step under the lease met its tree's cancel or stop: the holder stops the tree. */
+  cancelFound(cause: Error): void {
+    for (const listener of this.#listeners) listener(cause);
+  }
+
+  /** An `AfterStep` stop was found (#1341b): no step starts under this lease any more. */
+  stopAfterStep(error: Error): void {
+    this.#stoppedAfterStep ??= error;
+  }
+
+  /** The stop that refuses a starting step; `undefined` until one was found. */
+  get stoppedAfterStep(): Error | undefined {
+    return this.#stoppedAfterStep;
   }
 }

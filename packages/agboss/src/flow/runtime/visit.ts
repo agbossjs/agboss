@@ -1,5 +1,8 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { InterruptReason } from "../../app/interrupt-types.js";
+import { nodeEventOf } from "../observers/execution-event.js";
 import { extractRunContext } from "../../core/run-context.js";
-import { runInFrame } from "../context/frame.js";
+import { runInFrame, type FrameServices } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
 import {
@@ -156,6 +159,35 @@ function succeeded(
   return { update, write, launched };
 }
 
+/** The step's frame with the services its code reports through (#280 S43) and its interruption's (#1341b). */
+function visitFrameOf(
+  site: {
+    node: RuntimeNode;
+    state: ExecutionStateType;
+    config: RunnableConfig | undefined;
+    deps: VisitDeps;
+  },
+  services: FrameServices,
+) {
+  const { node, state, config, deps } = site;
+  const base = stepFrameOf(node, state, config, deps);
+  return {
+    ...base,
+    services: {
+      ...services,
+      input: () => readInput(deps.graph, node, state).fields,
+      // an `onInterrupted` cleanup that threw: told to the observers, the rest still run
+      interruptCleanupFailed: (reason: InterruptReason, error: unknown) =>
+        deps.observer?.onInterruptCleanupError({
+          ...nodeEventOf(base),
+          component: base.step.component,
+          reason,
+          error,
+        }) ?? Promise.resolve(),
+    },
+  };
+}
+
 /**
  * Wraps a node's runner with the execution's bookkeeping; the runner runs in the step's frame (what
  * an injected `ExecutionContext` reads), closed when it returns (#280 S18).
@@ -169,10 +201,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
     const { reported, services } = reportingOf(deps.limits, node, state.path);
-    const frame = {
-      ...stepFrameOf(node, state, config, deps),
-      services: { ...services, input: () => readInput(deps.graph, node, state).fields },
-    };
+    const frame = visitFrameOf({ node, state, config, deps }, services);
     const { clock } = extractRunContext(config, state.runId);
     // an undoable action, its committer, its undo or a finish (#340): what it writes of them
     const startedAt = clock.now();

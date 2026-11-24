@@ -1,5 +1,6 @@
 import { maskedTreeRecordOf, treeMasksFor } from "./record-masks.js";
 import { ExecutionCancelledError } from "../core/errors.js";
+import { ExecutionStoppedError } from "../app/lease-stopped.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
@@ -73,9 +74,11 @@ export const historyEndOf = (
   lostUsage: readonly UsageRecord[] = [],
 ): HistoryEnd => ({
   status:
-    error instanceof ExecutionCancelledError
-      ? ExecutionHistoryStatus.Cancelled
-      : ExecutionHistoryStatus.Failed,
+    error instanceof ExecutionStoppedError
+      ? ExecutionHistoryStatus.Stopped
+      : error instanceof ExecutionCancelledError
+        ? ExecutionHistoryStatus.Cancelled
+        : ExecutionHistoryStatus.Failed,
   error,
   ...(compensations === undefined ? {} : { compensations }),
   ...(lostUsage.length === 0 ? {} : { lostUsage }),

@@ -1,3 +1,4 @@
+import type { InterruptCleanup } from "./interrupt-cleanup.js";
 import type { Class } from "../../components/injection.js";
 import type { ComponentRecord } from "../runtime/records.js";
 import type { TenantContext } from "./tenant-context.js";
@@ -112,4 +113,15 @@ export abstract class ExecutionContext {
   declare readonly origin: ExecutionOrigin | undefined;
   /** The nearest execution of `workflow` in the chain, this one included; `undefined` when none. */
   declare readonly executionOf: (workflow: WorkflowClass) => this | undefined;
+  /**
+   * Registers a cleanup of the current step or tool call (#1341b), run **only if it is interrupted** —
+   * `app.pause`, `app.stop`, `app.cancel`, its timeout, or another instance taking its lease — and
+   * never when it ends normally (use `try` / `finally` or `await using` for that). Cleanups run
+   * awaited and one after another, the last registered first, before the step's frame closes —
+   * so `executionContext` still reads inside them — and before the lease is released or an undo
+   * starts; each gets the `InterruptReason`. One that throws is reported to `onInterruptCleanupError`
+   * and logged; it neither stops the others nor fails the execution. A tool call's are dropped when
+   * it ends normally. Refused inside `Idempotency.runOnce`.
+   */
+  declare readonly onInterrupted: (cleanup: InterruptCleanup) => void;
 }

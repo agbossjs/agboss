@@ -1,9 +1,12 @@
+import type { InterruptMode } from "../app/interrupt-types.js";
 import type { NewStatusTransition } from "../turns/index.js";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import {
   ExecutionLeaseRepository,
   type ExecutionIdentity,
   type ExecutionLease,
+  type StopMark,
+  type TreeMarks,
 } from "../infrastructure/execution-lease.repository.js";
 import { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
@@ -140,6 +143,23 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
   async requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void> {
     await this.gate.passed();
     return this.repository.requestCancel(tree, transition);
+  }
+
+  async requestStop(
+    tree: ExecutionTree,
+    mode: InterruptMode,
+    transition?: NewStatusTransition,
+  ): Promise<void> {
+    await this.gate.passed();
+    return this.repository.requestStop(tree, mode, transition);
+  }
+
+  stopOf(tree: ExecutionTree): Promise<StopMark | undefined> {
+    return this.repository.stopOf(tree);
+  }
+
+  override markedOf(tree: ExecutionTree): Promise<TreeMarks> {
+    return this.repository.markedOf(tree);
   }
 
   isCancelRequested(tree: ExecutionTree): Promise<boolean> {

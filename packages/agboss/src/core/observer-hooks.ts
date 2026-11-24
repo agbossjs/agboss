@@ -34,6 +34,7 @@ import type {
   ExecutionCancelEvent,
   ExecutionErrorEvent,
   ExecutionStopEvent,
+  InterruptCleanupErrorEvent,
   ExecutionPauseEvent,
   ExecutionRejectedEvent,
   ExecutionResumeEvent,
@@ -119,6 +120,12 @@ export interface ExecutionObserver {
    * or the instance stopped. Called once per hand-over, before the moving call rejects.
    */
   onStepHandedOver?(event: StepHandedOverEvent): void | Promise<void>;
+  /**
+   * An `executionContext.onInterrupted` cleanup of a step threw (#1341b): once per failing cleanup,
+   * after it, before the next one runs. The execution's outcome is unchanged — never
+   * `onExecutionError`. A throw here is only a warning.
+   */
+  onInterruptCleanupError?(event: InterruptCleanupErrorEvent): void | Promise<void>;
   /**
    * A step's fenced effect was called (#501): ran, replayed, joined or refused. Called once per
    * call of `runOnce`, after its outcome is known; a throw never reaches the effect or its step.

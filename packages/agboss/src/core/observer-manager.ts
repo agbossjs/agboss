@@ -1,3 +1,4 @@
+import { AuditObserverHooks } from "./observer-audit-hooks.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
@@ -7,12 +8,7 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type {
-  ExecutionLeaseTakeoverEvent,
-  IdempotencyRunEvent,
-  OutboundCallEvent,
-  StepHandedOverEvent,
-} from "../flow/observers/audit-log.js";
+import type {} from "../flow/observers/audit-log.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -58,7 +54,10 @@ const ignore: ObserverFailure = () => undefined;
  * An observer that throws is reported to `onFailure` (the application's log: a warning) and
  * skipped: it never fails the execution.
  */
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
+export class ExecutionObserverManager
+  extends AuditObserverHooks
+  implements Required<ExecutionObserver>
+{
   /**
    * `builtIn`: the framework's own observers (#485: the instance's metrics) — called first, on the
    * event as it is: they read enums and names only, so no mask runs for them. `unknownCosts`: the
@@ -70,7 +69,9 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     private readonly mask: EventMask = unmasked,
     private readonly builtIn: readonly ExecutionObserver[] = [],
     readonly unknownCosts?: UnknownCostTally,
-  ) {}
+  ) {
+    super();
+  }
 
   /** The same observers, every event masked first (a workflow's PII policies, #120 AC7). */
   masked(mask: EventMask): ExecutionObserverManager {
@@ -78,7 +79,7 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     return new ExecutionObserverManager(observers, onFailure, mask, builtIn, unknownCosts);
   }
 
-  private async each<TEvent>(
+  protected async each<TEvent>(
     hook: ObserverHook,
     event: TEvent,
     call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
@@ -196,17 +197,5 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onCompensationEnd(event: CompensationEndEvent): Promise<void> {
     return this.each("onCompensationEnd", event, (o, e) => o.onCompensationEnd?.(e));
-  }
-  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> {
-    return this.each("onExecutionLeaseTakeover", event, (o, e) => o.onExecutionLeaseTakeover?.(e));
-  }
-  onStepHandedOver(event: StepHandedOverEvent): Promise<void> {
-    return this.each("onStepHandedOver", event, (o, e) => o.onStepHandedOver?.(e));
-  }
-  onIdempotencyRun(event: IdempotencyRunEvent): Promise<void> {
-    return this.each("onIdempotencyRun", event, (o, e) => o.onIdempotencyRun?.(e));
-  }
-  onOutboundCall(event: OutboundCallEvent): Promise<void> {
-    return this.each("onOutboundCall", event, (o, e) => o.onOutboundCall?.(e));
   }
 }

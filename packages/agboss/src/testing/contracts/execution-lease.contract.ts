@@ -4,6 +4,7 @@ import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { LEASE_AUTHORITY_CASES } from "./execution-lease-authority.cases.js";
 import { LEASE_CANCEL_CASES } from "./execution-lease-cancel.cases.js";
+import { LEASE_STOP_CASES } from "./execution-lease-stop.cases.js";
 import { LEASE_CONFIRM_CASES } from "./execution-lease-confirm.cases.js";
 import { LEASE_EXPIRY_RACE_CASES } from "./execution-lease-expiry-races.cases.js";
 import { LEASE_EXPIRY_CASES } from "./execution-lease-expiry.cases.js";
@@ -141,6 +142,7 @@ export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepo
       { title: "a retired lease", cases: [...LEASE_RETIRE_CASES, ...LEASE_RETIRE_EDGE_CASES] },
       { title: "an execution's identity", cases: LEASE_IDENTITY_CASES },
       { title: "a tree's cancel mark", cases: LEASE_CANCEL_CASES },
+      { title: "a tree's stop mark", cases: LEASE_STOP_CASES },
       { title: "the framework's holder of a tree's lease", cases: LEASE_HOLDER_CASES },
       { title: "the framework's holder at the lease's expiry", cases: LEASE_CONFIRM_CASES },
       { title: "the framework's take of finished work", cases: LEASE_RETIRE_HOLDER_CASES },

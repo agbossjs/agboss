@@ -1,3 +1,4 @@
+import { ExecutionStoppedError } from "../../../app/lease-stopped.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
@@ -83,6 +84,7 @@ async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
     clock: undo.clock,
     timeout: undo.timeout,
     isSealing: false,
+    isStopped: site.cause instanceof ExecutionStoppedError,
     record: (usage) => site.deps.limits.budgets.record(usage),
     onUndone: (entry) => markUndone(marks, entry),
   };

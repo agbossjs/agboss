@@ -39,6 +39,7 @@ export const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onAgentRetry: true,
   onExecutionLeaseTakeover: true,
   onStepHandedOver: true,
+  onInterruptCleanupError: true,
   onIdempotencyRun: true,
   onOutboundCall: true,
 };

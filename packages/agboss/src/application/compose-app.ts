@@ -65,6 +65,16 @@ export interface InstanceSurface extends Pick<
   readonly outboundCalls: OutboundCallRepository;
 }
 
+/** `cancel` and `stop`: each routed to the workflow its thread belongs to. */
+const threadCallsOf = (
+  ofThread: (thread: string, tenantId?: string) => Promise<BuiltApp>,
+): Pick<AnyTenantApp, "cancel" | "stop"> => ({
+  cancel: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
+  stop: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.stop(threadId, options),
+});
+
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
@@ -106,8 +116,7 @@ export function composeApp(
     resume: async (request, options) =>
       (await ofPause(request.pauseId, options?.tenantId)).app.resume(request, options),
     ...pauseCallsOf(ofPause),
-    cancel: async (threadId, options) =>
-      (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
+    ...threadCallsOf(ofThread),
     close: async (options) => stop.close(options),
     ...instanceReadsOf(surface),
     listPauses: async (query) => listPausesOf(workflows, ofThread, surface.pausedExecutions)(query),

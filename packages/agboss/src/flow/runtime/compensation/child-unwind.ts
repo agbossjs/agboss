@@ -1,3 +1,4 @@
+import { ExecutionStoppedError } from "../../../app/lease-stopped.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
@@ -121,6 +122,7 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
     stepEntries: deps.stepEntries,
     ...{ clock: undo.clock, timeout: undo.timeout },
     isSealing: true,
+    isStopped: thrown instanceof ExecutionStoppedError,
     record,
     onUndone: (entry) => markUndone(marks, entry),
   };

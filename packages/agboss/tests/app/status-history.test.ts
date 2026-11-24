@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
+import { InvalidThreadIdError } from "../../src/core/errors.js";
+import { ExecutionRecordRepository } from "../../src/index.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -48,6 +50,19 @@ describe("#1341d: app.getStatusHistory", () => {
       reason: "customer withdrew",
     });
     expect(history[1]?.at).toBeInstanceOf(Date);
+  });
+
+  test("a thread id that is no key's text is refused before any store is read, never echoed", async ({
+    app,
+  }) => {
+    await app.ready();
+    const read = vi.spyOn(app.resolve(ExecutionRecordRepository), "statusHistory");
+
+    const error = await app.getStatusHistory("t\uD800").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(InvalidThreadIdError);
+    expect(String(error)).not.toContain("\uD800");
+    expect(read).not.toHaveBeenCalled();
   });
 
   test("a thread nobody ran has an empty history", async ({ app }) => {

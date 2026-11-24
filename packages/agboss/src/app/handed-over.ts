@@ -1,3 +1,4 @@
+import { ExecutionStopFencedError } from "./lease-stopped.js";
 import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
@@ -55,8 +56,10 @@ export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined 
  * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
  * however a driver or a step wrapped it.
  */
-export const cancelFencedErrorOf = (error: unknown): ExecutionCancelFencedError | undefined =>
-  errorOfClass(error, ExecutionCancelFencedError);
+export const cancelFencedErrorOf = (
+  error: unknown,
+): ExecutionCancelFencedError | ExecutionStopFencedError | undefined =>
+  errorOfClass(error, ExecutionCancelFencedError) ?? errorOfClass(error, ExecutionStopFencedError);
 
 /**
  * A step under `lease` met its tree's cancel in `error` (#909): `tell` it (the audit row and the

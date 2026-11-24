@@ -270,14 +270,15 @@ export function cancelRestingCases(
       [second, first],
     ] as const) {
       const leases = sweeper.resolve(ExecutionLeaseRepository);
-      const read = leases.isCancelRequested.bind(leases);
-      vi.spyOn(leases, "isCancelRequested").mockImplementation(async (...args) => {
-        const isMarked = await read(...args);
+      // the sweep reads the lease row's marks with `markedOf` (#1341b: the cancel mark and the stop mark in one read)
+      const read = leases.markedOf.bind(leases);
+      vi.spyOn(leases, "markedOf").mockImplementation(async (...args) => {
+        const marked = await read(...args);
         if (!isEnded) {
           isEnded = true;
           expect(await canceller.cancel(tree.thread)).toEqual({ cancelled: true });
         }
-        return isMarked;
+        return marked;
       });
     }
     const before = seen.leases.length;

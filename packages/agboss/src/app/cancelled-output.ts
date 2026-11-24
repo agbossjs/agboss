@@ -5,7 +5,13 @@ import type { AppDeps } from "./app-deps.js";
 import { checkpointStateOf, EMPTY_STATE, type RecordedState } from "./execution-history.js";
 import type { TreeState } from "./tree-move-types.js";
 import { traceUrlFieldOf } from "../tracing/trace-url.js";
-import { ExecutionStatus, type CancelledExecutionOutput, type ExecutionOutput } from "./types.js";
+import { isStop, reasonOfError } from "./interrupt-requests.js";
+import {
+  ExecutionStatus,
+  type CancelledExecutionOutput,
+  type ExecutionOutput,
+  type StoppedExecutionOutput,
+} from "./types.js";
 
 /**
  * The outcome of a cancelled execution (#1341): a cancel is an operator's decision, not a failure,
@@ -53,10 +59,14 @@ export async function cancelledOutputOf(
   deps: AppDeps,
   state: TreeState,
   end: CancelledEnd,
-): Promise<CancelledExecutionOutput> {
+): Promise<CancelledExecutionOutput | StoppedExecutionOutput> {
   const values = await checkpointOf(deps, state);
-  const output: CancelledExecutionOutput = {
-    status: ExecutionStatus.Cancelled,
+  const isStopped = isStop(end.cause);
+  const reason = reasonOfError(end.cause);
+  const output: CancelledExecutionOutput | StoppedExecutionOutput = {
+    // a stop is an outcome of its own (#1341b): the same report, nothing undone
+    status: isStopped ? ExecutionStatus.Stopped : ExecutionStatus.Cancelled,
+    ...(reason === undefined ? {} : { reason }),
     threadId: state.threadId,
     tenantId: state.tenantId,
     executionId: state.runId,
