@@ -9,6 +9,10 @@ import {
   type ExecutionRecordStatusQuery,
 } from "../../../src/infrastructure/execution-record.repository.js";
 import { Logger, type LogEntry } from "../../../src/infrastructure/logger.js";
+import {
+  IN_MEMORY_DATABASE,
+  type InMemoryDatabase,
+} from "../../../src/infrastructure/in-memory-database.js";
 import type { Turn } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow } from "./claim-room.workflow.js";
@@ -36,7 +40,7 @@ export const resetRecover = (): void => {
   logs.length = 0;
 };
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class HoldableRecordRepository extends InMemoryExecutionRecordRepository {
   override findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
     return held.records ? new Promise<Page<Turn>>(() => undefined) : super.findByStatus(query);

@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { CHECKPOINT_TABLES, STEP_INDEX, UNREADABLE_STEP_INDEX } from "./sqlite-checkpoint-rows.js";
 import { DIRECT_SCHEMA } from "./sqlite-a2a-direct-message-rows.js";
 import { SCHEMA as A2A_TASKS_SCHEMA } from "./sqlite-a2a-task-rows.js";
+import { STATUS_TRANSITIONS_SCHEMA } from "../../turns/index.js";
 import { EXECUTION_LEASES_SCHEMA } from "./sqlite-lease-schema.js";
 import { OUTBOUND_CALLS_SCHEMA } from "./sqlite-outbound-call-schema.js";
 import { NOTICES_SCHEMA, PAUSED_RUNS_SCHEMA, PAUSES_SCHEMA } from "./sqlite-pause-schema.js";
@@ -28,6 +29,7 @@ import {
  */
 const BASELINE_DDL: readonly string[] = [
   EXECUTION_LEASES_SCHEMA,
+  STATUS_TRANSITIONS_SCHEMA,
   EXECUTION_IDS_SCHEMA,
   FENCED_EFFECTS_SCHEMA,
   OUTBOUND_CALLS_SCHEMA,
@@ -96,4 +98,5 @@ export const BASELINE_TABLES: readonly string[] = [
   "rate_limit_pauses",
   "rate_limit_slots",
   "rate_limit_window_entries",
+  "thread_status_transitions",
 ];

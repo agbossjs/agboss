@@ -1,3 +1,4 @@
+import type { ThreadStatusTransition } from "../turns/index.js";
 import type { Class } from "../components/injection.js";
 import type {
   ExecutionInputOf,
@@ -211,6 +212,11 @@ export interface CancelOptions {
   readonly tenantId?: string | undefined;
   /** The caller's owner: a key's text (#589). */
   readonly ownerId?: string | undefined;
+  /**
+   * Why the thread was cancelled (#1341): kept in its status history (`getStatusHistory`) and
+   * reported by the cancelled output and `onExecutionCancel`'s event. Free text, never a key.
+   */
+  readonly reason?: string | undefined;
 }
 
 /**
@@ -359,6 +365,21 @@ export interface App<TApp = unknown> {
     ...options: TenantPointArgs<TApp>
   ): Promise<ExecutionHistoryRecord | undefined>;
   /**
+   * The status history of a thread (#1341d), oldest change first: one `ThreadStatusTransition` per
+   * change of its status — `running`, `paused`, `stopping`, `stopped`, `cancelling`, `cancelled`,
+   * `finished`, … — with the `trigger` (`start`, `pause`, `stop`, `cancel`, …), the operator's
+   * `reason` and `actor` when a command gave them, and the lease's `leaseToken`. Each row is
+   * written in the very transaction of its change (a lease mark, a record's status write), so none
+   * is missing or orphaned after a crash. Empty for an unknown thread, another tenant's thread, and
+   * a thread whose workflow keeps no history (`historyTtl: Ttl.None`) once its tree has ended.
+   * An application that declares a `tenantContext` needs `{ tenantId }`, else it rejects with
+   * `ValidationError.TenantRequired`.
+   */
+  getStatusHistory(
+    threadId: string,
+    ...options: TenantPointArgs<TApp>
+  ): Promise<readonly ThreadStatusTransition[]>;
+  /**
    * A page of the kept root executions, oldest start first (#1324e): by `startedAfter` (inclusive) /
    * `startedBefore` (exclusive), `workflow` and `status`, from the cursor of the page before. A
    * page holds at most `limit` records and may hold fewer while a filter drops some: go on while
@@ -456,6 +477,7 @@ export type AnyTenantApp = App<TenantContextBranded<false>>;
 export type WorkflowApp = Omit<
   AnyTenantApp,
   | "getExecution"
+  | "getStatusHistory"
   | "listExecutions"
   | "checkLiveness"
   | "checkReadiness"

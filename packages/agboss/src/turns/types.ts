@@ -1,4 +1,5 @@
 import { type Usd } from "../units/index.js";
+import type { StatusContext, ThreadStatusTransition } from "./status-transition.js";
 /** Terminology: a Turn is one question → replyWith round (one run). A thread is a client's sequence of Turns. */
 
 /**
@@ -195,14 +196,23 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     tenantId: string,
     threadId: string,
   ) => Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined>;
-  readonly append: (turn: NewTurn) => Promise<Turn>;
+  readonly append: (turn: NewTurn, context?: StatusContext) => Promise<Turn>;
   /** Completes a paused Turn (same id) with its final outcome. */
-  readonly complete: (turnId: string, outcome: TurnOutcome) => Promise<void>;
+  readonly complete: (
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ) => Promise<void>;
   /**
    * Compare-and-set (#265 S66 h): writes the outcome only while the Turn's status is `expected`;
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
-  completeIfStatus(turnId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
+  completeIfStatus(
+    turnId: string,
+    expected: TurnStatus,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ): Promise<boolean>;
   /** The last `limit` Turns of a thread (its tenant and id), oldest first. */
   readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
@@ -240,6 +250,13 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     cutoffs: ReadonlyMap<string, Date>,
     isEnded: EndedRun,
   ) => Promise<number>;
+  /** The thread's status history (#1341d), oldest first: written in the transaction of each status change. */
+  readonly statusHistory: (thread: {
+    readonly tenantId: string;
+    readonly threadId: string;
+  }) => Promise<readonly ThreadStatusTransition[]>;
+  /** Removes the thread's status history (#1341d): its tree was forgotten and no history is kept. */
+  readonly forgetStatusHistory: (tenantId: string, threadId: string) => Promise<void>;
   readonly close: () => void;
 }
 
@@ -255,4 +272,5 @@ export type TurnRecords = Omit<
   | "appendPauseAnswer"
   | "markNotTaken"
   | "pauseAnswersOf"
+  | "statusHistory"
 >;

@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 import { Window1Memory } from "../../helpers/window-memory.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -188,3 +189,14 @@ export class Checkout {}
   budgets: TEST_BUDGETS,
 })
 export class CheckoutApplication {}
+
+/** The same application keeping its execution history (`retention.executionRecords`, #1341d). */
+@Application({
+  name: "kept-checkout-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [Checkout],
+  budgets: TEST_BUDGETS,
+  retention: { executionRecords: hours(24) },
+})
+export class KeptCheckoutApplication {}

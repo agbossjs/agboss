@@ -72,7 +72,7 @@ function isHung(operation: string): boolean {
 
 const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class ScopedRecords extends InMemoryExecutionRecordRepository {
   override complete(turnId: string, outcome: TurnOutcome): Promise<void> {
     return isHung("records.complete") ? never() : super.complete(turnId, outcome);

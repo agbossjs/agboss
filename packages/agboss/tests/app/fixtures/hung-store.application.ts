@@ -66,7 +66,7 @@ export class HungQueueRepository extends InMemoryChildExecutionQueueRepository {
   }
 }
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class HungRecordRepository extends InMemoryExecutionRecordRepository {
   override findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
     return hung.records ? never() : super.findByStatus(query);

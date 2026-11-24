@@ -4,6 +4,7 @@ import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
 import type { StoredKeyFacts } from "./fenced-effect-key.js";
+import type { ThreadStatusTransition } from "../turns/index.js";
 import type { ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
@@ -30,6 +31,8 @@ export class InMemoryDatabase {
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
   /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
   readonly executionIds = new Set<string>();
+  /** The status history of each thread (#1341d), by `tenantId` + `threadId`, oldest first. */
+  readonly statusTransitions = new Map<string, ThreadStatusTransition[]>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */

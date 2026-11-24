@@ -117,7 +117,10 @@ export const probesOf = (
   | "outboundCallsOf"
   | "pendingOutboundCallsOf"
   | "listPauses"
+  | "getStatusHistory"
 > => ({
+  getStatusHistory: (threadId, options) =>
+    checked(environment, async () => (await probed()).app.getStatusHistory(threadId, options)),
   checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
   checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
   auditLogOf: (tree) => checked(environment, async () => (await probed()).app.auditLogOf(tree)),

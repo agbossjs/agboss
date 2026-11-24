@@ -40,6 +40,7 @@ export interface TestApp extends Pick<
   | "reassignPause"
   | "close"
   | "cancel"
+  | "getStatusHistory"
   | "checkLiveness"
   | "checkReadiness"
   | "auditLogOf"

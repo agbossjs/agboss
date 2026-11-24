@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
+import type { StatusLog } from "./status-log.js";
+import { recordTransitionOf, type StatusContext } from "./status-transition.js";
 import { storedTextOf } from "./schema.js";
 import type { PauseAnswerEntry, Turn, TurnOutcome, TurnStore } from "./types.js";
 
@@ -111,37 +113,72 @@ function insertTurn(db: DatabaseSync, t: Turn): void {
   );
 }
 
+/** The thread of a Turn, read inside the caller's transaction (the history is the thread's). */
+const ThreadOfTurn = z.object({ tenant_id: z.string(), thread_id: z.string() });
+
+/**
+ * The status change a write of `status` makes, appended to the thread's history in the write's own
+ * transaction (#1341d): a crash between the status and its row is impossible.
+ */
+function appendedStatus(
+  log: StatusLog,
+  now: Now,
+  thread: { readonly tenantId: string; readonly threadId: string },
+  status: string,
+  context: StatusContext | undefined,
+): void {
+  const next = recordTransitionOf(thread, status, log.lastOf(thread), context);
+  if (next !== undefined) log.appended(next, now());
+}
+
+/** The thread a Turn belongs to, by its id. */
+function threadOfTurn(
+  db: DatabaseSync,
+  id: string,
+): { readonly tenantId: string; readonly threadId: string } | undefined {
+  const row = db.prepare("SELECT tenant_id, thread_id FROM terns WHERE id = ?").get(id);
+  if (row === undefined) return undefined;
+  const parsed = ThreadOfTurn.parse(row);
+  return { tenantId: parsed.tenant_id, threadId: parsed.thread_id };
+}
+
 /** Appending a Turn and completing it — unconditionally, or only from an expected status (#265 S66 h). */
 export function turnWrites(
   db: DatabaseSync,
   now: Now,
+  log: StatusLog,
 ): Pick<TurnStore, "append" | "complete" | "completeIfStatus"> {
   return {
-    complete: (id, o) => {
+    complete: (id, o, context) => {
       inWriteTransaction(db, () => {
         db.prepare(COMPLETE).run(...outcomeParams(o), id);
         db.prepare(TOUCH_THREAD_OF_TURN).run(now().toISOString(), id);
+        const thread = threadOfTurn(db, id);
+        if (thread !== undefined) appendedStatus(log, now, thread, o.status, context);
       });
       return Promise.resolve();
     },
     // one transaction: atomic, also between two connections to one file
-    completeIfStatus: (id, expected, o) => {
+    completeIfStatus: (id, expected, o, context) => {
       const isDone = inWriteTransaction(db, () => {
         const { changes } = db
           .prepare(`${COMPLETE} AND status = ?`)
           .run(...outcomeParams(o), id, expected);
         if (Number(changes) !== 1) return false;
         db.prepare(TOUCH_THREAD_OF_TURN).run(now().toISOString(), id);
+        const thread = threadOfTurn(db, id);
+        if (thread !== undefined) appendedStatus(log, now, thread, o.status, context);
         return true;
       });
       return Promise.resolve(isDone);
     },
     // in a promise's executor: a refused write (a swept thread) rejects, never throws at the call
-    append: (turn) =>
+    append: (turn, context) =>
       new Promise<Turn>((resolve) => {
         const t: Turn = { ...turn, id: randomUUID(), createdAt: now().toISOString() };
         inWriteTransaction(db, () => {
           insertTurn(db, t);
+          appendedStatus(log, now, t, t.status, context);
         });
         resolve(t);
       }),

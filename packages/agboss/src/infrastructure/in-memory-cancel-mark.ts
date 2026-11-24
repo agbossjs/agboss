@@ -1,5 +1,6 @@
 import { waitOf } from "./clock.js";
 import type { ExecutionTree } from "./execution-tree.repository.js";
+import { memoryStatusLog, type NewStatusTransition } from "../turns/index.js";
 import { treeKeyOf, type ExecutionLeaseRow, type InMemoryDatabase } from "./in-memory-database.js";
 
 /**
@@ -34,11 +35,16 @@ export function markedInMemoryCancel(
   database: InMemoryDatabase,
   tree: ExecutionTree,
   now: number,
+  transition?: NewStatusTransition,
 ): Promise<void> {
   const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
   const stored = database.executionLeases.get(key) ?? seedRowOf(tree);
-  if (stored.cancelRequestedAt === undefined)
+  if (stored.cancelRequestedAt === undefined) {
     database.executionLeases.set(key, { ...stored, cancelRequestedAt: now });
+    // the mark and its history row land in one synchronous step (#1341d)
+    if (transition !== undefined)
+      memoryStatusLog(database.statusTransitions).appended(transition, new Date(now));
+  }
   return Promise.resolve();
 }
 

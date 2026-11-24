@@ -140,7 +140,11 @@ export async function cancelExecution(
     const { trees, clock, live } = parts;
     const tree = { tenantId: request.tenantId, rootExecutionId: request.rootExecutionId };
     const requestedAt = clock.now().toISOString();
-    await writeCancelRequest(parts, tree, { requestedAt, ownerId: request.ownerId ?? null });
+    await writeCancelRequest(parts, tree, {
+      requestedAt,
+      ownerId: request.ownerId ?? null,
+      threadId: request.threadId,
+    });
     if (live.abortExecution(tree, request.threadId)) return ExecutionCancelOutcome.Aborted;
     const durable = await executionStateOf(parts, request);
     switch (durable.status) {

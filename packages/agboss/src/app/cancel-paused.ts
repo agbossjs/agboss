@@ -10,6 +10,12 @@ import { rootTakeOf } from "./execution-leases.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { TreeState } from "./tree-move-types.js";
 
+/** Who asked for the cancel and why (`app.cancel`'s `ownerId` and `reason`). */
+export interface CancelCommand {
+  readonly ownerId?: string | undefined;
+  readonly reason?: string | undefined;
+}
+
 /** The status of a cancelled root (text: a record's status may be compared with it). */
 const CANCELLED: string = ExecutionRecordStatus.Cancelled;
 
@@ -26,6 +32,7 @@ export async function cancelledPaused(
   parts: CancelParts,
   thread: ThreadKey,
   runId?: string,
+  command?: CancelCommand,
 ): Promise<boolean> {
   const { deps, paused, leases } = parts;
   const found = await paused.find(thread);
@@ -38,10 +45,7 @@ export async function cancelledPaused(
   // the mark first (#909): from here on no effect of the tree but its undo's is accepted; and the
   // tree key (#1073), the one request an expiry's holder or a lease taken over reads
   const requested = { tenantId: thread.tenantId, rootExecutionId: tree.runId };
-  await writeCancelRequest(parts, requested, {
-    requestedAt: parts.clock.now().toISOString(),
-    ownerId: null,
-  });
+  await requestedBy(parts, requested, thread, command);
   const take = rootTakeOf(deps.pause, tree.runId, LeaseTakeoverReason.Cancelled);
   const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {
@@ -64,6 +68,20 @@ export async function cancelledPaused(
     await lease.release();
   }
 }
+
+/** The cancel's request written for `thread`: its mark and key, and its row of the status history. */
+const requestedBy = (
+  parts: CancelParts,
+  tree: ExecutionTree,
+  thread: ThreadKey,
+  command: CancelCommand | undefined,
+): Promise<void> =>
+  writeCancelRequest(parts, tree, {
+    requestedAt: parts.clock.now().toISOString(),
+    ownerId: command?.ownerId ?? null,
+    threadId: thread.threadId,
+    reason: command?.reason,
+  });
 
 /**
  * A holder moved the tree while this cancel waited for its lease (#1073): when it ended the tree

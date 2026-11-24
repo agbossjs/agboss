@@ -52,7 +52,7 @@ function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> 
 /** What an instance adds to its workflows' apps: its graceful stop, warnings and probes. */
 export interface InstanceSurface extends Pick<
   Infrastructure,
-  "pausedExecutions" | "executionHistory"
+  "pausedExecutions" | "executionHistory" | "records"
 > {
   readonly stop: GracefulStop;
   /** `app.checkLiveness()` / `app.checkReadiness()` (#300). */

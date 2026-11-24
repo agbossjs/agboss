@@ -75,7 +75,7 @@ export const inMemoryStores = (): StoreSet => ({
     sharedInMemory(
       seam,
       "records",
-      () => new InMemoryExecutionRecordRepository(seam.clock, randomIdGenerator),
+      () => new InMemoryExecutionRecordRepository(seam.clock, randomIdGenerator, seam.database),
     ),
   ),
   executionTree: inMemoryTarget(({ database }) => new InMemoryExecutionTreeRepository(database)),

@@ -51,6 +51,10 @@ const pointCallsOf = (app: AnyTenantApp, need: Need): Partial<AnyTenantApp> => (
     need(TenantOperation.GetExecution, tenantIdOf(options));
     return app.getExecution(executionId, options);
   },
+  getStatusHistory: async (threadId, options) => {
+    need(TenantOperation.GetStatusHistory, tenantIdOf(options));
+    return app.getStatusHistory(threadId, options);
+  },
 });
 
 /** The reads of `app` over a tenant's data, gated. */

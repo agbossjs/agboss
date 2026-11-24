@@ -25,6 +25,14 @@ export type {
   ExecutionHistoryQuery,
   TenantExecutionHistoryQuery,
 } from "../infrastructure/execution-history.repository.js";
+// the status history of a thread (#1341d): `app.getStatusHistory`
+export {
+  StatusTrigger,
+  ThreadStatus,
+  type NewStatusTransition,
+  type StatusContext,
+  type ThreadStatusTransition,
+} from "../turns/index.js";
 export type { ExecutionRecordStatusQuery } from "../infrastructure/execution-record.repository.js";
 export {
   ChildExecutionQueueRepository,

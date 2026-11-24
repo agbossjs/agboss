@@ -5,6 +5,10 @@
  * config-drift warning) only after every `onInit` → `onStart` ran, and the warning is still in
  * `app.warnings` and the start log.
  */
+import {
+  IN_MEMORY_DATABASE,
+  type InMemoryDatabase,
+} from "../../src/infrastructure/in-memory-database.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -45,12 +49,12 @@ const methodNamesOf = (prototype: object): string[] =>
  * A record store that is ready only once its `onInit` ran — as one on a database whose schema its
  * connection checks at start. Every call before it is noted; the config snapshot reports drift.
  */
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 class StartedRecordRepository extends InMemoryExecutionRecordRepository implements OnInit {
   #isStarted = false;
 
-  constructor(clock: Clock, idGenerator: IdGenerator) {
-    super(clock, idGenerator);
+  constructor(clock: Clock, idGenerator: IdGenerator, database: InMemoryDatabase) {
+    super(clock, idGenerator, database);
     for (const name of methodNamesOf(TurnStoreRecordRepository.prototype)) {
       const method: unknown = Reflect.get(this, name);
       if (typeof method !== "function") continue;

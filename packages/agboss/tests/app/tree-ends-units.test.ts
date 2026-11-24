@@ -71,6 +71,7 @@ describe("#633: forgetTree and passEnded", () => {
         deps: {
           container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
           config: { name: "w" },
+          turns: { forgetStatusHistory: () => Promise.resolve() },
         },
         trees: { deleteAllInTree },
         clock: { now: () => new Date(0) },
@@ -94,6 +95,7 @@ describe("#633: forgetTree and passEnded", () => {
       pause,
       container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
       config: { name: "w" },
+      turns: { forgetStatusHistory: () => Promise.resolve() },
     };
 
     await forgetTree(
@@ -123,6 +125,7 @@ describe("#633: forgetTree and passEnded", () => {
         pause: { pauses: {} },
         container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
         config: { name: "w" },
+        turns: { forgetStatusHistory: () => Promise.resolve() },
       },
       trees: { deleteAllInTree: () => Promise.resolve() },
       clock: { now: () => new Date(0) },

@@ -11,6 +11,7 @@ import {
   type ExecutionIdentity,
   type ExecutionLease,
 } from "../execution-lease.repository.js";
+import type { NewStatusTransition } from "../../turns/index.js";
 import type { ExecutionTree } from "../execution-tree.repository.js";
 import {
   markedCancelRequested,
@@ -174,11 +175,11 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(remainingOf(new Date(expires_at), new Date(now)));
   }
 
-  async requestCancel(tree: ExecutionTree): Promise<void> {
+  async requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void> {
     const now = this.clock.now().getTime();
     // one `BEGIN IMMEDIATE` like every fenced method, so the two serialize (#909)
     this.connection.transaction(() => {
-      markedCancelRequested(this.connection.database, tree, now);
+      markedCancelRequested(this.connection.database, tree, now, transition);
     });
   }
 

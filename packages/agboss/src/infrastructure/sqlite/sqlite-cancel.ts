@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 
@@ -20,7 +21,15 @@ export function markedCancelRequested(
   database: DatabaseSync,
   tree: { readonly tenantId: string; readonly rootExecutionId: string },
   now: number,
+  transition?: NewStatusTransition,
 ): void {
+  const wasMarked =
+    database
+      .prepare(
+        `SELECT 1 AS found FROM execution_leases WHERE tenant_id = ? AND root_execution_id = ?
+         AND cancel_requested_at IS NOT NULL`,
+      )
+      .get(tree.tenantId, tree.rootExecutionId) !== undefined;
   database
     .prepare(
       `INSERT INTO execution_leases (tenant_id, root_execution_id, holder_instance_id, lease_epoch,
@@ -29,6 +38,9 @@ export function markedCancelRequested(
          cancel_requested_at = COALESCE(execution_leases.cancel_requested_at, excluded.cancel_requested_at)`,
     )
     .run(tree.tenantId, tree.rootExecutionId, now);
+  // the mark and its history row are one transaction: the caller's `BEGIN IMMEDIATE` (#1341d)
+  if (transition !== undefined && !wasMarked)
+    sqliteStatusLog(database).appended(transition, new Date(now));
 }
 
 /**

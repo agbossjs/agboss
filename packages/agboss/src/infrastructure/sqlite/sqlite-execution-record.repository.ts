@@ -20,6 +20,7 @@ import {
   type ExecutionRecordStatusQuery,
 } from "../execution-record.repository.js";
 import type { EndedTree } from "../execution-audit-log.repository.js";
+import type { StatusContext, ThreadStatusTransition } from "../../turns/index.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -70,12 +71,20 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     return this.#records.threadOwner(...args);
   }
 
-  append(turn: NewTurn): Promise<Turn> {
-    return this.#records.append(turn);
+  append(turn: NewTurn, context?: StatusContext): Promise<Turn> {
+    return this.#records.append(turn, context);
   }
 
-  complete(turnId: string, outcome: TurnOutcome): Promise<void> {
-    return this.#records.complete(turnId, outcome);
+  complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void> {
+    return this.#records.complete(turnId, outcome, context);
+  }
+
+  statusHistory(tenantId: string, threadId: string): Promise<readonly ThreadStatusTransition[]> {
+    return this.#records.statusHistory(tenantId, threadId);
+  }
+
+  forgetStatusHistory(tenantId: string, threadId: string): Promise<void> {
+    return this.#records.forgetStatusHistory(tenantId, threadId);
   }
 
   completeIfStatus(

@@ -1,4 +1,5 @@
 import { usd } from "../units/index.js";
+import { STATUS_TRANSITIONS_SCHEMA } from "./status-transition-schema.js";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -46,7 +47,8 @@ const MIGRATIONS: readonly string[] = [
    CREATE TABLE IF NOT EXISTS pause_answers (tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
      step_key TEXT NOT NULL, asked_at TEXT NOT NULL, record TEXT NOT NULL,
      PRIMARY KEY (tenant_id, root_execution_id, step_key));
-   CREATE INDEX IF NOT EXISTS pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);`,
+   CREATE INDEX IF NOT EXISTS pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);
+   ${STATUS_TRANSITIONS_SCHEMA}`,
 ];
 
 const TurnRow = z.object({

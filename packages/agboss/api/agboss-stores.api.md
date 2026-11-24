@@ -933,7 +933,7 @@ export abstract class ExecutionLeaseRepository {
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
-    abstract requestCancel(tree: ExecutionTree): Promise<void>;
+    abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
     static readonly store: StoreDescriptor;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
@@ -968,14 +968,13 @@ export interface ExecutionRecord {
 // @public
 export abstract class ExecutionRecordRepository {
     abstract addSummary(summary: NewSummary): Promise<Summary>;
-    // (undocumented)
-    abstract append(turn: NewTurn): Promise<Turn>;
+    abstract append(turn: NewTurn, context?: StatusContext): Promise<Turn>;
     abstract before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Turn[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
-    abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;
-    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    abstract complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void>;
+    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
@@ -983,6 +982,7 @@ export abstract class ExecutionRecordRepository {
     abstract findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>>;
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
+    abstract forgetStatusHistory(tenantId: string, threadId: string): Promise<void>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
     abstract latestSummaries(tenantId: string, threadId: string, memory: string, limit: number): Promise<Summary[]>;
@@ -997,6 +997,7 @@ export abstract class ExecutionRecordRepository {
     abstract savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
+    abstract statusHistory(tenantId: string, threadId: string): Promise<readonly ThreadStatusTransition[]>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
     abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
@@ -1364,6 +1365,24 @@ export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> 
     readonly messageId: string;
     // (undocumented)
     readonly requestHash: string;
+}
+
+// @public
+export interface NewStatusTransition {
+    // (undocumented)
+    readonly actor?: string | undefined;
+    // (undocumented)
+    readonly leaseToken?: number | undefined;
+    // (undocumented)
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly toStatus: ThreadStatus;
+    // (undocumented)
+    readonly trigger: StatusTrigger;
 }
 
 // @public (undocumented)
@@ -2158,6 +2177,9 @@ export interface SqliteTransactionStatement {
 }
 
 // @public
+export type StatusContext = Partial<Pick<NewStatusTransition, "trigger" | "reason" | "actor" | "leaseToken">>;
+
+// @public
 export interface StepHandedOverRecord extends ExecutionAuditEventBase {
     // (undocumented)
     readonly kind: ExecutionAuditEventKind.HandedOver;
@@ -2438,6 +2460,25 @@ export interface Summary {
 export interface TenantExecutionHistoryQuery extends ExecutionHistoryQuery {
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export interface ThreadStatusTransition {
+    readonly actor?: string | undefined;
+    // (undocumented)
+    readonly at: Date;
+    readonly fromStatus: ThreadStatus | null;
+    readonly leaseToken?: number | undefined;
+    readonly reason?: string | undefined;
+    readonly seq: number;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly toStatus: ThreadStatus;
+    // (undocumented)
+    readonly trigger: StatusTrigger;
 }
 
 // @public
@@ -2812,13 +2853,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/execution-record-status-page.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "summaryCount".
 // src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
 // src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
@@ -2934,6 +2974,18 @@ export interface WrittenLedgerMark {
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "__index".
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "[driverBrand]".
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "role".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "toStatus".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "trigger".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "at".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "toStatus".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "trigger".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "reason".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "actor".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "leaseToken".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "agent".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "content".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "Turn".

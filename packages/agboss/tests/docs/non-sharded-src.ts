@@ -868,6 +868,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/infrastructure/execution-record.repository.ts"],
   ),
   ...reviewed(
+    "the abstract contract of the record store, moved out of `execution-record.repository.ts` (#1341d) with its docs; what implements it is reviewed beside it (the same reason)",
+    ["src/infrastructure/execution-record-contract.ts"],
+  ),
+  ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 31 mutants, 30 killed in the final run; the 13 that had lived in the first run each got a test (13), an equivalence reason (0) or was classed message text (0); covered by tests/sweep-1366h/infrastructure/sqlite/execution-record-delegation-1366h.test.ts, tests/infrastructure/store-conformance.sqlite.test.ts, tests/app/cancel-paused-crash.sqlite.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/infrastructure/sqlite/sqlite-execution-record.repository.ts"],
   ),

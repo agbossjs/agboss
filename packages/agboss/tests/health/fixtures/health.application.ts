@@ -89,7 +89,7 @@ export class FlakyCostLedgerRepository extends InMemoryCostLedgerRepository {
   }
 }
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class StallingExecutionRecordRepository extends InMemoryExecutionRecordRepository {
   override findByStatus(
     ...query: Parameters<InMemoryExecutionRecordRepository["findByStatus"]>

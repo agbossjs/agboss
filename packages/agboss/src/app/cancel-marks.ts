@@ -1,3 +1,4 @@
+import { StatusTrigger, ThreadStatus, type NewStatusTransition } from "../turns/index.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { rootRecordOf } from "./ended-tree.js";
@@ -37,4 +38,19 @@ export async function isMarkedAlive(
   if (!(await isCancelMarked(parts.leases, treeOf(state)))) return false;
   const record = await rootRecordOf(parts.deps, state).catch(() => undefined);
   return record !== undefined && ALIVE.includes(record.status);
+}
+
+/** The history row of a cancel request (#1341d): the thread is `Cancelling` until its undo ends. */
+export function cancelTransitionOf(
+  thread: { readonly tenantId: string; readonly threadId: string },
+  request: { readonly ownerId: string | null; readonly reason?: string | undefined },
+): NewStatusTransition {
+  return {
+    tenantId: thread.tenantId,
+    threadId: thread.threadId,
+    toStatus: ThreadStatus.Cancelling,
+    trigger: StatusTrigger.Cancel,
+    ...(request.ownerId === null ? {} : { actor: request.ownerId }),
+    ...(request.reason === undefined ? {} : { reason: request.reason }),
+  };
 }

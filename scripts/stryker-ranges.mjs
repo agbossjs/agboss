@@ -44,7 +44,7 @@ export function cancelShard() {
   return {
     configFile: "vitest.mutation-takeover.config.ts",
     mutate: [
-      "src/app/cancel-{marks,paused,requests,resting,thread}.ts",
+      "src/app/cancel-{marks,paused,remote,requests,resting,thread}.ts",
       "src/app/{lease-lost,lease-releases,lease-reporting}.ts",
     ],
   };

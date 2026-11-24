@@ -1,3 +1,4 @@
+import type { NewStatusTransition } from "../turns/index.js";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import {
   ExecutionLeaseRepository,
@@ -136,9 +137,9 @@ class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
     return this.repository.reclaim(executionLease, duration);
   }
 
-  async requestCancel(tree: ExecutionTree): Promise<void> {
+  async requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void> {
     await this.gate.passed();
-    return this.repository.requestCancel(tree);
+    return this.repository.requestCancel(tree, transition);
   }
 
   isCancelRequested(tree: ExecutionTree): Promise<boolean> {

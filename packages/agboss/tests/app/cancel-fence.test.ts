@@ -142,7 +142,10 @@ describe("#909: who writes the mark", () => {
     letAllGo();
     await rejectionOf(call);
 
-    expect(mark).toHaveBeenCalledWith({ tenantId: "default", rootExecutionId: "execution-1" });
+    expect(mark).toHaveBeenCalledWith(
+      { tenantId: "default", rootExecutionId: "execution-1" },
+      expect.objectContaining({ toStatus: "cancelling", threadId: THREAD }),
+    );
     expect(Math.min(...mark.mock.invocationCallOrder)).toBeLessThan(
       Math.min(...abort.mock.invocationCallOrder),
     );

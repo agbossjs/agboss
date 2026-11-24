@@ -1,5 +1,6 @@
 import { Injectable } from "../components/decorators.js";
 import type { Milliseconds } from "../units/index.js";
+import type { NewStatusTransition } from "../turns/index.js";
 import type { ExecutionTree } from "./execution-tree.repository.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock, waitOf } from "./clock.js";
@@ -230,8 +231,11 @@ export abstract class ExecutionLeaseRepository {
    * own lease row, keyed by the tree's root (never by a child's lease): a cancel before the tree's
    * first `acquire` writes a seed row (token 0, released, never held), so that acquire is token 1
    * and no takeover. Changes no lease: the holder keeps it, renews it, runs the tree's undo under it.
+   * With a `transition` (#1341d) the thread's status-history row is written **in the same
+   * transaction as the mark** — on the same backend, so a crash between them is impossible — and
+   * only when this call set the mark: a repeat writes none.
    */
-  abstract requestCancel(tree: ExecutionTree): Promise<void>;
+  abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
 
   /**
    * Whether the tree's cancel mark is set (#1152): read from its own lease row (permanent, #1117),
@@ -375,8 +379,8 @@ export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
     return Promise.resolve(reclaimed);
   }
 
-  requestCancel(tree: ExecutionTree): Promise<void> {
-    return markedInMemoryCancel(this.database, tree, this.clock.now().getTime());
+  requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void> {
+    return markedInMemoryCancel(this.database, tree, this.clock.now().getTime(), transition);
   }
 
   isCancelRequested(tree: ExecutionTree): Promise<boolean> {

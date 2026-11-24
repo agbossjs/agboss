@@ -13,10 +13,10 @@ import {
   endIfCancelledAtRest,
   isCancelRequested,
   isEndedAtTakeover,
-  remoteCancel,
   watchedBy,
   writeCancelRequest,
 } from "../../src/app/cancel-requests.js";
+import { remoteCancel } from "../../src/app/cancel-remote.js";
 import { WITHOUT_RECOVERY_KEY } from "../../src/app/tree-ends.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -149,7 +149,7 @@ describe("#1356: writing a request", () => {
     await writeCancelRequest(parts, TREE, request);
 
     expect(order).toEqual(["mark", "key"]);
-    expect(leases.requestCancel).toHaveBeenCalledWith(TREE);
+    expect(leases.requestCancel).toHaveBeenCalledWith(TREE, undefined);
     expect(trees.saveIfAbsentInTree).toHaveBeenCalledWith(TREE, CANCEL_REQUEST_KEY, request);
   });
 });
@@ -377,7 +377,10 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
 
     expect(turns.lastTurns).toHaveBeenCalledWith("acme", "thread-1", 20);
     expect(leases.requestCancel.mock.calls).toEqual([
-      [{ tenantId: "acme", rootExecutionId: "root-1" }],
+      [
+        { tenantId: "acme", rootExecutionId: "root-1" },
+        expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" }),
+      ],
     ]);
     expect(trees.saveIfAbsentInTree).toHaveBeenCalledWith(
       { tenantId: "acme", rootExecutionId: "root-1" },

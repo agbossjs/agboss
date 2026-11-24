@@ -1,4 +1,5 @@
 import { DtoValidationError } from "../dto/errors.js";
+import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { tenantRead, treeRead } from "../flow/context/context-values.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import {
@@ -89,6 +90,7 @@ export type InstanceReads = Pick<
   | "pendingOutboundCallsOf"
   | "getExecution"
   | "listExecutions"
+  | "getStatusHistory"
 >;
 
 export const instanceReadsOf = ({
@@ -96,8 +98,14 @@ export const instanceReadsOf = ({
   auditLog,
   outboundCalls,
   executionHistory,
+  records,
 }: InstanceSurface): InstanceReads => ({
   ...executionReadsOf(executionHistory),
+  // #1341d: a thread's status history, oldest first — another tenant's thread has none
+  getStatusHistory: async (threadId, options) =>
+    tenantRead(options?.tenantId ?? DEFAULT_TENANT_ID, () =>
+      records.statusHistory(options?.tenantId ?? DEFAULT_TENANT_ID, threadId),
+    ),
   // every call that returns a promise is async: a failure rejects, it is never thrown at the call (#1325)
   checkLiveness: async () => health.checkLiveness(),
   checkReadiness: async () => health.checkReadiness(),

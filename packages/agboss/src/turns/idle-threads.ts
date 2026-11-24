@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { placeholders } from "./schema.js";
+import type { StatusLog } from "./status-log.js";
 import type { EndedRun, TurnStore } from "./types.js";
 
 /**
@@ -49,8 +50,15 @@ const runsOf = (db: DatabaseSync, { tenantId, threadId }: IdleThread): string[] 
     .map((row) => RunRow.parse(row).run_id);
 
 /** The thread's rows in every table, children first (the caller's transaction holds them all). */
-function deleteRowsOf(db: DatabaseSync, thread: IdleThread, runs: readonly string[]): void {
+function deleteRowsOf(
+  db: DatabaseSync,
+  thread: IdleThread,
+  runs: readonly string[],
+  log: StatusLog,
+): void {
   const { tenantId, threadId } = thread;
+  // the status history goes with the thread (#1341d): none stays orphaned
+  log.forgotten(thread);
   db.prepare(
     `DELETE FROM scores WHERE tern_id IN (SELECT id FROM terns WHERE tenant_id = ? AND thread_id = ?)`,
   ).run(tenantId, threadId);
@@ -83,10 +91,15 @@ function deleteRowsOf(db: DatabaseSync, thread: IdleThread, runs: readonly strin
 function removeThread(
   db: DatabaseSync,
   thread: IdleThread,
-  options: { readonly workflow: string; readonly cutoff: Date; readonly runs: readonly string[] },
+  options: {
+    readonly workflow: string;
+    readonly cutoff: Date;
+    readonly runs: readonly string[];
+    readonly log: StatusLog;
+  },
 ): boolean {
   const { tenantId, threadId } = thread;
-  const { workflow, cutoff, runs } = options;
+  const { workflow, cutoff, runs, log } = options;
   db.exec("BEGIN IMMEDIATE");
   try {
     const stillIdle = db
@@ -110,7 +123,7 @@ function removeThread(
       db.exec("ROLLBACK");
       return false;
     }
-    deleteRowsOf(db, thread, runs);
+    deleteRowsOf(db, thread, runs, log);
     db.exec("COMMIT");
     return true;
   } catch (error) {
@@ -130,7 +143,10 @@ async function isThreadEnded(
   return true;
 }
 
-export function idleThreadMethods(db: DatabaseSync): Pick<TurnStore, "deleteIdleThreads"> {
+export function idleThreadMethods(
+  db: DatabaseSync,
+  log: StatusLog,
+): Pick<TurnStore, "deleteIdleThreads"> {
   return {
     deleteIdleThreads: async (cutoffs, isEnded) => {
       let removed = 0;
@@ -138,7 +154,7 @@ export function idleThreadMethods(db: DatabaseSync): Pick<TurnStore, "deleteIdle
         for (const thread of idleThreadsOf(db, workflow, cutoff)) {
           const runs = runsOf(db, thread);
           if (!(await isThreadEnded(runs, thread.tenantId, isEnded))) continue;
-          if (removeThread(db, thread, { workflow, cutoff, runs })) removed += 1;
+          if (removeThread(db, thread, { workflow, cutoff, runs, log })) removed += 1;
         }
       }
       return removed;

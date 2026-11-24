@@ -90,6 +90,10 @@ export async function forgetTree(
     state.runId,
   );
   parts.deps.branchErrors?.forgetExecution(state.runId);
+  // no history is kept (`historyTtl: Ttl.None`): the thread's status history goes with its tree,
+  // so no row outlives the transient ones (#1341d)
+  if (parts.deps.executionHistory === undefined)
+    await parts.deps.turns.forgetStatusHistory(state.tenantId, state.threadId);
   const { pause } = parts.deps;
   if (pause === undefined) return;
   const ends = { stores: pause };

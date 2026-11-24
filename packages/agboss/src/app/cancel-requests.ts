@@ -2,13 +2,10 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
-import type { Turn } from "../turns/index.js";
-import type { AppDeps } from "./app-deps.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
-import { isMarkedAlive } from "./cancel-marks.js";
-import { CompensationFailedError } from "../flow/compensation.js";
+import { cancelTransitionOf, isMarkedAlive } from "./cancel-marks.js";
 import { endedWithoutPass } from "./ended-tree.js";
-import { cancelledErrorOf, type ThreadKey } from "./live-runs.js";
+import { cancelledErrorOf } from "./live-runs.js";
 import { treeOf, WITHOUT_RECOVERY_KEY } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
@@ -29,9 +26,6 @@ import { ExecutionStatus, type ExecutionOutput } from "./types.js";
 
 /** The reserved key of a cancel request: `@agboss/` tree keys belong to the framework. */
 export const CANCEL_REQUEST_KEY = "@agboss/cancel-request";
-
-/** How many of a thread's last records are looked at for its root's record. */
-const RECORDS = 20;
 
 /** What ending a cancelled tree needs from its workflow's app. */
 export type CancelParts = Pick<TreeMoveParts, "deps" | "paused" | "trees" | "clock" | "leases">;
@@ -73,10 +67,19 @@ export async function isEndedAtTakeover(
 export async function writeCancelRequest(
   parts: Pick<CancelParts, "leases" | "trees">,
   tree: ExecutionTree,
-  request: { readonly requestedAt: string; readonly ownerId: string | null },
+  request: {
+    readonly requestedAt: string;
+    readonly ownerId: string | null;
+    /** The thread the cancel is of: its history row is written with the mark (#1341d). */
+    readonly threadId?: string;
+    readonly reason?: string | undefined;
+  },
 ): Promise<void> {
-  await parts.leases.requestCancel(tree);
-  await parts.trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, request);
+  const { requestedAt, ownerId, threadId } = request;
+  const transition =
+    threadId === undefined ? undefined : cancelTransitionOf({ ...tree, threadId }, request);
+  await parts.leases.requestCancel(tree, transition);
+  await parts.trees.saveIfAbsentInTree(tree, CANCEL_REQUEST_KEY, { requestedAt, ownerId });
 }
 
 /** The holder's watch over one tree's cancel request (#360). */
@@ -187,7 +190,7 @@ export interface SweptRoot {
  * cancelled output (or the final error of an undo that failed), or `undefined` when its lease was
  * not free.
  */
-async function endHeld(
+export async function endHeld(
   parts: CancelParts,
   state: TreeState,
   sweep?: SweptRoot,
@@ -224,59 +227,4 @@ export async function endIfCancelled(
     return false;
   await endHeld(parts, state, state);
   return true;
-}
-
-/** A record's tree as its events name it. */
-const stateOf = (deps: AppDeps, record: Turn, runId: string): TreeState => ({
-  runId,
-  threadId: record.threadId,
-  tenantId: record.tenantId,
-  startedVersion: record.configVersion ?? deps.config.version,
-});
-
-/**
- * What became of a requested tree after the request: `true` when it counts as cancelled; one this
- * call ended whose undo failed rejects with `CompensationFailedError` (#340 S7 1).
- */
-async function settled(parts: CancelParts, record: Turn): Promise<boolean> {
-  if (record.runId === null) return false;
-  const state = stateOf(parts.deps, record, record.runId);
-  if (record.status === "running") return true;
-  if (record.status === "paused") {
-    const ended = await endHeld(parts, state);
-    if (ended instanceof CompensationFailedError) throw ended;
-    return ended !== undefined;
-  }
-  // it ended between the request and now: the request is withdrawn with the tree's keys
-  await parts.trees.deleteAllInTree(treeOf(state));
-  return false;
-}
-
-/**
- * A cancel of a thread whose execution runs on another instance (#360): every `running` root of
- * the thread gets a request, then is read again — still running: cancelled (its holder stops
- * within one renewal, or recovery ends it); paused meanwhile: ended here; ended: not cancelled. A
- * root whose `running` record is not written yet (its budgets, its thread's compaction) is not
- * found: `false` (S1 5).
- */
-export async function remoteCancel(
-  parts: CancelParts,
-  thread: ThreadKey,
-  ownerId: string | undefined,
-): Promise<boolean> {
-  const { deps, clock } = parts;
-  const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
-  const running = records.filter(
-    (record) => record.status === "running" && record.workflow === deps.config.name,
-  );
-  const request = { requestedAt: clock.now().toISOString(), ownerId: ownerId ?? null };
-  for (const record of running) {
-    if (record.runId === null) continue;
-    const tree = { tenantId: thread.tenantId, rootExecutionId: record.runId };
-    await writeCancelRequest(parts, tree, request);
-  }
-  let isCancelled = false;
-  const now = running.length === 0 ? [] : await deps.turns.byIds(running.map(({ id }) => id));
-  for (const record of now) isCancelled = (await settled(parts, record)) || isCancelled;
-  return isCancelled;
 }

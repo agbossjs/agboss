@@ -1,3 +1,4 @@
+import type { NewStatusTransition } from "../turns/index.js";
 import { scopeKeyOf } from "./lease-lost.js";
 import type * as AuditLog from "./audit-log.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
@@ -89,9 +90,10 @@ export interface ExecutionLeases {
   /**
    * The tree's cancel is durable on the lease store's backend (#909): from now on every fencing
    * store refuses a new effect of the tree, in the transaction that checks the lease. Resolves once
-   * written; idempotent; rejects with the store's error, nothing written.
+   * written; idempotent; rejects with the store's error, nothing written. A `transition` (#1341d)
+   * is the thread's history row, written in the mark's own transaction.
    */
-  requestCancel(tree: ExecutionTree): Promise<void>;
+  requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
   /**
    * Whether the tree's cancel is durable on the lease store's backend (#1152): the sweep's look at
    * a resting tree. A store that fails rejects.
@@ -120,7 +122,7 @@ export function executionLeasesOf(
     takeLease(taking, tree, why);
   return {
     tryHold: take,
-    requestCancel: (tree) => repository.requestCancel(tree),
+    requestCancel: (tree, transition) => repository.requestCancel(tree, transition),
     isCancelRequested: (tree) => repository.isCancelRequested(tree),
     hold: async (tree, signal, why) => {
       const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
