@@ -11,9 +11,9 @@ export const FAULT_SABOTAGE_SCENARIOS: readonly FaultScenario[];
 export const FAULT_SCENARIOS: readonly FaultScenario[];
 
 // @public
-export interface FaultBusinessRows<TTransaction = unknown> {
+export interface FaultBusinessRows {
     committed(app: App): Promise<readonly string[]>;
-    insert(transaction: TTransaction, row: string): void | Promise<void>;
+    insert(row: string): void | Promise<void>;
 }
 
 // @public
@@ -96,9 +96,9 @@ export interface FaultShard {
 }
 
 // @public
-export interface FaultStoreSet<TTransaction = unknown> {
+export interface FaultStoreSet {
     // (undocumented)
-    readonly businessRows: FaultBusinessRows<TTransaction>;
+    readonly businessRows: FaultBusinessRows;
     // (undocumented)
     readonly environment: FaultEnvironment;
     readonly providers: readonly Class[];

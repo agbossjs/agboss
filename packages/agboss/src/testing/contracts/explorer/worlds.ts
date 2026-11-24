@@ -96,6 +96,6 @@ export const callTarget = (
 
 /** The fenced-effect target as the explorer's stores. */
 export const effectTarget = (
-  target: ContractTarget<FencedEffectTarget<unknown>>,
+  target: ContractTarget<FencedEffectTarget>,
 ): ContractTarget<ExplorerStores> =>
   mapped(target, ({ effects, leases, rows }) => ({ effects, leases, rows }));

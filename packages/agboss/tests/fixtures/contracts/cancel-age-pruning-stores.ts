@@ -11,10 +11,7 @@
  */
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import type { ExecutionLease } from "../../../src/infrastructure/execution-lease.repository.js";
-import {
-  InMemoryFencedEffectRepository,
-  type InMemoryFencedEffectTransaction,
-} from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import {
   treeKeyOf,
   type ExecutionLeaseRow,
@@ -58,7 +55,7 @@ const liftingStores = (isLifted: Lifted) => ({
       return removed;
     };
     return { ...built, effects, leases };
-  }) satisfies StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>>,
+  }) satisfies StoreFactory<FencedEffectTarget>,
   calls: ((seam: InstanceSeam) => {
     const built = inMemoryOutboundCalls(seam);
     const leases = leasesOf(seam);
@@ -115,7 +112,7 @@ export const markDroppedByAcquire = {
     const leases = new MarkDroppingLeases(seam);
     const effects = new InMemoryFencedEffectRepository(seam.storeClock, seam.database, leases);
     return { ...built, effects, leases };
-  }) satisfies StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>>,
+  }) satisfies StoreFactory<FencedEffectTarget>,
   calls: ((seam: InstanceSeam) => {
     const built = inMemoryOutboundCalls(seam);
     const leases = new MarkDroppingLeases(seam);

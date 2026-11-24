@@ -1,5 +1,6 @@
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
- * #471 — the held lease as `executionContext.fence` reads it: its token and scope, `assertHeld()`
+ * #471 — the held lease as `executionContext.fence` (internal now) reads it: its token and scope, `assertHeld()`
  * (local, no I/O; past `trustedUntil` it expires the lease first), `renewNow()` (a strict
  * renewal: confirmed → the after-renewal checks, anything else → lost), a fenced write stopping the
  * holder of its token, and the `yieldWhile` rule — the lease is yielded only while no other step of

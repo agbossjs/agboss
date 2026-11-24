@@ -17,7 +17,7 @@ export default defineConfig({
       // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
       "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
       "tests/infrastructure/{fence-fingerprint,store-conformance.sqlite,live-lease-sqlite,repeated-execution-id.sqlite,in-memory-fenced-effect-edges,execution-lease-*-bites}.test.ts",
-      "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-schema-version}.test.ts",
+      "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-run-once-hold,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-schema-version}.test.ts",
       "tests/app/{execution-fence-stores,fenced-effect-sqlite,outbound-call-sqlite,held-lease-fence,held-lease-edges,lease-skew,lease-skew-charge}.test.ts",
     ],
   },

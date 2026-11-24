@@ -19,9 +19,9 @@ import {
 /** The fenced-effect contract's rollback and concurrency (#500 AC3). */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
+const throwingWriteRollsBack = (): Case => ({
   name: "a throwing write rolls its business row back, its error rethrown as it is; the next call runs it",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -52,15 +52,15 @@ const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
  * the call, on the one thread, before the write returns.
  */
 const writingSeenBy =
-  <TTransaction>(
-    rows: FencedEffectBusinessRows<TTransaction>,
-    reader: FencedEffectBusinessRows<TTransaction>,
+  (
+    rows: FencedEffectBusinessRows,
+    reader: FencedEffectBusinessRows,
     row: string,
     seen: { rows: readonly string[] | undefined },
-  ): FencedEffectWork<TTransaction, Receipt> =>
-  (transaction) => {
+  ): FencedEffectWork<Receipt> =>
+  () => {
     const receipt: Receipt = { receipt: row };
-    const inserted = rows.insert(transaction, row);
+    const inserted = rows.insert(row);
     if (inserted === undefined) {
       void reader.committed().then((found) => (seen.rows = found));
       return receipt;
@@ -73,7 +73,7 @@ const writingSeenBy =
       });
   };
 
-const rowSeenAfterCommit = <TTransaction>(): Case<TTransaction> => ({
+const rowSeenAfterCommit = (): Case => ({
   name: "a business row is seen by another instance only once the effect committed",
   run: async ({ first, second }) => {
     const key = keyOf(await leaseOf(first));
@@ -87,7 +87,7 @@ const rowSeenAfterCommit = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const twoInstancesOneKey = <TTransaction>(): Case<TTransaction> => ({
+const twoInstancesOneKey = (): Case => ({
   name: "AC3: two instances call one key at once: one Ran, one Replayed, the write runs once",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -107,7 +107,7 @@ const twoInstancesOneKey = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const oneInstanceJoins = <TTransaction>(): Case<TTransaction> => ({
+const oneInstanceJoins = (): Case => ({
   name: "AC3: two calls on one key of one instance at once: the second joins the first (Joined), the write runs once",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -126,7 +126,7 @@ const oneInstanceJoins = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const joinedGetsError = <TTransaction>(): Case<TTransaction> => ({
+const joinedGetsError = (): Case => ({
   name: "AC3: a joined call gets the first call's error",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -143,18 +143,12 @@ const joinedGetsError = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const rollbackCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const rollbackCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "rollback",
-  cases: [throwingWriteRollsBack<TTransaction>(), rowSeenAfterCommit<TTransaction>()],
+  cases: [throwingWriteRollsBack(), rowSeenAfterCommit()],
 });
 
-export const concurrencyCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const concurrencyCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "concurrency",
-  cases: [
-    twoInstancesOneKey<TTransaction>(),
-    oneInstanceJoins<TTransaction>(),
-    joinedGetsError<TTransaction>(),
-  ],
+  cases: [twoInstancesOneKey(), oneInstanceJoins(), joinedGetsError()],
 });

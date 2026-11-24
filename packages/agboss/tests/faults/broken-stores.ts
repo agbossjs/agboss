@@ -55,7 +55,7 @@ export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepo
 
   protected override runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DatabaseSync, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
     return super.runInTransaction(effectKeyForTesting(key, { token }), work);
@@ -75,7 +75,7 @@ export const FORGED_TOKEN_OFFSET = 1_000_000;
 export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
   override runOnce<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DatabaseSync, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     return super.runOnce(
       effectKeyForTesting(key, { token: key.token + FORGED_TOKEN_OFFSET }),

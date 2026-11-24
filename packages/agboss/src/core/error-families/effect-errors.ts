@@ -16,6 +16,9 @@ export enum IdempotencyErrorKind {
   StoreMismatch = "store-mismatch",
   OutsideTransaction = "outside-transaction",
   NestedRunOnce = "nested-run-once",
+  NestedTransaction = "nested-transaction",
+  TransactionPoisoned = "transaction-poisoned",
+  HoldTooLong = "hold-too-long",
   ExternalCallInTransaction = "external-call-in-transaction",
 }
 
@@ -31,6 +34,9 @@ export type IdempotencyError =
   | IdempotencyError.StoreMismatch
   | IdempotencyError.OutsideTransaction
   | IdempotencyError.NestedRunOnce
+  | IdempotencyError.NestedTransaction
+  | IdempotencyError.TransactionPoisoned
+  | IdempotencyError.HoldTooLong
   | IdempotencyError.ExternalCallInTransaction;
 
 /** The variants of `IdempotencyError`, each with the facts it carries. */
@@ -116,6 +122,21 @@ export declare namespace IdempotencyError {
     IdempotencyErrorKind.NestedRunOnce,
     "idempotency.nested-run-once"
   >;
+  /** A connection transaction was opened inside a runOnce. */
+  export type NestedTransaction = ErrorVariant<
+    IdempotencyErrorKind.NestedTransaction,
+    "idempotency.nested-transaction"
+  >;
+  /** A statement of the runOnce transaction failed: it can only roll back. */
+  export type TransactionPoisoned = ErrorVariant<
+    IdempotencyErrorKind.TransactionPoisoned,
+    "idempotency.transaction-poisoned"
+  >;
+  /** The runOnce transaction was held past the store's cap. */
+  export type HoldTooLong = ErrorVariant<
+    IdempotencyErrorKind.HoldTooLong,
+    "idempotency.hold-too-long"
+  >;
   /** An external call was made inside a transaction. */
   export type ExternalCallInTransaction = ErrorVariant<
     IdempotencyErrorKind.ExternalCallInTransaction,
@@ -137,6 +158,9 @@ export const IdempotencyError: FamilyConstructor<
     StoreMismatch: IdempotencyError.StoreMismatch;
     OutsideTransaction: IdempotencyError.OutsideTransaction;
     NestedRunOnce: IdempotencyError.NestedRunOnce;
+    NestedTransaction: IdempotencyError.NestedTransaction;
+    TransactionPoisoned: IdempotencyError.TransactionPoisoned;
+    HoldTooLong: IdempotencyError.HoldTooLong;
     ExternalCallInTransaction: IdempotencyError.ExternalCallInTransaction;
   }
 > = defineFamily({
@@ -154,6 +178,9 @@ export const IdempotencyError: FamilyConstructor<
     StoreMismatch: ["the effect's store is not the one the execution runs on"],
     OutsideTransaction: ["the effect needs a transaction and has none"],
     NestedRunOnce: ["runOnce was called inside a runOnce"],
+    NestedTransaction: ["a connection transaction was opened inside a runOnce"],
+    TransactionPoisoned: ["a statement of the runOnce transaction failed: it can only roll back"],
+    HoldTooLong: ["the runOnce transaction was held past the store's cap"],
     ExternalCallInTransaction: ["an external call was made inside a transaction"],
   },
 });

@@ -1,3 +1,4 @@
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #1356 — which components reach a writer under business keys (#825): the classes a token is given by the
  * application's providers, the walk through a component's `deps`, what a workflow's assembly remembers of it,
@@ -212,7 +213,7 @@ describe("#1356: the fence of a step where none can be read", () => {
   it("an ancestor's fence says whose it is, and to read the current context's", () => {
     expect(() => ancestorFenceRead("PayAction")).toThrow(ExecutionContextUnavailableError);
     expect(() => ancestorFenceRead("PayAction")).toThrow(
-      "PayAction read executionContext.fence of an ancestor execution: an ancestor of a child on any instance is rebuilt elsewhere and its lease may be yielded — read the fence of the current context.",
+      "PayAction read the lease fence of an ancestor execution: an ancestor of a child on any instance is rebuilt elsewhere and its lease may be yielded — read the fence of the current context.",
     );
   });
 
@@ -220,7 +221,7 @@ describe("#1356: the fence of a step where none can be read", () => {
     const fence = liveFenceOf(() => ({ execution: {} }) as Frame, "PayAction");
 
     expect(() => fence.token).toThrow(
-      "PayAction read executionContext.fence.token where no lease is held (a reply interpreter, a budget's maxSpend(), an eval judge, a tool called on its own).",
+      "PayAction read the lease fence.token where no lease is held (a reply interpreter, a budget's maxSpend(), an eval judge, a tool called on its own).",
     );
   });
 });

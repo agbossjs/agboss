@@ -5,6 +5,7 @@ import {
 } from "./idempotency-errors.js";
 import { IdempotencyError } from "../core/error-families/effect-errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
+import { fenceOf } from "../flow/context/execution-fence.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
 import { issuedKey } from "./issued-keys.js";
@@ -97,7 +98,8 @@ export function effectKeyOf<TFingerprint>(
   options?: EffectKeyOptions<TFingerprint>,
 ): EffectKey | OutboundCallKey {
   assertEffectName(name);
-  const { fence, step } = executionContext;
+  const { step } = executionContext;
+  const fence = fenceOf(executionContext);
   const origin = {
     executionId: executionContext.executionId,
     nodeId: step.nodeId,

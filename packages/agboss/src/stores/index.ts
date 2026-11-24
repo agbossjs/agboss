@@ -56,7 +56,6 @@ export type {
   OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 // the in-memory fenced-effect store's transaction (a subclass of it, a test of a store's set)
-export { InMemoryFencedEffectTransaction } from "../infrastructure/in-memory-fenced-effect.repository.js";
 
 // the rules of a key a store keeps with the core's own helpers (#526 AC5): the name rule, the
 // business key's text (#538), the fingerprint (#825), the replay and conflict rule, where its row
@@ -126,7 +125,13 @@ export {
 } from "../core/error-families/store-errors.js";
 
 // the SQLite connection a store of your own extends beside (#1321): bound to `@DatabaseStorage`'s `SqliteDriver`
-export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
+export { SqliteConnection, SQLITE_HOLD_CAP } from "../infrastructure/sqlite/sqlite-connection.js";
+export type {
+  SqliteTransactionHandle,
+  SqliteTransactionParameters,
+  SqliteTransactionRun,
+  SqliteTransactionStatement,
+} from "../infrastructure/sqlite/sqlite-transaction.js";
 // storage drivers (#1321): what `PostgresDriver`, `MongoDriver` and `RedisDriver` are made with, and the
 // settings a connection reads once its application started
 export {

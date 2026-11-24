@@ -1,3 +1,4 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { invalidEffectName, unissuedKey } from "./idempotency-errors.js";
 import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import { cancelMet, fencedErrorOf } from "../app/handed-over.js";
@@ -63,14 +64,15 @@ export interface IdempotencyRunOutcome<TResult> {
 }
 
 /**
- * The protected write: business rows in `transaction`, then its result (plain JSON). A store may
- * run it more than once within one call (#730: MongoDB's driver runs an aborted attempt again on a
- * transient transaction error), keeping only the last attempt's writes: it writes only through
- * `transaction` and does nothing else — no call to another system, nothing sent or counted outside.
+ * The protected write: business rows written through the store's ambient transaction
+ * (`requireTransaction()` of its connection, #1317c), then its result (plain JSON). It is handed no
+ * transaction. A store may run it more than once within one call (#730: MongoDB's driver runs an
+ * aborted attempt again on a transient transaction error), keeping only the last attempt's writes:
+ * it writes only through the ambient transaction and does nothing else — no call to another system,
+ * nothing sent or counted outside.
  */
-export type FencedEffectWork<TTransaction, TResult> = (
-  transaction: TTransaction,
-) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+export type FencedEffectWork<TResult> = () =>
+  (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 /** The calls in flight of each store instance, by their full key: the in-process join. */
 const inFlight = new WeakMap<object, Map<string, Promise<IdempotencyRunOutcome<unknown>>>>();
@@ -92,7 +94,7 @@ const joinKeyOf = (key: EffectKey): string =>
  * application's SQLite file. A store reads the leases of the lease store on its own database, so
  * the application lists the two together.
  */
-export abstract class FencedEffectRepository<TTransaction> {
+export abstract class FencedEffectRepository {
   /**
    * Where the store's rows live and how it checks the lease against its write (#526, #825): its
    * `backend` must be the application's lease store's — its write and the lease check are one
@@ -115,7 +117,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   runOnce<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     // #825: no key at all from JavaScript is refused as one effectKeyOf did not make, not a throw
     const given: unknown = key;
@@ -140,7 +142,7 @@ export abstract class FencedEffectRepository<TTransaction> {
   /** The call itself: the leader's transaction, or the outcome of the leader on its key. */
   #call<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const calls = inFlight.get(this) ?? new Map<string, Promise<IdempotencyRunOutcome<unknown>>>();
     inFlight.set(this, calls);
@@ -164,7 +166,7 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   protected abstract runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>>;
 
   /**
@@ -247,7 +249,8 @@ function observedInStep<TResult>(
       return outcome;
     },
     (error: unknown) => {
-      const fenced = fencedErrorOf(error);
+      const fenced =
+        fencedErrorOf(error) ?? (error instanceof ExecutionError.Fenced ? error : undefined);
       if (fenced !== undefined)
         report(IdempotencyRunEventOutcome.Refused, { observedToken: fenced.observedToken });
       // #909: told first, then the holder stops the tree as cancelled — not a hand-over

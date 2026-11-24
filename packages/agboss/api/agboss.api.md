@@ -3128,7 +3128,6 @@ export abstract class ExecutionContext {
     readonly depth: number;
     readonly executionId: string;
     readonly executionOf: (workflow: WorkflowClass) => this | undefined;
-    readonly fence: ExecutionFence;
     readonly itemIndex: number | undefined;
     readonly origin: ExecutionOrigin | undefined;
     readonly ownerId: string | undefined;
@@ -3938,17 +3937,17 @@ export interface FencedEffectOrigin {
 }
 
 // @public
-export abstract class FencedEffectRepository<TTransaction> {
+export abstract class FencedEffectRepository {
     abstract deleteExpired(now: Date): Promise<number>;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
-    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     static readonly store: StoreDescriptor;
     protected storedResultOf(key: EffectKey, result: unknown): string;
 }
 
 // @public
-export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+export type FencedEffectWork<TResult> = () => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 // @public
 export interface FencedWriteRefusal {
@@ -4945,12 +4944,12 @@ Extract<TDeps[number], typeof JudgeModel>
 
 // @public
 export class Idempotency {
-    runOnce<TResult, TFingerprint = never, TTransaction = unknown>(options: IdempotencyRunOptions<TResult, TFingerprint, TTransaction>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult, TFingerprint = never>(options: IdempotencyRunOptions<TResult, TFingerprint>): Promise<IdempotencyRunOutcome<TResult>>;
     sendOnce<TRequest, TResult>(options: IdempotencySendOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
 }
 
 // @public
-export type IdempotencyError = IdempotencyError.KeyConflict | IdempotencyError.InvalidKey | IdempotencyError.InvalidName | IdempotencyError.FingerprintRequired | IdempotencyError.FingerprintNotJson | IdempotencyError.SecretKeyMissing | IdempotencyError.ResultTooLarge | IdempotencyError.StoreMismatch | IdempotencyError.OutsideTransaction | IdempotencyError.NestedRunOnce | IdempotencyError.ExternalCallInTransaction;
+export type IdempotencyError = IdempotencyError.KeyConflict | IdempotencyError.InvalidKey | IdempotencyError.InvalidName | IdempotencyError.FingerprintRequired | IdempotencyError.FingerprintNotJson | IdempotencyError.SecretKeyMissing | IdempotencyError.ResultTooLarge | IdempotencyError.StoreMismatch | IdempotencyError.OutsideTransaction | IdempotencyError.NestedRunOnce | IdempotencyError.NestedTransaction | IdempotencyError.TransactionPoisoned | IdempotencyError.HoldTooLong | IdempotencyError.ExternalCallInTransaction;
 
 // @public
 export namespace IdempotencyError {
@@ -4964,6 +4963,7 @@ export namespace IdempotencyError {
         readonly effect: string;
         readonly reason: "missing" | "contradictory";
     };
+    export type HoldTooLong = ErrorVariant<IdempotencyErrorKind.HoldTooLong, "idempotency.hold-too-long">;
     export type InvalidKey = ErrorVariant<IdempotencyErrorKind.InvalidKey, "idempotency.invalid-key"> & {
         readonly effect?: string | undefined;
         readonly rule?: KeyTextRule | undefined;
@@ -4976,6 +4976,7 @@ export namespace IdempotencyError {
         readonly businessKeyHash?: string | undefined;
     };
     export type NestedRunOnce = ErrorVariant<IdempotencyErrorKind.NestedRunOnce, "idempotency.nested-run-once">;
+    export type NestedTransaction = ErrorVariant<IdempotencyErrorKind.NestedTransaction, "idempotency.nested-transaction">;
     export type OutsideTransaction = ErrorVariant<IdempotencyErrorKind.OutsideTransaction, "idempotency.outside-transaction">;
     export type ResultTooLarge = ErrorVariant<IdempotencyErrorKind.ResultTooLarge, "idempotency.result-too-large"> & {
         readonly effect: string;
@@ -4990,6 +4991,7 @@ export namespace IdempotencyError {
         readonly leaseRepository: string;
         readonly expectedLeaseRepository: string;
     };
+    export type TransactionPoisoned = ErrorVariant<IdempotencyErrorKind.TransactionPoisoned, "idempotency.transaction-poisoned">;
 }
 
 // @public
@@ -5004,6 +5006,9 @@ export const IdempotencyError: FamilyConstructor<IdempotencyError, {
     StoreMismatch: IdempotencyError.StoreMismatch;
     OutsideTransaction: IdempotencyError.OutsideTransaction;
     NestedRunOnce: IdempotencyError.NestedRunOnce;
+    NestedTransaction: IdempotencyError.NestedTransaction;
+    TransactionPoisoned: IdempotencyError.TransactionPoisoned;
+    HoldTooLong: IdempotencyError.HoldTooLong;
     ExternalCallInTransaction: IdempotencyError.ExternalCallInTransaction;
 }>;
 
@@ -5016,6 +5021,8 @@ export enum IdempotencyErrorKind {
     // (undocumented)
     FingerprintRequired = "fingerprint-required",
     // (undocumented)
+    HoldTooLong = "hold-too-long",
+    // (undocumented)
     InvalidKey = "invalid-key",
     // (undocumented)
     InvalidName = "invalid-name",
@@ -5024,13 +5031,17 @@ export enum IdempotencyErrorKind {
     // (undocumented)
     NestedRunOnce = "nested-run-once",
     // (undocumented)
+    NestedTransaction = "nested-transaction",
+    // (undocumented)
     OutsideTransaction = "outside-transaction",
     // (undocumented)
     ResultTooLarge = "result-too-large",
     // (undocumented)
     SecretKeyMissing = "secret-key-missing",
     // (undocumented)
-    StoreMismatch = "store-mismatch"
+    StoreMismatch = "store-mismatch",
+    // (undocumented)
+    TransactionPoisoned = "transaction-poisoned"
 }
 
 // @public
@@ -5073,12 +5084,12 @@ export enum IdempotencyRunEventOutcome {
 }
 
 // @public
-export type IdempotencyRunOptions<TResult, TFingerprint = never, TTransaction = unknown> = IdempotencyKeyChoice<TFingerprint> & {
+export type IdempotencyRunOptions<TResult, TFingerprint = never> = IdempotencyKeyChoice<TFingerprint> & {
     readonly name: string;
     readonly ttl: Milliseconds | Ttl.Forever;
     readonly timeout?: Milliseconds;
     readonly maxResultSize?: Bytes;
-    readonly execute: (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+    readonly execute: () => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 };
 
 // @public
@@ -5278,13 +5289,13 @@ export class InMemoryDatabaseStorage {
 }
 
 // @public
-export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
+export class InMemoryFencedEffectRepository extends FencedEffectRepository {
     // (undocumented)
     deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
@@ -9488,14 +9499,14 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 }
 
 // @public
-export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
+export class SqliteFencedEffectRepository extends FencedEffectRepository {
     constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">);
     // (undocumented)
     deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
@@ -10172,27 +10183,6 @@ export interface SwitchStep {
     readonly cases: readonly SwitchCase[];
     // (undocumented)
     readonly kind: StepKind.Switch;
-}
-
-// @public
-export class SyncWorkRequiredError extends AGBossError {
-    constructor(options: SyncWorkRequiredErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.sync-work-required";
-    // (undocumented)
-    readonly code: typeof SyncWorkRequiredError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface SyncWorkRequiredErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly effect: string;
 }
 
 // @public
@@ -11787,6 +11777,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "StoreMismatch".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "OutsideTransaction".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "NestedRunOnce".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "NestedTransaction".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TransactionPoisoned".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "HoldTooLong".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ExternalCallInTransaction".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "DtoInvalid".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TenantRequired".
@@ -12728,12 +12721,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".

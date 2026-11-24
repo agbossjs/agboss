@@ -372,7 +372,7 @@ after the instance that took the tree over already did. Steps run **at least onc
 idempotency key and the lease's fencing token — and the framework gives both:
 
 - `executionContext.step.idempotencyKey` — the same when a recovered step runs again;
-- `executionContext.fence` — the lease the current step runs under (`ExecutionFence`):
+- The fence — the lease the current step runs under (`ExecutionFence`, a type of `@agboss/core/stores`; `Idempotency` reads it, domain code has no `executionContext.fence`, #1317c):
 
 | Member | What it is |
 | --- | --- |
@@ -487,7 +487,7 @@ const { status, result } = await this.idempotency.runOnce({
 });
 ```
 
-`FencedEffectRepository<TTransaction>` is infrastructure, like the lease store: the built-in
+`FencedEffectRepository` is infrastructure, like the lease store: the built-in
 `InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`, from
 `@agboss/core/stores`), or
 `SqliteFencedEffectRepository` (`execute` gets the connection's `DatabaseSync`), listed in
@@ -522,10 +522,17 @@ const { status, result } = await this.idempotency.runOnce({
 - **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
   its result or its error) — a map of the calls in flight, never component state. Across instances
   the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.
-- **SQLite runs `execute` synchronously**: a returned promise rolls back with
-  `SyncWorkRequiredError` (`fenced-effect.sync-work-required`) — do the step's I/O before the call or
-  after it. The in-memory store takes an asynchronous `execute` (one transaction per scope at a time)
-  and checks the lease and the mark again before it commits.
+- **`execute` is asynchronous on every store and is handed no transaction** (#1317c): a repository writes
+  through its connection's `requireTransaction()` — a guarded handle that dies when the attempt ends or
+  times out (a late statement writes nothing), and is poisoned by the first statement that throws
+  (`IdempotencyError.TransactionPoisoned`: every further statement is refused and the transaction rolls
+  back, never commits half-written). On SQLite the file has one synchronous connection shared by every
+  repository, so the `runOnce` transaction is held behind a mutex: every other operation of every
+  SQLite repository waits for it and never runs inside it — except a lease renewal, served ahead, so a
+  long `runOnce` can never lose its own lease. The hold is capped at 15 s
+  (`IdempotencyError.HoldTooLong`, rolled back); a `connection.transaction()` inside is
+  `IdempotencyError.NestedTransaction`. The in-memory store has no transaction (one effect per scope at
+  a time, the lease and the mark checked again before the result is stored).
 - **The key** is made from the step the call is made in — the fence's `scopeKey`, `tenantId`,
   `leaseExecutionId`, `token` and the step's `idempotencyKey` —, never by the component; several effects of one step differ by
   `name` (1–100 of `[A-Za-z0-9._-]`, else `IdempotencyError.InvalidName`). Where no lease is held the call is refused, as `fence` is.

@@ -1,5 +1,4 @@
 import { Integer, Text } from "../../../../src/dto/index.js";
-import type { DatabaseSync } from "node:sqlite";
 import {
   Action,
   DatabaseStorage,
@@ -15,6 +14,7 @@ import {
   type OutboundCallSendStatus,
   type Produced,
 } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { hours, seconds } from "../../../../src/units/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -61,10 +61,13 @@ export class ReceiptDto {
   description: "Books the order once, in a fenced effect fingerprinted by its amount",
   input: { order: OrderDto },
   output: ReceiptDto,
-  deps: [Idempotency],
+  deps: [Idempotency, SqliteConnection],
 })
 export class BookOrderAction {
-  constructor(private readonly idempotency: Idempotency) {}
+  constructor(
+    private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
+  ) {}
 
   async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
     const { orderId, amountUsd } = input.order.value;
@@ -73,9 +76,10 @@ export class BookOrderAction {
       key: `order:${orderId}`,
       fingerprint: { amountUsd },
       ttl: hours(24),
-      execute: (database: DatabaseSync) => {
-        database.exec("CREATE TABLE IF NOT EXISTS rotation_bookings (order_id TEXT)");
-        database.prepare("INSERT INTO rotation_bookings VALUES (?)").run(orderId);
+      execute: () => {
+        const transaction = this.connection.requireTransaction();
+        transaction.exec("CREATE TABLE IF NOT EXISTS rotation_bookings (order_id TEXT)");
+        transaction.prepare("INSERT INTO rotation_bookings VALUES (?)").run(orderId);
         return { receipt: `booking-${orderId}` };
       },
     });

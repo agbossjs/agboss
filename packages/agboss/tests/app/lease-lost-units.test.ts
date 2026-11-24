@@ -1,3 +1,4 @@
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #1356 (cancel shard) — the errors of a lease that is over and of a write that was refused (#265, #471,
  * #567, #890, #909, #1090), each on its own: its name and fields, its message by what the refusal knows,

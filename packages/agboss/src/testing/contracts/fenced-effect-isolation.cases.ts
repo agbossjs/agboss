@@ -20,12 +20,12 @@ import {
 /** The fenced-effect contract's isolation, limits and housekeeping (#500). */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** 64 KB of text and the quotes around it: one byte above the default `maxResultSize`. */
 const OVERSIZED = "x".repeat(64 * 1024 - 1);
 
-const namesApart = <TTransaction>(): Case<TTransaction> => ({
+const namesApart = (): Case => ({
   name: "another name or idempotency key of the step is a row of its own",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -49,7 +49,7 @@ const namesApart = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const scopesApart = <TTransaction>(): Case<TTransaction> => ({
+const scopesApart = (): Case => ({
   name: "another scope has its own mark: a newer token of one scope refuses nothing of another",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -65,14 +65,14 @@ const scopesApart = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const oversizedRefused = <TTransaction>(): Case<TTransaction> => ({
+const oversizedRefused = (): Case => ({
   name: "a result above maxResultSize is refused and its write rolled back",
   run: async ({ first, second }) => {
     const key = keyOf(await leaseOf(first));
 
     const refused = await rejectionOf(
-      first.effects.runOnce(key, (transaction) => {
-        const inserted = first.rows.insert(transaction, "r1");
+      first.effects.runOnce(key, () => {
+        const inserted = first.rows.insert("r1");
         return inserted === undefined ? OVERSIZED : inserted.then(() => OVERSIZED);
       }),
     );
@@ -93,7 +93,7 @@ const expiringIn = (key: EffectKey, clock: Pick<Clock, "now">, after: number | n
     expiresAt: after === null ? null : new Date(clock.now().getTime() + after),
   });
 
-const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
+const deletionFollowsClock = (): Case => ({
   name: "deleteExpired removes the results whose expiry has come, on the Clock, and counts them; a result with no expiry (Ttl.Forever) stays",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -116,7 +116,7 @@ const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const markKeepsLatestExpiry = <TTransaction>(): Case<TTransaction> => ({
+const markKeepsLatestExpiry = (): Case => ({
   name: "a scope's mark keeps the latest expiry written under it: a short ttl never truncates a long one, Forever wins over any date",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -134,20 +134,12 @@ const markKeepsLatestExpiry = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const isolationCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const isolationCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "isolation",
-  cases: [namesApart<TTransaction>(), scopesApart<TTransaction>()],
+  cases: [namesApart(), scopesApart()],
 });
 
-export const housekeepingCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const housekeepingCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "limits and housekeeping",
-  cases: [
-    oversizedRefused<TTransaction>(),
-    deletionFollowsClock<TTransaction>(),
-    markKeepsLatestExpiry<TTransaction>(),
-  ],
+  cases: [oversizedRefused(), deletionFollowsClock(), markKeepsLatestExpiry()],
 });

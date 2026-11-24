@@ -19,9 +19,9 @@ import {
 const SHORT = seconds(30);
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const unseenKeyRuns = <TTransaction>(): Case<TTransaction> => ({
+const unseenKeyRuns = (): Case => ({
   name: "AC1: an unseen key runs the write once and returns Ran with its result and token",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -39,7 +39,7 @@ const unseenKeyRuns = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const sameKeyReplays = <TTransaction>(): Case<TTransaction> => ({
+const sameKeyReplays = (): Case => ({
   name: "AC1: the same key under the same token returns Replayed with the same JSON, the write not run",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -58,7 +58,7 @@ const sameKeyReplays = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const newerLeaseReplays = <TTransaction>(): Case<TTransaction> => ({
+const newerLeaseReplays = (): Case => ({
   name: "AC1: the same key under a newer lease (the step run again after a takeover) returns Replayed with the first token",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -79,7 +79,7 @@ const newerLeaseReplays = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const lowerTokenRefused = <TTransaction>(): Case<TTransaction> => ({
+const lowerTokenRefused = (): Case => ({
   name: "AC2: a lower token is refused even when its key exists: the write not run, the stored result not returned",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -104,7 +104,7 @@ const lowerTokenRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const zombieFirstRefused = <TTransaction>(): Case<TTransaction> => ({
+const zombieFirstRefused = (): Case => ({
   name: "AC2: the zombie first — a token that is not the lease's epoch is refused before the new holder wrote anything",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -126,7 +126,7 @@ const zombieFirstRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const releasedLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
+const releasedLeaseRefused = (): Case => ({
   name: "AC2: a released lease is refused",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -142,7 +142,7 @@ const releasedLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
+const noLeaseRefused = (): Case => ({
   name: "AC2: a scope without a lease is refused, with no observed token",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -162,22 +162,13 @@ const noLeaseRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const writeCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const writeCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "writes and replays",
-  cases: [
-    unseenKeyRuns<TTransaction>(),
-    sameKeyReplays<TTransaction>(),
-    newerLeaseReplays<TTransaction>(),
-  ],
+  cases: [unseenKeyRuns(), sameKeyReplays(), newerLeaseReplays()],
 });
 
-export const refusalCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const refusalCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "refusals",
   isFencing: true,
-  cases: [
-    lowerTokenRefused<TTransaction>(),
-    zombieFirstRefused<TTransaction>(),
-    releasedLeaseRefused<TTransaction>(),
-    noLeaseRefused<TTransaction>(),
-  ],
+  cases: [lowerTokenRefused(), zombieFirstRefused(), releasedLeaseRefused(), noLeaseRefused()],
 });

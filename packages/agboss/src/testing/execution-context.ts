@@ -27,7 +27,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { arbiterOf } from "../flow/decorators/arbiter.js";
 import { componentKindOf } from "../flow/runtime/join-keys.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
-import { fenceOver } from "../flow/context/execution-fence.js";
+import { FENCE, fenceOver } from "../flow/context/execution-fence.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { VirtualClock } from "./clock.js";
 import { testFenceLeaseOf, type TestFenceOptions } from "./fence.js";
@@ -214,7 +214,7 @@ export function testExecutionContext<
     executionId: options.executionId ?? "test-execution",
     clock: options.clock ?? new VirtualClock(),
   });
-  Object.defineProperty(context, "fence", { enumerable: true, value: fenceOver(() => lease) });
+  Object.defineProperty(context, FENCE, { enumerable: false, value: fenceOver(() => lease) });
   Object.defineProperty(context, "root", { enumerable: true, value: context });
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) => (workflow === context.workflow.type ? context : undefined),

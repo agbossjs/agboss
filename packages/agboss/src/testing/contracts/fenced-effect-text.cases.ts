@@ -24,16 +24,14 @@ const RESULT: NulReceipt = { receipt: NUL_TEXT, lines: [NUL_TEXT] };
 
 /** A write that inserts the row `r1` and gives `RESULT`. */
 const writingNul =
-  <TTransaction>(
-    rows: FencedEffectBusinessRows<TTransaction>,
-  ): FencedEffectWork<TTransaction, NulReceipt> =>
-  (transaction) => {
-    const inserted = rows.insert(transaction, "r1");
+  (rows: FencedEffectBusinessRows): FencedEffectWork<NulReceipt> =>
+  () => {
+    const inserted = rows.insert("r1");
     return inserted === undefined ? RESULT : inserted.then(() => RESULT);
   };
 
 /** The texts of a result: as the write gave them, and replayed the same. */
-export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const textCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "texts as they were handed over",
   cases: [
     {

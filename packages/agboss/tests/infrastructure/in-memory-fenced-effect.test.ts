@@ -1,3 +1,4 @@
+import { onEffectCommit } from "../../src/infrastructure/in-memory-effect-writes.js";
 /**
  * #500 — what the in-memory fenced-effect store and the contract's base class do beyond the
  * published contract: the high-water mark refuses a lower token even when the lease's epoch matches
@@ -109,8 +110,8 @@ describe("#500: the in-memory fenced-effect store", () => {
     const other = storesOn(database, clock);
     let isApplied = false;
 
-    const call = effects.runOnce(keyOf(lease), async (transaction) => {
-      transaction.onCommit(() => {
+    const call = effects.runOnce(keyOf(lease), async () => {
+      onEffectCommit(() => {
         isApplied = true;
       });
       await clock.advance(seconds(31));

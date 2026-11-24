@@ -13,7 +13,10 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../src/index.js";
-import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
+import {
+  requireSqliteTransaction,
+  SqliteConnection,
+} from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
 import { FaultStoreTime, type FaultStoreSet } from "../../src/testing/faults/index.js";
 
@@ -50,7 +53,7 @@ export const sqliteFaultStoreClasses = [
   SqliteA2ATaskRepository,
 ];
 
-export const faultStores: FaultStoreSet<DatabaseSync> = {
+export const faultStores: FaultStoreSet = {
   providers: sqliteFaultStoreClasses,
   // the SQLite stores read the pod's clock: the history runs at the suite's timeScale (#799)
   storeTime: FaultStoreTime.Host,
@@ -59,9 +62,10 @@ export const faultStores: FaultStoreSet<DatabaseSync> = {
     values: { sqlitePath: env("AGBOSS_FAULT_DATABASE_URL") },
   },
   businessRows: {
-    insert: (database, row) => {
-      database.exec(BUSINESS_ROWS);
-      database.prepare("INSERT INTO fault_business_rows (row) VALUES (?)").run(row);
+    insert: (row) => {
+      const transaction = requireSqliteTransaction();
+      transaction.exec(BUSINESS_ROWS);
+      transaction.prepare("INSERT INTO fault_business_rows (row) VALUES (?)").run(row);
     },
     committed: (app) => {
       const { database } = app.resolve(SqliteConnection);

@@ -55,7 +55,7 @@ describe("#471 AC1: the scope of a step's lease", () => {
     );
     expect(scopes.refusals.get("near child.root")).toBeInstanceOf(ExecutionContextUnavailableError);
     expect(String(scopes.refusals.get("near child.parent"))).toMatch(
-      /executionContext\.fence of an ancestor execution/,
+      /the lease fence of an ancestor execution/,
     );
   });
 

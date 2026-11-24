@@ -1,7 +1,7 @@
 /**
  * #500 — what `SqliteFencedEffectRepository` does beyond the published contract: a work that
- * returns a promise is rolled back with `SyncWorkRequiredError` (nothing written, its
- * rejection not left unhandled), the scope's mark refuses a lower token even when the lease's epoch
+ * is asynchronous and writes through the connection's `requireTransaction()` (#1317c: a rejection
+ * rolls its rows back, its result and mark with them), the scope's mark refuses a lower token even when the lease's epoch
  * matches it, the sweep removes the marks too, and the store creates the leases' table it reads.
  */
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
@@ -12,10 +12,7 @@ import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
-import {
-  SyncWorkRequiredError,
-  SqliteFencedEffectRepository,
-} from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -48,25 +45,37 @@ const count = (stores: ReturnType<typeof storesOn>, table: string): number =>
   Number(stores.connection.database.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n);
 
 describe("#500: SqliteFencedEffectRepository", () => {
-  it("a work that returns a promise rolls back: SyncWorkRequiredError, no row, no mark", async () => {
+  it("an asynchronous work that rejects rolls back: no row, no mark, no result", async () => {
     const stores = storesOn();
     stores.connection.database.exec("CREATE TABLE rows (row TEXT)");
     const key = keyOf(await held(stores.leases));
 
-    const call = stores.effects.runOnce(key, async (database) => {
-      database.prepare("INSERT INTO rows VALUES ('r1')").run();
-      return Promise.reject(new Error("an API call inside the transaction"));
+    const call = stores.effects.runOnce(key, async () => {
+      stores.connection.requireTransaction().prepare("INSERT INTO rows VALUES ('r1')").run();
+      await Promise.resolve();
+      return Promise.reject(new Error("a declined card"));
     });
 
-    await expect(call).rejects.toBeInstanceOf(SyncWorkRequiredError);
-    await expect(call).rejects.toMatchObject({
-      code: "fenced-effect.sync-work-required",
-      effect: "charge",
-    });
-    await expect(call).rejects.toThrow(/do the I\/O before or after the call/);
+    await expect(call).rejects.toThrow("a declined card");
     expect(count(stores, "rows")).toBe(0);
     expect(count(stores, "fenced_effect_marks")).toBe(0);
     expect(count(stores, "fenced_effect_results")).toBe(0);
+  });
+
+  it("an asynchronous work commits its rows with the result", async () => {
+    const stores = storesOn();
+    stores.connection.database.exec("CREATE TABLE rows (row TEXT)");
+    const key = keyOf(await held(stores.leases));
+
+    const ran = await stores.effects.runOnce(key, async () => {
+      await Promise.resolve();
+      stores.connection.requireTransaction().prepare("INSERT INTO rows VALUES ('r1')").run();
+      return { receipt: "r1" };
+    });
+
+    expect(ran.status).toBe(IdempotencyRunStatus.Ran);
+    expect(count(stores, "rows")).toBe(1);
+    expect(count(stores, "fenced_effect_results")).toBe(1);
   });
 
   it("AC2: a token below the scope's mark is refused even when the lease's epoch is that token", async () => {
@@ -180,16 +189,5 @@ describe("#500: SqliteFencedEffectRepository", () => {
     expect(ran).toEqual({ status: IdempotencyRunStatus.Ran, result: "receipt-1", token: 1 });
     expect(replayed.result).toBe("receipt-1");
     expect(nothing.result).toBeNull();
-  });
-});
-
-describe("#906: SyncWorkRequiredError keeps its cause", () => {
-  it("takes the effect and a cause", () => {
-    const cause = new Error("why");
-
-    expect(new SyncWorkRequiredError({ effect: "charge", cause })).toMatchObject({
-      effect: "charge",
-      cause,
-    });
   });
 });

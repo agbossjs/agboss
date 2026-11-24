@@ -2,7 +2,7 @@ import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/f
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import { isHandOverError } from "../core/error-families/run-errors.js";
+import { ExecutionError, isHandOverError } from "../core/error-families/run-errors.js";
 import {
   ExecutionCancelFencedError,
   ExecutionFencedError,
@@ -37,8 +37,18 @@ export function handedOverReason(signal: AbortSignal | undefined): HandedOver | 
  * The `ExecutionFencedError` behind `error` (#471): the error itself, or one in its `cause` chain or
  * an `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once.
  */
-export const fencedErrorOf = (error: unknown): ExecutionFencedError | undefined =>
-  errorOfClass(error, ExecutionFencedError);
+export function fencedErrorOf(error: unknown): ExecutionFencedError | undefined {
+  const legacy = errorOfClass(error, ExecutionFencedError);
+  if (legacy !== undefined) return legacy;
+  // `fence.fencedError()` builds the family's `ExecutionError.Fenced` (#1317c): the same refusal
+  const fenced = errorOfClass(error, ExecutionError.Fenced);
+  if (fenced === undefined) return undefined;
+  const { scopeKey, tenantId, leaseExecutionId, token, observedToken } = fenced;
+  return new ExecutionFencedError({
+    ...{ scopeKey, tenantId, leaseExecutionId, token, observedToken },
+    cause: fenced,
+  });
+}
 
 /**
  * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`

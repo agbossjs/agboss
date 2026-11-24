@@ -2480,27 +2480,24 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   is no longer that claim, a sweep's take of a root whose record no longer runs — looked at before
   the store is asked and again once it gave the lease, which then goes back at once.
   Wiki → Several-instances.
-- **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
-  under — the root's for a root, its `CurrentProcess` children and recursive levels, an
-  `AnyWorker` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
-  `:`), `tenantId`, `leaseExecutionId`, `token` (the fencing token: a counter of that one
-  key), `trustedUntil`, `assertHeld()` (local; past `trustedUntil` it expires the lease first),
-  `renewNow()` (a renewal now: confirmed → the #360 checks; anything else aborts the lease and
-  rejects) and `fencedError(observedToken)`. An external system keeps the highest token per `scopeKey`
-  with the step's `idempotencyKey` in one transaction — `incoming >= highest` accepted, below
-  refused with `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+- **Fencing external writes (#471, #1317c):** domain code has no `executionContext.fence`: the lease the
+  current step runs under — the root's for a root, its `CurrentProcess` children and recursive levels,
+  an `AnyWorker` child's own — is read by `Idempotency` (`runOnce`, `sendOnce`), which makes the key from
+  its `scopeKey`, `tenantId`, `leaseExecutionId`, `token` and the step's `idempotencyKey`. The
+  low-level `ExecutionFence` (`scopeKey`, `token`, `trustedUntil`, `assertHeld()`, `renewNow()`,
+  `fencedError(observedToken)` → `ExecutionError.Fenced`) is a type of `@agboss/core/stores`; the framework and the
+  tests read it with `fenceOf(context)` (`flow/context/execution-fence.ts`, internal). A write refused
+  because the lease moved is `ExecutionError.Fenced` / `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken`),
   found anywhere in a cause chain or an `AggregateError` and a hand-over at every site — no
   `.onError`, no undo, no `onToolEnd`, nothing to the model, the record stays `running`, no
   `onExecutionError`; the moving call rejects with the fenced error itself (`fencedErrorOf` before
   the signal's reason) — and a `HandedOver` row of the audit log with `onStepHandedOver` (#501): a
-  zombie refused at a write leaves one, a zombie that never wrote again none. Exactly-once only when
-  the external system checks both atomically; a mark
-  keyed by a shared aggregate fences parallel `AnyWorker` children wrongly. Frames with no lease
-  (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) and an
-  ancestor's `parent.fence` / `root.fence` throw `ExecutionContextUnavailableError`. Wiki →
+  zombie refused at a write leaves one, a zombie that never wrote again none. Frames with no lease
+  (a reply interpreter, `maxSpend()`, an eval judge, an MCP-exported tool, a slice) the
+  fence read there throws `ExecutionContextUnavailableError`. Wiki →
   Several-instances.
-- **The idempotent write (#500, #1317):** `FencedEffectRepository<TTransaction>` (the store contract, infrastructure, the
+- **The idempotent write (#500, #1317):** `FencedEffectRepository` (the store contract, infrastructure, the
   built-in `InMemoryFencedEffectRepository`; `SqliteFencedEffectRepository` listed with
   `SqliteExecutionLeaseRepository` — #526: a listed idempotency store (fenced-effect or outbound-call) and the
   application's lease store declare one backend — #825: `static store: StoreDescriptor = { backend, leaseCheck? }` (`"in-memory"`, `"sqlite"`, `"postgres"`,
@@ -2516,12 +2513,11 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   → `IdempotencyRunOutcome { status: IdempotencyRunStatus.Ran | Replayed | Joined, result, token, replayedFrom? }`. The execution is read from the step the call is made in — a component threads nothing through, and a call outside a step is refused. A store's key is marked by a private member (#825): a literal or a spread copy does not compile, a key the framework did not make is refused at run time; `effectKeyOf` and `effectKeyForTesting(fields, changes?)` are for a store's authors and tests only (`@agboss/core/stores`, `/testing/contracts`), not the root. `ttl` is required (`hours(24)`, or `Ttl.Forever`; a finite one above the lease's 30 s: how long the result and its scope's mark are kept), `timeout` bounds `execute` (default `seconds(15)`, below the lease's 30 s: a stalled one is rolled back before its lease can expire). One transaction — the
   key's lease (not its epoch, released, expired → `ExecutionError.Fenced`, a hand-over), the scope's
   high-water mark (a lower token refused before any key is read), the key (written → the stored
-  result, `execute` not run), then `execute(transaction)` (#730: possibly more than once per call — an aborted attempt run again, as on MongoDB — so it writes only through `transaction`, typed by the component, `(database: DatabaseSync) => …` on SQLite) and its result (`JsonValue<T>`, JSON within
+  result, `execute` not run), then `execute()` (#730, #1317c: possibly more than once per call — an aborted attempt run again, as on MongoDB — handed no transaction: a repository writes through its connection's `requireTransaction()`, a guarded handle closed when the attempt ends or times out and poisoned by a failed statement, `IdempotencyError.OutsideTransaction` / `TransactionPoisoned` / `NestedTransaction`) and its result (`JsonValue<T>`, JSON within
   the call's `maxResultSize`, default `kilobytes(64)`, else
   `IdempotencyError.ResultTooLarge`); a throw rolls everything back; concurrent calls on one key of
   one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
-  `execute` gets the connection's `DatabaseSync` and must be synchronous (a promise →
-  `SyncWorkRequiredError`, rolled back). A bad option rejects (never throws synchronously): `ConfigError.Option`. Results and marks are removed by the recovery sweep
+  the `runOnce` transaction is held behind the file's mutex (#1317c: every operation of every `Sqlite*Repository` waits for it, a lease renewal is served ahead, the hold is capped at 15 s — `IdempotencyError.HoldTooLong`). A bad option rejects (never throws synchronously): `ConfigError.Option`. Results and marks are removed by the recovery sweep
   after their `ttl` (`expires_at`; the scope's mark keeps the latest of every key's, `Ttl.Forever` first). There is no application retention for them.
   Unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
@@ -2953,7 +2949,7 @@ probability, refusal? }`
   and `testUnit([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
-  decorators), else the default tenant; with a held lease (`executionContext.fence`: token 1, the
+  decorators), else the default tenant; with a held lease (a held lease: token 1, the
   execution's own scope, confirmed for 30 s on the runner's clock), set by `fence: { token,
 leaseExecutionId, trustedUntil, isLost, renewNowFails }` (#471). `testExecutionContext({ … })` stays for a class created
   by hand (a budget's `maxSpend()`), fakes from `@langchain/core/utils/testing`. Tests never call a

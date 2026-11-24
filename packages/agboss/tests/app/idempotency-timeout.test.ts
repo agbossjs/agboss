@@ -1,3 +1,4 @@
+import { onEffectCommit } from "../../src/infrastructure/in-memory-effect-writes.js";
 /**
  * #1317a — what a `timeout` does, and what it never does. `runOnce`: the attempt's transaction is
  * dead at the timeout, and a late completion of `execute` writes nothing, whoever took the lease
@@ -14,7 +15,6 @@ import {
   OutboundRecovery,
   Reconciliation,
 } from "../../src/index.js";
-import type { InMemoryFencedEffectTransaction } from "../../src/stores/index.js";
 import { lookupKeyOf, outboundFrame, rejectionOf } from "../helpers/outbound-frame.js";
 
 /** Lets every settled promise and its continuations run. */
@@ -42,21 +42,17 @@ describe("#1317a runOnce: a timed-out attempt's transaction is dead", () => {
     const frame = outboundFrame();
     const committed: string[] = [];
     const late = gate<undefined>();
-    let lateError: unknown;
     const first = await frame.keyIn("execution-1");
     const slow = frame.inFrame(first.key, () =>
       frame.idempotency.runOnce({
         name: "charge",
         ttl: hours(24),
         timeout: seconds(5),
-        execute: async (transaction) => {
+        execute: async () => {
           await late.promise;
-          // the attempt's transaction is revoked: this write finds it dead
-          try {
-            (transaction as InMemoryFencedEffectTransaction).onCommit(() => committed.push("late"));
-          } catch (error) {
-            lateError = error;
-          }
+          // the attempt timed out: its buffered write is never applied (a SQLite attempt's
+          // transaction is closed — tests/infrastructure/sqlite/sqlite-run-once-hold.test.ts)
+          onEffectCommit(() => committed.push("late"));
           return { n: 1 };
         },
       }),
@@ -73,8 +69,8 @@ describe("#1317a runOnce: a timed-out attempt's transaction is dead", () => {
       frame.idempotency.runOnce({
         name: "charge",
         ttl: hours(24),
-        execute: (transaction) => {
-          (transaction as InMemoryFencedEffectTransaction).onCommit(() => committed.push("second"));
+        execute: () => {
+          onEffectCommit(() => committed.push("second"));
           return { n: 2 };
         },
       }),
@@ -88,8 +84,6 @@ describe("#1317a runOnce: a timed-out attempt's transaction is dead", () => {
     expect(takenOver.status).toBe(IdempotencyRunStatus.Ran);
     expect(again).toMatchObject({ status: IdempotencyRunStatus.Replayed, result: { n: 2 } });
     expect(committed).toEqual(["second"]);
-    // the late attempt found its transaction revoked, whatever the store would have done
-    expect(lateError).toBeInstanceOf(TypeError);
   });
 });
 

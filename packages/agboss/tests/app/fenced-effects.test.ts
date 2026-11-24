@@ -25,7 +25,6 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import { IDEMPOTENCY_OUTSIDE_APPLICATION } from "../../src/app/idempotency.js";
 import { hours } from "../../src/units/index.js";
 import { lifecycleOf } from "../../src/app/workflow-lifecycle.js";
-import type { InMemoryFencedEffectTransaction } from "../../src/stores/index.js";
 import { ChargeReceiptDto } from "./fixtures/fenced-effect.workflow.js";
 
 /** How often each order's work ran. */
@@ -41,7 +40,7 @@ const replaced: string[] = [];
 class RecordingFencedEffectRepository extends InMemoryFencedEffectRepository {
   override runOnce<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     replaced.push(key.name);
     return super.runOnce(key, work);

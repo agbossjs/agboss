@@ -22,9 +22,9 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const childRefusedByRoot = <TTransaction>(): Case<TTransaction> => ({
+const childRefusedByRoot = (): Case => ({
   name: "#909 AC1: a child's key (its own lease, leaseExecutionId ≠ rootExecutionId) is refused by its root's cancel — the root need not hold a lease — and not by another root's",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -51,7 +51,7 @@ const childRefusedByRoot = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const staleTokenIsHandOver = <TTransaction>(): Case<TTransaction> => ({
+const staleTokenIsHandOver = (): Case => ({
   name: "#909: a stale token after a cancel is ExecutionFencedError, not the cancel — a zombie is a hand-over first; the new holder's write is the cancel's",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -75,7 +75,7 @@ const staleTokenIsHandOver = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const cancelBeforeFirstAcquire = <TTransaction>(): Case<TTransaction> => ({
+const cancelBeforeFirstAcquire = (): Case => ({
   name: "#909 AC1: a cancel before the tree's first acquire (no lease row yet) refuses the write of the lease taken after it",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -93,7 +93,7 @@ const cancelBeforeFirstAcquire = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
+const businessResultOfAnotherTree = (): Case => ({
   name: "#909: a business-key result stored by another tree replays for a cancelled tree — a stored result is never refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -117,14 +117,12 @@ const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The corners of the cancel as a fence of the fenced effect. */
-export const cancelEdgeCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const cancelEdgeCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's cancel is a fence: its corners (#909)",
   cases: [
-    childRefusedByRoot<TTransaction>(),
-    staleTokenIsHandOver<TTransaction>(),
-    cancelBeforeFirstAcquire<TTransaction>(),
-    businessResultOfAnotherTree<TTransaction>(),
+    childRefusedByRoot(),
+    staleTokenIsHandOver(),
+    cancelBeforeFirstAcquire(),
+    businessResultOfAnotherTree(),
   ],
 });

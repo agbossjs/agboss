@@ -8,7 +8,7 @@ import { ExecutionContext, type WorkflowClass } from "./execution-context.js";
 import { currentFrame, depthOf, type ExecutionFacts, type Frame } from "./frame.js";
 import { ancestorContextOf, parentContextOf } from "./ancestor-context.js";
 import { TenantContext } from "./tenant-context.js";
-import { liveFenceOf } from "./execution-fence.js";
+import { FENCE, liveFenceOf } from "./execution-fence.js";
 
 /**
  * The injected contexts (#280, #261): one object per consumer whose every field reads the frame of
@@ -122,10 +122,10 @@ export function liveExecutionContextOf(
   });
   // the fence (#471): one live view, each of its members reads the current frame's lease
   const fence = liveFenceOf((field) => frameFor(consumer, field), consumer);
-  Object.defineProperty(live, "fence", {
-    enumerable: true,
+  Object.defineProperty(live, FENCE, {
+    enumerable: false,
     get: () => {
-      frameFor(consumer, "executionContext.fence");
+      frameFor(consumer, "the lease fence");
       return fence;
     },
   });

@@ -1,3 +1,4 @@
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -13,7 +14,6 @@ import {
   type Produced,
   Observer,
 } from "../../../src/index.js";
-import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -97,8 +97,8 @@ export class ReleaseReservationAction {
     await this.idempotency.runOnce({
       name: "release",
       ttl: hours(24),
-      execute: (transaction: InMemoryFencedEffectTransaction) => {
-        transaction.onCommit(() => seen.released.push(reservationId));
+      execute: () => {
+        onEffectCommit(() => seen.released.push(reservationId));
         return { reservationId };
       },
     });
@@ -149,8 +149,8 @@ export class ChargeReservationAction {
       const outcome = await this.idempotency.runOnce({
         name: "charge",
         ttl: hours(24),
-        execute: (transaction: InMemoryFencedEffectTransaction) => {
-          transaction.onCommit(() => seen.charged.push(reservationId));
+        execute: () => {
+          onEffectCommit(() => seen.charged.push(reservationId));
           return { receipt: `charged ${reservationId}` };
         },
       });
@@ -208,8 +208,8 @@ export class ChargeTextAction {
       const outcome = await this.idempotency.runOnce({
         name: "charge",
         ttl: hours(24),
-        execute: (transaction: InMemoryFencedEffectTransaction) => {
-          transaction.onCommit(() => seen.charged.push(text));
+        execute: () => {
+          onEffectCommit(() => seen.charged.push(text));
           return { receipt: `charged ${text}` };
         },
       });

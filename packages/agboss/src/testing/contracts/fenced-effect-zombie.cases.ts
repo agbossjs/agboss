@@ -24,12 +24,12 @@ import { ROUNDS } from "./outbound-call-race.cases.js";
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** Names a store must refuse: a ':', empty, above 100, a '.' first. */
 const BAD_NAMES = ["charge:twice", "", "x".repeat(101), ".charge"];
 
-const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
+const badNameRefused = (): Case => ({
   name: "#508, #526 AC7: a key built by hand with an invalid name (a ':', empty, above 100, a '.' first) is refused — IdempotencyError.InvalidName, the write not run, nothing written, before the fence",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
@@ -57,7 +57,7 @@ const settled = <T>(call: Promise<T>): Promise<T | { readonly rejected: unknown 
     (rejected: unknown) => ({ rejected }),
   );
 
-const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
+const zombieRacingNewHolder = (): Case => ({
   name: "#526 AC3: a write racing its lease's release, the next take and the new holder's write of the same key, round after round: one business row — the old holder's before the take, or it is refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -101,12 +101,7 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The key built by hand and the zombie. */
-export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const zombieCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a key built by hand, a zombie",
-  cases: [
-    badNameRefused<TTransaction>(),
-    zombieRacingNewHolder<TTransaction>(),
-    handOverDuringWrite<TTransaction>(),
-    expiryDuringWrite<TTransaction>(),
-  ],
+  cases: [badNameRefused(), zombieRacingNewHolder(), handOverDuringWrite(), expiryDuringWrite()],
 });

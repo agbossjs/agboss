@@ -36,7 +36,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
 export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
-  readonly #connection: SqliteConnection;
+  private readonly connection: SqliteConnection;
   readonly #records: TurnStoreRecordRepository;
 
   constructor(
@@ -46,14 +46,14 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     idGenerator: IdGenerator,
   ) {
     super();
-    this.#connection = connection;
+    this.connection = connection;
     this.#records = new TurnStoreRecordRepository(
       sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)),
     );
   }
 
   ping(): Promise<void> {
-    return this.#connection.ping();
+    return this.connection.ping();
   }
 
   createThread(thread: NewThread): Promise<string> {

@@ -140,9 +140,7 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
 };
 
 /** The broken fenced-effect targets. */
-export const BROKEN_EFFECT_TARGETS: Readonly<
-  Record<string, ContractTarget<FencedEffectTarget<unknown>>>
-> = {
+export const BROKEN_EFFECT_TARGETS: Readonly<Record<string, ContractTarget<FencedEffectTarget>>> = {
   "effects that trust the current lease's token": inMemoryTarget((seam) => {
     const stores = inMemoryFencedEffects(false)(seam);
     return {

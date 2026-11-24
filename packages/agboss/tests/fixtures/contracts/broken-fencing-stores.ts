@@ -1,3 +1,5 @@
+import { AmbientBuffer, bufferOfWork, withBuffer } from "./ambient-buffer.js";
+export { AmbientBuffer as BufferedTransaction };
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * Deliberately broken fencing stores (#526 AC3, AC6): each gets one thing wrong the way a port to
@@ -51,18 +53,6 @@ import {
 /** One real millisecond: the gap a network round trip leaves between a read and a write. */
 const roundTrip = () => new Promise((resolve) => setTimeout(resolve, 1));
 
-/** A broken store's transaction: its business rows, applied at its commit or at once. */
-export class BufferedTransaction {
-  readonly writes: (() => void)[] = [];
-
-  constructor(private readonly isImmediate: boolean) {}
-
-  onCommit(write: () => void): void {
-    if (this.isImmediate) write();
-    else this.writes.push(write);
-  }
-}
-
 interface StoredResult {
   readonly token: number;
   readonly storedAt: number;
@@ -73,7 +63,7 @@ interface StoredResult {
 }
 
 /** What both broken effect stores share: the seam, the results of the test, the replay. */
-abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction> {
+abstract class BrokenEffects extends FencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
@@ -142,7 +132,7 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
 export class CheckThenWriteEffects extends BrokenEffects {
   protected async runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<BufferedTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     this.check(key);
     const found = this.results.get(effectKeyIdentityOf(key));
@@ -150,8 +140,8 @@ export class CheckThenWriteEffects extends BrokenEffects {
     if (found !== undefined) return this.replayOf(key, found);
     // the cancel's check as the package's store has it (#909): the rule this store breaks is another
     checkInMemoryCancel(this.seam.database, key);
-    const transaction = new BufferedTransaction(false);
-    const outcome = this.stored<TResult>(key, await work(transaction));
+    const transaction = new AmbientBuffer(false);
+    const outcome = this.stored<TResult>(key, await withBuffer(transaction, work));
     for (const write of transaction.writes) write();
     return outcome;
   }
@@ -164,13 +154,13 @@ export class CheckThenWriteEffects extends BrokenEffects {
 export class RowsOutsideEffects extends BrokenEffects {
   protected async runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<BufferedTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     this.check(key);
     const found = this.results.get(effectKeyIdentityOf(key));
     if (found !== undefined) return this.replayOf(key, found);
     checkInMemoryCancel(this.seam.database, key); // #909: the rule this store breaks is another
-    const result = await work(new BufferedTransaction(true));
+    const result = await withBuffer(new AmbientBuffer(true), work);
     await roundTrip();
     this.check(key);
     return this.stored<TResult>(key, result);
@@ -181,7 +171,7 @@ export class RowsOutsideEffects extends BrokenEffects {
 export const brokenEffects =
   (
     Effects: new (seam: InstanceSeam, results: Map<string, StoredResult>) => BrokenEffects,
-  ): StoreFactory<FencedEffectTarget<BufferedTransaction>> =>
+  ): StoreFactory<FencedEffectTarget> =>
   (seam) => {
     const committed = sharedInMemory(seam, "broken-rows", (): string[] => []);
     return {
@@ -195,8 +185,8 @@ export const brokenEffects =
         seam.database,
       ),
       rows: {
-        insert: (transaction, row) => {
-          transaction.onCommit(() => committed.push(row));
+        insert: (row) => {
+          bufferOfWork().onCommit(() => committed.push(row));
         },
         committed: () => Promise.resolve([...committed]),
       },

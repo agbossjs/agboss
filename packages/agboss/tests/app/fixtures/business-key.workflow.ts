@@ -1,3 +1,4 @@
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import {
   Integer,
   listOf,
@@ -19,7 +20,6 @@ import {
   type OutboundCallSendStatus,
   type Produced,
 } from "../../../src/index.js";
-import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -86,8 +86,8 @@ async function chargedOnce(
     key: `order:${orderId}`,
     fingerprint: { amountUsd },
     ttl: hours(24),
-    execute: (transaction: InMemoryFencedEffectTransaction) => {
-      transaction.onCommit(() => ledger.charges.push({ orderId, amountUsd }));
+    execute: () => {
+      onEffectCommit(() => ledger.charges.push({ orderId, amountUsd }));
       return { chargeId: `charge-${orderId}-${String(ledger.charges.length + 1)}` };
     },
   });

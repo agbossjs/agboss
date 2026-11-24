@@ -17,6 +17,7 @@ import {
   Observer,
 } from "../../../src/index.js";
 import { type ExecutionFence } from "../../../src/stores/index.js";
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 import { Application } from "../../../src/application/application.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -172,7 +173,7 @@ export class ReceiptDto {
 }
 
 /** A fenced error as the lever wraps it. */
-function wrapped(error: ExecutionFencedError): Error {
+function wrapped(error: Error): Error {
   switch (levers.wrap) {
     case "cause":
       return new Error("the driver failed", {
@@ -197,7 +198,8 @@ export async function release(
   artifactLedger: ArtifactLedger,
   artifact: string,
 ): Promise<Staged> {
-  const { fence, step } = executionContext;
+  const { step } = executionContext;
+  const fence = fenceOf(executionContext);
   seen.releases += 1;
   const isFirst = seen.releases === 1;
   seen.fences.push(fenceSeenOf(fence, step.idempotencyKey));
@@ -304,7 +306,7 @@ export class FenceToolInterceptor {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   beforeAnyTool(): ToolCallDecision {
-    const { fence } = this.executionContext;
+    const fence = fenceOf(this.executionContext);
     if (levers.isInterceptorFenced) throw fence.fencedError(fence.token + 1);
     return ToolCallDecision.allow();
   }
@@ -345,7 +347,8 @@ export class UnbookAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(): Promise<void> {
-    const { fence, step } = this.executionContext;
+    const { step } = this.executionContext;
+    const fence = fenceOf(this.executionContext);
     if (levers.isUndoFenced) throw fence.fencedError(fence.token + 1);
     seen.undone.push(fenceSeenOf(fence, step.idempotencyKey));
     return Promise.resolve();

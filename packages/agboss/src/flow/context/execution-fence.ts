@@ -1,4 +1,5 @@
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
+import type { ExecutionContext } from "./execution-context.js";
 import { ExecutionContextUnavailableError } from "./errors.js";
 import type { Frame, FrameLease } from "./frame.js";
 
@@ -46,13 +47,24 @@ export interface ExecutionFence {
    */
   renewNow(): Promise<void>;
   /** The error a step throws when the external system refused its write (it saw `observedToken`). */
-  fencedError(observedToken?: number): ExecutionFencedError;
+  fencedError(observedToken?: number): ExecutionError.Fenced;
 }
 
 /** How the view finds the frame of each read: the current one, open (`live-context.ts`). */
 export type FrameOf = (field: string) => Frame;
 
-const FIELD = "executionContext.fence";
+const FIELD = "the lease fence";
+
+/**
+ * Where a context keeps its fence (#1317c, internal): not a member of `ExecutionContext` — domain
+ * code gets no raw fence, it writes through `Idempotency` — but the framework's `effectKeyOf` and
+ * the tests' fixtures read it with `fenceOf`.
+ */
+export const FENCE: unique symbol = Symbol("agboss.fence");
+
+/** The fence of `context`'s current step (internal). */
+export const fenceOf = (context: ExecutionContext): ExecutionFence =>
+  (context as unknown as { readonly [FENCE]: ExecutionFence })[FENCE];
 
 /** The frame's lease, held now; no lease, or one yielded meanwhile → why it is unavailable. */
 function heldLeaseOf(frameOf: FrameOf, consumer: string, member: string): FrameLease {
@@ -106,10 +118,12 @@ export function fenceOver(leaseOf: (member: string) => FrameLease): ExecutionFen
       // a fence that cannot be read rejects, as a renewal that failed does
       await leaseOf("renewNow").renewNow();
     },
-    fencedError(observedToken?: number): ExecutionFencedError {
+    fencedError(observedToken?: number): ExecutionError.Fenced {
       const held = leaseOf("fencedError");
-      return ExecutionFencedError.of({
+      return new ExecutionError.Fenced({
         scopeKey: held.scopeKey,
+        tenantId: held.tenantId,
+        leaseExecutionId: held.leaseExecutionId,
         token: tokenOf(held),
         observedToken,
       });

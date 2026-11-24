@@ -14,10 +14,10 @@ import {
 import { REFUSED_BUSINESS_KEYS, ROUND_TRIP_KEYS } from "./key-text-data.js";
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** `#538`: every accepted key is its own row, replayed with its own result, on the other instance too. */
-const ownRows = <TTransaction>(): Case<TTransaction> => ({
+const ownRows = (): Case => ({
   name: "#538: business keys of many scripts — CJK, Cyrillic, Hebrew, emoji, astral, 200 code units — are each their own row: run once, replayed with their own result",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -54,7 +54,7 @@ const ownRows = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** `#538`: a key built by hand breaking a rule is refused before anything, naming the rule. */
-const refusedByHand = <TTransaction>(): Case<TTransaction> => ({
+const refusedByHand = (): Case => ({
   name: "#538: a key built by hand whose business key breaks a rule — length, a C1 control, a format character, a lone surrogate, NFD — is IdempotencyError.InvalidKey naming the rule, never the key; nothing runs",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -77,7 +77,7 @@ const refusedByHand = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The key-text cases of the fenced-effect contract (#538). */
-export const keyTextCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const keyTextCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "the text of a business key",
-  cases: [ownRows<TTransaction>(), refusedByHand<TTransaction>()],
+  cases: [ownRows(), refusedByHand()],
 });

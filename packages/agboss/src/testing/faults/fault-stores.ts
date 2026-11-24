@@ -11,12 +11,9 @@ import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.reposi
  */
 
 /** How the fixture writes a business row in a fenced effect's transaction, and reads them back. */
-export interface FaultBusinessRows<TTransaction = unknown> {
-  /**
-   * Writes `row` in `transaction` — synchronously (`undefined`) for a store whose work must be (the
-   * SQLite one), a promise for one whose work may wait.
-   */
-  insert(transaction: TTransaction, row: string): void | Promise<void>;
+export interface FaultBusinessRows {
+  /** Writes `row` in the effect's ambient transaction (the store connection's `requireTransaction()`, #1317c). */
+  insert(row: string): void | Promise<void>;
   /** The rows committed so far, read through the pod's application (its connection). */
   committed(app: App): Promise<readonly string[]>;
 }
@@ -50,7 +47,7 @@ export enum FaultStoreTime {
 }
 
 /** What a store set's module exports as `faultStores`. */
-export interface FaultStoreSet<TTransaction = unknown> {
+export interface FaultStoreSet {
   /**
    * Every store class, as `@Application({ providers })` lists them: the lease, fenced-effect,
    * outbound-call, audit-log, record, tree, history, child-queue and paused stores and the
@@ -59,7 +56,7 @@ export interface FaultStoreSet<TTransaction = unknown> {
    */
   readonly providers: readonly Class[];
   readonly environment: FaultEnvironment;
-  readonly businessRows: FaultBusinessRows<TTransaction>;
+  readonly businessRows: FaultBusinessRows;
   /**
    * The time the fencing stores (leases, fenced effects, outbound calls) decide by (#799): the
    * history of a run is checked on it. A property of the stores, not of a run: required.

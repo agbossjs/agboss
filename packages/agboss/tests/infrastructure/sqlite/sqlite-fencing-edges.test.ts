@@ -21,10 +21,7 @@ import {
   SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
-import {
-  SyncWorkRequiredError,
-  SqliteFencedEffectRepository,
-} from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../../src/testing/contracts/outbound-call-data.js";
@@ -190,16 +187,6 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
 
     expect(replayed.status).toBe(IdempotencyRunStatus.Replayed);
     expect(Object.keys(replayed)).not.toContain("replayedFrom");
-  });
-
-  it("SyncWorkRequiredError is named so", async () => {
-    const stores = storesOn();
-    const key = keyOf(await held(stores.leases));
-
-    const call = stores.effects.runOnce(key, () => Promise.resolve("r1"));
-
-    await expect(call).rejects.toBeInstanceOf(SyncWorkRequiredError);
-    await expect(call).rejects.toMatchObject({ name: "SyncWorkRequiredError" });
   });
 
   it("oneRowChanged: true for one row, an Error for any other count", () => {

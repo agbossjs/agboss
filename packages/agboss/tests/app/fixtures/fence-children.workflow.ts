@@ -1,3 +1,4 @@
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -22,7 +23,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 /**
  * #471 AC1 — which lease a step fences with: a root and its `CurrentProcess` children share the
  * root's (`(tenantId, rootExecutionId)`), a `ChildPlacement.AnyWorker` child holds its own
- * (`(tenantId, childExecutionId)`); an ancestor's fence (`parent.fence`, `root.fence`) is never
+ * (`(tenantId, childExecutionId)`); an ancestor's fence (`fenceOf(parent)`, `fenceOf(root)`) is never
  * read, and a budget's `maxSpend()` — read before the first pass — has none.
  */
 
@@ -49,16 +50,17 @@ function refusalOf(read: () => unknown): unknown {
 
 /** Records the step's fence under `at`, and what its ancestors' fences threw. */
 function recordScope(executionContext: ExecutionContext, at: string): ReceiptDto {
-  const { fence, step, parent } = executionContext;
+  const { step, parent } = executionContext;
+  const fence = fenceOf(executionContext);
   scopes.fences.set(at, fenceSeenOf(fence, step.idempotencyKey));
   if (parent !== undefined) {
     scopes.refusals.set(
       `${at}.parent`,
-      refusalOf(() => parent.fence.token),
+      refusalOf(() => fenceOf(parent).token),
     );
     scopes.refusals.set(
       `${at}.root`,
-      refusalOf(() => executionContext.root.fence.token),
+      refusalOf(() => fenceOf(executionContext.root).token),
     );
   }
   return { text: at };
@@ -211,7 +213,7 @@ export class FenceProbeBudget implements BudgetHandler {
   maxSpend(): Usd {
     scopes.refusals.set(
       "maxSpend",
-      refusalOf(() => this.executionContext.fence.token),
+      refusalOf(() => fenceOf(this.executionContext).token),
     );
     return usd(1);
   }

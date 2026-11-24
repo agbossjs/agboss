@@ -33,8 +33,8 @@ export const writeBy = (run: ExplorerRun, instance: number, token: number): Prom
   if (effects === undefined || rows === undefined) throw new TypeError("no fenced-effect store");
   const row = `race:instance-${String(instance)}`;
   return effects
-    .runOnce(effectKeyOf("tree-1", token), (transaction) => {
-      const inserted = rows.insert(transaction, row);
+    .runOnce(effectKeyOf("tree-1", token), () => {
+      const inserted = rows.insert(row);
       return inserted === undefined ? row : inserted.then(() => row);
     })
     .then((outcome) => outcome.status);

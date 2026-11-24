@@ -1,3 +1,4 @@
+import { fenceOf } from "../../../../src/flow/context/execution-fence.js";
 import type { DatabaseSync } from "node:sqlite";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
@@ -18,6 +19,7 @@ import {
 } from "../../../../src/index.js";
 import { hours } from "../../../../src/units/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
+import type { SqliteTransactionHandle } from "../../../../src/infrastructure/sqlite/sqlite-transaction.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -42,7 +44,11 @@ const ORDER_CHARGES = `CREATE TABLE IF NOT EXISTS order_charges (
   order_id TEXT NOT NULL, token INTEGER NOT NULL, charge_id TEXT NOT NULL)`;
 
 /** One charge row in the effect's transaction; the receipt it gives. */
-function insertCharge(database: DatabaseSync, order: string, token: number): { chargeId: string } {
+function insertCharge(
+  database: SqliteTransactionHandle,
+  order: string,
+  token: number,
+): { chargeId: string } {
   database.exec(ORDER_CHARGES);
   const chargeId = `charge-${order}-${String(token)}`;
   database
@@ -66,25 +72,26 @@ export function chargesIn(database: DatabaseSync): readonly string[] {
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
   // #890 AC2: the service, never the store — its transaction is the listed SQLite store's
-  deps: [ExecutionContext, Idempotency],
+  deps: [ExecutionContext, Idempotency, SqliteConnection],
 })
 export class SqliteChargeOrderAction {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
   ) {}
 
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const { token } = this.executionContext.fence;
+    const { token } = fenceOf(this.executionContext);
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.idempotency
       .runOnce({
         name: "charge",
         ttl: hours(24),
-        execute: (database: DatabaseSync) => insertCharge(database, order, token),
+        execute: () => insertCharge(this.connection.requireTransaction(), order, token),
       })
       .catch((error: unknown) => {
         book.runs.push({ token, status: "refused" });

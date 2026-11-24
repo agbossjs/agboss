@@ -31,6 +31,8 @@ export function fencingEffectsShard() {
       // #1317: whether a call's request is stored only masked; the keys of a call (the digest of a business key, the wire key, its prefix)
       "src/app/{outbound-masking,idempotency-keys,outbound-call-keys,idempotency-scope}.ts",
       "src/infrastructure/business-key-digest.ts",
+      // #1317c: the buffer a test's in-memory rows write into
+      "src/infrastructure/in-memory-effect-writes.ts",
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
       // #657, #658 (ambiguity): an error of unknown outcome, the key's age and its retention
@@ -49,6 +51,8 @@ export function sqliteStoresShard() {
     mutate: [
       "src/infrastructure/sqlite/sqlite-execution-lease.repository.ts",
       "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
+      // #1317c: the file's mutex, the hold of a runOnce, its ambient transaction handle and the gate of every repository
+      "src/infrastructure/sqlite/sqlite-{mutex,hold,transaction,gate,guard,cancel,open}.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call-pages.ts",
       // #825: the table's declared seq, and its upgrade

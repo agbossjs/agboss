@@ -23,7 +23,7 @@ import { storeTargets, type StoreFactory } from "./contracts/store-kinds.js";
 interface Stores {
   readonly leases: ExecutionLeaseRepository;
   readonly calls: OutboundCallRepository;
-  readonly effects: FencedEffectRepository<unknown>;
+  readonly effects: FencedEffectRepository;
 }
 
 const inMemory: StoreFactory<Stores> = (seam) => {

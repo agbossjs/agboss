@@ -339,13 +339,11 @@ Autoscaling.
   pass `executionContext.step.idempotencyKey` —
   `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`, the same on a rerun — to
   every external side effect, and make each undo safe to run twice.
-- **Fencing (#471).** `executionContext.fence` is the lease the step runs under: `scopeKey`
-  (`${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — the root's lease for
-  the root and its `ChildPlacement.CurrentProcess` children, an `AnyWorker` child's own), `token`
-  (its `token`: 1, 2, … per lease, rising with every take), `trustedUntil`, `assertHeld()`,
-  `renewNow()`, `fencedError(observedToken)`. Exactly-once only when the external system checks the
-  token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
-  judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
+- **Fencing (#471, #1317c).** Domain code has no `executionContext.fence` and no raw transaction:
+  `Idempotency.runOnce` / `sendOnce` read the lease the step runs under (`scopeKey`, `token`, the monotonic fencing token) and make
+  the key; a write refused because the lease moved is `ExecutionError.Fenced` (a hand-over, no
+  `.onError`). `ExecutionFence` is a type of `@agboss/core/stores`, for store authors. A reply
+  interpreter, a budget's `maxSpend()` and an eval judge have no lease (`ExecutionContextUnavailableError`).
 - **The idempotent write (#500).** For rows in the store's own database, one call does the fencing and
   the deduplication: inject `Idempotency` (#890, never a store's class) and call
   `runOnce({ name: "charge", ttl: hours(24), execute: (database: DatabaseSync) => … })` — on the listed
@@ -743,16 +741,9 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
 - Trusting the lease to fence an external write: the framework fences only its own checkpoint
   writes. A step whose instance lost the lease sees `executionContext.signal` abort with
   `ExecutionLeaseLostError`, but a write it already sent to a database or a file still lands, and
-  the instance that takes the tree over runs the step again. Make every external write idempotent by
-  `executionContext.step.idempotencyKey` (a unique key: the second write is a no-op) and fence it
-  with `executionContext.fence`: `fence.token` is the monotonic fencing token of the step's lease
-  scope — the external system keeps the highest token per `fence.scopeKey` in the same transaction
-  as the key, refuses a lower one with `fence.fencedError(highest)` (or `ExecutionFencedError.of({
-scopeKey, token, observedToken })` in a repository), and the framework treats that error as a
-  hand-over (no `.onError`, no undo, no failed record). Call `fence.assertHeld()` right before the
-  write and `await fence.renewNow()` before a call that cannot check tokens (a webhook). Never key
-  the mark by a shared business row: parallel `ChildPlacement.AnyWorker` children each fence with
-  a lease (and a token) of their own.
+  the instance that takes the tree over runs the step again. Make every external write go
+  through `Idempotency` (`runOnce` for rows of the application's own database, `sendOnce` for a call
+  that leaves the system): it keys the write by the step and fences it by the lease's token.
 - `ChildPlacement.AnyWorker` across processes: a child queued in one process wakes that process's
   workers at once, never another's — other processes find it at their workers' sweep, every 30 s.
   A worker claims queued children while it has free step slots, so the first one to look may take a

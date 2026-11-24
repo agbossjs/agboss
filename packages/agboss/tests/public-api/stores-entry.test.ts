@@ -27,7 +27,6 @@ const STORE_HELPERS = [
   "assertLedgerEntries",
   "expiredEntriesOf",
   "unrecordedEntriesOf",
-  "InMemoryFencedEffectTransaction",
   "OutboundCallLeaseState",
 ] as const;
 

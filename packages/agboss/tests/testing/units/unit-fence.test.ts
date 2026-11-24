@@ -1,3 +1,4 @@
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 /**
  * #471 AC5 — the fence of a unit test's step: `testUnit` / `testUnit` (any unit runner) and
  * `testExecutionContext()` give a held lease by default — token 1, the execution's own scope, the
@@ -5,7 +6,11 @@
  * or makes its checks refuse (`isLost`, `renewNowFails`).
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../../src/index.js";
+import {
+  ExecutionError,
+  ExecutionFencedError,
+  ExecutionLeaseLostError,
+} from "../../../src/index.js";
 import { testUnit, testExecutionContext, VirtualClock } from "../../../src/testing/index.js";
 import { testFenceLeaseOf } from "../../../src/testing/fence.js";
 import { seconds } from "../../../src/units/index.js";
@@ -109,22 +114,24 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
     const clock = new VirtualClock();
     const context = testExecutionContext({ clock, tenant: { tenantId: "acme" } });
 
-    expect(context.fence.scopeKey).toBe("acme:test-execution");
-    expect(context.fence.token).toBe(1);
-    expect(context.fence.trustedUntil).toEqual(new Date(clock.now().getTime() + seconds(30)));
-    context.fence.assertHeld();
+    expect(fenceOf(context).scopeKey).toBe("acme:test-execution");
+    expect(fenceOf(context).token).toBe(1);
+    expect(fenceOf(context).trustedUntil).toEqual(new Date(clock.now().getTime() + seconds(30)));
+    fenceOf(context).assertHeld();
     await clock.advance(seconds(30));
     expect(() => {
-      context.fence.assertHeld();
+      fenceOf(context).assertHeld();
     }).toThrow(ExecutionLeaseLostError);
   });
 
   it("each field of the option, and fencedError() building the error for its scope", () => {
     const trustedUntil = new Date("2026-02-01T00:00:00.000Z");
-    const { fence } = testExecutionContext({
-      executionId: "execution-9",
-      fence: { token: 3, leaseExecutionId: "root-9", trustedUntil },
-    });
+    const fence = fenceOf(
+      testExecutionContext({
+        executionId: "execution-9",
+        fence: { token: 3, leaseExecutionId: "root-9", trustedUntil },
+      }),
+    );
 
     expect(fence).toMatchObject({ scopeKey: "default:root-9", token: 3, trustedUntil });
     expect(fence.fencedError(4)).toMatchObject({
@@ -132,13 +139,15 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
       token: 3,
       observedToken: 4,
     });
-    expect(fence.fencedError()).toBeInstanceOf(ExecutionFencedError);
+    expect(fence.fencedError()).toBeInstanceOf(ExecutionError.Fenced);
   });
 
   it("isLost: renewNow() rejects too, and the renewNowFails option does not matter", async () => {
-    const { fence } = testExecutionContext({
-      fence: { isLost: true, renewNowFails: new Error("store down") },
-    });
+    const fence = fenceOf(
+      testExecutionContext({
+        fence: { isLost: true, renewNowFails: new Error("store down") },
+      }),
+    );
 
     await expect(fence.renewNow()).rejects.toThrow(ExecutionLeaseLostError);
     expect(() => {
@@ -147,10 +156,12 @@ describe("#471 AC5: testExecutionContext()'s fence", () => {
   });
 
   it("the lost error names the execution the lease is of", async () => {
-    const { fence } = testExecutionContext({
-      executionId: "execution-9",
-      fence: { leaseExecutionId: "root-9", isLost: true },
-    });
+    const fence = fenceOf(
+      testExecutionContext({
+        executionId: "execution-9",
+        fence: { leaseExecutionId: "root-9", isLost: true },
+      }),
+    );
 
     await expect(fence.renewNow()).rejects.toMatchObject({ rootExecutionId: "root-9" });
   });

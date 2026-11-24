@@ -20,9 +20,9 @@ import {
  * token is refused even where the business key has a result, two instances racing write once.
  */
 
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
+const twoScopesOnce = (): Case => ({
   name: "#508: one business key from two executions (two scopes) runs once; the second replays it, naming the first",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -46,7 +46,7 @@ const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
+const sameStepNoOrigin = (): Case => ({
   name: "#508: the same step run again replays its business key without naming another step",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -63,7 +63,7 @@ const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
+const conflictRefused = (): Case => ({
   name: "#508 AC3: another fingerprint under one business key is IdempotencyError.KeyConflict: nothing runs, nothing is written",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -89,7 +89,7 @@ const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const noFingerprintIsOne = <TTransaction>(): Case<TTransaction> => ({
+const noFingerprintIsOne = (): Case => ({
   name: "#508: a business key with no fingerprint replays one with none, and conflicts with one that has one",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -113,7 +113,7 @@ const noFingerprintIsOne = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const staleRefused = <TTransaction>(): Case<TTransaction> => ({
+const staleRefused = (): Case => ({
   name: "#508: a stale token is refused even when its business key has a stored result — the zombie gets no receipt",
   isFencing: true,
   run: async ({ clock, first, second }) => {
@@ -133,7 +133,7 @@ const staleRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const racingOnce = <TTransaction>(): Case<TTransaction> => ({
+const racingOnce = (): Case => ({
   name: "#508: two instances racing on one business key from two executions write once",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -156,7 +156,7 @@ const racingOnce = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const concurrentConflict = <TTransaction>(): Case<TTransaction> => ({
+const concurrentConflict = (): Case => ({
   name: "#508 AC3: a concurrent call with another fingerprint under one business key is refused, not joined",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -182,7 +182,7 @@ const concurrentConflict = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const stepKeysApart = <TTransaction>(): Case<TTransaction> => ({
+const stepKeysApart = (): Case => ({
   name: "#508: a business key and the same step's own key are two rows",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -200,18 +200,16 @@ const stepKeysApart = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The business-key cases. */
-export const businessKeyCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const businessKeyCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "business keys",
   cases: [
-    twoScopesOnce<TTransaction>(),
-    sameStepNoOrigin<TTransaction>(),
-    conflictRefused<TTransaction>(),
-    noFingerprintIsOne<TTransaction>(),
-    staleRefused<TTransaction>(),
-    racingOnce<TTransaction>(),
-    concurrentConflict<TTransaction>(),
-    stepKeysApart<TTransaction>(),
+    twoScopesOnce(),
+    sameStepNoOrigin(),
+    conflictRefused(),
+    noFingerprintIsOne(),
+    staleRefused(),
+    racingOnce(),
+    concurrentConflict(),
+    stepKeysApart(),
   ],
 });

@@ -26,9 +26,9 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const writeRefused = <TTransaction>(): Case<TTransaction> => ({
+const writeRefused = (): Case => ({
   name: "#909 AC1: a write after its tree's durable cancel is refused — ExecutionCancelFencedError (an ExecutionCancelledError, never a hand-over), the work not run, nothing written",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -56,7 +56,7 @@ const writeRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
+const storedBeforeReplays = (): Case => ({
   name: "#909 AC1: an effect stored before the cancel replays after it — by its step and by its business key — while a new effect of the tree is refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -89,7 +89,7 @@ const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const undoPasses = <TTransaction>(): Case<TTransaction> => ({
+const undoPasses = (): Case => ({
   name: "#909: an undo's key (isCompensation) writes after the cancel — the cancel's own unwinding refunds through it — and replays",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -110,7 +110,7 @@ const undoPasses = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const otherTreesUntouched = <TTransaction>(): Case<TTransaction> => ({
+const otherTreesUntouched = (): Case => ({
   name: "#909: a cancel of another tree, or of another tenant's tree of the same id, refuses nothing",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -130,12 +130,7 @@ const otherTreesUntouched = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The cancel as a fence of the fenced effect. */
-export const cancelCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const cancelCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's cancel is a fence (#909)",
-  cases: [
-    writeRefused<TTransaction>(),
-    storedBeforeReplays<TTransaction>(),
-    undoPasses<TTransaction>(),
-    otherTreesUntouched<TTransaction>(),
-  ],
+  cases: [writeRefused(), storedBeforeReplays(), undoPasses(), otherTreesUntouched()],
 });

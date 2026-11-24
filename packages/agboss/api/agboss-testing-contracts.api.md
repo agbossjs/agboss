@@ -84,19 +84,19 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
 export function executionTreeContract(target: ContractTarget<ExecutionTreeRepository>): void;
 
 // @public
-export interface FencedEffectBusinessRows<TTransaction> {
+export interface FencedEffectBusinessRows {
     committed(): Promise<readonly string[]>;
-    insert(transaction: TTransaction, row: string): void | Promise<void>;
+    insert(row: string): void | Promise<void>;
 }
 
 // @public
-export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectTarget<TTransaction>>, options?: FencingContractOptions): void;
+export function fencedEffectContract(target: ContractTarget<FencedEffectTarget>, options?: FencingContractOptions): void;
 
 // @public
-export interface FencedEffectTarget<TTransaction> {
-    readonly effects: FencedEffectRepository<TTransaction>;
+export interface FencedEffectTarget {
+    readonly effects: FencedEffectRepository;
     readonly leases: ExecutionLeaseRepository;
-    readonly rows: FencedEffectBusinessRows<TTransaction>;
+    readonly rows: FencedEffectBusinessRows;
 }
 
 // @public
@@ -190,7 +190,7 @@ export enum StoreCapability {
 }
 
 // @public
-export function storeConformance<TTransaction>(options: StoreConformanceOptions<TTransaction>): void;
+export function storeConformance(options: StoreConformanceOptions): void;
 
 // @public
 export type StoreConformanceCode = "store-conformance" | `store-conformance.${StoreConformanceRule}`;
@@ -217,13 +217,13 @@ export interface StoreConformanceErrorOptions {
 }
 
 // @public
-export interface StoreConformanceOptions<TTransaction = unknown> {
+export interface StoreConformanceOptions {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
     readonly interleavings?: InterleavingOptions | false;
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
-    readonly stores: StoreSet<TTransaction>;
+    readonly stores: StoreSet;
     readonly without?: readonly LeftOutContract[];
 }
 
@@ -242,7 +242,7 @@ export interface StoreInstanceContext {
 }
 
 // @public
-export interface StoreSet<TTransaction = unknown> {
+export interface StoreSet {
     readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
     readonly a2aFile?: StoreEntry<FileRepository>;
     readonly a2aTask?: StoreEntry<A2ATaskRepository>;
@@ -263,7 +263,7 @@ export interface StoreSet<TTransaction = unknown> {
     // (undocumented)
     readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
     // (undocumented)
-    readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
+    readonly fencedEffect?: StoreEntry<FencedEffectTarget>;
     // (undocumented)
     readonly meshRequest?: StoreEntry<MeshRequestRepository>;
     // (undocumented)

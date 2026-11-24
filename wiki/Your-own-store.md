@@ -95,7 +95,9 @@ export class PostgresExecutionLeaseRepository extends ExecutionLeaseRepository {
   // …
 }
 
-export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolClient> {
+export class PostgresFencedEffectRepository extends FencedEffectRepository {
+  // `runInTransaction(key, work)` calls `work()` — handed no transaction — inside its ambient one:
+  // the connection's `requireTransaction()` (#1317c) gives the repositories the guarded handle
   // a unit runner finds its lease store by this backend too (#825)
   static override readonly store: StoreDescriptor = { backend: "postgres" };
   // …

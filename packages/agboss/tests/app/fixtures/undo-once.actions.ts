@@ -105,7 +105,7 @@ async function reached(at: UndoPoint, key: string, instanceId: string): Promise<
 export class RefundBookingAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffectRepository: FencedEffectRepository<unknown>,
+    private readonly fencedEffectRepository: FencedEffectRepository,
   ) {}
 
   async execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {

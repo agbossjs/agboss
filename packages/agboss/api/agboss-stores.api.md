@@ -823,7 +823,7 @@ export interface ExecutionData {
 // @public
 export interface ExecutionFence {
     assertHeld(): void;
-    fencedError(observedToken?: number): ExecutionFencedError;
+    fencedError(observedToken?: number): ExecutionError.Fenced;
     readonly leaseExecutionId: string;
     renewNow(): Promise<void>;
     readonly scopeKey: string;
@@ -1091,17 +1091,17 @@ export interface FencedEffectOrigin {
 }
 
 // @public
-export abstract class FencedEffectRepository<TTransaction> {
+export abstract class FencedEffectRepository {
     abstract deleteExpired(now: Date): Promise<number>;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
-    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     static readonly store: StoreDescriptor;
     protected storedResultOf(key: EffectKey, result: unknown): string;
 }
 
 // @public
-export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+export type FencedEffectWork<TResult> = () => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 // @public
 export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
@@ -1214,11 +1214,6 @@ export enum IdempotencyRunStatus {
 
 // @public
 export const idGeneratorNameOf: (idGenerator: object) => string;
-
-// @public
-export class InMemoryFencedEffectTransaction {
-    onCommit(write: () => void): void;
-}
 
 // @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
@@ -2102,15 +2097,56 @@ export interface SetAsideMailbox {
 }
 
 // @public
+export const SQLITE_HOLD_CAP: Milliseconds;
+
+// @public
 export class SqliteConnection implements OnDestroy {
     constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
     columnsOf(table: string): readonly string[];
     get database(): DatabaseSync;
     ensureSchema(name: string, ddl: string): void;
+    gate<TValue>(work: () => TValue, options?: {
+        readonly isPriority?: boolean;
+    }): TValue | Promise<Awaited<TValue>>;
+    held<TValue>(work: (handle: SqliteTransactionHandle) => TValue | Promise<TValue>, cap?: Milliseconds): Promise<TValue>;
+    get isInTransaction(): boolean;
     onDestroy(): void;
     readonly path: string;
     ping(): Promise<void>;
+    requireTransaction(): SqliteTransactionHandle;
+    serve<TValue>(work: () => TValue, options?: {
+        readonly isPriority?: boolean;
+    }): Promise<Awaited<TValue>>;
     transaction<TResult>(work: () => TResult): TResult;
+}
+
+// @public
+export interface SqliteTransactionHandle {
+    // (undocumented)
+    exec(sql: string): void;
+    // (undocumented)
+    prepare(sql: string): SqliteTransactionStatement;
+}
+
+// @public
+export type SqliteTransactionParameters = readonly (string | number | bigint | Uint8Array | null)[];
+
+// @public
+export interface SqliteTransactionRun {
+    // (undocumented)
+    readonly changes: number | bigint;
+    // (undocumented)
+    readonly lastInsertRowid: number | bigint;
+}
+
+// @public
+export interface SqliteTransactionStatement {
+    // (undocumented)
+    all(...parameters: SqliteTransactionParameters): unknown[];
+    // (undocumented)
+    get(...parameters: SqliteTransactionParameters): unknown;
+    // (undocumented)
+    run(...parameters: SqliteTransactionParameters): SqliteTransactionRun;
 }
 
 // @public
@@ -2848,6 +2884,13 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "changes".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "lastInsertRowid".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "run".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "get".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "all".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "prepare".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "exec".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".

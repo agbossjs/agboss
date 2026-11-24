@@ -19,9 +19,7 @@ import {
  * write is refused (`ExecutionFencedError`, nothing run, nothing stored) and the key stays unseen
  * for the next holder.
  */
-const writeAt = <TTransaction>(
-  edge: ExpiryEdge,
-): ContractCase<FencedEffectTarget<TTransaction>> => {
+const writeAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
   const isRun = edge === ExpiryEdge.Before;
   return {
     name: `#534: a fenced write ${edge}, the lease not taken meanwhile, ${isRun ? "runs" : "is refused: nothing run, the key left for the next holder"}`,
@@ -58,9 +56,7 @@ const FIRST_WRITE_AT = seconds(29.998);
  * is over (#534) and the fence is checked before the key is read — refused, never replayed to a
  * holder that no longer holds the lease.
  */
-const replayAt = <TTransaction>(
-  edge: ExpiryEdge,
-): ContractCase<FencedEffectTarget<TTransaction>> => {
+const replayAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
   const isReplayed = edge === ExpiryEdge.Before;
   return {
     name: `#534: a written key asked again by its holder ${edge} is ${isReplayed ? "Replayed" : "refused before the key is read: no replay past the lease"}`,
@@ -85,11 +81,11 @@ const replayAt = <TTransaction>(
 };
 
 /** A fenced write against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
-export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const expiryCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "the lease's expiry",
   isFencing: true,
   cases: [
-    ...EXPIRY_EDGES.map((edge) => writeAt<TTransaction>(edge)),
-    ...EXPIRY_EDGES.map((edge) => replayAt<TTransaction>(edge)),
+    ...EXPIRY_EDGES.map((edge) => writeAt(edge)),
+    ...EXPIRY_EDGES.map((edge) => replayAt(edge)),
   ],
 });

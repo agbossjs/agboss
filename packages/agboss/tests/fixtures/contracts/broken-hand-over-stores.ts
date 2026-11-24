@@ -1,3 +1,4 @@
+import { AmbientBuffer, bufferOfWork, withBuffer } from "./ambient-buffer.js";
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 /**
  * A fenced-effect store whose lease check takes no lock and is not made again at its commit
@@ -33,9 +34,7 @@ import {
 } from "../../infrastructure/contracts/store-kinds.js";
 
 /** Its transaction: the business rows, applied at the commit. */
-export class DeferredTransaction {
-  readonly writes: (() => void)[] = [];
-}
+export { AmbientBuffer as DeferredTransaction };
 
 export interface Stored {
   readonly token: number;
@@ -49,7 +48,7 @@ export interface Stored {
 /** The tail of each lock's queue: one transaction at a time per scope or business key. */
 const queues = new WeakMap<object, Map<string, Promise<unknown>>>();
 
-export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransaction> {
+export class UnlockedCheckEffects extends FencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
@@ -75,7 +74,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
 
   protected runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DeferredTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const lock = key.businessKey === undefined ? key.scopeKey : effectKeyIdentityOf(key);
     const tails = queues.get(this.results) ?? new Map<string, Promise<unknown>>();
@@ -90,7 +89,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
 
   async #transaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DeferredTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     // the lease checked once, before the work — a read that locks nothing
     checkInMemoryFence(this.seam.database, this.seam.storeClock, key);
@@ -107,8 +106,8 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
       };
     }
     checkInMemoryCancel(this.seam.database, key); // #909: the cancel is checked as the real store does
-    const transaction = new DeferredTransaction();
-    const text = this.storedResultOf(key, await work(transaction));
+    const transaction = new AmbientBuffer();
+    const text = this.storedResultOf(key, await withBuffer(transaction, work));
     // the commit: the lease is not checked again (the cancel is, #909: this store breaks the lease's lock only)
     checkInMemoryCancel(this.seam.database, key);
     const storedAt = this.seam.storeClock.now().getTime();
@@ -129,14 +128,12 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
 }
 
 /** The business rows both instances of a case share, inserted asynchronously, applied at the commit. */
-export const unlockedRowsOf = (
-  seam: InstanceSeam,
-): FencedEffectTarget<DeferredTransaction>["rows"] => {
+export const unlockedRowsOf = (seam: InstanceSeam): FencedEffectTarget["rows"] => {
   const committed = sharedInMemory(seam, "unlocked-rows", (): string[] => []);
   return {
-    insert: async (transaction, row) => {
+    insert: async (row) => {
       await Promise.resolve();
-      transaction.writes.push(() => committed.push(row));
+      bufferOfWork().onCommit(() => committed.push(row));
     },
     committed: () => Promise.resolve([...committed]),
   };
@@ -147,9 +144,7 @@ export const unlockedResultsOf = (seam: InstanceSeam): Map<string, Stored> =>
   sharedInMemory<Map<string, Stored>>(seam, "unlocked-results", () => new Map());
 
 /** The store set of one instance on the unlocked-check effects, its rows inserted asynchronously. */
-export const unlockedCheckEffects: StoreFactory<FencedEffectTarget<DeferredTransaction>> = (
-  seam,
-) => ({
+export const unlockedCheckEffects: StoreFactory<FencedEffectTarget> = (seam) => ({
   effects: new UnlockedCheckEffects(seam, unlockedResultsOf(seam)),
   leases: new InMemoryExecutionLeaseRepository(seam.storeClock, seam.application, seam.database),
   rows: unlockedRowsOf(seam),

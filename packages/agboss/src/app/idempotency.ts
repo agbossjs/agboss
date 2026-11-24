@@ -78,7 +78,7 @@ export class Idempotency {
    * the declarations.
    */
   constructor(
-    private readonly effects: FencedEffectRepository<unknown>,
+    private readonly effects: FencedEffectRepository,
     private readonly calls: OutboundCallRepository,
     private readonly masking: OutboundMasking,
     // the instance's log (#508), names and ids only — said by whoever builds it (#825)
@@ -99,8 +99,8 @@ export class Idempotency {
    * its lease taken over — is refused (`ExecutionError.Fenced`), nothing written. Rejects, never
    * throws, on a bad option.
    */
-  async runOnce<TResult, TFingerprint = never, TTransaction = unknown>(
-    options: IdempotencyRunOptions<TResult, TFingerprint, TTransaction>,
+  async runOnce<TResult, TFingerprint = never>(
+    options: IdempotencyRunOptions<TResult, TFingerprint>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     // read once: a getter is never asked again
     const { name, key, ttl, maxResultSize, execute } = options;
@@ -118,7 +118,7 @@ export class Idempotency {
     const effectKey = callKeyIn(context, name, parts, "runOnce");
     const bounded = boundedWork(this.clock, { name, timeout }, execute);
     // `execute` runs in the scope of its runOnce, closed once it ended (a store may call it again)
-    const scoped: typeof bounded = (transaction) => inRunOnce(name, () => bounded(transaction));
+    const scoped: typeof bounded = () => inRunOnce(name, bounded);
     return this.effects.runOnce(effectKey, scoped);
   }
 

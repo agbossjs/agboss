@@ -1,5 +1,6 @@
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
- * #471 — `executionContext.fence`: the lease a step runs under, as an external system fences a
+ * #471 — `executionContext.fence` (internal now): the lease a step runs under, as an external system fences a
  * write with it. A write of an instance that lost the lease meets a newer token and is refused
  * (`ExecutionFencedError`), which is a hand-over — no `.onError`, no compensation, no failed record,
  * no `onExecutionError` — and the moving call rejects with the fenced error itself.

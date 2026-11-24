@@ -18,12 +18,9 @@ import { effectKeyForTesting } from "./effect-key.js";
  */
 
 /** How a case writes a business row in the effect's transaction and reads the committed ones. */
-export interface FencedEffectBusinessRows<TTransaction> {
-  /**
-   * Writes `row` in `transaction` — synchronously (`undefined`) for a store whose work must be, a
-   * promise for one whose work may wait.
-   */
-  insert(transaction: TTransaction, row: string): void | Promise<void>;
+export interface FencedEffectBusinessRows {
+  /** Writes `row` in the effect's ambient transaction (the store connection's `requireTransaction()`, #1317c). */
+  insert(row: string): void | Promise<void>;
   /** The rows committed so far, as another connection sees them, read when called. */
   committed(): Promise<readonly string[]>;
 }
@@ -32,13 +29,13 @@ export interface FencedEffectBusinessRows<TTransaction> {
  * One instance's stores on the backing database: the fenced-effect store under test, built with
  * the lease store it reads, and the business rows.
  */
-export interface FencedEffectTarget<TTransaction> {
+export interface FencedEffectTarget {
   /** The store under test. */
-  readonly effects: FencedEffectRepository<TTransaction>;
+  readonly effects: FencedEffectRepository;
   /** The lease store of the same database: the cases take and release leases in it. */
   readonly leases: ExecutionLeaseRepository;
   /** The business rows its writes insert. */
-  readonly rows: FencedEffectBusinessRows<TTransaction>;
+  readonly rows: FencedEffectBusinessRows;
 }
 
 /** What a case's write gives: the receipt of the row it wrote. */
@@ -104,27 +101,19 @@ export const businessKeyOf = (
 
 /** A write that inserts `row` and gives its receipt, counted in `count`. */
 export const writing =
-  <TTransaction>(
-    rows: FencedEffectBusinessRows<TTransaction>,
-    row: string,
-    count: WriteCount,
-  ): FencedEffectWork<TTransaction, Receipt> =>
-  (transaction) => {
+  (rows: FencedEffectBusinessRows, row: string, count: WriteCount): FencedEffectWork<Receipt> =>
+  () => {
     count.runs += 1;
-    const inserted = rows.insert(transaction, row);
+    const inserted = rows.insert(row);
     const receipt: Receipt = { receipt: row };
     return inserted === undefined ? receipt : inserted.then(() => receipt);
   };
 
 /** A write that inserts `row`, then throws `error` (a declined card): nothing may stay. */
 export const failing =
-  <TTransaction>(
-    rows: FencedEffectBusinessRows<TTransaction>,
-    row: string,
-    error: Error,
-  ): FencedEffectWork<TTransaction, Receipt> =>
-  (transaction) => {
-    const inserted = rows.insert(transaction, row);
+  (rows: FencedEffectBusinessRows, row: string, error: Error): FencedEffectWork<Receipt> =>
+  () => {
+    const inserted = rows.insert(row);
     if (inserted === undefined) throw error;
     return inserted.then(() => Promise.reject(error));
   };

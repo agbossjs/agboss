@@ -24,7 +24,7 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** A cutoff a day after `clock`'s now: every row of the case is older than it. */
 const farCutoff = (clock: Pick<Clock, "now">): Date => new Date(clock.now().getTime() + hours(24));
@@ -34,14 +34,11 @@ const childKey = (child: ExecutionLease): EffectKey =>
   effectKeyForTesting(keyOf(child), { rootExecutionId: "root-1" });
 
 /** Both instances' retention passes at `cutoff`. */
-const sweptBoth = async <TTransaction>(
-  stores: readonly FencedEffectTarget<TTransaction>[],
-  cutoff: Date,
-): Promise<void> => {
+const sweptBoth = async (stores: readonly FencedEffectTarget[], cutoff: Date): Promise<void> => {
   for (const { effects } of stores) await effects.deleteExpired(cutoff);
 };
 
-const childFencedAfterRootRetired = <TTransaction>(): Case<TTransaction> => ({
+const childFencedAfterRootRetired = (): Case => ({
   name: "#1117: a cancel's mark is never lifted — the root's lease retired and every retention pass at any cutoff, a live child lease of the tree has its write refused, and so has a child lease taken after it",
   isFencing: true,
   run: async ({ clock, first, second }) => {
@@ -68,7 +65,7 @@ const childFencedAfterRootRetired = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const markSurvivesLeaseMoves = <TTransaction>(): Case<TTransaction> => ({
+const markSurvivesLeaseMoves = (): Case => ({
   name: "#1117: the mark survives every release, take and takeover of the tree's lease — released and taken by the other instance, expired and taken over, retention passes between: each holder's write is refused",
   isFencing: true,
   run: async ({ clock, first, second }) => {
@@ -96,7 +93,7 @@ const markSurvivesLeaseMoves = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const earlyCancelSurvivesRetention = <TTransaction>(): Case<TTransaction> => ({
+const earlyCancelSurvivesRetention = (): Case => ({
   name: "#1117: a cancel before the tree's first acquire survives the retention — a sweep long after it, then the first acquire is token 1 with no takeover, and its write is refused",
   isFencing: true,
   run: async ({ clock, first, second }) => {
@@ -118,13 +115,7 @@ const earlyCancelSurvivesRetention = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The cancel mark is permanent (#1117). */
-export const cancelPermanentCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const cancelPermanentCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's cancel mark is permanent (#1117)",
-  cases: [
-    childFencedAfterRootRetired<TTransaction>(),
-    markSurvivesLeaseMoves<TTransaction>(),
-    earlyCancelSurvivesRetention<TTransaction>(),
-  ],
+  cases: [childFencedAfterRootRetired(), markSurvivesLeaseMoves(), earlyCancelSurvivesRetention()],
 });

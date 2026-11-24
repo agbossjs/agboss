@@ -47,7 +47,7 @@ export interface RetentionSources {
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
   readonly executionRecordRetention?: Milliseconds | undefined;
   /** The idempotent effects' results and marks (#500), each removed once its `expires_at` has come (#1317). */
-  readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
+  readonly fencedEffects?: FencedEffectRepository | undefined;
   /**
    * The audit log (#501) and its retention (`auditLogTtl`): older rows of trees that ended are
    * removed — never a row of a live or paused tree, whose takeover reads them (#853).

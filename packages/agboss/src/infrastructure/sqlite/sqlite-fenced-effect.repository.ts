@@ -19,7 +19,6 @@ import {
   type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
-import { SyncWorkRequiredError } from "../fenced-effect-errors.js";
 import { checkSqliteCancel, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
 
@@ -102,24 +101,17 @@ export function raiseSqliteMark(database: DatabaseSync, key: EffectKey, now: num
   database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now, expiryOf(key));
 }
 
-/** Whether a work's result is a promise (or any thenable): an asynchronous work. */
-const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  typeof value === "object" &&
-  value !== null &&
-  "then" in value &&
-  typeof value.then === "function";
-
 /**
  * `FencedEffectRepository` on the application's SQLite file (#500): the scopes' marks and the
  * results in two tables of the file, beside `execution_leases` — the checks and the write are one
  * `BEGIN IMMEDIATE` transaction on the instance's connection, so of two instances one writes and the
- * other replays. The work gets the connection's `DatabaseSync` and must be synchronous — the I/O of
- * a step goes before or after the call; a returned promise rolls back with
- * `SyncWorkRequiredError`. Listed in `@Application({ providers })` with
+ * other replays. The work is asynchronous and writes through the connection's `requireTransaction()`
+ * (#1317c): the file's mutex holds the transaction open (capped at `SQLITE_HOLD_CAP`) while every
+ * other operation waits behind it, lease renewals excepted. Listed in `@Application({ providers })` with
  * `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
  */
 @Injectable({ deps: [SqliteConnection, StoreClock] })
-export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
+export class SqliteFencedEffectRepository extends FencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
@@ -135,11 +127,10 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 
   protected runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DatabaseSync, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
-    return new Promise((resolve) => {
-      resolve(this.connection.transaction(() => this.#transaction(key, work)));
-    });
+    // the file's one transaction span, asynchronous: other operations wait behind it (#1317c)
+    return this.connection.held(() => this.#transaction(key, work));
   }
 
   deleteExpired(now: Date): Promise<number> {
@@ -160,13 +151,13 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     );
   }
 
-  #transaction<TResult>(
+  async #transaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DatabaseSync, TResult>,
-  ): IdempotencyRunOutcome<TResult> {
+    work: FencedEffectWork<TResult>,
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     const { database } = this.connection;
     const now = this.clock.now().getTime();
-    checkSqliteFence(this.connection.database, key, now);
+    checkSqliteFence(database, key, now);
     raiseSqliteMark(database, key, now);
     const stored = storedRowOf(database, key);
     if (stored !== undefined) {
@@ -186,14 +177,13 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     }
     // #909: no stored result — a new effect after a durable cancel is refused, the work not run
     checkSqliteCancel(database, key);
-    const result = work(database);
-    if (isThenable(result)) {
-      // its rejection is the work's own: the effect already failed with why
-      result.then(undefined, () => undefined);
-      throw new SyncWorkRequiredError({ effect: key.name });
-    }
-    const text = this.storedResultOf(key, result);
-    insertRowOf(database, key, now, text);
+    const text = this.storedResultOf(key, await work());
+    // the lease may have moved, or the cancel arrived, while the work ran: the transaction holds the
+    // file's write lock, but the lease's time runs on — checked again before the row is written
+    const after = this.clock.now().getTime();
+    checkSqliteFence(database, key, after);
+    checkSqliteCancel(database, key);
+    insertRowOf(database, key, after, text);
     return {
       status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,
@@ -237,9 +227,4 @@ function sqliteLeaseOf(
   return row === undefined ? undefined : LeaseRow.parse(row);
 }
 
-sqliteImplementation(SqliteFencedEffectRepository);
-
-export {
-  SyncWorkRequiredError,
-  type SyncWorkRequiredErrorOptions,
-} from "../fenced-effect-errors.js";
+sqliteImplementation(SqliteFencedEffectRepository, { ungated: ["runInTransaction"] });

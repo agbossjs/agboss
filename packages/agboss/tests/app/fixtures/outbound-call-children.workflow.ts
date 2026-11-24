@@ -85,7 +85,7 @@ export class ChildChargeAction {
 export class UnmaskedChargeAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly effects: FencedEffectRepository<unknown>,
+    private readonly effects: FencedEffectRepository,
     private readonly repository: OutboundCallRepository,
     private readonly paymentGateway: PaymentGateway,
   ) {}

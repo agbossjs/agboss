@@ -1,3 +1,4 @@
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -9,7 +10,6 @@ import {
   WorkflowStart,
   type Produced,
 } from "../../../src/index.js";
-import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -112,10 +112,10 @@ export class GuardedAction {
       key: input.message.value.text,
       withoutFingerprint: true,
       ttl: hours(24),
-      execute: async (transaction) => {
+      execute: async () => {
         await seen.gate;
         // the effect is part of the transaction: a refused or revoked one never applies it
-        (transaction as InMemoryFencedEffectTransaction).onCommit(() => {
+        onEffectCommit(() => {
           seen.effects += 1;
         });
         return { done: true };
@@ -146,8 +146,8 @@ export class MixedAction {
       key: input.message.value.text,
       withoutFingerprint: true,
       ttl: hours(24),
-      execute: (transaction) => {
-        (transaction as InMemoryFencedEffectTransaction).onCommit(() => {
+      execute: () => {
+        onEffectCommit(() => {
           seen.effects += 1;
         });
         return { done: true };

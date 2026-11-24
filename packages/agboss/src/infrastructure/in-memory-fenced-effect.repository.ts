@@ -33,28 +33,7 @@ import {
   type InMemoryDatabase,
 } from "./in-memory-database.js";
 import { assertFingerprintDecided } from "./fenced-effect-fingerprint.js";
-
-/** Applies a committed transaction's writes, in order (module-private: only the store commits). */
-let applyWrites: (transaction: InMemoryFencedEffectTransaction) => void;
-
-/**
- * The transaction of an in-memory fenced effect (#500): a write buffer — what `onCommit` is given
- * runs once the effect's result is stored, in order, and never when the work throws.
- */
-export class InMemoryFencedEffectTransaction {
-  readonly #writes: (() => void)[] = [];
-
-  static {
-    applyWrites = (transaction) => {
-      for (const write of transaction.#writes) write();
-    };
-  }
-
-  /** Applies `write` (a business row of the effect) when the transaction commits. */
-  onCommit(write: () => void): void {
-    this.#writes.push(write);
-  }
-}
+import { appliedEffectWrites, inEffectWrites } from "./in-memory-effect-writes.js";
 
 /**
  * The built-in default (#500): marks and results in the instance's `InMemoryDatabase` beside the
@@ -65,7 +44,7 @@ export class InMemoryFencedEffectTransaction {
 @Injectable({
   deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
-export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
+export class InMemoryFencedEffectRepository extends FencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   /**
@@ -85,7 +64,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
 
   protected runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
@@ -100,7 +79,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
 
   async #transaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
     const stored = this.#stored(key);
@@ -117,8 +96,10 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     }
     // #909: no stored result — a new effect after a durable cancel is refused, the work not run
     checkInMemoryCancel(this.database, key);
-    const transaction = new InMemoryFencedEffectTransaction();
-    const text = this.storedResultOf(key, await work(transaction));
+    // an in-memory effect has no transaction to hand out: the writes a test's rows buffer for it
+    // (`onEffectCommit`) are applied once the result is stored, and never when the work throws
+    const writes = inEffectWrites();
+    const text = this.storedResultOf(key, await writes.run(work));
     // the lease may have moved, or the cancel arrived, while the work ran: checked again before
     // anything is applied
     checkInMemoryFence(this.database, this.clock, key);
@@ -134,7 +115,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       ...storedKeyFactsOf(key),
     };
     this.database.fencedEffectResults.set(effectKeyIdentityOf(key), row);
-    applyWrites(transaction);
+    appliedEffectWrites(writes);
     return {
       status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,

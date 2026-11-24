@@ -211,6 +211,8 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
   }
 }
 
-sqliteImplementation(SqliteExecutionLeaseRepository);
+// a renewal (and the cancel read after it) is one statement served ahead of the queue: a long
+// `runOnce` can never make its own lease expire (#1317c)
+sqliteImplementation(SqliteExecutionLeaseRepository, { priority: ["renew", "isCancelRequested"] });
 
 export { SqliteExecutionAuditLogRepository } from "./sqlite-execution-audit-log.repository.js";

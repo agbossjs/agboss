@@ -31,7 +31,7 @@ import type { InterleavingOptions } from "./explorer/register.js";
 /** The fencing targets of a set, as `storeConformance` builds them. */
 export interface FencingTargets {
   readonly executionLease?: ContractTarget<ExecutionLeaseRepository> | undefined;
-  readonly fencedEffect?: ContractTarget<FencedEffectTarget<unknown>> | undefined;
+  readonly fencedEffect?: ContractTarget<FencedEffectTarget> | undefined;
   readonly outboundCall?: ContractTarget<OutboundCallTarget> | undefined;
 }
 

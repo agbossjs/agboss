@@ -2,8 +2,7 @@
  * #890 AC3 (API review G8, A-runtime Part 9): the errors of 0.1.1 have one shape — an options bag for
  * two facts or more, its keys the error's own fields (`effect` on a fenced effect's, `call` on an
  * outbound call's, `cause` among them), a literal `static code` so `switch (error.code)` narrows —
- * and names that say what failed: `IdempotencyError.KeyConflict`, `ThreadIdsExhaustedError`,
- * `SyncWorkRequiredError`.
+ * and names that say what failed: `IdempotencyError.KeyConflict`, `ThreadIdsExhaustedError`.
  */
 import {
   IdempotencyError,
@@ -16,17 +15,15 @@ import {
   InvalidMintedIdError,
   KeyTextRule,
   QuestionFailedError,
-  SyncWorkRequiredError,
   ThreadIdsExhaustedError,
 } from "../../src/index.js";
 
 describe("#890 AC3: the errors say what failed", () => {
-  it("AC3: IdempotencyError.KeyConflict, ThreadIdsExhaustedError, SyncWorkRequiredError, with codes by mechanism", () => {
+  it("AC3: IdempotencyError.KeyConflict, ThreadIdsExhaustedError, with codes by mechanism", () => {
     expect(new IdempotencyError.KeyConflict({ effect: "charge" }).code).toBe(
       "idempotency.key-conflict",
     );
     expect(ThreadIdsExhaustedError.code).toBe("run.thread-ids-exhausted");
-    expect(SyncWorkRequiredError.code).toBe("fenced-effect.sync-work-required");
   });
 
   it("AC3: the old names are gone from the root entry, no aliases", () => {

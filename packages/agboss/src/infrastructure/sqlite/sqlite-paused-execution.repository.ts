@@ -27,9 +27,12 @@ import { SqlitePauseStore } from "./sqlite-pause-store.js";
 @Injectable({ deps: [SqliteConnection, Clock] })
 export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   readonly #store: SqlitePauseStore;
+  // held for the file's mutex: every operation queues behind a runOnce transaction (#1317c)
+  private readonly connection: SqliteConnection;
 
   constructor(connection: SqliteConnection, clock: Clock) {
     super();
+    this.connection = connection;
     this.#store = new SqlitePauseStore(connection, clock);
   }
 

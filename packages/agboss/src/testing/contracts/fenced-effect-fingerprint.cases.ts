@@ -18,7 +18,7 @@ import {
  * calls in flight on one instance, one with `""` and one with none, are not joined.
  */
 
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** `null`: no fingerprint; `""`: the empty one. */
 type Fingerprint = "" | null;
@@ -26,10 +26,7 @@ type Fingerprint = "" | null;
 const nameOf = (fingerprint: Fingerprint): string =>
   fingerprint === null ? "none" : 'fingerprint ""';
 
-const storedApart = <TTransaction>(
-  written: Fingerprint,
-  asked: Fingerprint,
-): Case<TTransaction> => ({
+const storedApart = (written: Fingerprint, asked: Fingerprint): Case => ({
   name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is IdempotencyError.KeyConflict: nothing runs`,
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -51,7 +48,7 @@ const storedApart = <TTransaction>(
   },
 });
 
-const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
+const emptyReplaysEmpty = (): Case => ({
   name: '#574: under one business key fingerprint "" replays "": the store keeps the empty text, not none',
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -75,10 +72,7 @@ const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const inFlightApart = <TTransaction>(
-  leading: Fingerprint,
-  following: Fingerprint,
-): Case<TTransaction> => ({
+const inFlightApart = (leading: Fingerprint, following: Fingerprint): Case => ({
   name: `#574: on one instance a call with ${nameOf(following)} in flight beside one with ${nameOf(leading)} is refused, not joined`,
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -102,7 +96,7 @@ const inFlightApart = <TTransaction>(
   },
 });
 
-const racingApart = <TTransaction>(): Case<TTransaction> => ({
+const racingApart = (): Case => ({
   name: '#574: two instances racing under one business key, one with fingerprint "" and one with none, write once and refuse the other',
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -128,16 +122,14 @@ const racingApart = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The empty-fingerprint cases. */
-export const fingerprintCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const fingerprintCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "an empty fingerprint is not none",
   cases: [
-    storedApart<TTransaction>("", null),
-    storedApart<TTransaction>(null, ""),
-    emptyReplaysEmpty<TTransaction>(),
-    inFlightApart<TTransaction>("", null),
-    inFlightApart<TTransaction>(null, ""),
-    racingApart<TTransaction>(),
+    storedApart("", null),
+    storedApart(null, ""),
+    emptyReplaysEmpty(),
+    inFlightApart("", null),
+    inFlightApart(null, ""),
+    racingApart(),
   ],
 });

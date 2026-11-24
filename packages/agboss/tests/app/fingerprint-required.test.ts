@@ -84,7 +84,7 @@ describe("#825 AC1: two effects under one business key with other work", () => {
 });
 
 /** A store whose transaction a refused key never reaches. */
-class UnreachedStore extends FencedEffectRepository<void> {
+class UnreachedStore extends FencedEffectRepository {
   ping(): Promise<void> {
     return Promise.resolve();
   }

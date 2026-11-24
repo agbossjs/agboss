@@ -31,7 +31,7 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** How long the work waits for the hand-over before it ends (real time: a bounded race, #523). */
 const HAND_OVER_WAIT = 500 as Milliseconds;
@@ -58,16 +58,16 @@ const PAST_EXPIRY = 350 as Milliseconds;
 const ATTEMPTS = 10;
 
 /** The holder's write: its row, then the hand-over started and waited for, a bounded while. */
-function writingThroughHandOver<TTransaction>(
-  stores: { first: FencedEffectTarget<TTransaction>; second: FencedEffectTarget<TTransaction> },
+function writingThroughHandOver(
+  stores: { first: FencedEffectTarget; second: FencedEffectTarget },
   lease: ExecutionLease,
   seen: Seen,
   how: HandOver,
-): FencedEffectWork<TTransaction, Receipt> {
+): FencedEffectWork<Receipt> {
   const receipt: Receipt = { receipt: "holder" };
-  return (transaction) => {
+  return () => {
     seen.isWorkRun = true;
-    const inserted = stores.first.rows.insert(transaction, "holder");
+    const inserted = stores.first.rows.insert("holder");
     if (inserted === undefined) return receipt;
     return inserted.then(async () => {
       if (how === HandOver.Expiry) await systemClock.sleep(PAST_EXPIRY);
@@ -86,11 +86,8 @@ function writingThroughHandOver<TTransaction>(
 }
 
 /** One attempt: the write run, the hand-over made inside it, and what the case asserts of both. */
-async function attempt<TTransaction>(
-  {
-    first,
-    second,
-  }: { first: FencedEffectTarget<TTransaction>; second: FencedEffectTarget<TTransaction> },
+async function attempt(
+  { first, second }: { first: FencedEffectTarget; second: FencedEffectTarget },
   how: HandOver,
   executionId: string,
 ): Promise<boolean> {
@@ -118,7 +115,7 @@ async function attempt<TTransaction>(
   return seen.isWorkRun;
 }
 
-export const handOverDuringWrite = <TTransaction>(): Case<TTransaction> => ({
+export const handOverDuringWrite = (): Case => ({
   name: "#695: the lease released and taken while its holder's write runs: the hand-over waits for the write, or the write is refused — never the take during the work and the write landing after it",
   isFencing: true,
   run: async (stores) => {
@@ -126,7 +123,7 @@ export const handOverDuringWrite = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-export const expiryDuringWrite = <TTransaction>(): Case<TTransaction> => ({
+export const expiryDuringWrite = (): Case => ({
   name: "#959: the lease running out and taken while its holder's write runs: the take waits for the write, or the write is refused — never the take of the expired lease during the work and the write landing after it",
   isFencing: true,
   // real time, the store's own clock: the lease runs out while the write is open

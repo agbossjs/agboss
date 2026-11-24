@@ -1580,67 +1580,18 @@ model writes it in pieces — a `<` is held back only while what follows can sti
 streamed and trailing whitespace is held until text follows it, so the deltas of the steps that
 were not discarded, joined, are exactly `output`.
 
-**Fencing an external write** (#471). A step runs at least once: a holder frozen past its lease may
-wake and write after the new holder did. `executionContext.fence` is the lease the step runs under
-— `scopeKey`, `token` (the fencing token, a counter of that one lease), `assertHeld()`,
-`renewNow()` — so the external system keeps the highest token of each `scopeKey` and refuses a
-lower one, in the same transaction as the step's `idempotencyKey`:
-
-<!-- snippet-context
-import { Action, ExecutionContext, ExecutionFencedError, Injectable } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
--->
-
-```ts
-/** The external ledger: the fence and the idempotency key checked in one transaction. */
-@Injectable()
-export class ReleaseLedger {
-  readonly #highest = new Map<string, number>();
-  readonly #written = new Set<string>();
-
-  stage(write: { scopeKey: string; token: number; idempotencyKey: string }): void {
-    const highest = this.#highest.get(write.scopeKey) ?? 0;
-    if (write.token < highest)
-      throw ExecutionFencedError.of({ ...write, observedToken: highest });
-    this.#highest.set(write.scopeKey, write.token);
-    this.#written.add(write.idempotencyKey); // a replay of the same step writes nothing new
-  }
-}
-
-@Action({
-  name: "stage-release-action",
-  description: "Stages the release, fenced by the lease",
-  input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, ReleaseLedger],
-})
-export class StageReleaseAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly releaseLedger: ReleaseLedger,
-  ) {}
-
-  async execute(): Promise<void> {
-    const { fence, step } = this.executionContext;
-    fence.assertHeld();
-    this.releaseLedger.stage({
-      scopeKey: fence.scopeKey,
-      token: fence.token,
-      idempotencyKey: step.idempotencyKey,
-    });
-    await fence.renewNow(); // before a call that cannot check tokens (a webhook)
-  }
-}
-```
-
-A refused write throws `ExecutionFencedError` (`extends ExecutionLeaseLostError`) — found in any
-cause chain, it is a hand-over: no `.onError`, no undo, the record stays `running` and the call
-rejects with it — and it is kept (#501): a `HandedOver` row of the audit log
-(`app.auditLogOf`) and an `onStepHandedOver` (`reason`, `site`, the step, `token`,
-`observedToken`), so a zombie refused at a write is told apart from one that never wrote again,
-from the public API alone; an idempotent write's call (#500) is an `IdempotencyRun` row and an
-`onIdempotencyRun` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
-`ChildPlacement.AnyWorker` children each hold a lease (and a token) of their own. Exactly-once
-holds only when the external system checks both atomically. A test freezes a writer with
+**Fencing an external write** (#471, #1317c). A step runs at least once: a holder frozen past its lease
+may wake and write after the new holder did. Domain code gets no raw fence and no raw transaction:
+the lease's `scopeKey` and fencing `token`, the step's `idempotencyKey` and the checks are made by
+`Idempotency` — `runOnce` for rows of the application's own database, `sendOnce` for a call that
+leaves the system (the key it sends is a 43-character HMAC of them). A write refused because the
+lease moved is `ExecutionError.Fenced` (`ExecutionFencedError`, `extends ExecutionLeaseLostError`),
+found in any cause chain: a hand-over — no `.onError`, no undo, the record stays `running` and the call
+rejects with it — and it is kept (#501): a `HandedOver` row of the audit log (`app.auditLogOf`) and
+an `onStepHandedOver` (`reason`, `site`, the step, `token`, `observedToken`); an idempotent write's call
+is an `IdempotencyRun` row and an `onIdempotencyRun` too (`Ran`, `Replayed`, `Joined`, `Refused`). The
+low-level `ExecutionFence` (`scopeKey`, `token`, `assertHeld()`, `renewNow()`, `fencedError()`) is a
+type of `@agboss/core/stores`, for a store author. A test freezes a writer with
 `testWith(App, { instances: 2 })` and `leases.freeze(apps[0])` on the `VirtualClock`; a unit runner's
 step has a held lease (`fence: { token, isLost, renewNowFails }`).
 
@@ -1655,13 +1606,17 @@ else `execute` writes its rows and its result is stored with them (`Ran`). A con
 of one instance gets the first's result (`Joined`); a throwing `execute` rolls everything back. The
 built-in store is in memory; `SqliteFencedEffectRepository` (listed with
 `SqliteExecutionLeaseRepository`: the stores declare one backend in `static store`, else
-`[application.store-backend-mismatch]`, #526) gives `execute` the
-connection's `DatabaseSync` (the component names its type) and runs it synchronously — a returned
-promise rolls back with `SyncWorkRequiredError`:
+`[application.store-backend-mismatch]`, #526) runs `execute` —
+asynchronous, as on PostgreSQL and MongoDB — in the file's one `BEGIN IMMEDIATE` transaction, held
+behind the connection's mutex (every other statement of the file waits for it, lease renewals
+excepted; the hold is capped at 15 s). `execute` is handed no transaction: a repository writes through
+`connection.requireTransaction()`, a guarded handle that dies with the attempt and poisons itself on
+the first failed statement (`IdempotencyError.TransactionPoisoned`; a `connection.transaction()` inside
+is `IdempotencyError.NestedTransaction`):
 
 <!-- snippet-context
-import type { DatabaseSync } from "node:sqlite";
 import { Action, Idempotency } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import { hours } from "@agboss/core/units";
 import { Text } from "@agboss/core/dto";
 export class OrderDto {
@@ -1678,11 +1633,12 @@ export class ChargeReceiptDto {
   description: "Charges the order once per step",
   input: { order: OrderDto },
   output: ChargeReceiptDto,
-  deps: [Idempotency], // the store is the application's: SQLite's here
+  deps: [Idempotency, SqliteConnection], // the store is the application's: SQLite's here
 })
 export class ChargeOrderAction {
   constructor(
     private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
   ) {}
 
   async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
@@ -1690,9 +1646,10 @@ export class ChargeOrderAction {
     const { result } = await this.idempotency.runOnce({
       name: "charge",
       ttl: hours(24),
-      execute: (database: DatabaseSync) => {
-        // synchronous: the row and the receipt commit together, with the fencing checks
-        const { lastInsertRowid } = database
+      execute: () => {
+        // the row and the receipt commit together, with the fencing checks
+        const { lastInsertRowid } = this.connection
+          .requireTransaction()
           .prepare("INSERT INTO charges (order_id) VALUES (?)")
           .run(orderId);
         return { chargeId: `charge-${String(lastInsertRowid)}` };

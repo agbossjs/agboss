@@ -31,39 +31,39 @@ export type { FencedEffectBusinessRows, FencedEffectTarget } from "./fenced-effe
  * with `StoreConformanceError`, or are skipped under `acceptWithoutDoubleChargeProtection: true`,
  * and the suite then shows `gives NO double-charge protection …` as a passing case of its own.
  */
-export function fencedEffectContract<TTransaction>(
-  target: ContractTarget<FencedEffectTarget<TTransaction>>,
+export function fencedEffectContract(
+  target: ContractTarget<FencedEffectTarget>,
   options: FencingContractOptions = {},
 ): void {
   registerFencedEffectContract(target, optOutOf(options, true));
 }
 
 /** The fenced-effect suite, its opt-out shown by it or (`storeConformance`) by the set's suite. */
-export function registerFencedEffectContract<TTransaction>(
-  target: ContractTarget<FencedEffectTarget<TTransaction>>,
+export function registerFencedEffectContract(
+  target: ContractTarget<FencedEffectTarget>,
   optOut: OptOut,
 ): void {
   registerContract(
     "fenced effect contract",
     target,
     [
-      writeCases<TTransaction>(),
-      refusalCases<TTransaction>(),
-      expiryCases<TTransaction>(),
-      rollbackCases<TTransaction>(),
-      unknownOutcomeCases<TTransaction>(),
-      concurrencyCases<TTransaction>(),
-      isolationCases<TTransaction>(),
-      housekeepingCases<TTransaction>(),
-      textCases<TTransaction>(),
-      businessKeyCases<TTransaction>(),
-      fingerprintCases<TTransaction>(),
-      keyTextCases<TTransaction>(),
-      zombieCases<TTransaction>(),
-      cancelCases<TTransaction>(),
-      cancelEdgeCases<TTransaction>(),
-      cancelPermanentCases<TTransaction>(),
-      cancelRaceCases<TTransaction>(),
+      writeCases(),
+      refusalCases(),
+      expiryCases(),
+      rollbackCases(),
+      unknownOutcomeCases(),
+      concurrencyCases(),
+      isolationCases(),
+      housekeepingCases(),
+      textCases(),
+      businessKeyCases(),
+      fingerprintCases(),
+      keyTextCases(),
+      zombieCases(),
+      cancelCases(),
+      cancelEdgeCases(),
+      cancelPermanentCases(),
+      cancelRaceCases(),
     ],
     (stores) => stores.effects.ping(),
     { storeOf: (stores) => stores.effects, ...optOut },

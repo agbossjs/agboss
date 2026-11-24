@@ -8,7 +8,6 @@ import type {
   IdempotencyRunOutcome,
   FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
-import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { StoreClock } from "../../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
@@ -36,7 +35,7 @@ export const listening = { hangs: false, asked: 0 };
 export class ListeningFencedEffects extends InMemoryFencedEffectRepository {
   override runOnce<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     listening.asked += 1;
     const signal = currentFrame()?.execution.lease?.signal;

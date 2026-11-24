@@ -165,7 +165,7 @@ export interface Infrastructure {
   /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyWorker`). */
   readonly childQueue: ChildExecutionQueueRepository;
   /** The protected writes of steps (#500): their results and the scopes' marks. */
-  readonly fencedEffects: FencedEffectRepository<unknown>;
+  readonly fencedEffects: FencedEffectRepository;
   /** The audit log (#501): takeovers and hand-overs, always written. */
   readonly auditLog: ExecutionAuditLogRepository;
   /** The intents of calls that leave the system (#505): recorded before each is sent. */
@@ -211,7 +211,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   a2aDirectMessages: resolve(A2ADirectMessageRepository) as A2ADirectMessageRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
-  fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
+  fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository,
   auditLog: resolve(ExecutionAuditLogRepository) as ExecutionAuditLogRepository,
   outboundCalls: resolve(OutboundCallRepository) as OutboundCallRepository,
 });

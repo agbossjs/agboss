@@ -33,7 +33,6 @@ export type IdempotencyKeyChoice<TFingerprint> =
 export type IdempotencyRunOptions<
   TResult,
   TFingerprint = never,
-  TTransaction = unknown,
 > = IdempotencyKeyChoice<TFingerprint> & {
   /** The effect's name (1–100 of `[A-Za-z0-9._-]`): several in one step are apart. */
   readonly name: string;
@@ -47,11 +46,11 @@ export type IdempotencyRunOptions<
   /** The largest stored result, in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
   readonly maxResultSize?: Bytes;
   /**
-   * The protected write, in the store's transaction with the result: it writes only through its
-   * `transaction` and does nothing else — no call to another system, nothing sent or counted
-   * outside (a store may run it again, #730).
+   * The protected write, in the store's transaction with the result. It is handed no transaction:
+   * a repository writes through its connection's `requireTransaction()`, which rolls back with the
+   * effect on any uncaught error, identically on SQLite, PostgreSQL and MongoDB. It does nothing
+   * else — no call to another system, nothing sent or counted outside (a store may run it again,
+   * #730).
    */
-  readonly execute: (
-    transaction: TTransaction,
-  ) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+  readonly execute: () => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 };

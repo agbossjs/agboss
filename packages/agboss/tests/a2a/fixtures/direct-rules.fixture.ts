@@ -37,7 +37,7 @@ interface Message {
 /** A service two hops from the effect store: what a tool injects. */
 @Injectable({ deps: [FencedEffectRepository] })
 export class LedgerWriter {
-  constructor(readonly effects: FencedEffectRepository<unknown>) {}
+  constructor(readonly effects: FencedEffectRepository) {}
 }
 
 @Injectable({ deps: [LedgerWriter] })

@@ -7,6 +7,7 @@ import {
 } from "../../../index.js";
 import { FAULT_BUSINESS_ROWS, type FaultBusinessRows } from "../fault-stores.js";
 import { hours } from "../../../units/index.js";
+import { fenceOf } from "../../../flow/context/execution-fence.js";
 import { FaultChargeDto, FaultReservationDto, FaultOrderDto } from "./order.dto.js";
 import { FaultPodLink, FaultStepPoint } from "./pod-link.js";
 
@@ -31,7 +32,7 @@ export const whereOf = (
   executionId: executionContext.executionId,
   rootExecutionId: executionContext.root.executionId,
   tenantId: executionContext.tenant.tenantId,
-  token: executionContext.fence.token,
+  token: fenceOf(executionContext).token,
 });
 
 @Action({
@@ -125,12 +126,12 @@ export class FaultChargeAction {
     await this.faultPodLink.atStep(FaultStepPoint.ChargeBefore, where, signal);
     if (decline) throw new FaultChargeDeclinedError(`the card of ${orderId} was declined`);
     const row = `charge:${this.executionContext.executionId}`;
-    const receipt = { chargeId: `${row}@${String(this.executionContext.fence.token)}` };
+    const receipt = { chargeId: `${row}@${String(fenceOf(this.executionContext).token)}` };
     const outcome = await this.idempotency.runOnce({
       name: "charge",
       ttl: hours(24),
-      execute: (transaction) => {
-        const inserted = this.faultBusinessRows.insert(transaction, row);
+      execute: () => {
+        const inserted = this.faultBusinessRows.insert(row);
         return inserted === undefined ? receipt : inserted.then(() => receipt);
       },
     });

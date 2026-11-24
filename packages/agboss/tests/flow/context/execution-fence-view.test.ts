@@ -1,3 +1,4 @@
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 /**
  * #471 — the fence view on its own: a frame whose lease is yielded (or holds no token) refuses every
  * member by name, `renewNow()` rejecting rather than throwing; `fenceOver` reads its lease at each
@@ -6,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExecutionFacts, Frame, FrameLease } from "../../../src/flow/context/frame.js";
 import { fenceOver, liveFenceOf } from "../../../src/flow/context/execution-fence.js";
-import { ExecutionContextUnavailableError, ExecutionFencedError } from "../../../src/index.js";
+import { ExecutionContextUnavailableError, ExecutionError } from "../../../src/index.js";
 
 const leaseWith = (overrides: Partial<FrameLease>): FrameLease => ({
   tenantId: "acme",
@@ -48,7 +49,7 @@ describe.each([
   it.each(SYNC_MEMBERS)("refuses %s by its name", (member, read) => {
     expect(() => read(fence)).toThrow(ExecutionContextUnavailableError);
     expect(() => read(fence)).toThrow(
-      `ReleaseAction read executionContext.fence.${member} while its lease is yielded for remote children.`,
+      `ReleaseAction read the lease fence.${member} while its lease is yielded for remote children.`,
     );
   });
 
@@ -56,7 +57,7 @@ describe.each([
     const confirmed = fence.renewNow();
 
     await expect(confirmed).rejects.toThrow(ExecutionContextUnavailableError);
-    await expect(confirmed).rejects.toThrow("executionContext.fence.renewNow while its lease");
+    await expect(confirmed).rejects.toThrow("the lease fence.renewNow while its lease");
   });
 });
 
@@ -84,7 +85,7 @@ describe("#471: fenceOver", () => {
     const fenced = fence.fencedError();
 
     expect(fence.token).toBe(0);
-    expect(fenced).toBeInstanceOf(ExecutionFencedError);
+    expect(fenced).toBeInstanceOf(ExecutionError.Fenced);
     expect(fenced).toMatchObject({ scopeKey: "acme:root-1", token: 0, observedToken: undefined });
   });
 

@@ -88,8 +88,8 @@ export type ExplorerAction =
 /** One instance's stores of the explored backend: the leases, and what else the world uses. */
 export interface ExplorerStores {
   readonly leases: ExecutionLeaseRepository;
-  readonly effects?: FencedEffectRepository<unknown>;
-  readonly rows?: FencedEffectBusinessRows<unknown>;
+  readonly effects?: FencedEffectRepository;
+  readonly rows?: FencedEffectBusinessRows;
   readonly calls?: OutboundCallRepository;
 }
 

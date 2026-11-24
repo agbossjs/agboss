@@ -64,7 +64,7 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
   });
 });
 
-type AnyStores = FencedEffectTarget<unknown>;
+type AnyStores = FencedEffectTarget;
 
 const TARGETS: readonly (readonly [string, () => ContractTarget<AnyStores>])[] = [
   ["in-memory", () => inMemoryTarget(inMemoryFencedEffects(false))],

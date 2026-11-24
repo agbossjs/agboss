@@ -1,3 +1,4 @@
+import { FENCE } from "../../src/flow/context/execution-fence.js";
 /**
  * #626 — the business-key identity's own rules, each found by a mutant that lived: the
  * fingerprint and the handle are derived under their labels (known-answer values), outside a step
@@ -13,7 +14,6 @@ import {
 } from "../../src/infrastructure/idempotency-errors.js";
 import { describe, expect, it } from "vitest";
 import { keyProblemOf } from "../../src/infrastructure/issued-keys.js";
-import { SyncWorkRequiredError } from "../../src/infrastructure/fenced-effect-errors.js";
 import { runInFrame, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   BUSINESS_KEY_HANDLE_LABEL,
@@ -143,7 +143,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
         visitNumber: 1,
         idempotencyKey: "execution-1:charge-action:1",
       },
-      fence: {
+      [FENCE]: {
         scopeKey: "default:execution-1",
         tenantId: "default",
         leaseExecutionId: "execution-1",
@@ -223,7 +223,7 @@ describe("#626: the key errors", () => {
           {
             root: { executionId: "execution-1" },
             step: { nodeId: "n", visitNumber: 1, idempotencyKey: "k" },
-            fence: {},
+            [FENCE]: {},
           } as never,
           "charge",
           { businessKey: "" },
@@ -252,7 +252,7 @@ describe("#909: the tree a key's cancel fences, and an undo's key", () => {
         idempotencyKey: "child-7:charge-action:1",
         ...extra,
       },
-      fence: {
+      [FENCE]: {
         scopeKey: "default:child-7",
         tenantId: "default",
         leaseExecutionId: "child-7",
@@ -303,13 +303,5 @@ describe("#825/#909: why a key made by hand is refused", () => {
     expect(new IdempotencyError.InvalidKey({ message: "not a key" }).name).toBe(
       "IdempotencyError.InvalidKey",
     );
-    expect(new SyncWorkRequiredError({ effect: "charge", cause })).toMatchObject({
-      name: "SyncWorkRequiredError",
-      code: "fenced-effect.sync-work-required",
-      effect: "charge",
-      cause,
-      message:
-        'fenced effect "charge" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call',
-    });
   });
 });

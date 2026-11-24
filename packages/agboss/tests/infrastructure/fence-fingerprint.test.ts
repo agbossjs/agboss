@@ -14,7 +14,6 @@ import {
 } from "../../src/index.js";
 import { type EffectKey } from "../../src/stores/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import type { InMemoryFencedEffectTransaction } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteFencedEffectRepository } from "../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
@@ -36,14 +35,14 @@ const application = applicationContextOf({
 
 /** A store whose entry skips every check of `runOnce`: straight to its transaction. */
 class EntrylessEffects extends InMemoryFencedEffectRepository {
-  write<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>) {
+  write<TResult>(key: EffectKey, work: FencedEffectWork<TResult>) {
     return this.runInTransaction(key, work);
   }
 }
 
 /** The same on SQLite. */
 class EntrylessSqliteEffects extends SqliteFencedEffectRepository {
-  write<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>) {
+  write<TResult>(key: EffectKey, work: FencedEffectWork<TResult>) {
     return this.runInTransaction(key, work);
   }
 }

@@ -16,7 +16,7 @@ import {
 } from "../../../src/index.js";
 import { effectKeyOf } from "../../../src/stores/index.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
-import { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Bytes, type Usd } from "../../../src/units/index.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
@@ -128,9 +128,9 @@ export class ChargeOrderAction {
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects
-      .runOnce(key, (transaction): Receipt => {
+      .runOnce(key, (): Receipt => {
         const chargeId = `charge-${order}-${String(key.token)}${"x".repeat(charging.padding)}`;
-        transaction.onCommit(() => book.charges.push({ order, token: key.token, chargeId }));
+        onEffectCommit(() => book.charges.push({ order, token: key.token, chargeId }));
         return { chargeId };
       })
       .catch((error: unknown) => {
@@ -145,7 +145,7 @@ export class ChargeOrderAction {
 
 /**
  * Charges one order twice at once in one step: the second call joins the first. It injects the
- * contract — whatever store the application lists — so its transaction is `unknown` to it.
+ * contract — whatever store the application lists.
  */
 @Action({
   name: "double-charge-action",
@@ -157,7 +157,7 @@ export class ChargeOrderAction {
 export class DoubleChargeAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: FencedEffectRepository<unknown>,
+    private readonly fencedEffects: FencedEffectRepository,
   ) {}
 
   async execute(input: {
@@ -165,10 +165,8 @@ export class DoubleChargeAction {
   }): Promise<ChargeReceiptDto> {
     const key = effectKeyOf(this.executionContext, "charge");
     const order = input.message.value.text;
-    const charge = (transaction: unknown): Receipt => {
-      if (!(transaction instanceof InMemoryFencedEffectTransaction))
-        throw new TypeError("the store is not the in-memory one");
-      transaction.onCommit(() => book.charges.push({ order, token: key.token, chargeId: order }));
+    const charge = (): Receipt => {
+      onEffectCommit(() => book.charges.push({ order, token: key.token, chargeId: order }));
       return { chargeId: order };
     };
     const outcomes = await Promise.all([

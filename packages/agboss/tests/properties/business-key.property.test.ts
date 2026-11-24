@@ -184,8 +184,8 @@ async function outcomesOf(
     });
     expected.push(expectedOf(call, first));
     const write = (): Promise<IdempotencyRunOutcome<{ request: string }>> =>
-      stores.effects.runOnce(key, (transaction) => {
-        void stores.rows.insert(transaction, `${tree}:${call.request}`);
+      stores.effects.runOnce(key, () => {
+        void stores.rows.insert(`${tree}:${call.request}`);
         return { request: call.request };
       });
     const settled = await Promise.allSettled(call.isDoubled ? [write(), write()] : [write()]);

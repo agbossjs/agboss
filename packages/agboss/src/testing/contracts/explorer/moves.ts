@@ -59,8 +59,8 @@ async function written(run: ExplorerRun, instance: number, tree: string): Promis
   run.writes.add(`${String(instance)}|${tree}|${String(token)}`);
   const isAfterCancel = run.observer.cancelled.has(tree);
   const row = `effect:${tree}:instance-${String(instance)}:${String(token)}`;
-  const outcome = await effects.runOnce(effectKeyOf(tree, token), (transaction) => {
-    const inserted = rows.insert(transaction, row);
+  const outcome = await effects.runOnce(effectKeyOf(tree, token), () => {
+    const inserted = rows.insert(row);
     return inserted === undefined ? row : inserted.then(() => row);
   });
   run.observer.accepted(

@@ -279,8 +279,8 @@ describe.each(CALL_TARGETS)("#538 AC2: outbound-call intents (%s)", (_kind, targ
 });
 
 /** The fenced-effect property on `target`'s stores, whatever their transaction. */
-function effectsProperty<TTransaction>(
-  target: ContractTarget<FencedEffectTarget<TTransaction>>,
+function effectsProperty(
+  target: ContractTarget<FencedEffectTarget>,
   numRuns: number,
 ): () => Promise<void> {
   return withTarget(target, async ({ first, second }) => {

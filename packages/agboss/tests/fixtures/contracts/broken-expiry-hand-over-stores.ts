@@ -54,7 +54,7 @@ class MarkingEffects extends UnlockedCheckEffects {
 
   protected override async runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<DeferredTransaction, TResult>,
+    work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const mark = treeKeyOf(key.tenantId, key.leaseExecutionId);
     const call = super.runInTransaction(key, work);
@@ -105,9 +105,7 @@ export const releaseLockedLeases: StoreFactory<ReleaseLockedLeases> = (seam) =>
   new ReleaseLockedLeases(seam.storeClock, seam.application, seam.database, openWritesOf(seam));
 
 /** The fenced-effect target of one instance on those stores. */
-export const releaseLockedEffects: StoreFactory<FencedEffectTarget<DeferredTransaction>> = (
-  seam,
-) => ({
+export const releaseLockedEffects: StoreFactory<FencedEffectTarget> = (seam) => ({
   effects: new MarkingEffects(seam, unlockedResultsOf(seam), openWritesOf(seam)),
   leases: releaseLockedLeases(seam),
   rows: unlockedRowsOf(seam),

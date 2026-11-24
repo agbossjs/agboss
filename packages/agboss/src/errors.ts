@@ -148,10 +148,6 @@ export {
 export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export {
-  SyncWorkRequiredError,
-  type SyncWorkRequiredErrorOptions,
-} from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
-export {
   CostLedgerCutoffInvalidError,
   type CostLedgerCutoffInvalidErrorOptions,
   CostLedgerEntryExpiredError,
