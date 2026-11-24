@@ -2,7 +2,6 @@ import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { verdictOfJudge } from "../../judges/declarative-judge.js";
 import type {
-  AnyJudgeInput,
   JudgedOutput,
   JudgeOutputOf,
   JudgeVerdict,
@@ -100,7 +99,7 @@ export function judgeUnit<
       ...given,
       toolCalls: given.toolCalls ?? [],
       files: given.files ?? [],
-    } as unknown as AnyJudgeInput;
+    } as never;
     // the container creates the class itself: an instance of the judge, `judge` included
     const handler = site.instanceOf(judge) as RunnableJudge;
     const frame = {

@@ -6,6 +6,7 @@ import {
   EmptyEnvironment,
   Router,
   Workflow,
+  inline,
 } from "../../../../agboss/src/index.js";
 import { WorkflowStartTextDto } from "../../../../agboss/src/dto/index.js";
 import { testDefaults } from "../../../../agboss/tests/helpers.js";
@@ -31,7 +32,7 @@ export class Scout {}
   name: "main-router",
   description: "Sends the task to the scout, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick one.\nThe boards: {{bords}}",
+  prompt: inline("Pick one.\nThe boards: {{bords}}"),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 4,

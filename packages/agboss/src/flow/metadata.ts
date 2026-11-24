@@ -117,7 +117,7 @@ function describedBy(options: MetadataOptions): ValueMetadata {
  * LookupVendorAction` and an exhaustive `switch` on it both work.
  */
 // the spec makes it a class of static methods: one name that is both the call site and the type
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+// (`no-extraneous-class` allows it for this file in eslint.config.js)
 export abstract class Metadata {
   static of<TComponent extends Class>(
     value: Tracked<object, TComponent>,

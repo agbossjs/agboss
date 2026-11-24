@@ -11,7 +11,7 @@ import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-che
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { DeskDatabaseStorage } from "./storage/desk.database-storage.js";
+import { DeskDatabaseStorage } from "./storages/desk.database-storage.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 
 /**

@@ -1,5 +1,5 @@
 // `agboss rag index` interrupted (#891 AC5): a knowledge base whose index runs until its signal aborts
-import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
+import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,
@@ -51,7 +51,7 @@ export class SlowRag extends RagSource {
 @Agent({
   name: "slow-reader-agent",
   description: "Reads the slow knowledge base",
-  prompt: "Read.",
+  prompt: inline("Read."),
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
   rag: [SlowRag],

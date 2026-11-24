@@ -19,8 +19,9 @@ import { ItemDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 import { onStart } from "../helpers/flow.js";
 
 /** A database the application chose itself. */
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-class SqliteDatabaseStub {}
+class SqliteDatabaseStub {
+  readonly isStub = true;
+}
 
 const NAME = "isolated-application";
 

@@ -81,7 +81,6 @@ export function keysAndCallsShard() {
       // #825: the fingerprint decision and its idempotency keys, the keys the framework made, the
       // key's errors moved out of fenced-effect-key.ts
       "src/infrastructure/fenced-effect-fingerprint.ts",
-      "src/infrastructure/fenced-effect-errors.ts",
       "src/infrastructure/idempotency-errors.ts",
       "src/infrastructure/issued-keys.ts",
       // the key text rules every id passes, and the error classes around them

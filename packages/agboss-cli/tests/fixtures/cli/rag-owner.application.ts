@@ -1,6 +1,6 @@
 // `agboss rag index` fixture: an owner-scoped knowledge base — an owner id is unique within a tenant
 // only, so the command names the tenant too
-import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
+import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,
@@ -32,7 +32,7 @@ export class OwnerNotesRag extends RagSource {
 @Agent({
   name: "owner-reader-agent",
   description: "Reads an owner's notes",
-  prompt: "Read.",
+  prompt: inline("Read."),
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
   rag: [OwnerNotesRag],

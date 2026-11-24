@@ -30,7 +30,10 @@ const goodCard = (over: Record<string, unknown> = {}): Record<string, unknown> =
   ...over,
 });
 const answering =
-  (body: BodyInit, headers: Record<string, string> = {}): typeof fetch =>
+  (
+    body: ConstructorParameters<typeof Response>[0],
+    headers: Record<string, string> = {},
+  ): typeof fetch =>
   () =>
     Promise.resolve(new Response(body, { headers }));
 const jsonOf = (card: unknown): typeof fetch => answering(JSON.stringify(card));

@@ -93,7 +93,7 @@ describe("#1366: group priority and the group's own steps", () => {
     expect(() => priorityOf(null)).toThrow(FlowSyntaxError);
   });
 
-  const path = { steps: [{ kind: StepKind.To } as never as Step] };
+  const path = { steps: [{ kind: StepKind.To } as Step] };
 
   it("the group's own path is the one given; its targets are as listed", () => {
     const group = quorumGroupOf([AgentX, AgentX], undefined, path);

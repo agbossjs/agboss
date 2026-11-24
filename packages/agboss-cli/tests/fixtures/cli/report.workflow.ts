@@ -9,6 +9,7 @@ import {
   BudgetScope,
   EmptyEnvironment,
   type BudgetHandler,
+  inline,
 } from "../../../../agboss/src/index.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Agent } from "../../../../agboss/src/flow/decorators/agent.js";
@@ -48,7 +49,7 @@ export class ItemReportWorkflowStart {}
 @Agent({
   name: "item-reporter-agent",
   description: "Reports on one item",
-  prompt: "Report on the item.",
+  prompt: inline("Report on the item."),
   model: "test/item-reporter",
   input: { item: ReportItemDto },
   output: ItemReportDto,
@@ -95,7 +96,7 @@ export class PickItemsAction {
 @Agent({
   name: "batch-reporter-agent",
   description: "Sums the item reports up",
-  prompt: "Sum the reports up.",
+  prompt: inline("Sum the reports up."),
   model: "test/batch-reporter",
   input: { reports: listOf(ItemReportDto) },
   output: BatchReportDto,

@@ -182,7 +182,8 @@ describe("testUnit: a model router", () => {
   });
 
   it("a code router's answer outside its routes is RouterDecisionError", async () => {
-    const runRouter = testUnit(OffRouteRouter);
+    // its answer is outside its routes, so the generated types have no runner for it: called untyped
+    const runRouter: (input: unknown) => Promise<unknown> = testUnit(OffRouteRouter) as never;
 
     await expect(
       runRouter({ request: produced(QuoteWorkflowStart, { product: "x", quantity: 1 }) }),

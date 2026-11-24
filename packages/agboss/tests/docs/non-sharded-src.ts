@@ -173,12 +173,20 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/server/a2a-request-handler.ts"],
   ),
   ...reviewed(
-    "the tenant gate of App (#1324e): a call that needs a tenant and names none is refused at its entry with ValidationError.TenantRequired, and the kept executions are read for the named tenant only; every operation and the no-store-read, no-default-tenant cases are pinned by tests/app/tenant-required.test.ts. A mutation shard of the three files is a follow-up for the final run",
-    [
-      "src/app/tenant-gate.ts",
-      "src/application/tenant-gated-app.ts",
-      "src/application/execution-listing.ts",
-    ],
+    "the name `provider` of a charge no model provider made (#1313b): one string constant; nothing decides on it; covered by tests/finops/usage-records.test.ts",
+    ["src/finops/no-provider.ts"],
+  ),
+  ...reviewed(
+    "the grouped limits' type (#1286, #1318c): a type re-exported from the root entry, no runtime code; the limits themselves are checked in the sharded limit-rules; covered by tests/application/limit-rules-direct.test.ts",
+    ["src/public/application-limits.ts"],
+  ),
+  ...reviewed(
+    "the storage settings of a container that is no application's (`agboss check`, a workflow on its own, #1321): reads the one listing application's driver settings from the process variables, leaves a missing variable out; no spend, lease, fence or limit decision of its own — which store holds them is decided in the sharded storage-assembly; covered by tests/storage/storage-application.test.ts",
+    ["src/storage/standalone-storage.ts"],
+  ),
+  ...reviewed(
+    "the variables a component names through defineEnv, found for `agboss check --env` (#1324): a walk of decorator options listing variable names, never a value; it decides nothing at run time; covered by tests/storage/referenced-variables.test.ts",
+    ["src/application/referenced-variables.ts"],
   ),
   ...reviewed(
     "the paging shape and the tenant-safety argument types of App (#1324e): type declarations and one brand symbol, no runtime rule; the runtime refusal is ValidationError.TenantRequired, in the error families; pinned by the type tests in tests/app",

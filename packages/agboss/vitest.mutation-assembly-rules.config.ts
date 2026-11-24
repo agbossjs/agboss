@@ -22,6 +22,7 @@ export default defineConfig({
       "tests/health/{rules,health-rules-direct}.test.ts",
       "tests/components/tool-expiry-direct.test.ts",
       "tests/storage/*.test.ts",
+      "tests/app/tenant-required.test.ts",
     ],
   },
 });

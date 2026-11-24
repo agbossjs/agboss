@@ -7,6 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
@@ -33,7 +34,7 @@ export class AnswerWorkflowFinish {}
 @Agent({
   name: "answering-agent",
   description: "Answers",
-  prompt: "Answer the question.",
+  prompt: inline("Answer the question."),
   model: "stream/model",
 })
 export class AnsweringAgent {}

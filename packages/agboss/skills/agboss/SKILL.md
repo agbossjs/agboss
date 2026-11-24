@@ -47,6 +47,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `rerankers/<name>.reranker.ts`, `retrievers/<name>.retriever.ts`,
    `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-expose.ts`,
    `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
+   `storages/<name>.database-storage.ts`, `file-policies/<name>.file-policy.ts`,
    `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
    `contexts/<name>.context.ts`, `infrastructure/<name>.<contract>.ts` (your own `Logger`, `IdGenerator`,
    `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts`, `scripts/<name>.ts` (run by `npm run`),

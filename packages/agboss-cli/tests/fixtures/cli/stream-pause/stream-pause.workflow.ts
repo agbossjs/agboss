@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
+  inline,
 } from "../../../../../agboss/src/index.js";
 import {
   Text,
@@ -80,7 +81,7 @@ export class PauseRefund {
 @Agent({
   name: "pause-clerk-agent",
   description: "Refunds orders",
-  prompt: "Refund the order the user names.",
+  prompt: inline("Refund the order the user names."),
   model: "stream/model",
   tools: [PauseRefund],
 })

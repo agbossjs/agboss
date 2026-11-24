@@ -31,9 +31,10 @@ describe("#1328b: mockRag", () => {
     const stub = mocks
       .mockRag(Handbook)
       .thenReturn({ results: [{ source: "a.md", text: "A" }], costUsd: usd(0.5) });
-    const handbook = created(mocks, new Handbook()) as unknown as {
-      retrieve(query: string): Promise<unknown>;
-    };
+    const handbook: { retrieve(query: string): Promise<unknown> } = created(
+      mocks,
+      new Handbook(),
+    ) as never;
 
     await expect(handbook.retrieve("leave?")).resolves.toEqual({
       results: [{ source: "a.md", text: "A" }],
@@ -45,9 +46,10 @@ describe("#1328b: mockRag", () => {
   it("a failure is thrown in its turn; a call with nothing left fails the test", async () => {
     const { book, mocks } = mocksOf(Handbook);
     mocks.mockRag(Handbook).thenFail(new Error("index down"));
-    const handbook = created(mocks, new Handbook()) as unknown as {
-      retrieve(query: string): Promise<unknown>;
-    };
+    const handbook: { retrieve(query: string): Promise<unknown> } = created(
+      mocks,
+      new Handbook(),
+    ) as never;
 
     await expect(handbook.retrieve("a")).rejects.toThrow("index down");
     await expect(handbook.retrieve("b")).rejects.toMatchObject({ code: "test.script-exhausted" });
@@ -82,10 +84,10 @@ describe("#1328b: mockA2A", () => {
     const stub = mocks
       .mockA2A(BillingDeskA2AAgent)
       .thenReturn({ answer: "paid" }, { answer: "due" });
-    const agent = created(mocks, new BillingDeskA2AAgent()) as unknown as {
+    const agent: {
       execute(input: unknown): Promise<unknown>;
       send(message: string): Promise<unknown>;
-    };
+    } = created(mocks, new BillingDeskA2AAgent());
 
     await expect(agent.execute({ question: "invoice 7?" })).resolves.toEqual({ answer: "paid" });
     await expect(agent.send("invoice 8?")).resolves.toEqual({ answer: "due" });

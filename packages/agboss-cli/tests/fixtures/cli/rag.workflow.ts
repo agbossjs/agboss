@@ -1,6 +1,6 @@
 // `agboss rag index` fixture (#268 AC12): two agents share one knowledge base that builds an index
 // (a tenant's own), one of them reads a second that has none; a third is shared and builds one
-import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
+import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,
@@ -64,7 +64,7 @@ export class GuidesRag extends RagSource {
 @Agent({
   name: "reader-agent",
   description: "Reads notes and the handbook",
-  prompt: "Read.",
+  prompt: inline("Read."),
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
   rag: [NotesRag, HandbookRag],
@@ -74,7 +74,7 @@ export class ReaderAgent {}
 @Agent({
   name: "writer-agent",
   description: "Writes from the notes",
-  prompt: "Write.",
+  prompt: inline("Write."),
   model: "test/beta",
   price: testConfig.agents.alpha.price,
   rag: [NotesRag, GuidesRag],

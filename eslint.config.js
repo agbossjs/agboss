@@ -148,6 +148,11 @@ export default tseslint.config(
     },
   },
   {
+    // `Metadata` is a class of static methods by spec: one name that is both the call site and the type
+    files: ["packages/agboss/src/flow/metadata.ts"],
+    rules: { "@typescript-eslint/no-extraneous-class": ["error", { allowStaticOnly: true }] },
+  },
+  {
     files: ["packages/agboss/src/**/*.ts"],
     ignores: [
       "packages/agboss/src/llm/**",

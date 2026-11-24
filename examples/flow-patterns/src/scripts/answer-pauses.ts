@@ -34,7 +34,7 @@ function lineOf(pauseId: string, outcome: PromiseSettledResult<ExecutionOutput>)
 const app = await createApp(FlowPatternsApplication);
 try {
   const outcomes = await Promise.allSettled(
-    positionals.map((pauseId) => app.resume({ pauseId, decision })),
+    positionals.map((pauseId) => app.resume({ pauseId, decision }, { tenantId: "default" })),
   );
   outcomes.forEach((outcome, index) => {
     process.stdout.write(`${lineOf(positionals[index] ?? "?", outcome)}\n`);

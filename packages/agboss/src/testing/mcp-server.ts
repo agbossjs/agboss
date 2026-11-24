@@ -32,7 +32,7 @@ export async function withMcpTestServers(
   use: (fixture: McpServerFixture) => Promise<void>,
 ): Promise<void> {
   // a built test app answers what the listener reads of an app (`resolve`, `execute`, the mesh settings it remembers)
-  const served = app as unknown as App;
+  const served: App = app as never;
   await withLoopbackServers(app, async (start) => {
     await use(async (endpoint, options = {}) => {
       const { mcpHttpListener } = await lazyLoad(import("../mcp/mcp-http-listener.js"));

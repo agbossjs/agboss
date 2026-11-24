@@ -33,7 +33,7 @@ import { ReviewWorkflow } from "./review/workflows/review/review.workflow.js";
 import { TopicResearchWorkflow } from "./topic/workflows/topic-research/topic-research.workflow.js";
 import { VendorScreeningWorkflow } from "./vendor/workflows/vendor-screening/vendor-screening.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
-import { FlowPatternsDatabaseStorage } from "./storage/flow-patterns.database-storage.js";
+import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-storage.js";
 
 /**
  * The patterns as one application (#261): `app.execute(OfferWorkflowStart, …)` runs the review

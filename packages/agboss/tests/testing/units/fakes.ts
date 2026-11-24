@@ -39,7 +39,7 @@ export const produced = <TProducer, TValue>(
   routes: [{ target: PriceQuoteAction }],
 })
 export class OffRouteRouter {
-  route(): unknown {
+  route(): typeof ManualQuoteWorkflowFinish {
     return ManualQuoteWorkflowFinish;
   }
 }

@@ -43,7 +43,7 @@ npm test                              # scripted models only: no key, no network
 
 The tests never call a model. The desk runs for real offline — its model provider
 (`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool.
-The desk's `DeskDatabaseStorage` (`src/storage/`) keeps its stores in SQLite and reads the PII key, which the
+The desk's `DeskDatabaseStorage` (`src/storages/`) keeps its stores in SQLite and reads the PII key, which the
 desk's PII policy needs outside tests (any value: it only makes tokens):
 
 ```bash
@@ -106,7 +106,7 @@ shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
-`.agboss/flow-patterns.sqlite` (git-ignored; `FlowPatternsDatabaseStorage` in `src/storage/`, its path
+`.agboss/flow-patterns.sqlite` (git-ignored; `FlowPatternsDatabaseStorage` in `src/storages/`, its path
 `AGBOSS_SQLITE_PATH`), so a paused run waits across processes.
 
 ## Real runs

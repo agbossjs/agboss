@@ -1054,7 +1054,7 @@ import { BillingQuestionDto } from "../dto/billing-question.dto.js";
   target: { application: "billing-application", skill: "billing-workflow-start" },
   input: BillingQuestionDto,
   output: BillingAnswerDto,
-  price: usd(0.002),
+  costPerCall: usd(0.002),
   deps: [ExecutionContext],
 })
 export class BillingDeskA2AAgent extends A2AClient<BillingQuestionDto, BillingAnswerDto> {

@@ -104,6 +104,12 @@ export function assemblyRulesShard() {
       "src/storage/storage-rules.ts",
       "src/storage/storage-secret-rules.ts",
       "src/storage/ttl-problem.ts",
+      // #1286b: which database the forks of an IsolatedWorker child share
+      "src/application/isolated-storage.ts",
+      // #1324e: the tenant gate of App — a call that names no tenant is refused before any store is read
+      "src/app/tenant-gate.ts",
+      "src/application/tenant-gated-app.ts",
+      "src/application/execution-listing.ts",
     ],
   };
 }

@@ -236,6 +236,8 @@ export const KINDS: ReadonlySet<string> = new Set([
   "mcp",
   "a2a",
   "model-providers",
+  "storages",
+  "file-policies",
   "health-checks",
   "eval-suites",
   "contexts",
