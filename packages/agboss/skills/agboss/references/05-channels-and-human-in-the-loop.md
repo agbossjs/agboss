@@ -386,7 +386,7 @@ export class SlackSpendingLimitChannel extends SpendingLimitQuestion {
   }
 
   async send(ask: ChannelAsk<SpendingLimitQuestion>): Promise<ChannelOutcome<SpendingLimitQuestion>> {
-    const { item, priceUsd } = ask.value; // typed by the role's ask: PurchaseDto
+    const { item, priceUsd } = ask.input; // typed by the role's ask: PurchaseDto
     if (priceUsd <= 50) return ChannelOutcome.decided({ approved: true, limitUsd: 50 }); // the answer DTO
     await this.slackClientService.postApproval(ask.pauseId, `Limit for ${item} ($${String(priceUsd)})?`);
     return ChannelOutcome.awaitReply();

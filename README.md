@@ -1640,7 +1640,7 @@ export class ChargeOrderAction {
     private readonly connection: SqliteConnection,
   ) {}
 
-  async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
+  async execute(input: { order: OrderDto }): Promise<ChargeReceiptDto> {
     const { orderId } = input.order;
     const { result } = await this.idempotency.runOnce({
       name: "charge",

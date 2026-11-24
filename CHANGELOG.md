@@ -433,31 +433,25 @@ index` (as before) — a running instance does not re-read a folder on its own.
   | `EvalPauseTrace` (`@agboss/core/eval`)                           | `responder?`                                 | `answeredBy?`                                        | `responder`, `@deprecated`; a saved run artifact reads with either key                 |
   | `describe` JSON, `DescribedChannel`                              | `answeredBy`                                 | `answerer`                                           | `answeredBy` emitted too                                                               |
 
-  **Breaking (silent):** `PauseAnswerRecord.answeredBy` keeps its name and changes its meaning — before:
-  the kind (`"channel"` or `"thread-owner"`), now: the person who answered (`"manager-17"`, or
-  `undefined`). Nothing fails to compile (`PauseAnswerer` is a string enum) and no alias can keep the
-  old meaning, so an audit filter written for 0.1.0 still builds and quietly matches nobody:
+  **Breaking (silent):** `PauseAnswerRecord.answeredBy` is gone: the person who answered is its `actor`
+  (`{ id, orgId? }`, #1307), the kind its `answerer`. An audit filter written for 0.1.0 on `answeredBy`
+  no longer compiles; one written on `answerer` keeps its meaning only as the kind:
 
   ```ts
   import { PauseAnswerer, type PauseAnswerRecord } from "@agboss/core";
 
   declare const pauses: readonly PauseAnswerRecord[]; // `result.record.pauses`
 
-  // BEFORE, 0.1.0 — the audit filter: the pauses a channel answered.
-  // On 0.1.1 this very line still compiles and matches nobody: `answeredBy` is "manager-17" now.
-  export const before = pauses.filter((pause) => pause.answeredBy === PauseAnswerer.Channel);
-
-  // AFTER, 0.1.1 — the same filter on `answerer`; who answered is `answeredBy`
+  // BEFORE, 0.1.0 — the audit filter: `pause.answeredBy === PauseAnswerer.Channel`, the pauses a channel
+  // answered. It matches nobody on 0.1.1: the person who answered is `actor` now, the kind is `answerer`.
+  // AFTER, 0.1.1 — the same filter on `answerer`; who answered is `actor.id`
   export const after = pauses.filter((pause) => pause.answerer === PauseAnswerer.Channel);
-  export const answeredByManager = pauses.filter((pause) => pause.answeredBy === "manager-17");
+  export const answeredByManager = pauses.filter((pause) => pause.actor?.id === "manager-17");
   ```
 
   The same goes for a column of an export of `result.record.pauses` or of `agboss executions export`:
-  `answeredBy` is the person now (`responder` holds the same value until 0.2), `answerer` the kind.
-  **`PauseRecord.answeredBy`** (the store contract's record, deprecated) is **never filled from
-  0.1.1**: a record the core returns has `answerer` and no `answeredBy` (`undefined`), so a 0.1.0
-  reader of it gets `undefined`, not a kind — it is not a read-only alias with a value; a store of
-  your own may still write it (the core reads `answerer ?? answeredBy`). **Stored data:** nothing is
+  `actor` is the person, `answerer` the kind. `PauseRecord.answeredBy` (the store contract's record) is
+  gone too: a record has `answerer`. **Stored data:** nothing is
   migrated; every store reads what 0.1.0 wrote with the new names (SQLite including `pauses.answer` and
   its answer log, PostgreSQL, MongoDB, the kept execution history records and their children's pauses,
   a saved eval run artifact), through `pauseRecordOfJson`, `pauseAnswerRecordOfValue` and
@@ -466,8 +460,8 @@ index` (as before) — a running instance does not re-read a folder on its own.
   its names, a log entry's — and return the record with the new names; a value that is neither shape
   throws `StoredNamesUnreadableError` (`stored.unreadable`), naming the record's id and the field, never
   a value. **Migration:** `@ChannelRole({ answerer })`; `pending[i].answerer`;
-  `record.pauses[i].answerer` for the kind and `.answeredBy` for the person; `answer.answeredBy` for
-  `answer.answerer`.
+  `record.pauses[i].answerer` for the kind and `.actor` for the person; the person of a
+  `PauseAnswer` is `answer.actor` (0.1.0: `answer.answerer`).
 
 - **Under `CI`, the VCR refuses every mode that records against real models** (#839) — an explicit
   `RECORD` or `RECORD_STALE`, or `AUTO` with no cassette (set by `vcr.mode` or `AGBOSS_VCR_MODE`),
