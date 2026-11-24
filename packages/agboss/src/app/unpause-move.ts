@@ -89,7 +89,11 @@ export async function unpausedMove(
 ): Promise<ExecutionOutput> {
   const { deps, leases, paused } = parts;
   const tree = treeOf(state);
-  const lease = await leases.hold(tree, call.signal, rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed));
+  const lease = await leases.hold(
+    tree,
+    call.signal,
+    rootTakeOf(deps.pause, state.runId, LeaseTakeoverReason.Resumed),
+  );
   try {
     const ended = await hooks.endedAtTake(state, lease);
     if (ended instanceof Error) throw ended;
@@ -102,7 +106,9 @@ export async function unpausedMove(
     }
     // another unpause lifted it while this one waited for the lease
     if ((await leases.pauseOf(tree)).pause === undefined) {
-      throw new PauseError.NotPaused({ message: `thread "${state.threadId}" is not paused from outside` });
+      throw new PauseError.NotPaused({
+        message: `thread "${state.threadId}" is not paused from outside`,
+      });
     }
     const isBusiness = (await paused.find(state))?.run.runId === state.runId;
     if (isBusiness) return await liftedAtRest(parts, hooks, { state, call, command, lease });
