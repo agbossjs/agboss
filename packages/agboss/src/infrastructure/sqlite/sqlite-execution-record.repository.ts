@@ -1,3 +1,4 @@
+import type { Page } from "../../app/page.js";
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
@@ -16,7 +17,7 @@ import { Clock, IdGenerator, mintedThreadIdsOf } from "../clock.js";
 import {
   ExecutionRecordRepository,
   TurnStoreRecordRepository,
-  type ExecutionRecordStatus,
+  type ExecutionRecordStatusQuery,
 } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
@@ -90,8 +91,8 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     return this.#records.byIds(ids);
   }
 
-  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]> {
-    return this.#records.findByStatus(status, limit, after);
+  findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    return this.#records.findByStatus(query);
   }
 
   findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined> {

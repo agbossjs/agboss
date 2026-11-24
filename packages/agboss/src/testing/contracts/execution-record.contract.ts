@@ -71,11 +71,17 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       }
       await first.append(record(thread, "run-4", ExecutionRecordStatus.Answered));
 
-      const page = await second.findByStatus(ExecutionRecordStatus.Running, 2);
-      const next = await second.findByStatus(ExecutionRecordStatus.Running, 2, page.at(-1)?.id);
+      const page = await second.findByStatus({ status: ExecutionRecordStatus.Running, limit: 2 });
+      const next = await second.findByStatus({
+        status: ExecutionRecordStatus.Running,
+        limit: 2,
+        cursor: page.nextCursor,
+      });
 
-      expect(page.map((item) => item.runId)).toEqual(["run-1", "run-2"]);
-      expect(next.map((item) => item.runId)).toEqual(["run-3"]);
+      expect(page.items.map((item) => item.runId)).toEqual(["run-1", "run-2"]);
+      expect(page.nextCursor).toBeDefined();
+      expect(next.items.map((item) => item.runId)).toEqual(["run-3"]);
+      expect(next.nextCursor).toBeUndefined();
       expect((await second.byIds(ids)).map((item) => item.status)).toEqual([
         "running",
         "running",

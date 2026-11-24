@@ -122,11 +122,13 @@ describe("#401 PR 1: the history of root executions", () => {
       mockLlm(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
       await expect(execute(app, DeskWorkflowStart, { text: REFUND }, contexts)).rejects.toThrow();
-      const [kept] = await historyOf(app).findAllByStartedAtBetween(
-        new Date(0),
-        new Date("2100-01-01T00:00:00.000Z"),
-        { offset: 0, limit: 10 },
-      );
+      const {
+        items: [kept],
+      } = await historyOf(app).findAllByStartedAtBetween({
+        from: new Date(0),
+        to: new Date("2100-01-01T00:00:00.000Z"),
+        limit: 10,
+      });
 
       expect(kept?.status).toBe(ExecutionHistoryStatus.Failed);
       expect(kept?.error?.code).toEqual(expect.any(String));

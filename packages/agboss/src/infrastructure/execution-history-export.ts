@@ -1,3 +1,4 @@
+import type { Page } from "../app/page.js";
 import type {
   ExecutionHistoryRecord,
   ExecutionHistoryRepository,
@@ -36,18 +37,20 @@ export async function* historyRecordsOf(
   history: ExecutionHistoryRepository,
   query: HistoryExportQuery,
 ): AsyncGenerator<ExecutionHistoryRecord> {
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const page = { offset, limit: PAGE_SIZE };
-    const found =
+  let cursor: string | undefined;
+  do {
+    const { from, to } = query;
+    const page: Page<ExecutionHistoryRecord> =
       query.tenantId === undefined
-        ? await history.findAllByStartedAtBetween(query.from, query.to, page)
-        : await history.findAllByTenantIdAndStartedAtBetween(
-            query.tenantId,
-            query.from,
-            query.to,
-            page,
-          );
-    yield* found;
-    if (found.length < PAGE_SIZE) return;
-  }
+        ? await history.findAllByStartedAtBetween({ from, to, limit: PAGE_SIZE, cursor })
+        : await history.findAllByTenantIdAndStartedAtBetween({
+            tenantId: query.tenantId,
+            from,
+            to,
+            limit: PAGE_SIZE,
+            cursor,
+          });
+    yield* page.items;
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
 }

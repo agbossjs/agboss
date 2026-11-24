@@ -2,9 +2,12 @@ import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
   ExecutionHistoryRepository,
-  type ExecutionHistoryPage,
+  type ExecutionHistoryQuery,
+  type TenantExecutionHistoryQuery,
   type ExecutionHistoryRecord,
 } from "../execution-history.repository.js";
+import type { Page } from "../../app/page.js";
+import { listingWindowOf, pageOfWindow } from "../listing-window.js";
 import { executionHistoryRecordOfJson } from "../stored-history.js";
 import { parsedStoredJson } from "../stored-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -82,30 +85,31 @@ export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository
   }
 
   findAllByTenantIdAndStartedAtBetween(
-    tenantId: string,
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
+    query: TenantExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
     const rows = this.connection.database
       .prepare(
         `SELECT execution_id, record FROM execution_history WHERE tenant_id = ? AND started_at >= ? AND started_at < ? ${ORDER} LIMIT ? OFFSET ?`,
       )
-      .all(tenantId, from.toISOString(), to.toISOString(), page.limit, page.offset);
-    return Promise.resolve(rows.map(recordOf));
+      .all(
+        query.tenantId,
+        query.from.toISOString(),
+        query.to.toISOString(),
+        window.limit + 1,
+        window.offset,
+      );
+    return Promise.resolve(pageOfWindow(rows.map(recordOf), window));
   }
 
-  findAllByStartedAtBetween(
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
+  findAllByStartedAtBetween(query: ExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
     const rows = this.connection.database
       .prepare(
         `SELECT execution_id, record FROM execution_history WHERE started_at >= ? AND started_at < ? ${ORDER} LIMIT ? OFFSET ?`,
       )
-      .all(from.toISOString(), to.toISOString(), page.limit, page.offset);
-    return Promise.resolve(rows.map(recordOf));
+      .all(query.from.toISOString(), query.to.toISOString(), window.limit + 1, window.offset);
+    return Promise.resolve(pageOfWindow(rows.map(recordOf), window));
   }
 
   deleteExpired(cutoff: Date): Promise<number> {

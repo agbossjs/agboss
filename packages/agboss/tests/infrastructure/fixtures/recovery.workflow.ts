@@ -1,3 +1,4 @@
+import type { Page } from "../../../src/app/page.js";
 import { until } from "../../helpers/until.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -6,7 +7,8 @@ import {
   ExecutionContext,
   ExecutionRecordRepository,
   ExecutionRecordStatus,
-  Injectable, Observer,
+  Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -20,7 +22,10 @@ import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { TurnStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
+import {
+  TurnStoreRecordRepository,
+  type ExecutionRecordStatusQuery,
+} from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { createSqliteTurnStore, type Turn } from "../../../src/turns/index.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
@@ -256,14 +261,12 @@ export class StampedExecutionRecordRepository extends TurnStoreRecordRepository 
     stores.records ??= this;
   }
 
-  override async findByStatus(
-    status: ExecutionRecordStatus,
-    limit: number,
-    after?: string,
-  ): Promise<Turn[]> {
-    const page = await super.findByStatus(status, limit, after);
+  override async findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    const page = await super.findByStatus(query);
     const configHash = levers.stampedHash;
-    return configHash === undefined ? page : page.map((record) => ({ ...record, configHash }));
+    return configHash === undefined
+      ? page
+      : { ...page, items: page.items.map((record) => ({ ...record, configHash })) };
   }
 }
 
@@ -285,11 +288,9 @@ export class ReceiptWorkflowFinish {}
     tools: { maxToolCalls: 8 },
   },
   uncompactedTurns: 1,
-  flow: [
-    onStart(OrderWorkflowStart)
-      .toAgent(Clerk)
-      .toFinish(ReceiptWorkflowFinish),
-  ],
+  flow: [onStart(OrderWorkflowStart)
+    .toAgent(Clerk)
+    .toFinish(ReceiptWorkflowFinish)],
 })
 export class RecoveryWorkflow {}
 

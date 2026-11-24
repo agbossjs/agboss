@@ -1,3 +1,4 @@
+import type { Page } from "../../../src/app/page.js";
 import { Application } from "../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -91,11 +92,11 @@ export class FlakyCostLedgerRepository extends InMemoryCostLedgerRepository {
 export class StallingExecutionRecordRepository extends InMemoryExecutionRecordRepository {
   override findByStatus(
     ...query: Parameters<InMemoryExecutionRecordRepository["findByStatus"]>
-  ): Promise<Turn[]> {
+  ): Promise<Page<Turn>> {
     if (!levers.isSweepStuck) return super.findByStatus(...query);
-    return new Promise<Turn[]>((resolve) => {
+    return new Promise<Page<Turn>>((resolve) => {
       levers.releaseSweep = () => {
-        resolve([]);
+        resolve({ items: [] });
       };
     });
   }

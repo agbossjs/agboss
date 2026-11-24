@@ -1,3 +1,7 @@
+import type { Page } from "../app/page.js";
+import { statusPageOf, type ExecutionRecordStatusQuery } from "./execution-record-status-page.js";
+
+export type { ExecutionRecordStatusQuery } from "./execution-record-status-page.js";
 import {
   createSqliteTurnStore,
   pauseAnswerEntryOf,
@@ -91,14 +95,10 @@ export abstract class ExecutionRecordRepository {
   abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
   abstract byIds(ids: readonly string[]): Promise<Turn[]>;
   /**
-   * A page of the records with `status`, oldest first: up to `limit`, after the record `after`
-   * (the last id of the previous page). Recovery reads `ExecutionRecordStatus.Running` (#265 S30).
+   * A page of the records with `query.status`, oldest first: up to `query.limit`, after the page
+   * whose `nextCursor` is `query.cursor`. Recovery reads `ExecutionRecordStatus.Running` (#265 S30).
    */
-  abstract findByStatus(
-    status: ExecutionRecordStatus,
-    limit: number,
-    after?: string,
-  ): Promise<Turn[]>;
+  abstract findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>>;
   /**
    * The record an execution of the tenant wrote (#808), by its id (`runId`, a root's: its A2A task
    * id) — the latest one if it wrote several —, however many later records its thread has;
@@ -215,8 +215,8 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   byIds(ids: readonly string[]): Promise<Turn[]> {
     return this.store.byIds(ids);
   }
-  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]> {
-    return this.store.byStatus(status, limit, after);
+  async findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    return statusPageOf(query, (limit, after) => this.store.byStatus(query.status, limit, after));
   }
   findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined> {
     return this.store.findByTenantIdAndRunId(tenantId, runId);

@@ -50,8 +50,11 @@ const interrupted = (): boolean | undefined => seen.holds[0]?.aborted;
 
 /** The `running` records now. */
 async function runningRecords(): Promise<number> {
-  const records = await stores.records?.findByStatus(ExecutionRecordStatus.Running, 10);
-  return records?.length ?? 0;
+  const records = await stores.records?.findByStatus({
+    status: ExecutionRecordStatus.Running,
+    limit: 10,
+  });
+  return records?.items.length ?? 0;
 }
 
 const hold = callTool(Hold, { text: "a long job" });

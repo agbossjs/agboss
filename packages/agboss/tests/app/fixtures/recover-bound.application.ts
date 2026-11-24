@@ -1,3 +1,4 @@
+import type { Page } from "../../../src/app/page.js";
 import { EmptyEnvironment, Injectable } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Clock, IdGenerator } from "../../../src/infrastructure/clock.js";
@@ -5,6 +6,7 @@ import {
   ExecutionRecordRepository,
   InMemoryExecutionRecordRepository,
   type ExecutionRecordStatus,
+  type ExecutionRecordStatusQuery,
 } from "../../../src/infrastructure/execution-record.repository.js";
 import { Logger, type LogEntry } from "../../../src/infrastructure/logger.js";
 import type { Turn } from "../../../src/turns/index.js";
@@ -36,14 +38,8 @@ export const resetRecover = (): void => {
 
 @Injectable({ deps: [Clock, IdGenerator] })
 export class HoldableRecordRepository extends InMemoryExecutionRecordRepository {
-  override findByStatus(
-    status: ExecutionRecordStatus,
-    limit: number,
-    after?: string,
-  ): Promise<Turn[]> {
-    return held.records
-      ? new Promise<Turn[]>(() => undefined)
-      : super.findByStatus(status, limit, after);
+  override findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    return held.records ? new Promise<Page<Turn>>(() => undefined) : super.findByStatus(query);
   }
 }
 

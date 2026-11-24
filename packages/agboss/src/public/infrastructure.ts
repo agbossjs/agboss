@@ -21,6 +21,11 @@ export {
   type StepHandedOverRecord,
   type EndedTree,
 } from "../infrastructure/execution-audit-log.repository.js";
+export type {
+  ExecutionHistoryQuery,
+  TenantExecutionHistoryQuery,
+} from "../infrastructure/execution-history.repository.js";
+export type { ExecutionRecordStatusQuery } from "../infrastructure/execution-record.repository.js";
 export {
   ChildExecutionQueueRepository,
   type ChildExecutionEnd,

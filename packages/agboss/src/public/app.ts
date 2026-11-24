@@ -92,7 +92,6 @@ export {
   ExecutionHistoryStatus,
   type ApplicationRecord,
   type ExecutionContextRecord,
-  type ExecutionHistoryPage,
   type ExecutionHistoryRecord,
 } from "../infrastructure/execution-history.repository.js";
 export {

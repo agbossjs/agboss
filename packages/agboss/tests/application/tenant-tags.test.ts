@@ -49,7 +49,9 @@ describe("#261 AC6: every stored record carries tenantId", () => {
       .findByTenantIdAndThreadId("haifa-clinic", paused.threadId);
     await app.resume(answerOf(paused, { approved: true }), { tenantId: "haifa-clinic" });
     const records = app.resolve(ExecutionRecordRepository);
-    const [record] = await records.findByStatus(ExecutionRecordStatus.Answered, 10);
+    const {
+      items: [record],
+    } = await records.findByStatus({ status: ExecutionRecordStatus.Answered, limit: 10 });
 
     expect(stored?.run).toMatchObject({ tenantId: "haifa-clinic", threadId: paused.threadId });
     expect(record).toMatchObject({ tenantId: "haifa-clinic", threadId: paused.threadId });

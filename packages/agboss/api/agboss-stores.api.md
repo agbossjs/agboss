@@ -784,11 +784,11 @@ export interface ExecutionData {
 }
 
 // @public
-export interface ExecutionHistoryPage {
+export interface ExecutionHistoryQuery extends PageQuery {
     // (undocumented)
-    readonly limit: number;
+    readonly from: Date;
     // (undocumented)
-    readonly offset: number;
+    readonly to: Date;
 }
 
 // @public
@@ -829,8 +829,8 @@ export const executionHistoryRecordOfJson: (value: unknown) => ExecutionHistoryR
 export abstract class ExecutionHistoryRepository {
     abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
-    abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
-    abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    abstract findAllByStartedAtBetween(query: ExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>>;
+    abstract findAllByTenantIdAndStartedAtBetween(query: TenantExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>>;
     abstract findAllByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<ExecutionHistoryRecord | undefined>;
     abstract ping(): Promise<void>;
@@ -921,7 +921,7 @@ export abstract class ExecutionRecordRepository {
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
-    abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]>;
+    abstract findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>>;
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
@@ -958,6 +958,12 @@ export enum ExecutionRecordStatus {
     Queued = "queued",
     Running = "running",
     Written = "written"
+}
+
+// @public
+export interface ExecutionRecordStatusQuery extends PageQuery {
+    // (undocumented)
+    readonly status: ExecutionRecordStatus;
 }
 
 // @public
@@ -2347,6 +2353,12 @@ export interface Summary {
 }
 
 // @public
+export interface TenantExecutionHistoryQuery extends ExecutionHistoryQuery {
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
 export interface TokenUsage {
     readonly cacheReadTokens: number;
     readonly cacheWriteTokens: number;
@@ -2699,11 +2711,13 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "endedAt".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "input".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "offset".
-// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "limit".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "from".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "to".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
 // src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
 // src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-record-status-page.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "append".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "byIds".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "saveScore".

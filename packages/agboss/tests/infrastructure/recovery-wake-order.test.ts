@@ -55,8 +55,8 @@ describe("#1187: a root the look wakes is recovered in the same sweep", () => {
       return Promise.resolve(true);
     });
     const records = {
-      findByStatus: (status: string) =>
-        Promise.resolve(record.status === status ? [recordOf(status)] : []),
+      findByStatus: ({ status }: { status: string }) =>
+        Promise.resolve({ items: record.status === status ? [recordOf(status)] : [] }),
       findByTenantIdAndRunId: () => Promise.resolve(recordOf(record.status)),
     };
     const log = { warn: vi.fn(), error: vi.fn() };

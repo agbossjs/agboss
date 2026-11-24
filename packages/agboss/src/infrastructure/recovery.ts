@@ -139,12 +139,12 @@ class Sweeper implements RecoverySweep {
     let after = this.#resumeAfter;
     this.#resumeAfter = undefined;
     for (;;) {
-      const page = await this.sources.records.findByStatus(
-        ExecutionRecordStatus.Running,
-        PAGE,
-        after,
-      );
-      for (const record of page) {
+      const page = await this.sources.records.findByStatus({
+        status: ExecutionRecordStatus.Running,
+        limit: PAGE,
+        ...(after === undefined ? {} : { cursor: after }),
+      });
+      for (const record of page.items) {
         if (this.#stopped.signal.aborted) return;
         if (allowed <= 0) {
           this.#resumeAfter = after;
@@ -153,7 +153,7 @@ class Sweeper implements RecoverySweep {
         if (this.#recover(record)) allowed -= 1;
         after = record.id;
       }
-      if (page.length < PAGE || this.#stopped.signal.aborted) return;
+      if (page.nextCursor === undefined || this.#stopped.signal.aborted) return;
     }
   }
 

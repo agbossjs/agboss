@@ -38,11 +38,13 @@ async function historyOf(app: App): Promise<FaultFacts["records"]> {
   const from = new Date(0);
   const to = new Date("9999-12-31T23:59:59.999Z"); // an ISO text a store compares as text
   const records: FaultFacts["records"][number][] = [];
-  for (let offset = 0; ; offset += 100) {
-    const page = await history.findAllByStartedAtBetween(from, to, { offset, limit: 100 });
-    records.push(...page);
-    if (page.length < 100) return records;
-  }
+  let cursor: string | undefined;
+  do {
+    const page = await history.findAllByStartedAtBetween({ from, to, limit: 100, cursor });
+    records.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
+  return records;
 }
 
 /** The facts of the run as this pod reads them, every root of `rootExecutionIds` and the history. */
