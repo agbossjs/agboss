@@ -81,23 +81,15 @@ const routerUse = (
   model: RouterModel,
   config: AgentsConfigOf<string>,
   kinds?: ProviderKinds,
-): ModelUse =>
-  model.kind === "jev" ||
-  (model.modelProvider !== undefined &&
-    purposeOf(model.model, model.modelProvider, kinds) === ModelKind.Decisions)
-    ? {
-        key,
-        model: model.model,
-        purpose: ModelKind.Decisions,
-        ...providerOf(model.modelProvider),
-      }
-    : {
-        key,
-        model: model.model,
-        purpose: ModelKind.Chat,
-        ...providerOf(model.modelProvider),
-        settings: resolveSettings(model, config.defaults.models),
-      };
+): ModelUse => {
+  const isDecisions =
+    model.kind === "jev" ||
+    (model.modelProvider !== undefined &&
+      purposeOf(model.model, model.modelProvider, kinds) === ModelKind.Decisions);
+  const purpose = isDecisions ? ModelKind.Decisions : ModelKind.Chat;
+  const settings = isDecisions ? {} : { settings: resolveSettings(model, config.defaults.models) };
+  return { key, model: model.model, purpose, ...providerOf(model.modelProvider), ...settings };
+};
 
 /** A reply interpreter (#267 PR 3): its model, or none for a code one. */
 export interface ModelNamingInterpreter {

@@ -191,7 +191,9 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } }
 @Workflow({
   name: "fast-workflow",
   version: "1.0.0",
-  flow: [onStart(FastStart).toAgent(FastAgent).toFinish(FastFinish)],
+  flow: [onStart(FastStart)
+    .toAgent(FastAgent)
+    .toFinish(FastFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -200,7 +202,9 @@ export class FastWorkflow {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
-  flow: [onStart(PlainStart).toAgent(PlainAgent).toFinish(PlainFinish)],
+  flow: [onStart(PlainStart)
+    .toAgent(PlainAgent)
+    .toFinish(PlainFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -209,7 +213,9 @@ export class PlainWorkflow {}
 @Workflow({
   name: "own-workflow",
   version: "1.0.0",
-  flow: [onStart(OwnStart).toAgent(OwnAgent).toFinish(OwnFinish)],
+  flow: [onStart(OwnStart)
+    .toAgent(OwnAgent)
+    .toFinish(OwnFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -218,7 +224,9 @@ export class OwnWorkflow {}
 @Workflow({
   name: "literal-workflow",
   version: "1.0.0",
-  flow: [onStart(LiteralStart).toAgent(LiteralAgent).toFinish(LiteralFinish)],
+  flow: [onStart(LiteralStart)
+    .toAgent(LiteralAgent)
+    .toFinish(LiteralFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -250,7 +258,9 @@ export class UnlistedApplication {}
 @Workflow({
   name: "bare-workflow",
   version: "1.0.0",
-  flow: [onStart(BareStart).toAgent(PlainAgent).toFinish(BareFinish)],
+  flow: [onStart(BareStart)
+    .toAgent(PlainAgent)
+    .toFinish(BareFinish)],
   defaults,
   uncompactedTurns: 1,
   modelProvider: BareChatModels,
@@ -270,7 +280,9 @@ export class BareApplication {}
 @Workflow({
   name: "no-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(NopStart).toAgent(FastAgent).toFinish(NopFinish)],
+  flow: [onStart(NopStart)
+    .toAgent(FastAgent)
+    .toFinish(NopFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -290,7 +302,9 @@ export class NoProviderApplication {}
 @Workflow({
   name: "decision-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(DecStart).toAgent(LiteralAgent).toFinish(DecFinish)],
+  flow: [onStart(DecStart)
+    .toAgent(LiteralAgent)
+    .toFinish(DecFinish)],
   defaults,
   uncompactedTurns: 1,
   modelProvider: DecisionModels,

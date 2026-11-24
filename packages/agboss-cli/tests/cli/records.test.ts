@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ComponentKind, ExecutionHistoryStatus, type ExecutionHistoryRecord } from "@agboss/core";
 import { openExecutionHistory } from "@agboss/core/internal";
 import { SqliteHistoryApplication } from "../../../agboss/tests/infrastructure/sqlite/fixtures/history.application.js";
-import { buildCostReport } from "../../../agboss/src/finops/usage.js";
+import { CostReport } from "../../../agboss/src/finops/usage.js";
 import { agboss, envelope } from "./agboss.js";
 
 const APPLICATION = new URL(
@@ -34,7 +34,7 @@ const recordOf = (
   path: ["desk-workflow-start", "desk-agent", "desk-workflow-finish"],
   scope: [],
   outdatedValues: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   children: [],
   pauses: [],
   compensations: [],

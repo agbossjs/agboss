@@ -29,7 +29,9 @@ describe("#1324g: the brand carries the name and the kind", () => {
   });
 
   it("an unbranded class has neither a name nor a kind", () => {
-    class Plain {}
+    class Plain {
+      readonly value = 1;
+    }
     expectTypeOf<NameOf<Plain>>().toBeNever();
     expectTypeOf<KindOf<typeof Plain>>().toBeNever();
   });

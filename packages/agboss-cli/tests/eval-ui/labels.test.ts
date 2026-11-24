@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
 import { respondTo, type EvalUiRequest, type EvalUiSettings } from "../../src/eval/ui/ui-routes.js";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
+import { usd } from "@agboss/core/units";
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
 
@@ -29,7 +30,7 @@ const judgedRun = (run: number, passed: boolean, executionId: string): EvalRunRe
       metrics: { tone: passed ? "warm" : "cold" },
     },
   ],
-  spentUsd: 0.01,
+  spentUsd: usd(0.01),
 });
 
 const ARTIFACT = artifactOf(

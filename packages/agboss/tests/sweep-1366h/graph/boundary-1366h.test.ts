@@ -44,7 +44,11 @@ const approvalTool = { name: "pay", channel: { name: "ops" } };
 const questionTool = { name: "ask", channel: { name: "ops" }, question: {} };
 const plainTool = { name: "read" };
 const deps = (...tools: object[]) =>
-  ({ agent: { name: "alpha", tools }, approval: {}, budgets: {} }) as never;
+  ({
+    agent: { name: "alpha", tools, limits: { modelCalls: 10 } },
+    approval: {},
+    budgets: {},
+  }) as never;
 
 describe("#1366: which calls wait and which run", () => {
   it("a call that waits for a decision: the approval node; with a stored result it waits for nothing and is not run", () => {

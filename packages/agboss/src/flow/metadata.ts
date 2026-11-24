@@ -89,7 +89,7 @@ function ancestors(value: object): readonly ValueMetadata[] {
 /** A shallow copy that keeps the prototype (a DTO class stays itself, #1288), an array stays an array. */
 const cloneOf = <TValue extends object>(value: TValue): TValue =>
   Array.isArray(value)
-    ? ([...(value as readonly unknown[])] as unknown as TValue)
+    ? (value.slice() as TValue)
     : Object.assign(Object.create(Object.getPrototypeOf(value) as object | null) as TValue, value);
 
 /** The metadata of a value written by `with`: what is not stated is the component's first visit. */

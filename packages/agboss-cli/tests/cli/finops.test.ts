@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { memoryLine } from "../../src/cli/approve.js";
 import { costSummary, costTotal, costTrace } from "../../src/cli/finops.js";
 // the framework's cost report, built the way a run builds it
-import { buildCostReport, CostSource, recordToolCost } from "../../../agboss/src/finops/usage.js";
+import { CostReport, CostSource, recordToolCost } from "../../../agboss/src/finops/usage.js";
 import { usageRecord } from "../../../agboss/tests/helpers.js";
 
 describe("CLI cost output", () => {
-  const report = buildCostReport([
+  const report = CostReport.fromUsage([
     usageRecord("router:main", 0.00005),
     usageRecord("researcher", 0.003378),
     recordToolCost("exchange_rate", 0.001),
@@ -14,7 +14,7 @@ describe("CLI cost output", () => {
 
   it("lists non-zero categories only", () => {
     expect(costSummary(report)).toBe("agents $0.003378 · routing $0.000050 · tools $0.001000");
-    expect(costSummary(buildCostReport([]))).toBe("no paid calls");
+    expect(costSummary(CostReport.fromUsage([]))).toBe("no paid calls");
   });
 
   it("ends with an explicit total", () => {
@@ -23,14 +23,14 @@ describe("CLI cost output", () => {
 
   it("#853 AC3: says how many calls are of unknown cost, next to the known total", () => {
     const lost = { ...usageRecord("agent:writer-agent", 0), costSource: CostSource.Unknown };
-    const withLost = buildCostReport([...[lost], usageRecord("researcher", 0.003378)]);
+    const withLost = CostReport.fromUsage([...[lost], usageRecord("researcher", 0.003378)]);
 
     expect(costTotal(withLost)).toBe("total $0.003378 (1 calls, 1 of unknown cost)");
     expect(costTrace(withLost)[0]).toMatch(/unknown: a lost pass \(#853\)$/);
   });
 
   it("says how each call was priced", () => {
-    const api = buildCostReport([
+    const api = CostReport.fromUsage([
       { ...usageRecord("router:main", 0.00002), costSource: CostSource.Api },
     ]);
 

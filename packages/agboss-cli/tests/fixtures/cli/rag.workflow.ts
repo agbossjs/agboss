@@ -13,6 +13,7 @@ import {
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
+import { usd } from "@agboss/core/units";
 
 @Rag({
   name: "notes-rag",
@@ -28,7 +29,7 @@ export class NotesRag implements RagConnector {
   // #700: each tenant its own index — another tenant has more documents here
   index({ tenantId }: RagIndexOptions): Promise<RagIndexReport> {
     const documents = tenantId === "default" ? 2 : 7;
-    return Promise.resolve({ documents, chunks: 3, skipped: 1, costUsd: 0.000_5 });
+    return Promise.resolve({ documents, chunks: 3, skipped: 1, costUsd: usd(0.000_5) });
   }
 }
 

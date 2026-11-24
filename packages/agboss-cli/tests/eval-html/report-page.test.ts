@@ -9,6 +9,7 @@ import { CheckStatus } from "@agboss/core/eval";
 import { describe, expect, it } from "vitest";
 import { renderEvalReportPage } from "../../src/eval/html/report-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";
+import { usd } from "@agboss/core/units";
 
 const PAGE = renderEvalReportPage(REFUNDS_ARTIFACT);
 
@@ -167,7 +168,7 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
             },
           ],
           error: { code: "x", message: "a <br> & b" },
-          spentUsd: 0,
+          spentUsd: usd(0),
         },
       ]),
     ]);

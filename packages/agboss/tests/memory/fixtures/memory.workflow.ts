@@ -47,6 +47,7 @@ export class NotingStrategy extends BaseMemoryStrategy {
 }
 
 /** A fixed sliding window of two turns. */
+@Injectable()
 export class LastTwoTurns extends SlidingWindowStrategy {
   constructor() {
     super({ turns: 2 });
@@ -131,7 +132,7 @@ const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
   ],
   defaults: DEFAULTS,
   uncompactedTurns: 4,
-  providers: [provide(NOTES, NOTED)],
+  providers: [provide(NOTES, NOTED), LastTwoTurns, NotingStrategy],
 })
 export class MemoryDesk {}
 

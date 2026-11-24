@@ -7,6 +7,7 @@ import {
   Agent,
   DecidedBy,
   Injectable,
+  Observer,
   Router,
   Tool,
   Workflow,
@@ -132,7 +133,7 @@ export class ReaderWorkflow {}
 export const toldEvents: { hook: string; event: unknown }[] = [];
 
 /** Keeps every event of the hooks the files pass through. */
-@Injectable()
+@Observer()
 export class EveryEvent {
   onExecutionStart(event: unknown): void {
     toldEvents.push({ hook: "start", event });

@@ -648,6 +648,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the agent loop's graph wiring: no spend, lease or cancel decision of its own", [
     "src/graph/agent-loop/call-records.ts",
     "src/graph/agent-loop/call-signal.ts",
+    "src/graph/agent-loop/retry-event.ts",
     "src/graph/agent-loop/deps.ts",
     "src/graph/agent-loop/index.ts",
   ]),

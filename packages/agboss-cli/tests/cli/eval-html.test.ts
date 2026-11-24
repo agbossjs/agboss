@@ -12,6 +12,7 @@ import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "../eval-html/artifacts.js"
 import { stepOf, traceOf } from "../eval-html/traced-artifacts.js";
 import { ComponentKind, ToolCallStatus } from "@agboss/core";
 import { envelope, agboss } from "./agboss.js";
+import { usd } from "@agboss/core/units";
 
 const APPLICATION = new URL("../../../agboss/tests/flow/fixtures/evals.fixture.ts", import.meta.url)
   .pathname;
@@ -150,7 +151,7 @@ describe("#397 PR 1: agboss eval show", () => {
               reason: "x".repeat(9 * 1024 * 1024),
             },
           ],
-          spentUsd: 0,
+          spentUsd: usd(0),
         },
       ]),
     ]);
@@ -190,7 +191,7 @@ describe("#397 PR 1: agboss eval show", () => {
       threadId: `t${String(number)}`,
       passed,
       checks: [{ check: "trajectory", status: passed ? CheckStatus.Passed : CheckStatus.Failed }],
-      spentUsd: 0,
+      spentUsd: usd(0),
       trace: { ...traceOf(String(number)), steps: Array.from({ length: 200 }, () => step) },
     });
     const runs = Array.from({ length: 20 }, (_, index) => index + 1);

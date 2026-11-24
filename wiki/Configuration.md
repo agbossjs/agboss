@@ -230,7 +230,6 @@ the recovery loop) — the only place they are listed; each has its own `timeout
 ([Health checks](Health-checks)). `[health.not-a-health-check]`, `[health.duplicate-name]` and
 `[name.not-kebab-case]` at assembly.
 
-<<<<<<< HEAD
 ## `workingCalendar` — the calendar of working-time deadlines (#944)
 
 `@Application({ workingCalendar })` is the default calendar of `workingHours(n)` / `workingMinutes(n)`
@@ -271,8 +270,6 @@ listed `@WorkingCalendar` with `addWorkingTime`, and a grid that can never give 
 `[working-calendar.invalid]` at start. What a calendar that fails does is in [Pauses → Deadlines in working
 time](Pauses#deadlines-in-working-time-944).
 
-=======
->>>>>>> 89ca4c5a (fix-1141: every timer-backed duration setting is refused above its documented maximum)
 ## `retention` — how long each kind of row is kept (#834)
 
 One group, the only place a retention is set; the recovery sweep removes each kind past its own on
@@ -316,8 +313,6 @@ default, and a retention set where it was before 0.1.1 (`executionRecordRetentio
 stay with their feature: `fencedEffects: { maxResultSize }`, `outboundCalls: { maxPayloadSize,
 attemptTimeout }`.
 
-<<<<<<< HEAD
-=======
 ## Timeouts and deadlines — the largest value of each (#1141)
 
 A duration that becomes a timer is limited: Node clamps a delay above 2^31 − 1 ms (about 24.8 days)
@@ -345,7 +340,6 @@ A pause's `expiresIn` is not one timer: pause deadlines are read by the pause ti
 any delay above the timer's limit in parts (a `Retry-After` or a peer's deadline that no setting
 bounds), so no timer of the framework overflows.
 
->>>>>>> 89ca4c5a (fix-1141: every timer-backed duration setting is refused above its documented maximum)
 ## `createApp` options (#834)
 
 `createApp(App, { env, profile, profileRoot, meterProvider })` — nothing else: infrastructure is

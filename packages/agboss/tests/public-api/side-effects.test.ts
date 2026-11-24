@@ -111,8 +111,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * reading of a driver's references — modules of their own under the line limits.
  * 1,500 at #1307a / #1310c (the root was 1,490): the pause targets, the channel selector, interpreter
  * and listener, and the rules of the targets — 5 modules of their own under the line limits.
+ * 1,520 at the 0.1.1 rework integration (the root was 1,512): the observer, tool-interceptor, driver-provider
+ * and metadata modules the rework chains added, each under the line limits.
  */
-const MODULE_BUDGET = 1_500;
+const MODULE_BUDGET = 1_520;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

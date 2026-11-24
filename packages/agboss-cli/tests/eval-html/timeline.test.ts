@@ -13,6 +13,7 @@ import { MAX_VALUE_CHARACTERS } from "../../src/eval/html/value-view.js";
 import { MAX_HTML_REPORT_SIZE } from "../../src/eval/html/bounded-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";
 import { stepOf, traceOf, TRACED_ARTIFACT } from "./traced-artifacts.js";
+import { usd } from "@agboss/core/units";
 
 const PAGE = renderEvalReportPage(TRACED_ARTIFACT);
 
@@ -109,7 +110,7 @@ describe("#397 PR 2: a run's timeline", () => {
       threadId: "t",
       passed: true,
       checks: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       trace,
     };
 
@@ -170,7 +171,7 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
       threadId: `t${String(number)}`,
       passed: true,
       checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-      spentUsd: 0,
+      spentUsd: usd(0),
       trace: { ...traceOf(String(number)), steps: Array.from({ length: 10 }, () => step) },
     });
     const cases: EvalCaseReport[] = Array.from({ length: 40 }, (_, index) =>

@@ -29,6 +29,7 @@ import { etagOf, type GoldenSource } from "../../src/eval/ui/golden-case.js";
 import { goldenSourceOf } from "../../src/eval/ui/golden-source.js";
 import { respondTo, type EvalUiRequest, type EvalUiSettings } from "../../src/eval/ui/ui-routes.js";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
+import { usd } from "@agboss/core/units";
 
 /** The framework's package: the fixtures' project, read only. */
 const PACKAGE = new URL("../../../agboss/", import.meta.url).pathname;
@@ -63,7 +64,7 @@ const ranRun = (
   finish: "desk-workflow-finish",
   passed: true,
   checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-  spentUsd: 0.01,
+  spentUsd: usd(0.01),
 });
 
 const ARTIFACT = artifactOf(

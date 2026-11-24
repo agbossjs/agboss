@@ -175,9 +175,9 @@ describe("#1313a: drivers and the directory", () => {
       ModelProvider({
         driver: literal,
         timeout: 1 as never,
-        cost: undefined as never,
-        retryPolicy: undefined as never,
-        circuitBreakerPolicy: undefined as never,
+        cost: undefined,
+        retryPolicy: undefined,
+        circuitBreakerPolicy: undefined,
       }),
     ).toThrow(ModelProviderError);
   });

@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { CheckStatus, type EvalLabel, type EvalRunResult } from "@agboss/core/eval";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
 import { agboss, envelope } from "./agboss.js";
+import { usd } from "@agboss/core/units";
 
 const CWD = mkdtempSync(join(tmpdir(), "agboss-eval-calibrate-"));
 const JUDGE = "polite-refund-judge";
@@ -27,7 +28,7 @@ const runOf = (run: number, passed: boolean, length: number): EvalRunResult => (
       metrics: { length },
     },
   ],
-  spentUsd: 0,
+  spentUsd: usd(0),
 });
 
 const REPORT = join(CWD, "main.json");

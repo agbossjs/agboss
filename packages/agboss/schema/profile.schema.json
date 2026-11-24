@@ -169,6 +169,10 @@
                 "model": {
                   "type": "string",
                   "minLength": 1
+                },
+                "modelProvider": {
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": ["kind", "model"]
@@ -339,6 +343,14 @@
                     }
                   },
                   "required": ["inputPerMTok", "outputPerMTok"]
+                },
+                "modelProvider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "unpriced": {
+                  "type": "boolean",
+                  "const": true
                 },
                 "kind": {
                   "type": "string",
@@ -559,6 +571,14 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "modelProvider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "unpriced": {
+                "type": "boolean",
+                "const": true
               }
             },
             "additionalProperties": false
@@ -748,6 +768,14 @@
               }
             },
             "additionalProperties": false
+          },
+          "modelProvider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unpriced": {
+            "type": "boolean",
+            "const": true
           },
           "files": {
             "type": "object",

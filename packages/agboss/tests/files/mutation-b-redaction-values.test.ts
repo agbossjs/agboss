@@ -242,7 +242,7 @@ describe("two providers are one only by the same server under the same key", () 
 
   it("a redaction provider with no breaker policy at all is judged on its identity, not crashed on", () => {
     const { circuitBreakerPolicy: _breaker, ...bare } = modelProviderOf(P1);
-    const noBreaker: RegisteredModelProvider = { ...registeredOf(P1), options: bare as never };
+    const noBreaker: RegisteredModelProvider = { ...registeredOf(P1), options: bare };
 
     expect(
       isSameProvider(

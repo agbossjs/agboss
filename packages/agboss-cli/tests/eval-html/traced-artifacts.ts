@@ -20,6 +20,7 @@ import type {
   EvalStepTrace,
 } from "@agboss/core/eval";
 import { artifactOf, caseOf } from "./artifacts.js";
+import { usd } from "@agboss/core/units";
 
 /** One step of a trace; the agent's carries a model call, a tool call, a guardrail and a judge. */
 export function stepOf(
@@ -39,7 +40,7 @@ export function stepOf(
     toolCalls: [],
     guardrailDecisions: [],
     judgeVerdicts: [],
-    spentUsd: 0,
+    spentUsd: usd(0),
     startedAt: "2026-01-05T09:00:00.000Z",
     endedAt: "2026-01-05T09:00:00.850Z",
     ...parts,
@@ -49,7 +50,7 @@ export function stepOf(
 const agentStep = (orderId: string): EvalStepTrace =>
   stepOf("refund-agent", ComponentKind.Agent, {
     validationAttempts: 1,
-    spentUsd: 0.012,
+    spentUsd: usd(0.012),
     modelCalls: [
       {
         caller: "refund-agent",
@@ -57,7 +58,7 @@ const agentStep = (orderId: string): EvalStepTrace =>
         inputTokens: 812,
         outputTokens: 64,
         cacheReadTokens: 512,
-        costUsd: 0.012,
+        costUsd: usd(0.012),
       },
     ],
     toolCalls: [
@@ -123,7 +124,7 @@ const tracedRun = (run: number, passed: boolean, trace: EvalExecutionTrace): Eva
           reason: 'get-order-tool not called with {"orderId":"7"}',
         },
   ],
-  spentUsd: 0.012,
+  spentUsd: usd(0.012),
   trace,
 });
 
