@@ -1,3 +1,4 @@
+import type { PromptValue } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
@@ -42,7 +43,7 @@ export interface SummaryQueueCompactionOptions {
   readonly name: string;
   readonly description: string;
   /** How to summarise; inline, and / or files next to the class. None → the built-in prompt. */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** The chat model that writes the summaries (its provider is resolved by `serves`, #266). */
   readonly model: string;
@@ -64,7 +65,7 @@ export interface SingleSummaryCompactionOptions {
   readonly name: string;
   readonly description: string;
   /** How to summarise; inline, and / or files next to the class. None → the built-in prompt. */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** The chat model that writes the summaries (its provider is resolved by `serves`, #266). */
   readonly model: string;

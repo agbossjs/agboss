@@ -59,11 +59,27 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
     ]);
   });
 
-  it("an inline prompt that is just a .md path fails — it would be sent as text", async () => {
-    const { application } = workflowWith({ agent: { prompt: "./scout.prompt.md" } });
+  it("an inline prompt that is just a .md name fails — it would be sent as text", async () => {
+    const { application } = workflowWith({ agent: { prompt: "scout.prompt.md" } });
 
     expect(await problemsOf(application)).toEqual([
-      '[prompt.path-as-text] @Agent "scout-agent": prompt "./scout.prompt.md" is a file path, not prompt text — use promptUrls: ["./scout.prompt.md"]',
+      '[prompt.path-as-text] @Agent "scout-agent": prompt "scout.prompt.md" is a file path, not prompt text — use prompt: "./scout.prompt.md"',
+    ]);
+  });
+
+  it("#1347a: a prompt that starts with ./ is a file, read next to the declaring file", async () => {
+    const { application } = workflowWith({ agent: { prompt: "./typo.prompt.md" } });
+
+    await expect(createApp(application)).rejects.toThrow(
+      `[prompt.unknown-variable] tests/components/prompts/typo.prompt.md:4 {{knownPlace}} — ${AGENT_KNOWN}`,
+    );
+  });
+
+  it("#1347a: a missing prompt file fails at assembly naming the file", async () => {
+    const { application } = workflowWith({ agent: { prompt: ["./nowhere.prompt.md"] } });
+
+    expect(await problemsOf(application)).toEqual([
+      '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (prompt of @Agent "scout-agent") does not exist',
     ]);
   });
 

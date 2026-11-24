@@ -5,6 +5,7 @@ import {
   type GuardrailMeta,
   type ModelGuardrailMeta,
 } from "../components/policy-decorators.js";
+import { hasPrompt } from "../components/prompt-source.js";
 import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 
@@ -58,7 +59,7 @@ function handlerViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
 
 function questionViolations(cls: Class, meta: ModelGuardrailMeta): RuleViolation[] {
   const found: RuleViolation[] = [];
-  if ((meta.prompt ?? "") === "" && (meta.promptUrls ?? []).length === 0)
+  if (!hasPrompt(meta.prompt) && (meta.promptUrls ?? []).length === 0)
     found.push(
       violation(
         "guardrail.no-prompt",

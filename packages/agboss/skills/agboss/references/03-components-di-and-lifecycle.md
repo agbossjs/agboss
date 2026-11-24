@@ -733,7 +733,7 @@ export class AuditToolInterceptor implements AfterToolCall {
   `thinking` option.
 - **Units** (`@agboss/core/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
   retention; `usd()` for money (`Usd`); `kilobytes()` for sizes. A bare number does not compile.
-- **Prompts**: `prompt` inline or `promptUrls` (files next to the component), `{{variables}}` from
+- **Prompts**: `prompt` inline or `promptUrls` (files next to the component); `prompt` also takes a file path (`"./support.prompt.md"`, `../`, `/`), `inline("…")` / `` inline`…` `` (the tagged form drops the common indentation) or a list of them, read in order and joined with one blank line (#1347a; the bare text and `promptUrls` forms go in #1347b), `{{variables}}` from
   `promptVariables` checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
   input message (`### message (from desk-workflow-start)`) — never write `{{input.…}}` in a prompt
   (`[prompt.input-in-instructions]`).

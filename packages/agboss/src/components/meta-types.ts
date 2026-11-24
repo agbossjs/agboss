@@ -1,3 +1,4 @@
+import type { PromptValue } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
 import type { RagMode } from "../rag/types.js";
@@ -58,7 +59,7 @@ export interface AgentMeta
   extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   readonly model: string;
   /**

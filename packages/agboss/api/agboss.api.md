@@ -512,7 +512,7 @@ export interface AgentOptions {
     // (undocumented)
     readonly price?: Price;
     // (undocumented)
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: Readonly<Record<string, string>>;
@@ -4085,7 +4085,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
     readonly description?: string;
     readonly model?: string;
     readonly name?: string;
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     // (undocumented)
@@ -4205,7 +4205,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
     readonly description?: string;
     readonly model?: string;
     readonly name?: string;
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly refusal: string;
@@ -4537,6 +4537,20 @@ export class InjectionToken<T> {
     readonly __type: T;
     // (undocumented)
     readonly description: string;
+}
+
+// @public
+export function inline(text: string): InlinePrompt;
+
+// @public (undocumented)
+export function inline(strings: TemplateStringsArray, ...values: readonly (string | number)[]): InlinePrompt;
+
+// @public
+export interface InlinePrompt {
+    // (undocumented)
+    readonly [inlinePrompt]: true;
+    // (undocumented)
+    readonly text: string;
 }
 
 // @public
@@ -5799,7 +5813,7 @@ export interface ModelReplyInterpreterOptions {
     readonly description?: string;
     readonly model: string;
     readonly name?: string;
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
 }
@@ -5824,7 +5838,7 @@ export interface ModelRouterOptions {
     readonly model?: string;
     readonly name: string;
     readonly piiPolicies?: readonly Class[];
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: Readonly<Record<string, string>>;
@@ -7900,7 +7914,13 @@ export interface PromptErrorOptions {
 }
 
 // @public
+export type PromptFilePath = `./${string}` | `../${string}` | `/${string}`;
+
+// @public
 export type PromptInput = string;
+
+// @public
+export type PromptPart = PromptFilePath | InlinePrompt;
 
 // @public
 export interface PromptProblem {
@@ -7912,6 +7932,12 @@ export interface PromptProblem {
 
 // @public
 export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
+
+// @public
+export type PromptSource = PromptPart | readonly [PromptPart, ...PromptPart[]];
+
+// @public
+export type PromptValue = string | InlinePrompt | readonly (string | InlinePrompt)[];
 
 // @public
 export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;
@@ -8721,7 +8747,7 @@ export interface SingleSummaryCompactionOptions {
     readonly description: string;
     readonly model: string;
     readonly name: string;
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     // (undocumented)
@@ -9591,7 +9617,7 @@ export interface SummaryQueueCompactionOptions {
     readonly description: string;
     readonly model: string;
     readonly name: string;
-    readonly prompt?: string;
+    readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     // (undocumented)
@@ -11032,6 +11058,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "problems".
+// src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "[inlinePrompt]".
+// src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "text".
+// src/components/prompt-source.ts - (ae-undocumented) Missing documentation for "inline".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "cost".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "record".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "code".

@@ -1,3 +1,4 @@
+import type { PromptValue } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
@@ -216,7 +217,7 @@ export interface ModelReplyInterpreterOptions {
    */
   readonly model: string;
   /** How to read a reply; static — the question and the reply come in the input message. */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   readonly deps?: never;
 }

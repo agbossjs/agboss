@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { PromptOptions } from "./prompt-options.js";
+import { promptPiecesOf } from "./prompt-source.js";
 import { renderTemplate } from "./render-template.js";
 import { ComponentError } from "./metadata.js";
 import {
@@ -95,27 +96,39 @@ export class PromptLoader {
   async #segments(owner: PromptOwner): Promise<Segment[]> {
     const { options, source, label } = owner;
     if (options === undefined) return [];
-    this.#problems.push(...pathAsText(label, options.prompt));
-    const inline = options.prompt ? [{ where: `${label} prompt`, text: options.prompt }] : [];
-    const urls = options.promptUrls ?? [];
-    if (urls.length === 0) return inline;
-    if (source === undefined) {
-      const message = `${label}: cannot resolve promptUrls — the declaring file is unknown`;
-      this.#problems.push({ code: "prompt.missing-file", message });
-      return inline;
-    }
-    const files = await Promise.all(
-      urls.map((url) => this.#read(label, path.resolve(path.dirname(source), url))),
+    const pieces = promptPiecesOf(options.prompt);
+    const urls = (options.promptUrls ?? []).map((url) => ({
+      kind: "file" as const,
+      path: url,
+      via: "promptUrls",
+    }));
+    const all = [
+      ...pieces.map((piece) => (piece.kind === "file" ? { ...piece, via: "prompt" } : piece)),
+      ...urls,
+    ];
+    const segments = await Promise.all(
+      all.map(async (piece): Promise<Segment | undefined> => {
+        if (piece.kind === "text") {
+          this.#problems.push(...pathAsText(label, piece.text));
+          return piece.text === "" ? undefined : { where: `${label} prompt`, text: piece.text };
+        }
+        if (source === undefined) {
+          const message = `${label}: cannot resolve ${piece.via} — the declaring file is unknown`;
+          this.#problems.push({ code: "prompt.missing-file", message });
+          return undefined;
+        }
+        return this.#read(label, path.resolve(path.dirname(source), piece.path), piece.via);
+      }),
     );
-    return [...inline, ...files.filter((file): file is Segment => file !== undefined)];
+    return segments.filter((segment): segment is Segment => segment !== undefined);
   }
 
-  async #read(label: string, file: string): Promise<Segment | undefined> {
+  async #read(label: string, file: string, via: string): Promise<Segment | undefined> {
     try {
       return { where: displayPath(file), text: await fs.readFile(file, "utf-8") };
     } catch (error) {
       if (!isMissing(error)) throw error;
-      const message = `${displayPath(file)} (promptUrls of ${label}) does not exist`;
+      const message = `${displayPath(file)} (${via} of ${label}) does not exist`;
       this.#problems.push({ code: "prompt.missing-file", message });
       return undefined;
     }

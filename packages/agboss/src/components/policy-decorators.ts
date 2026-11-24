@@ -1,3 +1,4 @@
+import type { PromptValue } from "./prompt-source.js";
 import { callerFile } from "./call-site.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
@@ -40,7 +41,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
   /** Who decides (#383): its model — the default when absent. */
   readonly decidedBy?: DecidedBy.Model;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** A decision model (Jev, …) or a chat model; `defaults.guardrail.model` when absent. */
   readonly model?: string;
@@ -60,7 +61,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   /** Who decides (#383): its model — the default when absent. */
   readonly decidedBy?: DecidedBy.Model;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** A decision model (Jev, …) or a chat model; `defaults.guardrail.model` when absent. */
   readonly model?: string;

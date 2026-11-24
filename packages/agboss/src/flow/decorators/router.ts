@@ -1,3 +1,4 @@
+import type { PromptValue } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
@@ -82,7 +83,7 @@ export interface ModelRouterOptions {
   /** A decision model (Jev, …) or a chat model; `defaults.router.model` when absent. */
   readonly model?: string;
   /** How to choose: inline, and / or files next to the router (read at assembly). */
-  readonly prompt?: string;
+  readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt. */
   readonly promptVariables?: Readonly<Record<string, string>>;

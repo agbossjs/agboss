@@ -139,6 +139,14 @@ export {
 export type { PromptInput } from "../components/prompt-input.js";
 export { file } from "../components/file.js";
 export {
+  inline,
+  type InlinePrompt,
+  type PromptFilePath,
+  type PromptPart,
+  type PromptSource,
+  type PromptValue,
+} from "../components/prompt-source.js";
+export {
   ChannelRole,
   PauseAnswerer,
   type ChannelApprovalRoleOptions,

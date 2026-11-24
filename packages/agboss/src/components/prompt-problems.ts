@@ -85,14 +85,14 @@ export function inputInInstructions(where: string, text: string): PromptProblem[
 
 const PATH_LIKE = /^(\.{1,2}\/)?[\w./-]+\.md$/;
 
-/** An inline `prompt` that is just a `.md` path was meant as `promptUrls` — it would be sent as text. */
+/** An inline `prompt` that is just a `.md` path was meant as a file — it would be sent as text. */
 export function pathAsText(owner: string, prompt: string | undefined): PromptProblem[] {
   const text = (prompt ?? "").trim();
   if (!PATH_LIKE.test(text)) return [];
   return [
     {
       code: "prompt.path-as-text",
-      message: `${owner}: prompt "${text}" is a file path, not prompt text — use promptUrls: ["${text}"]`,
+      message: `${owner}: prompt "${text}" is a file path, not prompt text — use prompt: "./${text}"`,
     },
   ];
 }

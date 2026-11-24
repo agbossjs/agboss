@@ -1,5 +1,6 @@
 import type { AgentMeta } from "../components/meta-types.js";
 import type { Class } from "../components/injection.js";
+import { hasPrompt } from "../components/prompt-source.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { CompactionSettings } from "../config/types.js";
 import { NodeKind } from "../flow/ast.js";
@@ -71,7 +72,7 @@ const builtInPromptOf = (strategy: CompactionStrategy): string =>
   strategy === CompactionStrategy.SingleSummary ? SINGLE_SUMMARY_PROMPT : SUMMARY_QUEUE_PROMPT;
 
 const hasOwnPrompt = (meta: CompactionMeta): boolean =>
-  (meta.prompt ?? "") !== "" || (meta.promptUrls ?? []).length > 0;
+  hasPrompt(meta.prompt) || (meta.promptUrls ?? []).length > 0;
 
 async function loaded(cls: Class, loader: PromptLoader): Promise<LoadedCompaction[]> {
   const meta = compactionMetaOf(cls);
