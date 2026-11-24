@@ -105,7 +105,8 @@ export interface PausePage {
 export interface PauseFilter {
   /** Non-empty. */
   readonly statuses: readonly PauseStatus[];
-  readonly channel?: string;
+  /** Only pauses waiting under this pause target. */
+  readonly target?: string;
   /** Only pauses whose `expiresAt` is before it. */
   readonly expiresBefore?: Date;
 }

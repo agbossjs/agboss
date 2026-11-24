@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach } from "vitest";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   ApplicationContext,
   Clock,
@@ -24,16 +23,7 @@ import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
-import {
-  Clerk,
-  levers,
-  OrderWorkflowStart,
-  ReceiptDto,
-  ReceiptWorkflowFinish,
-  RecoveryLog,
-  RecoveryWorkflow,
-  seen,
-} from "../../fixtures/recovery.workflow.js";
+import { Clerk, levers, OrderWorkflowStart, ReceiptWorkflowFinish, RecoveryLog, RecoveryWorkflow, seen } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import { storeClockOf } from "../../../helpers/store-clock.js";
 

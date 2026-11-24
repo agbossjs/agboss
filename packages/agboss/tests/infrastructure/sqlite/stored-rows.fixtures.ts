@@ -11,7 +11,7 @@ export const STEP = {
   validationAttempts: 0,
 };
 
-/** A pause row's JSON: `answerer` is who may answer. */
+/** A pause row's JSON: `respondent` is who may answer. */
 export const pauseJson = JSON.stringify({
   threadId: "t-1",
   executionId: "run-1",
@@ -23,13 +23,14 @@ export const pauseJson = JSON.stringify({
   kind: "approval",
   step: "clerk-agent",
   component: { name: "clerk-agent", kind: "agent" },
+  target: "refund-tool-approval",
   channel: "refund-approval-channel",
-  answerer: "channel",
+  respondent: "delegate",
   input: { orderId: "7" },
   toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 });
 
-/** One `PauseAnswerRecord`: `answerer` the kind, `actor` the person. */
+/** One `PauseAnswerRecord`: `respondent` the kind, `actor` the person. */
 export const answerEntry = (
   executionId: string,
   kind: string,
@@ -38,8 +39,9 @@ export const answerEntry = (
   pauseId: undefined,
   executionId,
   step: STEP,
-  role: "refund-approval-channel",
-  answerer: kind,
+  target: "refund-tool-approval",
+  channel: "refund-approval-channel",
+  respondent: kind,
   actor: { id: person },
   resolution: "replied",
   askedAt: "2026-01-05T09:00:00.000Z",
@@ -49,7 +51,7 @@ export const answerEntry = (
   trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" }],
 });
 
-export const answerLogEntry = answerEntry("run-1", "channel", "manager-17");
+export const answerLogEntry = answerEntry("run-1", "delegate", "manager-17");
 
 /** A kept record's tree: what a test reaches into. */
 export interface RecordTree {

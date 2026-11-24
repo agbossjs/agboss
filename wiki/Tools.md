@@ -445,12 +445,12 @@ unassigned tools: none
 
 ## Approval channels
 
-A tool that needs a decision before it runs names a channel: `@Tool({ channel })` .
-Channels are found through the tools that name them, like services through `deps` — there is no
-`channelClasses` (#267) — and one instance serves every workflow of the application. A tool names
-either a concrete `@Channel` as is (`AutoApproveChannel`,
-`AutoRejectChannel`) or a **channel role** — the project's abstract class that says what it approves
-and who may answer:
+A tool that needs a decision before it runs names its approval: `@Tool({ approval })`. The approval
+is a **pause target** (#1307) — the project's class that says what is approved, who may answer and
+how long the pause may wait; the **channel** that asks the people is a separate class, listed in
+`@Application({ channels })` and found through its target, like services through `deps`. One
+instance serves every workflow of the application. `AutoApproveChannel.for(Target)` and
+`AutoRejectChannel.for(Target)` are the test channels that decide at once:
 
 <!-- snippet-context
 import { Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
@@ -487,7 +487,7 @@ export class RefundWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RefundWorkflow],
-  providers: [SlackRefundApprovalChannel], // the role's one implementation: channel transport
+  channels: [SlackRefundApprovalChannel], // the target's channel: its transport
 })
 export class RefundApplication {}
 -->
@@ -495,53 +495,53 @@ export class RefundApplication {}
 ```ts file=refunds.ts
 import {
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   ExecutionContext,
-  PauseAnswerer,
+  PauseRespondent,
   Tool,
+  ToolApproval,
   type ChannelAsk,
-  } from "@agboss/core";
+} from "@agboss/core";
+import { hours } from "@agboss/core/units";
 
-// channels/refund-approval.channel.ts — the role: what it approves, who answers
-@ChannelRole({
-  name: "refund-approval-channel",
+// approvals/refund.tool-approval.ts — the target: what it approves, who answers, how long it waits
+@ToolApproval({
+  name: "refund-tool-approval",
   description: "Approves card refunds",
-  approves: RefundCardInputDto, // the tools' input DTO — imports go DTO ← role ← tool
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundToolApproval {}
 
-// channels/slack-refund-approval.channel.ts — its implementation, listed in the application
+// channels/slack-refund-approval.channel.ts — the transport that asks the people, listed in the application
 @Channel({
   name: "slack-refund-approval-channel",
   description: "Asks a finance manager in Slack",
+  target: RefundToolApproval,
+  ttl: hours(1),
   deps: [ExecutionContext, SlackService],
 })
-export class SlackRefundApprovalChannel extends RefundApprovalChannel {
+export class SlackRefundApprovalChannel {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly slackService: SlackService,
-  ) {
-    super();
-  }
+  ) {}
 
-  async send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
-    const cents: number = ask.input.amountCents; // typed by RefundCardInputDto
+  async send(ask: ChannelAsk<RefundToolApproval>): Promise<ChannelOutcome<RefundToolApproval>> {
+    const cents: number = ask.input.amountCents; // typed by the tool's input DTO
     const tenant = this.executionContext.tenant.tenantId;
     await this.slackService.post("#finance", `Refund ${String(cents)}¢ (${tenant})?`, ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }
 
-// tools/refund-card.tool.ts — the tool names the role
+// tools/refund-card.tool.ts — the tool names its approval
 @Tool({
   name: "refund-card-tool",
   description: "Refunds a card payment",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
-  channel: RefundApprovalChannel,
+  approval: RefundToolApproval,
 })
 export class RefundCardTool {
   execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
@@ -550,45 +550,41 @@ export class RefundCardTool {
 }
 ```
 
-- **`@ChannelRole({ name, description, actor, approves, replyInterpreter? })`** — a tool
-  approval: `approves: XDto` (the question is `ToolCallApprovalAskDto` with `arguments: XDto`, the
-  answer `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`). A question role (`ask` /
-  `answer`, #659) is asked by a flow step — `.toExternalTask(Role)`
-  ([Pauses](Pauses#a-question-the-workflow-asks-toquestionrole-659)) — or by an agent that lists the
-  role itself in its `tools` (#712, [Pauses](Pauses#an-agent-asks-a-question-role-as-a-tool-712));
-  a `@Tool` naming one as its `channel` is `[channel.wrong-tool]`. `actor` is required —
-  `PauseAnswerer.ThreadOwner` or `PauseAnswerer.Channel`, no default (`[channel.role-form]` without
-  it, with both `approves` and `ask` / `answer`, or with neither). A tool whose `input` is not its role's `approves` fails assembly with
-  `[channel.wrong-tool]`; one `replyInterpreter` class in two roles with
-  `[channel.shared-interpreter]`. `replyInterpreter` is a `@ReplyInterpreter` class (#267 PR 3) that
-  reads a free-text `app.resume({ pauseId, reply })` with the pause's question into the role's
-  answer — by its chat model, for an approval role a decision model (approve / refuse only, #267
-  S124), or by its code, which returns a `ReplyInterpretation` ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
-- **The implementation** is a `@Channel` that `extends` the role, listed in
-  `@Application({ providers })` — found by inheritance, like any contract: none →
-  `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`; a `@Channel` in a workflow's
-  `providers` → `[di.infrastructure-in-workflow]` (channel transport is infrastructure). Different
-  questions to different people are different roles; one question to several places, or a place
-  chosen by the request's data, is one implementation that does it inside. Child workflows' tools
-  count too: their roles need an implementation in the parent's application.
-- **`send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`** is the one method: `ask` is
-  `{ pauseId, value }` (the value typed by the generated `AGBossTypes.ChannelRoles` table — `agboss check`;
-  `ChannelQuestionOf<Role>` is the question, `ChannelAnswerOf<Role>` the answer `decided` takes;
-  the execution through `deps`). `ChannelOutcome.awaitReply()` — the call pauses and is saved
-  until the reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now
-  (a rule such as "up to $50 at once", `AutoApproveChannel`): no pause, the decision validated like
-  a reply, its pause record closed at once (`PauseResolution.Decided`). A `send` that returns
-  anything else fails the step.
-- **Who answers** (#267 PR 2): the role's `answerer`. A `PauseAnswerer.ThreadOwner` pause is
+- **A pause target** (#1307) is what a pause waits under: `@ToolApproval({ name, description,
+  respondent, timeout, … })` for a tool call's approval (the question is the tool's input, the
+  answer `ToolCallApprovalDecisionDto` with `overrideInput?`), `@ExternalTask({ name, description,
+  input, output, respondent, timeout, … })` for a step's or an agent's question (#659). A
+  `@Tool({ approval })` names its approval; an external task is asked by a flow step —
+  `.toExternalTask(Task)` ([Pauses](Pauses#a-question-the-workflow-asks-toexternaltasktask-659)) —
+  or by an agent that lists it in its `tools` (#712). A `@Tool` naming an external task as its
+  `approval` is `[channel.wrong-tool]`. `respondent` and `timeout` are required, no defaults:
+  `PauseRespondent.Owner` is answered by the thread's owner, `PauseRespondent.Delegate` by whoever
+  the channel's side authenticates. A `channelInterpreter` (a `@ChannelInterpreter` class) reads a
+  free-text `app.resume({ pauseId, reply })` into the target's answer; one interpreter class on two
+  targets is `[channel.shared-interpreter]` ([Pauses → free text](Pauses#answering-with-free-text-appresume-pauseid-reply--options)).
+- **A channel** is the transport: `@Channel({ name, description, target, ttl, timeout?, deps? })`
+  names the one target it serves and needs no `extends`. List it in `@Application({ channels })`;
+  a channel for no target, or in a workflow's `providers`, fails assembly. A target with no
+  channel at all is allowed when its `respondent` is `Owner`: the pause waits for `app.resume`
+  (a channel-less pause); a `Delegate` target with no channel is `[channel.missing-for-target]`.
+  Several channels for one target need a `@ChannelSelector({ target })` that picks one when the
+  pause is made (`[channel.ambiguous-for-target]` without it): the record keeps the channel chosen,
+  and a re-entry never asks the selector again. Child workflows' targets count too: they need their
+  channels in the parent's application.
+- **`send(ask: ChannelAsk<Target>): Promise<ChannelOutcome<Target>>`** is the one method: `ask` is
+  `{ pauseId, input, toolCall?, … }` (`input` typed by the target's DTOs — `agboss check`
+  generates the table). `ChannelOutcome.awaitReply()` — the call pauses and is saved until the
+  reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the
+  answer now (a rule such as "up to $50 at once", `AutoApproveChannel.for(Target)`): no pause, the
+  decision validated like a reply, its pause record closed at once (`PauseResolution.Decided`). A
+  `send` that returns anything else fails the step.
+- **Who answers** (#267 PR 2, #1307): the target's `respondent`. A `PauseRespondent.Owner` pause is
   answered with the thread's `ownerId` and its `pauseId` is listed in `result.pending`; a
-  `PauseAnswerer.Channel` pause — the reply comes through the channel's own system — is answered
+  `PauseRespondent.Delegate` pause — the reply comes through the channel's own system — is answered
   with `app.resume({ pauseId: ask.pauseId, decision }, { actor: { id: "manager-17" } })`, its id never
   listed (it is the right to answer). The `pauseId` is made once per pause, before the first `send`:
   a retried `send` gets the same one — use it as the idempotency key of the post. Several pauses
   at once, concurrent answers, validation: [Pauses](Pauses).
-- Not yet: choosing an implementation per
-  environment (a terminal in dev, Slack in prod) is a documented limit: one implementation per
-  application.
 
 ## Testing
 

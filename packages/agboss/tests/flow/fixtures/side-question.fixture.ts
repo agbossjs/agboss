@@ -16,7 +16,7 @@ import {
   PurchaseQuestionDto,
   PurchaseWorkflowFinish,
   QuestionInbox,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "./questions.fixture.js";
 import { onStart, toExternalTask } from "./paths.js";
 
@@ -55,7 +55,7 @@ export class SideQuestionWorkflowStart {}
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
-        toExternalTask(SpendingLimitQuestion)
+        toExternalTask(SpendingLimitQuestionExternalTask)
           .toAction(PlacePurchaseAction)
           .toFinish(PurchaseWorkflowFinish),
       )

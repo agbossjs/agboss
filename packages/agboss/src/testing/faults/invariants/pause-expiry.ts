@@ -27,13 +27,13 @@ const isChanged = (output: unknown): boolean =>
   typeof output === "object" && output !== null && Reflect.get(output, "isChanged") === true;
 
 /** The role of the expiring workflow's pause: only its pauses carry a deadline's invariants. */
-const EXPIRING_ROLE = "fault-expiring-question";
+const EXPIRING_ROLE = "fault-expiring-external-task";
 
 /** Every pause closed by more than one closer, with the pods that did. */
 function closedTwiceViolations(run: FaultRun): FaultViolation[] {
   const expiring = new Set(
     run.records.flatMap((record) =>
-      record.pauses.filter((pause) => pause.role === EXPIRING_ROLE).map((pause) => pause.pauseId),
+      record.pauses.filter((pause) => pause.target === EXPIRING_ROLE).map((pause) => pause.pauseId),
     ),
   );
   const byPause = new Map<string, string[]>();
@@ -82,7 +82,7 @@ function lateAnswerViolations(run: FaultRun): FaultViolation[] {
   return run.records.flatMap((record) =>
     record.pauses.flatMap((pause) => {
       const isReply = pause.resolution === PauseResolution.Replied;
-      if (!isReply || pause.role !== EXPIRING_ROLE || pause.resolvedAt === undefined) return [];
+      if (!isReply || pause.target !== EXPIRING_ROLE || pause.resolvedAt === undefined) return [];
       const deadline = Date.parse(pause.askedAt) + FAULT_EXPIRES_IN;
       return Date.parse(pause.resolvedAt) < deadline
         ? []

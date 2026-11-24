@@ -25,7 +25,7 @@ export class StoredNamesUnreadableError extends AGBossError {
   declare readonly record: string;
   /** The ids that name it (`pauseId p1, executionId run-1`); empty when none is readable. */
   declare readonly ids: string;
-  /** The field paths that failed (`pauses.0.answerer`) — never a value. */
+  /** The field paths that failed (`pauses.0.respondent`) — never a value. */
   declare readonly fields: string;
 
   constructor(options: StoredNamesUnreadableErrorOptions) {

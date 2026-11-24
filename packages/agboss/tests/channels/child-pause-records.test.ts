@@ -63,7 +63,7 @@ describe("#267 S124 c: a single child's record lists its own pauses", () => {
     const [child] = done.children;
     const asked = {
       executionId: pending?.childExecutionId,
-      role: "expense-approval-channel",
+      target: "expense-tool-approval",
       resolution: PauseResolution.Replied,
       actor: { id: "alice" },
       decision: { approved: true },

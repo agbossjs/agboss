@@ -1,7 +1,6 @@
 import { type BuildApplicationOptions } from "../../src/application/create-app.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -23,7 +22,7 @@ function offline(book: ScriptBook): BuildApplicationOptions {
   };
 }
 
-/** Who answers through the desk (a `PauseAnswerer.Channel` role: the desk knows its staff). */
+/** Who answers through the desk (a `PauseRespondent.Delegate` role: the desk knows its staff). */
 const dana = { actor: { id: "dana" } };
 
 /** The answer to the desk's first ask: by the `pauseId` the channel was sent. */
@@ -53,7 +52,13 @@ describe("#261: a channel reads the execution through its ExecutionContext", () 
     await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
 
     expect(desk.tenants).toEqual(["acme"]);
-    expect(Object.keys(desk.posted[0] ?? {})).toEqual(["pauseId", "input", "toolCall", "trail"]);
+    expect(Object.keys(desk.posted[0] ?? {})).toEqual([
+      "pauseId",
+      "input",
+      "toolCall",
+      "expiresAt",
+      "trail",
+    ]);
     await app.close();
   });
 });
@@ -75,6 +80,7 @@ describe("#188: approval through a @Channel", () => {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
         input: { orderId: "A-1" },
         toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        expiresAt: expect.any(Date),
         trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);

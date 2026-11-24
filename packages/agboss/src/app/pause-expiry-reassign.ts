@@ -89,7 +89,7 @@ export async function reassignedOnExpiry(
   if (stores === undefined) return "failed";
   const own = ownDepsOf(parts.deps, pause.workflow);
   const now = parts.clock.now();
-  const due = deadlineOf(pause, asked.timeout ?? own.channelOf?.(pause.channel).expiresIn, now);
+  const due = deadlineOf(pause, asked.timeout ?? own.targetOf?.(pause.target).timeout, now);
   if (due === undefined) return "failed";
   const reason = await maskedReason(own.pii?.observability, asked.reason);
   const replacement = await stores.pauses.reassignByTenantIdAndPauseId(

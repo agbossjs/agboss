@@ -1,6 +1,7 @@
 import { Channel, ChannelOutcome, type ChannelAsk } from "@agboss/core";
 import { ApprovalTerminal } from "../services/approval-terminal.service.js";
-import { PurchaseApprovalChannel } from "./purchase-approval.channel.js";
+import { PurchaseToolApproval } from "./purchase-approval.channel.js";
+import { days } from "../../../../../packages/agboss/src/units/index.js";
 
 /**
  * Asks in the terminal: prints the purchase once, with its pause's id,
@@ -12,13 +13,13 @@ import { PurchaseApprovalChannel } from "./purchase-approval.channel.js";
   name: "terminal-purchase-approval-channel",
   description: "Asks the thread's owner in the terminal",
   deps: [ApprovalTerminal],
+  target: PurchaseToolApproval,
+  ttl: days(1),
 })
-export class TerminalPurchaseApprovalChannel extends PurchaseApprovalChannel {
-  constructor(private readonly approvalTerminal: ApprovalTerminal) {
-    super();
-  }
+export class TerminalPurchaseApprovalChannel {
+  constructor(private readonly approvalTerminal: ApprovalTerminal) {}
 
-  send(ask: ChannelAsk<PurchaseApprovalChannel>): Promise<ChannelOutcome<PurchaseApprovalChannel>> {
+  send(ask: ChannelAsk<PurchaseToolApproval>): Promise<ChannelOutcome<PurchaseToolApproval>> {
     const { item, amountUsd } = ask.input;
     this.approvalTerminal.print([
       "",

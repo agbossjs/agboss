@@ -1563,7 +1563,7 @@ export class SeenJobsRepository {
   signal), after the arguments are checked against the tool's input and the PII block rules (#1295c: a call with invalid
   arguments, or a blocked value, meets no hook and no approval; the model reads the tool's own error or the refusal),
   before the tool's approval pause, its `onToolStart` and its stream `ToolCall` event, once — what was decided
-  is kept by call id, so a resume at the approval reuses it and an approver's `overrideArguments` are checked once more:
+  is kept by call id, so a resume at the approval reuses it and an approver's `overrideInput` are checked once more:
   `beforeAnyTool({ tool, agent, callId, input })` — arguments revealed; `ToolCall.typeOf(call)` is the tool class — then the tool's
   `@BeforeTool` method (the validated input DTO; a method taking no input runs before the validation), outer interceptor first,
   `ToolCallDecision.allow()` / `.allow({ input })` (the arguments the tool gets instead, validated
@@ -1578,39 +1578,44 @@ export class SeenJobsRepository {
   search tools or a tool called on its own. `agboss describe` prints `tool interceptors`, `--json`
   each agent's chains by tool, `configHash` covers them; `testUnit(I, options)` →
   `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
-- **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
-  services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
-  is: `AutoApproveChannel`, …) or a **role**: a project's abstract class
-  `@ChannelRole({ name, description, approves: XDto, answerer: PauseAnswerer.… })`
-  that `extends ChannelOf<Self>` — `answerer` is required (0.1.0's `answeredBy` alias is gone), `approves` must be the tool's input
-  (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
-  (`[channel.shared-interpreter]`). **Question roles (#659):** `@ChannelRole({ name: "…-question",
-description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVisits? })` is a
-  workflow question asked by a flow step — `.toExternalTask(Role)`
-  (`onExternalTask(Role)` for its own path; `NodeKind.Question`, the role its node, its name ending with
-  `-question`, `[name.kind-suffix]`; `maxVisits` its limit on a cycle): the step reads one `AskDto`
-  from the path (its field `ask`, #802), asks the role's channel through the pause seam like an
-  approval (`result.pending[i].kind === PauseKind.Question`, `input` the masked question, `step` the step; the record's `kind` is
-  `PauseKind.Question`, stored, its `component.kind` `question`, no `callId`), and puts the answer on the path —
+- **Pause targets and channels (#267, #1307)**: a pause waits under a **target** — `@ToolApproval({ name, description,
+  respondent, timeout, remindBefore?, calendar?, channelInterpreter?, escalation…? })` for a tool call (a tool names it:
+  `@Tool({ approval })`; its input is the tool's input) or `@ExternalTask({ name, description, input: AskDto, output:
+  AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a question. `respondent` (`PauseRespondent.Owner` /
+  `.Delegate`) and `timeout` are required, no defaults (`[limits.timeout-invalid]`); a target's `name` ends `-tool-approval` /
+  `-external-task` (`[name.kind-suffix]`); one `channelInterpreter` belongs to one target (`[channel.shared-interpreter]`); a
+  `@Tool` naming an `@ExternalTask` is `[channel.wrong-tool]`; a tool whose `input` is not its approval's `input` too. The
+  **channel** is the transport: `@Channel({ name, description, target, ttl, timeout?, deps? })` — no `extends`, listed in
+  `@Application({ channels })` (never in a workflow's `providers`: `[di.infrastructure-in-workflow]`), found through its target.
+  An `Owner` target with no channel is channel-less: the pause waits for `app.resume` (no `send`); a `Delegate` target with none is
+  `[channel.missing-for-target]`; several channels for one target need a `@ChannelSelector({ target })` whose
+  `selectChannel(ctx)` picks one when the pause is made (`[channel.ambiguous-for-target]` without it) — the record keeps `target` and
+  `channel`, a re-entry never asks the selector again, and a selector that fails or names a class serving no channel of the
+  target makes no pause (`ChannelSelectError`). A pause record has `target`, `channel?`, `respondent`; `PauseKind.Approval` /
+  `PauseKind.ExternalTask`. **External tasks (#659):** a workflow question asked by a flow step — `.toExternalTask(Task)`
+  (`onExternalTask(Task)` for its own path; `NodeKind.Question`, the task its node; `maxVisits` its limit on a cycle): the step
+  reads one `AskDto` from the path (its field `ask`, #802), asks the task's channel through the pause seam like an
+  approval (`result.pending[i].kind === PauseKind.ExternalTask`, `input` the masked question, `step` the step; the record's `kind` is
+  `PauseKind.ExternalTask`, stored, its `component.kind` `external-task`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
   into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
-  (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it; a tool naming a question role is
-  `[channel.wrong-tool]`; `AGBossTypes.ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
-  `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitQuestion] })` — its model sees a tool named the role (input = `ask`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `answer` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `question`; no tool interceptors), `result.pending[i].step` the asking agent, the record's `kind` `question` and its `component` the role; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; an approval role there is `[channel.approval-role-as-tool]`; `callTool(Role, ask)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. Its one implementation (`@Channel`, `extends` the role) is
-  listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
-  provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
-  one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, input, toolCall?, expiresAt?, assignees?, trail }`,
-  typed by the generated `AGBossTypes.ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
+  (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it;
+  `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitExternalTask] })` — its model sees a tool named the task (input = `input`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `output` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `external-task`; no tool interceptors), `result.pending[i].step` the asking agent; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; a `@ToolApproval` there is `[channel.approval-role-as-tool]`; `callTool(Task, input)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. A channel has
+  one method, `send(ask: ChannelAsk<Target>): Promise<ChannelOutcome<Target>>` (`ask = { pauseId, input, toolCall?, expiresAt?, assignees?, trail }`,
+  typed by the generated `AGBossTypes` tables): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
   like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
   once per pause, before the first `send` — a retried `send` gets the same one (the channel's
-  idempotency key); a concrete `@Channel` named as is is answered by the
-  thread's owner (an owner's approval needs no channel). **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
-  `@ReplyInterpreter` (`-reply-interpreter`, one per role) that reads `app.resume({ pauseId, reply })`
+  idempotency key). Tests: `AutoApproveChannel.for(Target)` / `AutoRejectChannel.for(Target)`
+  (`@agboss/core/testing`) decide at once. **Deadlines (#1310a):** only the target sets them (`timeout`, `remindBefore`,
+  `calendar`; a channel's own `timeout` may only shorten); a working duration needs a `@WorkingCalendar` named by the target's
+  `calendar` (`[calendar.required-for-working-duration]`; no application-wide calendar); 0.1.0's step/tool `expiresIn` overrides are gone.
+  **Free-text replies (#267 PR 3):** a target's `channelInterpreter` is a
+  `@ChannelInterpreter` (`-reply-interpreter`, one per target) that reads `app.resume({ pauseId, reply })`
   with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
-  `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideArguments`
+  `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideInput`
   described by the approved tool's input, every field optional: the fields the reply changes, laid
   over the call's own arguments before validation, #648 — and `answer-reply-interpreter-not-understood-dto`
   (`ReplyInterpreterNotUnderstoodDto { reason }`: the reply does not answer, never a refusal; #688: for an approval role
@@ -1618,17 +1623,17 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   the DTO, a script's DTO-shaped answer as is — a yes with a limit below the call's value is a change in any
   language; an unknown decision, `approve-with-changes` without a correction, `approved` beside a decision or a
   correction that changes the call's shape (a new key at any depth, another kind of value, a list of another length)
-  is not understood; every decision's `overrideArguments` pass the tool's input strictly (an unknown key at any depth is
+  is not understood; every decision's `overrideInput` pass the tool's input strictly (an unknown key at any depth is
   refused, never dropped) — a reply interpreter may change approved arguments within the call's DTO; put money limits
   in a guardrail or the action (a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the corrected call before the tool runs);
   `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
   call per move (`parallel_tool_calls: false`), static `prompt`; for an approval
   role a decision model too — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
-  no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
+  no `reason` / `overrideInput` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
   `reply-interpreter:<name>`) or `DecidedBy.Code` (`implements ReplyInterpreterHandler<Self>` —
-  `interpret(input: InputOf<Self>)` returns `ReplyInterpretation.understood(decision)` or
-  `ReplyInterpretation.notUnderstood({ reason })` (sync or a promise; a plain object does not
+  `interpret(input: InputOf<Self>)` returns `ChannelInterpretation.understood(decision)` or
+  `ChannelInterpretation.notUnderstood({ reason })` (sync or a promise; a plain object does not
   compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:
   tenant, owner, the waiting step — the rate limits see the tenant); a model one reads the question
   and the reply through the application's and the workflow's PII policies, its answer revealed before
@@ -2292,14 +2297,14 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `actor: { id, orgId? }` (`id` non-empty,
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
   other credential → `PauseError.PermissionDenied`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
-  `reason?`, `overrideArguments?` only with `approved: true`) is validated before it is recorded.
+  `reason?`, `overrideInput?` only with `approved: true`) is validated before it is recorded.
   Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key in
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
   tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
   (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
   any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
-  role's `@ReplyInterpreter` (Components above). Who answered each pause is in
+  role's `@ChannelInterpreter` (Components above). Who answered each pause is in
   `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
 answerer, actor (a `PauseActor`), input, toolCall, assignees, externalRef, trail, resolution: PauseResolution,
@@ -2319,7 +2324,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   into one ordered mailbox per pause and receiver, in the store transaction of the change (`PausedExecutionRepository`:
   `claimNoticesDue`, `ackNotice`, `retryNotice`, `setAsideNotices`, `setAsideStaleNoticesBefore`); every call site asks
   `PauseSeam.notices.recipientsOf(pause)` (`app/pause-notices.ts`: the channel only when its sender overrides `onPauseClosed` /
-  `onPauseAnswerNotTaken`, and every `@PauseListener`) and calls `notices.delivered()` right after the change returned. The delivery
+  `onPauseAnswerNotTaken`, and every `@ChannelListener`) and calls `notices.delivered()` right after the change returned. The delivery
   (`app/pause-notice-delivery.ts`, loaded with the first notice, looked for by the fast path and by the pause timers' tick,
   `application/pause-timers.ts`, every 5 s, each look isolated, `app.checkLiveness()` reports a stale tick as `pause-timers`) claims
   mailboxes, builds the event from the notice and the pause record (ask and answer masked by the pause's own workflow's observability
@@ -2327,7 +2332,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   a crash before the ack delivers again, with the same `deliveryId` (`sha256(pauseKey:recipient:seq)`): at least once, never zero
   times; a failure retries at 1 s × 2^attempts (at most 5 min), logs `pause.notice-failed`, and past `retention.pauseRecords` sets the
   mailbox aside (`pause.notice-dead`); a mailbox nobody claims is set aside by the recovery sweep (`pause.notice-recipient-unknown`).
-  A `@PauseListener` gets `pauseKey`, never a channel pause's `pauseId` unless `allowAnswering`. `withdraw` is gone.
+  A `@ChannelListener` gets `pauseKey`, never a channel pause's `pauseId` unless `includePauseIds`. `withdraw` is gone.
   **Pause deadlines (#941):** a pause's record carries `expiresAt` / `expiryBound` (`Pause` | `RunDeadline` | `Quorum`) / `boundAt`, fixed
   when the record is made (`flow/runtime/pause-record-made.ts` `deadlineOf`: `min(askedAt + expiresIn, frame.execution.deadline.at)`, a
   tie → `RunDeadline`; `expiresIn` of the step/tool over the role's: `PauseQuestion.expiresIn ?? PauseChannel.expiresIn`; a question
@@ -2345,7 +2350,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `questionRunner` and the agent's approval node turn it into `PauseExpiredError` (or, bound by the run, `DeadlineExceededError`:
   `flow/runtime/pause-expiry-failure.ts`). Fault scenarios `s24*` (`faults/scenarios/s24-pause-expiry.ts`) and the invariants
   `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
-  **Extension and reminder (#942):** `@ChannelRole({ remindBefore })` → `PauseChannel.remindBefore` (`components/channel-parts.ts`) →
+  **Extension and reminder (#942):** `@ToolApproval({ remindBefore })` / `@ExternalTask({ remindBefore })` → `PauseChannel.remindBefore` (`components/channel-parts.ts`) →
   `remindAtOf(expiresAt, remindBefore, askedAt)` in `newRecordOf` (`remindAt` only when after the ask; the effective `expiresAt`, so a
   run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a question step's or a tool's `expiresIn` ≤ the
@@ -2357,7 +2362,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   look, only trees whose root record's `bundle` is a workflow of the instance, each pause's `remindByTenantIdAndPauseId` with
   `PauseNoticeHub.recipientsOf` started and not awaited — at most 50 in flight, `settled()` at stop) writes `expiring` once across instances. A pause extended to exactly its `boundAt` expires
   as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
-  `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
+  `expiring` reach a channel's `onPauseTimeoutChanged` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names.
   **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: true, unit: "ms" | "days", amount }` — `workDays` is `unit: "days"`, a working day of the resolved schedule, never 24 hours (#1310b);
   `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
@@ -2951,7 +2956,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testUnit` (a code router's `route()`, or a model router with `model: routeTo(X)`
   / `decideWith(…)`), `testUnit(A)(Agent, answer)`, `testUnit(R)(query, { topK })`,
-  `testUnit(Role, { model })` (#644: the role's `@ReplyInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testUnit(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
+  `testUnit(Role, { model })` (#644: the role's `@ChannelInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testUnit(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
   `.afterToolCall(Tool, input, output)`), `testUnit(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testUnit(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
   and `testUnit([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
@@ -3066,7 +3071,7 @@ Components):
   `ExecutionCancelledError`; nothing execution-time is named `run…`.
 - **The CLI takes full names** (#268): `--start chat-workflow-start`, `--workflow desk-workflow`,
   `agboss generate agent billing-agent` — the same string as `name`, traces and records. Inheritance (#120): lists add up, `exclude…` removes explicitly, a single setting
-  has the same name on every level — no `override…` settings (`overrideArguments` is a corrected
+  has the same name on every level — no `override…` settings (`overrideInput` is a corrected
   tool call, not inheritance).
 
 ## Conveyor

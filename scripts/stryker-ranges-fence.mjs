@@ -98,6 +98,7 @@ export function cancelPausesShard() {
       "src/app/tree-end-pauses.ts",
       "src/flow/runtime/launch/withdrawn-pauses.ts",
       "src/flow/runtime/pause.ts",
+      "src/flow/runtime/pause-open.ts",
     ],
   };
 }

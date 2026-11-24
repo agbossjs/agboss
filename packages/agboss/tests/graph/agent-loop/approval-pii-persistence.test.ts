@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { PiiKind } from "../../../src/pii/kinds.js";
 import { PiiPolicySet } from "../../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../../src/pii/runtime-policy.js";
-import type { PiiPolicyMeta, PiiRule } from "../../../src/pii/pii-policy.decorator.js";
+import type { PiiRule } from "../../../src/pii/pii-policy.decorator.js";
 import {
   callTools,
   decision,
@@ -77,7 +77,7 @@ describe("#1295c: approval records never hold the model's raw arguments", () => 
 
     await runLoop(
       h.graph,
-      decision({ approved: true, overrideArguments: { path: "a.ts", content: `to ${OTHER}` } }),
+      decision({ approved: true, overrideInput: { path: "a.ts", content: `to ${OTHER}` } }),
       "t",
     );
 

@@ -1,8 +1,7 @@
 import {
-  PauseListener,
-  type PauseListenerClosedEvent,
-  type PauseListenerHandler,
-  type PauseListenerOpenedEvent,
+  ChannelListener,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerOpenedEvent,
 } from "../../../index.js";
 import { FaultPodLink } from "./pod-link.js";
 
@@ -13,15 +12,15 @@ import { FaultPodLink } from "./pod-link.js";
  * is not written yet), a pod killed before it has not. The invariant `notices-once-each-in-order`
  * reads these events.
  */
-@PauseListener({
+@ChannelListener({
   name: "fault-pause-listener",
   description: "Records every pause notice it is delivered",
   deps: [FaultPodLink],
 })
-export class FaultPauseListener implements PauseListenerHandler {
+export class FaultPauseListener {
   constructor(private readonly faultPodLink: FaultPodLink) {}
 
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     this.faultPodLink.emit("pause-notice", {
       notice: "opened",
       pauseKey: event.pauseKey,
@@ -30,7 +29,7 @@ export class FaultPauseListener implements PauseListenerHandler {
     return Promise.resolve();
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     this.faultPodLink.emit("pause-notice", {
       notice: "closed",
       pauseKey: event.pauseKey,

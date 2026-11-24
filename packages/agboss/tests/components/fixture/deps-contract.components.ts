@@ -24,7 +24,15 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "../../../src/components/judge-decorators.js";
-import { Injectable, InjectionToken, Tool, inline } from "../../../src/index.js";
+import {
+  Injectable,
+  InjectionToken,
+  PauseRespondent,
+  Tool,
+  ToolApproval,
+  inline,
+} from "../../../src/index.js";
+import { days } from "../../../src/units/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 
@@ -97,10 +105,18 @@ export class StampAction {
   }
 }
 
-@Channel({ name: "vault-desk", deps: [Vault] })
+@ToolApproval({
+  name: "vault-tool-approval",
+  description: "Approves what the vault desk is asked",
+  respondent: PauseRespondent.Delegate,
+  timeout: days(1),
+})
+export class VaultToolApproval {}
+
+@Channel({ name: "vault-desk", deps: [Vault], target: VaultToolApproval, ttl: days(1) })
 export class VaultChannel {
   constructor(private readonly vault: Vault) {}
-  send(ask: ChannelSenderAsk): Promise<ChannelOutcome<VaultChannel>> {
+  send(ask: ChannelSenderAsk): Promise<ChannelOutcome<VaultToolApproval>> {
     seen.push(`channel:${ask.pauseId}:${this.vault.secret}`);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }

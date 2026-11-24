@@ -43,7 +43,8 @@ describe("#1343: onPauseTimeoutChanged", () => {
       executionId: paused.executionId,
       threadId: "change-thread",
       workflow: nameOf(managerFlow.workflow),
-      channel: "extendable-manager-question",
+      target: "extendable-manager-external-task",
+      channel: "extendable-manager-channel",
       previousExpiresAt: new Date(oldDeadline),
       expiresAt: new Date(extension.expiresAt),
     });
@@ -83,8 +84,9 @@ describe("#1343: onPauseReassigned", () => {
       executionId: paused.executionId,
       threadId: "change-thread",
       workflow: nameOf(managerFlow.workflow),
-      channel: "extendable-manager-question",
-      previousChannel: "extendable-manager-question",
+      target: "extendable-manager-external-task",
+      channel: "extendable-manager-channel",
+      previousChannel: "extendable-manager-channel",
       expiresAt: new Date(deadline),
     });
     const shown = JSON.stringify(told.changes);

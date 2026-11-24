@@ -1,4 +1,3 @@
-import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -29,7 +28,6 @@ import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
 import { placementOfWorkflow, type Placements } from "../analyse/child-placements.js";
 import { isQueued, type ChildPlacement } from "../child-placement.js";
-import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-expiry.js";
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
  * outgoing edges grouped by how they are taken — the one next step, the `switch` cases by the
@@ -64,8 +62,6 @@ export interface RuntimeNode {
    * children are queued for any instance; absent — they run inside the parent's step.
    */
   readonly placement?: ChildPlacement;
-  /** A question step's own `expiresIn` (#941, `.toExternalTask(Q, { expiresIn })`); absent — its role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 export interface RuntimeGraph {
@@ -162,11 +158,9 @@ export function runtimeGraphOf(
   where: { readonly default?: ChildPlacement | undefined; readonly overrides?: Placements } = {},
 ): RuntimeGraph {
   const nodes = new Map<string, RuntimeNode>();
-  const expiries = questionExpiriesOf(flow);
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
     const placement = placementOf(node, where.default, where.overrides);
-    const expiresIn = expiresInOfQuestion(expiries, node.component);
     const edges = analysis.graph.edges.filter((edge) => edge.from === node.name);
     nodes.set(node.name, {
       id: node.name,
@@ -177,7 +171,6 @@ export function runtimeGraphOf(
       exits: exitsOf(edges),
       ...(maxVisits === undefined ? {} : { maxVisits }),
       ...(placement === undefined ? {} : { placement }),
-      ...(expiresIn === undefined ? {} : { expiresIn }),
     });
   }
   return {

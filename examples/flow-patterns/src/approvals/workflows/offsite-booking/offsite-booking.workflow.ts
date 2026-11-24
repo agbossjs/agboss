@@ -8,7 +8,7 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
 
 /**
  * Two approvals at once (#267): the venue buyer and the flight buyer run side by side, and each
- * calls place-purchase-tool, which waits for the thread's owner through `PurchaseApprovalChannel`. So the
+ * calls place-purchase-tool, which waits for the thread's owner through `PurchaseToolApproval`. So the
  * execution rests with two pauses (`result.pending`); each answer continues its own branch, and the
  * join waits for both. The pauses are records in SQLite (`SqlitePausedExecutionRepository`, the
  * checkpoints in `SqliteCheckpointSaver`): they wait across a restart of the process.

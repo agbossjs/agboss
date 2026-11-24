@@ -105,10 +105,10 @@ async function readOnce(
 export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
   return async (call) => {
     const { pause, ...rest } = call;
-    const interpreter = parts.interpreters.find((found) => found.channel === pause.channel);
+    const interpreter = parts.interpreters.find((found) => found.target === pause.target);
     if (interpreter === undefined) {
       throw new ReplyInterpreterMissingError({
-        message: `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
+        message: `pause ${pause.pauseId}: pause target ${pause.target} has no channelInterpreter — answer it with a decision, or name one on its @ToolApproval or @ExternalTask`,
       });
     }
     return readReplyBy(

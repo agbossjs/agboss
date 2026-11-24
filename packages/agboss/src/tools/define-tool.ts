@@ -1,4 +1,3 @@
-import { namedChannelOf } from "./approval-channel.js";
 import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { handedOverOf, recordedHandOver } from "../app/handed-over.js";
 import { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
@@ -9,13 +8,7 @@ import type { Tool, ToolInvocationContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { timeoutOn } from "../infrastructure/clock.js";
-import {
-  kilobytes,
-  seconds,
-  type Bytes,
-  type Milliseconds,
-  type WorkingDuration,
-} from "../units/index.js";
+import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
 import { inCurrentStepEntry } from "../flow/runtime/step-entries.js";
 
 /** How long a tool call may run when its tool sets no `timeout`. */
@@ -65,10 +58,8 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly description: string;
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
-  readonly channel?: string;
   readonly approval?: string;
   readonly timeout?: Milliseconds;
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   readonly maxResultSize?: Bytes;
   readonly run: (input: TInput, ctx: ToolInvocationContext) => Promise<TOutput>;
 }
@@ -150,7 +141,6 @@ export function defineTool<TName extends string, TInput, TOutput>(
       `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
     );
   }
-  const channel = namedChannelOf(definition);
   const timeout = checkedTimer(
     `tool ${definition.name}: timeout`,
     definition.timeout ?? DEFAULT_TOOL_TIMEOUT,
@@ -180,11 +170,8 @@ export function defineTool<TName extends string, TInput, TOutput>(
   return {
     name: definition.name,
     description: definition.description,
-    // `approval` is the new name of `channel`: the one the runtime waits on is the same (#1307)
-    ...(channel === undefined ? {} : { channel }),
     ...(definition.approval === undefined ? {} : { approval: definition.approval }),
     timeout,
-    ...(definition.expiresIn === undefined ? {} : { expiresIn: definition.expiresIn }),
     ...(definition.maxResultSize === undefined ? {} : { maxResultSize: definition.maxResultSize }),
     input: definition.input,
     output: definition.output,

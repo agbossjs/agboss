@@ -24,7 +24,7 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 /**
  * Reading a free-text reply to a pause (#267 PR 3): the pause's role's interpreter gets the pause's
  * original question and the reply, and what it gives is validated like a decision. A reply nobody
- * can read — a code interpreter's `ReplyInterpretation.notUnderstood({ reason })` (S124 b) or its
+ * can read — a code interpreter's `ChannelInterpretation.notUnderstood({ reason })` (S124 b) or its
  * crash (a throw), a model that gives no answer, an answer that is not valid — is `unreadable`: the
  * caller throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter
  * spent is reported either way. A decision-model interpreter makes one `Decision.boolean` (S124 a,
@@ -69,9 +69,7 @@ async function maskedRequestOf(
   pii: ReplyPii,
 ): Promise<Awaited<ReturnType<typeof maskForModel>>> {
   const head =
-    interpreter.approves === undefined
-      ? QUESTION_REPLY_INTERPRETER_SYSTEM
-      : REPLY_INTERPRETER_SYSTEM;
+    interpreter.input === undefined ? QUESTION_REPLY_INTERPRETER_SYSTEM : REPLY_INTERPRETER_SYSTEM;
   const system = `${head}\n\n${interpreter.instructions}`.trim();
   const messages = [
     new SystemMessage(system),
@@ -100,7 +98,7 @@ export async function readByModel(
   const chat = site.gateway.chatModel({ user, settings: site.settings });
   if (chat.bindTools === undefined)
     throw new TypeError(`${caller}: ${site.settings.model} cannot call tools`);
-  const tools = replyToolsOf(interpreter.answer, interpreter.approves);
+  const tools = replyToolsOf(interpreter.answer, interpreter.input);
   const request = await maskedRequestOf(interpreter, input, site.pii);
   const spec = { caller, settings: site.settings, sent: request.messages, sink: reportToFrame };
   const bound = chat.bindTools([...tools.definitions], ONE_CALL);
@@ -117,7 +115,7 @@ export async function readByModel(
     return { kind: "declined", reason, usage };
   }
   // a question role's answer (#659) is the role's own DTO: nothing laid over a call
-  const ask = interpreter.approves === undefined ? undefined : input.ask;
+  const ask = interpreter.input === undefined ? undefined : input.ask;
   return readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
 }
 
@@ -158,7 +156,7 @@ function readingOf(
 export interface ReplyCall {
   readonly pause: PauseRecord;
   readonly reply: string;
-  /** The decision as the role validates it (the tool's input checks `overrideArguments`). */
+  /** The decision as the role validates it (the tool's input checks `overrideInput`). */
   readonly validate: (decision: unknown) => unknown;
   /** Before a model interpreter's call: the tree's budgets checked (an exhausted one throws). */
   readonly beforeModelCall: () => Promise<void>;

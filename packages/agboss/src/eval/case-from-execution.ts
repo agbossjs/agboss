@@ -102,7 +102,7 @@ function requiredCallsOf(calls: readonly ToolCallRecord[]): readonly DraftToolCa
 }
 
 /**
- * The pauses a person answered: replied, with a decision kept; the target is the channel asked.
+ * The pauses a person answered: replied, with a decision kept; the target is the pause target asked.
  * The decision is the record's, masked like its inputs and outputs (the history masks the pauses
  * by their execution's chain). The person who answered is not masked data but an identity — an
  * owner id or a credential: a drafted case, saved as a golden file, names a placeholder instead
@@ -121,7 +121,7 @@ function pausesOf(pauses: readonly PauseAnswerRecord[]): readonly DraftPause[] {
     pause.resolution === PauseResolution.Replied && pause.decision !== undefined
       ? [
           {
-            target: pause.role,
+            target: pause.target,
             decision: pause.decision,
             ...(pause.actor === undefined ? {} : { actor: { id: placeholderOf(pause.actor.id) } }),
           },

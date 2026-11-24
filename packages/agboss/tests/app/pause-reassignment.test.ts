@@ -308,7 +308,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
   );
 
   desk(
-    "AC1: the new id is in no log and no listener's notice without allowAnswering, and in no result of the call",
+    "AC1: the new id is in no log and no listener's notice without includePauseIds, and in no result of the call",
     async ({ app, mockLlm }) => {
       scriptedClerk(mockLlm);
       await execute(app, DeskWorkflowStart, REFUND);
@@ -473,7 +473,7 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       const stored = await pauseStore().findByTenantIdAndPauseId("default", newId);
       expect(stored).toMatchObject({
         status: PauseStatus.Taken,
-        answer: { decision: approve, actor: { id: "refund-approval-channel" } },
+        answer: { decision: approve, actor: { id: "finance-desk-refund-approval-channel" } },
       });
       expect(seen.refunds).toEqual(["7"]);
       expect(clerk.turns()).toBe(2);
@@ -750,7 +750,7 @@ describe("#946 AC3: the deadline, and the races", () => {
 
 describe("#946: who may reassign, and what is refused", () => {
   extension(
-    "the answerer is checked as for an answer (a thread owner's pause)",
+    "the respondent is checked as for an answer (a thread owner's pause)",
     async ({ app }) => {
       await execute(app, ownerFlow.start, { orderId: "o-1" }, { ...THREAD, ownerId: "alice" });
       const pauseId = (await pausesOf(app))[0]?.pauseId ?? "";

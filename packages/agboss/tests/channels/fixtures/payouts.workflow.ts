@@ -18,6 +18,7 @@ import {
   ConfirmOrderTool,
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   OrderConfirmationDto,
   PauseLog,
   RefundDoneDto,
@@ -107,6 +108,7 @@ export class PayoutDeclinedWorkflowFinish {}
 
 const providers = [
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   CustomerOrderConfirmationChannel,
   SeenPausedExecutionRepository,
 ];

@@ -85,7 +85,7 @@ if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
 ```
 
 The decision is a `ToolCallApprovalDecisionDto` (`@agboss/core/dto`): `approved`, `reason?` — why,
-`overrideArguments?` — only with `approved: true`, checked by the tool's input. Who answered is not
+`overrideInput?` — only with `approved: true`, checked by the tool's input. Who answered is not
 part of it: the framework knows it from the resume (`actor`, or the thread's owner). It is
 validated before it is recorded (`DtoValidationError` otherwise; the pause keeps waiting). `agboss
 chat` asks in the terminal; a decline carries `reason: "declined in the terminal"`. `sensitive`
@@ -176,7 +176,7 @@ answers. **Then the turn ends** — the router is not asked again
 `PauseSeam.notices` (`recipientsOf(pause)`, `delivered()`) replaced the old `withdrawn` hook: every
 transition call site — the pause step's `markSent`, `app.resume`, a cancel, a `FailFast` or quorum
 withdrawal, a tree's end — asks `recipientsOf` who hears of the change (the channel that asked when
-it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@PauseListener`), passes it to
+it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@ChannelListener`), passes it to
 the store transition — the notices are written in its transaction — and calls `delivered()` right
 after the transition returned, before anything that may throw. See
 [Pauses → Telling the channel and the listeners](Pauses#telling-the-channel-and-the-listeners-940)

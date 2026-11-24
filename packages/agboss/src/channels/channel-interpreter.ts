@@ -4,22 +4,23 @@ import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
 import type { PromptSource } from "../components/prompt-source.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
-import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
 import { resolvedName } from "../flow/names.js";
-import {
-  recordInterpreter,
-  ReplyInterpretationKind,
-  type ReplyInterpreterDeclaration,
-} from "./channel-role.decorator.js";
 
 /**
  * `@ChannelInterpreter` (#1310c): the new name of `@ReplyInterpreter` — who turns a free-text reply
  * to a pause into its target's typed output, named on the target (`@ToolApproval({
- * channelInterpreter })`). No `decidedBy`: a class with `interpret(input)` decides by code, an empty
- * one with a `prompt` by its chat `model`. It records into the registry `@ReplyInterpreter` fills,
- * so assembly and the runtime read one shape.
+ * channelInterpreter })`). A class with `interpret(input)` decides by code, an empty one with a
+ * `prompt` by its chat `model`.
  */
+
+/** The two outcomes of a code interpreter's `interpret`. */
+export enum ChannelInterpretationKind {
+  /** The reply was read: its output is validated like any other answer. */
+  Understood = "understood",
+  /** The reply says nothing the interpreter can read: the pause stays pending. */
+  NotUnderstood = "not-understood",
+}
 
 declare const channelInterpretation: unique symbol;
 
@@ -27,14 +28,14 @@ declare const channelInterpretation: unique symbol;
 export interface UnderstoodChannelInterpretation<out TOutput> {
   /** A mark only `ChannelInterpretation.understood` / `.notUnderstood` give. */
   readonly [channelInterpretation]: true;
-  readonly kind: ReplyInterpretationKind.Understood;
+  readonly kind: ChannelInterpretationKind.Understood;
   readonly output: TOutput;
 }
 
 /** The reply was not understood: `reason` is the `UninterpretableReplyError`'s. */
 export interface NotUnderstoodChannelInterpretation {
   readonly [channelInterpretation]: true;
-  readonly kind: ReplyInterpretationKind.NotUnderstood;
+  readonly kind: ChannelInterpretationKind.NotUnderstood;
   readonly reason: string;
 }
 
@@ -46,12 +47,12 @@ export type ChannelInterpretation<TOutput = never> =
 export const ChannelInterpretation = {
   /** The reply was read as `output`: validated like an answer given to `app.resume`. */
   understood<TOutput>(output: TOutput): UnderstoodChannelInterpretation<TOutput> {
-    const built = { kind: ReplyInterpretationKind.Understood, output } as const;
+    const built = { kind: ChannelInterpretationKind.Understood, output } as const;
     return Object.freeze(built) as UnderstoodChannelInterpretation<TOutput>;
   },
   /** The reply was not understood: `app.resume` throws `UninterpretableReplyError` with `reason`. */
   notUnderstood(reason: string): NotUnderstoodChannelInterpretation {
-    const built = { kind: ReplyInterpretationKind.NotUnderstood, reason } as const;
+    const built = { kind: ChannelInterpretationKind.NotUnderstood, reason } as const;
     return Object.freeze(built) as NotUnderstoodChannelInterpretation;
   },
 } as const;
@@ -108,6 +109,25 @@ export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <
   value: TClass,
 ) => TClass;
 
+/** What `@ChannelInterpreter` recorded on a class: its options, how it decides and the file it is declared in. */
+export interface ChannelInterpreterDeclaration {
+  /** The options, with `name` resolved: given, or the class name in kebab-case. */
+  readonly options: ChannelInterpreterOptions & { readonly name: string };
+  /** `code`: the class's `interpret(input)`; `model`: its chat model reads the reply. */
+  readonly decidedBy: "code" | "model";
+  readonly source?: string;
+}
+
+const interpreters = new WeakMap<Class, ChannelInterpreterDeclaration>();
+
+/** What `@ChannelInterpreter` recorded on a class; `undefined` for an undecorated one. */
+export const channelInterpreterOf = (cls: Class): ChannelInterpreterDeclaration | undefined =>
+  interpreters.get(cls);
+
+/** Whether an interpreter is decided by code. */
+export const isCodeChannelInterpreter = (declaration: ChannelInterpreterDeclaration): boolean =>
+  declaration.decidedBy === "code";
+
 /** An interpreter its class decides: `interpret(input)`, `deps` in its constructor. */
 export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(
   options?: CodeChannelInterpreterOptions<TDeps>,
@@ -128,14 +148,12 @@ export function ChannelInterpreter(
       options.prompt !== undefined ||
       options.model !== undefined ||
       options.modelProvider !== undefined;
-    const named = isModel
-      ? { ...options, name, decidedBy: DecidedBy.Model as const }
-      : { ...options, name, decidedBy: DecidedBy.Code as const };
-    const declaration = {
-      options: named,
-      isChannelInterpreter: true,
-    } as ReplyInterpreterDeclaration;
-    recordInterpreter(value, source === undefined ? declaration : { ...declaration, source });
+    const declaration: ChannelInterpreterDeclaration = {
+      options: { ...options, name },
+      decidedBy: isModel ? "model" : "code",
+      ...(source === undefined ? {} : { source }),
+    };
+    interpreters.set(value, declaration);
     return value;
   };
 }

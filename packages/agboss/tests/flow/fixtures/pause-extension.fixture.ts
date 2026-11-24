@@ -2,19 +2,18 @@ import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { Channel } from "../../../src/components/decorators.js";
 import type { ExecutionErrorEvent } from "../../../src/index.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import { PauseListener, type PauseListenerHandler } from "../../../src/pause/pause-listener.js";
+import { ChannelListener } from "../../../src/pause/channel-listener.js";
 import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type {
   ChannelPauseClosedEvent,
   ChannelPauseExpiringEvent,
-  ChannelPauseExtendedEvent,
-  PauseListenerClosedEvent,
-  PauseListenerExpiringEvent,
-  PauseListenerExtendedEvent,
-  PauseListenerOpenedEvent,
+  ChannelPauseTimeoutChangedEvent,
+  ChannelListenerClosedEvent,
+  ChannelListenerExpiringEvent,
+  ChannelListenerTimeoutChangedEvent,
+  ChannelListenerOpenedEvent,
 } from "../../../src/pause/notice-events.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -23,7 +22,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
+import { hours, seconds, type Milliseconds, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { onStart } from "./paths.js";
@@ -31,12 +30,14 @@ import {
   Observer,
   type PauseReassignedEvent,
   type PauseTimeoutChangedEvent,
+  ExternalTask,
 } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /**
  * #942 — a pause that is extended and reminded: a manager's approval (24 h, a reminder 2 h before),
  * the same asked of the thread's owner, a pause with no deadline, and one whose step gives it
- * less time than the reminder asks for. What the channels and the listener were told is in
+ * less time than the reminder asks for (#1307d: a target's `resolveTimeout`). What the channels and the listener were told is in
  * `told`, reset per test.
  */
 
@@ -58,12 +59,12 @@ export const told = {
   /** Every extended / expiring notice, in order, redeliveries included. */
   notices: [] as Told[],
   /** Every ask the channels were sent. */
-  sent: [] as ChannelAsk<ExtendManagerQuestion>[],
+  sent: [] as ChannelAsk<ExtendManagerExternalTask>[],
   /** Every opened / closed notice a listener heard. */
   other: [] as string[],
   recorded: [] as string[],
   /** The asks the manager channel's expiry decision was called with. */
-  expiryAsked: [] as ChannelAsk<ExtendManagerQuestion>[],
+  expiryAsked: [] as ChannelAsk<ExtendManagerExternalTask>[],
   /** The errors executions failed with. */
   errors: [] as Error[],
   /** Every pause an operator extended or reassigned, as the observers were told (#1343). */
@@ -86,45 +87,51 @@ export function resetTold(): void {
   told.ownerDecides = undefined;
 }
 
-@ChannelRole({
-  name: "extendable-manager-question",
+@ExternalTask({
+  name: "extendable-manager-external-task",
   description: "Asks a manager within 24 hours, a reminder 2 hours before",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: hours(24),
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
   remindBefore: hours(2),
 })
-export abstract class ExtendManagerQuestion extends ChannelOf<ExtendManagerQuestion> {}
+export class ExtendManagerExternalTask {}
 
 @Channel({
   name: "extendable-manager-channel",
   description: "Asks the manager",
   deps: [ApplicationContext],
+  target: ExtendManagerExternalTask,
+  ttl: days(1),
 })
-export class ExtendManagerChannel extends ExtendManagerQuestion {
-  constructor(private readonly context: ApplicationContext) {
-    super();
-  }
+export class ExtendManagerChannel {
+  constructor(private readonly context: ApplicationContext) {}
 
-  send(ask: ChannelAsk<ExtendManagerQuestion>): Promise<ChannelOutcome<ExtendManagerQuestion>> {
+  send(
+    ask: ChannelAsk<ExtendManagerExternalTask>,
+  ): Promise<ChannelOutcome<ExtendManagerExternalTask>> {
     told.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
   /** What an expiry would decide: it goes on approved, the worst answer for a run past its deadline. */
-  onPauseExpired(ask: ChannelAsk<ExtendManagerQuestion>): PauseExpiration<ExtendManagerQuestion> {
+  onPauseExpired(
+    ask: ChannelAsk<ExtendManagerExternalTask>,
+  ): PauseExpiration<ExtendManagerExternalTask> {
     told.expiryAsked.push(ask);
     return PauseExpiration.decide({ approved: true });
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<ExtendManagerQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<ExtendManagerExternalTask>): Promise<void> {
     told.other.push(`channel closed ${event.reason}`);
     told.closed.push({ pauseId: event.pauseId, reason: event.reason });
     return Promise.resolve();
   }
 
-  override onPauseExtended(event: ChannelPauseExtendedEvent<ExtendManagerQuestion>): Promise<void> {
+  onPauseTimeoutChanged(
+    event: ChannelPauseTimeoutChangedEvent<ExtendManagerExternalTask>,
+  ): Promise<void> {
     told.notices.push({
       receiver: "channel",
       kind: "extended",
@@ -136,7 +143,7 @@ export class ExtendManagerChannel extends ExtendManagerQuestion {
     return Promise.resolve();
   }
 
-  override onPauseExpiring(event: ChannelPauseExpiringEvent<ExtendManagerQuestion>): Promise<void> {
+  onPauseExpiring(event: ChannelPauseExpiringEvent<ExtendManagerExternalTask>): Promise<void> {
     told.notices.push({
       receiver: "channel",
       kind: "expiring",
@@ -149,20 +156,25 @@ export class ExtendManagerChannel extends ExtendManagerQuestion {
 }
 
 /** The thread's owner answers; the same deadline and reminder. */
-@ChannelRole({
-  name: "extendable-owner-question",
+@ExternalTask({
+  name: "extendable-owner-external-task",
   description: "Asks the order's owner within 24 hours",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  expiresIn: hours(24),
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Owner,
+  timeout: hours(24),
   remindBefore: hours(2),
 })
-export abstract class ExtendOwnerQuestion extends ChannelOf<ExtendOwnerQuestion> {}
+export class ExtendOwnerExternalTask {}
 
-@Channel({ name: "extendable-owner-channel", description: "Waits for the owner" })
-export class ExtendOwnerChannel extends ExtendOwnerQuestion {
-  send(ask: ChannelAsk<ExtendOwnerQuestion>): Promise<ChannelOutcome<ExtendOwnerQuestion>> {
+@Channel({
+  name: "extendable-owner-channel",
+  description: "Waits for the owner",
+  target: ExtendOwnerExternalTask,
+  ttl: days(1),
+})
+export class ExtendOwnerChannel {
+  send(ask: ChannelAsk<ExtendOwnerExternalTask>): Promise<ChannelOutcome<ExtendOwnerExternalTask>> {
     // #946: the owner's channel decides at once for a reassigned send, when the test says so
     if (ask.replaces !== undefined && told.ownerDecides !== undefined)
       return Promise.resolve(ChannelOutcome.decided(told.ownerDecides as never));
@@ -171,38 +183,44 @@ export class ExtendOwnerChannel extends ExtendOwnerQuestion {
 }
 
 /** No deadline of its own, a reminder asked for all the same: a run's deadline would bind it. */
-@ChannelRole({
-  name: "extendable-open-question",
+@ExternalTask({
+  name: "extendable-open-external-task",
   description: "Asks without a deadline",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.Channel,
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
   remindBefore: hours(2),
 })
-export abstract class ExtendOpenQuestion extends ChannelOf<ExtendOpenQuestion> {}
+export class ExtendOpenExternalTask {}
 
-@Channel({ name: "extendable-open-channel", description: "Asks, no deadline" })
-export class ExtendOpenChannel extends ExtendOpenQuestion {
-  send(): Promise<ChannelOutcome<ExtendOpenQuestion>> {
+@Channel({
+  name: "extendable-open-channel",
+  description: "Asks, no deadline",
+  target: ExtendOpenExternalTask,
+  ttl: days(1),
+})
+export class ExtendOpenChannel {
+  send(): Promise<ChannelOutcome<ExtendOpenExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@PauseListener({ name: "extension-pause-listener", deps: [ApplicationContext] })
-export class ExtensionPauseListener implements PauseListenerHandler {
+@ChannelListener({ name: "extension-pause-listener", deps: [ApplicationContext] })
+export class ExtensionPauseListener {
   constructor(private readonly context: ApplicationContext) {}
 
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     told.other.push(`listener opened ${event.workflow}`);
     return Promise.resolve();
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     told.other.push(`listener closed ${event.reason}`);
     return Promise.resolve();
   }
 
-  onPauseExtended(event: PauseListenerExtendedEvent): Promise<void> {
+  onPauseTimeoutChanged(event: ChannelListenerTimeoutChangedEvent): Promise<void> {
     told.notices.push({
       receiver: "listener",
       kind: "extended",
@@ -214,7 +232,7 @@ export class ExtensionPauseListener implements PauseListenerHandler {
     return Promise.resolve();
   }
 
-  onPauseExpiring(event: PauseListenerExpiringEvent): Promise<void> {
+  onPauseExpiring(event: ChannelListenerExpiringEvent): Promise<void> {
     told.notices.push({
       receiver: "listener",
       kind: "expiring",
@@ -275,7 +293,7 @@ export class ExtendManagerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendManagerWorkflowStart)
-      .toExternalTask(ExtendManagerQuestion)
+      .toExternalTask(ExtendManagerExternalTask)
       .toAction(RecordExtensionAction)
       .toFinish(ExtensionWorkflowFinish),
   ],
@@ -295,7 +313,7 @@ export class ExtendOwnerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendOwnerWorkflowStart)
-      .toExternalTask(ExtendOwnerQuestion)
+      .toExternalTask(ExtendOwnerExternalTask)
       .toAction(RecordExtensionAction)
       .toFinish(ExtensionWorkflowFinish),
   ],
@@ -315,40 +333,19 @@ export class ExtendOpenWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendOpenWorkflowStart)
-      .toExternalTask(ExtendOpenQuestion)
+      .toExternalTask(ExtendOpenExternalTask)
       .toAction(RecordExtensionAction)
       .toFinish(ExtensionWorkflowFinish),
   ],
 })
 export class ExtendOpenWorkflow {}
 
-@WorkflowStart({
-  name: "extend-tight-workflow-start",
-  description: "An order",
-  input: ExpiryOrderDto,
-})
-export class ExtendTightWorkflowStart {}
-
-/** The step gives the manager 1 hour: less than the 2 hours the reminder asks for. */
-@Workflow({
-  name: "extend-tight-workflow",
-  version: "1.0.0",
-  flow: [
-    onStart(ExtendTightWorkflowStart)
-      .toExternalTask(ExtendManagerQuestion, { expiresIn: hours(1) })
-      .toAction(RecordExtensionAction)
-      .toFinish(ExtensionWorkflowFinish),
-  ],
-})
-export class ExtendTightWorkflow {}
-
 /** The workflows' starts, by what they ask. */
 export const managerFlow = { start: ExtendManagerWorkflowStart, workflow: ExtendManagerWorkflow };
 export const ownerFlow = { start: ExtendOwnerWorkflowStart, workflow: ExtendOwnerWorkflow };
 export const openFlow = { start: ExtendOpenWorkflowStart, workflow: ExtendOpenWorkflow };
-export const tightFlow = { start: ExtendTightWorkflowStart, workflow: ExtendTightWorkflow };
 
-export const FLOWS = [managerFlow, ownerFlow, openFlow, tightFlow].map((one) => one.workflow);
+export const FLOWS = [managerFlow, ownerFlow, openFlow].map((one) => one.workflow);
 export const CHANNELS = [ExtendManagerChannel, ExtendOwnerChannel, ExtendOpenChannel];
 
 @Application({

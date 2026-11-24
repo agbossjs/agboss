@@ -5,6 +5,7 @@ import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workfl
 import {
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
@@ -25,6 +26,7 @@ import { PlannedIdGenerator } from "./minted-ids.application.js";
   providers: [
     PlannedIdGenerator,
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
   ],

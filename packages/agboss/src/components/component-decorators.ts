@@ -18,7 +18,6 @@ export const COMPONENT_DECORATORS = [
   "Action",
   "Router",
   "Channel",
-  "ReplyInterpreter",
   "ToolApproval",
   "ExternalTask",
   "ChannelSelector",
@@ -37,7 +36,6 @@ export const COMPONENT_DECORATORS = [
   "Budget",
   "HealthCheck",
   "Observer",
-  "PauseListener",
   "WorkingCalendar",
   // `@agboss/core` storage components (#1321): one place of rows each, the container creates them
   "DatabaseStorage",

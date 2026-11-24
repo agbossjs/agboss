@@ -9,7 +9,6 @@ import type {
   NoOutput,
   ProducerOutputOf,
 } from "./generated-types.js";
-import type { QuestionStepOptions } from "./child-placement.js";
 import type { Skip } from "./parallel-step.js";
 import type { ChooseManyOf, ParallelLaunches } from "./launch-types.js";
 import type { SideClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
@@ -187,7 +186,6 @@ export interface Transitions<THead extends PathHead> {
    */
   toExternalTask<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
-    options?: QuestionStepOptions,
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   /**
    * One child execution of `W` (#263) — the class, or `() => W` for one declared below (#1287, its own

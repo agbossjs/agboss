@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
-import type { ModelReplyInterpreterOptions } from "../../src/channels/reply-interpreter.decorator.js";
+import type { ModelChannelInterpreterOptions } from "../../src/channels/channel-interpreter.js";
 import type { Class } from "../../src/components/injection.js";
 import type {
   GuardrailComputedOptions,
@@ -18,7 +18,7 @@ describe("#1313b: modelProvider on the components", () => {
     expectTypeOf<ModelArbiterOptions["modelProvider"]>().toEqualTypeOf<Class | undefined>();
     expectTypeOf<GuardrailTextOptions["modelProvider"]>().toEqualTypeOf<Class | undefined>();
     expectTypeOf<GuardrailComputedOptions["modelProvider"]>().toEqualTypeOf<Class | undefined>();
-    expectTypeOf<ModelReplyInterpreterOptions["modelProvider"]>().toEqualTypeOf<
+    expectTypeOf<ModelChannelInterpreterOptions["modelProvider"]>().toEqualTypeOf<
       Class | undefined
     >();
     expectTypeOf<DeclarativePiiPolicyOptions["modelProvider"]>().toEqualTypeOf<Class | undefined>();
@@ -26,7 +26,7 @@ describe("#1313b: modelProvider on the components", () => {
 
   it("an arbiter's and an interpreter's model is optional, resolved through the cascade", () => {
     expectTypeOf<ModelArbiterOptions["model"]>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<ModelReplyInterpreterOptions["model"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ModelChannelInterpreterOptions["model"]>().toEqualTypeOf<string | undefined>();
   });
 
   it("every level's defaults.models takes a default model", () => {

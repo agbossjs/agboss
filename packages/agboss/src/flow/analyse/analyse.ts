@@ -19,7 +19,6 @@ import { projectInput, type InputShape } from "./projection.js";
 import { recursionOf, type Recursion } from "./recursion.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
-import { questionExpiryRules } from "./question-expiry.js";
 import { remindBeforeWarnings } from "./remind-before.js";
 import { judgeFamilyWarnings, judgeRetryWarnings } from "./rules/judge-family.js";
 import { childRules } from "./rules/children.js";
@@ -108,7 +107,6 @@ const RULES: readonly FlowRule[] = [
   quorumRules,
   branchOutdatingRules,
   childRules,
-  questionExpiryRules,
   limitHandlerRules,
   compensationRules,
 ];

@@ -1,4 +1,4 @@
-import type { ChannelAnswerOf } from "../flow/generated-types.js";
+import type { PauseOutputOf } from "../flow/generated-types.js";
 
 /**
  * What a channel's `send` says happens next (#267): the execution waits for a reply, or the
@@ -18,14 +18,14 @@ export interface AwaitReplyOutcome {
   readonly kind: ChannelOutcomeKind.AwaitReply;
 }
 
-/** The answer given now (validated against the role's answer DTO like a reply). */
+/** The answer given now (validated against the target's output DTO like a reply). */
 export interface DecidedOutcome<TDecision> {
   readonly kind: ChannelOutcomeKind.Decided;
   readonly decision: TDecision;
 }
 
-/** What `send` of a channel of `TRole` returns: `ChannelOutcome.awaitReply()` or `.decided(…)`. */
-export type ChannelOutcome<TRole> = AwaitReplyOutcome | DecidedOutcome<ChannelAnswerOf<TRole>>;
+/** What `send` of a channel of `TTarget` returns: `ChannelOutcome.awaitReply()` or `.decided(…)`. */
+export type ChannelOutcome<TTarget> = AwaitReplyOutcome | DecidedOutcome<PauseOutputOf<TTarget>>;
 
 const AWAIT_REPLY: AwaitReplyOutcome = Object.freeze({ kind: ChannelOutcomeKind.AwaitReply });
 

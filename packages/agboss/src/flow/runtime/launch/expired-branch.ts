@@ -36,6 +36,7 @@ function expiryOf(pause: PauseRecord): PauseExpiredError {
   return new PauseExpiredError({
     step: pause.step,
     stepKind: isAgent ? ComponentKind.Agent : ComponentKind.Question,
+    target: pause.target,
     channel: pause.channel,
     kind: pause.kind,
     expiresAt: pause.expiresAt ?? pause.askedAt,

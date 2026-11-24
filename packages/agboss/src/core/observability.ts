@@ -196,7 +196,7 @@ export interface ExecutionEndEvent extends ExecutionEvent {
 /**
  * An execution paused (`ExecutionStatus.Paused`) because nothing else of it can move: `pending` is
  * every pause it waits for (#267 S35) — fired again after a partial resume when others remain; a
- * `PauseAnswerer.Channel` pause comes without its `pauseId`.
+ * `PauseRespondent.Delegate` pause comes without its `pauseId`.
  */
 export interface ExecutionPauseEvent extends ExecutionEvent {
   readonly pending: readonly PendingPause[];
@@ -235,7 +235,7 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
   /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
   /**
-   * Who gave it (#267 AC4): the resume's `actor` for a `PauseAnswerer.Channel` pause, the owner
+   * Who gave it (#267 AC4): the resume's `actor` for a `PauseRespondent.Delegate` pause, the owner
    * (`{ id: ownerId }`) for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery
    * that takes none).
    */

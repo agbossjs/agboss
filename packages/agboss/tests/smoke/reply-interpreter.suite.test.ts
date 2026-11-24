@@ -30,11 +30,11 @@ class PlacePurchaseOrderDto {
 }
 
 const interpreter: AssembledReplyInterpreter = {
-  channel: "purchase-approval-channel",
+  target: "purchase-tool-approval",
   interpreter: PlacePurchaseOrderDto, // its class is not read on this path
   name: "purchase-reply-interpreter",
   answer: ToolCallApprovalDecisionDto,
-  approves: PlacePurchaseOrderDto,
+  input: PlacePurchaseOrderDto,
   model: MODEL,
   instructions: "Read the approver's reply to the purchase order.",
 };
@@ -77,7 +77,7 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)(`smoke: a reply interpreter on 
       kind: "answered",
       answer: {
         approved: true,
-        overrideArguments: {
+        overrideInput: {
           supplier: "Acme",
           itemDescription: "40 office chairs",
           amountUsd: 500,

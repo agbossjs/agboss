@@ -1,4 +1,3 @@
-import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -30,22 +29,6 @@ import type { ExecutionAuditLogRepository } from "../infrastructure/execution-au
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { PiiRuntime } from "../pii/runtime.js";
-
-/**
- * The workflow's channel of a name (#267). The channels are created here, with the app (so their
- * lifecycle hooks run and a missing dependency fails at start).
- */
-export const channelLookup = (
-  bundle: AssembledWorkflow,
-  services: WorkflowServices,
-): ((channelName: string) => PauseChannel) => {
-  const channels = bundle.channels?.(services);
-  return (channelName: string): PauseChannel => {
-    const channel = channels?.get(channelName);
-    if (!channel) throw new Error(`Unknown channel: ${channelName}`);
-    return channel;
-  };
-};
 
 /** The container's instances: lookup by class. */
 export interface ContainerDeps {

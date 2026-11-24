@@ -1,5 +1,4 @@
 import { WorkingCalendarError } from "../../calendar/working-calendar.js";
-import { approvalChannelOf } from "../../tools/index.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
@@ -65,7 +64,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
     const { approval } = deps;
     if (call === undefined || approval === undefined) return {};
     const tool = toolNamed(deps.agent, call.tool);
-    if (tool === undefined || approvalChannelOf(tool) === undefined) return {};
+    if (tool?.approval === undefined) return {};
     // what the call became before this ask (#1295c): the approver sees its arguments masked
     const shown = shownOf(state, call);
     if (tool.question !== undefined)
@@ -89,9 +88,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       approved: decision.approved,
       by: decision.by,
       ...(decision.reason === undefined ? {} : { reason: decision.reason }),
-      ...(decision.overrideArguments === undefined
-        ? {}
-        : { overrideArguments: decision.overrideArguments }),
+      ...(decision.overrideInput === undefined ? {} : { overrideInput: decision.overrideInput }),
     };
     // a free-text reply's interpreter calls are the loop's spend from now on (#267 PR 3)
     const update = { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };

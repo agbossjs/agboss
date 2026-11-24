@@ -413,7 +413,7 @@ export class UnreconciledCallAlert {
 Who answered each pause, and how, is not an event of its own — it is in the execution record
 (#267 S107): `result.record.pauses` (`{ includeRecord: true }` on `execute` / `resume`) lists every
 resolved pause of the tree in the order asked — `PauseAnswerRecord` (`pauseId` — none for a
-`PauseAnswerer.Channel` pause —, `step`, `role`, `answerer`, `actor` (the person), `resolution:
+`PauseRespondent.Delegate` pause —, `step`, `role`, `answerer`, `actor` (the person), `resolution:
 PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
 the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
 `onExecutionResume` still names each decision a pass takes and its `actor`. A reply

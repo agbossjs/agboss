@@ -19,11 +19,9 @@ import { optionKeys } from "../option-keys.js";
 export const TOOL_KEYS = optionKeys<ToolOptions<DtoClass, DtoClass, readonly Token[]>>()([
   "name",
   "description",
-  "channel",
   "approval",
   "readOnly",
   "timeout",
-  "expiresIn",
   "maxResultSize",
   "toolInterceptors",
   "excludeToolInterceptors",

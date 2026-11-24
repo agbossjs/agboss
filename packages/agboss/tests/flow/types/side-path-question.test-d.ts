@@ -3,7 +3,7 @@ import { toExternalTask } from "../../../src/flow/builder.js";
 import type { AfterStep, SideHead } from "../../../src/flow/builder-types.js";
 import type { SideClaimsOf } from "../../../src/flow/one-of-types.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { SpendingLimitAnswerDto, SpendingLimitQuestion } from "../fixtures/questions.fixture.js";
+import { SpendingLimitQuestionExternalTask } from "../fixtures/questions.fixture.js";
 import { inline } from "../../../src/index.js";
 
 /** #933 AC1: the side-path starter takes a question role only, and `` follows it. */
@@ -13,16 +13,19 @@ class NotAQuestionAgent {}
 
 describe("#933 AC1: toQuestion types", () => {
   it("toExternalTask(Role) is an AfterStep of the role on a side path", () => {
-    expectTypeOf(toExternalTask(SpendingLimitQuestion)).toEqualTypeOf<
+    expectTypeOf(toExternalTask(SpendingLimitQuestionExternalTask)).toEqualTypeOf<
       AfterStep<
-        SpendingLimitQuestion,
-        SideHead<SideClaimsOf<SpendingLimitQuestion>, typeof SpendingLimitQuestion>
+        SpendingLimitQuestionExternalTask,
+        SideHead<
+          SideClaimsOf<SpendingLimitQuestionExternalTask>,
+          typeof SpendingLimitQuestionExternalTask
+        >
       >
     >();
   });
 
   it(" follows it; another class does not", () => {
-    toExternalTask(SpendingLimitQuestion);
+    toExternalTask(SpendingLimitQuestionExternalTask);
     // @ts-expect-error — an agent is not a question role
     toExternalTask(NotAQuestionAgent);
   });

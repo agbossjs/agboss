@@ -88,11 +88,11 @@ async function histogramPointsOf(meters: readonly InstanceMeter[]) {
   return found;
 }
 
-/** The target is the pause's channel name until its record keeps the two apart (#1307d). */
-const labelsOf = (workflow: string, channel: string, reason?: string) => ({
+/** The fixtures name a target `list-x-external-task`; its channel is `list-x-channel`. */
+const labelsOf = (workflow: string, target: string, reason?: string) => ({
   workflow,
-  target: channel,
-  channel,
+  target,
+  channel: target.replace("-external-task", "-channel"),
   ...(reason === undefined ? {} : { reason }),
 });
 
@@ -224,7 +224,7 @@ describe("#943 AC2: counted once, on the instance that applied the change", () =
       expect(point?.attributes).toEqual({
         workflow: "list-manager-workflow",
         target: managerFlow.role,
-        channel: managerFlow.role,
+        channel: managerFlow.role.replace("-external-task", "-channel"),
       });
       expect(point?.value.count).toBe(1);
       expect(point?.value.sum).toBe(600);
@@ -419,7 +419,7 @@ describe("#943 AC2: the sites that close without a request", () => {
     expect(collected.get(NOT_TAKEN)?.points.map((point) => point.attributes)).toEqual([
       {
         workflow: "order-workflow",
-        target: "refund-approval-channel",
+        target: "refund-tool-approval",
         channel: "refund-approval-channel",
         reason: "tree-ended",
       },

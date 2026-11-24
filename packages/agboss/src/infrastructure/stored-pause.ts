@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { CostSource } from "../finops/usage.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import {
   ExpiryProblem,
   PauseExpiryBound,
@@ -18,6 +17,7 @@ import {
   StoredComponent,
   StoredTrailEntry,
 } from "./stored-step.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * A pause as a store keeps it as JSON (#934): every field of `PauseRecord` in the 0.1.1 shape, with
@@ -44,7 +44,7 @@ export const StoredAnswer = z
     actor: StoredActor.optional(),
     // 0.1.0's names of `actor` (the person) and of `byDelegate`: refused, never read
     answeredBy: z.never().optional(),
-    answerer: z.never().optional(),
+    respondent: z.never().optional(),
     byChannel: z.never().optional(),
     // #1197: the delegate channel's own decision; `false` is no marker
     byDelegate: z.boolean().optional(),
@@ -80,11 +80,13 @@ export const StoredPause = z
     component: StoredComponent.optional(),
     toolLoopIteration: z.number().optional(),
     validationAttempts: z.number().optional(),
-    channel: z.string(),
+    // the target it waits under; the channel asked, absent for an owner's pause nobody is asked about
+    target: z.string(),
+    channel: z.string().optional(),
     // a pause stored before #337 has none: its own step's key is its only branch key
     branchKeys: z.array(z.string()).optional(),
-    answerer: z.enum(PauseAnswerer),
-    // 0.1.0's name of `answerer` (who may answer): refused, never read, never filled from 0.1.1
+    respondent: z.enum(PauseRespondent),
+    // 0.1.0's name of `respondent` (who may answer): refused, never read, never filled from 0.1.1
     answeredBy: z.never().optional(),
     // what it asks (an approval's arguments, a question role's own ask) and, for an approval, its call
     input: z.record(z.string(), z.unknown()),
@@ -119,7 +121,7 @@ export const StoredPause = z
     answer: StoredAnswer.optional(),
   })
   .transform((stored, context): PauseRecord => {
-    const { branchKeys, itemIndex, toolCall, assignees, externalRef, ...rest } = stored;
+    const { branchKeys, itemIndex, toolCall, assignees, externalRef, channel, ...rest } = stored;
     // an approval is a tool call's; a question has none: `kind` and `toolCall` agree
     if ((stored.kind === PauseKind.Approval) !== (toolCall !== undefined)) {
       context.addIssue({
@@ -132,6 +134,7 @@ export const StoredPause = z
     return {
       ...rest,
       itemIndex,
+      ...(channel === undefined ? {} : { channel }),
       ...(toolCall === undefined ? {} : { toolCall }),
       ...(assignees === undefined ? {} : { assignees }),
       ...(externalRef === undefined ? {} : { externalRef }),

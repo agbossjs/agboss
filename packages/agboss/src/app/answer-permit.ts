@@ -1,6 +1,6 @@
 import type { AnswerPermitCall, PauseActor, PermitAnswer } from "../channels/pause-contexts.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
-import type { PauseChannel } from "../flow/runtime/pause.js";
+import type { PauseTarget } from "../flow/runtime/pause.js";
 import { pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { AnswerParts } from "./resume.js";
@@ -15,21 +15,21 @@ import type { AppDeps } from "./app-deps.js";
  */
 
 /**
- * The pause's channel as its workflow has it now. Fails closed: a workflow or channel that cannot be
- * resolved (renamed, removed, a container error) throws — it is unknown whether its target has a
+ * The pause's target as its workflow has it now. Fails closed: a workflow or target that cannot be
+ * resolved (renamed, removed, a container error) throws — it is unknown whether it has a
  * `permitAnswer`, so the answer is refused, never let through unchecked.
  */
-export function channelOfPause(deps: AppDeps, pause: PauseRecord): PauseChannel {
-  const channel = ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
-  if (channel === undefined) throw new TypeError(`no channel ${pause.channel}`);
-  return channel;
+export function targetOfPause(deps: AppDeps, pause: PauseRecord): PauseTarget {
+  const target = ownDepsOf(deps, pause.workflow).targetOf?.(pause.target);
+  if (target === undefined) throw new TypeError(`no pause target ${pause.target}`);
+  return target;
 }
 
 /** A pause's `permitAnswer` as its workflow has it now; `undefined`: none. */
 export const permitsOf =
   (deps: AppDeps) =>
   (pause: PauseRecord): PermitAnswer | undefined =>
-    channelOfPause(deps, pause).permitAnswer;
+    targetOfPause(deps, pause).permitAnswer;
 
 /** What `permitAnswer` reads for this pause, answered by `actor` with `output`. */
 function permitCallOf(
@@ -117,7 +117,7 @@ export interface ReassignAsk {
 export const reassignPermitsOf =
   (deps: AppDeps) =>
   (pause: PauseRecord): PermitHook | undefined =>
-    channelOfPause(deps, pause).permitReassign;
+    targetOfPause(deps, pause).permitReassign;
 
 /**
  * Throws `PauseError.PermissionDenied` unless the pause's target permits this reassignment (or has no
@@ -138,8 +138,8 @@ export function assertReassignPermitted(
       ...(ask.actor === undefined ? {} : { actor: ask.actor }),
       input: pause.input,
       ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-      target: pause.channel,
-      channel: pause.channel,
+      target: pause.target,
+      ...(pause.channel === undefined ? {} : { channel: pause.channel }),
       toAssignees: ask.assignees,
       ...(ask.reason === undefined ? {} : { reason: ask.reason }),
       ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),

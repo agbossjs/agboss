@@ -41,7 +41,7 @@ import type { ToolCallRemote } from "../../mesh/mesh-call.js";
  * once more). A call that does not pass never waits for an approval and never runs its tool.
  * What became of each call is kept by its call id in the loop's `prepared`: a pause at an approval
  * and its resume — or a restart — take it as it is, nothing is checked, masked or asked of an
- * interceptor twice. An approver's `overrideArguments` are arguments nobody checked: the call is
+ * interceptor twice. An approver's `overrideInput` are arguments nobody checked: the call is
  * prepared once more on them, after the decision.
  */
 export function makePrepareNode(
@@ -110,7 +110,7 @@ function argumentsOf(
   state: AgentLoopStateType,
   call: ToolCallRequest,
 ): { readonly args: Record<string, unknown>; readonly from: PreparedFrom } {
-  const override = state.decisions[call.callId]?.overrideArguments;
+  const override = state.decisions[call.callId]?.overrideInput;
   return override === undefined
     ? { args: call.args, from: PreparedFrom.Model }
     : { args: { ...override }, from: PreparedFrom.Approver };

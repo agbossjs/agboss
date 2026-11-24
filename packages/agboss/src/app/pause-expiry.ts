@@ -59,7 +59,7 @@ const FAILED: PauseExpiry = {};
 
 /** What a channel's expiry decision came to: the expiry to record, or why it fell back to `fail()`. */
 function fellBackTo(parts: TreeMoveParts, pause: PauseRecord, problem: ExpiryProblem): PauseExpiry {
-  const text = `pause expiry decision of channel ${pause.channel} fell back to fail(): ${problem}`;
+  const text = `pause expiry decision of channel ${pause.channel ?? pause.target} fell back to fail(): ${problem}`;
   parts.deps.log.warn(
     "pause.expiry-handler-failed",
     `${text} (pauseKey ${pauseKeyOf(pause.tenantId, pause.pauseId)})`,
@@ -123,6 +123,8 @@ async function askedChannel(
 /** The channel that sent `pause`; `undefined` when a deploy removed it (its pause expires as `fail()`). */
 function senderOf(parts: TreeMoveParts, pause: PauseRecord): ChannelSender | undefined {
   try {
+    // an owner's pause no channel serves has no sender: its expiry is `fail()`
+    if (pause.channel === undefined) return undefined;
     // Stryker disable next-line OptionalChaining: a workflow with no channels throws on the call, and the catch below answers the same `undefined`
     return ownDepsOf(parts.deps, pause.workflow).channelOf?.(pause.channel).sender;
   } catch {

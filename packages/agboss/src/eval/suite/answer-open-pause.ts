@@ -4,7 +4,7 @@ import type { EvalPauseScript } from "./pauses.js";
 
 /**
  * Answers the open pause of a scripted answer's target (#1328d): the one place that finds the
- * pending entry of the target's channel on a paused execution and resumes it by decision or reply,
+ * pending entry of the target on a paused execution and resumes it by decision or reply,
  * for the actor given — shared one to one by `@agboss/core/eval` (`answerPause` in a case) and
  * `@agboss/core/testing` (`answerPause` of a test's fixtures).
  */
@@ -20,12 +20,12 @@ export async function answerOpenPause(
   paused: ExecutionOutput,
   script: EvalPauseScript,
 ): Promise<ExecutionOutput> {
-  const channel = nameOf(script.target);
-  const pending = paused.pending.find((found) => found.channel === channel);
+  const target = nameOf(script.target);
+  const pending = paused.pending.find((found) => found.target === target);
   if (pending?.pauseId === undefined)
     throw new PauseNotOpenError(
-      `no open pause of ${channel} to answer: ${
-        paused.pending.map((found) => found.channel).join(", ") || "none is pending"
+      `no open pause of ${target} to answer: ${
+        paused.pending.map((found) => found.target).join(", ") || "none is pending"
       }`,
     );
   const caller = { tenantId: paused.tenantId, ownerId: script.actor?.id };

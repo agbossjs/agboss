@@ -23,7 +23,7 @@ describe("#801: a pause's kind", () => {
     // as a store that does not keep `kind` reads it back (JSON drops it)
     const { kind, ...kept } = questionPauseOf("q-lost");
     const lost = JSON.parse(JSON.stringify(kept)) as PauseRecord;
-    expect(kind).toBe(PauseKind.Question);
+    expect(kind).toBe(PauseKind.ExternalTask);
 
     expect(() => isApprovalPause(lost)).toThrow(/pause q-lost: kind undefined is no PauseKind/);
     expect(() => isQuestionPause({ kind: "approve" as PauseKind, pauseId: "x" })).toThrow(

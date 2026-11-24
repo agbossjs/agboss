@@ -134,14 +134,14 @@ export {
   type PauseReassignment,
   type ReassignPauseRequest,
   type PendingOutboundCallsQuery,
-  type ChannelPauseOptions,
-  type ChannelResumeOptions,
+  type DelegatePauseOptions,
+  type DelegateResumeOptions,
   type DecisionResumeRequest,
   type ReplyResumeRequest,
   type ResumeOptions,
   type ResumeRequest,
-  type ThreadOwnerPauseOptions,
-  type ThreadOwnerResumeOptions,
+  type OwnerPauseOptions,
+  type OwnerResumeOptions,
 } from "../app/types.js";
 export type { ExecutionId } from "../core/run-context.js";
 export {

@@ -16,7 +16,7 @@ import type { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
 import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
-import type { PauseChannel } from "../flow/runtime/pause.js";
+import type { PauseChannel, PauseTarget } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
 import type { ToolInterceptorRuntime } from "../tool-interceptors/runtime.js";
@@ -51,9 +51,11 @@ export interface GraphDeps<TName extends string> {
   readonly branchErrors?: BranchErrors;
   /** A test's schedule of launch branches (#262 S33, `TestConcurrency`); absent in production. */
   readonly branchScheduler?: BranchScheduler;
-  /** The channel a tool names, by its name (#267): created with the app. */
+  /** The pause target a tool or step names, by its name (#267, #1307): created with the app, with its channels. */
+  readonly targetOf?: (targetName: string) => PauseTarget;
+  /** The channel of a name (#1307), as a pause record names it. */
   readonly channelOf?: (channelName: string) => PauseChannel;
-  /** The names of the channels its tools name (#940): the receivers of its pauses' notices. */
+  /** The names of the channels of its targets (#940): the receivers of its pauses' notices. */
   readonly channelNames?: readonly string[];
   /** The PII policies at each agent's and router's model (#120); absent = none. */
   readonly pii?: PiiRuntime;

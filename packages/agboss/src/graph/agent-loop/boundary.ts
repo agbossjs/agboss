@@ -1,6 +1,5 @@
 import { argsDigestOf, freshEntriesOf } from "./move-entries.js";
 import { Send } from "@langchain/langgraph";
-import { approvalChannelOf } from "../../tools/index.js";
 import { loopUsage } from "./state.js";
 import { invalidArgumentsMessage, unknownToolMessage } from "../../prompts/agents.js";
 import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
@@ -38,7 +37,7 @@ export const unpreparedCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
   callsOf(state.move).filter((call) => {
     if (state.results[call.callId] !== undefined) return false;
     const prepared = state.prepared[call.callId];
-    const overridden = state.decisions[call.callId]?.overrideArguments !== undefined;
+    const overridden = state.decisions[call.callId]?.overrideInput !== undefined;
     // prepared for another tool or other arguments (a call id the model reused): prepared anew
     return (
       prepared === undefined ||
@@ -60,8 +59,7 @@ export function awaitingApproval(
   return callsOf(state.move).filter((call) => {
     const tool = toolNamed(deps.agent, call.tool);
     if (
-      tool === undefined ||
-      approvalChannelOf(tool) === undefined ||
+      tool?.approval === undefined ||
       state.results[call.callId] !== undefined ||
       // a call that did not pass its checks is never asked about (#1295c)
       state.prepared[call.callId]?.kind !== "ready"

@@ -143,40 +143,33 @@ export class DeleteUserInputDto {
 -->
 
 ```typescript file=channels.ts
-import {
-  Channel,
-  ChannelOf,
-  ChannelOutcome,
-  ChannelRole,
-  ExecutionContext,
-  PauseAnswerer,
-  type ChannelAsk,
-} from "@agboss/core";
+import { Channel, ChannelOutcome, ExecutionContext, PauseRespondent, type ChannelAsk, ToolApproval } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 
-@ChannelRole({
-  name: "user-deletion-approval-channel",
+@ToolApproval({
+  name: "user-deletion-tool-approval",
   description: "Approves deleting a user",
-  approves: DeleteUserInputDto, // the input of the tools it approves ([channel.wrong-tool] else)
-  answerer: PauseAnswerer.Channel, // Slack authenticates who answers
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class UserDeletionApprovalChannel extends ChannelOf<UserDeletionApprovalChannel> {}
+export class UserDeletionToolApproval {}
 
 @Channel({
   name: "slack-user-deletion-approval-channel",
   description: "Asks an admin in Slack",
   deps: [SlackClient, ExecutionContext],
+  target: UserDeletionToolApproval, ttl: hours(1),
 })
-export class SlackUserDeletionApprovalChannel extends UserDeletionApprovalChannel {
+export class SlackUserDeletionApprovalChannel {
   constructor(
     private readonly slackClient: SlackClient,
     private readonly executionContext: ExecutionContext,
   ) {
-    super();
   }
 
   async send(
-    ask: ChannelAsk<UserDeletionApprovalChannel>,
-  ): Promise<ChannelOutcome<UserDeletionApprovalChannel>> {
+    ask: ChannelAsk<UserDeletionToolApproval>,
+  ): Promise<ChannelOutcome<UserDeletionToolApproval>> {
     const { userId } = ask.input; // typed by DeleteUserInputDto
     const tenant = this.executionContext.tenant.tenantId;
     await this.slackClient.post(`Delete user ${userId} (${tenant})?`, ask.pauseId);
@@ -198,7 +191,7 @@ all (`@ToolApproval({ respondent: PauseRespondent.Owner })`, answered by `app.re
 <!-- snippet-context
 import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionApprovalChannel } from "./channels.js";
+import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionToolApproval } from "./channels.js";
 export class UserDeletedDto {
   @Text() userId!: string;
 }
@@ -232,7 +225,7 @@ export class AdminApplication {}
   description: "Deletes a user account.",
   input: DeleteUserInputDto,
   output: UserDeletedDto,
-  channel: UserDeletionApprovalChannel, // calls wait for an approval through the role
+  approval: UserDeletionToolApproval, // calls wait for an approval through the role
 })
 export class DeleteUserTool {
   execute({ userId }: DeleteUserInputDto): Promise<UserDeletedDto> {
@@ -266,9 +259,9 @@ const result = await app.execute(
 After `awaitReply()` the run rests paused. Once the reply arrives out-of-band (e.g., the admin clicks
 "Approve" in Slack), answer that pause **by its id** — the `pauseId` the channel was sent (the
 reply key of its message) — with the decision, a `ToolCallApprovalDecisionDto` validated on the way
-in. The role says who may answer: this one is `PauseAnswerer.Channel`, so Slack's side names who
+in. The role says who may answer: this one is `PauseRespondent.Delegate`, so Slack's side names who
 answered (`actor`, recorded on the pause and in `onExecutionResume`); its id never appears in
-`result.pending`. A `PauseAnswerer.ThreadOwner` pause is answered with the thread's `ownerId`
+`result.pending`. A `PauseRespondent.Owner` pause is answered with the thread's `ownerId`
 instead, its id listed in `result.pending`. `agboss chat` asks in the terminal and answers by
 itself. (Free-text replies come with #267 PR 3.)
 
@@ -287,14 +280,14 @@ await app.resume(
 
 // approve, but with corrected arguments (bypassing the LLM)
 await app.resume(
-  { pauseId: replyKey, decision: { approved: true, overrideArguments: { userId: "456" } } },
+  { pauseId: replyKey, decision: { approved: true, overrideInput: { userId: "456" } } },
   { tenantId: "acme", actor: { id: "admin@example.com" } },
 );
 ```
 
 ### Important Concepts
 
-- **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideArguments` in the decision will inject those modified arguments straight into the tool, bypassing the LLM — only with `approved: true`, and checked against the tool's input DTO (`DtoValidationError` otherwise; the pause keeps waiting).
+- **Override Arguments**: If the user modifies the tool arguments during the approval step, returning `overrideInput` in the decision will inject those modified arguments straight into the tool, bypassing the LLM — only with `approved: true`, and checked against the tool's input DTO (`DtoValidationError` otherwise; the pause keeps waiting).
 - **Several pauses at once**: parallel branches each pause on their own; the execution rests only when nothing else can move, `result.pending` lists every waiting pause, and answering one continues it while the others keep waiting. Two answers to one pause (a double click) — the second gets `PauseClosedError`.
 - **Decided at once**: a rule-based channel ("up to $50 approve at once") returns `ChannelOutcome.decided(decision)` — the step goes on with no pause, the decision validated like a reply. No channel needs the application to resume itself, and nothing waits in memory for a person.
 - **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to answer the pause: `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { actor: { id: "scheduler" } })`.

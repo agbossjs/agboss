@@ -9,15 +9,15 @@ import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-recor
 
 /**
  * A decision on a tool call, validated on the way in (#267 AC7) — from `app.resume` or a channel's
- * `ChannelOutcome.decided(…)`: a `ToolCallApprovalDecisionDto` (`overrideArguments` only with
- * `approved: true`), its `overrideArguments` a valid input of the tool.
+ * `ChannelOutcome.decided(…)`: a `ToolCallApprovalDecisionDto` (`overrideInput` only with
+ * `approved: true`), its `overrideInput` a valid input of the tool.
  */
 
 /** A validated decision and who gave it, as the agent's loop takes it. */
 export interface ApprovalDecision {
   readonly approved: boolean;
   readonly reason?: string;
-  readonly overrideArguments?: Readonly<Record<string, unknown>>;
+  readonly overrideInput?: Readonly<Record<string, unknown>>;
   /** Who answered: the resume's `answeredBy`, the thread's owner, or the channel that decided. */
   readonly by: string;
   /** What reading the reply cost (its interpreter's model calls, #267 PR 3): the step's spend. */
@@ -31,32 +31,32 @@ export function approvalDecisionOf(
   by: string,
   usage: readonly UsageRecord[],
 ): ApprovalDecision {
-  const { approved, reason, overrideArguments } = validDecisionOf(decision, tool);
+  const { approved, reason, overrideInput } = validDecisionOf(decision, tool);
   return {
     approved,
     by,
     usage,
     ...(reason === undefined ? {} : { reason }),
-    ...(overrideArguments === undefined ? {} : { overrideArguments }),
+    ...(overrideInput === undefined ? {} : { overrideInput }),
   };
 }
 
-/** The decision as a `ToolCallApprovalDecisionDto`, its `overrideArguments` checked by the tool's input. */
+/** The decision as a `ToolCallApprovalDecisionDto`, its `overrideInput` checked by the tool's input. */
 export function validDecisionOf(
   decision: unknown,
   tool: Pick<AnyTool, "input">,
 ): ToolCallApprovalDecisionDto {
   const valid = validate(ToolCallApprovalDecisionDto, decision);
-  if (valid.overrideArguments === undefined) return valid;
-  const checked = tool.input.safeParse(valid.overrideArguments);
+  if (valid.overrideInput === undefined) return valid;
+  const checked = tool.input.safeParse(valid.overrideInput);
   if (checked.success) {
     // strict (#688): a key the tool's input does not have, at any depth, is refused — never dropped
-    const dropped = droppedKeysOf(valid.overrideArguments, checked.data, []);
+    const dropped = droppedKeysOf(valid.overrideInput, checked.data, []);
     if (dropped.length > 0)
       throw new DtoValidationError({
         dto: ToolCallApprovalDecisionDto.name,
         issues: dropped.map((path) => ({
-          path: pathOf(["overrideArguments", ...path]),
+          path: pathOf(["overrideInput", ...path]),
           reason: "is no field of the tool's input",
         })),
       });
@@ -65,7 +65,7 @@ export function validDecisionOf(
   throw new DtoValidationError({
     dto: ToolCallApprovalDecisionDto.name,
     issues: checked.error.issues.map((issue) => ({
-      path: pathOf(["overrideArguments", ...issue.path]),
+      path: pathOf(["overrideInput", ...issue.path]),
       reason: issue.message,
     })),
   });
@@ -134,7 +134,7 @@ export interface UninterpretableReplyErrorOptions {
 
 /**
  * The role's reply interpreter could not read the reply as a valid answer: a code interpreter's
- * `ReplyInterpretation.notUnderstood({ reason })`, a model that gave no answer, an answer not valid
+ * `ChannelInterpretation.notUnderstood({ reason })`, a model that gave no answer, an answer not valid
  * for the role (`cause`) or an interpreter that crashed (`cause`, #267 S124 b). `reason` says why.
  */
 export class UninterpretableReplyError extends AGBossError {

@@ -6,7 +6,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { Nested, Text } from "../../src/dto/index.js";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { FileRefusal } from "../../src/files/file-errors.js";
@@ -17,6 +16,7 @@ import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.
 import { PauseKind, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { recordedAnswer } from "../../src/app/resume.js";
 import { ComponentOptions } from "../../src/components/component-options.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 class ScanAnswerDto {
   @Text({ prompt: "a note" })
@@ -42,9 +42,10 @@ const pause = {
   rootExecutionId: "root-1",
   workflow: "wf",
   step: "ask-step",
+  target: "owner-tool-approval",
   channel: "owner",
-  answerer: PauseAnswerer.ThreadOwner,
-  kind: PauseKind.Question,
+  respondent: PauseRespondent.Owner,
+  kind: PauseKind.ExternalTask,
   status: PauseStatus.Pending,
   ask: {},
 };

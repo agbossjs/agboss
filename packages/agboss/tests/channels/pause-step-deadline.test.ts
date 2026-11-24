@@ -6,7 +6,6 @@
  * step's error.
  */
 import { describe, expect, it } from "vitest";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import {
@@ -17,10 +16,12 @@ import {
 } from "../../src/infrastructure/pause-record.js";
 import { PauseExpirySignal } from "../../src/flow/runtime/pause-expiry-failure.js";
 import { deadlineOf } from "../../src/flow/runtime/pause-record-made.js";
-import { pauseStep, type PauseChannel } from "../../src/flow/runtime/pause.js";
+import { pauseStep } from "../../src/flow/runtime/pause.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 const at = (delay: number): string => new Date(NOW.getTime() + delay).toISOString();
@@ -88,9 +89,9 @@ describe("#941 D9: a re-entry finds the record as made", () => {
     input: { orderId: "7" },
     toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
   };
-  const channelWith = (expiresIn: number): PauseChannel => ({
+  const channelWith = (expiresIn: number): FlatChannel => ({
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     expiresIn: expiresIn as never,
     sender: { send: () => Promise.resolve(ChannelOutcome.awaitReply()) },
   });
@@ -102,7 +103,7 @@ describe("#941 D9: a re-entry finds the record as made", () => {
   const siteOf = (pauses: InMemoryPausedExecutionRepository, expiresIn: number) => ({
     pauses,
     answers,
-    channel: channelWith(expiresIn),
+    target: targetOfChannel(channelWith(expiresIn)),
     frame: testFrame(),
     signal: undefined,
     clock,

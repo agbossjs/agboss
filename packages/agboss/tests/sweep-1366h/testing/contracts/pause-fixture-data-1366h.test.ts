@@ -100,10 +100,10 @@ const withAsk =
   (change: (ask: Record<string, unknown>) => Record<string, unknown>) =>
   (pause: PauseRecord): PauseRecord =>
     pause.toolCall !== undefined
-      ? ({
+      ? {
           ...pause,
           input: change(Object.fromEntries(Object.entries(pause.input))),
-        } as PauseRecord)
+        }
       : pause;
 
 const LOSSES: readonly (readonly [string, Loss, string])[] = [
@@ -144,17 +144,17 @@ const LOSSES: readonly (readonly [string, Loss, string])[] = [
   ["summary of the ask", { pause: withAsk((ask) => blank(ask, "summary")) }, STEP_KEY],
   [
     "step key of a question",
-    { pause: (pause) => (pause.kind === PauseKind.Question ? blank(pause, "stepKey") : pause) },
+    { pause: (pause) => (pause.kind === PauseKind.ExternalTask ? blank(pause, "stepKey") : pause) },
     QUESTION,
   ],
   [
     "node of a question",
-    { pause: (pause) => (pause.kind === PauseKind.Question ? blank(pause, "nodeId") : pause) },
+    { pause: (pause) => (pause.kind === PauseKind.ExternalTask ? blank(pause, "nodeId") : pause) },
     QUESTION,
   ],
   [
     "channel of a question",
-    { pause: (pause) => (pause.kind === PauseKind.Question ? blank(pause, "channel") : pause) },
+    { pause: (pause) => (pause.kind === PauseKind.ExternalTask ? blank(pause, "channel") : pause) },
     QUESTION,
   ],
   [

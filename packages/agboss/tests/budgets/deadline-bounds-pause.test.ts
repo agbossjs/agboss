@@ -182,18 +182,19 @@ describe("#941 V5: the step builds DeadlineExceededError itself when its own che
     ({
       pauseId: "p-1",
       tenantId: "acme",
-      channel: "expiring-manager-question",
-      kind: "question",
+      target: "expiring-manager-external-task",
+      channel: "manager-expiry-channel",
+      kind: "external-task",
       askedAt: "2026-01-01T00:00:00.000Z",
       expiresAt: "2026-01-01T00:05:00.000Z",
       expiryBound,
     }) as never;
   const place = (check: () => void) => ({
-    step: "expiring-manager-question",
+    step: "expiring-manager-external-task",
     stepKind: ComponentKind.Question as const,
     state: [],
     usage: [],
-    path: ["start", "expiring-manager-question"],
+    path: ["start", "expiring-manager-external-task"],
     budgets: { check },
   });
 

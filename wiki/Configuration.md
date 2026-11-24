@@ -240,29 +240,38 @@ the recovery loop) — the only place they are listed; each has its own `timeout
 
 ## `workingCalendar` — the calendar of working-time deadlines (#944)
 
-`@Application({ workingCalendar })` is the default calendar of `workingHours(n)` / `workingMinutes(n)`
-deadlines and reminders ([Pauses → Deadlines in working time](Pauses#deadlines-in-working-time-944)); a
-`@ChannelRole({ workingCalendar })` overrides it for that role's pauses. Two forms:
+A pause target's `calendar` names the calendar its `workingHours(n)` / `workingMinutes(n)` /
+`workDays(n)` timeout and reminder are counted by ([Pauses → Deadlines in working
+time](Pauses#deadlines-in-working-time-944)) — there is no application-wide default (#1310a): a
+working duration on a target with no `calendar` is `[calendar.required-for-working-duration]`. The
+calendar is a `@WorkingCalendar` class, listed in `@Application({ providers })`, in one of two forms:
 
-```ts no-check: a fragment of an @Application — its workflows and environment are as in any application
+```ts no-check: a fragment of an application — its workflows and environment are as in any application
 @Application({
   // …
-  providers: [HolidayRepository, TenantHolidaysCalendar],
-  workingCalendar: WorkingWeek.of({
+  providers: [HolidayRepository, TenantHolidaysCalendar, SupportCalendar],
+})
+export class SupportApplication {}
+
+// a grid, declared: the core does the DST and interval arithmetic over it
+@WorkingCalendar({
+  name: "support-working-calendar",
+  week: {
     timeZone: "Asia/Jerusalem", // IANA, checked with Intl
     days: [Weekday.Sunday, Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday, Weekday.Thursday],
     hours: [{ from: "09:00", to: "18:00" }], // local, from < to, none overlapping; "24:00" ends the date
     breaks: [{ from: "13:00", to: "14:00" }], // inside hours
     holidays: ["2026-04-22"], // local dates
-  }),
+  },
 })
-export class SupportApplication {}
+export class SupportCalendar {}
 
+// or the project's own code
 @WorkingCalendar({ name: "tenant-holidays-working-calendar", deps: [HolidayRepository] })
 export class TenantHolidaysCalendar implements WorkingCalendarHandler {
   constructor(private readonly holidays: HolidayRepository) {}
 
-  addWorkingTime({ from, amount, tenantId, channel }: WorkingTimeRequest): Promise<Date> {
+  addWorkingTime({ from, amount, tenantId, target }: WorkingTimeRequest): Promise<Date> {
     // the instant `amount` of working time after `from`, as the tenant's own days say; must be after `from`
     return this.holidays.add(tenantId, from, amount);
   }
@@ -272,8 +281,8 @@ export class TenantHolidaysCalendar implements WorkingCalendarHandler {
 A `@WorkingCalendar` class (its `name` is optional and kebab-case, `[name.not-kebab-case]`) is listed in
 `providers`, created once by the application's container, and called in the asking step's frame — its
 `ExecutionContext` (tenant, fields) — under the tool timeout; an extension calls it in the pause's frame.
-`WorkingTimeRequest` is `{ from, amount, tenantId, channel }`: the pause's `askedAt` (an extension: now) on the
-application's `Clock`, the working time to add, the tenant and the pause's channel name. A class that is no
+`WorkingTimeRequest` is `{ from, amount, tenantId, target }`: the pause's `askedAt` (an extension: now) on the
+application's `Clock`, the working time to add, the tenant and the pause target's name. A class that is no
 listed `@WorkingCalendar` with `addWorkingTime`, and a grid that can never give working time, are
 `[working-calendar.invalid]` at start. What a calendar that fails does is in [Pauses → Deadlines in working
 time](Pauses#deadlines-in-working-time-944).

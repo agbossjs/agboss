@@ -68,7 +68,7 @@ async function terminalAnswer(
   ask: Ask,
   retry: string,
 ): Promise<TerminalAnswer> {
-  if (pause.kind === PauseKind.Question) {
+  if (pause.kind === PauseKind.ExternalTask) {
     const reply = await ask(
       `${retry}${pause.step} asks ${JSON.stringify(pause.input)} — your answer (${ANSWER_MODES}): `,
     );
@@ -126,7 +126,7 @@ export async function untilDone(
       );
       retry = "";
     } catch (error) {
-      if (waiting.kind !== PauseKind.Question) throw error;
+      if (waiting.kind !== PauseKind.ExternalTask) throw error;
       retry = retryOf(error);
     }
   }

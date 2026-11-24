@@ -5,6 +5,7 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import {
   DirectorChannel,
   ManagerChannel,
+  ShortManagerChannel,
   PlainWorkflow,
   ShortExpiryWorkflow,
 } from "../../../flow/fixtures/expiry.fixture.js";
@@ -26,6 +27,8 @@ import { HeldCancelEnvironment } from "./environments/app.environment.js";
     SlowPauseStore,
     DirectorChannel,
     ManagerChannel,
+    ShortManagerChannel,
+    ShortManagerChannel,
   ],
 })
 export class HeldCancelApplication {}

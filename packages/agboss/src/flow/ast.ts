@@ -64,8 +64,6 @@ export interface ToStep {
   readonly kind: StepKind.To;
   readonly target: Class;
   readonly targetKind: NodeKind;
-  /** `.toExternalTask(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   /** `.onError(E, skip())` (#1279): written on a branch of `.inParallel([…])` / `.forEachItem(…)` only. */
   readonly skip?: readonly ErrorClass[];
   /** `toRouter(R).chooseMany([…])` (#1279b): the branches the router picks among; a branch of `.inParallel([…])` only. */

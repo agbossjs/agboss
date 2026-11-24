@@ -6,7 +6,7 @@ import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
-import type { ToolHandler } from "../../components/decorators.js";
+import type { AgentToolClass } from "../../components/decorators.js";
 import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import { NodeKind } from "../ast.js";
@@ -42,10 +42,8 @@ export interface AgentOptions {
   readonly output?: OutputShape;
   /** The caps of one run of the agent: its visits, model calls, tool calls and judge retries. */
   readonly executionLimits?: AgentExecutionLimits;
-  /** `@Tool` classes, and question roles (`@ChannelRole({ ask, answer })`, #712). */
-  readonly tools?: readonly (
-    Class<ToolHandler<never, unknown>> | Class<{ send(ask: never): Promise<unknown> }>
-  )[];
+  /** `@Tool` classes, and external tasks (`@ExternalTask`, #712): a task has no `execute`. */
+  readonly tools?: readonly AgentToolClass[];
   readonly reasoning?: Reasoning;
   /** `@Rag` classes: their passages come with the input, before the first model call (a tool injects a `@Rag` through `deps`). */
   readonly rag?: readonly Class[];

@@ -1,21 +1,17 @@
 // `agboss run` after a pause (#1123): one agent on the default OpenRouter provider whose only tool
 // asks for an approval in the terminal (its role is answered by the thread's owner).
-import {
-  Agent,
+import { Agent,
   Application,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
-  PauseAnswerer,
+  PauseRespondent,
   TokenLimit,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  inline,
-} from "../../../../../agboss/src/index.js";
+  inline, ToolApproval } from "../../../../../agboss/src/index.js";
 import {
   Text,
   WorkflowFinishTextDto,
@@ -24,6 +20,7 @@ import {
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
+import { days } from "../../../../../agboss/src/units/index.js";
 
 @WorkflowStart({
   name: "pause-ask-workflow-start",
@@ -49,18 +46,19 @@ class RefundDone {
   status!: string;
 }
 
-@ChannelRole({
-  name: "pause-refund-approval-channel",
+@ToolApproval({
+  name: "pause-refund-tool-approval",
   description: "Approves refunds",
-  approves: RefundRequest,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: RefundRequest,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class PauseRefundApproval extends ChannelOf<PauseRefundApproval> {}
+export class PauseRefundToolApproval {}
 
 /** Posts nothing: the terminal asks the thread's owner. */
-@Channel({ name: "pause-silent-refund-channel" })
-export class PauseSilentRefundChannel extends PauseRefundApproval {
-  send(_ask: ChannelAsk<PauseRefundApproval>): Promise<ChannelOutcome<PauseRefundApproval>> {
+@Channel({ name: "pause-silent-refund-channel", target: PauseRefundToolApproval, ttl: days(1) })
+export class PauseSilentRefundChannel {
+  send(_ask: ChannelAsk<PauseRefundToolApproval>): Promise<ChannelOutcome<PauseRefundToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -70,7 +68,7 @@ export class PauseSilentRefundChannel extends PauseRefundApproval {
   description: "Refunds an order",
   input: RefundRequest,
   output: RefundDone,
-  channel: PauseRefundApproval,
+  approval: PauseRefundToolApproval,
 })
 export class PauseRefund {
   execute({ orderId }: RefundRequest): Promise<RefundDone> {

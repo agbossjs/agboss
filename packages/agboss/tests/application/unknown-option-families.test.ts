@@ -25,10 +25,8 @@ import {
   ObjectStorage,
 } from "../../src/storage/storage-decorators.js";
 import { ChannelListener } from "../../src/pause/channel-listener.js";
-import { PauseListener } from "../../src/pause/pause-listener.js";
 import { ChannelSelector } from "../../src/channels/channel-selector.js";
 import { ChannelInterpreter } from "../../src/channels/channel-interpreter.js";
-import { ChannelRole } from "../../src/channels/channel-role.decorator.js";
 import { ExternalTask, ToolApproval } from "../../src/channels/pause-targets.js";
 import { HttpAuthenticator } from "../../src/http/http-authenticator.js";
 import { FilePolicy } from "../../src/files/file-policy.js";
@@ -66,10 +64,8 @@ const rows: readonly Row[] = [
   { decorator: "ExternalTask", apply: asLoose(ExternalTask), base: { name: "n" } },
   { decorator: "Channel", apply: asLoose(framework.Channel), base: {} },
   { decorator: "ChannelSelector", apply: asLoose(ChannelSelector), base: {} },
-  { decorator: "PauseListener", apply: asLoose(PauseListener), base: {} },
   { decorator: "ChannelListener", apply: asLoose(ChannelListener), base: {} },
   { decorator: "ChannelInterpreter", apply: asLoose(ChannelInterpreter), base: {} },
-  { decorator: "ChannelRole", apply: asLoose(ChannelRole), base: { name: "n" } },
   { decorator: "Observer", apply: asLoose(framework.Observer), base: {} },
   { decorator: "HealthCheck", apply: asLoose(HealthCheck), base: {} },
   { decorator: "WorkingCalendar", apply: asLoose(WorkingCalendar), base: {} },

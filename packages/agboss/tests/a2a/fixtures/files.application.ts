@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, days } from "../../../src/units/index.js";
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
 // document (and optional more pages), an action that reads its bytes through Files and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
@@ -10,27 +10,25 @@ import { Files } from "../../../src/a2a/files/files.service.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
 import { Application } from "../../../src/application/application.js";
 import { Channel } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-} from "../../../src/channels/channel-role.decorator.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { List, Nested, Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Tracked } from "../../../src/index.js";
+import { EmptyEnvironment, type Tracked, ExternalTask } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish, toExternalTask } from "../../helpers/flow.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
 export class ReviewRequestDto {
@@ -118,30 +116,35 @@ export class FileAnsweredAction {
   }
 }
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "file-reply-interpreter",
   description: "Takes the caller's reply as it is",
-  decidedBy: DecidedBy.Code,
 })
 export class FileReplyInterpreter {
-  interpret(input: { readonly reply: string }): ReplyInterpretation<ReviewReplyDto> {
-    return ReplyInterpretation.understood({ reply: input.reply });
+  interpret(input: { readonly reply: string }): ChannelInterpretation<ReviewReplyDto> {
+    return ChannelInterpretation.understood({ reply: input.reply });
   }
 }
 
-@ChannelRole({
-  name: "file-review-question",
+@ExternalTask({
+  name: "file-review-external-task",
   description: "Asks the caller about its document",
-  ask: ReviewAskDto,
-  answer: ReviewReplyDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: FileReplyInterpreter,
+  input: ReviewAskDto,
+  output: ReviewReplyDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: FileReplyInterpreter,
 })
-export abstract class FileReviewQuestion extends ChannelOf<FileReviewQuestion> {}
+export class FileReviewExternalTask {}
 
-@Channel({ name: "file-caller-channel", description: "The review's caller" })
-export class FileCallerChannel extends FileReviewQuestion {
-  send(_ask: ChannelAsk<FileReviewQuestion>): Promise<ChannelOutcome<FileReviewQuestion>> {
+@Channel({
+  name: "file-caller-channel",
+  description: "The review's caller",
+  target: FileReviewExternalTask,
+  ttl: days(1),
+})
+export class FileCallerChannel {
+  send(_ask: ChannelAsk<FileReviewExternalTask>): Promise<ChannelOutcome<FileReviewExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -192,7 +195,9 @@ export const fileReviewFlow = [
     .toAction(FileReviewAction)
     .toOneOf([
       toFinish(FileReviewFinish),
-      toExternalTask(FileReviewQuestion).toAction(FileAnsweredAction).toFinish(FileReturnedFinish),
+      toExternalTask(FileReviewExternalTask)
+        .toAction(FileAnsweredAction)
+        .toFinish(FileReturnedFinish),
     ]),
 ] as const;
 

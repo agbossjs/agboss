@@ -1,5 +1,5 @@
 import type { ApplicationOptions } from "../application/application.js";
-import { channelRoleOptionsOf, isQuestionRole } from "../channels/channel-role.decorator.js";
+import { isExternalTask, pauseTargetOf } from "../channels/pause-targets.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
@@ -44,15 +44,15 @@ interface SkillProblem {
 
 /** The problems of one tool of an agent. */
 function toolProblems(agent: string, tool: Class): SkillProblem[] {
-  const role = channelRoleOptionsOf(tool);
-  if (role !== undefined && isQuestionRole(role))
+  const target = pauseTargetOf(tool)?.options;
+  if (target !== undefined && isExternalTask(target))
     return [
-      { code: "a2a.message-skill-pause", text: `${agent} asks ${tool.name} (a question role)` },
+      { code: "a2a.message-skill-pause", text: `${agent} asks ${tool.name} (an external task)` },
     ];
   const component = componentOf(tool);
   if (component?.kind !== "tool") return [];
   const found: SkillProblem[] = [];
-  if (component.meta.channel !== undefined)
+  if (component.meta.approval !== undefined)
     found.push({ code: "a2a.message-skill-pause", text: `${tool.name} asks for approval` });
   if (component.meta.readOnly !== true)
     found.push({

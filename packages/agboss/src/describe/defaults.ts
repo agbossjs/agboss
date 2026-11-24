@@ -10,7 +10,6 @@ import { memoryPlanOf, type CompactionInUse } from "../memory/plan.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
-import { spanLabel } from "../units/duration-label.js";
 
 /**
  * Where `agboss describe`'s values came from (#261 AC12): a component's own field, the `defaults`
@@ -127,7 +126,3 @@ export function memoryLines(bundle: AssembledWorkflow): string[] {
     ),
   ];
 }
-
-/** ` · expires in 4 h` (#941): how long a pause of the tool's approval waits; nothing without a deadline. */
-export const expiryLabel = (tool: AnyTool): string =>
-  tool.expiresIn === undefined ? "" : ` · expires in ${spanLabel(tool.expiresIn)}`;

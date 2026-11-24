@@ -6,7 +6,6 @@
  * nobody. Every time is explicit on the virtual clock; the calendar here is a scripted fake.
  */
 import { describe, expect, it, vi } from "vitest";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
   WorkingCalendarError,
@@ -17,10 +16,12 @@ import {
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { PauseExpiryBound, PauseKind } from "../../src/infrastructure/pause-record.js";
-import { pauseStep, type PauseChannel, type PauseStepSite } from "../../src/flow/runtime/pause.js";
+import { pauseStep, type PauseStepSite } from "../../src/flow/runtime/pause.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, minutes, seconds, workingHours, workingMinutes } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const ASKED = new Date("2026-01-08T15:30:00.000Z");
 const at = (delay: number): string => new Date(ASKED.getTime() + delay).toISOString();
@@ -52,8 +53,8 @@ function calendarOf(answer: (request: WorkingCalendarContext) => unknown) {
 
 /** The ask of a working deadline: the site, the channel's sends and the log. */
 function setup(options: {
-  readonly channel: Partial<PauseChannel>;
-  readonly calendar: PauseChannel["calendar"];
+  readonly channel: Partial<FlatChannel>;
+  readonly calendar: FlatChannel["calendar"];
   readonly deadlineAt?: string;
 }) {
   const clock = new VirtualClock(ASKED);
@@ -71,9 +72,9 @@ function setup(options: {
             deadline: { at: options.deadlineAt, deadline: 0 as never },
           },
         };
-  const channel: PauseChannel = {
+  const channel: FlatChannel = {
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     sender: {
       send: () => {
         sends.push(1);
@@ -86,7 +87,7 @@ function setup(options: {
   const site: PauseStepSite = {
     pauses,
     answers,
-    channel,
+    target: targetOfChannel(channel),
     frame,
     signal: undefined,
     clock,
@@ -117,7 +118,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
         from: ASKED,
         amount: workingHours(2),
         tenantId: "default",
-        target: "refund-approval-channel",
+        target: "refund-approval-tool-approval",
       },
     ]);
     const [pause] = await records();
@@ -143,16 +144,16 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     ).toBe(site.frame.execution.executionId);
   });
 
-  it("AC1: a step's own expiresIn works over the role's; a calendar that answers synchronously works", async () => {
+  it("AC1: a calendar that answers synchronously works", async () => {
     const calendar = calendarOf(
       (request) => new Date(request.from.getTime() + request.amount.amount * 3),
     );
     const { enter, records } = setup({
-      channel: { expiresIn: hours(24) },
+      channel: { expiresIn: workingMinutes(30) },
       calendar: calendar.calendar,
     });
 
-    await enter({ expiresIn: workingMinutes(30) as never });
+    await enter();
 
     expect(calendar.requests.map((request) => request.amount.amount)).toEqual([minutes(30)]);
     expect((await records())[0]?.expiresAt).toBe(at(minutes(90)));
@@ -190,19 +191,6 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     expect(calendar.requests).toHaveLength(1);
     expect((await records())[0]?.remindAt).toBe(at(hours(28)));
-  });
-
-  it("AC4: a step override no longer than the role's reminder: no reminder, no second calendar call", async () => {
-    const calendar = calendarOf(() => new Date(at(hours(5))));
-    const { enter, records } = setup({
-      channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
-      calendar: calendar.calendar,
-    });
-
-    await enter({ expiresIn: workingMinutes(60) as never });
-
-    expect(calendar.requests).toHaveLength(1);
-    expect((await records())[0]?.remindAt).toBeUndefined();
   });
 
   it("AC4: a working remindBefore with a plain expiresIn gets no reminder (the assembly refuses it before)", async () => {
@@ -350,7 +338,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     // the same step again, its calendar now answering something else
     const changed = calendarOf(() => new Date(at(hours(99))));
-    Object.assign(site, { channel: { ...site.channel, calendar: changed.calendar } });
+    Object.assign(site, { target: { ...site.target, calendar: changed.calendar } });
     await enter();
 
     expect(calendar.requests).toHaveLength(asked);

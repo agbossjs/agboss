@@ -59,9 +59,9 @@ export class ToolCallApprovalAskDto {
  * The decision on one tool call waiting for approval (#267): who answered is not part of it — the
  * resume's `answeredBy` or the thread's owner, checked by the framework.
  */
-@Validate<ToolCallApprovalDecisionDto>(({ approved, overrideArguments }) =>
-  overrideArguments !== undefined && !approved
-    ? { field: "overrideArguments", reason: "overrideArguments only with approved: true" }
+@Validate<ToolCallApprovalDecisionDto>(({ approved, overrideInput }) =>
+  overrideInput !== undefined && !approved
+    ? { field: "overrideInput", reason: "overrideInput only with approved: true" }
     : undefined,
 )
 export class ToolCallApprovalDecisionDto {
@@ -75,14 +75,14 @@ export class ToolCallApprovalDecisionDto {
     prompt: "the arguments to run the call with instead (only with approved: true)",
     optional: true,
   })
-  overrideArguments?: ToolArguments;
+  overrideInput?: ToolArguments;
 }
 
 /**
  * What a model reply interpreter answers when a reply does not answer its pause's question (#648):
  * unclear, off topic, a shrug — never a refusal. The pause stays pending and
  * `UninterpretableReplyError` carries the `reason`, as a code interpreter's
- * `ReplyInterpretation.notUnderstood({ reason })` does. Tests script it as
+ * `ChannelInterpretation.notUnderstood({ reason })` does. Tests script it as
  * `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
  */
 export class ReplyInterpreterNotUnderstoodDto {

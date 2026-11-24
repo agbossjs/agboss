@@ -142,17 +142,8 @@ export {
   type PromptSource,
 } from "../components/prompt-source.js";
 export type { PromptVariables } from "../components/prompt-variables.js";
-export {
-  ChannelRole,
-  PauseAnswerer,
-  type ChannelApprovalRoleOptions,
-  type ChannelQuestionRoleOptions,
-  type ChannelRoleBaseOptions,
-  type ChannelRoleOptions,
-} from "../channels/channel-role.decorator.js";
 export { PauseKind, pauseInputOf, type PendingPauseBase } from "../pause/index.js";
-export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
-export type { QuestionStepOptions } from "../flow/child-placement.js";
+export { type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
 export {
   PauseExpiration,
   PauseExpirationKind,
@@ -167,19 +158,7 @@ export {
   type AwaitReplyOutcome,
   type DecidedOutcome,
 } from "../channels/channel-outcome.js";
-export {
-  ReplyInterpretation,
-  ReplyInterpretationKind,
-  ReplyInterpreter,
-  type NotUnderstoodReply,
-  type NotUnderstoodReplyOptions,
-  type UnderstoodReply,
-  type CodeReplyInterpreterOptions,
-  type ModelReplyInterpreterOptions,
-  type ReplyInterpreterDecorator,
-  type ReplyInterpreterHandler,
-  type ReplyInterpreterOptions,
-} from "../channels/channel-role.decorator.js";
+export { ChannelInterpretationKind } from "../channels/channel-interpreter.js";
 export type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
 export type {
   A2AEndpointRuleCode,

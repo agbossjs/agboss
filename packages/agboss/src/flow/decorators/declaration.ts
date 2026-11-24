@@ -8,7 +8,7 @@ import {
   type ListWrapper,
   type OptionalWrapper,
 } from "../dto-wrappers.js";
-import type { QuestionNodeOptions } from "../../channels/channel-role.decorator.js";
+import type { QuestionNodeOptions } from "../../channels/pause-targets.js";
 import type { ActionOptions } from "./action.js";
 import type { AgentOptions } from "./agent.js";
 import type { RouterOptions } from "./router.js";

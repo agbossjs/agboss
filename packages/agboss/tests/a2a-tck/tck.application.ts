@@ -1,4 +1,4 @@
-import { hours, minutes } from "../../src/units/index.js";
+import { hours, minutes, days } from "../../src/units/index.js";
 // #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
 // skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
 // finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
@@ -13,29 +13,26 @@ import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
 import { FilePolicy } from "../../src/files/file-policy.js";
 import { Files } from "../../src/a2a/files/files.service.js";
 import { Application } from "../../src/application/application.js";
-import { Channel, Injectable } from "../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../src/channels/channel-handler.js";
+import { Channel } from "../../src/components/decorators.js";
+import { type ChannelAsk } from "../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-} from "../../src/channels/channel-role.decorator.js";
-import type { Class } from "../../src/components/injection.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../src/channels/channel-interpreter.js";
 import { AGBossError } from "../../src/core/errors.js";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
 import { Action } from "../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Tracked } from "../../src/index.js";
+import { EmptyEnvironment, type Tracked, ExternalTask } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toFinish, toExternalTask } from "../helpers/flow.js";
 import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 /** The header the TCK adapter (`tck-serve.ts`) names a message's scenario in. */
 export const TCK_SCENARIO_HEADER = "x-agboss-tck-scenario";
@@ -131,31 +128,36 @@ export class TckScenarioAction {
 }
 
 /** Any reply answers the question: its text. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "tck-reply-interpreter",
   description: "Takes the caller's reply as it is",
-  decidedBy: DecidedBy.Code,
 })
 export class TckReplyInterpreter {
-  interpret(input: { readonly reply: string }): ReplyInterpretation<TckReplyDto> {
-    return ReplyInterpretation.understood({ reply: input.reply });
+  interpret(input: { readonly reply: string }): ChannelInterpretation<TckReplyDto> {
+    return ChannelInterpretation.understood({ reply: input.reply });
   }
 }
 
-@ChannelRole({
-  name: "tck-input-question",
+@ExternalTask({
+  name: "tck-input-external-task",
   description: "Asks the task's caller for its next message",
-  ask: TckAskDto,
-  answer: TckReplyDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: TckReplyInterpreter,
+  input: TckAskDto,
+  output: TckReplyDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: TckReplyInterpreter,
 })
-export abstract class TckInputQuestion extends ChannelOf<TckInputQuestion> {}
+export class TckInputExternalTask {}
 
 /** The caller answers over A2A: the question waits for its follow-up message. */
-@Channel({ name: "tck-caller-channel", description: "The task's caller" })
-export class TckCallerChannel extends TckInputQuestion {
-  send(_ask: ChannelAsk<TckInputQuestion>): Promise<ChannelOutcome<TckInputQuestion>> {
+@Channel({
+  name: "tck-caller-channel",
+  description: "The task's caller",
+  target: TckInputExternalTask,
+  ttl: days(1),
+})
+export class TckCallerChannel {
+  send(_ask: ChannelAsk<TckInputExternalTask>): Promise<ChannelOutcome<TckInputExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -215,7 +217,7 @@ export class TckFilePolicy {}
         toFinish(TckTextFinish),
         toFinish(TckFileFinish),
         toFinish(TckDataFinish),
-        toExternalTask(TckInputQuestion).toAction(TckAnsweredAction).toFinish(TckTextFinish),
+        toExternalTask(TckInputExternalTask).toAction(TckAnsweredAction).toFinish(TckTextFinish),
       ]),
   ],
 })

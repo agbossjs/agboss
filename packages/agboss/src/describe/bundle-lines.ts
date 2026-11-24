@@ -13,6 +13,6 @@ export function bundleLines(bundle: AssembledWorkflow): string[] {
     ...piiPolicyLines(bundle),
     ...filesLines(bundle),
     ...memoryLines(bundle),
-    `pause     on — tools with channel wait for external signal`,
+    `pause     on — tools with an approval wait for external signal`,
   ];
 }

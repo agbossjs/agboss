@@ -17,6 +17,7 @@ import {
   BatchWorkflowStart,
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   RefundDoneDto,
   RefundRequestDto,
@@ -101,6 +102,7 @@ export class PricedBatchWorkflow {}
   workflows: [PricedBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
     SeenCostLedgerRepository,

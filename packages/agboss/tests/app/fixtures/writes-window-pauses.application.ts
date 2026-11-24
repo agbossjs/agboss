@@ -1,9 +1,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { Application } from "../../../src/application/application.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import { Bool, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
@@ -13,6 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  ExternalTask,
 } from "../../../src/index.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
@@ -29,6 +29,8 @@ import {
 } from "../../../src/infrastructure/execution-record.repository.js";
 import type { TurnOutcome } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
 
 /**
  * #1098 — trees cut off in the window between a task's writes (`putWrites`) and the checkpoint
@@ -246,37 +248,51 @@ export class WindowReceiptDto {
   text!: string;
 }
 
-@ChannelRole({
-  name: "window-approval-question",
+@ExternalTask({
+  name: "window-approval-external-task",
   description: "Asks for an order's approval",
-  ask: WindowOrderDto,
-  answer: WindowApprovalDto,
-  answerer: PauseAnswerer.Channel,
+  input: WindowOrderDto,
+  output: WindowApprovalDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class WindowQuestion extends ChannelOf<WindowQuestion> {}
+export class WindowExternalTask {}
 
 /** Nobody is sent anything: the question waits for its `app.resume`. */
-@Channel({ name: "window-approval-channel", description: "Waits for the answer" })
-export class WindowChannel extends WindowQuestion {
-  async send(ask: ChannelAsk<WindowQuestion>): Promise<ChannelOutcome<WindowQuestion>> {
+@Channel({
+  name: "window-approval-channel",
+  description: "Waits for the answer",
+  target: WindowExternalTask,
+  ttl: days(1),
+})
+export class WindowChannel {
+  async send(ask: ChannelAsk<WindowExternalTask>): Promise<ChannelOutcome<WindowExternalTask>> {
     await asked(ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }
 
-@ChannelRole({
-  name: "window-second-approval-question",
+@ExternalTask({
+  name: "window-second-approval-external-task",
   description: "Asks for an order's second approval",
-  ask: WindowOrderDto,
-  answer: WindowApprovalDto,
-  answerer: PauseAnswerer.Channel,
+  input: WindowOrderDto,
+  output: WindowApprovalDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class WindowSecondQuestion extends ChannelOf<WindowSecondQuestion> {}
+export class WindowSecondExternalTask {}
 
 /** Nobody is sent anything: the second question waits for its `app.resume`. */
-@Channel({ name: "window-second-approval-channel", description: "Waits for the second answer" })
-export class WindowSecondChannel extends WindowSecondQuestion {
-  async send(ask: ChannelAsk<WindowSecondQuestion>): Promise<ChannelOutcome<WindowSecondQuestion>> {
+@Channel({
+  name: "window-second-approval-channel",
+  description: "Waits for the second answer",
+  target: WindowSecondExternalTask,
+  ttl: days(1),
+})
+export class WindowSecondChannel {
+  async send(
+    ask: ChannelAsk<WindowSecondExternalTask>,
+  ): Promise<ChannelOutcome<WindowSecondExternalTask>> {
     await asked(ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
@@ -381,7 +397,7 @@ export class WindowChildWorkflowFinish {}
   flow: [
     onStart(WindowChildWorkflowStart)
       .toAction(WindowAskAction)
-      .toExternalTask(WindowQuestion)
+      .toExternalTask(WindowExternalTask)
       .toAction(WindowApprovedAction)
       .toFinish(WindowChildWorkflowFinish),
   ],
@@ -436,9 +452,9 @@ export class WindowTwiceWorkflowFinish {}
   flow: [
     onStart(WindowTwiceWorkflowStart)
       .toAction(WindowAskAction)
-      .toExternalTask(WindowQuestion)
+      .toExternalTask(WindowExternalTask)
       .toAction(WindowAskAgainAction)
-      .toExternalTask(WindowSecondQuestion)
+      .toExternalTask(WindowSecondExternalTask)
       .toAction(WindowApprovedAction)
       .toAction(WindowChargeAction)
       .toFinish(WindowTwiceWorkflowFinish),

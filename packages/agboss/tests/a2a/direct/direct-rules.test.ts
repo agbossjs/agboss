@@ -41,7 +41,7 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
 
     expect(violations).toEqual([
       expect.stringMatching(
-        /^\[a2a\.message-skill-pause\] tck-workflow-start answers with a direct message \(A2AReply\.Message\) and must be stateless, but tck-input-question asks its caller — answer with a task/,
+        /^\[a2a\.message-skill-pause\] tck-workflow-start answers with a direct message \(A2AReply\.Message\) and must be stateless, but tck-input-external-task asks its caller — answer with a task/,
       ),
     ]);
   });

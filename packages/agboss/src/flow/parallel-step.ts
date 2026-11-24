@@ -109,8 +109,6 @@ export function skippedStepOf({ last, isSubPath }: BranchSite, error: ErrorClass
 
 /** Why the one step of a branch cannot be one, when it cannot. */
 function stepProblem(step: ToStep): string | undefined {
-  if (step.expiresIn !== undefined)
-    return "toExternalTask(Q, { expiresIn }) is no branch — set it on the role";
   if ((step.targetKind === NodeKind.Router) !== (step.chooses !== undefined))
     return "a router is a branch as toRouter(R).chooseMany([…]), and only a router has chooseMany";
   return step.chooses !== undefined && step.skip !== undefined

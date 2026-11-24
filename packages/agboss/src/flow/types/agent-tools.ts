@@ -1,4 +1,4 @@
-import { questionRoleOf } from "../../channels/discovery.js";
+import { externalTaskOf } from "../../channels/discovery.js";
 import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
@@ -8,19 +8,19 @@ import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
 /**
  * The `AgentTools` table (#679): per agent, the names its model may call — each `@Tool` /
- * and question role (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
+ * and external task (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
  * `callTool(…)` / `callTools(…)` turn of another tool does not compile. Each tool and knowledge-base
  * class is branded with its name (`readonly [agbossComponent]?: "order-status-tool"`), what
  * `callTool(Tool, …)` reads.
  */
 
 /**
- * The name a tool, MCP tool, knowledge base or question role (#712) class is known by; `undefined`
+ * The name a tool, MCP tool, knowledge base or external task (#712) class is known by; `undefined`
  * for any other class.
  */
 export function toolComponentNameOf(cls: Class): string | undefined {
-  const role = questionRoleOf(cls);
-  if (role !== undefined) return role.name;
+  const task = externalTaskOf(cls);
+  if (task !== undefined) return task.name;
   const component = componentOf(cls);
   switch (component?.kind) {
     case "tool":

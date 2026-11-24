@@ -2,9 +2,8 @@ import { appendFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { Application } from "../../../../src/application/application.js";
-import { ChannelOf, type ChannelAsk } from "../../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../../src/channels/channel-role.decorator.js";
 import { Channel } from "../../../../src/components/decorators.js";
 import { Bool } from "../../../../src/dto/index.js";
 import {
@@ -19,13 +18,15 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Tracked,
+  ExternalTask,
 } from "../../../../src/index.js";
 import { env } from "../../../../src/environments/index.js";
-import { hours, usd } from "../../../../src/units/index.js";
+import { hours, usd, days } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ItemDto, ItemResultDto } from "../../../flow/runtime/fixtures/fan-out.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { PauseRespondent } from "../../../../src/pause/respondent.js";
 
 /**
  * #1286b — children with `ChildPlacement.IsolatedWorker` in real processes over one SQLite file
@@ -84,18 +85,24 @@ export class IsolatedDecisionDto {
   approved!: boolean;
 }
 
-@ChannelRole({
-  name: "isolated-question",
+@ExternalTask({
+  name: "isolated-external-task",
   description: "Asks whether the item goes on",
-  ask: ItemResultDto,
-  answer: IsolatedDecisionDto,
-  answerer: PauseAnswerer.Channel,
+  input: ItemResultDto,
+  output: IsolatedDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class IsolatedQuestion extends ChannelOf<IsolatedQuestion> {}
+export class IsolatedExternalTask {}
 
-@Channel({ name: "isolated-channel", description: "Waits for the answer" })
-export class IsolatedChannel extends IsolatedQuestion {
-  send(ask: ChannelAsk<IsolatedQuestion>): Promise<ChannelOutcome<IsolatedQuestion>> {
+@Channel({
+  name: "isolated-channel",
+  description: "Waits for the answer",
+  target: IsolatedExternalTask,
+  ttl: days(1),
+})
+export class IsolatedChannel {
+  send(ask: ChannelAsk<IsolatedExternalTask>): Promise<ChannelOutcome<IsolatedExternalTask>> {
     log({ phase: "asked", pauseId: ask.pauseId });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -172,7 +179,7 @@ export class IsolatedAskWorkflowStart {}
   flow: [
     onStart(IsolatedAskWorkflowStart)
       .toAction(IsolatedProbeAction)
-      .toExternalTask(IsolatedQuestion)
+      .toExternalTask(IsolatedExternalTask)
       .toAction(IsolatedRecordAction)
       .toFinish(IsolatedItemWorkflowFinish),
   ],

@@ -1,7 +1,7 @@
 import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
-import type { PauseListenerEventBase } from "../pause/notice-events.js";
+import type { ChannelListenerEventBase } from "../pause/notice-events.js";
 
 /** What an event says of a pause's question and custody: split from `pause-notices.ts`. */
 
@@ -25,7 +25,7 @@ export async function listenedOf(
   pause: PauseRecord,
   masked: (value: unknown) => Promise<unknown>,
 ): Promise<
-  Pick<PauseListenerEventBase, "input" | "toolCall" | "assignees" | "externalRef" | "trail">
+  Pick<ChannelListenerEventBase, "input" | "toolCall" | "assignees" | "externalRef" | "trail">
 > {
   const shown = (await masked({
     input: pause.input,
@@ -33,7 +33,10 @@ export async function listenedOf(
     assignees: pause.assignees,
     externalRef: pause.externalRef,
     trail: pause.trail,
-  })) as Pick<PauseListenerEventBase, "input" | "toolCall" | "assignees" | "externalRef" | "trail">;
+  })) as Pick<
+    ChannelListenerEventBase,
+    "input" | "toolCall" | "assignees" | "externalRef" | "trail"
+  >;
   return {
     input: shown.input,
     ...(shown.toolCall === undefined ? {} : { toolCall: shown.toolCall }),

@@ -16,9 +16,8 @@ import {
 } from "../../src/index.js";
 import { channelRuleViolations } from "../../src/channels/channel-rules.js";
 import type { ChannelUse } from "../../src/channels/discovery.js";
-import { pauseListenerRuleViolations } from "../../src/pause/pause-listener.js";
+import { channelListenerRuleViolations } from "../../src/pause/channel-listener.js";
 import type { Class } from "../../src/components/injection.js";
-import { ComponentError } from "../../src/components/metadata.js";
 import { Text } from "../../src/dto/index.js";
 import { days, hours, seconds } from "../../src/units/index.js";
 import { PurchaseQuestionDto, SpendingLimitAnswerDto } from "../flow/fixtures/questions.fixture.js";
@@ -34,10 +33,10 @@ class OutputDto {
   value!: string;
 }
 
-const useOf = (channel: Class, isQuestion = false): ChannelUse => ({
+const useOf = (target: Class, isQuestion = false): ChannelUse => ({
   tool: "a-tool",
   toolInput: InputDto,
-  channel,
+  target,
   workflow: "w-workflow",
   ...(isQuestion ? { isQuestion: true as const } : {}),
 });
@@ -51,8 +50,8 @@ function approval(name: string, extra: Record<string, unknown> = {}): Class {
     timeout: hours(1),
     ...extra,
   })
-  class SomeApproval {}
-  return SomeApproval;
+  class SomeToolApproval {}
+  return SomeToolApproval;
 }
 
 function task(name: string, extra: Record<string, unknown> = {}): Class {
@@ -102,7 +101,7 @@ describe("#1307a: a target has a channel", () => {
       {
         code: "channel.missing-for-target",
         message:
-          "SomeApproval (legal-tool-approval) has no channel — list a @Channel({ target: SomeApproval }) class in @Application({ channels })",
+          "SomeToolApproval (legal-tool-approval) has no channel — list a @Channel({ target: SomeToolApproval }) class in @Application({ channels })",
         nodes: ["legal-tool-approval"],
       },
     ]);
@@ -136,7 +135,7 @@ describe("#1307a: a target has a channel", () => {
       {
         code: "channel.ambiguous-for-target",
         message:
-          "SomeApproval (legal-tool-approval) has 2 channels: SomeChannel, SomeChannel — add a @ChannelSelector({ target: SomeApproval }) that picks one, or list one",
+          "SomeToolApproval (legal-tool-approval) has 2 channels: SomeChannel, SomeChannel — add a @ChannelSelector({ target: SomeToolApproval }) that picks one, or list one",
         nodes: ["legal-tool-approval"],
       },
     ]);
@@ -242,9 +241,9 @@ describe("#1307a: names and escalation", () => {
       Array.from({ length: 3 }, () => "pause.incompatible-escalation-target"),
     );
     expect(violations.map((one) => one.message)).toEqual([
-      "from-tool-approval escalates to SomeTask, which is of another kind or takes other DTOs — a pause can move only to a target of its kind with the same input (SomeApproval)",
-      "from-tool-approval escalates to SomeApproval, which is of another kind or takes other DTOs — a pause can move only to a target of its kind with the same input (SomeApproval)",
-      "from-tool-approval escalates to Plain, which is no @ToolApproval or @ExternalTask — a pause can move only to a target of its kind with the same input (SomeApproval)",
+      "from-tool-approval escalates to SomeTask, which is of another kind or takes other DTOs — a pause can move only to a target of its kind with the same input (SomeToolApproval)",
+      "from-tool-approval escalates to SomeToolApproval, which is of another kind or takes other DTOs — a pause can move only to a target of its kind with the same input (SomeToolApproval)",
+      "from-tool-approval escalates to Plain, which is no @ToolApproval or @ExternalTask — a pause can move only to a target of its kind with the same input (SomeToolApproval)",
     ]);
   });
 
@@ -256,27 +255,7 @@ describe("#1307a: names and escalation", () => {
   });
 });
 
-describe("#1307a: @Tool names its approval, not both", () => {
-  it("approval and channel together are refused when the decorator runs", () => {
-    const target = approval("legal-tool-approval");
-    expect(() => {
-      @Tool({
-        name: "x-tool",
-        description: "d",
-        input: InputDto,
-        output: OutputDto,
-        approval: target,
-        channel: target,
-      })
-      class Both {
-        execute(): Promise<OutputDto> {
-          return Promise.resolve({ value: "" });
-        }
-      }
-      return Both;
-    }).toThrow(ComponentError);
-  });
-
+describe("#1307a: @Tool names its approval", () => {
   it("a target with no respondent is refused when the decorator runs", () => {
     expect(() => approval("legal-tool-approval", { respondent: undefined })).toThrow(
       '[pause-target.respondent] @ToolApproval "legal-tool-approval" has no respondent',
@@ -286,7 +265,7 @@ describe("#1307a: @Tool names its approval, not both", () => {
 
 describe("#1310c: the rules of @ChannelListener and @ChannelInterpreter", () => {
   const rules = (...providers: Class[]) =>
-    pauseListenerRuleViolations("x-application", providers).map(({ code, message }) => ({
+    channelListenerRuleViolations("x-application", providers).map(({ code, message }) => ({
       code,
       message,
     }));
@@ -345,7 +324,7 @@ describe("#1310c: the rules of @ChannelListener and @ChannelInterpreter", () => 
       }
       seen = false;
     }
-    expect(rules(One, Two).map((one) => one.code)).toEqual(["pause-listener.duplicate-name"]);
+    expect(rules(One, Two).map((one) => one.code)).toEqual(["channel-listener.duplicate-name"]);
   });
 
   it("a @ChannelInterpreter with neither interpret nor a model is [channel-interpreter.no-interpret-method]", async () => {
@@ -449,7 +428,7 @@ describe("#1307a: a setting nothing reads yet fails assembly (fail closed)", () 
     expect(found([useOf(target)], [channelOf(target, "limited-channel")])).toEqual([
       {
         code: "pause.setting-not-enforced",
-        message: message("escalationLimits", "limited-tool-approval", "SomeApproval"),
+        message: message("escalationLimits", "limited-tool-approval", "SomeToolApproval"),
         nodes: ["limited-tool-approval"],
       },
     ]);

@@ -164,8 +164,9 @@
         "toolLoopIteration": 2,
         "validationAttempts": 0
       },
-      "role": "refund-approval-channel",
-      "answerer": "channel",
+      "target": "refund-tool-approval",
+      "channel": "refund-approval-channel",
+      "respondent": "delegate",
       "actor": {
         "id": "manager-17"
       },
@@ -182,7 +183,7 @@
         {
           "action": "opened",
           "at": "2026-01-05T09:00:00.000Z",
-          "target": "refund-approval-channel",
+          "target": "refund-tool-approval",
           "channel": "refund-approval-channel"
         }
       ]
@@ -648,8 +649,9 @@
             "toolLoopIteration": 2,
             "validationAttempts": 0
           },
-          "role": "refund-approval-channel",
-          "answerer": "thread-owner",
+          "target": "refund-tool-approval",
+          "channel": "refund-approval-channel",
+          "respondent": "owner",
           "actor": {
             "id": "alice"
           },
@@ -666,7 +668,7 @@
             {
               "action": "opened",
               "at": "2026-01-05T09:00:00.000Z",
-              "target": "refund-approval-channel",
+              "target": "refund-tool-approval",
               "channel": "refund-approval-channel"
             }
           ]
@@ -766,8 +768,9 @@
                 "toolLoopIteration": 2,
                 "validationAttempts": 0
               },
-              "role": "refund-approval-channel",
-              "answerer": "channel",
+              "target": "refund-tool-approval",
+              "channel": "refund-approval-channel",
+              "respondent": "delegate",
               "actor": {
                 "id": "bob"
               },
@@ -784,7 +787,7 @@
                 {
                   "action": "opened",
                   "at": "2026-01-05T09:00:00.000Z",
-                  "target": "refund-approval-channel",
+                  "target": "refund-tool-approval",
                   "channel": "refund-approval-channel"
                 }
               ]

@@ -87,7 +87,7 @@ export const A2A_TASK_STATUS_CASES: readonly ContractCase<A2ATaskRepository>[] =
             input: { args: { a: 1 } },
             toolCall: { callId: "call-1", tool: "charge-tool" },
           },
-          { kind: PauseKind.Question, input: { question: "which card?" } },
+          { kind: PauseKind.ExternalTask, input: { question: "which card?" } },
         ],
         message: "awaiting approval",
       };

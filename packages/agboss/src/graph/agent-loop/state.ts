@@ -124,7 +124,7 @@ export interface CallDecision {
   readonly approved: boolean;
   readonly by: string;
   readonly reason?: string;
-  readonly overrideArguments?: Record<string, unknown>;
+  readonly overrideInput?: Record<string, unknown>;
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { ChannelAnswerOf } from "../flow/generated-types.js";
+import type { PauseOutputOf } from "../flow/generated-types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { ChannelAsk } from "./channel-handler.js";
 
@@ -42,9 +42,9 @@ export interface ReassignExpiration {
   readonly reason?: string;
 }
 
-/** What `onPauseExpired` returns for a channel of `TRole`: the role's answer type checks `decide`. */
-export type PauseExpiration<TRole> =
-  FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>> | ReassignExpiration;
+/** What `onPauseExpired` returns for a channel of `TTarget`: the role's answer type checks `decide`. */
+export type PauseExpiration<TTarget> =
+  FailExpiration | DecideExpiration<PauseOutputOf<TTarget>> | ReassignExpiration;
 
 const FAIL: FailExpiration = Object.freeze({ kind: PauseExpirationKind.Fail });
 
@@ -94,6 +94,8 @@ export function isPauseExpiration(
  * decision was recorded, so it must have no effects of its own beyond reading. `ask` is what `send`
  * got (the display-masked ask).
  */
-export interface PauseExpiryHandler<TRole> {
-  onPauseExpired(ask: ChannelAsk<TRole>): PauseExpiration<TRole> | Promise<PauseExpiration<TRole>>;
+export interface PauseExpiryHandler<TTarget> {
+  onPauseExpired(
+    ask: ChannelAsk<TTarget>,
+  ): PauseExpiration<TTarget> | Promise<PauseExpiration<TTarget>>;
 }

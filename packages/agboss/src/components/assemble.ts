@@ -48,7 +48,6 @@ import {
 } from "./model-parts.js";
 import { settingsOf } from "./workflow-settings.js";
 import { graphOf } from "./assemble-graph.js";
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { AssembledMemories } from "../memory/assembly.js";
 import { workflowWindowOf } from "../memory/memory.decorator.js";
 
@@ -65,8 +64,6 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly guardrails?: readonly Class[];
   /** `@Application({ toolInterceptors })`: every agent's tool calls (#384). */
   readonly toolInterceptors?: readonly Class[];
-  /** `@Application({ workingCalendar })`: the default calendar of working-time deadlines (#944). */
-  readonly workingCalendar?: WorkingCalendarSource;
   /** `@Application({ modelProvider })`: the provider of every model that names none (#1313). */
   readonly modelProvider?: Class;
   /** `@Application({ promptVariables })`: under every workflow's and component's own (#1347c). */
@@ -202,7 +199,7 @@ export async function workflowOf(
     maxSteps: maxStepsOf(workflow, graph, owner),
     ...containerPartsOf(bundle),
     ...policies.assembled,
-    ...channelPartsOf(bundle, tools, owner?.workingCalendar, modules),
+    ...channelPartsOf(bundle, tools, modules),
     ...workflowModelPartsOf(
       { owner, bundle, agents, config, routers, graph, resolver, modelPrompts },
       { ...policies.models, replyInterpreters, rags },

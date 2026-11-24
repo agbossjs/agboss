@@ -28,7 +28,7 @@ export async function observedReading(
   const about = {
     ...nodeEventOf(frame),
     interpreter: interpreter.name,
-    channel: interpreter.channel,
+    target: interpreter.target,
     isCode: interpreter.model === undefined,
   };
   await observer.onChannelInterpreterStart(about);

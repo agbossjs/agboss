@@ -33,15 +33,17 @@ describe("#659 AC2: a question pauses like any pause", () => {
     expect(paused.path).toEqual([
       "purchase-workflow-start",
       "draft-question-action",
-      "spending-limit-question",
+      "spending-limit-question-external-task",
     ]);
     expect(paused.pending).toEqual([
       {
-        kind: PauseKind.Question,
+        kind: PauseKind.ExternalTask,
         pauseId: expect.any(String),
-        answerer: "thread-owner",
-        step: "spending-limit-question",
-        channel: "spending-limit-question",
+        respondent: "owner",
+        step: "spending-limit-question-external-task",
+        target: "spending-limit-question-external-task",
+        channel: "inbox-spending-limit-channel",
+        expiresAt: expect.any(String),
         childExecutionId: undefined,
         itemIndex: undefined,
         // the requester is `sensitive`: masked in the record, the channel's ask and the result
@@ -65,9 +67,9 @@ describe("#659 AC2: a question pauses like any pause", () => {
     expect(pause).toMatchObject({
       status: PauseStatus.Pending,
       isSent: true,
-      kind: PauseKind.Question,
-      step: "spending-limit-question",
-      component: { name: "spending-limit-question", kind: "question" },
+      kind: PauseKind.ExternalTask,
+      step: "spending-limit-question-external-task",
+      component: { name: "spending-limit-question-external-task", kind: "question" },
     });
   });
 
@@ -109,7 +111,7 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
     expect(done.path).toEqual([
       "purchase-workflow-start",
       "draft-question-action",
-      "spending-limit-question",
+      "spending-limit-question-external-task",
       "place-purchase-action",
       "purchase-workflow-finish",
     ]);
@@ -149,8 +151,8 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
 
     expect(done.record?.pauses).toEqual([
       expect.objectContaining({
-        role: "spending-limit-question",
-        answerer: "thread-owner",
+        target: "spending-limit-question-external-task",
+        respondent: "owner",
         actor: { id: "alice" },
         resolution: PauseResolution.Replied,
         decision: { approved: true, limitUsd: 950 },

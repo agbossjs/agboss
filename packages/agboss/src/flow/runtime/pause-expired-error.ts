@@ -48,7 +48,10 @@ export interface PauseExpiredErrorOptions {
   readonly step: string;
   /** Which of the two it is: the fallback coordinates outside a frame. */
   readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
-  readonly channel: string;
+  /** The pause target it waited under. */
+  readonly target: string;
+  /** The channel it was asked on; absent for an owner's pause nobody was asked about. */
+  readonly channel?: string | undefined;
   readonly kind: PauseKind;
   /** The deadline that passed (ISO 8601). */
   readonly expiresAt: string;
@@ -64,21 +67,30 @@ export class PauseExpiredError extends StepFailedError {
   override name = "PauseExpiredError";
   readonly step: string;
   readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
-  readonly channel: string;
+  readonly target: string;
+  readonly channel: string | undefined;
   readonly kind: PauseKind;
   readonly expiresAt: string;
 
   constructor(options: PauseExpiredErrorOptions) {
-    const { step, stepKind, channel, kind, expiresAt, usage, cause } = options;
+    const { step, stepKind, target, channel, kind, expiresAt, usage, cause } = options;
     super({
-      message: `${step}: its pause on channel ${channel} expired at ${expiresAt}`,
+      message: `${step}: its pause on ${target} expired at ${expiresAt}`,
       usage,
       cause,
       ...stepCoordinatesOf(step, stepKind),
-      details: { step, stepKind, channel, kind, expiresAt },
+      details: {
+        step,
+        stepKind,
+        target,
+        ...(channel === undefined ? {} : { channel }),
+        kind,
+        expiresAt,
+      },
     });
     this.step = step;
     this.stepKind = stepKind;
+    this.target = target;
     this.channel = channel;
     this.kind = kind;
     this.expiresAt = expiresAt;

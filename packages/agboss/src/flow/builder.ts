@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import type { QuestionStepOptions } from "./child-placement.js";
 import { NodeKind } from "./ast.js";
 import type {
   AfterStep,
@@ -118,17 +117,16 @@ export function toRouter(target: Class): unknown {
 }
 
 /**
- * The side path `.onError(E, toExternalTask(Q)…)` (#910): a question role's step handles the failure —
- * it reads its `ask` from the path like `.toExternalTask(Q)` does, pauses on the role's channel and puts
- * its `answer` on the path. A side path that can catch a limit leads only to actions and finishes
+ * The side path `.onError(E, toExternalTask(Task)…)` (#910): an external task's step handles the failure —
+ * it reads its `input` from the path like `.toExternalTask(Task)` does, pauses on its target's channel and puts
+ * its `output` on the path. A side path that can catch a limit leads only to actions and finishes
  * (`[graph.limit-handler-uses-model]`: a reply interpreter may call a model).
  */
 export function toExternalTask<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
-  options?: QuestionStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
-export function toExternalTask(target: Class, options?: unknown): unknown {
-  return sidePath().toExternalTask(target, options);
+export function toExternalTask(target: Class): unknown {
+  return sidePath().toExternalTask(target);
 }
 
 /**

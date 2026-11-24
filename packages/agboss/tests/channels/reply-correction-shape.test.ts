@@ -1,7 +1,7 @@
 /**
  * #688 (security review, structural) — a reply's correction keeps the shape of the call it
  * approves: no new key at any depth, no other kind of value, no list of another length; nested
- * objects are laid over the call's at every depth. And every decision's `overrideArguments` passes
+ * objects are laid over the call's at every depth. And every decision's `overrideInput` passes
  * the tool's own input strictly: a key the input does not have, at any depth, is refused, never
  * dropped. What the values may be is that validation's; a limit such as "never above the call's
  * amount" is a guardrail's or the tool's own (the payout interceptor test in
@@ -25,8 +25,8 @@ const ask = {
   },
 };
 
-const correctionOf = (overrideArguments: unknown) =>
-  withCorrectedCall({ decision: "approve-with-changes", overrideArguments }, ask);
+const correctionOf = (overrideInput: unknown) =>
+  withCorrectedCall({ decision: "approve-with-changes", overrideInput }, ask);
 
 describe("#688: a correction keeps the call's shape, at every depth", () => {
   it.each([
@@ -74,7 +74,7 @@ describe("#688: a correction keeps the call's shape, at every depth", () => {
   });
 
   it("a DTO-shaped answer whose correction is no object: no answer", () => {
-    expect(withCorrectedCall({ approved: true, overrideArguments: 5 }, ask)).toEqual({
+    expect(withCorrectedCall({ approved: true, overrideInput: 5 }, ask)).toEqual({
       kind: "invalid",
       reason: "its correction changes the call's shape: it is not the call's arguments",
     });
@@ -87,7 +87,7 @@ describe("#688: a correction keeps the call's shape, at every depth", () => {
       kind: "answer",
       answer: {
         approved: true,
-        overrideArguments: {
+        overrideInput: {
           payee: "ann",
           amountCents: 120_000,
           limits: { perDayCents: 50_000, window: { days: 3, label: "week" } },
@@ -102,7 +102,7 @@ describe("#688: a correction keeps the call's shape, at every depth", () => {
 
     expect(read).toMatchObject({
       kind: "answer",
-      answer: { overrideArguments: { amountCents: 200_000, split: [1, 2] } },
+      answer: { overrideInput: { amountCents: 200_000, split: [1, 2] } },
     });
   });
 });
@@ -123,15 +123,15 @@ const payOutTool = defineTool({
   run: () => Promise.resolve({}),
 });
 
-const approvedWith = (overrideArguments: unknown) => ({ approved: true, overrideArguments });
+const approvedWith = (overrideInput: unknown) => ({ approved: true, overrideInput });
 
-describe("#688: a decision's overrideArguments pass the tool's input strictly", () => {
+describe("#688: a decision's overrideInput pass the tool's input strictly", () => {
   it.each([
-    ["depth 1", { ...ask.arguments, tip: 1 }, "overrideArguments.tip"],
+    ["depth 1", { ...ask.arguments, tip: 1 }, "overrideInput.tip"],
     [
       "depth 2",
       { ...ask.arguments, limits: { ...ask.arguments.limits, perWeekCents: 1 } },
-      "overrideArguments.limits.perWeekCents",
+      "overrideInput.limits.perWeekCents",
     ],
     [
       "depth 3",
@@ -139,7 +139,7 @@ describe("#688: a decision's overrideArguments pass the tool's input strictly", 
         ...ask.arguments,
         limits: { ...ask.arguments.limits, window: { ...ask.arguments.limits.window, hours: 1 } },
       },
-      "overrideArguments.limits.window.hours",
+      "overrideInput.limits.window.hours",
     ],
   ])(
     "a key the tool's input does not have at %s is refused, never dropped",
@@ -176,14 +176,14 @@ describe("#688: a decision's overrideArguments pass the tool's input strictly", 
     };
 
     expect(() => validDecisionOf(approvedWith(call), orderTool)).toThrow(
-      /overrideArguments\.lines\[1\]\.discount: is no field of the tool's input/u,
+      /overrideInput\.lines\[1\]\.discount: is no field of the tool's input/u,
     );
   });
 
   it("the call's own fields, validated: the decision stands", () => {
     expect(validDecisionOf(approvedWith(ask.arguments), payOutTool)).toMatchObject({
       approved: true,
-      overrideArguments: ask.arguments,
+      overrideInput: ask.arguments,
     });
   });
 

@@ -9,7 +9,7 @@ import type { ModelReading, ReplyInterpreterInput, ReplyPii } from "./reply-read
  * A reply read by a decision model (#267 S124 a): approve / refuse only — one
  * `Decision.boolean("approved")` about the pause's question and the reply (the input message, masked by
  * the PII policies like a chat interpreter's), the interpreter's `prompt` as its instructions. The
- * answer is `{ approved }`, approved when P(yes) > 0.5 — never a `reason` or `overrideArguments`
+ * answer is `{ approved }`, approved when P(yes) > 0.5 — never a `reason` or `overrideInput`
  * (every role is an approval role, #647, so any role may name one).
  * The call is counted under the interpreter's cost caller, `reply-interpreter:<name>`.
  */

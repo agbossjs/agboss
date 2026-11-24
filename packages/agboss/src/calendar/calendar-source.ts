@@ -35,6 +35,12 @@ const declaredGridOf = (cls: Class, week: NonNullable<WorkingCalendarMeta["week"
   return made;
 };
 
+/** The grid a declarative `@WorkingCalendar({ week })` class is; `undefined` for any other class. */
+export function declaredGridOfClass(cls: Class): WorkingCalendarHandler | undefined {
+  const week = workingCalendarOf(cls)?.week;
+  return week === undefined ? undefined : declaredGridOf(cls, week);
+}
+
 const classNameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 /** The name a calendar's errors give: its `@WorkingCalendar` name, `working-week` for a grid. */

@@ -1,10 +1,10 @@
 import { expect } from "vitest";
-import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { ContractCase } from "./define.js";
+import { PauseRespondent } from "../../pause/respondent.js";
 
 /**
  * The pause answer log (#267 S107, #676): one answer per pause **of a tree** — a step key names no
@@ -39,8 +39,9 @@ export const answerOf = (
     toolLoopIteration: 1,
     validationAttempts: 0,
   },
-  role: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
+  target: "refund-tool-approval",
+  channel: "refund-approval-channel",
+  respondent: PauseRespondent.Delegate,
   actor: { id: responder, orgId: "holding-hq" },
   resolution: PauseResolution.Replied,
   askedAt,
@@ -54,7 +55,7 @@ export const answerOf = (
     {
       action: "opened",
       at: askedAt,
-      target: "refund-approval-channel",
+      target: "refund-tool-approval",
       channel: "refund-approval-channel",
     },
   ],

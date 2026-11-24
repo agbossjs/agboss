@@ -1,4 +1,4 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, days } from "../../../src/units/index.js";
 import {
   Agent,
   CompactionStrategy,
@@ -22,16 +22,14 @@ import {
   type Class,
   type JudgeHandler,
   inline,
+  ToolApproval,
+  PauseRespondent,
 } from "../../../src/index.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpreter,
-} from "../../../src/channels/channel-role.decorator.js";
+import { ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
 import {
   PlainTextDto,
   Text,
@@ -89,25 +87,30 @@ export function everyKindWorkflows(models: KindModels): {
     model: models.pii,
   })
   class NamesPiiPolicy {}
-  @ReplyInterpreter({
+  @ChannelInterpreter({
     name: "approval-reply-interpreter",
     description: "Reads a reply",
-    decidedBy: DecidedBy.Model,
     model: models.channelInterpreters,
     prompt: inline("Read the reply."),
   })
   class ApprovalReplyInterpreter {}
-  @ChannelRole({
-    name: "approval-channel",
+  @ToolApproval({
+    name: "approval-tool-approval",
     description: "Approves a note",
-    approves: NoteDto,
-    answerer: PauseAnswerer.Channel,
-    replyInterpreter: ApprovalReplyInterpreter,
+    input: NoteDto,
+    respondent: PauseRespondent.Delegate,
+    timeout: days(365),
+    channelInterpreter: ApprovalReplyInterpreter,
   })
-  abstract class ApprovalChannel extends ChannelOf<ApprovalChannel> {}
-  @Channel({ name: "desk-approval-channel", description: "Asks the desk" })
-  class DeskApprovalChannel extends ApprovalChannel {
-    send(_ask: ChannelAsk<ApprovalChannel>): Promise<ChannelOutcome<ApprovalChannel>> {
+  class NoteToolApproval {}
+  @Channel({
+    name: "desk-approval-channel",
+    description: "Asks the desk",
+    target: NoteToolApproval,
+    ttl: days(1),
+  })
+  class DeskApprovalChannel {
+    send(_ask: ChannelAsk<NoteToolApproval>): Promise<ChannelOutcome<NoteToolApproval>> {
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
   }
@@ -116,7 +119,7 @@ export function everyKindWorkflows(models: KindModels): {
     description: "Files a note",
     input: NoteDto,
     output: AnswerDto,
-    channel: ApprovalChannel,
+    approval: NoteToolApproval,
   })
   class FileNoteTool {
     execute(): Promise<AnswerDto> {

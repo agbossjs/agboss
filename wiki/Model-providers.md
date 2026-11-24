@@ -392,14 +392,14 @@ export class AppChatModels {}
   `apiKey` and header values are read from the process once, at start; a missing key fails naming its
   variable.
 - **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
-  `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ReplyInterpreter`
+  `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ChannelInterpreter`
   and `@PiiPolicy` (its `model`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
   of the application even when it is not in `providers`, and the provider rules (`timeout`, prices,
   breaker, mode) check it exactly like a listed one, wherever it is named; `agboss describe` lists it as
   "named by modelProvider".
 - **Roles:** a component's `model: "fast"` is the vendor's name `models.fast` maps to; a name that is
   no role goes to the server as written.
-- **The default model:** a component that names no `model` (an `@Arbiter` and a `@ReplyInterpreter`
+- **The default model:** a component that names no `model` (an `@Arbiter` and a `@ChannelInterpreter`
   may leave it out) takes, in this order: its profile's override, its own `model`,
   `@Workflow({ defaults: { models: { model } } })`, `@Application({ defaults: { models: { model } } })`,
   the provider's `model`, the provider's `models.default`. A level's `defaults.models.model` applies

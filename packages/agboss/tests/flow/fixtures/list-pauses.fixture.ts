@@ -1,8 +1,7 @@
 import { Application } from "../../../src/application/application.js";
 import { Channel } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import { Bool, Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -11,10 +10,11 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { PiiKind, PiiPolicy } from "../../../src/index.js";
-import { hours } from "../../../src/units/index.js";
+import { PiiKind, PiiPolicy, ExternalTask } from "../../../src/index.js";
+import { hours, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart } from "./paths.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /**
  * #943 — pauses to list: a manager's approval (24 h, a channel pause, its workflow masks social
@@ -42,76 +42,77 @@ export class ListDoneDto {
 }
 
 /** The asks the channels were sent, in order. */
-export const asked = { sent: [] as ChannelAsk<ListManagerQuestion>[] };
+export const asked = { sent: [] as ChannelAsk<ListManagerExternalTask>[] };
 
 export function resetAsked(): void {
   asked.sent.length = 0;
 }
 
-@ChannelRole({
-  name: "list-manager-question",
+@ExternalTask({
+  name: "list-manager-external-task",
   description: "A manager, within 24 hours",
-  ask: ListOrderDto,
-  answer: ListDecisionDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: hours(24),
+  input: ListOrderDto,
+  output: ListDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class ListManagerQuestion extends ChannelOf<ListManagerQuestion> {}
+export class ListManagerExternalTask {}
 
-@Channel({ name: "list-manager-channel", description: "Asks the manager" })
-export class ListManagerChannel extends ListManagerQuestion {
-  send(ask: ChannelAsk<ListManagerQuestion>): Promise<ChannelOutcome<ListManagerQuestion>> {
+@Channel({ name: "list-manager-channel", description: "Asks the manager", target: ListManagerExternalTask, ttl: days(1) })
+export class ListManagerChannel {
+  send(ask: ChannelAsk<ListManagerExternalTask>): Promise<ChannelOutcome<ListManagerExternalTask>> {
     asked.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@ChannelRole({
-  name: "list-owner-question",
+@ExternalTask({
+  name: "list-owner-external-task",
   description: "The thread's owner, within 24 hours",
-  ask: ListOrderDto,
-  answer: ListDecisionDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  expiresIn: hours(24),
+  input: ListOrderDto,
+  output: ListDecisionDto,
+  respondent: PauseRespondent.Owner,
+  timeout: hours(24),
 })
-export abstract class ListOwnerQuestion extends ChannelOf<ListOwnerQuestion> {}
+export class ListOwnerExternalTask {}
 
-@Channel({ name: "list-owner-channel", description: "Waits for the owner" })
-export class ListOwnerChannel extends ListOwnerQuestion {
-  send(): Promise<ChannelOutcome<ListOwnerQuestion>> {
+@Channel({ name: "list-owner-channel", description: "Waits for the owner", target: ListOwnerExternalTask, ttl: days(1) })
+export class ListOwnerChannel {
+  send(): Promise<ChannelOutcome<ListOwnerExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@ChannelRole({
-  name: "list-finance-question",
+@ExternalTask({
+  name: "list-finance-external-task",
   description: "Finance, within 2 hours",
-  ask: ListOrderDto,
-  answer: ListDecisionDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: hours(2),
+  input: ListOrderDto,
+  output: ListDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(2),
 })
-export abstract class ListFinanceQuestion extends ChannelOf<ListFinanceQuestion> {}
+export class ListFinanceExternalTask {}
 
-@Channel({ name: "list-finance-channel", description: "Asks finance" })
-export class ListFinanceChannel extends ListFinanceQuestion {
-  send(): Promise<ChannelOutcome<ListFinanceQuestion>> {
+@Channel({ name: "list-finance-channel", description: "Asks finance", target: ListFinanceExternalTask, ttl: days(1) })
+export class ListFinanceChannel {
+  send(): Promise<ChannelOutcome<ListFinanceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@ChannelRole({
-  name: "list-open-question",
+@ExternalTask({
+  name: "list-open-external-task",
   description: "Anyone, no deadline",
-  ask: ListOrderDto,
-  answer: ListDecisionDto,
-  answerer: PauseAnswerer.Channel,
+  input: ListOrderDto,
+  output: ListDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class ListOpenQuestion extends ChannelOf<ListOpenQuestion> {}
+export class ListOpenExternalTask {}
 
-@Channel({ name: "list-open-channel", description: "Asks, no deadline" })
-export class ListOpenChannel extends ListOpenQuestion {
-  send(): Promise<ChannelOutcome<ListOpenQuestion>> {
+@Channel({ name: "list-open-channel", description: "Asks, no deadline", target: ListOpenExternalTask, ttl: days(1) })
+export class ListOpenChannel {
+  send(): Promise<ChannelOutcome<ListOpenExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -159,7 +160,7 @@ export class ListManagerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListManagerWorkflowStart)
-      .toExternalTask(ListManagerQuestion)
+      .toExternalTask(ListManagerExternalTask)
       .toAction(RecordListedAction)
       .toFinish(ListWorkflowFinish),
   ],
@@ -175,7 +176,7 @@ export class ListOwnerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListOwnerWorkflowStart)
-      .toExternalTask(ListOwnerQuestion)
+      .toExternalTask(ListOwnerExternalTask)
       .toAction(RecordListedAction)
       .toFinish(ListWorkflowFinish),
   ],
@@ -194,7 +195,7 @@ export class ListFinanceWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListFinanceWorkflowStart)
-      .toExternalTask(ListFinanceQuestion)
+      .toExternalTask(ListFinanceExternalTask)
       .toAction(RecordListedAction)
       .toFinish(ListWorkflowFinish),
   ],
@@ -209,7 +210,7 @@ export class ListOpenWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListOpenWorkflowStart)
-      .toExternalTask(ListOpenQuestion)
+      .toExternalTask(ListOpenExternalTask)
       .toAction(RecordListedAction)
       .toFinish(ListWorkflowFinish),
   ],
@@ -217,10 +218,10 @@ export class ListOpenWorkflowStart {}
 export class ListOpenWorkflow {}
 
 /** The workflows' starts, by who answers. */
-export const managerFlow = { start: ListManagerWorkflowStart, role: "list-manager-question" };
-export const ownerFlow = { start: ListOwnerWorkflowStart, role: "list-owner-question" };
-export const financeFlow = { start: ListFinanceWorkflowStart, role: "list-finance-question" };
-export const openFlow = { start: ListOpenWorkflowStart, role: "list-open-question" };
+export const managerFlow = { start: ListManagerWorkflowStart, role: "list-manager-external-task" };
+export const ownerFlow = { start: ListOwnerWorkflowStart, role: "list-owner-external-task" };
+export const financeFlow = { start: ListFinanceWorkflowStart, role: "list-finance-external-task" };
+export const openFlow = { start: ListOpenWorkflowStart, role: "list-open-external-task" };
 
 @Application({
   name: "listing-application",

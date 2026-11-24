@@ -403,7 +403,7 @@ export class ToolCallApprovalDecisionDto {
     // (undocumented)
     approved: boolean;
     // (undocumented)
-    overrideArguments?: ToolArguments;
+    overrideInput?: ToolArguments;
     // (undocumented)
     reason?: string;
 }
@@ -568,7 +568,7 @@ export class WorkflowStartTextDto {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "approved".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "overrideArguments".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "overrideInput".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".

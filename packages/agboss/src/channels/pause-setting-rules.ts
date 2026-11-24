@@ -3,19 +3,16 @@ import type { Class } from "../components/injection.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelSelectorOf } from "./channel-selector.js";
-import { rolesOf, type ChannelUse } from "./discovery.js";
-import { listedClassesOf, pauseTargetOf, type PauseTargetDeclaration } from "./pause-targets.js";
+import { targetsOfUses, type ChannelUse } from "./discovery.js";
+import { listedClassesOf, type PauseTargetDeclaration } from "./pause-targets.js";
 
 /** The pause targets the uses name (each once), with what they recorded. */
 export const targetsOf = (
   uses: readonly ChannelUse[],
 ): readonly [Class, PauseTargetDeclaration][] =>
-  rolesOf(uses).flatMap(({ role }) => {
-    const declaration = pauseTargetOf(role);
-    return declaration === undefined
-      ? []
-      : [[role, declaration] as [Class, PauseTargetDeclaration]];
-  });
+  targetsOfUses(uses).map(
+    ({ target, declaration }) => [target, declaration] as [Class, PauseTargetDeclaration],
+  );
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 

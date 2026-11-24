@@ -606,13 +606,13 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
+    ChannelInterpreter = "reply-interpreter",
     Guardrail = "guardrail",
     Judge = "judge",
     Memory = "memory",
     PiiPolicy = "pii-policy",
     Question = "question",
     Rag = "rag",
-    ReplyInterpreter = "reply-interpreter",
     Router = "router",
     Tool = "tool",
     Workflow = "workflow",
@@ -1859,17 +1859,11 @@ export interface PauseAnswer {
 }
 
 // @public
-export enum PauseAnswerer {
-    Channel = "channel",
-    ThreadOwner = "thread-owner"
-}
-
-// @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly answerer: PauseAnswerer;
     readonly askedAt: string;
     readonly assignees?: readonly string[];
+    readonly channel?: string;
     readonly decision: unknown;
     readonly executionId: string;
     readonly externalRef?: string;
@@ -1880,8 +1874,9 @@ export interface PauseAnswerRecord {
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
-    readonly role: string;
+    readonly respondent: PauseRespondent;
     readonly step: StepRecord;
+    readonly target: string;
     readonly toolCall?: unknown;
     readonly trail: readonly PauseTrailRecord[];
 }
@@ -1985,10 +1980,9 @@ export enum PauseExpiryBound {
 
 // @public
 export interface PauseFilter {
-    // (undocumented)
-    readonly channel?: string;
     readonly expiresBefore?: Date;
     readonly statuses: readonly PauseStatus[];
+    readonly target?: string;
 }
 
 // @public
@@ -2003,7 +1997,7 @@ export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 // @public
 export enum PauseKind {
     Approval = "approval",
-    Question = "question"
+    ExternalTask = "external-task"
 }
 
 // @public
@@ -2084,11 +2078,10 @@ export interface PauseRecipients {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    readonly answerer: PauseAnswerer;
     readonly askedAt: string;
     readonly assignees?: readonly string[];
     readonly boundAt?: string;
-    readonly channel: string;
+    readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
@@ -2103,9 +2096,11 @@ export interface PauseRecord extends PauseSite {
     readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
+    readonly respondent: PauseRespondent;
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+    readonly target: string;
     readonly toolCall?: PauseToolCallSummary;
     readonly trail: readonly PauseTrailRecord[];
 }
@@ -2135,6 +2130,12 @@ export enum PauseResolution {
     Replied = "replied",
     TreeEnded = "tree-ended",
     Withdrawn = "withdrawn"
+}
+
+// @public
+export enum PauseRespondent {
+    Delegate = "delegate",
+    Owner = "owner"
 }
 
 // @public
@@ -2213,23 +2214,24 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
-    readonly answerer: PauseAnswerer;
     readonly assignees?: readonly string[];
-    readonly channel: string;
+    readonly channel?: string;
     readonly childExecutionId: string | undefined;
     readonly expiresAt?: string;
     readonly externalRef?: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
+    readonly respondent: PauseRespondent;
     readonly step: string;
+    readonly target: string;
     readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export interface PendingQuestion extends PendingPauseBase {
     // (undocumented)
-    readonly kind: PauseKind.Question;
+    readonly kind: PauseKind.ExternalTask;
 }
 
 // @public
@@ -3252,7 +3254,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauses".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "next".
-// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "channel".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "dead".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".

@@ -2,7 +2,7 @@
  * #942 AC1, AC2: an operator extends an open pause's deadline (`app.extendPause`) — the new
  * deadline holds on every instance and the channel and the listener hear "extended"; an extension
  * after the deadline is refused "expired", one past the run's deadline is refused with that
- * deadline; the answerer is checked as for an answer; extend and the expiry look at one tick: one wins.
+ * deadline; the respondent is checked as for an answer; extend and the expiry look at one tick: one wins.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
 import {

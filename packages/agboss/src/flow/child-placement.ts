@@ -1,4 +1,4 @@
-import { minutes, type Milliseconds, type WorkingDuration } from "../units/index.js";
+import { minutes, type Milliseconds } from "../units/index.js";
 
 /**
  * Where a child workflow runs (#333 PR 2, ADR-0022, #1286): declared on the child's `@Workflow({
@@ -14,19 +14,6 @@ export enum ChildPlacement {
   OtherWorker = "other-worker",
   /** A fresh isolated Node.js process of its own, exiting when the child ends (#1286b). */
   IsolatedWorker = "isolated-worker",
-}
-
-/**
- * The options of a question step (#941): `.toExternalTask(Q, { expiresIn })` and the side path
- * `toExternalTask(Q, { expiresIn })`.
- */
-export interface QuestionStepOptions {
-  /**
-   * How long this question waits for its answer, over its role's `expiresIn`; at least
-   * `seconds(1)`. A question node has one value: two edges to it with different values are
-   * `[question.expires-in-conflict]`.
-   */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 const PLACEMENTS: ReadonlySet<unknown> = new Set(Object.values(ChildPlacement));

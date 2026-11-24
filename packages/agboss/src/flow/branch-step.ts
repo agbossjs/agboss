@@ -49,8 +49,6 @@ export function routeOf(path: unknown, side: SideOf): ChooseOneRoute {
     throw syntaxError(
       ".onRoute(…) starts with toAgent(…), toAction(…), toRouter(…), toWorkflow(…) or toFinish(…)",
     );
-  if (first.expiresIn !== undefined)
-    throw syntaxError(".onRoute(toExternalTask(Q, { expiresIn })) is no route: set it on the role");
   const route = { path: Object.freeze({ steps: Object.freeze(rest) }) };
   return Object.freeze(
     Object.defineProperty(route, "target", { enumerable: true, get: () => first.target }),

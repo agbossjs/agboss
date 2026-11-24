@@ -15,7 +15,7 @@ import {
 } from "../../src/units/index.js";
 import { durationLabel, spanLabel } from "../../src/units/duration-label.js";
 import { amountOf, isSameSpan, spanText, unitOf } from "../../src/units/working-time.js";
-import { isExpiresIn, isRemindBefore } from "../../src/channels/channel-rules.js";
+import { isPauseTimeout, isRemindBefore } from "../../src/channels/channel-rules.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 describe("#944: workingHours and workingMinutes", () => {
@@ -56,10 +56,10 @@ describe("#944: workingHours and workingMinutes", () => {
   });
 
   it("a deadline and a reminder accept working time (a deadline at least seconds(1))", () => {
-    expect(isExpiresIn(workingHours(2))).toBe(true);
-    expect(isExpiresIn(workingMinutes(1 / 60))).toBe(true);
-    expect(isExpiresIn(workingMinutes(0.01))).toBe(false);
-    expect(isExpiresIn({ working: 1 })).toBe(false);
+    expect(isPauseTimeout(workingHours(2))).toBe(true);
+    expect(isPauseTimeout(workingMinutes(1 / 60))).toBe(true);
+    expect(isPauseTimeout(workingMinutes(0.01))).toBe(false);
+    expect(isPauseTimeout({ working: 1 })).toBe(false);
     expect(isRemindBefore(workingMinutes(0.01))).toBe(true);
     expect(isRemindBefore(minutes(5))).toBe(true);
     expect(isRemindBefore(0)).toBe(false);
@@ -82,16 +82,16 @@ describe("#944: spans are bounded (a config value or an extension cannot walk th
   it.each([Infinity, -Infinity, Number.NaN, -1, 0, 1e300, FIVE_YEARS + 1])(
     "%s is no deadline and no reminder, plain or working",
     (amount) => {
-      expect(isExpiresIn(forged(amount))).toBe(false);
+      expect(isPauseTimeout(forged(amount))).toBe(false);
       expect(isRemindBefore(forged(amount))).toBe(false);
-      expect(isExpiresIn(amount)).toBe(false);
+      expect(isPauseTimeout(amount)).toBe(false);
       expect(isRemindBefore(amount)).toBe(false);
     },
   );
 
   it("exactly five years is the longest", () => {
-    expect(isExpiresIn(FIVE_YEARS)).toBe(true);
-    expect(isExpiresIn(forged(FIVE_YEARS))).toBe(true);
+    expect(isPauseTimeout(FIVE_YEARS)).toBe(true);
+    expect(isPauseTimeout(forged(FIVE_YEARS))).toBe(true);
   });
 });
 
@@ -125,10 +125,10 @@ describe("#1310b: workDays counts working days, not hours", () => {
   });
 
   it("a deadline is a positive count of days up to five years of them; any fraction of a day will do", () => {
-    expect(isExpiresIn(workDays(1))).toBe(true);
-    expect(isExpiresIn(workDays(0.001))).toBe(true);
-    expect(isExpiresIn(workDays(5 * 366))).toBe(true);
-    expect(isExpiresIn(workDays(5 * 366 + 1))).toBe(false);
+    expect(isPauseTimeout(workDays(1))).toBe(true);
+    expect(isPauseTimeout(workDays(0.001))).toBe(true);
+    expect(isPauseTimeout(workDays(5 * 366))).toBe(true);
+    expect(isPauseTimeout(workDays(5 * 366 + 1))).toBe(false);
     expect(isRemindBefore(workDays(0.5))).toBe(true);
     expect(isRemindBefore(workDays(5 * 366 + 1))).toBe(false);
   });
@@ -140,6 +140,6 @@ describe("#1310b: workDays counts working days, not hours", () => {
     expect(isWorkingDuration({ [brand]: true, unit: "weeks", amount: 1 })).toBe(false);
     expect(isWorkingDuration({ [brand]: true, unit: "days", amount: "1" })).toBe(false);
     expect(isWorkingDuration({ unit: "days", amount: 1 })).toBe(false);
-    expect(isExpiresIn({ [brand]: true, unit: "days", amount: Number.NaN })).toBe(false);
+    expect(isPauseTimeout({ [brand]: true, unit: "days", amount: Number.NaN })).toBe(false);
   });
 });

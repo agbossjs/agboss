@@ -1,5 +1,4 @@
 import { PauseKind } from "../../src/pause/index.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import "../../src/testing/setup.js";
 import { writeFile } from "node:fs/promises";
 import http, { createServer, type Server } from "node:http";
@@ -26,6 +25,7 @@ import {
 } from "./fixtures/desk.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const test = testWith(DeskApplication);
 const local = testWith(DeskApplication, { allowNetwork: ["localhost"] });
@@ -132,10 +132,10 @@ describe("AC12: everything external is replaced; a live call fails the test befo
     expect(result.pending).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        answerer: PauseAnswerer.ThreadOwner,
+        respondent: PauseRespondent.Owner,
         kind: PauseKind.Approval,
         step: "support-agent",
-        channel: "owner-tool-approval",
+        target: "owner-tool-approval",
         expiresAt: expect.any(String),
         childExecutionId: undefined,
         itemIndex: undefined,

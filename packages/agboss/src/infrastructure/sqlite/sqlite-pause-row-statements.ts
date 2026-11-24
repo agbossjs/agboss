@@ -84,9 +84,10 @@ const storedOf = (pause: PauseRecord): string =>
     component: pause.component,
     toolLoopIteration: pause.toolLoopIteration,
     validationAttempts: pause.validationAttempts,
+    target: pause.target,
     channel: pause.channel,
     branchKeys: pause.branchKeys,
-    answerer: pause.answerer,
+    respondent: pause.respondent,
     input: pause.input,
     toolCall: pause.toolCall,
     trail: pause.trail,
@@ -122,7 +123,7 @@ export class SqlitePauseRows {
   insert(pause: PauseRecord): void {
     this.database
       .prepare(
-        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, expires_at, remind_at, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, expires_at, remind_at, target) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         pause.tenantId,
@@ -134,7 +135,7 @@ export class SqlitePauseRows {
         storedOf(pause),
         pause.expiresAt ?? null,
         pause.remindAt ?? null,
-        pause.channel,
+        pause.target,
       );
   }
 

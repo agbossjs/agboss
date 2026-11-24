@@ -1,14 +1,13 @@
 import {
   ApplicationContext,
-  PauseListener,
+  ChannelListener,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
-  type PauseListenerClosedEvent,
-  type PauseListenerHandler,
-  type PauseListenerOpenedEvent,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerOpenedEvent,
 } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
@@ -35,15 +34,15 @@ export const gate: { active: number; widest: number; hold?: Promise<void> } = {
   widest: 0,
 };
 
-@PauseListener({ name: "crash-pause-listener", deps: [ApplicationContext] })
-class CrashPauseListener implements PauseListenerHandler {
+@ChannelListener({ name: "crash-pause-listener", deps: [ApplicationContext] })
+class CrashPauseListener {
   constructor(private readonly context: ApplicationContext) {}
 
-  async onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  async onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     await this.#heard("opened", event.deliveryId);
   }
 
-  async onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  async onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     await this.#heard("closed", event.deliveryId);
   }
 

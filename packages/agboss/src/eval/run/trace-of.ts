@@ -108,7 +108,7 @@ function stepOf(record: ExecutionStepRecord, calls: readonly ToolCallRecord[]): 
 
 const pauseOf = (pause: PauseAnswerRecord): EvalPauseTrace => ({
   nodeId: pause.step.nodeId,
-  target: pause.role,
+  target: pause.target,
   resolution: pause.resolution,
   ...(pause.actor === undefined ? {} : { actor: pause.actor }),
   ...(pause.decision === undefined ? {} : { output: pause.decision }),

@@ -305,10 +305,10 @@ Answers **one pause, by its id** (#267) — never by thread: the pause is found 
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
 another tenant's, is the same `UnknownPauseError` (`pause.unknown-pause`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
-channel role says (`answerer` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
-pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseAnswerer.Channel` one;
+target says (`respondent` on `@ToolApproval` / `@ExternalTask`): `ownerId` for a `PauseRespondent.Owner`
+pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
 the other credential → `PauseError.PermissionDenied`. The decision is a `ToolCallApprovalDecisionDto`
-(`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
+(`approved`, `reason?`, `overrideInput?` only with `approved: true`), validated before it is
 recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
@@ -327,14 +327,14 @@ tree it waits, and returns the tree's current output once the holder took its de
 one per decision taken, with `actor` — and `reason: ResumeReason.Answered`
 (`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues a tree).
 
-## `@PauseListener` (#940)
+## `@ChannelListener` (#940)
 
-A class listed in `@Application({ providers })` with `@PauseListener({ name: "…-pause-listener",
-deps?, allowAnswering? })` and `implements PauseListenerHandler` hears every pause of the
+A class listed in `@Application({ providers })` with `@ChannelListener({ name: "…-pause-listener",
+deps?, includePauseIds? })` and `implements ChannelListenerHandler` hears every pause of the
 application open and close, at least once ([Pauses → Telling the channel and the
 listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container creates it at start —
 its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
-describe` lists the listeners and marks `allowAnswering`.
+describe` lists the listeners and marks `includePauseIds`.
 
 ## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | actor })` (#942)
 
@@ -346,14 +346,14 @@ a deadline not later than the current one or past the one the pause was made und
 `dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
-## `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` (#943)
+## `app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` (#943)
 
 An operator's queue of one tenant's pauses, a page at a time: `PausesPage { pauses: ListedPause[]; next? }`.
-`status` is one `PauseStatus` or a list (default `Pending`); `role` the channel's name; `expiringBefore` a
+`status` is one `PauseStatus` or a list (default `Pending`); `target` the pause target's name; `expiringBefore` a
 `Date` (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `after` the
 `next` of the page before. Pauses come in the order they were made and the cursor is a position in that
 order — never an offset — so a pause that opens or closes between two pages makes no other pause skipped
-or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only a `ThreadOwner` pause's; a
+or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a
 channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step`, `channel`,
 `answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
 (`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its

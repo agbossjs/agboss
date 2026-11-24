@@ -1,12 +1,12 @@
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { UnknownPauseError } from "../run/resume-agent.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import { pauseAnswererOf, pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
+import { pauseRespondentOf, pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
 import type { AnswerParts } from "./resume.js";
 import type { ResumeOptions } from "./types.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * Who answers, as the pause's role says — checked; `undefined` for an unowned thread's owner.
@@ -20,10 +20,10 @@ export async function actorOf(
 ): Promise<PauseActor | undefined> {
   const { ownerId, actor } = call;
   const key = pauseKeyOf(pause.tenantId, pause.pauseId);
-  if (pauseAnswererOf(pause) === PauseAnswerer.ThreadOwner) {
+  if (pauseRespondentOf(pause) === PauseRespondent.Owner) {
     if (actor !== undefined) {
       throw new PauseError.PermissionDenied({
-        message: `pause ${key} is answered by the thread's owner (${pause.channel}): pass ownerId, not actor`,
+        message: `pause ${key} is answered by the thread's owner (${pause.target}): pass ownerId, not actor`,
       });
     }
     await parts.owned({ tenantId: pause.tenantId, threadId: pause.threadId, ownerId });
@@ -31,12 +31,12 @@ export async function actorOf(
   }
   if (ownerId !== undefined) {
     throw new PauseError.PermissionDenied({
-      message: `pause ${key} is answered through its channel (${pause.channel}): pass actor, not ownerId`,
+      message: `pause ${key} is answered through its channel (${pause.target}): pass actor, not ownerId`,
     });
   }
   if (typeof actor?.id !== "string" || actor.id.trim() === "") {
     throw new PauseError.PermissionDenied({
-      message: `pause ${key} is answered through its channel (${pause.channel}): actor.id must name who answered`,
+      message: `pause ${key} is answered through its channel (${pause.target}): actor.id must name who answered`,
     });
   }
   return actor;

@@ -7,7 +7,7 @@
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
-**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyWorker`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ToolApproval`, `@ExternalTask`, `@Channel`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyWorker`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
 > **Current release (`v0.1.1`):** [`@agboss/core@0.1.1`](https://www.npmjs.com/package/@agboss/core) (production runtime) and [`@agboss/cli@0.1.1`](https://www.npmjs.com/package/@agboss/cli) (CLI & static workflow compiler) are publicly published on `registry.npmjs.org` under the official `agboss` npm organization.
 
@@ -585,7 +585,7 @@ runs graphify.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
 8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — the job scout the snippets above come from (in this repository until #489): resume → proposed search brief → Greenhouse jobs ranked by Jev — typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent; its `check`, `test` and `demo` scripts run offline at $0 against the published `@agboss/core`, `demo:live` with `OPENROUTER_API_KEY`.
 9. **[`09-review-loop-and-routing`](https://github.com/agbossjs/agboss-examples/tree/main/09-review-loop-and-routing)** — one credit application routed by a `DecidedBy.Code` router (0 calls, $0) and a `DecidedBy.Model` router onto the same routes, `[router.routes-mismatch]` on a missing route, and a critique ↔ editor loop bounded by `maxVisits` and `historyOf(CreditMemoDto, { maxPrevious: 2 })`.
-10. **[`10-quorum-groups-and-replies`](https://github.com/agbossjs/agboss-examples/tree/main/10-quorum-groups-and-replies)** — four parallel reviews in two `.joinQuorumGroups(…)` groups behind arbiter chains (`.acceptedBy(code)`, `anyOf(code, model)`) with recorded `BranchVerdict`s, `QuorumNotReachedError` on a deadline, and a free-text approval read by a `@ReplyInterpreter`.
+10. **[`10-quorum-groups-and-replies`](https://github.com/agbossjs/agboss-examples/tree/main/10-quorum-groups-and-replies)** — four parallel reviews in two `.joinQuorumGroups(…)` groups behind arbiter chains (`.acceptedBy(code)`, `anyOf(code, model)`) with recorded `BranchVerdict`s, `QuorumNotReachedError` on a deadline, and a free-text approval read by a `@ChannelInterpreter`.
 11. **[`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments)** — every payment race of the Payments taxonomy done wrong and done right against a stub gateway: a lost answer, a crash, a zombie, two executions, a duplicated webhook, a refund retried — one charge and one refund.
 12. **[`12-payment-gateways`](https://github.com/agbossjs/agboss-examples/tree/main/12-payment-gateways)** — the Payments contract on ten gateways, a verdict per gateway from its own docs, and the wiring of each supported one on its official SDK against a stub of its documented behaviour.
 13. **[`13-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/13-rag-reranking)** — a knowledge base reranked before the agent reads it: Cohere Rerank on its official SDK behind a code `@Reranker`, its cost in the budgets, a fallback to the retriever's order on a 503.
@@ -613,7 +613,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 
 - `@agboss/core` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
-  `@PiiPolicy`, `@ChannelRole`, `@Memory`,
+  `@PiiPolicy`, `@ToolApproval`, `@ExternalTask`, `@Memory`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`onStart`,
   `onAgent`, `onRouter`, `onAction`, `toAgent`, `toAction`, `toWorkflow`, `forEachItem`, `inParallel`, `toFinish`, `ChildPlacement`, …),
@@ -1001,7 +1001,7 @@ reply interpreter (#267) is scripted the same way, its input the pause's `{ ask,
 `mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
 one on a decision model with `decideWith({ approved: 0.9 })` (#267 S124);
 a code one is created by the container and replaced with `mockOf(Interpreter).interpret`
-(`mockReturnValue(ReplyInterpretation.understood({ approved: true }))`).
+(`mockReturnValue(ChannelInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
 import { ExecutionCancelledError } from "@agboss/core";
@@ -1233,13 +1233,13 @@ lists every waiting pause (`PendingPause`: `kind`, `answerer`, `step`, `channel`
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
-the pause's channel role's `answerer`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
+the pause's channel role's `answerer`: a `PauseRespondent.Owner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
-`PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
+`PauseRespondent.Delegate` pause's id is the right to answer it — only its channel got it
 (`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ actor:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
 `actor`) is `PauseAnswererError` (`pause.wrong-answerer`). The decision is validated before
-it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideArguments?`
+it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideInput?`
 only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
 keeps waiting:
 
@@ -1259,21 +1259,21 @@ const result = await app.resume(
 
 **Free-text replies (#267 PR 3).** A webhook that only has the person's words passes them as
 they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision` or a non-empty
-`reply` — and the pause's role reads them with its `@ReplyInterpreter` (`replyInterpreter` on the
-`@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
+`reply` — and the pause's target reads them with its `@ChannelInterpreter` (`channelInterpreter` on the
+`@ToolApproval` / `@ExternalTask`, one interpreter per target: `[channel.shared-interpreter]`). The interpreter gets the
 pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
 decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
-`prompt` its instructions, the question and the reply in the input message. For an approval role
+`prompt` its instructions, the question and the reply in the input message. For a tool approval
 (`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
 `Decision.boolean("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
-and no `overrideArguments`; a question role (#659), whose answer needs more than a yes / no, cannot
+and no `overrideInput`; a question role (#659), whose answer needs more than a yes / no, cannot
 name one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
 resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
 and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
 `DecidedBy.Code` — the class's `interpret(input: InputOf<Self>)` (`implements
 ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container, returns its
-outcome (#267 S124): `ReplyInterpretation.understood(decision)` — validated like any decision — or
-`ReplyInterpretation.notUnderstood({ reason })` for a reply it cannot read (a plain object does not
+outcome (#267 S124): `ChannelInterpretation.understood(decision)` — validated like any decision — or
+`ChannelInterpretation.notUnderstood({ reason })` for a reply it cannot read (a plain object does not
 compile); a `throw` is for an unexpected crash only. Either kind reads in the pause's execution frame — its
 `ExecutionContext` has the tenant, the owner and the waiting step, and the rate limits see the
 tenant. A model interpreter reads the question and the reply through the application's and the
@@ -1286,7 +1286,7 @@ behind it, if any) and the pause stays pending, so the webhook can ask again or 
 (`pause.channel-interpreter-missing`), the pause untouched.
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "@agboss/core";
+import { DecidedBy, PauseRespondent, ChannelInterpreter, type App, ToolApproval } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 declare const app: App;
 declare const replyKey: string;
@@ -1297,7 +1297,8 @@ export class RefundCardInputDto {
 
 ```ts
 import { inline } from "@agboss/core";
-@ReplyInterpreter({
+import { hours } from "@agboss/core/units";
+@ChannelInterpreter({
   name: "refund-reply-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
   decidedBy: DecidedBy.Model,
@@ -1306,14 +1307,14 @@ import { inline } from "@agboss/core";
 })
 export class RefundReplyInterpreter {}
 
-@ChannelRole({
-  name: "refund-approval-channel",
+@ToolApproval({
+  name: "refund-tool-approval",
   description: "Approves card refunds",
-  approves: RefundCardInputDto,
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: RefundReplyInterpreter,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+  channelInterpreter: RefundReplyInterpreter,
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundToolApproval {}
 
 // a webhook passes the text as it came
 await app.resume(
@@ -1323,7 +1324,7 @@ await app.resume(
 ```
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter } from "@agboss/core";
+import { DecidedBy, PauseRespondent, ChannelInterpreter, ToolApproval } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class DepositReturnDto {
   @Text() leaseId!: string;
@@ -1332,8 +1333,9 @@ export class DepositReturnDto {
 
 ```ts
 import { inline } from "@agboss/core";
-// approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideArguments
-@ReplyInterpreter({
+import { hours } from "@agboss/core/units";
+// approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideInput
+@ChannelInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
   decidedBy: DecidedBy.Model,
@@ -1342,23 +1344,23 @@ import { inline } from "@agboss/core";
 })
 export class DepositReplyInterpreter {}
 
-@ChannelRole({
-  name: "deposit-approval-channel",
+@ToolApproval({
+  name: "deposit-tool-approval",
   description: "A clerk approves deposit returns",
-  approves: DepositReturnDto, // an approval role: a decision model may read its replies
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: DepositReplyInterpreter,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+  channelInterpreter: DepositReplyInterpreter,
 })
-export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+export class DepositToolApproval {}
 ```
 
-A code interpreter returns its outcome: `ReplyInterpretation.understood({ approved: true })` for a
-button value it knows, `ReplyInterpretation.notUnderstood({ reason: "not a button value" })` for
+A code interpreter returns its outcome: `ChannelInterpretation.understood({ approved: true })` for a
+button value it knows, `ChannelInterpretation.notUnderstood({ reason: "not a button value" })` for
 anything else (Wiki → Pauses has the whole class).
 
 **Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
-`PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
+`PauseAnswerRecord { pauseId (undefined for a PauseRespondent.Delegate pause), executionId (the
 execution it waited in: the root's or a child's), step, role, answerer, actor (the person; `responder` is its deprecated alias), resolution,
 askedAt, resolvedAt, decision, asked }` (`asked`, #688: the call as asked, before a reply's
 correction), `PauseResolution.Decided`
@@ -1386,8 +1388,8 @@ crash lost it.
 answered (by whom, with the masked answer), expired, cancelled, withdrawn, its tree ended — is told
 to that channel through `onPauseClosed(event: ChannelPauseClosedEvent<Role>)` (and an answer never
 applied through `onPauseAnswerNotTaken`): a channel that overrides either has a mailbox, the rest
-cost nothing. An application lists `@PauseListener({ name: "…-pause-listener" })` classes in
-`@Application({ providers })`; each `implements PauseListenerHandler` and hears every pause of the
+cost nothing. An application lists `@ChannelListener({ name: "…-pause-listener" })` classes in
+`@Application({ providers })`; each `implements ChannelListenerHandler` and hears every pause of the
 application open (`onPauseOpened`) and close (`onPauseClosed`). Both are written with the pause's
 change, in the transaction that makes it, and delivered at least once by any instance — after a crash
 too —, in order per pause and receiver, in the pause's execution frame under a timeout (the tool's, or
@@ -1395,15 +1397,13 @@ too —, in order per pause and receiver, in the pause's execution frame under a
 (`pause.notice-failed`), and after `retention.pauseRecords` set aside (`pause.notice-dead`, an
 error). Every event carries `deliveryId`: the same on every redelivery, different for every notice —
 the receiver deduplicates by it. A listener gets `pauseKey` (a correlation key), never the answering
-`pauseId` of a channel pause unless it is declared `allowAnswering: true` — a trusted component that
+`pauseId` of a channel pause unless it is declared `includePauseIds: true` — a trusted component that
 may answer every channel pause of the application. A receiver's failure never fails a run, a resume
 or a cancel; there is no redelivery API.
 
-**A deadline for the answer** (#941). `@ChannelRole({ expiresIn: hours(24) })` gives every pause of
-the role a deadline, fixed when the pause is made (a deploy that changes it never moves an open
-pause); `.toExternalTask(Role, { expiresIn })` (also the side path `toExternalTask(Role, { expiresIn })`)
-overrides it for a question step, `@Tool({ channel, expiresIn })` for a tool; at least `seconds(1)`
-(`[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`, `[question.expires-in-conflict]`).
+**A deadline for the answer** (#941). `@ToolApproval({ timeout: hours(24) })` (and `@ExternalTask({ timeout })`) gives every pause of
+the target a deadline, fixed when the pause is made (a deploy that changes it never moves an open
+pause); the timeout is required, at least `seconds(1)` (`[limits.timeout-invalid]`), and there are no per-step or per-tool overrides.
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
 hard: an answer at or after it is refused with `PauseClosedError` (`reason: expired`, `closedAt` the
 deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
@@ -1425,16 +1425,15 @@ and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then
 **Extend a pause, remind before its deadline** (#942). `await app.extendPause({ pauseId, expiresIn:
 hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answer may extend)
 moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
-`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseExtended(event)` and a
-`@PauseListener`'s `onPauseExtended` hear "extended until …". Refused: a closed pause or one past its
+`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseTimeoutChanged(event)` and a
+`@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
 deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
 deadline not later than the current one, and one past the deadline of the run the pause was made
 under (`DtoValidationError`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
-expiry look: one wins. `@ChannelRole({ expiresIn: hours(24), remindBefore: hours(2) })` makes the
+expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
 once per deadline, whatever the number of instances, and again before the new deadline after an
-extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
-(`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`).
+extension (`[pause.remind-before-invalid]` when `remindBefore` is not shorter than the `timeout`).
 
 **Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
 (the `ownerId` for a thread owner's pause: who may answer may reassign; `PauseCallerOptions`) moves an
@@ -1445,7 +1444,7 @@ channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` a
 may edit the old message from `send` or from the notice. The old id answers nothing
 (`PauseClosedError`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
 the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
-channel and to a `@PauseListener({ allowAnswering })`, never to the caller or a log). One implementation
+channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
 Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
 (`DtoValidationError`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
@@ -1453,14 +1452,14 @@ reassignments, or a reassignment and an answer, at the same moment: exactly one 
 pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
 made up by the pause timers of another instance within a minute.
 
-**Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `expiresIn`,
+**Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `timeout`,
 `remindBefore` and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
 (`@agboss/core/units`) beside `hours(n)`. A calendar turns "now + N working time" into a date:
-`@Application({ workingCalendar: WorkingWeek.of({ timeZone, days, hours, breaks, holidays }) })` — a
+a target's `calendar` — a `@WorkingCalendar({ week: { timeZone, days, hours, breaks, holidays } })` class — a
 weekly grid, DST-safe (an instant is working time when its local time lies in `hours` and in no `break` on a
 working, non-holiday local date; working time is the real elapsed time of those instants) — or a
-`@WorkingCalendar` class (in `providers`) that sees the tenant and the role and may read the application's
-own data; a `@ChannelRole({ workingCalendar })` overrides the default. A request at 17:30 on a Thursday in
+`@WorkingCalendar` class (in `providers`) that sees the tenant and the target and may read the application's
+own data; each target names its own `calendar`. A request at 17:30 on a Thursday in
 Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
 once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
 later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date

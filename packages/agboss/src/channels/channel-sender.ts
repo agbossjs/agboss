@@ -11,8 +11,6 @@ export interface ChannelSender {
   send(ask: ChannelSenderSend): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
-  onPauseExtended?(event: ChannelSenderExtended): Promise<void>;
-  /** The new name of `onPauseExtended` (#1307). */
   onPauseTimeoutChanged?(event: ChannelSenderExtended): Promise<void>;
   onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
   onPauseJoinFailed?(event: ChannelSenderJoinFailed): Promise<void>;

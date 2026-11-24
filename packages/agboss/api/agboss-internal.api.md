@@ -144,7 +144,6 @@ export interface ApplicationFacts {
     // (undocumented)
     readonly warnings: readonly string[];
     readonly workflows: readonly string[];
-    readonly workingCalendar?: string;
 }
 
 // @public
@@ -225,7 +224,6 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly arbiters?: readonly ModelArbiterUse[];
     readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;
-    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
     readonly componentOptions?: ComponentOptions | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
@@ -251,6 +249,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     readonly ownFileRedactor?: Class | undefined;
     readonly ownFileTranscriber?: Class | undefined;
+    readonly pauseTargets?: (services: WorkflowServices) => ReadonlyMap<string, PauseTarget>;
     readonly pii?: AssembledPii;
     // (undocumented)
     readonly prompts: AgentPrompts<TName>;
@@ -364,8 +363,7 @@ export function cassetteFilesUnder(root: string): string[];
 
 // @public
 export enum ChannelImplementationReason {
-    Listed = "listed",
-    NamedByTool = "named-by-tool"
+    Listed = "listed"
 }
 
 // @public
@@ -573,14 +571,12 @@ export interface DescribedBudget {
 // @public
 export interface DescribedChannel {
     readonly answer: string;
-    readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
     readonly expiresIn?: number;
     readonly implementation?: string;
     readonly isExpiresInWorking?: true;
     readonly isRemindBeforeWorking?: true;
-    // (undocumented)
     readonly isRole: boolean;
     readonly name: string;
     readonly question: string;
@@ -588,6 +584,7 @@ export interface DescribedChannel {
     readonly reason?: ChannelImplementationReason;
     readonly remindBefore?: number;
     readonly replyInterpreter?: string;
+    readonly respondent: PauseRespondent;
     readonly tools: readonly string[];
     readonly workingCalendar?: string;
 }
@@ -1244,6 +1241,7 @@ export interface GraphDeps<TName extends string> {
     readonly routers: readonly LoadedRouter[];
     readonly stepEntries?: StepEntries | undefined;
     readonly stepSlots?: StepSlots | undefined;
+    readonly targetOf?: (targetName: string) => PauseTarget;
     readonly toolInterceptors?: ToolInterceptorRuntime;
     readonly tools: (name: string) => AnyTool;
 }
@@ -1969,7 +1967,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "executionBudgets".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "warnings".
-// src/describe/channels.ts - (ae-undocumented) Missing documentation for "isRole".
 // src/describe/channels.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "imports".

@@ -1,10 +1,6 @@
 import type { NodeKind } from "./ast.js";
 import type { ExecutionOptions } from "../app/types.js";
 import type { ContextValues, TenantValues } from "./context/context-values.js";
-import type {
-  ToolCallApprovalAskDto,
-  ToolCallApprovalDecisionDto,
-} from "../dto/standard/framework.js";
 
 export type { HistoryOf } from "./dto-wrappers.js";
 export type { Tracked } from "./metadata.js";
@@ -118,25 +114,6 @@ export declare namespace AGBossTypes {
   }
 
   /**
-   * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
-   * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
-   * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`; a question role (#659) with `ask` /
-   * `answer` asks and is answered with those DTOs. A concrete `@Channel` a tool names as is approves
-   * those tools. The built-in channels approve any tool.
-   */
-  export interface ChannelRoles {
-    readonly [notGenerated]?: never;
-    readonly "auto-approve-channel": {
-      readonly ask: ToolCallApprovalAskDto;
-      readonly answer: ToolCallApprovalDecisionDto;
-    };
-    readonly "auto-reject-channel": {
-      readonly ask: ToolCallApprovalAskDto;
-      readonly answer: ToolCallApprovalDecisionDto;
-    };
-  }
-
-  /**
    * What each pause target asks and is answered with (#1307), by the target's `name`:
    * `@ToolApproval` — `input` the gated tools' input, `output` the `ApprovalDecision` of it;
    * `@ExternalTask` — its `input` and `output` DTOs.
@@ -162,40 +139,6 @@ export declare namespace AGBossTypes {
     readonly [notGenerated]?: never;
   }
 }
-
-/**
- * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
- * `ChannelRoles` entry of the role: the tool call an approval role approves, a question role's
- * `ask` (#659); `MissingGeneratedTypes` before `agboss check`.
- */
-export type ChannelQuestionOf<TRole> =
-  GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends { readonly ask: infer TAsk }
-    ? TAsk
-    : MissingGeneratedTypes;
-
-/**
- * What a pause of `TRole` asks as a channel and a hook read it (`ChannelAsk<TRole>["input"]`): an
- * approval role's tool arguments (the `arguments` of its generated ask), a question role's `ask`
- * DTO as it is (#659); `MissingGeneratedTypes` before `agboss check`.
- */
-export type ChannelInputOf<TRole> =
-  ChannelQuestionOf<TRole> extends {
-    readonly callId: string;
-    readonly tool: string;
-    readonly arguments: infer TArguments;
-  }
-    ? TArguments
-    : ChannelQuestionOf<TRole>;
-
-/**
- * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
- * `ToolCallApprovalDecisionDto` of an approval role's `approves`, a question role's `answer` (#659);
- * `MissingGeneratedTypes` before `agboss check`.
- */
-export type ChannelAnswerOf<TRole> =
-  GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends { readonly answer: infer TAnswer }
-    ? TAnswer
-    : MissingGeneratedTypes;
 
 /** What a pause of `TTarget` asks (its generated `PauseTargets` entry); `never` for `never`. */
 export type PauseInputOf<TTarget> = [TTarget] extends [never]

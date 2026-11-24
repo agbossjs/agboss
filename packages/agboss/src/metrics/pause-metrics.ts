@@ -34,14 +34,11 @@ function secondsToAnswer(pause: PauseRecord): number | undefined {
   return Number.isFinite(seconds) ? Math.max(0, seconds) : undefined;
 }
 
-/**
- * A pause's labels: its workflow, its target and its channel. The record names the target as its
- * channel until it keeps the two apart (#1307d), when `target` reads that field.
- */
+/** A pause's labels: its workflow, its target and its channel (empty for a channel-less target). */
 const labelsOf = (pause: PauseRecord) => ({
   workflow: pause.workflow,
-  target: pause.channel,
-  channel: pause.channel,
+  target: pause.target,
+  channel: pause.channel ?? "",
 });
 
 /** The tally on `meter`. */

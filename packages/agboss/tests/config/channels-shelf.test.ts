@@ -12,7 +12,6 @@ import type { Class } from "../../src/components/injection.js";
 import { minutes, hours, days } from "../../src/units/index.js";
 import { componentOf } from "../../src/components/metadata.js";
 import { DeskRefundChannel, InboxSpendingLimitChannel } from "../channels/pause-targets.fixture.js";
-import { FilesConfigApplication } from "./fixtures/files-app/files.application.js";
 import { PauseShelvesApplication } from "./fixtures/pause-app/pause.application.js";
 import {
   ShelfApplication,
@@ -78,15 +77,6 @@ describe("the channels shelf", () => {
     expect(error.reason).toBe(ProfileErrorReason.Unknown);
     expect(error.message).toContain("channels.ghost-channel");
     expect(error.message).toContain("desk-refund-channel");
-  });
-
-  it("a ttl for a channel bound to no pause target is refused", async () => {
-    const error = await failure(
-      applicationOf(FilesConfigApplication, { profile: "channel-ttl-untargeted" }),
-    );
-
-    expect(error.reason).toBe(ProfileErrorReason.Invalid);
-    expect(error.message).toContain("channels.file-caller-channel.ttl");
   });
 });
 

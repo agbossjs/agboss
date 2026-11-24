@@ -38,7 +38,7 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
           action: "reassigned",
           at: MID.toISOString(),
           actor: { id: "counsel-4", orgId: "subsidiary-eu" },
-          target: old.channel,
+          target: old.target,
           channel: old.channel,
           assignees: ["risk-1", "risk-2", "risk-3"],
           expiresAt: DEADLINE.toISOString(),

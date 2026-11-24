@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
 import { CostReport } from "../../src/finops/usage.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import {
@@ -25,6 +24,7 @@ import {
   Writer,
   DeskApplication,
 } from "./fixtures/desk.workflow.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workflow-finish"];
 
@@ -55,7 +55,7 @@ const paused = run({
     {
       kind: PauseKind.Approval,
       pauseId: "pause-1",
-      answerer: PauseAnswerer.ThreadOwner,
+      respondent: PauseRespondent.Owner,
       step: "support-agent",
       channel: "owner-tool-approval",
       childExecutionId: undefined,

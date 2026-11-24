@@ -1,8 +1,6 @@
-import { Workflow, WorkflowFinish, WorkflowStart, Action, type Tracked } from "../../../index.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Action, type Tracked, ExternalTask } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
-import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
 import { Bool, Text } from "../../../dto/index.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
@@ -14,6 +12,8 @@ import {
 } from "./order.actions.js";
 import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
+import { PauseRespondent } from "../../../pause/respondent.js";
+import { days } from "../../../units/index.js";
 
 /**
  * The fault fixture's approved order (#811 AC4, served over A2A only): reserve (undoable), then a
@@ -63,19 +63,20 @@ export class FaultApprovedAction {
   }
 }
 
-@ChannelRole({
-  name: "fault-approval-question",
+@ExternalTask({
+  name: "fault-approval-external-task",
   description: "Asks the task's caller to approve its order",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class FaultApprovalQuestion extends ChannelOf<FaultApprovalQuestion> {}
+export class FaultApprovalExternalTask {}
 
 /** The caller answers over A2A: the question waits for its follow-up. */
-@Channel({ name: "fault-caller-channel", description: "The A2A task's caller" })
-export class FaultCallerChannel extends FaultApprovalQuestion {
-  send(): Promise<ChannelOutcome<FaultApprovalQuestion>> {
+@Channel({ name: "fault-caller-channel", description: "The A2A task's caller", target: FaultApprovalExternalTask, ttl: days(1) })
+export class FaultCallerChannel {
+  send(): Promise<ChannelOutcome<FaultApprovalExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -101,7 +102,7 @@ export class FaultApprovalWorkflowFinish {}
     onStart(FaultApprovalWorkflowStart)
       .toAction(FaultReserveAction)
       .toAction(FaultAskAction)
-      .toExternalTask(FaultApprovalQuestion)
+      .toExternalTask(FaultApprovalExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
       .toAction(FaultPayAction)

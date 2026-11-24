@@ -5,7 +5,6 @@
  * reserved id, and where a tree is as its durable records say.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
@@ -446,7 +445,7 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     expect(running).toEqual({ status: DurableExecutionStatus.Running });
     expect(waiting).toMatchObject({
       status: DurableExecutionStatus.Paused,
-      pending: [{ pauseId: paused.pending[0]?.pauseId, channel: expect.any(String) as string }],
+      pending: [{ pauseId: paused.pending[0]?.pauseId, target: expect.any(String) as string }],
     });
     // #1321d: the tree's checkpoints went with its end, so the record answers: the finish is the last
     // node of its route, the output its masked finish line, the spend its cost — no tokens

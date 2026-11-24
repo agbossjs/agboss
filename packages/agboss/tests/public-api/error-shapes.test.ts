@@ -82,8 +82,8 @@ describe("#890 AC3: an options bag, its keys the error's fields", () => {
       generator: "G",
       tries: 100,
     });
-    expect(new QuestionFailedError({ question: "limit-question", cause })).toMatchObject({
-      question: "limit-question",
+    expect(new QuestionFailedError({ question: "limit-external-task", cause })).toMatchObject({
+      question: "limit-external-task",
       cause,
     });
   });

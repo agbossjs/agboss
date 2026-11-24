@@ -127,15 +127,15 @@ closes — withdrawn, cancelled, expired, answered (also elsewhere), its tree en
 ```ts
 import {
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
-  PauseAnswerer,
+  ExternalTask,
   PauseClosedReason,
+  PauseRespondent,
   type ChannelAsk,
   type ChannelPauseClosedEvent,
 } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
+import { hours } from "@agboss/core/units";
 
 export class HoldRequest {
   @Text() bookingId!: string;
@@ -145,24 +145,30 @@ export class HoldDecision {
   @Bool({ prompt: "whether the hold goes on" }) approved!: boolean;
 }
 
-@ChannelRole({
-  name: "hold-question",
+@ExternalTask({
+  name: "hold-external-task",
   description: "Approves a hold",
-  ask: HoldRequest,
-  answer: HoldDecision,
-  answerer: PauseAnswerer.Channel,
+  input: HoldRequest,
+  output: HoldDecision,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
 })
-export abstract class HoldQuestion extends ChannelOf<HoldQuestion> {}
+export class HoldExternalTask {}
 
-@Channel({ name: "mail-hold-channel", description: "Asks by mail" })
-export class MailHoldChannel extends HoldQuestion {
-  send(_ask: ChannelAsk<HoldQuestion>): Promise<ChannelOutcome<HoldQuestion>> {
+@Channel({
+  name: "mail-hold-channel",
+  description: "Asks by mail",
+  target: HoldExternalTask,
+  ttl: hours(1),
+})
+export class MailHoldChannel {
+  send(_ask: ChannelAsk<HoldExternalTask>): Promise<ChannelOutcome<HoldExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
   // 0.1.0: override withdraw(withdrawal) — called once, only when a pause was taken back
   // 0.1.1: called for every close; event.reason says which, event.deliveryId is the dedupe key
-  override onPauseClosed(event: ChannelPauseClosedEvent<HoldQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<HoldExternalTask>): Promise<void> {
     if (event.reason === PauseClosedReason.Answered) return Promise.resolve(); // marked by whoever answered
     console.log(`take back the question ${event.pauseId}: ${event.reason}`);
     return Promise.resolve();
@@ -176,18 +182,30 @@ export class MailHoldChannel extends HoldQuestion {
 | `w.resolution` (`PauseResolution`)    | `event.reason` (`PauseClosedReason`: `Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`)                                     |
 | called once, never after a crash      | at least once: **deduplicate by `event.deliveryId`**, and make the hook safe to run twice                                              |
 | the warning `channel.withdraw-failed` | `pause.notice-failed` (each failed attempt), `pause.notice-dead` (set aside after `retention.pauseRecords`)                            |
-| —                                     | `@PauseListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
+| —                                     | `@ChannelListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
 
-**`answeredBy` on a role → `answerer`.** `@ChannelRole({ answeredBy: PauseAnswerer.Channel })` becomes
-`answerer: PauseAnswerer.Channel` (#934): `answerer` is who _may_ answer, `answeredBy` is who _did_. The
-old spelling is gone (#1307d): a role without `answerer` fails `[channel.role-form]`, and `PendingPause`,
-`PauseRecord`, the described channel and `PauseAnswerRecord` (`responder`) carry no alias either; a stored
-run, pause or answer entry that still has one is refused (`StoredNamesUnreadableError`), never read. One change
-does not fail to compile:
-`PauseAnswerRecord.answeredBy` (`result.record.pauses`) used to hold the kind (`"channel"`,
-`"thread-owner"`) and now holds the person (`"manager-17"`) — an audit filter on the old meaning now
-matches nobody; filter on `answerer`. The list of every renamed field is in the
-[Changelog](Changelog).
+**A pause target and its channel are two classes (#1307).** 0.1.0's `@ChannelRole` (an abstract class a
+`@Channel` `extends`) is split: the **target** says what is asked and who may answer, the **channel** only
+carries it to the people. It is a hard break — no alias, nothing to keep compiling:
+
+| 0.1.0                                                            | 0.1.1                                                                                                    |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `@ChannelRole({ approves: Dto, answerer, … })`                   | `@ToolApproval({ name, description, respondent, timeout, … })` (named `…-tool-approval`)                |
+| `@ChannelRole({ ask, answer, … })`, a question role              | `@ExternalTask({ input, output, respondent, timeout, … })` (named `…-external-task`)                    |
+| `answerer: PauseAnswerer.Channel` / `.ThreadOwner`               | `respondent: PauseRespondent.Delegate` / `.Owner` (`answeredBy` is who _did_, `respondent` who _may_)   |
+| `@Channel` that `extends` the role, in `providers`               | `@Channel({ target, ttl })` with no `extends`, in `@Application({ channels })`                          |
+| `@Tool({ channel: Role, expiresIn })`                            | `@Tool({ approval: Target })`; the deadline is the target's `timeout`                                    |
+| `.toExternalTask(Role, { expiresIn })`                           | `.toExternalTask(Task)`; a different deadline is a different target                                      |
+| `expiresIn` on a role, `@Application({ workingCalendar })`       | `timeout`, `remindBefore` and `calendar` on the target; no application-wide calendar                     |
+| `ChannelOf<Self>`, `ChannelQuestionOf`, `ChannelAnswerOf`        | `ChannelAsk<Target>`, `ChannelOutcome<Target>` (typed by the target)                                     |
+| `@PauseListener`, `allowAnswering`                               | `@ChannelListener`, `includePauseIds`                                                                    |
+| `@ReplyInterpreter`, `ReplyInterpretation`, `overrideArguments`  | `@ChannelInterpreter`, `ChannelInterpretation`, `overrideInput`                                          |
+| `PauseAnswerRecord.role`; pause record `channel` = the role      | `target` (the target) and `channel?` (the transport, absent for an owner's pause nobody is asked about) |
+| `app.listPauses({ role })`                                       | `app.listPauses({ target })`                                                                             |
+
+A target with several channels names a `@ChannelSelector({ target })` that picks one when a pause is
+made. An `Owner` target with no channel at all waits for `app.resume`. A stored pause, run or answer entry
+written by 0.1.0 has no `target` and is refused (`StoredNamesUnreadableError`), never read.
 
 Your own `PausedExecutionRepository` or a store of another team: pauses have a deadline, a reminder and
 mailboxes of notices now, in the same transactions as their changes — a schema change in each of the

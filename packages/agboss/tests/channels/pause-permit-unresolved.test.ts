@@ -14,18 +14,19 @@ const pause = {
   pauseId: "p-1",
   tenantId: "default",
   workflow: "gone-workflow",
+  target: "gone-target",
   channel: "gone-channel",
 } as PauseRecord;
 
-const depsOf = (channelOf: unknown): AppDeps =>
-  ({ config: { name: "gone-workflow" }, channelOf }) as never;
+const depsOf = (targetOf: unknown): AppDeps =>
+  ({ config: { name: "gone-workflow" }, targetOf }) as never;
 
 describe("#1307c: an unresolvable target refuses the answer", () => {
   it("a channel the workflow no longer has", async () => {
     const parts = {
       permits: permitsOf(
         depsOf(() => {
-          throw new Error("Unknown channel: gone-channel");
+          throw new Error("Unknown pause target: gone-target");
         }),
       ),
     };
@@ -36,7 +37,9 @@ describe("#1307c: an unresolvable target refuses the answer", () => {
     expect((refused as Error).message).toBe(
       `pause ${pauseKeyOf("default", "p-1")}: its target cannot be resolved, the answer is refused`,
     );
-    expect((refused as Error).cause).toMatchObject({ message: "Unknown channel: gone-channel" });
+    expect((refused as Error).cause).toMatchObject({
+      message: "Unknown pause target: gone-target",
+    });
   });
 
   it("a workflow with no channels at all", async () => {
@@ -59,7 +62,9 @@ describe("#1307c: an unresolvable target refuses the answer", () => {
 
   it("a target known to have no permitAnswer still answers", async () => {
     const parts = {
-      permits: permitsOf(depsOf(() => ({ name: "gone-channel", answerer: "channel" }))),
+      permits: permitsOf(
+        depsOf(() => ({ name: "gone-target", respondent: "delegate", channels: new Map() })),
+      ),
     };
     await expect(assertAnswerPermitted(parts, pause, { id: "dana" }, {})).resolves.toBeUndefined();
   });

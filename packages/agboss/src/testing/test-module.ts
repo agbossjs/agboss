@@ -113,7 +113,6 @@ const APPLICATION_KEYS = [
   "budgets",
   "observers",
   "healthChecks",
-  "workingCalendar",
   "modelProvider",
   "retention",
   "tenantContext",

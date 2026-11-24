@@ -1,15 +1,14 @@
 import type { Class } from "../components/injection.js";
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
-import { channelLookup, containerDepsOf, type ContainerDeps } from "./app-deps-parts.js";
+import { containerDepsOf, type ContainerDeps } from "./app-deps-parts.js";
+import { pauseLookups, type PauseLookups } from "./pause-lookups.js";
 import { codeClassesOf } from "../flow/runtime/graph-model.js";
 import { customCompactionClassesOf } from "../memory/custom-classes.js";
 import { judgesFor, knowledgeFor } from "./parts.js";
 
 /** What the container creates at start, as the app's run dependencies. */
-type StartComponents = {
-  readonly channelOf: ReturnType<typeof channelLookup>;
-  readonly channelNames: readonly string[];
-} & ReturnType<typeof knowledgeFor> &
+type StartComponents = PauseLookups &
+  ReturnType<typeof knowledgeFor> &
   ReturnType<typeof judgesFor> &
   ContainerDeps;
 
@@ -44,8 +43,7 @@ export const componentsAtStart = (
 ): StartComponents => {
   createCodeNodes(bundle, services);
   return {
-    channelOf: channelLookup(bundle, services),
-    channelNames: [...(bundle.channels?.(services).keys() ?? [])],
+    ...pauseLookups(bundle, services),
     ...knowledgeFor(bundle, services),
     ...judgesFor(bundle, services),
     ...containerDepsOf(bundle, services),

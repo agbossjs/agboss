@@ -16,6 +16,7 @@ import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workfl
 import {
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
@@ -66,6 +67,7 @@ export class InstanceIdGenerator extends IdGenerator {
 /** The channels the single-child workflow's agent pauses on. */
 const CHANNELS = [
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   CustomerOrderConfirmationChannel,
   SeenPausedExecutionRepository,
 ];

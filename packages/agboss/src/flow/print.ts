@@ -1,6 +1,5 @@
 import type { Class } from "../components/injection.js";
 import { sourceCallOf, toCallOf } from "./analyse/labels.js";
-import { spanText } from "../units/working-time.js";
 import {
   NodeKind,
   StepKind,
@@ -13,7 +12,6 @@ import {
   type OneOfStep,
   type ParallelBranchStep,
   type Step,
-  type ToStep,
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
 import { isLaunching } from "./launch-step.js";
@@ -39,10 +37,6 @@ export const byClassName: ComponentLabel = (component) => component.name || "(an
 /** A component by its `name` (what records and checkpoints are keyed by). */
 export const byComponentName: ComponentLabel = (component) =>
   declarationOf(component)?.options.name ?? byClassName(component);
-
-/** `, { expiresIn: 14400000 }` of a `to` step (#941: a question's deadline, in ms); empty without options. */
-const toOptions = (step: Pick<ToStep, "expiresIn">): string =>
-  step.expiresIn === undefined ? "" : `, { expiresIn: ${spanText(step.expiresIn)} }`;
 
 class Printer {
   readonly lines: string[] = [];
@@ -84,7 +78,7 @@ class Printer {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
-        ? `${toCallOf(first.targetKind)}(${this.label(first.target)}${toOptions(first)})`
+        ? `${toCallOf(first.targetKind)}(${this.label(first.target)})`
         : "";
     this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
@@ -172,7 +166,7 @@ class Printer {
       const [first, ...rest] = branch.steps;
       const head =
         first?.kind === StepKind.To
-          ? `${toCallOf(first.targetKind)}(${this.label(first.target)}${toOptions(first)})`
+          ? `${toCallOf(first.targetKind)}(${this.label(first.target)})`
           : "";
       this.branch(head, first?.kind === StepKind.To ? rest : branch.steps, depth + 1, false);
     }
@@ -186,10 +180,7 @@ class Printer {
     }
     switch (step.kind) {
       case StepKind.To:
-        this.line(
-          depth,
-          `.${toCallOf(step.targetKind)}(${this.label(step.target)}${toOptions(step)})`,
-        );
+        this.line(depth, `.${toCallOf(step.targetKind)}(${this.label(step.target)})`);
         return;
       case StepKind.OneOf:
         this.oneOf(step, depth);

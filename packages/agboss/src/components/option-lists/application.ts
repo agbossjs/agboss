@@ -86,7 +86,6 @@ export const APPLICATION_KEYS = optionKeys<ApplicationOptions>()(
     "budgets",
     "observers",
     "healthChecks",
-    "workingCalendar",
     "modelProvider",
     "mesh",
     "endpoints",

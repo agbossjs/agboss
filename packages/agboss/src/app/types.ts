@@ -106,7 +106,7 @@ export interface ExecutionOptions extends CallOptions {
  */
 /**
  * What `app.resume` answers a pause with (#267): its id and exactly one of a typed `decision` or a
- * free-text `reply` — read by the pause's role's `@ReplyInterpreter`, the pause staying pending when
+ * free-text `reply` — read by the pause's role's `@ChannelInterpreter`, the pause staying pending when
  * it cannot be read (`UninterpretableReplyError`).
  */
 export type ResumeRequest = DecisionResumeRequest | ReplyResumeRequest;
@@ -132,10 +132,10 @@ export interface ReplyResumeRequest {
 /**
  * `app.resume(request, options)`: a resume finds what exists, so it takes keys and credentials only
  * — the tenant by its id (omitted → `"default"`) and who answers, as the pause's role says
- * (its `answerer` on `@ChannelRole`: the `ownerId` of a thread owner's, the `actor` of a
+ * (its `respondent` on `@ChannelRole`: the `ownerId` of a thread owner's, the `actor` of a
  * channel's — the person or system that answered). It runs on the context values the execution started with.
  */
-export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
+export type ResumeOptions = OwnerResumeOptions | DelegateResumeOptions;
 
 /**
  * Who calls and for which tenant, for what acts on a pause without running anything — `app.extendPause`
@@ -143,10 +143,10 @@ export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
  * nothing executes, so they would be ignored; an object literal with one does not compile). Who may:
  * as an answer — the `ownerId` of a thread owner's pause, the `actor` of a channel's.
  */
-export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
+export type PauseCallerOptions = OwnerPauseOptions | DelegatePauseOptions;
 
-/** The caller of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
-export interface ThreadOwnerPauseOptions {
+/** The caller of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
+export interface OwnerPauseOptions {
   readonly tenantId?: string | undefined;
   /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
   readonly ownerId?: string | undefined;
@@ -154,10 +154,10 @@ export interface ThreadOwnerPauseOptions {
 }
 
 /**
- * The caller of a `PauseAnswerer.Channel` pause: the channel's side authenticated who calls; the
+ * The caller of a `PauseRespondent.Delegate` pause: the channel's side authenticated who calls; the
  * framework checks only that it is given and is a key's text (#589).
  */
-export interface ChannelPauseOptions {
+export interface DelegatePauseOptions {
   readonly tenantId?: string | undefined;
   /**
    * Who calls, as the channel's side knows them (`{ id: "manager-17", orgId: "holding-hq" }`): the
@@ -167,15 +167,15 @@ export interface ChannelPauseOptions {
   readonly ownerId?: never;
 }
 
-/** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
-export interface ThreadOwnerResumeOptions extends ThreadOwnerPauseOptions, CallOptions {}
+/** The answer of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
+export interface OwnerResumeOptions extends OwnerPauseOptions, CallOptions {}
 
 /**
- * The answer of a `PauseAnswerer.Channel` pause: the channel's side authenticated who answers; the
+ * The answer of a `PauseRespondent.Delegate` pause: the channel's side authenticated who answers; the
  * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given
  * and is a key's text (#589).
  */
-export interface ChannelResumeOptions extends ChannelPauseOptions, CallOptions {}
+export interface DelegateResumeOptions extends DelegatePauseOptions, CallOptions {}
 
 /** What an extension asks. */
 export interface ExtendPauseRequest {
@@ -474,8 +474,8 @@ export interface PausesQuery {
   readonly tenantId: string;
   /** Default `Pending`; several: any of them. */
   readonly status?: PauseStatus | readonly PauseStatus[];
-  /** The channel's name (a role's, or a concrete channel's). */
-  readonly role?: string;
+  /** The pause target's name (a `@ToolApproval`'s or `@ExternalTask`'s). */
+  readonly target?: string;
   /** Only pauses whose deadline is before it; one with no deadline is never listed. */
   readonly expiringBefore?: Date;
   /** How many at most: a whole number from 1 to 1000; default 100. */

@@ -9,8 +9,8 @@ import type { NodeEvent } from "./execution-event.js";
 export interface ChannelInterpreterStartEvent extends NodeEvent {
   /** The `@ChannelInterpreter`'s name. */
   readonly interpreter: string;
-  /** The channel role whose pause is answered. */
-  readonly channel: string;
+  /** The pause target whose pause is answered. */
+  readonly target: string;
   /** Whether the interpreter is code, else a model reads the reply. */
   readonly isCode: boolean;
 }

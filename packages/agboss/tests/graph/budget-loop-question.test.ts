@@ -61,7 +61,7 @@ function setup(options: { maxVisits?: number; asked?: boolean } = {}) {
   );
   const tool = {
     name: "ask-tool",
-    channel: "ch",
+    approval: "ch",
     question: options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits },
     input: { safeParse: (args: unknown) => ({ success: true, data: args }) },
   };

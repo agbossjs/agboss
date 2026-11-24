@@ -6,11 +6,11 @@ import {
   type PauseAnswer,
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
-import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import { PauseKind } from "../../infrastructure/pause-record.js";
 import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
 import type { PauseRecipients } from "../../infrastructure/pause-notices.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
+import { PauseRespondent } from "../../pause/respondent.js";
 
 /** The data of the paused-execution contract: paused runs, pauses and answers. */
 
@@ -49,15 +49,16 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   copyNumber: 1,
   kind: PauseKind.Approval,
   step: "clerk-agent",
+  target: "refund-tool-approval",
   channel: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
   input: { text: "10 USD" },
   toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
   trail: [
     {
       action: "opened",
       at: "2026-01-05T09:00:00.000Z",
-      target: "refund-approval-channel",
+      target: "refund-tool-approval",
       channel: "refund-approval-channel",
     },
   ],
@@ -87,7 +88,7 @@ const withoutToolCall = (pause: PauseRecord): Omit<PauseRecord, "toolCall"> =>
   >;
 
 /**
- * #746: a question role's pause (#659, #712) — `kind: PauseKind.Question`, its step's component the
+ * #746: a question role's pause (#659, #712) — `kind: PauseKind.ExternalTask`, its step's component the
  * role and its ask the role's own DTO, no tool call: a store keeps them as written.
  */
 export const questionPauseOf = (
@@ -95,11 +96,12 @@ export const questionPauseOf = (
   stepKey = "run-1:spending-limit-question:1",
 ): PauseRecord => ({
   ...withoutToolCall(pauseOf(pauseId, stepKey)),
-  nodeId: "spending-limit-question",
-  kind: PauseKind.Question,
-  step: "spending-limit-question",
-  channel: "spending-limit-question",
-  component: bareRecordOf("spending-limit-question", ComponentKind.Question),
+  nodeId: "spending-limit-question-external-task",
+  kind: PauseKind.ExternalTask,
+  step: "spending-limit-question-external-task",
+  target: "spending-limit-external-task",
+  channel: "spending-limit-channel",
+  component: bareRecordOf("spending-limit-question-external-task", ComponentKind.Question),
   input: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
 });
 

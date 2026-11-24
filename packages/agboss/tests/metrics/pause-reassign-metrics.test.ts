@@ -28,7 +28,7 @@ beforeEach(resetPauses);
 async function countedOf(meter: InstanceMeter, name: string): Promise<Record<string, number>> {
   const counted: Record<string, number> = {};
   for (const { attributes, value } of (await collect(meter)).get(name)?.points ?? []) {
-    const key = [attributes.workflow, attributes.channel, attributes.reason]
+    const key = [attributes.workflow, attributes.target, attributes.channel, attributes.reason]
       .filter((part) => part !== undefined)
       .map(String)
       .join("/");
@@ -47,7 +47,7 @@ describe("#946 with #943: a reassignment is counted", () => {
       mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, { text: "refund order 7" });
       const oldId = seen.asks[0]?.pauseId ?? "";
-      const role = "refund-approval-channel";
+      const role = "refund-gate-tool-approval/finance-desk-refund-approval-channel";
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 1 });
 
       await app.reassignPause({ pauseId: oldId, assignees: ["deputy-3"] }, manager);

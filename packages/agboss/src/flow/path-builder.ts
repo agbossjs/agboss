@@ -22,7 +22,6 @@ import {
   quorumGroupOf,
   withGroup,
 } from "./quorum-step.js";
-import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
 import { withTarget, type TargetRef } from "./target-ref.js";
 import { carryStepSpan, recordStepSpan } from "./step-spans.js";
@@ -70,12 +69,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), kept]);
   }
 
-  private to(
-    target: TargetRef,
-    kind: NodeKind,
-    extra: Pick<ToStep, "expiresIn"> = {},
-  ): PathBuilder<TSource> {
-    const rest = { kind: StepKind.To as const, targetKind: kind, ...extra };
+  private to(target: TargetRef, kind: NodeKind): PathBuilder<TSource> {
+    const rest = { kind: StepKind.To as const, targetKind: kind };
     // only a child workflow may be named by a thunk (#1287): any other target is read as written
     const step: ToStep =
       kind === NodeKind.Workflow
@@ -100,9 +95,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Finish);
   }
 
-  /** `.toExternalTask(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
-  toExternalTask(target: Class, options?: unknown): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toExternalTask(Q, {…})"));
+  /** `.toExternalTask(Task)` (#659): the external task's step — it pauses, its output goes on the path. */
+  toExternalTask(target: Class): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Question);
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; where it runs is `W`'s `placement` (#1286). */

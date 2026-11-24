@@ -56,7 +56,7 @@ function setup(options: { tool?: object | undefined; approval?: object | undefin
       usage: [record(0.25, "interpreter")],
     }),
   );
-  const tool = "tool" in options ? options.tool : { name: "write-tool", channel: "ch", input: {} };
+  const tool = "tool" in options ? options.tool : { name: "write-tool", approval: "ch", input: {} };
   const approval = "approval" in options ? options.approval : { requestApproval };
   const deps = {
     agent: { name: "alpha", tools: tool === undefined ? [] : [tool] },
@@ -119,14 +119,14 @@ describe("#1366: the spend of an approval", () => {
       approved: true,
       by: "boss",
       reason: "fine",
-      overrideArguments: { to: "y" },
+      overrideInput: { to: "y" },
       usage: [],
     });
 
     const out = await node(stateOf(), undefined);
 
     expect(out.decisions).toEqual({
-      c1: { approved: true, by: "boss", reason: "fine", overrideArguments: { to: "y" } },
+      c1: { approved: true, by: "boss", reason: "fine", overrideInput: { to: "y" } },
     });
     expect(out.usage).toEqual([]);
   });

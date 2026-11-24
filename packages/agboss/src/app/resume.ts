@@ -30,7 +30,7 @@ import { markAnswered, refusedAfterMark } from "./paused-runs.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
-import { actorOf, pauseOf } from "./pause-answerer.js";
+import { actorOf, pauseOf } from "./pause-respondent.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { assertAnswerPermitted } from "./answer-permit.js";
 import type { InlineFiles } from "../files/inline-offload.js";
@@ -39,7 +39,7 @@ import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
- * its tree, who answers checked against its role's `answerer`, the decision validated (or a
+ * its tree, who answers checked against its role's `respondent`, the decision validated (or a
  * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
  * the resting root's record `running` again (#850), and `Pending → Resolved` with its decision,
  * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
@@ -85,7 +85,7 @@ export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
 export interface AnswerParts extends AnsweredRootParts {
   /** Checks the caller is the thread's owner (`ThreadOwnerError` otherwise). */
   readonly owned: (access: ThreadAccess) => Promise<void>;
-  /** The tool a pause approves (its input checks `overrideArguments`). */
+  /** The tool a pause approves (its input checks `overrideInput`). */
   readonly tools: (name: string) => AnyTool;
   /**
    * The answer DTO of a question role's step (#659), by the workflow it waits in and its node: what
@@ -115,7 +115,7 @@ export interface RecordedAnswer {
   readonly run: AgentExecutionOutput | undefined;
 }
 
-export { actorOf, pauseOf } from "./pause-answerer.js";
+export { actorOf, pauseOf } from "./pause-respondent.js";
 
 /** The tree's run as it rests, its versions checked against the app's; `undefined` while it moves. */
 async function restingRunOf(

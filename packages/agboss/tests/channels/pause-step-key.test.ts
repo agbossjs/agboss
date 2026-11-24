@@ -5,24 +5,25 @@
  */
 import { describe, expect, it } from "vitest";
 import { answerRecordOf } from "../../src/infrastructure/pause-answer-log.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { PauseKind, PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { PauseStepKeyMismatchError } from "../../src/flow/runtime/pause-chain.js";
-import { pauseStep, type PauseChannel } from "../../src/flow/runtime/pause.js";
+import { pauseStep } from "../../src/flow/runtime/pause.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const clock = new VirtualClock();
 const toolCall = { callId: "call-1", tool: "refund", summary: "refund 7" };
 const input = { orderId: "7" };
 const question = { kind: PauseKind.Approval, step: "desk-clerk-agent", input, toolCall };
-const channel: PauseChannel = {
+const channel: FlatChannel = {
   name: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
   sender: { send: () => Promise.resolve(ChannelOutcome.decided({ approved: true })) },
 };
 const answers = {
@@ -33,7 +34,7 @@ const answers = {
 const siteOf = (pauses: InMemoryPausedExecutionRepository) => ({
   pauses,
   answers,
-  channel,
+  target: targetOfChannel(channel),
   frame: testFrame(),
   signal: undefined,
   clock,
@@ -102,7 +103,7 @@ describe("#946: a record found by a step key is reused only for its own question
 
     const refused: unknown = await pauseStep(siteOf(pauses), {
       ...question,
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
     }).catch((e: unknown) => e);
 
     expect(refused).toBeInstanceOf(PauseStepKeyMismatchError);

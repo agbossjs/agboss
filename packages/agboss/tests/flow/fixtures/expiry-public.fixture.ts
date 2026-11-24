@@ -7,25 +7,24 @@ import {
   toExternalTask as publicToQuestion,
 } from "../../../src/flow/builder.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
-import { hours } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
-  DirectorChannel,
-  DirectorQuestion,
+  HourDirectorChannel,
+  HourDirectorExternalTask,
   ExpiryLog,
   ExpiryOrderDto,
   ExpiryPausedExecutionRepository,
   ExpiryWorkflowFinish,
-  ManagerChannel,
-  ManagerQuestion,
+  ShortManagerChannel,
+  ShortManagerExternalTask,
   RecordEscalatedAction,
   RecordExpiryAction,
 } from "./expiry.fixture.js";
 
 /**
- * #941 (the scope note of #933's acceptance) — `.toExternalTask(Manager, { expiresIn })` and the side
- * path `toExternalTask(Director, { expiresIn })`, written with the SHIPPED starters of `builder.ts`:
+ * #941 (the scope note of #933's acceptance) — `.toExternalTask(Manager)` and the side
+ * path `toExternalTask(Director)`, written with the SHIPPED starters of `builder.ts`:
  * the manager's pause expires, the director is asked (with a deadline of its own), the answer goes
  * on the path.
  */
@@ -42,10 +41,10 @@ export class PublicExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     publicStart(PublicExpiryWorkflowStart)
-      .toExternalTask(ManagerQuestion, { expiresIn: hours(4) })
+      .toExternalTask(ShortManagerExternalTask)
       .onError(
         PauseExpiredError,
-        publicToQuestion(DirectorQuestion, { expiresIn: hours(1) })
+        publicToQuestion(HourDirectorExternalTask)
           .toAction(RecordEscalatedAction)
           .toFinish(ExpiryWorkflowFinish),
       )
@@ -61,7 +60,12 @@ export class PublicExpiryWorkflow {}
   environment: EmptyEnvironment,
   workflows: [PublicExpiryWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [ManagerChannel, DirectorChannel, ExpiryPausedExecutionRepository, RecordingLogger],
+  providers: [
+    ShortManagerChannel,
+    HourDirectorChannel,
+    ExpiryPausedExecutionRepository,
+    RecordingLogger,
+  ],
   observers: [ExpiryLog],
 })
 export class PublicExpiryApplication {}

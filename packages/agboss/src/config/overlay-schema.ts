@@ -8,7 +8,7 @@ import {
 } from "./types.js";
 import { Ttl } from "../units/index.js";
 import { ChildPlacement } from "../flow/child-placement.js";
-import { isExpiresIn } from "../channels/channel-rules.js";
+import { isPauseTimeout } from "../channels/channel-rules.js";
 
 /** Every field optional at every depth; unknown keys rejected (a typo surfaces with its path). */
 export function deepPartial(schema: z.ZodType): z.ZodType {
@@ -78,7 +78,7 @@ export const MemoryOverlaySchema = z
   });
 
 /** A deadline or a reminder: a plain duration in milliseconds, or working time (`.config.ts`), at least one second. */
-const timeSpan = z.custom<unknown>(isExpiresIn, "a duration of at least one second");
+const timeSpan = z.custom<unknown>(isPauseTimeout, "a duration of at least one second");
 
 /** What a profile changes of one `@ToolApproval` / `@ExternalTask`, by its name: how long its pauses wait. */
 export const PauseTargetOverlaySchema = z

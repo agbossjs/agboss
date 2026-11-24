@@ -46,19 +46,19 @@ async function refusal(read: () => unknown, id: string, field: string): Promise<
 
 /** An entry as a damaged file holds it. */
 const entry = (change: Record<string, unknown>): unknown => ({
-  ...answerEntry("run-1", "channel", "manager-17"),
+  ...answerEntry("run-1", "delegate", "manager-17"),
   ...change,
 });
 
 /** Entries the reader refuses, with the field the refusal names. */
 const BAD_ENTRIES: readonly (readonly [string, Record<string, unknown>, string])[] = [
-  ["an entry with a junk answerer", { answerer: "<junk>" }, "answerer"],
+  ["an entry with a junk respondent", { respondent: "<junk>" }, "respondent"],
   ["an entry whose answeredBy is an object", { answeredBy: { t: SECRET } }, "answeredBy"],
   ["an entry whose answeredBy is a number", { answeredBy: 42 }, "answeredBy"],
   [
-    "an entry with no answerer, the 0.1.0 way",
-    { answerer: undefined, answeredBy: "channel" },
-    "answerer",
+    "an entry with no respondent, the 0.1.0 way",
+    { respondent: undefined, answeredBy: "channel" },
+    "respondent",
   ],
 ];
 
@@ -111,14 +111,14 @@ describe("D1: the same entry is refused on the history path and on the answer-lo
 
   it("an entry a child's child holds is refused at its path", async () => {
     const record = historyRecordWith((tree) => {
-      leafOf(tree).pauses = [entry({ answerer: "<junk>" })];
+      leafOf(tree).pauses = [entry({ respondent: "<junk>" })];
     });
     const history = historyOn(temporarySqlitePath(), record);
 
     await refusal(
       () => history.findAllByExecutionId("run-1"),
       "run-1",
-      "children.0.children.0.pauses.0.answerer",
+      "children.0.children.0.pauses.0.respondent",
     );
   });
 });

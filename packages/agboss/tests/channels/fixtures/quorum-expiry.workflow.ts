@@ -3,13 +3,11 @@ import {
   Channel,
   DecidedBy,
   Router,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
   Observer,
   listOf,
-  PauseAnswerer,
+  PauseRespondent,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -21,6 +19,7 @@ import {
   type QuorumDecidedEvent,
   Action,
   inline,
+  ToolApproval,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -28,10 +27,11 @@ import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, skip, toAction, toFinish, toAgent, toRouter } from "../../helpers/flow.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
-import { hours, minutes } from "../../../src/units/index.js";
+import { hours, minutes, days } from "../../../src/units/index.js";
 import { FraudAgent, PolicyAgent, RefundScoreDto, RiskAgent } from "./refund-panel.workflow.js";
 import {
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   RefundDoneDto,
   RefundRequestDto,
@@ -177,19 +177,23 @@ export class QuorumExpiryOneWorkflowStart {}
 export class QuorumExpiryOneWorkflow {}
 
 /** The 30-minutes desk's channel role: its tool gives it 30 minutes, the quorum 1 hour. */
-@ChannelRole({
-  name: "short-refund-approval-channel",
+@ToolApproval({
+  name: "short-refund-tool-approval",
   description: "Approves refunds within 30 minutes",
-  approves: RefundRequestDto,
-  answerer: PauseAnswerer.Channel,
+  input: RefundRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: minutes(30),
 })
-export abstract class ShortRefundApprovalChannel extends ChannelOf<ShortRefundApprovalChannel> {}
+export class ShortRefundToolApproval {}
 
-@Channel({ name: "short-desk-refund-approval-channel", description: "Asks the short desk" })
-export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
-  send(
-    ask: ChannelAsk<ShortRefundApprovalChannel>,
-  ): Promise<ChannelOutcome<ShortRefundApprovalChannel>> {
+@Channel({
+  name: "short-desk-refund-approval-channel",
+  description: "Asks the short desk",
+  target: ShortRefundToolApproval,
+  ttl: days(1),
+})
+export class ShortDeskRefundApprovalChannel {
+  send(ask: ChannelAsk<ShortRefundToolApproval>): Promise<ChannelOutcome<ShortRefundToolApproval>> {
     qe.shortAsks.push({
       pauseId: ask.pauseId,
       orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.input))?.[1] ?? "?",
@@ -201,8 +205,7 @@ export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
 @Tool({
   name: "short-refund-tool",
   description: "Refunds an order, the desk has 30 minutes",
-  channel: ShortRefundApprovalChannel,
-  expiresIn: minutes(30),
+  approval: ShortRefundToolApproval,
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
@@ -438,6 +441,7 @@ export class SkipExpiryWorkflow {}
   ],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     ShortDeskRefundApprovalChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,

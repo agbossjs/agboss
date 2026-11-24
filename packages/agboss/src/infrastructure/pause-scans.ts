@@ -31,7 +31,7 @@ export function assertPauseFilter(filter: PauseFilter): void {
 /** Whether `pause` is what `filter` selects. */
 export const matchesFilter = (pause: PauseRecord, filter: PauseFilter): boolean =>
   filter.statuses.includes(pause.status) &&
-  (filter.channel === undefined || pause.channel === filter.channel) &&
+  (filter.target === undefined || pause.target === filter.target) &&
   (filter.expiresBefore === undefined ||
     (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString());
 

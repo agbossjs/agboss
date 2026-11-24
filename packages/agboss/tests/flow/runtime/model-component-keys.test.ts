@@ -74,7 +74,7 @@ describe("each kind of model component has its join keys", () => {
     const records = await recordsOf(TreasuryApplication);
 
     const interpreter = named(records, "payout-reply-interpreter");
-    expect(interpreter).toMatchObject({ kind: ComponentKind.ReplyInterpreter });
+    expect(interpreter).toMatchObject({ kind: ComponentKind.ChannelInterpreter });
     expect(interpreter?.promptHash).toMatch(HASH);
     expect(interpreter?.schemaHash).toMatch(HASH);
     expect(named(records, "expense-reply-interpreter")).toBeUndefined();

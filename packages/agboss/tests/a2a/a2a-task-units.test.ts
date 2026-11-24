@@ -25,15 +25,14 @@ import {
   A2ATaskSaveStatus,
   A2ATaskState,
   type A2ATaskKey,
-  type A2ATaskRecord,
   type A2ATaskStatus,
 } from "../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind, type PendingPause } from "../../src/pause/types.js";
 import { IncompatibleResumeError } from "../../src/run/resume-guard.js";
 import { seconds } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 const KEY = { tenantId: "default", taskId: "task-1" };
@@ -41,7 +40,7 @@ const KEY = { tenantId: "default", taskId: "task-1" };
 const pause = (overrides: Partial<PendingPause> = {}): PendingPause =>
   ({
     pauseId: "p-1",
-    answerer: PauseAnswerer.ThreadOwner,
+    respondent: PauseRespondent.Owner,
     step: "clerk-agent",
     channel: "owner-tool-approval",
     childExecutionId: undefined,
@@ -116,18 +115,20 @@ const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] 
 
 describe("#807: an execution's state as its task's status", () => {
   it("pauses a caller may answer → INPUT_REQUIRED with each pause's id, kind and input only", () => {
-    expect(pausedStatusOf([pause(), pause({ pauseId: "p-2", kind: PauseKind.Question })])).toEqual({
+    expect(
+      pausedStatusOf([pause(), pause({ pauseId: "p-2", kind: PauseKind.ExternalTask })]),
+    ).toEqual({
       state: A2ATaskState.InputRequired,
       pendingPauses: [
         { pauseId: "p-1", kind: PauseKind.Approval, input: pause().input },
-        { pauseId: "p-2", kind: PauseKind.Question, input: pause().input },
+        { pauseId: "p-2", kind: PauseKind.ExternalTask, input: pause().input },
       ],
     });
   });
 
   it("pauses only channels answer → WORKING, naming each channel once (G13)", () => {
     const channelOnly = (channel: string) =>
-      pause({ pauseId: undefined, answerer: PauseAnswerer.Channel, channel });
+      pause({ pauseId: undefined, respondent: PauseRespondent.Delegate, channel });
 
     expect(pausedStatusOf([channelOnly("a"), channelOnly("b"), channelOnly("a")])).toEqual({
       state: A2ATaskState.Working,

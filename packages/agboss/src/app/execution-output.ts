@@ -73,7 +73,7 @@ export interface PausedExecutionOutput extends ExecutionOutputBase {
   readonly status: ExecutionStatus.Paused;
   /**
    * Every pause the execution waits for — several when parallel branches each wait. A
-   * `PauseAnswerer.Channel` pause comes without its `pauseId`.
+   * `PauseRespondent.Delegate` pause comes without its `pauseId`.
    */
   readonly pending: readonly PendingPause[];
   /**

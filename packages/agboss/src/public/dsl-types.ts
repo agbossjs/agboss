@@ -5,8 +5,9 @@
 export { type OnBeforeDestroy, type OnReady } from "../components/container/lifecycle.js";
 export { type InjectAs, type PortInstances, type ServiceEntry } from "../components/injection.js";
 export {
+  type AgentToolClass,
   type ChannelOptions,
-  type TargetChannelOptions,
+  type ExternalTaskClass,
   type ToolHandlerClass,
 } from "../components/decorators.js";
 export { type ToolCallContext, type ToolCallResultContext } from "../tool-interceptors/decision.js";

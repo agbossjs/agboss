@@ -18,7 +18,7 @@ import { printTypes } from "./print.js";
 import { tablesOf, type AnalysedWorkflow, type TypeTable, type TypeTables } from "./tables.js";
 import { agentToolsTableOf, standaloneAgentToolsOf } from "./agent-tools.js";
 import { contextTypesOf } from "./contexts.js";
-import { channelTablesOf } from "./channel-roles.js";
+import { channelTablesOf } from "./pause-target-tables.js";
 import { judgeOutputsTableOf } from "./judge-outputs.js";
 import { standaloneTablesOf, type StandaloneTables } from "./standalone.js";
 

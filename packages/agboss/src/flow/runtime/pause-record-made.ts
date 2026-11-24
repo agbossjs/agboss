@@ -8,7 +8,13 @@ import {
   type PauseRecord,
   type PauseTrailRecord,
 } from "../../infrastructure/pause-record.js";
-import type { PauseChannel, PauseQuestion } from "./pause.js";
+import {
+  onlyChannelOf,
+  type ChooseChannel,
+  type PauseChannel,
+  type PauseTarget,
+} from "./pause-channel.js";
+import type { PauseQuestion } from "./pause.js";
 import { plainRecordOf } from "./records.js";
 import { isWorkingDuration, type WorkingDuration } from "../../units/index.js";
 import type { ReminderSpan } from "../../calendar/calendar-call.js";
@@ -178,40 +184,23 @@ async function addedReminderOf(
 
 /** The first entry of a pause's chain of custody: it was opened, under this target, with this deadline. */
 const openedEntryOf = (
-  channel: PauseChannel,
+  target: PauseTarget,
+  channel: PauseChannel | undefined,
   at: Date,
   expiresAt: string | undefined,
 ): PauseTrailRecord => ({
   action: "opened",
   at: at.toISOString(),
-  target: channel.name,
+  target: target.name,
   // an owner's pause with no channel is asked of nobody
-  ...(channel.sender === undefined ? {} : { channel: channel.name }),
+  ...(channel === undefined ? {} : { channel: channel.name }),
   ...(expiresAt === undefined ? {} : { expiresAt }),
 });
 
-/** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
-export async function newRecordOf(
-  frame: FrameSpec,
-  channel: PauseChannel,
-  question: PauseQuestion,
-  clock: Clock,
-  add: AddWorkingTime,
-  remind?: RemindAt,
-): Promise<PauseRecord> {
+/** What the pause's record says of where and how it was asked: its frame's identity and its step. */
+function placeOf(frame: FrameSpec, question: PauseQuestion) {
   const { execution, step } = frame;
-  const now = clock.now();
-  const expiresIn = question.expiresIn ?? channel.expiresIn;
-  const deadline = boundedDeadlineOf(frame, await ownDeadlineOf(expiresIn, now, add));
-  const remindAt = await reminderOf(
-    now,
-    { expiresAt: deadline.expiresAt, expiresIn },
-    channel.remindBefore,
-    add,
-    remind,
-  );
   return {
-    pauseId: newPauseId(),
     tenantId: execution.tenant.tenantId,
     threadId: execution.threadId,
     // inside a child workflow (#263) the record belongs to the tree: its root, the child's own id
@@ -227,14 +216,46 @@ export async function newRecordOf(
     component: plainRecordOf(question.component ?? step.component),
     ...(step.toolLoopIteration === undefined ? {} : { toolLoopIteration: step.toolLoopIteration }),
     validationAttempts: step.validationAttempts,
+  };
+}
+
+/** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
+export async function newRecordOf(
+  frame: FrameSpec,
+  target: PauseTarget,
+  question: PauseQuestion,
+  clock: Clock,
+  add: AddWorkingTime,
+  remind?: RemindAt,
+  choose: ChooseChannel = onlyChannelOf(target),
+): Promise<PauseRecord> {
+  const now = clock.now();
+  const expiresIn = target.timeout;
+  const deadline = boundedDeadlineOf(frame, await ownDeadlineOf(expiresIn, now, add));
+  const remindAt = await reminderOf(
+    now,
+    { expiresAt: deadline.expiresAt, expiresIn },
+    target.remindBefore,
+    add,
+    remind,
+  );
+  const opened = openedEntryOf(target, undefined, now, deadline.expiresAt);
+  const channel = await choose({
+    ...(deadline.expiresAt === undefined ? {} : { expiresAt: new Date(deadline.expiresAt) }),
+    trail: [opened],
+  });
+  return {
+    pauseId: newPauseId(),
+    ...placeOf(frame, question),
     kind: question.kind,
     step: question.step,
-    channel: channel.name,
+    target: target.name,
+    ...(channel === undefined ? {} : { channel: channel.name }),
     branchKeys: branchKeysAt(frame),
-    answerer: channel.answerer,
+    respondent: target.respondent,
     input: question.input,
     ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
-    trail: [openedEntryOf(channel, now, deadline.expiresAt)],
+    trail: [openedEntryOf(target, channel, now, deadline.expiresAt)],
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: now.toISOString(),

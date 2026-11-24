@@ -12,7 +12,6 @@ import type { ApplicationDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { RetentionOptions } from "./retention.js";
 import { withStorageProviders, type ApplicationStorage } from "../storage/storage-assembly.js";
 
@@ -135,15 +134,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * breakers, the recovery loop).
    */
   readonly healthChecks?: readonly Class[];
-  /**
-   * The application's calendar for working time (#944): `WorkingWeek.of({ timeZone, days, hours,
-   * breaks, holidays })` or a `@WorkingCalendar` class listed in `providers`. A `workingHours(n)` /
-   * `workingMinutes(n)` `expiresIn` or `remindBefore` counts by it — a role's own `workingCalendar`
-   * over it. The deadline is computed once, when the pause opens: a calendar changed later does not
-   * move open pauses (extend them instead). A grid with no working time at all, or a class that is no
-   * listed `@WorkingCalendar`, is `[working-calendar.invalid]`.
-   */
-  readonly workingCalendar?: WorkingCalendarSource;
   /**
    * The `@ModelProvider` class every model of the application is served from unless its workflow
    * or its component names another (#1313): `Component.modelProvider ?? Workflow.modelProvider ??

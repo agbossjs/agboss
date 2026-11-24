@@ -1,6 +1,6 @@
 import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelOptions } from "./decorators.js";
@@ -11,15 +11,12 @@ import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 export interface ToolMeta {
   readonly name: string;
   readonly description: string;
-  readonly channel?: Class;
-  /** The `@ToolApproval` it was given as `approval` (#1307); `channel` holds the same class. */
+  /** The `@ToolApproval` its calls wait for (#1307). */
   readonly approval?: Class;
   /** Whether it only reads (#860): what a direct-reply A2A skill's agents may call. */
   readonly readOnly?: boolean;
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
-  /** The deadline of its approval pause (#941), over its channel role's; only with `channel`. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   /** `@ToolInterceptor` classes of this tool, over its agent's, workflow's and application's (#384). */
@@ -123,10 +120,10 @@ export type ComponentMeta =
     }
   /** `@Observer` (#1343): an execution observer, listed in `@Application({ observers })`. */
   | { readonly kind: "observer"; readonly meta: import("../core/observer-hooks.js").ObserverMeta }
-  /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
+  /** `@ChannelListener` (#940, #1310c): an application-wide listener of every pause, listed in `channelListeners`. */
   | {
-      readonly kind: "pause-listener";
-      readonly meta: import("../pause/pause-listener.js").PauseListenerMeta;
+      readonly kind: "channel-listener";
+      readonly meta: import("../pause/channel-listener.js").ChannelListenerMeta;
     }
   /** `@WorkingCalendar` (#944): a working-time calendar, listed in `providers`. */
   | {
@@ -207,7 +204,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   budget: "Budget",
   "health-check": "HealthCheck",
   observer: "Observer",
-  "pause-listener": "PauseListener",
+  "channel-listener": "ChannelListener",
   "working-calendar": "WorkingCalendar",
   "database-storage": "DatabaseStorage",
   "cluster-storage": "ClusterStorage",

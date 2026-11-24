@@ -33,11 +33,7 @@ function bindingViolations(
 ): RuleViolation[] {
   const listed = listedClassesOf(modules);
   return targetsOf(uses).flatMap(([target, { options }]) => {
-    const channels = listed.filter(
-      (cls) =>
-        channelTargetOf(cls) === target ||
-        Object.prototype.isPrototypeOf.call(target.prototype, cls.prototype),
-    );
+    const channels = listed.filter((cls) => channelTargetOf(cls) === target);
     const selectors = listed.filter((cls) => channelSelectorOf(cls)?.target === target);
     // an owner's pause needs no channel (#1307c): it asks nobody and waits for the owner's resume
     if (channels.length === 0 && options.respondent === PauseRespondent.Owner) return [];
@@ -71,7 +67,9 @@ function channelViolations(
   return listedClassesOf(modules).flatMap((cls) => {
     const meta = options.channelMetaOf(cls);
     if (meta === undefined) return [];
-    const { name, target, ttl } = meta;
+    const { name, ttl } = meta;
+    // a JavaScript caller may leave `target` out
+    const target = meta.target as Class | undefined;
     if (target === undefined) return [];
     const found: RuleViolation[] = [];
     if (pauseTargetOf(target) === undefined) {

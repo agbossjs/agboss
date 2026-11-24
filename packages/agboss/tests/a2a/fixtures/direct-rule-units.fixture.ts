@@ -14,8 +14,8 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/in
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import type { Tracked } from "../../../src/index.js";
-import { TckInputQuestion } from "../../a2a-tck/tck.application.js";
 import { LedgerReadTool } from "./direct-rules.fixture.js";
+import { TckInputExternalTask } from "../../a2a-tck/tck.application.js";
 import { inline } from "../../../src/index.js";
 
 interface Message {
@@ -47,7 +47,7 @@ export class PlainTool {
   description: "Asks its caller, asks for approval, calls a class of no decorator",
   prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
-  tools: [TckInputQuestion, ApprovedReadTool, PlainTool as never],
+  tools: [TckInputExternalTask, ApprovedReadTool, PlainTool],
 })
 export class AskingAgent {}
 

@@ -10,7 +10,6 @@ import {
   type ValueShape,
 } from "../../dto-wrappers.js";
 import { dtoNameProblem, kindSuffixProblem, NameKind, type NameProblem } from "../../names.js";
-import { pauseTargetOf } from "../../../channels/pause-targets.js";
 import { DtoRegistry, dtoClashMessage } from "../../registry.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -27,7 +26,7 @@ const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
   [NodeKind.Action]: NameKind.Action,
   [NodeKind.Router]: NameKind.Router,
   [NodeKind.Workflow]: NameKind.Workflow,
-  [NodeKind.Question]: NameKind.Question,
+  [NodeKind.Question]: NameKind.ExternalTask,
 };
 
 /** The DTO classes inside a shape. */
@@ -94,11 +93,7 @@ export function nameRules(context: AnalysisContext): readonly RuleViolation[] {
     { name: context.workflow.name, kind: NameKind.Workflow },
     ...[...context.graph.nodes.values()].map((node) => ({
       name: node.name,
-      // an `@ExternalTask` is a question node named `-external-task` (#1307)
-      kind:
-        node.kind === NodeKind.Question && pauseTargetOf(node.component) !== undefined
-          ? NameKind.ExternalTask
-          : NAME_KINDS[node.kind],
+      kind: NAME_KINDS[node.kind],
     })),
   ].flatMap(({ name, kind }) => {
     const problem = kindSuffixProblem(name, kind);

@@ -53,7 +53,7 @@ describe("#960 AC3: the status column of the SQLite A2A task store", () => {
     ["a pause of a kind no pause has", { ...WORKING, pendingPauses: [{ kind: "wish", input: 1 }] }],
     [
       "a pause whose id is no text",
-      { ...WORKING, pendingPauses: [{ pauseId: 1, kind: PauseKind.Question, input: 1 }] },
+      { ...WORKING, pendingPauses: [{ pauseId: 1, kind: PauseKind.ExternalTask, input: 1 }] },
     ],
   ])("a status with %s is refused, never read", async (_name, status) => {
     await expect((await withStatus(status)).findById(KEY)).rejects.toThrow();

@@ -2,14 +2,12 @@ import { Bool, Text } from "../../../src/dto/index.js";
 import {
   Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
   Observer,
   optional,
-  PauseAnswerer,
-  PauseListener,
+  PauseRespondent,
+  ChannelListener,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -19,18 +17,18 @@ import {
   type ChannelPauseJoinFailedEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type PauseListenerClosedEvent,
-  type PauseListenerHandler,
-  type PauseListenerJoinFailedEvent,
-  type PauseListenerOpenedEvent,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerJoinFailedEvent,
+  type ChannelListenerOpenedEvent,
   inline,
+  ToolApproval,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
-import { minutes } from "../../../src/units/index.js";
+import { minutes, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, toAction, toAgent } from "./paths.js";
@@ -74,11 +72,11 @@ export class EscalationDto {
 
 export const je = {
   /** The asks the approvers' desk was sent. */
-  sent: [] as ChannelAsk<JoinApproverQuestion>[],
-  closed: [] as ChannelPauseClosedEvent<JoinApproverQuestion>[],
+  sent: [] as ChannelAsk<JoinApproverQuestionToolApproval>[],
+  closed: [] as ChannelPauseClosedEvent<JoinApproverQuestionToolApproval>[],
   /** `joinFailed` told to the desk, and to the listener. */
-  joinFailed: [] as ChannelPauseJoinFailedEvent<JoinApproverQuestion>[],
-  heard: [] as PauseListenerJoinFailedEvent[],
+  joinFailed: [] as ChannelPauseJoinFailedEvent<JoinApproverQuestionToolApproval>[],
+  heard: [] as ChannelListenerJoinFailedEvent[],
   /** What the escalation read, by approver. */
   escalation: [] as Record<string, boolean | undefined>[],
   ended: [] as ExecutionEndEvent[],
@@ -89,45 +87,56 @@ export function resetJoinExpiry(): void {
   for (const list of Object.values(je)) list.length = 0;
 }
 
-@ChannelRole({
-  name: "join-approver-question-channel",
+@ToolApproval({
+  name: "join-approver-question-tool-approval",
   description: "Asks an approver",
-  approves: ApprovalRequestDto,
-  answerer: PauseAnswerer.Channel,
+  input: ApprovalRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class JoinApproverQuestion extends ChannelOf<JoinApproverQuestion> {}
+export class JoinApproverQuestionToolApproval {}
 
-@Channel({ name: "join-approver-desk-channel", description: "Asks the approvers" })
-export class JoinApproverDeskChannel extends JoinApproverQuestion {
-  send(ask: ChannelAsk<JoinApproverQuestion>): Promise<ChannelOutcome<JoinApproverQuestion>> {
+/** What every approvers' channel does: asked, it waits and tells the test what it hears. */
+export abstract class JoinApproverChannelBase {
+  send(
+    ask: ChannelAsk<JoinApproverQuestionToolApproval>,
+  ): Promise<ChannelOutcome<JoinApproverQuestionToolApproval>> {
     je.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<JoinApproverQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<JoinApproverQuestionToolApproval>): Promise<void> {
     je.closed.push(event);
     return Promise.resolve();
   }
 
-  override onPauseJoinFailed(
-    event: ChannelPauseJoinFailedEvent<JoinApproverQuestion>,
+  onPauseJoinFailed(
+    event: ChannelPauseJoinFailedEvent<JoinApproverQuestionToolApproval>,
   ): Promise<void> {
     je.joinFailed.push(event);
     return Promise.resolve();
   }
 }
 
-@PauseListener({ name: "join-failed-pause-listener", allowAnswering: true })
-export class JoinFailedPauseListener implements PauseListenerHandler {
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+@Channel({
+  name: "join-approver-desk-channel",
+  description: "Asks the approvers",
+  target: JoinApproverQuestionToolApproval,
+  ttl: days(1),
+})
+export class JoinApproverDeskChannel extends JoinApproverChannelBase {}
+
+@ChannelListener({ name: "join-failed-pause-listener", includePauseIds: true })
+export class JoinFailedPauseListener {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     return Promise.resolve();
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     return Promise.resolve();
   }
 
-  onPauseJoinFailed(event: PauseListenerJoinFailedEvent): Promise<void> {
+  onPauseJoinFailed(event: ChannelListenerJoinFailedEvent): Promise<void> {
     je.heard.push(event);
     return Promise.resolve();
   }
@@ -136,7 +145,7 @@ export class JoinFailedPauseListener implements PauseListenerHandler {
 @Tool({
   name: "approve-tool",
   description: "An approver approves",
-  channel: JoinApproverQuestion,
+  approval: JoinApproverQuestionToolApproval,
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
@@ -146,11 +155,28 @@ export class ApproveTool {
   }
 }
 
+/** The same approvers with 30 minutes: the channel is the same, asked under its own target. */
+@ToolApproval({
+  name: "join-approver-thirty-tool-approval",
+  description: "Asks an approver within 30 minutes",
+  input: ApprovalRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: minutes(30),
+})
+export class JoinApproverThirtyToolApproval {}
+
+@Channel({
+  name: "join-approver-thirty-desk-channel",
+  description: "Asks the approvers, within 30 minutes",
+  target: JoinApproverThirtyToolApproval,
+  ttl: days(1),
+})
+export class JoinApproverThirtyDeskChannel extends JoinApproverChannelBase {}
+
 @Tool({
   name: "approve-in-30-tool",
   description: "An approver approves within 30 minutes",
-  channel: JoinApproverQuestion,
-  expiresIn: minutes(30),
+  approval: JoinApproverThirtyToolApproval,
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
@@ -292,7 +318,12 @@ export class JoinExpiryLog {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],
-  providers: [JoinApproverDeskChannel, JoinFailedPauseListener, RecordingLogger],
+  providers: [
+    JoinApproverDeskChannel,
+    JoinApproverThirtyDeskChannel,
+    JoinFailedPauseListener,
+    RecordingLogger,
+  ],
   observers: [JoinExpiryLog],
   budgets: TEST_BUDGETS,
 })

@@ -3,16 +3,14 @@ import { AutoApproveChannel } from "../../../src/testing/index.js";
 import {
   Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
   Observer,
   listOf,
-  PauseAnswerer,
-  PauseListener,
+  PauseRespondent,
+  ChannelListener,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -21,20 +19,20 @@ import {
   type ChannelPauseAnswerNotTakenEvent,
   type ChannelPauseClosedEvent,
   type PauseClosedReason,
-  type PauseListenerAnswerNotTakenEvent,
+  type ChannelListenerAnswerNotTakenEvent,
   type PauseActor,
-  type PauseListenerClosedEvent,
-  type PauseListenerEventBase,
-  type PauseListenerHandler,
-  type PauseListenerOpenedEvent,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerEventBase,
+  type ChannelListenerOpenedEvent,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
   type Tracked,
   Action,
   inline,
+  ToolApproval,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { minutes } from "../../../src/units/index.js";
+import { minutes, days } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -42,8 +40,8 @@ import { onStart, toAgent } from "../../helpers/flow.js";
 
 /**
  * #267 PR 2 — pauses and resume: a refund approval answered through its channel (a finance desk
- * that knows who answers: `PauseAnswerer.Channel`), an order confirmation answered by the thread's
- * owner (`PauseAnswerer.ThreadOwner`), refunds of several orders at once (one branch per order,
+ * that knows who answers: `PauseRespondent.Delegate`), an order confirmation answered by the thread's
+ * owner (`PauseRespondent.Owner`), refunds of several orders at once (one branch per order,
  * each pausing), and a launch where one branch pauses while its sibling fails (`FailFast`). What
  * the channels were sent, the tools ran and the observers saw is in `seen` (reset per test).
  */
@@ -83,8 +81,8 @@ export interface SeenNotTaken extends SentAsk {
 export interface Heard {
   readonly listener: string;
   readonly type: "opened" | "closed" | "answer-not-taken";
-  readonly event: PauseListenerEventBase &
-    Partial<Pick<PauseListenerClosedEvent, "reason" | "actor" | "answer" | "closedAt">>;
+  readonly event: ChannelListenerEventBase &
+    Partial<Pick<ChannelListenerClosedEvent, "reason" | "actor" | "answer" | "closedAt">>;
   readonly executionId: string;
   readonly tenantId: string;
 }
@@ -210,36 +208,38 @@ export class OrderConfirmationDto {
   orderId!: string;
 }
 
-@ChannelRole({
-  name: "refund-approval-channel",
+@ToolApproval({
+  name: "refund-gate-tool-approval",
   description: "Approves refunds",
-  approves: RefundRequestDto,
-  answerer: PauseAnswerer.Channel,
+  input: RefundRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundDeskToolApproval {}
 
-@ChannelRole({
-  name: "order-confirmation-channel",
+@ToolApproval({
+  name: "order-confirmation-tool-approval",
   description: "The customer confirms an order",
-  approves: OrderConfirmationDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: OrderConfirmationDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class OrderConfirmationChannel extends ChannelOf<OrderConfirmationChannel> {}
+export class OrderConfirmationToolApproval {}
 
 /** The finance desk: posts the ask (its `pauseId` is the reply key) and waits for the reply. */
 @Channel({
   name: "finance-desk-refund-approval-channel",
   description: "Asks the finance desk",
   deps: [ExecutionContext],
+  target: RefundDeskToolApproval,
+  ttl: days(1),
 })
-export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
-  constructor(private readonly executionContext: ExecutionContext) {
-    super();
-  }
+export class FinanceDeskRefundApprovalChannel {
+  constructor(private readonly executionContext: ExecutionContext) {}
 
   async send(
-    ask: ChannelAsk<RefundApprovalChannel>,
-  ): Promise<ChannelOutcome<RefundApprovalChannel>> {
+    ask: ChannelAsk<RefundDeskToolApproval>,
+  ): Promise<ChannelOutcome<RefundDeskToolApproval>> {
     this.executionContext.signal.throwIfAborted();
     const sent = {
       pauseId: ask.pauseId,
@@ -256,12 +256,12 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
     return ChannelOutcome.awaitReply();
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<RefundApprovalChannel>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<RefundDeskToolApproval>): Promise<void> {
     return recordClose("finance-desk", this.executionContext, event);
   }
 
-  override onPauseAnswerNotTaken(
-    event: ChannelPauseAnswerNotTakenEvent<RefundApprovalChannel>,
+  onPauseAnswerNotTaken(
+    event: ChannelPauseAnswerNotTakenEvent<RefundDeskToolApproval>,
   ): Promise<void> {
     return recordNotTaken("finance-desk", event);
   }
@@ -272,19 +272,19 @@ export class FinanceDeskRefundApprovalChannel extends RefundApprovalChannel {
   name: "customer-order-confirmation-channel",
   description: "Asks the customer",
   deps: [ExecutionContext],
+  target: OrderConfirmationToolApproval,
+  ttl: days(1),
 })
-export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
-  constructor(private readonly executionContext: ExecutionContext) {
-    super();
-  }
+export class CustomerOrderConfirmationChannel {
+  constructor(private readonly executionContext: ExecutionContext) {}
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<OrderConfirmationChannel>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<OrderConfirmationToolApproval>): Promise<void> {
     return recordClose("customer", this.executionContext, event);
   }
 
   send(
-    ask: ChannelAsk<OrderConfirmationChannel>,
-  ): Promise<ChannelOutcome<OrderConfirmationChannel>> {
+    ask: ChannelAsk<OrderConfirmationToolApproval>,
+  ): Promise<ChannelOutcome<OrderConfirmationToolApproval>> {
     seen.confirmations.push({ pauseId: ask.pauseId, orderId: orderIdIn(ask.input) });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -293,7 +293,7 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
 @Tool({
   name: "refund-tool",
   description: "Refunds an order",
-  channel: RefundApprovalChannel,
+  approval: RefundDeskToolApproval,
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
@@ -308,7 +308,7 @@ export class RefundTool {
 @Tool({
   name: "slow-refund-tool",
   description: "Refunds an order, its approval channel is slow",
-  channel: RefundApprovalChannel,
+  approval: RefundDeskToolApproval,
   input: RefundRequestDto,
   output: RefundDoneDto,
   timeout: minutes(5),
@@ -323,7 +323,7 @@ export class SlowRefundTool {
 @Tool({
   name: "confirm-order-tool",
   description: "Confirms an order",
-  channel: OrderConfirmationChannel,
+  approval: OrderConfirmationToolApproval,
   input: OrderConfirmationDto,
   output: OrderConfirmationDto,
 })
@@ -334,11 +334,24 @@ export class ConfirmOrderTool {
   }
 }
 
+/** Approves small refunds at once: its channel (`AutoApproveChannel`) decides, nothing pauses. */
+@ToolApproval({
+  name: "auto-refund-tool-approval",
+  description: "Approves small refunds",
+  input: RefundRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(1),
+})
+export class AutoRefundToolApproval {}
+
+/** The channel that decides at once for the small refunds (`AutoApproveChannel`). */
+export const AutoRefundChannel = AutoApproveChannel.for(AutoRefundToolApproval);
+
 /** Refunds at once: its channel decides (`AutoApproveChannel`), nothing pauses. */
 @Tool({
   name: "auto-refund-tool",
   description: "Refunds a small order",
-  channel: AutoApproveChannel,
+  approval: AutoRefundToolApproval,
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
@@ -371,37 +384,37 @@ function hear(
 }
 
 /** A back office that follows every pause and never answers one. */
-@PauseListener({ name: "audit-pause-listener", deps: [ExecutionContext] })
-export class AuditPauseListener implements PauseListenerHandler {
+@ChannelListener({ name: "audit-pause-listener", deps: [ExecutionContext] })
+export class AuditPauseListener {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     return hear("audit", this.executionContext, "opened", event);
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     return hear("audit", this.executionContext, "closed", event);
   }
 
-  onPauseAnswerNotTaken(event: PauseListenerAnswerNotTakenEvent): Promise<void> {
+  onPauseAnswerNotTaken(event: ChannelListenerAnswerNotTakenEvent): Promise<void> {
     return hear("audit", this.executionContext, "answer-not-taken", event);
   }
 }
 
 /** A trusted component: it may answer a channel's pauses, so it sees their ids (D4). */
-@PauseListener({
+@ChannelListener({
   name: "trusted-pause-listener",
-  allowAnswering: true,
+  includePauseIds: true,
   deps: [ExecutionContext],
 })
-export class TrustedPauseListener implements PauseListenerHandler {
+export class TrustedPauseListener {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     return hear("trusted", this.executionContext, "opened", event);
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     return hear("trusted", this.executionContext, "closed", event);
   }
 }
@@ -602,6 +615,7 @@ export class AuditWorkflow {}
   providers: [
     FinanceDeskRefundApprovalChannel,
     CustomerOrderConfirmationChannel,
+    AutoRefundChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,
     AuditPauseListener,
@@ -621,6 +635,7 @@ export class PausesApplication {}
   providers: [
     FinanceDeskRefundApprovalChannel,
     CustomerOrderConfirmationChannel,
+    AutoRefundChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,
     AuditPauseListener,

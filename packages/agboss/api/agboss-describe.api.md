@@ -159,8 +159,7 @@ export interface ArbiterSnapshot {
 
 // @public
 export enum ChannelImplementationReason {
-    Listed = "listed",
-    NamedByTool = "named-by-tool"
+    Listed = "listed"
 }
 
 // @public
@@ -262,14 +261,12 @@ export interface DescribedBudget {
 // @public
 export interface DescribedChannel {
     readonly answer: string;
-    readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
     readonly expiresIn?: number;
     readonly implementation?: string;
     readonly isExpiresInWorking?: true;
     readonly isRemindBeforeWorking?: true;
-    // (undocumented)
     readonly isRole: boolean;
     readonly name: string;
     readonly question: string;
@@ -277,6 +274,7 @@ export interface DescribedChannel {
     readonly reason?: ChannelImplementationReason;
     readonly remindBefore?: number;
     readonly replyInterpreter?: string;
+    readonly respondent: PauseRespondent;
     readonly tools: readonly string[];
     readonly workingCalendar?: string;
 }
@@ -355,7 +353,7 @@ export interface DescribedModelProvider {
 // @public
 export interface DescribedPauseListener {
     // (undocumented)
-    readonly allowAnswering: boolean;
+    readonly includePauseIds: boolean;
     // (undocumented)
     readonly name: string;
 }
@@ -422,7 +420,7 @@ export interface DescribedStorage {
 
 // @public
 export interface DescribedTool {
-    readonly channel?: string;
+    readonly approval?: string;
     // (undocumented)
     readonly description: string;
     // (undocumented)
@@ -768,8 +766,7 @@ export interface WorstCaseChild {
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "period".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "isOwn".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "allowAnswering".
-// src/describe/channels.ts - (ae-undocumented) Missing documentation for "isRole".
+// src/describe/application.ts - (ae-undocumented) Missing documentation for "includePauseIds".
 // src/describe/channels.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/compensation.ts - (ae-undocumented) Missing documentation for "compensateWith".
 // src/describe/compensation.ts - (ae-undocumented) Missing documentation for "committedBy".

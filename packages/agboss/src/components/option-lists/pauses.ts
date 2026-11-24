@@ -1,12 +1,10 @@
 /** The keys of the pause targets, channels, and the application's observers, calendars and health checks: each list is held equal to `keyof` its options type (see `option-keys.ts`). */
 import type { ChannelInterpreterOptions } from "../../channels/channel-interpreter.js";
-import type { ChannelRoleOptions } from "../../channels/channel-role.decorator.js";
 import type { ChannelSelectorOptions } from "../../channels/channel-selector.js";
 import type { ExternalTaskOptions, ToolApprovalOptions } from "../../channels/pause-targets.js";
 import type { ObserverOptions } from "../../core/observer-hooks.js";
 import type { HealthCheckOptions } from "../../health/health-check.js";
 import type { ChannelListenerOptions } from "../../pause/channel-listener.js";
-import type { PauseListenerOptions } from "../../pause/pause-listener.js";
 import type { WorkingCalendarOptions } from "../../calendar/working-calendar.js";
 import type { ChannelOptions } from "../decorators.js";
 import { optionKeys } from "../option-keys.js";
@@ -74,27 +72,6 @@ export const CHANNEL_INTERPRETER_KEYS = optionKeys<ChannelInterpreterOptions>()(
   "prompt",
   "promptVariables",
   "deps",
-]);
-
-export const CHANNEL_ROLE_KEYS = optionKeys<ChannelRoleOptions>()([
-  "name",
-  "description",
-  "answerer",
-  "replyInterpreter",
-  "expiresIn",
-  "remindBefore",
-  "workingCalendar",
-  "approves",
-  "ask",
-  "answer",
-  "maxVisits",
-]);
-
-export const PAUSE_LISTENER_KEYS = optionKeys<PauseListenerOptions>()([
-  "name",
-  "description",
-  "deps",
-  "allowAnswering",
 ]);
 
 export const WORKING_CALENDAR_KEYS = optionKeys<WorkingCalendarOptions>()([

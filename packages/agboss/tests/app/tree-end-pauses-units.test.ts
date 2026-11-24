@@ -73,7 +73,7 @@ describe("#939: closeTreePauses", () => {
     );
   });
 
-  it("a Resolved pause (no step consumed it) is closed not taken: answer and answerer kept, the log says so", async () => {
+  it("a Resolved pause (no step consumed it) is closed not taken: answer and respondent kept, the log says so", async () => {
     const { pauses, answers, ends } = storesOf();
     await resolvedPause(pauses, "p-waits", "run-1:clerk-agent:1:call-1");
 

@@ -94,9 +94,9 @@ export class SqlitePauseScans {
     const marks = filter.statuses.map(() => "?").join(", ");
     const clauses = [`p.tenant_id = ?`, `p.status IN (${marks})`];
     const values: SQLInputValue[] = [tenantId, ...filter.statuses];
-    if (filter.channel !== undefined) {
-      clauses.push("p.channel = ?");
-      values.push(filter.channel);
+    if (filter.target !== undefined) {
+      clauses.push("p.target = ?");
+      values.push(filter.target);
     }
     if (filter.expiresBefore !== undefined) {
       clauses.push("p.expires_at IS NOT NULL AND p.expires_at < ?");

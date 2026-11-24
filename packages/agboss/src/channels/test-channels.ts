@@ -1,26 +1,20 @@
 import { Channel } from "../components/decorators.js";
-import { recordInjectAs, type Class } from "../components/injection.js";
-import { agbossComponent } from "../flow/generated-types.js";
+import { type Class } from "../components/injection.js";
+import { seconds } from "../units/index.js";
 import { ChannelOutcome, type DecidedOutcome } from "./channel-outcome.js";
 import type { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 
 /**
  * What a built-in test channel decides is an approval or a refusal, never corrected arguments — so
- * it fits any role that approves a tool: `testWith(App, { services: [AutoApproveChannel.for(RefundApprovalRole)] })`
- * (#267 S104, #1328).
+ * it fits any `@ToolApproval`: list `AutoApproveChannel.for(RefundToolApproval)` in the
+ * application's `channels` (#267 S104, #1328).
  *
  * Approves every call at once (`ChannelOutcome.decided`): no pause, no pause record — for tests and
- * scripts, named on a tool as is; the decision's `by` is the channel's name. A role's
- * implementation is scripted in a test with `mockOf(Implementation).send`.
+ * scripts; the decision's `by` is the channel's name. A target's channel is scripted in a test with
+ * `mockOf(Channel).send`.
  */
-@Channel({
-  name: "auto-approve-channel",
-  description: "Automatically approves any request (for tests)",
-})
 export class AutoApproveChannel {
-  declare readonly [agbossComponent]?: { readonly name: "auto-approve-channel" };
-
-  /** This channel in the place of a role's (or a pause target's) own: a `services` entry of a test. */
+  /** A channel class of its own that serves `target` (named for it), to list in `@Application({ channels })`. */
   static for(target: Class): new () => AutoApproveChannel {
     return channelFor(AutoApproveChannel, "auto-approve", target);
   }
@@ -31,14 +25,8 @@ export class AutoApproveChannel {
 }
 
 /** Rejects every call at once (`ChannelOutcome.decided`): no pause — for tests and scripts. */
-@Channel({
-  name: "auto-reject-channel",
-  description: "Automatically rejects any request (for tests)",
-})
 export class AutoRejectChannel {
-  declare readonly [agbossComponent]?: { readonly name: "auto-reject-channel" };
-
-  /** This channel in the place of a role's (or a pause target's) own: a `services` entry of a test. */
+  /** A channel class of its own that serves `target` (named for it), to list in `@Application({ channels })`. */
   static for(target: Class): new () => AutoRejectChannel {
     return channelFor(AutoRejectChannel, "auto-reject", target);
   }
@@ -50,7 +38,7 @@ export class AutoRejectChannel {
   }
 }
 
-/** A channel of its own for a target: the built-in one, named for the target, serving it as `injectAs`. */
+/** A channel of its own for a target: the built-in one, named for the target, serving it by its `target`. */
 function channelFor<TChannel extends { send(): Promise<unknown> }>(
   base: new () => TChannel,
   prefix: string,
@@ -60,7 +48,8 @@ function channelFor<TChannel extends { send(): Promise<unknown> }>(
   Channel({
     name: `${prefix}-channel-for-${target.name}`,
     description: `Decides for ${target.name} at once (for tests)`,
+    target,
+    ttl: seconds(3600),
   })(served);
-  recordInjectAs(served, target);
   return served;
 }

@@ -159,13 +159,13 @@ describe("#944 AC3: a tenant's own holiday table", () => {
           from: new Date("2026-01-08T15:30:00.000Z"),
           amount: workingHours(2),
           tenantId: "acme",
-          target: "hol-desk-question",
+          target: "hol-desk-question-external-task",
         },
         {
           from: new Date("2026-01-08T15:30:00.000Z"),
           amount: workingHours(1.25),
           tenantId: "acme",
-          target: "hol-desk-question",
+          target: "hol-desk-question-external-task",
         },
       ]);
       expect(seen.tenants).toEqual(["acme", "acme"]);

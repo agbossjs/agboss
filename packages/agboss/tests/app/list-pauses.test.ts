@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect } from "vitest";
 import { DtoValidationError } from "../../src/errors.js";
 import {
-  PauseAnswerer,
+  PauseRespondent,
   PauseClosedReason,
   PauseKind,
   PauseStatus,
@@ -94,7 +94,7 @@ describe("#943 AC1: listing pauses", () => {
     const pauseId = asked.sent.at(-1)?.pauseId ?? "";
     await app.resume({ pauseId, decision: { approved: true } }, manager);
 
-    const roleOf = (pauses: readonly ListedPause[]) => pauses.map((one) => one.channel).sort();
+    const roleOf = (pauses: readonly ListedPause[]) => pauses.map((one) => one.target).sort();
     // default: pending only — the answered one is not listed
     expect(roleOf(await allOf(app, { tenantId: "default" }))).toEqual(
       [managerFlow.role, financeFlow.role, openFlow.role].sort(),
@@ -106,19 +106,19 @@ describe("#943 AC1: listing pauses", () => {
       status: [PauseStatus.Pending, PauseStatus.Taken],
     });
     expect(both).toHaveLength(4);
-    expect(await allOf(app, { tenantId: "default", role: financeFlow.role })).toHaveLength(1);
+    expect(await allOf(app, { tenantId: "default", target: financeFlow.role })).toHaveLength(1);
     // expiring within 3 hours: finance (2 h) only; the 24 h and the no-deadline ones are not
     const soon = new Date(clock.now().getTime() + hours(3));
     const expiring = await allOf(app, { tenantId: "default", expiringBefore: soon });
-    expect(expiring.map((one) => one.channel)).toEqual([financeFlow.role]);
+    expect(expiring.map((one) => one.target)).toEqual([financeFlow.role]);
     // combined
     expect(
-      await allOf(app, { tenantId: "default", role: managerFlow.role, expiringBefore: soon }),
+      await allOf(app, { tenantId: "default", target: managerFlow.role, expiringBefore: soon }),
     ).toEqual([]);
     expect(
       await allOf(app, {
         tenantId: "default",
-        role: managerFlow.role,
+        target: managerFlow.role,
         status: [PauseStatus.Pending, PauseStatus.Taken],
         expiringBefore: new Date(clock.now().getTime() + hours(25)),
       }),
@@ -183,19 +183,19 @@ describe("#943 AC1: listing pauses", () => {
 
     const pauses = await allOf(app, { tenantId: "default" });
 
-    const channel = pauses.find((one) => one.channel === managerFlow.role);
-    const thread = pauses.find((one) => one.channel === ownerFlow.role);
+    const channel = pauses.find((one) => one.target === managerFlow.role);
+    const thread = pauses.find((one) => one.target === ownerFlow.role);
     const sentId = asked.sent[0]?.pauseId ?? "";
     expect(channel).toMatchObject({
       pauseKey: pauseKeyOf("default", sentId),
-      answerer: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
     });
     expect(channel).not.toHaveProperty("pauseId");
     expect(channel).not.toHaveProperty("answeredBy");
     expect(thread).toMatchObject({
       pauseId: owned.pending[0]?.pauseId,
-      answerer: PauseAnswerer.ThreadOwner,
-      kind: PauseKind.Question,
+      respondent: PauseRespondent.Owner,
+      kind: PauseKind.ExternalTask,
     });
     for (const one of pauses) expectOpenShape(one);
     expect(JSON.stringify(channel)).not.toContain(sentId);
@@ -232,7 +232,7 @@ describe("#943 AC1: listing pauses", () => {
     const pauses = await allOf(app, { tenantId: "default" });
 
     const text = (role: string): string =>
-      JSON.stringify(pauses.find((one) => one.channel === role)?.input);
+      JSON.stringify(pauses.find((one) => one.target === role)?.input);
     expect(text(managerFlow.role)).not.toContain("bob@example.com");
     expect(text(managerFlow.role)).not.toContain("123-45-6789");
     expect(text(managerFlow.role)).toContain("<email>");
@@ -285,8 +285,9 @@ describe("#943 AC1: listing pauses", () => {
       rootExecutionId: "ghost-root",
       executionId: "ghost-root",
       workflow: "removed-workflow",
-      kind: PauseKind.Question,
-      channel: "removed-question",
+      kind: PauseKind.ExternalTask,
+      target: "removed-external-task",
+      channel: "removed-channel",
       input: { note: "ssn 123-45-6789, mail bob@example.com" },
     };
     await app.resolve(PausedExecutionRepository).findOrCreateByStepKey(ghost);
@@ -304,7 +305,7 @@ describe("#943 AC1: listing pauses", () => {
     await open(app, openFlow as never, "e1");
     await open(app, openFlow as never, "e2");
 
-    expect(await app.listPauses({ tenantId: "default", role: "no-such-question" })).toEqual({
+    expect(await app.listPauses({ tenantId: "default", target: "no-such-external-task" })).toEqual({
       pauses: [],
     });
     const one = await app.listPauses({ tenantId: "default", limit: 1 });
@@ -324,7 +325,7 @@ describe("#943 AC1: listing pauses", () => {
       { tenantId: "default", status: "gone" },
       { tenantId: "default", expiringBefore: new Date("nope") },
       { tenantId: "default", expiringBefore: "2026-01-01" },
-      { tenantId: "default", role: "" },
+      { tenantId: "default", target: "" },
       { tenantId: "default", after: "" },
       { tenantId: "default", after: "not-a-cursor" },
       { tenantId: 7 },

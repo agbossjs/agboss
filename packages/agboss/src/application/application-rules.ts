@@ -25,11 +25,8 @@ import { channelUsesOf } from "../channels/discovery.js";
 import { sharedInterpreterViolations } from "../channels/channel-rules.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { healthCheckRuleViolations } from "../health/health-check.js";
-import { pauseListenerRuleViolations } from "../pause/pause-listener.js";
-import {
-  workingCalendarNameViolations,
-  workingCalendarViolations,
-} from "../calendar/calendar-source.js";
+import { channelListenerRuleViolations } from "../pause/channel-listener.js";
+import { workingCalendarNameViolations } from "../calendar/calendar-source.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { providersOf } from "./listed-providers.js";
 import { storeBackendViolations } from "./implementations.js";
@@ -208,8 +205,7 @@ export function applicationRuleViolations(
     // #825: the key fields — declared, Secret, none shared with another key
     ...keyFieldViolations(options, listedClassesOf(options)),
     ...healthCheckRuleViolations(options),
-    ...pauseListenerRuleViolations(options.name, options.providers),
-    ...workingCalendarViolations(options.name, options.workingCalendar, listedClassesOf(options)),
+    ...channelListenerRuleViolations(options.name, options.providers),
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
     ...storageViolations(options.name, options),
     ...limitViolations(options),

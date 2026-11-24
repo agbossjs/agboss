@@ -12,7 +12,7 @@ describe("#942: describe shows the reminder", () => {
     const assembled = await applicationOf(ExtensionApplication);
 
     const channel = describedChannelsOf(assembled).find(
-      (one) => one.name === "extendable-manager-question",
+      (one) => one.name === "extendable-manager-external-task",
     );
 
     expect(channel).toMatchObject({ expiresIn: 24 * 3_600_000, remindBefore: 2 * 3_600_000 });
@@ -21,17 +21,17 @@ describe("#942: describe shows the reminder", () => {
     );
   });
 
-  it("a role with a reminder and no deadline of its own says only the reminder", async () => {
+  it("a target with a reminder and a long timeout says the reminder after it", async () => {
     const assembled = await applicationOf(ExtensionApplication);
 
     const channel = describedChannelsOf(assembled).find(
-      (one) => one.name === "extendable-open-question",
+      (one) => one.name === "extendable-open-external-task",
     );
 
-    expect(channel?.expiresIn).toBeUndefined();
+    expect(channel?.expiresIn).toBeGreaterThan(24 * 3_600_000);
     expect(channel?.remindBefore).toBe(2 * 3_600_000);
     expect(describeAssembledApplication(assembled).join("\n")).toMatch(
-      /extendable-open-question \(ExtendOpenQuestion\)[^\n]*answered by the channel · reminds 2 h before/,
+      /extendable-open-external-task \(ExtendOpenExternalTask\)[^\n]*answered by the channel · expires in [^\n]*reminds 2 h before/,
     );
   });
 });

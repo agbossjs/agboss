@@ -192,7 +192,7 @@ describe("#1307c: an owner's target with no channel asks nobody", () => {
       pending: [
         {
           kind: PauseKind.Approval,
-          answerer: "thread-owner",
+          respondent: "owner",
           toolCall: { tool: "owner-refund-tool" },
         },
       ],
@@ -226,7 +226,7 @@ describe("#1307c: an owner's target with no channel asks nobody", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ answerer: "thread-owner", step: "silent-limit-external-task" }],
+      pending: [{ respondent: "owner", step: "silent-limit-external-task" }],
     });
     const done = await app.resume(
       { pauseId: paused.pending[0]?.pauseId ?? "", decision: { approved: true, limitUsd: 1200 } },

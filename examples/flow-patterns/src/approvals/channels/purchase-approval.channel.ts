@@ -1,15 +1,18 @@
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+import { PauseRespondent } from "@agboss/core";
 import { PurchaseOrder } from "../dto/place-purchase.dto.js";
+import { ToolApproval } from "../../../../../packages/agboss/src/channels/pause-targets.js";
+import { days } from "../../../../../packages/agboss/src/units/index.js";
 
 /**
  * The role a purchase is approved through (#267): it approves `place-purchase-tool` calls and the
  * thread's owner answers them — the person who asked for the offsite. Its one implementation is
  * listed in `@Application({ providers })`: `TerminalPurchaseApprovalChannel`.
  */
-@ChannelRole({
-  name: "purchase-approval-channel",
+@ToolApproval({
+  name: "purchase-tool-approval",
   description: "The thread's owner approves a purchase",
-  approves: PurchaseOrder,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: PurchaseOrder,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class PurchaseApprovalChannel extends ChannelOf<PurchaseApprovalChannel> {}
+export class PurchaseToolApproval {}

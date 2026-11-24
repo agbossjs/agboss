@@ -41,7 +41,7 @@ export function freshEntriesOf(move: AIMessage | null): {
  * are kept as prepared; none when the decision had no override.
  */
 export function withoutOverride(decided: CallDecision | undefined): CallDecision | undefined {
-  if (decided?.overrideArguments === undefined) return undefined;
+  if (decided?.overrideInput === undefined) return undefined;
   const { approved, by, reason } = decided;
   return { approved, by, ...(reason === undefined ? {} : { reason }) };
 }

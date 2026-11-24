@@ -2,7 +2,7 @@ import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
-import { channelBrandOf } from "./channel-roles.js";
+import { channelBrandOf } from "./pause-target-tables.js";
 import { toolComponentNameOf } from "./agent-tools.js";
 import { judgeComponentNameOf } from "./judge-outputs.js";
 
@@ -124,7 +124,6 @@ const environmentLines = (contracts: readonly string[]): readonly string[] =>
 export function printTypes(
   tables: TypeTables & {
     readonly environments?: readonly string[];
-    readonly channelRoles?: TypeTable;
     readonly pauseTargets?: TypeTable;
     readonly agentTools?: TypeTable;
     readonly judgeOutputs?: TypeTable;
@@ -143,7 +142,6 @@ export function printTypes(
       tableLines("WorkflowFinishes", tables.workflowFinishes),
       tableLines("Routes", tables.routes),
       tableLines("RouterAnswers", tables.routerAnswers),
-      tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
       tableLines("PauseTargets", tables.pauseTargets ?? new Map()),
       tableLines("AgentTools", tables.agentTools ?? new Map()),
       tableLines("JudgeOutputs", tables.judgeOutputs ?? new Map()),

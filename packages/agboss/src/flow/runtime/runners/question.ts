@@ -60,24 +60,24 @@ export function questionRunner(
 ): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Question) throw new TypeError(`${node.id} is not a question`);
-  const { output: answer, role } = declaration.options;
+  const { output: answer, target: task } = declaration.options;
   const answered = (decision: unknown): unknown => validate(answer, decision);
   return async (state, config) => {
     const input = readInput(deps.graph, node, state);
     const frame = currentFrame();
-    const { pause, channelOf } = deps;
-    if (pause === undefined || channelOf === undefined || frame === undefined)
+    const { pause, targetOf } = deps;
+    if (pause === undefined || targetOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = pauseInputOf(redactedDto(role.ask, input.fields.ask));
+    const ask = pauseInputOf(redactedDto(task.input, input.fields.ask));
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
-        deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),
+        deps.observer?.onChannelStart({ ...base, name: task.name, input: ask }),
       );
     const site: PauseStepSite = {
       pauses: pause.pauses,
       answers: pause.answers,
-      channel: channelOf(role.name),
+      target: targetOf(task.name),
       frame,
       signal: config?.signal,
       clock: deps.clock ?? systemClock,
@@ -88,16 +88,15 @@ export function questionRunner(
     };
     frame.execution.lease?.assertHeld();
     const asked = {
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
       step: node.id,
       input: ask,
-      ...(node.expiresIn === undefined ? {} : { expiresIn: node.expiresIn }),
     };
     const reply = await pauseStep(site, asked).catch((error: unknown) =>
       failedAsking(error, node, { state, budgets }),
     );
     await reportNodeEvent((base) =>
-      deps.observer?.onChannelEnd({ ...base, name: role.name, output: reply.decision }),
+      deps.observer?.onChannelEnd({ ...base, name: task.name, output: reply.decision }),
     );
     return { value: { value: answered(reply.decision) }, read: input.read, usage: reply.usage };
   };

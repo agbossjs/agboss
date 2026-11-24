@@ -9,7 +9,9 @@ export interface PauseChange {
   readonly threadId: string;
   /** The workflow whose step asked. */
   readonly workflow: string;
-  /** The channel role asked; absent for a pause nobody is asked about (`PauseRespondent.Owner`). */
+  /** The pause target it waits under. */
+  readonly target: string;
+  /** The channel asked; absent for a pause nobody is asked about (`PauseRespondent.Owner`). */
   readonly channel?: string;
 }
 

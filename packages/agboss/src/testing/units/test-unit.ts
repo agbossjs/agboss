@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
-import { channelRoleOf } from "../../channels/channel-role.decorator.js";
+import { pauseTargetOf } from "../../channels/pause-targets.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
@@ -120,13 +120,13 @@ function factoryOf(component: Class): UnitFactory | undefined {
   if (declaration?.kind === NodeKind.Action) return actionUnit;
   if (declaration?.kind === NodeKind.Router) return routerUnit;
   if (arbiterOf(component) !== undefined) return arbiterUnit;
-  if (channelRoleOf(component) !== undefined) return replyInterpreterUnit;
+  if (pauseTargetOf(component) !== undefined) return replyInterpreterUnit;
   const kind = componentOf(component)?.kind;
   return kind === undefined ? undefined : FACTORIES[kind];
 }
 
 const SUPPORTED =
-  "@Action, @Router, @Arbiter, @Tool, @Judge, @Rag, @InputGuardrail / @OutputGuardrail, @PiiPolicy, @Memory, @ToolInterceptor, a channel role's reply interpreter";
+  "@Action, @Router, @Arbiter, @Tool, @Judge, @Rag, @InputGuardrail / @OutputGuardrail, @PiiPolicy, @Memory, @ToolInterceptor, a pause target's channel interpreter";
 
 /**
  * One component on its own (#1328): `testUnit(SearchTool)`, `testUnit(RiskRouter, { model: routeTo(…) })`.

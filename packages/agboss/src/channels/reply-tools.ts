@@ -13,7 +13,7 @@ export { NOT_UNDERSTOOD_TOOL };
 
 /**
  * The tools of a chat-model reply interpreter (#648): its answer tool — for an approval role with
- * `overrideArguments` described by the approved tool's input, every field optional, so "ok, but only
+ * `overrideInput` described by the approved tool's input, every field optional, so "ok, but only
  * up to $500" can be an approval with the one changed field — and a tool to say the reply does not
  * answer the question, which is never a refusal.
  */
@@ -31,7 +31,7 @@ export enum ReplyDecision {
 
 /** What the model reads about its decision (#688). */
 export const DECISION_DESCRIPTION =
-  "approve: the reply agrees to the call as it is (a plain yes, or a limit at or above what the call asks). approve-with-changes: the reply agrees but changes the call — a limit below what it asks, another value — and overrideArguments says what changes. refuse: the reply refuses the call.";
+  "approve: the reply agrees to the call as it is (a plain yes, or a limit at or above what the call asks). approve-with-changes: the reply agrees but changes the call — a limit below what it asks, another value — and overrideInput says what changes. refuse: the reply refuses the call.";
 
 const DECISION_SCHEMA: JsonSchema = {
   type: "string",
@@ -56,7 +56,7 @@ function correctionOf(approves: DtoClass): JsonSchema {
   return { ...Object.fromEntries(schema), description: OVERRIDE_ARGUMENTS_DESCRIPTION };
 }
 
-/** The answer tool, `overrideArguments` typed by `approves` for an approval role. */
+/** The answer tool, `overrideInput` typed by `approves` for an approval role. */
 function answerDefinitionOf(answer: DtoClass, approves: DtoClass | undefined): ToolDefinition {
   const [tool] = answerToolsOf(answer).tools;
   if (tool === undefined) throw new TypeError(`no answer tool for ${answer.name}`);
@@ -69,7 +69,7 @@ function answerDefinitionOf(answer: DtoClass, approves: DtoClass | undefined): T
   const properties = {
     ...Object.fromEntries(rest),
     decision: DECISION_SCHEMA,
-    overrideArguments: correctionOf(approves),
+    overrideInput: correctionOf(approves),
   };
   return {
     ...tool.definition,
@@ -111,7 +111,7 @@ export function withCorrectedCall(answer: unknown, ask: unknown): ReplyAnswer {
   const approval = approvalOf(answer);
   if (approval.kind !== "answer") return approval;
   const { answer: approved } = approval;
-  const correction = isRecord(approved) ? approved.overrideArguments : undefined;
+  const correction = isRecord(approved) ? approved.overrideInput : undefined;
   if (correction !== undefined) {
     const why = isRecord(correction)
       ? recordChangeOf(correction, callArgumentsOf(ask), "")
@@ -127,8 +127,8 @@ export type ReplyAnswer =
   | { readonly kind: "invalid"; readonly reason: string };
 
 /** The keys an approval may carry: in the DTO's own shape (a script's), or beside a decision. */
-const DTO_KEYS: ReadonlySet<string> = new Set(["approved", "reason", "overrideArguments"]);
-const DECISION_KEYS: ReadonlySet<string> = new Set(["decision", "reason", "overrideArguments"]);
+const DTO_KEYS: ReadonlySet<string> = new Set(["approved", "reason", "overrideInput"]);
+const DECISION_KEYS: ReadonlySet<string> = new Set(["decision", "reason", "overrideInput"]);
 
 const invalid = (reason: string): ReplyAnswer => ({ kind: "invalid", reason });
 
@@ -160,16 +160,16 @@ function approvalOf(answer: unknown): ReplyAnswer {
   if (!("decision" in answer)) return dtoShaped(answer);
   const extra = unknownKeysOf(answer, DECISION_KEYS);
   if (extra.length > 0) return invalid(`it has ${extra.join(", ")} beside its decision`);
-  const { decision, overrideArguments } = answer;
+  const { decision, overrideInput } = answer;
   const reason = reasonOf(answer);
   if (decision === ReplyDecision.Refuse)
     return { kind: "answer", answer: { ...reason, approved: false } };
   if (decision === ReplyDecision.Approve)
     return { kind: "answer", answer: { ...reason, approved: true } };
   if (decision !== ReplyDecision.ApproveWithChanges) return invalid("it names no decision");
-  if (!isRecord(overrideArguments) || Object.keys(overrideArguments).length === 0)
+  if (!isRecord(overrideInput) || Object.keys(overrideInput).length === 0)
     return invalid("an approval with changes that changes nothing");
-  return { kind: "answer", answer: { ...reason, approved: true, overrideArguments } };
+  return { kind: "answer", answer: { ...reason, approved: true, overrideInput } };
 }
 
 /** The kind of a JSON value, as a correction must keep it: an object, a list, or its `typeof`. */
@@ -224,7 +224,7 @@ function laidOver(own: unknown, correction: unknown): unknown {
 }
 
 function correctedCallOf(answer: unknown, ask: unknown): unknown {
-  if (!isRecord(answer) || !isRecord(answer.overrideArguments) || !isRecord(ask)) return answer;
+  if (!isRecord(answer) || !isRecord(answer.overrideInput) || !isRecord(ask)) return answer;
   if (!isRecord(ask.arguments)) return answer;
-  return { ...answer, overrideArguments: laidOver(ask.arguments, answer.overrideArguments) };
+  return { ...answer, overrideInput: laidOver(ask.arguments, answer.overrideInput) };
 }

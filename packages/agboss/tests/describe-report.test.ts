@@ -15,7 +15,6 @@ import { describedTreeOf } from "../src/describe/tree.js";
 import { worstCaseReportLines, worstCaseRowsOf } from "../src/describe/worst-case-report.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import { EmptyEnvironment } from "../src/environments/empty.js";
-import { PauseAnswerer } from "../src/channels/channel-role.decorator.js";
 import {
   Agent,
   PiiKind,
@@ -38,6 +37,7 @@ import {
   NotesDeskApplication,
 } from "./memory/compaction.fixture.js";
 import { onStart } from "./helpers/flow.js";
+import { PauseRespondent } from "../src/pause/respondent.js";
 
 /** A block rule with its own text, beside one whose class computes it. */
 @PiiPolicy({
@@ -170,20 +170,21 @@ describe("#268 AC4: model providers and channels with their implementations", ()
   it("each role: its question → answer, who answers, its interpreter, its implementation", () => {
     const channels = describedChannelsOf(treasury);
 
-    expect(channels.find((channel) => channel.name === "payout-approval-channel")).toEqual({
-      name: "payout-approval-channel",
-      className: "PayoutApprovalChannel",
+    expect(channels.find((channel) => channel.name === "payout-tool-approval")).toEqual({
+      name: "payout-tool-approval",
+      className: "PayoutToolApproval",
       isRole: true,
       question: "PayoutRequestDto",
       answer: "ToolCallApprovalDecisionDto",
-      answerer: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
+      expiresIn: 365 * 24 * 3_600_000,
       replyInterpreter: "payout-reply-interpreter",
       implementation: "DeskPayoutApprovalChannel",
       reason: ChannelImplementationReason.Listed,
       tools: ["pay-out-tool (treasury-workflow)"],
     });
     expect(describeAssembledApplication(treasury)).toContain(
-      "  expense-approval-channel (ExpenseApprovalChannel): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · reply interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application providers) · tools book-expense-tool (treasury-workflow)",
+      "  expense-tool-approval (ExpenseToolApproval): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · expires in 8760 h · channel interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application channels) · tools book-expense-tool (treasury-workflow)",
     );
   });
 

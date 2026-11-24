@@ -9,12 +9,7 @@
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  ExecutionCancelledError,
-  PauseClosedReason,
-  PauseResolution,
-  PauseStatus,
-} from "../../src/index.js";
+import { PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
 import {
   callTool,
   failWith,
@@ -304,7 +299,7 @@ describe("#940 Q2: an answer recorded and never applied", () => {
       await execute(app, DeskWorkflowStart, REFUND, ACME);
       const pauseId = askFor("7").pauseId;
       const recipients = {
-        channel: "refund-approval-channel",
+        channel: "finance-desk-refund-approval-channel",
         listeners: ["audit-pause-listener", "trusted-pause-listener"],
       };
       const answer = { decision: { approved: true }, actor: { id: "manager-17" } };

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
+import type { PauseRespondent } from "../pause/respondent.js";
 import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
@@ -160,12 +160,12 @@ export interface PauseSite {
 
 /** What a pause waits for and what a question asks (0.1.1: stored on every pause record). */
 
-/** What a pause waits for (#659): a tool call's approval, or a question role's answer. */
+/** What a pause waits for (#659): a tool call's approval, or an external task's output. */
 export enum PauseKind {
-  /** An agent's tool call through its channel: `input` is its arguments, `toolCall` names the call. */
+  /** An agent's tool call through its `@ToolApproval`: `input` is its arguments, `toolCall` names the call. */
   Approval = "approval",
-  /** A question role's step or tool (#659, #712): `input` is the role's ask, the answer its `answer` DTO. */
-  Question = "question",
+  /** An `@ExternalTask`'s step or tool (#659, #712): `input` is the task's input, the answer its `output` DTO. */
+  ExternalTask = "external-task",
 }
 
 /**
@@ -221,10 +221,12 @@ export interface PauseRecord extends PauseSite {
    * its tool, #712, too), or a question role's step (#659).
    */
   readonly step: string;
-  /** The channel asked: a role's name or a concrete `@Channel`'s. */
-  readonly channel: string;
-  /** Who may answer it (its channel role's `answerer`). */
-  readonly answerer: PauseAnswerer;
+  /** The pause target it waits under: the `@ToolApproval`'s or `@ExternalTask`'s name. */
+  readonly target: string;
+  /** The `@Channel` asked; absent for an owner's pause no channel serves (nobody is asked). */
+  readonly channel?: string;
+  /** Who may answer it (its target's `respondent`). */
+  readonly respondent: PauseRespondent;
   /**
    * What it asks, `sensitive` fields masked and PII tokenized: the arguments of the tool call an
    * approval waits for, or a question role's ask (#659) — told apart by `kind`.
@@ -280,7 +282,7 @@ export interface PauseRecord extends PauseSite {
  */
 export function isQuestionPause(pause: Pick<PauseRecord, "kind" | "pauseId">): boolean {
   switch (pause.kind) {
-    case PauseKind.Question:
+    case PauseKind.ExternalTask:
       return true;
     case PauseKind.Approval:
       return false;
@@ -363,13 +365,13 @@ export const logPauseAnswer = async (
 };
 
 /**
- * Who may answer a pause: its `answerer`. A record of a store of yours that names none is refused —
+ * Who may answer a pause: its `respondent`. A record of a store of yours that names none is refused —
  * 0.1.0's `answeredBy` is not read as an alias of it.
  */
-export function pauseAnswererOf(pause: {
-  readonly answerer?: PauseAnswerer | undefined;
-}): PauseAnswerer {
-  const { answerer } = pause;
-  if (answerer === undefined) throw new TypeError("a pause record names who may answer it");
-  return answerer;
+export function pauseRespondentOf(pause: {
+  readonly respondent?: PauseRespondent | undefined;
+}): PauseRespondent {
+  const { respondent } = pause;
+  if (respondent === undefined) throw new TypeError("a pause record names who may answer it");
+  return respondent;
 }

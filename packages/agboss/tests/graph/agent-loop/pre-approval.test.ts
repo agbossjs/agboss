@@ -15,7 +15,6 @@ import type {
 import { PiiKind } from "../../../src/pii/kinds.js";
 import { PiiPolicySet } from "../../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../../src/pii/runtime-policy.js";
-import type { PiiPolicyMeta } from "../../../src/pii/pii-policy.decorator.js";
 import type { PiiRule } from "../../../src/pii/pii-policy.decorator.js";
 import {
   callTools,
@@ -264,7 +263,7 @@ describe("#1295c: the decisions survive a pause and a restart", () => {
 
     const end = await runLoop(
       h.graph,
-      decision({ approved: true, overrideArguments: { path: "a.ts", content: EMAIL } }),
+      decision({ approved: true, overrideInput: { path: "a.ts", content: EMAIL } }),
       "t",
     );
 
@@ -283,7 +282,7 @@ describe("#1295c: the decisions survive a pause and a restart", () => {
 
     await runLoop(
       h.graph,
-      decision({ approved: true, overrideArguments: { path: "b.ts", content: "changed" } }),
+      decision({ approved: true, overrideInput: { path: "b.ts", content: "changed" } }),
       "t",
     );
 

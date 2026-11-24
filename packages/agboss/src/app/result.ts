@@ -8,12 +8,12 @@ import { AGBossError } from "../core/errors.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { NO_OBSERVABILITY_MASK } from "../pii/observability-mask.js";
 import { maskedEntries, maskedTreeRecordOf, treeMasksFor, type TreeDeps } from "./record-masks.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { pendingPauseOf, type PendingPause, type WaitingPause } from "../pause/index.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /** A pause as callers see it: a `Channel` pause's id stays with its channel (#267 AC3). */
 const visiblePauseOf = (pause: WaitingPause): PendingPause =>
-  pendingPauseOf(pause, pause.answerer === PauseAnswerer.ThreadOwner);
+  pendingPauseOf(pause, pause.respondent === PauseRespondent.Owner);
 
 /**
  * The full record of an execution (`{ includeRecord: true }`, #270 AC16); its `pauses`, and its children's,

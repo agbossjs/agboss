@@ -66,7 +66,7 @@ export {
   OutboundCallEventOutcome,
   OutboundCallStatus,
   OutdatedReason,
-  PauseAnswerer,
+  PauseRespondent,
   PauseKind,
   PauseResolution,
   PauseStatus,

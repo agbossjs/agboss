@@ -1,16 +1,9 @@
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-  type ReplyInterpreterHandler,
-} from "../../../src/channels/channel-role.decorator.js";
+import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
 import { Bool, Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -22,12 +15,14 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
 import {
-  BudgetOwnerQuestion,
+  BudgetOwnerQuestionExternalTask,
   InboxBudgetOwnerChannel,
   PurchaseQuestionDto,
   QuestionInbox,
 } from "./questions.fixture.js";
-import { inline } from "../../../src/index.js";
+import { inline, ExternalTask } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
 
 /**
  * #712 — a question role as an agent's tool: a buyer agent decides itself whether to ask its
@@ -64,74 +59,73 @@ export class OrderPlacedDto {
 /** What the approver's channel was asked and the order tool did, across the instances of a test. */
 @Injectable()
 export class BuyerDesk {
-  readonly asked: ChannelAsk<ApproverQuestion>[] = [];
+  readonly asked: ChannelAsk<ApproverExternalTask>[] = [];
   readonly ordered: OrderRequestDto[] = [];
 }
 
 /** Reads "up to 500" / "no" into a limit; anything else is not understood. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "approver-reply-interpreter",
   description: "Reads the approver's limit",
-  decidedBy: DecidedBy.Code,
 })
-export class ApproverReplyInterpreter implements ReplyInterpreterHandler<ApproverReplyInterpreter> {
+export class ApproverReplyInterpreter {
   interpret(
     input: InputOf<ApproverReplyInterpreter>,
-  ): ReplyInterpretation<OutputOf<ApproverReplyInterpreter>> {
+  ): ChannelInterpretation<OutputOf<ApproverReplyInterpreter>> {
     const limit = /up to \$?(\d+)/.exec(input.reply);
     if (limit?.[1] !== undefined)
-      return ReplyInterpretation.understood({ approved: true, limitUsd: Number(limit[1]) });
+      return ChannelInterpretation.understood({ approved: true, limitUsd: Number(limit[1]) });
     if (/^no\b/i.test(input.reply.trim()))
-      return ReplyInterpretation.understood({ approved: false, limitUsd: 0 });
-    return ReplyInterpretation.notUnderstood({ reason: `"${input.reply}" names no limit` });
+      return ChannelInterpretation.understood({ approved: false, limitUsd: 0 });
+    return ChannelInterpretation.notUnderstood(`"${input.reply}" names no limit`);
   }
 }
 
-@ChannelRole({
-  name: "approver-question",
+@ExternalTask({
+  name: "approver-external-task",
   description: "Asks the approver for the most this purchase may cost",
-  ask: PurchaseQuestionDto,
-  answer: ApproverAnswerDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: ApproverReplyInterpreter,
+  input: PurchaseQuestionDto,
+  output: ApproverAnswerDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: ApproverReplyInterpreter,
   maxVisits: 2,
 })
-export abstract class ApproverQuestion extends ChannelOf<ApproverQuestion> {}
+export class ApproverExternalTask {}
 
 /** Posts the question to the desk and waits for the reply. */
-@Channel({ name: "desk-approver-channel", description: "The desk", deps: [BuyerDesk] })
-export class DeskApproverChannel extends ApproverQuestion {
+@Channel({ name: "desk-approver-channel", description: "The desk", deps: [BuyerDesk], target: ApproverExternalTask, ttl: days(1) })
+export class DeskApproverChannel {
   constructor(private readonly buyerDesk: BuyerDesk) {
-    super();
   }
 
-  send(ask: ChannelAsk<ApproverQuestion>): Promise<ChannelOutcome<ApproverQuestion>> {
+  send(ask: ChannelAsk<ApproverExternalTask>): Promise<ChannelOutcome<ApproverExternalTask>> {
     this.buyerDesk.asked.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
 /** Decides at once: up to $100 goes on with a limit of $100. */
-@Channel({ name: "rule-approver-channel", description: "Up to $100 at once" })
-export class RuleApproverChannel extends ApproverQuestion {
-  send(ask: ChannelAsk<ApproverQuestion>): Promise<ChannelOutcome<ApproverQuestion>> {
+@Channel({ name: "rule-approver-channel", description: "Up to $100 at once", target: ApproverExternalTask, ttl: days(1) })
+export class RuleApproverChannel {
+  send(ask: ChannelAsk<ApproverExternalTask>): Promise<ChannelOutcome<ApproverExternalTask>> {
     const approved = ask.input.priceUsd <= 100;
     return Promise.resolve(ChannelOutcome.decided({ approved, limitUsd: approved ? 100 : 0 }));
   }
 }
 
 /** Decides at once with what is no answer of the role: a limit below zero. */
-@Channel({ name: "wrong-approver-channel", description: "Answers out of range" })
-export class WrongApproverChannel extends ApproverQuestion {
-  send(): Promise<ChannelOutcome<ApproverQuestion>> {
+@Channel({ name: "wrong-approver-channel", description: "Answers out of range", target: ApproverExternalTask, ttl: days(1) })
+export class WrongApproverChannel {
+  send(): Promise<ChannelOutcome<ApproverExternalTask>> {
     return Promise.resolve(ChannelOutcome.decided({ approved: true, limitUsd: -5 }));
   }
 }
 
 /** A channel that cannot be reached. */
-@Channel({ name: "down-approver-channel", description: "Unreachable" })
-export class DownApproverChannel extends ApproverQuestion {
-  send(): Promise<ChannelOutcome<ApproverQuestion>> {
+@Channel({ name: "down-approver-channel", description: "Unreachable", target: ApproverExternalTask, ttl: days(1) })
+export class DownApproverChannel {
+  send(): Promise<ChannelOutcome<ApproverExternalTask>> {
     return Promise.reject(new Error("the approvals service is down"));
   }
 }
@@ -158,7 +152,7 @@ export class OrderTool {
   prompt: inline("Ask the approver for a limit when the price is high, then order within it."),
   model: "test/buyer",
   input: { message: WorkflowStartTextDto },
-  tools: [ApproverQuestion, OrderTool],
+  tools: [ApproverExternalTask, OrderTool],
 })
 export class BuyerAgent {}
 
@@ -168,7 +162,7 @@ export class BuyerAgent {}
   prompt: inline("Ask the budget owner for a limit."),
   model: "test/buyer",
   input: { message: WorkflowStartTextDto },
-  tools: [BudgetOwnerQuestion],
+  tools: [BudgetOwnerQuestionExternalTask],
 })
 export class OwnerBuyerAgent {}
 

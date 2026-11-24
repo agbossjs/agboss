@@ -6,8 +6,8 @@ import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { TestFailure, testWith } from "../../src/testing/index.js";
 import {
-  ListFinanceQuestion,
-  ListOwnerQuestion,
+  ListFinanceExternalTask,
+  ListOwnerExternalTask,
   ListOwnerWorkflowStart,
   ListingApplication,
 } from "../flow/fixtures/list-pauses.fixture.js";
@@ -26,9 +26,13 @@ describe("#1328d: answerPause and replyToPause on the fixtures", () => {
     });
     expect(paused.status).toBe(ExecutionStatus.Paused);
 
-    const done = await answerPause(ListOwnerQuestion, { approved: true } as never, {
-      actor: { id: "alice" },
-    });
+    const done = await answerPause(
+      ListOwnerExternalTask,
+      { approved: true },
+      {
+        actor: { id: "alice" },
+      },
+    );
 
     expect(done.status).toBe(ExecutionStatus.Finished);
   });
@@ -40,7 +44,7 @@ describe("#1328d: answerPause and replyToPause on the fixtures", () => {
     await app.execute(ListOwnerWorkflowStart, order, { threadId: "t-2", ownerId: "alice" });
 
     await expect(
-      answerPause(ListOwnerQuestion, { approved: true } as never, { actor: { id: "mallory" } }),
+      answerPause(ListOwnerExternalTask, { approved: true }, { actor: { id: "mallory" } }),
     ).rejects.toThrow();
   });
 
@@ -49,17 +53,17 @@ describe("#1328d: answerPause and replyToPause on the fixtures", () => {
     answerPause,
     replyToPause,
   }) => {
-    await expect(replyToPause(ListOwnerQuestion, "yes")).rejects.toMatchObject({
+    await expect(replyToPause(ListOwnerExternalTask, "yes")).rejects.toMatchObject({
       code: "test.no-open-pause",
     });
     await app.execute(ListOwnerWorkflowStart, order, { threadId: "t-3", ownerId: "alice" });
 
-    const failure = await answerPause(ListFinanceQuestion, { approved: true } as never).catch(
+    const failure = await answerPause(ListFinanceExternalTask, { approved: true }).catch(
       (error: unknown) => error,
     );
 
     expect(failure).toBeInstanceOf(TestFailure);
     expect(failure).toMatchObject({ code: "test.no-open-pause" });
-    expect(String(failure)).toContain("list-owner-question");
+    expect(String(failure)).toContain("list-owner-external-task");
   });
 });

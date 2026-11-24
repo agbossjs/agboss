@@ -6,7 +6,6 @@ import * as a2a from "../../src/a2a/index.js";
 import * as root from "../../src/index.js";
 import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
-import { TokenLimit } from "../../src/config/types.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
 import { seconds } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
@@ -45,7 +44,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     rule: root.KeyTextRule.Length,
   }),
   fx(root.ThreadIdsExhaustedError, { generator: "G", tries: 100 }),
-  fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "answerer" }),
+  fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
   fx(root.SqliteSchemaTooNewError, { applied: 2, expected: 1 }),
   fx(root.StoreOutcomeUnknownError, {

@@ -7,13 +7,12 @@ import { describe, expect, it } from "vitest";
 import {
   Arbiter,
   Agent,
-  DecidedBy,
   HealthCheck,
   HealthCheckResult,
   InputGuardrail,
   Judge,
   JudgeVerdict,
-  PauseListener,
+  ChannelListener,
   PiiKind,
   PiiPolicy,
   ToolCallDecision,
@@ -24,14 +23,17 @@ import {
   inline,
 } from "../../src/index.js";
 import { arbiterOf } from "../../src/flow/decorators/arbiter.js";
-import { ReplyInterpreter, replyInterpreterOf } from "../../src/channels/channel-role.decorator.js";
+import {
+  ChannelInterpreter,
+  channelInterpreterOf,
+} from "../../src/channels/channel-interpreter.js";
 import { componentOf } from "../../src/components/metadata.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { guardrailMetaOf } from "../../src/components/policy-decorators.js";
 import { healthCheckOf } from "../../src/health/health-check.js";
-import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js";
+import { ModelCost, ModelProvider } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
-import { pauseListenerOf } from "../../src/pause/pause-listener.js";
+import { channelListenerOf } from "../../src/pause/channel-listener.js";
 import { piiPolicyMetaOf } from "../../src/pii/policy-checks.js";
 import { RagReranker } from "../../src/rag/reranker.decorator.js";
 import { toolInterceptorMetaOf } from "../../src/tool-interceptors/decorator.js";
@@ -46,7 +48,7 @@ class CrmHealthCheck {
   }
 }
 
-@PauseListener({})
+@ChannelListener({})
 class BackofficeListener {
   onPauseOpened = (): Promise<void> => Promise.resolve();
   onPauseClosed = (): Promise<void> => Promise.resolve();
@@ -78,7 +80,7 @@ class ContactDetails {}
 @Arbiter()
 class GoodScore {}
 
-@ReplyInterpreter({ decidedBy: DecidedBy.Model, model: "test/reader" })
+@ChannelInterpreter({ model: "test/reader" })
 class RefundReader {}
 
 @RagReranker({ candidates: 5, model: "test/rerank" })
@@ -115,13 +117,13 @@ const nameOfKind = (cls: Class, kind: "reranker" | "judge"): string | undefined 
 describe("#1343a: a name left out is the class name in kebab-case", () => {
   it.each([
     ["@HealthCheck", healthCheckOf(CrmHealthCheck)?.name, "crm-health-check"],
-    ["@PauseListener", pauseListenerOf(BackofficeListener)?.name, "backoffice-listener"],
+    ["@ChannelListener", channelListenerOf(BackofficeListener)?.name, "backoffice-listener"],
     ["@WorkingCalendar", workingCalendarOf(TenantHolidays)?.name, "tenant-holidays"],
     ["@ToolInterceptor", toolInterceptorMetaOf(TenantScope)?.name, "tenant-scope"],
     ["@InputGuardrail", guardrailMetaOf(RudeWords)?.name, "rude-words"],
     ["@PiiPolicy", piiPolicyMetaOf(ContactDetails)?.name, "contact-details"],
     ["@Arbiter", arbiterOf(GoodScore)?.options.name, "good-score"],
-    ["@ReplyInterpreter", replyInterpreterOf(RefundReader)?.options.name, "refund-reader"],
+    ["@ChannelInterpreter", channelInterpreterOf(RefundReader)?.options.name, "refund-reader"],
     ["@RagReranker", nameOfKind(DocsRanker, "reranker"), "docs-ranker"],
     ["@ModelProvider", modelProviderOf(AwsBedrock).name, "aws-bedrock"],
     ["@Judge", nameOfKind(FairAnswer, "judge"), "fair-answer"],

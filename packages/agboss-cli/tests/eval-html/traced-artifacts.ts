@@ -148,7 +148,7 @@ const FULL_TRACE = traceOf("7", {
   pauses: [
     {
       nodeId: "refund-agent",
-      target: "refund-approval-channel",
+      target: "refund-approval-tool-approval-3",
       resolution: PauseResolution.Replied,
       actor: { id: "owner-1" },
       output: { approved: true },

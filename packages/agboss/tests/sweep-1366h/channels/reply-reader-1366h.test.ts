@@ -6,7 +6,7 @@
  * approval whose correction changes the call's shape is declined with the reason; tokens nobody gave are declined.
  */
 import { AIMessage, HumanMessage, type BaseMessage } from "@langchain/core/messages";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { readByModel, replyInterpreterCaller } from "../../../src/channels/reply-reader.js";
 import {
   withCorrectedCall,
@@ -33,15 +33,15 @@ class WireRequestDto {
 class PlainReader {}
 
 const interpreter = {
-  channel: "wire-approval-channel",
+  target: "wire-tool-approval",
   interpreter: PlainReader,
   name: "wire-reply-interpreter",
   answer: ToolCallApprovalDecisionDto,
-  approves: WireRequestDto,
+  input: WireRequestDto,
   model: "test/wire-reader",
   instructions: "Read the reply.",
 };
-const question = { ...interpreter, approves: undefined };
+const question = { ...interpreter, input: undefined };
 const answerName = replyToolsOf(ToolCallApprovalDecisionDto, undefined).answer;
 const ASK = { account: "A-1" };
 
@@ -219,7 +219,7 @@ describe("#1366: a call that says the reply is not understood", () => {
 
 describe("#1366: an approval whose correction changes the call's shape", () => {
   it("is declined with the reason it is none, never taken", async () => {
-    const answer = { decision: "approve-with-changes", overrideArguments: {} };
+    const answer = { decision: "approve-with-changes", overrideInput: {} };
     const why = withCorrectedCall(answer, ASK);
     if (why.kind !== "invalid") throw new Error("the answer should be invalid");
     const { gateway } = gatewayGiving(

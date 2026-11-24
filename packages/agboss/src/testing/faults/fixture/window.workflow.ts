@@ -1,8 +1,6 @@
-import { Action, Workflow, WorkflowFinish, WorkflowStart, type Tracked } from "../../../index.js";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, type Tracked, ExternalTask } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
-import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
@@ -19,7 +17,9 @@ import {
 } from "./order.actions.js";
 import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
-import { FaultPauseQuestion, FaultPauseWorkflow } from "./pause.workflow.js";
+import { FaultPauseExternalTask, FaultPauseWorkflow } from "./pause.workflow.js";
+import { PauseRespondent } from "../../../pause/respondent.js";
+import { days } from "../../../units/index.js";
 
 /**
  * The fault fixture's trees for the writes window at an answer (#1098), run on every store set:
@@ -58,19 +58,20 @@ export class FaultChildPauseWorkflowFinish {}
 })
 export class FaultChildPauseWorkflow {}
 
-@ChannelRole({
-  name: "fault-second-pause-question",
+@ExternalTask({
+  name: "fault-second-pause-external-task",
   description: "Asks the order's thread owner to approve it once more",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class FaultSecondPauseQuestion extends ChannelOf<FaultSecondPauseQuestion> {}
+export class FaultSecondPauseExternalTask {}
 
 /** Nobody is sent anything: the second question waits for its `app.resume`. */
-@Channel({ name: "fault-second-pause-channel", description: "Waits for the order's second answer" })
-export class FaultSecondPauseChannel extends FaultSecondPauseQuestion {
-  send(): Promise<ChannelOutcome<FaultSecondPauseQuestion>> {
+@Channel({ name: "fault-second-pause-channel", description: "Waits for the order's second answer", target: FaultSecondPauseExternalTask, ttl: days(1) })
+export class FaultSecondPauseChannel {
+  send(): Promise<ChannelOutcome<FaultSecondPauseExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -122,10 +123,10 @@ export class FaultTwicePauseWorkflowFinish {}
     onStart(FaultTwicePauseWorkflowStart)
       .toAction(FaultReserveAction)
       .toAction(FaultAskAction)
-      .toExternalTask(FaultPauseQuestion)
+      .toExternalTask(FaultPauseExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultAskAgainAction)
-      .toExternalTask(FaultSecondPauseQuestion)
+      .toExternalTask(FaultSecondPauseExternalTask)
       .toAction(FaultApprovedAgainAction)
       .toAction(FaultChargeAction)
       .toAction(FaultPayAction)

@@ -5,6 +5,7 @@ import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workfl
 import {
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
@@ -55,6 +56,7 @@ export class PlannedIdGenerator extends IdGenerator {
   providers: [
     PlannedIdGenerator,
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
   ],

@@ -11,7 +11,7 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { ComponentError } from "../../src/components/metadata.js";
 import { testWith } from "../../src/testing/index.js";
-import { toolExpiryViolations } from "../../src/components/tool-expiry-rules.js";
+import { toolNameViolations } from "../../src/components/assemble-checks.js";
 import { Text } from "../../src/dto/index.js";
 import { countQuorumOf } from "../../src/flow/quorum-step.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -274,12 +274,12 @@ describe("#1141: a tool's timeout", () => {
       }
       return SlowTool as never;
     };
-    const refused = toolExpiryViolations({
+    const refused = toolNameViolations({
       local: [toolWith(over(MAX_TIMEOUT))],
     });
     expect(refused.map((one) => one.code)).toEqual(["limits.timeout-invalid"]);
     expect(refused[0]?.message).toContain("timeout is 86400001 ms");
-    expect(toolExpiryViolations({ local: [toolWith(MAX_TIMEOUT)] })).toEqual([]);
+    expect(toolNameViolations({ local: [toolWith(MAX_TIMEOUT)] })).toEqual([]);
   });
 });
 

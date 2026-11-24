@@ -254,6 +254,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     [
       "src/app/app-deps-parts.ts",
       "src/app/app-workflow.ts",
+      "src/app/pause-lookups.ts",
       "src/app/create-app-options.ts",
       "src/app/tracing-for.ts",
       "src/app/channel-decision.ts",
@@ -312,7 +313,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the pause's application-side wiring: the pause transitions themselves are the pause stores'",
     [
-      "src/app/pause-answerer.ts",
+      "src/app/pause-respondent.ts",
       "src/app/pause-closed-error.ts",
       "src/app/pause-closed.ts",
       "src/app/pause-frame.ts",
@@ -416,8 +417,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/channels/channel-handler.ts",
       "src/channels/channel-interpreter.ts",
       "src/channels/channel-outcome.ts",
-      "src/channels/channel-role-form.ts",
-      "src/channels/channel-role.decorator.ts",
       "src/channels/channel-selector.ts",
       "src/channels/channel-sender.ts",
       "src/channels/discovery.ts",
@@ -425,7 +424,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/channels/pause-expiration.ts",
       "src/channels/pause-targets.ts",
       "src/channels/question-uses.ts",
-      "src/channels/reply-interpreter.decorator.ts",
       "src/channels/reply-tools.ts",
       "src/channels/role-interpreter.ts",
       "src/channels/test-channels.ts",
@@ -670,7 +668,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/path-start.ts",
     "src/flow/print-quorum.ts",
     "src/flow/print.ts",
-    "src/flow/question-options.ts",
     "src/flow/quorum-types.ts",
     "src/flow/route-types.ts",
     "src/flow/registry.ts",
@@ -1253,7 +1250,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the tools' definitions: declarations (signed-fetch.ts is mutated by the a2a-client shard, so its directory lists the others)",
     [
-      "src/tools/approval-channel.ts",
       "src/tools/define-tool.ts",
       "src/tools/index.ts",
       "src/tools/langchain.ts",

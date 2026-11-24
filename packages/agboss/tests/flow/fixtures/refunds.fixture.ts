@@ -1,8 +1,7 @@
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import { Integer, Text } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -14,7 +13,9 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
-import { inline } from "../../../src/index.js";
+import { inline, ToolApproval } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
 
 /**
  * #267 PR 1 — a card refund approved through a channel role: the tool names the role, the role
@@ -38,34 +39,35 @@ export class RefundCardOutputDto {
 /** What the channels posted and what the tool did. */
 @Injectable()
 export class RefundDesk {
-  readonly posted: ChannelAsk<RefundApprovalChannel>[] = [];
+  readonly posted: ChannelAsk<RefundDeskToolApproval>[] = [];
   readonly refunded: string[] = [];
   readonly tenants: string[] = [];
 }
 
-@ChannelRole({
-  name: "refund-approval-channel",
+@ToolApproval({
+  name: "refund-gate-tool-approval",
   description: "Approves card refunds",
-  approves: RefundCardInputDto,
-  answerer: PauseAnswerer.Channel,
+  input: RefundCardInputDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundDeskToolApproval {}
 
 /** Posts the ask (a Slack message with the pause's id as its reply key) and waits for the reply. */
 @Channel({
   name: "slack-refund-approval-channel",
   description: "Asks a finance manager",
   deps: [ExecutionContext, RefundDesk],
+  target: RefundDeskToolApproval,
+  ttl: days(1),
 })
-export class SlackRefundApprovalChannel extends RefundApprovalChannel {
+export class SlackRefundApprovalChannel {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly refundDesk: RefundDesk,
-  ) {
-    super();
-  }
+  ) {}
 
-  send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
+  send(ask: ChannelAsk<RefundDeskToolApproval>): Promise<ChannelOutcome<RefundDeskToolApproval>> {
     this.refundDesk.posted.push(ask);
     this.refundDesk.tenants.push(this.executionContext.tenant.tenantId);
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -73,9 +75,14 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 }
 
 /** A rule-based implementation: small refunds are approved at once, the rest refused at once. */
-@Channel({ name: "rule-refund-approval-channel", description: "Up to $50 at once" })
-export class RuleRefundApprovalChannel extends RefundApprovalChannel {
-  send(ask: ChannelAsk<RefundApprovalChannel>): Promise<ChannelOutcome<RefundApprovalChannel>> {
+@Channel({
+  name: "rule-refund-approval-channel",
+  description: "Up to $50 at once",
+  target: RefundDeskToolApproval,
+  ttl: days(1),
+})
+export class RuleRefundApprovalChannel {
+  send(ask: ChannelAsk<RefundDeskToolApproval>): Promise<ChannelOutcome<RefundDeskToolApproval>> {
     const isSmall = ask.input.amountCents <= 5000;
     return Promise.resolve(
       isSmall
@@ -90,7 +97,7 @@ export class RuleRefundApprovalChannel extends RefundApprovalChannel {
   description: "Refunds a card payment",
   input: RefundCardInputDto,
   output: RefundCardOutputDto,
-  channel: RefundApprovalChannel,
+  approval: RefundDeskToolApproval,
   deps: [RefundDesk],
 })
 export class RefundCardTool {

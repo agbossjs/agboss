@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { ExecutionStatus } from "../app/types.js";
 import { CompensationEntryStatus } from "../flow/compensation.js";
 import type { CompensationEntry } from "../flow/compensation.js";
@@ -24,6 +23,7 @@ import {
 } from "./stored-record-parts.js";
 import { StoredPauseToolCall } from "./stored-pause.js";
 import { readStored, StoredComponent, StoredTrailEntry } from "./stored-step.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * A paused run as a store keeps it as JSON (`PausedExecution.run`), read whole and version tolerant
@@ -106,13 +106,14 @@ const StoredWaiting = z
   .object({
     pauseId: text,
     kind: z.enum(PauseKind),
-    answerer: z.enum(PauseAnswerer),
-    // 0.1.0's names are refused, never read: `agent` for `step`; `answeredBy` was the answerer's
+    respondent: z.enum(PauseRespondent),
+    // 0.1.0's names are refused, never read: `agent` for `step`; `answeredBy` was the respondent's
     // alias on `WaitingPause`
     agent: z.never().optional(),
     answeredBy: z.never().optional(),
     step: text,
-    channel: text,
+    target: text,
+    channel: text.optional(),
     childExecutionId: text.optional(),
     itemIndex: count.optional(),
     // 0.1.0's name of `input` + `toolCall`: refused, never read
@@ -124,12 +125,13 @@ const StoredWaiting = z
     trail: z.array(StoredTrailEntry),
   })
   .transform((stored, context): WaitingPause => {
-    const { answerer, step, toolCall } = stored;
+    const { respondent, step, toolCall } = stored;
     const base = {
       pauseId: stored.pauseId,
-      answerer,
+      respondent,
       step,
-      channel: stored.channel,
+      target: stored.target,
+      ...(stored.channel === undefined ? {} : { channel: stored.channel }),
       childExecutionId: stored.childExecutionId,
       itemIndex: stored.itemIndex,
       input: stored.input,
@@ -137,8 +139,8 @@ const StoredWaiting = z
       ...(stored.externalRef === undefined ? {} : { externalRef: stored.externalRef }),
       trail: stored.trail,
     };
-    if (stored.kind === PauseKind.Question && toolCall === undefined)
-      return { ...base, kind: PauseKind.Question };
+    if (stored.kind === PauseKind.ExternalTask && toolCall === undefined)
+      return { ...base, kind: PauseKind.ExternalTask };
     if (stored.kind === PauseKind.Approval && toolCall !== undefined)
       return { ...base, kind: PauseKind.Approval, toolCall };
     context.addIssue({

@@ -3,13 +3,13 @@ import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { OutdatedValueRecord, ScopeValueRecord } from "./records.js";
 import type { ChildExecutionRecord } from "./child-records.js";
-import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { PauseActor } from "../../channels/pause-contexts.js";
 import type { PauseResolution, PauseTrailRecord } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
+import { type PauseRespondent } from "../../pause/respondent.js";
 
 /**
  * The full record of one execution (#270 AC16), returned only with `app.execute(…, { includeRecord: true })`:
@@ -51,16 +51,18 @@ export interface ExecutionRecord {
 
 /** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */
 export interface PauseAnswerRecord {
-  /** Its id — `undefined` for a `PauseAnswerer.Channel` pause: only its channel has it (S100 b). */
+  /** Its id — `undefined` for a `PauseRespondent.Delegate` pause: only its channel has it (S100 b). */
   readonly pauseId: string | undefined;
   /** The execution it waited in: the root's, or a child's (its `ChildExecutionRecord.pauses`, S124 c). */
   readonly executionId: string;
   /** The waiting step: its agent, node, visit, copy, item and tool call. */
   readonly step: StepRecord;
-  /** The channel asked: a role's name or a concrete `@Channel`'s. */
-  readonly role: string;
-  /** Who may answer it (its role's `answerer`). */
-  readonly answerer: PauseAnswerer;
+  /** The pause target it waited under. */
+  readonly target: string;
+  /** The channel asked; absent for an owner's pause nobody was asked about. */
+  readonly channel?: string;
+  /** Who may answer it (its target's `respondent`). */
+  readonly respondent: PauseRespondent;
   /**
    * Who answered: the owner (`{ id: ownerId }`) or the `actor` of `app.resume`; `undefined` when
    * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner.

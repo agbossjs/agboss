@@ -1,6 +1,5 @@
 import type { Class } from "../../../src/components/injection.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
-import type { ValueShape } from "../../../src/flow/dto-wrappers.js";
 import {
   fromComponent,
   fromSource,
@@ -54,9 +53,9 @@ export const toFinish = (target: Class): PathBuilder =>
     .toFinish(target);
 
 /** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
-export const toExternalTask = (target: Class, options?: unknown): PathBuilder =>
+export const toExternalTask = (target: Class): PathBuilder =>
   side()
-    .toExternalTask(target, options);
+    .toExternalTask(target);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
 export const toWorkflow = (target: Class): PathBuilder =>

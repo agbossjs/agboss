@@ -3,7 +3,7 @@ import { isEnvContract, resolveEnv } from "../../environments/define-env.js";
 import type { EnvContract } from "../../environments/env-ref.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
-import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
+import { channelInterpreterOf } from "../../channels/channel-interpreter.js";
 import { ComponentError, componentOf } from "../metadata.js";
 import {
   isModelProviderClass,
@@ -21,7 +21,7 @@ import { Registrations, type ProviderModule, type Registration } from "./registr
 
 /** The options a flow node's, an arbiter's or a reply interpreter's decorator recorded. */
 const declaredOptionsOf = (cls: Class) =>
-  declarationOf(cls)?.options ?? arbiterOf(cls)?.options ?? replyInterpreterOf(cls)?.options;
+  declarationOf(cls)?.options ?? arbiterOf(cls)?.options ?? channelInterpreterOf(cls)?.options;
 
 /** A component's constructor dependencies: every decorator kind that takes `deps` records them. */
 export const depsOf = (cls: Class): readonly Token[] => {
@@ -38,7 +38,7 @@ export const isDecorated = (cls: Class): boolean =>
   componentOf(cls) !== undefined ||
   declarationOf(cls) !== undefined ||
   arbiterOf(cls) !== undefined ||
-  replyInterpreterOf(cls) !== undefined ||
+  channelInterpreterOf(cls) !== undefined ||
   isModelProviderClass(cls);
 
 /**

@@ -19,7 +19,7 @@ import {
   QuestionInbox,
   QuestionsApplication,
   SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "../flow/fixtures/questions.fixture.js";
 import { execute } from "../helpers/flow.js";
 
@@ -90,7 +90,7 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
       system: expect.stringContaining("the answer tool with the fields the reply gives"),
     });
     expect(interpreter.onlyRequest).not.toMatchObject({
-      system: expect.stringContaining("overrideArguments"),
+      system: expect.stringContaining("overrideInput"),
     });
     // the question's sensitive field is masked for the model too
     expect(JSON.stringify(interpreter.onlyRequest)).not.toContain("alice");
@@ -114,7 +114,7 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
 });
 
 /** A channel whose transport is down. */
-class DownChannel extends SpendingLimitQuestion {
+class DownChannel extends SpendingLimitQuestionExternalTask {
   send(): never {
     throw new Error("inbox unreachable");
   }
@@ -138,7 +138,7 @@ describe("#659 AC2: a send that throws is the step's failure", () => {
         error: expect.objectContaining({
           code: "step.question",
           message: expect.stringContaining("inbox unreachable"),
-          details: expect.objectContaining({ question: "spending-limit-question" }),
+          details: expect.objectContaining({ question: "spending-limit-question-external-task" }),
         }),
       }),
     ]);

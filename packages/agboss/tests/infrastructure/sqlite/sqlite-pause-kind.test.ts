@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
-import { PauseKind, PauseStatus } from "../../../src/index.js";
+import { PauseKind } from "../../../src/index.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { PAUSES_SCHEMA } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
@@ -26,10 +26,15 @@ const storedOf = (fields: Record<string, unknown>): string =>
     visitNumber: 1,
     copyNumber: 1,
     askedAt: "2026-01-05T09:00:00.000Z",
+    target: "refund-tool-approval",
     channel: "refund-approval-channel",
-    answerer: "channel",
+    respondent: "delegate",
     trail: [
-      { action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" },
+      {
+        action: "opened",
+        at: "2026-01-05T09:00:00.000Z",
+        target: "refund-approval-channel",
+      },
     ],
     ...fields,
   });
@@ -50,7 +55,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
       .run(
         storedOf({
           nodeId: "clerk-agent",
-          kind: PauseKind.Question,
+          kind: PauseKind.ExternalTask,
           step: "clerk-agent",
           component: { name: "spending-limit-tool", kind: "tool" },
           input: { item: "laptop" },
@@ -60,7 +65,7 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
     expect(await pauses.findByTenantIdAndPauseId("default", "q")).toMatchObject({
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
       input: { item: "laptop" },
     });
   });

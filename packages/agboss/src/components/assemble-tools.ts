@@ -14,8 +14,8 @@ import type { AssembledWorkflow } from "../workflow.js";
 import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { McpServerHandle } from "../tools/index.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { channelRoleOptionsOf } from "../channels/channel-role.decorator.js";
-import { questionRoleOf } from "../channels/discovery.js";
+import { pauseTargetOf } from "../channels/pause-targets.js";
+import { externalTaskOf } from "../channels/discovery.js";
 
 /** One `@McpServer` of the workflow: its class, name, launch config and declared tools. */
 export interface McpServerPart {
@@ -65,18 +65,18 @@ export function resultSizeViolations(bundle: WorkflowMeta, tools: ToolClasses): 
 /** Why a class in an agent's tools is none of what `tools` takes. */
 function notAToolMessage(bundle: WorkflowMeta, cls: Class): string {
   const prefix = `@Workflow "${bundle.name}": ${cls.name} in an agent's tools`;
-  if (channelRoleOptionsOf(cls) !== undefined)
-    return `[channel.approval-role-as-tool] ${prefix} is an approval role: it approves the tools that name it (@Tool({ channel: ${cls.name} })) — only a question role (ask / answer) is an agent's tool`;
-  return `${prefix} is not a @Tool or question role`;
+  if (pauseTargetOf(cls)?.kind === "tool-approval")
+    return `[channel.approval-role-as-tool] ${prefix} is a tool approval: it approves the tools that name it (@Tool({ approval: ${cls.name} })) — only an @ExternalTask is an agent's tool`;
+  return `${prefix} is not a @Tool or an @ExternalTask`;
 }
 
 /**
- * The tool classes of the workflow's agents, checked: local `@Tool`s and the question
- * roles they ask (#712).
+ * The tool classes of the workflow's agents, checked: local `@Tool`s and the external
+ * tasks they ask (#712).
  */
 export function toolsOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): ToolClasses {
   const classes = [...new Set(agents.flatMap((agent) => agent.tools ?? []))];
-  const asked = classes.filter((cls) => questionRoleOf(cls) !== undefined);
+  const asked = classes.filter((cls) => externalTaskOf(cls) !== undefined);
   for (const cls of classes) {
     if (asked.includes(cls)) continue;
     const kind = componentOf(cls)?.kind;

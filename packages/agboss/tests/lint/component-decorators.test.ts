@@ -78,9 +78,12 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Router({ name: "credit-router", description: "d", decidedBy: DecidedBy.Code, input: { order: OrderDto }, routes: [] })',
     "route(): void",
   ),
-  Channel: statefulClass('@Channel({ name: "slack-channel" })', "async send(): Promise<void>"),
-  ReplyInterpreter: statefulClass(
-    '@ReplyInterpreter({ name: "refund-reply-interpreter", description: "d", decidedBy: DecidedBy.Code })',
+  Channel: statefulClass(
+    '@Channel({ name: "slack-channel", target: RefundToolApproval, ttl: days(1) })',
+    "async send(): Promise<void>",
+  ),
+  ChannelInterpreter: statefulClass(
+    '@ChannelInterpreter({ name: "refund-reply-interpreter", description: "d" })',
     "interpret(): void",
   ),
   InputGuardrail: statefulClass(
@@ -129,14 +132,9 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     "@ChannelSelector({ target: RefundToolApproval })",
     "selectChannel(): void",
   ),
-  ChannelInterpreter: statefulClass("@ChannelInterpreter()", "interpret(): void"),
   ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
   HttpAuthenticator: statefulClass("@HttpAuthenticator()", "authenticate(): void"),
   Observer: statefulClass('@Observer({ name: "desk-observer" })', "onExecutionEnd(): void"),
-  PauseListener: statefulClass(
-    '@PauseListener({ name: "back-office-pause-listener" })',
-    "async onPauseClosed(): Promise<void>",
-  ),
   WorkingCalendar: statefulClass(
     '@WorkingCalendar({ name: "office-working-calendar" })',
     "async addWorkingTime(): Promise<void>",
@@ -203,7 +201,6 @@ describe("#402 AC1: `this.x = …` in a method of every component is reported", 
  * each with why — a new decorator must land in `COMPONENT_DECORATORS` or here.
  */
 const NOT_COMPONENTS: Readonly<Record<string, string>> = {
-  ChannelRole: "an abstract role: its @Channel implementation is the component",
   Arbitrate: "a method decorator (of a code @Arbiter)",
   SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
   S3Driver: "a driver factory (#1321): settings for a storage component, not a class",

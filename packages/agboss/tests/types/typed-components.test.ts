@@ -71,7 +71,6 @@ describe("#200 AC2: slots are typed by component kind", () => {
       description: "A service in every slot",
       model: "test/alpha",
       prompt: inline("p"),
-      // @ts-expect-error -- JobFitJudge is not a @Tool (no `run`)
       tools: [JobFitJudge],
     })
     class Wrong {}

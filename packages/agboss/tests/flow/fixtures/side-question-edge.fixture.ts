@@ -1,17 +1,10 @@
 import { Application } from "../../../src/application/application.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-  type ReplyInterpreterHandler,
-} from "../../../src/channels/channel-role.decorator.js";
+import { ChannelInterpretation, ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import {
@@ -35,9 +28,12 @@ import {
   PurchaseWorkflowFinish,
   QuestionInbox,
   SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "./questions.fixture.js";
 import { FlakyCheckAction } from "./side-question.fixture.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { ExternalTask } from "../../../src/channels/pause-targets.js";
+import { days } from "../../../src/units/index.js";
 
 /**
  * #933 — tests of the shipped `toQuestion` starter, and the edge case of one question role used on
@@ -61,7 +57,7 @@ export class PublicStarterWorkflowStart {}
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
-        publicToQuestion(SpendingLimitQuestion)
+        publicToQuestion(SpendingLimitQuestionExternalTask)
           .toAction(PlacePurchaseAction)
           .toFinish(PurchaseWorkflowFinish),
       )
@@ -101,70 +97,70 @@ export class FailFirstPlaceAction implements ActionHandler<FailFirstPlaceAction>
 
 /** Reads the first number of the reply as the limit. */
 const limitOf = (reply: string) =>
-  ReplyInterpretation.understood({
+  ChannelInterpretation.understood({
     approved: true,
     limitUsd: Number(/\d+/.exec(reply)?.[0] ?? 0),
   });
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "edge-once-reply-interpreter",
   description: "Reads the limit",
-  decidedBy: DecidedBy.Code,
 })
-export class EdgeOnceInterpreter implements ReplyInterpreterHandler<EdgeOnceInterpreter> {
+export class EdgeOnceInterpreter {
   interpret(
     input: InputOf<EdgeOnceInterpreter>,
-  ): ReplyInterpretation<OutputOf<EdgeOnceInterpreter>> {
+  ): ChannelInterpretation<OutputOf<EdgeOnceInterpreter>> {
     return limitOf(input.reply);
   }
 }
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "edge-twice-reply-interpreter",
   description: "Reads the limit",
-  decidedBy: DecidedBy.Code,
 })
-export class EdgeTwiceInterpreter implements ReplyInterpreterHandler<EdgeTwiceInterpreter> {
+export class EdgeTwiceInterpreter {
   interpret(
     input: InputOf<EdgeTwiceInterpreter>,
-  ): ReplyInterpretation<OutputOf<EdgeTwiceInterpreter>> {
+  ): ChannelInterpretation<OutputOf<EdgeTwiceInterpreter>> {
     return limitOf(input.reply);
   }
 }
 
 /** One visit allowed: the side-path ask is the second visit of the node. */
-@ChannelRole({
-  name: "edge-once-question",
+@ExternalTask({
+  name: "edge-once-external-task",
   description: "Asks the thread's owner",
-  ask: PurchaseQuestionDto,
-  answer: SpendingLimitAnswerDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: EdgeOnceInterpreter,
+  input: PurchaseQuestionDto,
+  output: SpendingLimitAnswerDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: EdgeOnceInterpreter,
   maxVisits: 1,
 })
-export abstract class EdgeOnceQuestion extends ChannelOf<EdgeOnceQuestion> {}
+export class EdgeOnceExternalTask {}
 
-@ChannelRole({
-  name: "edge-twice-question",
+@ExternalTask({
+  name: "edge-twice-external-task",
   description: "Asks the thread's owner",
-  ask: PurchaseQuestionDto,
-  answer: SpendingLimitAnswerDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: EdgeTwiceInterpreter,
+  input: PurchaseQuestionDto,
+  output: SpendingLimitAnswerDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: EdgeTwiceInterpreter,
   maxVisits: 2,
 })
-export abstract class EdgeTwiceQuestion extends ChannelOf<EdgeTwiceQuestion> {}
+export class EdgeTwiceExternalTask {}
 
-@Channel({ name: "edge-once-channel", description: "inbox" })
-export class EdgeOnceChannel extends EdgeOnceQuestion {
-  send(_ask: ChannelAsk<EdgeOnceQuestion>): Promise<ChannelOutcome<EdgeOnceQuestion>> {
+@Channel({ name: "edge-once-channel", description: "inbox", target: EdgeOnceExternalTask, ttl: days(1) })
+export class EdgeOnceChannel {
+  send(_ask: ChannelAsk<EdgeOnceExternalTask>): Promise<ChannelOutcome<EdgeOnceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "edge-twice-channel", description: "inbox" })
-export class EdgeTwiceChannel extends EdgeTwiceQuestion {
-  send(_ask: ChannelAsk<EdgeTwiceQuestion>): Promise<ChannelOutcome<EdgeTwiceQuestion>> {
+@Channel({ name: "edge-twice-channel", description: "inbox", target: EdgeTwiceExternalTask, ttl: days(1) })
+export class EdgeTwiceChannel {
+  send(_ask: ChannelAsk<EdgeTwiceExternalTask>): Promise<ChannelOutcome<EdgeTwiceExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -210,7 +206,7 @@ export const inlineTwiceEdgeFlow = (
 @Workflow({
   name: "edge-once-workflow",
   version: "1.0.0",
-  flow: sharedEdgeFlow(EdgeOnceStart, EdgeOnceQuestion),
+  flow: sharedEdgeFlow(EdgeOnceStart, EdgeOnceExternalTask),
   providers: [QuestionInbox, EdgeCalls],
 })
 export class EdgeOnceWorkflow {}
@@ -218,7 +214,7 @@ export class EdgeOnceWorkflow {}
 @Workflow({
   name: "edge-twice-workflow",
   version: "1.0.0",
-  flow: sharedEdgeFlow(EdgeTwiceStart, EdgeTwiceQuestion),
+  flow: sharedEdgeFlow(EdgeTwiceStart, EdgeTwiceExternalTask),
   providers: [QuestionInbox, EdgeCalls],
 })
 export class EdgeTwiceWorkflow {}

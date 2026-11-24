@@ -1,5 +1,4 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
-import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
@@ -12,6 +11,7 @@ import {
   type PauseRecord,
   type PauseTrailRecord,
 } from "../infrastructure/pause-record.js";
+import { type PauseRespondent } from "./respondent.js";
 
 /**
  * The pause seam: what an execution pauses on (#267 S35) — the checkpointer LangGraph's
@@ -63,19 +63,21 @@ export { PauseKind, pauseInputOf };
 /** What every pending pause has, whatever it asks: where it waits and who answers it. */
 export interface PendingPauseBase {
   /**
-   * The pause's id, what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause. A
-   * `PauseAnswerer.Channel` pause's id is the right to answer it: only its channel has it (AC3).
+   * The pause's id, what `app.resume` takes — only for a `PauseRespondent.Owner` pause. A
+   * `PauseRespondent.Delegate` pause's id is the right to answer it: only its channel has it (AC3).
    */
   readonly pauseId?: string;
   /** Who may answer it: the thread's owner, or whoever the channel's side authenticates. */
-  readonly answerer: PauseAnswerer;
+  readonly respondent: PauseRespondent;
   /**
    * The step that asks: the agent whose tool call waits (or that asks a question role through its
    * tool, #712), or a question role's step (#659).
    */
   readonly step: string;
-  /** The channel asked (a role's name, or a concrete `@Channel`'s). */
-  readonly channel: string;
+  /** The pause target it waits under (a `@ToolApproval`'s or `@ExternalTask`'s name). */
+  readonly target: string;
+  /** The channel asked; absent for an owner's pause nobody is asked about. */
+  readonly channel?: string;
   /**
    * What it asks, `sensitive` fields masked and PII tokenized: the arguments of the tool call an
    * approval waits for, or a question role's ask (#659) as `Readonly<Record<string, unknown>>`.
@@ -108,7 +110,7 @@ export interface PendingApproval extends PendingPauseBase {
 
 /** A question role's step waiting for its answer (#659). */
 export interface PendingQuestion extends PendingPauseBase {
-  readonly kind: PauseKind.Question;
+  readonly kind: PauseKind.ExternalTask;
 }
 
 /**
@@ -144,6 +146,6 @@ export interface ApprovalRecord extends AgentToolCall {
    */
   readonly by: string;
   readonly reason?: string;
-  readonly overrideArguments?: Record<string, unknown>;
+  readonly overrideInput?: Record<string, unknown>;
   readonly result?: string;
 }

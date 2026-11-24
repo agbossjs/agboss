@@ -126,7 +126,7 @@ const interpreterRecordsOf = (
       : [
           recordOf(
             interpreter.name,
-            ComponentKind.ReplyInterpreter,
+            ComponentKind.ChannelInterpreter,
             versionOf({ instructions: interpreter.instructions }),
             dtoSchemaHashOf(interpreter.answer),
           ),

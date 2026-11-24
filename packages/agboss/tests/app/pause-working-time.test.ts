@@ -181,7 +181,8 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       issues: [
         {
           path: ".expiresIn",
-          reason: "this role reminds in working time: extend it with workingHours / workingMinutes",
+          reason:
+            "this target reminds in working time: extend it with workingHours / workingMinutes",
         },
       ],
     });

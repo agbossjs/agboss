@@ -1,4 +1,3 @@
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class, type Provider } from "./injection.js";
@@ -8,7 +7,7 @@ import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { rerankerClassesOf } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
-import { channelNameOf } from "../channels/discovery.js";
+import { targetNameOf } from "../channels/pause-targets.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/in-memory-database.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
@@ -24,7 +23,7 @@ import type { Token } from "./injection.js";
 import { CORE_TOKENS, rememberServers } from "./runtime.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
 import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
-import { toolExpiryViolations } from "./tool-expiry-rules.js";
+import { toolTimeoutViolations } from "./tool-timeout-rules.js";
 
 /** A workflow's tool classes: local `@Tool`s. */
 export interface ToolClasses {
@@ -63,7 +62,7 @@ export const toolNames = (
     add(cls, requireComponent(cls, "tool", "workflowOf").meta.name);
   });
   (tools.asked ?? []).forEach((cls) => {
-    add(cls, channelNameOf(cls));
+    add(cls, targetNameOf(cls));
   });
 
   return map;
@@ -101,9 +100,9 @@ export function toolNameViolations(tools: ToolClasses): RuleViolation[] {
   const own = named.flatMap(({ cls, name }) => modelNameViolations(name, tokenName(cls)));
   // a question role's name is the tool name its agents' models see (#712)
   const questions = (tools.asked ?? []).flatMap((cls) =>
-    modelNameViolations(channelNameOf(cls), tokenName(cls)),
+    modelNameViolations(targetNameOf(cls), tokenName(cls)),
   );
-  return [...own, ...questions, ...toolExpiryViolations(tools)];
+  return [...own, ...questions, ...toolTimeoutViolations(tools)];
 }
 
 /** The classes among a workflow's `providers` (values excluded). */
@@ -125,7 +124,6 @@ export const componentClassesOf = (
   modules: readonly ProviderModule[],
   owner?: {
     readonly providers?: readonly Provider[];
-    readonly workingCalendar?: WorkingCalendarSource;
   },
 ): Class[] => [
   ...tools.local,
@@ -137,8 +135,6 @@ export const componentClassesOf = (
   ...providerClassesOf(bundle),
   // the application's transport providers (#385): its container creates them on their first call
   ...transportProviderClassesOf(owner?.providers),
-  // the application's default calendar class (#944), created by its container
-  ...(typeof owner?.workingCalendar === "function" ? [owner.workingCalendar] : []),
 ];
 
 /**

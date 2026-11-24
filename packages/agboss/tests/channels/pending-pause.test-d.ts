@@ -23,8 +23,8 @@ describe("AC1: a PendingPause is what it asks (`input`) and, for an approval, th
     const first = pending[0];
     if (first === undefined) return;
     expectTypeOf(first.input).toEqualTypeOf<Readonly<Record<string, unknown>>>();
-    // @ts-expect-error — 0.1.0's `ask` is gone: `input` and `toolCall`
-    void first.ask;
+    // 0.1.0's `ask` is gone: `input` and `toolCall`
+    expectTypeOf(first).not.toHaveProperty("ask");
   });
 
   it("an approval keeps its call after narrowing on `kind`", () => {
@@ -37,7 +37,7 @@ describe("AC1: a PendingPause is what it asks (`input`) and, for an approval, th
 
   it("a question has no tool call", () => {
     const first = pending[0];
-    if (first?.kind !== PauseKind.Question) return;
+    if (first?.kind !== PauseKind.ExternalTask) return;
     expectTypeOf(first).toEqualTypeOf<PendingQuestion>();
     expectTypeOf(first).not.toHaveProperty("toolCall");
   });

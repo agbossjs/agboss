@@ -11,7 +11,13 @@ import {
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
-import { ApprovalDesk, ChatAppChannel, ChatStart, Reply } from "../channels/approval.workflow.js";
+import {
+  ApprovalDesk,
+  ChatAppChannel,
+  ChatAppToolApproval,
+  ChatStart,
+  Reply,
+} from "../channels/approval.workflow.js";
 import { onStart } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -46,7 +52,7 @@ class PayDone {
   description: "Charges a card for an order",
   input: PayRequest,
   output: PayDone,
-  channel: ChatAppChannel,
+  approval: ChatAppToolApproval,
   deps: [PaymentLog, ExecutionContext],
 })
 export class Pay {
@@ -105,6 +111,7 @@ export class Payments implements WorkflowDefinition {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
+  channels: [ChatAppChannel],
   budgets: TEST_BUDGETS,
 })
 export class PaymentsApplication {}
@@ -115,6 +122,7 @@ export class PaymentsApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
+  channels: [ChatAppChannel],
   providers: [SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })

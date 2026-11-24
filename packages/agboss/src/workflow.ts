@@ -6,7 +6,7 @@ import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { McpServerConfig } from "./config/mcp-server-config.js";
 import type { KnowledgeSource, RagIndexOptions, RagIndexReport, RagScope } from "./rag/types.js";
 import type { ModelBinding } from "./llm/registry.js";
-import type { PauseChannel } from "./flow/runtime/pause.js";
+import type { PauseTarget } from "./flow/runtime/pause-channel.js";
 import type { AssembledPii } from "./pii/assembly.js";
 import type { AssembledGuardrails } from "./guardrails/assembly.js";
 import type { AssembledToolInterceptors } from "./tool-interceptors/assembly.js";
@@ -116,8 +116,8 @@ export interface AssembledWorkflow<TName extends string = string> {
    */
   readonly businessKeyWriter?: BusinessKeyWriterUse;
   readonly memories?: AssembledMemories;
-  /** The channels its tools name (#267), by name, created by the application's container. */
-  readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
+  /** The pause targets its tools and steps name (#267, #1307), by name, with their channels, created by the application's container. */
+  readonly pauseTargets?: (services: WorkflowServices) => ReadonlyMap<string, PauseTarget>;
   /** A component by its class, from the workflow's container (created with its `deps` on first use). */
   readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
   /** Its PII policies (#120): per agent and router, for observability, and their model detections. */

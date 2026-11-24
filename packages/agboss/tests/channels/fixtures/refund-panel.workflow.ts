@@ -24,6 +24,7 @@ import { onStart, toAction, toAgent } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   RefundRequestDto,
   RefundTool,
@@ -213,6 +214,7 @@ export class RefundRecoveryWorkflow {}
   workflows: [RefundRecoveryWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     SeenPausedExecutionRepository,
     MortalExecutionLeaseRepository,
     StampedExecutionRecordRepository,

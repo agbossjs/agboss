@@ -31,7 +31,7 @@ const pauseOf = (changes: Partial<PauseRecord> = {}): PauseRecord =>
   ({
     pauseId: "p1",
     channel: "ops",
-    kind: "question",
+    kind: "external-task",
     askedAt: ASKED,
     expiresAt: EXPIRES,
     expiryBound: PauseExpiryBound.RunDeadline,

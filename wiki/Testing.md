@@ -418,7 +418,7 @@ mockLlm(RefundReplyInterpreter)
   .thenReturn(
     replyWith(ToolCallApprovalDecisionDto, {
       approved: true,
-      overrideArguments: { orderId: "7", amountCents: 500 },
+      overrideInput: { orderId: "7", amountCents: 500 },
     }),
   );
 ```
@@ -431,8 +431,8 @@ yes / no question — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ 
 approves (P(yes) > 0.5), `decideWith({ approved: 0.2 })` refuses, `{ cost: usd(…) }` its spend; its
 request is `{ kind: "decide", state, questions: { approved: { type: "boolean", … } } }`, the state the
 masked `### ask` / `### reply`. A code interpreter calls no model (`mockLlm` of it is a setup error) —
-the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ReplyInterpretation.understood({ approved: false }))`
-(or `ReplyInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
+the container creates it as written, and `mockOf(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: false }))`
+(or `ChannelInterpretation.notUnderstood({ reason })`) replaces it; a plain object does not compile.
 
 ### What a component sent its model
 

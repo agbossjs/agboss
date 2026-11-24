@@ -48,10 +48,11 @@ describe("#1307a: an @ExternalTask step pauses like a question and its channel i
     ]);
     expect(paused.pending).toMatchObject([
       {
-        kind: PauseKind.Question,
-        answerer: "thread-owner",
+        kind: PauseKind.ExternalTask,
+        respondent: "owner",
         step: "spending-limit-external-task",
-        channel: "spending-limit-external-task",
+        target: "spending-limit-external-task",
+        channel: "inbox-spending-limit-channel",
       },
     ]);
     const { asked } = app.resolve(TargetInbox);
@@ -121,7 +122,7 @@ describe("#1307a: a @ToolApproval gates a tool named by `approval`", () => {
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
       pending: [
-        { kind: PauseKind.Approval, answerer: "channel", toolCall: { tool: "refund-tool" } },
+        { kind: PauseKind.Approval, respondent: "delegate", toolCall: { tool: "refund-tool" } },
       ],
     });
     const inbox = app.resolve(TargetInbox);

@@ -3,8 +3,6 @@ import {
   budgetsOfApplication,
   executionBudgetFor,
 } from "../budgets/budget-rules.js";
-import { calendarNameOf } from "../calendar/calendar-source.js";
-import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import {
   implementationLine,
@@ -22,7 +20,7 @@ import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
 import { modelProvidersOfApplication, type DescribedModelProvider } from "./model-providers.js";
-import { listenersOf, pauseListenerOf } from "../pause/pause-listener.js";
+import { listenersOf, channelListenerOf } from "../pause/channel-listener.js";
 
 /**
  * What `agboss describe` says about an application as a whole (#261, #268 AC4): its infrastructure —
@@ -52,10 +50,10 @@ export interface DescribedExecutionBudget {
   readonly isOwn: boolean;
 }
 
-/** One listed `@PauseListener`: its name, and whether it is trusted with the ids of channel pauses. */
+/** One listed `@ChannelListener`: its name, and whether it is trusted with the ids of channel pauses. */
 export interface DescribedPauseListener {
   readonly name: string;
-  readonly allowAnswering: boolean;
+  readonly includePauseIds: boolean;
 }
 
 /** An application, as `describe` shows it. */
@@ -71,11 +69,9 @@ export interface ApplicationFacts {
   readonly budgets: readonly DescribedBudget[];
   readonly executionBudgets: readonly DescribedExecutionBudget[];
   readonly observers: readonly string[];
-  /** Its `@PauseListener`s (#940): each pause of the application is told to every one. */
+  /** Its `@ChannelListener`s (#940): each pause of the application is told to every one. */
   readonly pauseListeners: readonly DescribedPauseListener[];
   readonly warnings: readonly string[];
-  /** The name of its default calendar for working time (#944): `working-week` or its `@WorkingCalendar`'s; absent = none. */
-  readonly workingCalendar?: string;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
 }
@@ -149,11 +145,10 @@ export function describedApplicationOf(assembled: AssembledApplication): Applica
     ),
     observers: assembled.observers.map(tokenName),
     pauseListeners: listenersOf(assembled.providers).flatMap((cls) => {
-      const meta = pauseListenerOf(cls);
-      return meta === undefined ? [] : [{ name: meta.name, allowAnswering: meta.allowAnswering }];
+      const meta = channelListenerOf(cls);
+      return meta === undefined ? [] : [{ name: meta.name, includePauseIds: meta.includePauseIds }];
     }),
     warnings: applicationWarningsOf(assembled).map(warningText),
-    ...calendarFieldOf(assembled.application),
     ...(assembled.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: assembled.maxConcurrentSteps }),
@@ -204,15 +199,15 @@ const modelProviderLine = (provider: DescribedModelProvider): string =>
     provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
   }`;
 
-/** `pause listeners ledger-pause-listener (allowAnswering: sees the ids of channel pauses), …`. */
+/** `pause listeners ledger-pause-listener (includePauseIds: sees the ids of channel pauses), …`. */
 const pauseListenerLines = (described: ApplicationFacts): string[] =>
   described.pauseListeners.length === 0
     ? []
     : [
         `pause listeners ${described.pauseListeners
           .map(
-            ({ name, allowAnswering }) =>
-              `${name}${allowAnswering ? " (allowAnswering: sees the ids of channel pauses)" : ""}`,
+            ({ name, includePauseIds }) =>
+              `${name}${includePauseIds ? " (includePauseIds: sees the ids of channel pauses)" : ""}`,
           )
           .join(", ")}`,
       ];
@@ -237,10 +232,4 @@ export function applicationLines(described: ApplicationFacts): string[] {
     stepCapLine(described),
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];
-}
-
-/** `{ workingCalendar: name }` of the application's default calendar; nothing without one (#944). */
-function calendarFieldOf(application: Class): { readonly workingCalendar?: string } {
-  const source = requireApplication(application, "describe").options.workingCalendar;
-  return source === undefined ? {} : { workingCalendar: calendarNameOf(source) };
 }

@@ -3,16 +3,9 @@
  * undecorated provider class, a tool shadowing a RAG search tool; a raw `useValue` literal is a
  * compile error.
  */
-import { RagScope } from "../../src/rag/types.js";
-import { RagSource } from "../../src/rag/rag-source.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import {
-  Channel,
-  InputGuardrail,
-  Rag,
-  type GuardrailRefusal,
-} from "../../src/components/decorators.js";
+import { Channel, InputGuardrail, type GuardrailRefusal } from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
 import {
@@ -22,11 +15,18 @@ import {
   type JudgeHandler,
 } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
-import { Action, Agent, InjectionToken, provide, Tool, inline } from "../../src/index.js";
+import {
+  Action,
+  Agent,
+  InjectionToken,
+  provide,
+  Tool,
+  inline,
+  ToolApproval,
+} from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
-import type { RagRetrieval } from "../../src/rag/types.js";
 import {
   Chat,
   Done,
@@ -34,6 +34,8 @@ import {
   Plain as PlainAgent,
   applicationWith,
 } from "./fixture/deps-contract.workflow.js";
+import { days } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
@@ -70,10 +72,19 @@ class NeedsAction {
   }
 }
 
-@Channel({ name: "needs-channel", deps: [MISSING] })
+/** What NeedsChannel asks for: the approval of the tools that name it. */
+@ToolApproval({
+  name: "needs-tool-approval",
+  description: "Approval of the tools asked through NeedsChannel",
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+})
+export class NeedsToolApproval {}
+
+@Channel({ name: "needs-channel", deps: [MISSING], target: NeedsToolApproval, ttl: days(1) })
 class NeedsChannel {
   constructor(readonly value: string) {}
-  send(): Promise<ChannelOutcome<NeedsChannel>> {
+  send(): Promise<ChannelOutcome<NeedsToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -88,7 +99,7 @@ class Approved {
   description: "d",
   input: Approved,
   output: Approved,
-  channel: NeedsChannel,
+  approval: NeedsToolApproval,
 })
 class ApprovedTool {
   execute(input: Approved): Promise<Approved> {
@@ -124,7 +135,11 @@ describe("#183 AC2: a missing provider fails at assembly, naming the consumer an
       "NeedsGuardrail",
     ],
     ["an agent's PII policy", applicationWith("p-workflow", {}, PolicedAgent), "NeedsPolicy"],
-    ["a tool's channel", applicationWith("c-workflow", {}, ApprovingAgent), "NeedsChannel"],
+    [
+      "a tool's channel",
+      applicationWith("c-workflow", {}, ApprovingAgent, [NeedsChannel]),
+      "NeedsChannel",
+    ],
     ["an agent's judge", applicationWith("j-workflow", {}, JudgedAgent), "NeedsJudge"],
     [
       "a workflow action",

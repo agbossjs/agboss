@@ -5,16 +5,11 @@
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
-import {
-  ChannelRole,
-  channelRoleOptionsOf,
-  PauseAnswerer,
-} from "../../src/channels/channel-role.decorator.js";
+import { ExternalTask, pauseTargetOf, ToolApproval } from "../../src/channels/pause-targets.js";
+import { hours } from "../../src/units/index.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { Tool } from "../../src/components/decorators.js";
-import { ComponentError } from "../../src/components/metadata.js";
 import { Text } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -26,13 +21,14 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
 import { onStart } from "../flow/fixtures/paths.js";
 import {
-  RefundApprovalChannel,
+  RefundDeskToolApproval,
   RefundCardInputDto,
   RefundCardOutputDto,
   RefundWorkflowFinish,
   RefundWorkflowStart,
   RuleRefundApprovalChannel,
 } from "../flow/fixtures/refunds.fixture.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 class ChargeInputDto {
   @Text() orderId!: string;
@@ -52,7 +48,7 @@ class ClarificationAnswerDto {
   description: "Charges",
   input: ChargeInputDto,
   output: RefundCardOutputDto,
-  channel: RefundApprovalChannel,
+  approval: RefundDeskToolApproval,
 })
 class ChargeTool {
   execute(): Promise<RefundCardOutputDto> {
@@ -99,8 +95,8 @@ const assemble = (application: Parameters<typeof createTestAppWith>[0]) =>
     gateway: createScriptedGateway(new ScriptBook()),
   });
 
-describe("#267 AC6: a tool's input is its role's approves", () => {
-  it("wrong tool: a tool whose input is not the role's approves fails assembly", async () => {
+describe("#267 AC6: a tool's input is its approval's input", () => {
+  it("wrong tool: a tool whose input is not its approval's input fails assembly", async () => {
     const error: unknown = await assemble(applicationWith("charge", [ChargeTool])).catch(
       (thrown: unknown) => thrown,
     );
@@ -110,42 +106,36 @@ describe("#267 AC6: a tool's input is its role's approves", () => {
       violations: [
         {
           code: "channel.wrong-tool",
-          nodes: ["charge-tool", "refund-approval-channel"],
-          message: expect.stringContaining("refund-approval-channel approves RefundCardInputDto"),
+          nodes: ["charge-tool", "refund-gate-tool-approval"],
+          message: expect.stringContaining("refund-gate-tool-approval approves RefundCardInputDto"),
         },
       ],
     });
   });
 });
 
-describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", () => {
-  // what an untyped (JS) caller may pass: the compiler rejects these forms (channels.test-d.ts)
-  const untypedChannelRole = ChannelRole as (options: object) => ReturnType<typeof ChannelRole>;
-  const declare =
-    (options: object): (() => void) =>
-    () => {
-      @untypedChannelRole(options)
-      abstract class SomeChannel extends ChannelOf<SomeChannel> {}
-      expect(SomeChannel).toBeDefined();
-    };
-
-  it("#659 AC1: a question role (ask / answer) is declared, and is its step's node", () => {
-    const question = {
-      name: "clarification-question",
+describe("#659 AC1: an external task is declared, and is its step's node", () => {
+  it("an @ExternalTask is its flow node: the step reads its input and gives its output", () => {
+    @ExternalTask({
+      name: "clarification-external-task",
       description: "Asks the customer to clarify",
-      ask: ClarificationQuestionDto,
-      answer: ClarificationAnswerDto,
-      answerer: PauseAnswerer.ThreadOwner,
+      input: ClarificationQuestionDto,
+      output: ClarificationAnswerDto,
+      respondent: PauseRespondent.Owner,
+      timeout: hours(1),
       maxVisits: 2,
-    };
-    @ChannelRole(question)
-    abstract class ClarificationQuestion extends ChannelOf<ClarificationQuestion> {}
+    })
+    class ClarificationExternalTask {}
 
-    expect(channelRoleOptionsOf(ClarificationQuestion)).toEqual(question);
-    expect(declarationOf(ClarificationQuestion)).toMatchObject({
+    expect(pauseTargetOf(ClarificationExternalTask)?.options).toMatchObject({
+      name: "clarification-external-task",
+      input: ClarificationQuestionDto,
+      output: ClarificationAnswerDto,
+    });
+    expect(declarationOf(ClarificationExternalTask)).toMatchObject({
       kind: NodeKind.Question,
       options: {
-        name: "clarification-question",
+        name: "clarification-external-task",
         input: { ask: ClarificationQuestionDto },
         output: ClarificationAnswerDto,
         maxVisits: 2,
@@ -153,37 +143,19 @@ describe("#267 AC4 / AC6, #647: the role's form, checked when it is declared", (
     });
   });
 
-  it("#659 AC1: both forms, or half a question, fail: [channel.role-form]", () => {
-    const role = { name: "both-question", description: "d", answerer: PauseAnswerer.Channel };
-
-    expect(
-      declare({ ...role, approves: RefundCardInputDto, ask: ClarificationQuestionDto }),
-    ).toThrow(
-      new ComponentError({
-        message:
-          '[channel.role-form] @ChannelRole "both-question" (SomeChannel) declares both approves and ask / answer — keep one form',
-      }),
-    );
-    expect(declare({ ...role, answer: ClarificationAnswerDto })).toThrow(
-      "declares neither approves nor both ask and answer",
-    );
-    expect(declare({ ...role, ask: ClarificationQuestionDto })).toThrow("[channel.role-form]");
-  });
-
-  it("a role without approves or ask / answer fails", () => {
-    const empty = { name: "empty-channel", description: "d", answerer: PauseAnswerer.Channel };
-
-    expect(declare(empty)).toThrow("[channel.role-form]");
-    expect(declare(empty)).toThrow("declares neither approves nor both ask and answer");
-  });
-
-  it("answerer is required: a role without it fails, never defaults to the thread's owner", () => {
-    const open = {
-      name: "open-channel",
-      description: "d",
-      approves: RefundCardInputDto,
+  it("respondent is required: a target without it fails, never defaults to the thread's owner", () => {
+    const untyped = ToolApproval as (options: object) => ReturnType<typeof ToolApproval>;
+    const declare = (): void => {
+      @untyped({
+        name: "open-tool-approval",
+        description: "d",
+        input: RefundCardInputDto,
+        timeout: hours(1),
+      })
+      class OpenToolApproval {}
+      expect(OpenToolApproval).toBeDefined();
     };
 
-    expect(declare(open)).toThrow("has no answerer");
+    expect(declare).toThrow("has no respondent");
   });
 });

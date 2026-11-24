@@ -2,7 +2,7 @@
  * #267 S107 (built in PR 3): who answered each pause is in the execution record —
  * `ExecutionRecord.pauses`, in the order asked, one `PauseResolution` each (`Replied`, `Decided`,
  * `Withdrawn`, `Cancelled`), the decision masked by the application's PII policies and none for a
- * pause closed without an answer, no `pauseId` for a `PauseAnswerer.Channel` pause. Resolved records
+ * pause closed without an answer, no `pauseId` for a `PauseRespondent.Delegate` pause. Resolved records
  * are kept `@Application({ retention: { pauseRecords } })` (default `hours(24)`) and then removed by the
  * recovery sweep on the `Clock`: within it a late answer is `PauseClosedError`, after it
  * `UnknownPauseError`; a pending pause is never removed.
@@ -14,7 +14,7 @@ import { AutoApproveChannel } from "../../src/testing/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
   PauseClosedError,
-  PauseAnswerer,
+  PauseRespondent,
   PauseResolution,
   PauseStatus,
   UnknownPauseError,
@@ -28,7 +28,7 @@ import {
   PayOutTool,
   replyDesk,
   resetReplyDesk,
-  TransferApprovalChannel,
+  TransferToolApproval,
   TransferTool,
   TreasurerAgent,
   TreasuryApplication,
@@ -102,8 +102,9 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
             toolLoopIteration: 1,
             validationAttempts: 0,
           },
-          role: "payout-approval-channel",
-          answerer: PauseAnswerer.Channel,
+          target: "payout-tool-approval",
+          channel: "desk-payout-approval-channel",
+          respondent: PauseRespondent.Delegate,
           actor: { id: "manager-17" },
           resolution: PauseResolution.Replied,
           askedAt: TEST_START,
@@ -158,8 +159,9 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(done.record?.pauses).toMatchObject([
         {
           pauseId,
-          role: "expense-approval-channel",
-          answerer: PauseAnswerer.ThreadOwner,
+          target: "expense-tool-approval",
+          channel: "button-expense-approval-channel",
+          respondent: PauseRespondent.Owner,
           actor: { id: "alice" },
           resolution: PauseResolution.Replied,
           decision: { approved: true },
@@ -169,7 +171,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
   );
 
   testWith(TreasuryApplication, {
-    services: [AutoApproveChannel.for(TransferApprovalChannel)],
+    services: [AutoApproveChannel.for(TransferToolApproval)],
   })(
     "a pause its channel decided at once: Decided, no responder, the channel's decision",
     async ({ app, mockLlm }) => {
@@ -188,7 +190,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(done.record?.pauses).toMatchObject([
         {
           pauseId: undefined,
-          role: "transfer-approval-channel",
+          target: "transfer-tool-approval",
           actor: undefined,
           resolution: PauseResolution.Decided,
           resolvedAt: TEST_START,
@@ -216,14 +218,14 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(done.record?.pauses).toMatchObject([
         {
           pauseId: seen.confirmations[0]?.pauseId,
-          role: "order-confirmation-channel",
+          target: "order-confirmation-tool-approval",
           actor: undefined,
           resolution: PauseResolution.Withdrawn,
           decision: undefined,
         },
         {
           pauseId: undefined,
-          role: "refund-approval-channel",
+          target: "refund-gate-tool-approval",
           resolution: PauseResolution.TreeEnded,
           decision: undefined,
         },
@@ -292,9 +294,9 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       const expense = { pauseId: waiting.pending[0]?.pauseId ?? "", decision: { approved: true } };
       const done = await app.resume(expense, { includeRecord: true });
 
-      expect(done.record?.pauses.map((pause) => [pause.role, pause.resolution])).toEqual([
-        ["payout-approval-channel", PauseResolution.Replied],
-        ["expense-approval-channel", PauseResolution.Replied],
+      expect(done.record?.pauses.map((pause) => [pause.target, pause.resolution])).toEqual([
+        ["payout-tool-approval", PauseResolution.Replied],
+        ["expense-tool-approval", PauseResolution.Replied],
       ]);
       expect(done.record?.pauses[0]).toMatchObject({
         actor: { id: "manager-17" },

@@ -9,7 +9,7 @@ import type { LoadedModule } from "../flow/analyse/rules/context.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { toolComponentNameOf } from "../flow/types/agent-tools.js";
-import { channelBrandOf } from "../flow/types/channel-roles.js";
+import { channelBrandOf } from "../flow/types/pause-target-tables.js";
 import { judgeComponentNameOf } from "../flow/types/judge-outputs.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";

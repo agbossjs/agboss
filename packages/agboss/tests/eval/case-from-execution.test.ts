@@ -7,10 +7,10 @@ import { describe, expect, it } from "vitest";
 import { evalCaseDraftOf, observedExecutionOf } from "../../src/eval/case-from-execution.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseResolution } from "../../src/infrastructure/pause-record.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionHistoryStatus } from "../../src/infrastructure/execution-history.repository.js";
 import { historyRecordOf, REFUND_THREAD } from "./fixtures/history-records.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const [first, refund] = REFUND_THREAD;
 
@@ -74,8 +74,9 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
         toolLoopIteration: 1,
         validationAttempts: 0,
       },
-      role: "refund-approval",
-      answerer: PauseAnswerer.ThreadOwner,
+      target: "refund-approval-tool-approval",
+      channel: "refund-approval",
+      respondent: PauseRespondent.Owner,
       actor: { id: "alice" },
       resolution,
       askedAt: "2026-01-05T09:00:02.000Z",
@@ -99,7 +100,11 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
       {
         input: { text: "Refund order 7 for <email>" },
         pauses: [
-          { target: "refund-approval", decision: { approved: true }, actor: { id: "actor-1" } },
+          {
+            target: "refund-approval-tool-approval",
+            decision: { approved: true },
+            actor: { id: "actor-1" },
+          },
         ],
       },
     ]);
@@ -126,8 +131,9 @@ describe("#396 PR 8: a case drafted from a kept execution", () => {
         toolLoopIteration: 1,
         validationAttempts: 0,
       },
-      role: "refund-approval",
-      answerer: PauseAnswerer.ThreadOwner,
+      target: "refund-approval-tool-approval",
+      channel: "refund-approval",
+      respondent: PauseRespondent.Owner,
       actor: { id: actor },
       resolution: PauseResolution.Replied,
       askedAt: "2026-01-05T09:00:02.000Z",

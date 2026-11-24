@@ -311,7 +311,12 @@ describe("#808 AC4: pauses and follow-ups", () => {
     expect(waiting.status).toEqual({
       state: "TASK_STATE_WORKING",
       message: expect.objectContaining({
-        parts: [{ text: "awaiting refund-approval-channel out of band", mediaType: "text/plain" }],
+        parts: [
+          {
+            text: "awaiting finance-desk-refund-approval-channel out of band",
+            mediaType: "text/plain",
+          },
+        ],
       }) as object,
       timestamp: expect.any(String) as string,
     });

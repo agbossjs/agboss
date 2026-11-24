@@ -135,10 +135,6 @@ export interface ArbiterRunner extends UnitClock {
 
 // @public
 export class AutoApproveChannel {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-approve-channel";
-    };
     static for(target: Class): new () => AutoApproveChannel;
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
@@ -146,10 +142,6 @@ export class AutoApproveChannel {
 
 // @public
 export class AutoRejectChannel {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-reject-channel";
-    };
     static for(target: Class): new () => AutoRejectChannel;
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
@@ -184,9 +176,7 @@ export interface CallMatchers<TSelf> {
 export function callTool<TTool extends ToolClass<never>>(tool: TTool, args: NoInfer<CalledToolArguments<InstanceType<TTool>>>): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 
 // @public
-export function callTool<TRole extends Class<{
-    send(ask: never): Promise<unknown>;
-}>>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
+export function callTool<TRole extends ExternalTaskClass>(role: TRole, args: NoInfer<PauseInputOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
 
 // @public
 export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCallTurn[]]>(...calls: TCalls): ToolCallsTurn<TCalls[number]["tool"]>;
@@ -800,7 +790,7 @@ export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf
 // @public
 export type ReplyInterpreterReading<TRole> = {
     readonly isUnderstood: true;
-    readonly answer: ChannelAnswerOf<TRole>;
+    readonly answer: PauseOutputOf<TRole>;
 } | {
     readonly isUnderstood: false;
     readonly reason: string;
@@ -815,7 +805,7 @@ export interface ReplyInterpreterRunner<TRole> extends UnitClock {
 // @public
 export interface ReplyInterpreterRunnerInput<TRole> {
     // (undocumented)
-    readonly ask: ChannelQuestionOf<TRole>;
+    readonly ask: PauseInputOf<TRole>;
     // (undocumented)
     readonly reply: string;
 }
@@ -1524,9 +1514,7 @@ export interface WorkflowMatchers<R = unknown> {
 
 // Warnings were encountered during analysis:
 //
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".

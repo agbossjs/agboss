@@ -11,12 +11,12 @@ export const interpreterPrompts = (
 ): { readonly replyInterpreters?: readonly object[] } => {
   const model = (interpreters ?? [])
     .filter((found) => found.model !== undefined)
-    .map(({ channel, name, instructions }) => ({
-      channel,
+    .map(({ target, name, instructions }) => ({
+      target,
       name,
       prompt: normalisePromptText(instructions),
     }))
-    .sort((left, right) => left.channel.localeCompare(right.channel));
+    .sort((left, right) => left.target.localeCompare(right.target));
   return model.length === 0 ? {} : { replyInterpreters: model };
 };
 

@@ -55,8 +55,8 @@ const ready = (tool: string, ...ids: string[]) =>
     ]),
   );
 
-const approvalTool = { name: "pay", channel: { name: "ops" } };
-const questionTool = { name: "ask", channel: { name: "ops" }, question: {} };
+const approvalTool = { name: "pay", approval: "ops-tool-approval" };
+const questionTool = { name: "ask", approval: "ops-external-task", question: {} };
 const plainTool = { name: "read" };
 const deps = (...tools: object[]) =>
   ({
@@ -97,7 +97,7 @@ describe("#1366: which calls wait and which run", () => {
     const state = {
       ...baseState,
       move: move(call("c1", "pay"), call("c2", "pay")),
-      decisions: { c1: { approved: false }, c2: { approved: true, overrideArguments: { q: 9 } } },
+      decisions: { c1: { approved: false }, c2: { approved: true, overrideInput: { q: 9 } } },
       prepared: {
         ...ready("pay", "c1"),
         c2: { kind: "ready", args: { q: 9 }, shown: { q: 9 }, from: "approver", ...forCall("pay") },
@@ -148,7 +148,7 @@ describe("#1295c: a call is prepared before it is asked about or run", () => {
     const decided = {
       ...baseState,
       move: move(call("c1", "pay")),
-      decisions: { c1: { approved: true, overrideArguments: { q: 9 } } },
+      decisions: { c1: { approved: true, overrideInput: { q: 9 } } },
       prepared: ready("pay", "c1"),
     };
     expect(routeToActions(deps(approvalTool))(decided as never)).toBe("prepare");

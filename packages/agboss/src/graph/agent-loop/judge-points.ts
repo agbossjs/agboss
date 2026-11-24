@@ -25,7 +25,7 @@ export interface JudgeVisit {
     by?: string;
     reason?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    overrideArguments?: any;
+    overrideInput?: any;
   };
 }
 

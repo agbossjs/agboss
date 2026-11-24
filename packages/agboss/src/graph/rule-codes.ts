@@ -143,9 +143,8 @@ export type RuleCode =
   // health checks (#300): every listed class a @HealthCheck, one name each
   | "health.not-a-health-check"
   | "health.duplicate-name"
-  // pause listeners (#940): decorated, implementing the handler, one name each
-  | "pause-listener.not-a-handler"
-  | "pause-listener.duplicate-name"
+  // channel listeners (#940, #1310c): decorated, one name each
+  | "channel-listener.duplicate-name"
   // budgets at run time (#261 PR 5): every workflow, every tenant and the application capped
   | "budget.execution-budget-required"
   | "budget.duplicate-execution-budget"
@@ -202,25 +201,17 @@ export type RuleCode =
   | "model-provider.request-fields-missing"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"
-  // channels (#267 PR 1): roles found from the graph, implementations in the application's providers
+  // pause targets (#267 PR 1, #1307): tools name their approval, a target's times and calendar
   | "channel.wrong-tool"
   | "channel.shared-interpreter"
-  | "channel.expires-in-invalid"
-  | "channel.remind-before-invalid"
-  | "channel.remind-before-exceeds-expiry"
-  | "channel.remind-before-below-tick"
+  | "pause.remind-before-invalid"
+  | "pause.remind-before-below-tick"
   // working time (#944): a calendar for every working duration, a grid that has working time
-  | "channel.remind-before-working-without-working-expiry"
-  | "channel.working-time-without-calendar"
+  | "pause.remind-before-working-without-working-timeout"
   | "working-calendar.invalid"
   | "working-calendar.duplicate-name"
-  | "tool.expires-in-without-channel"
-  | "question.expires-in-conflict"
-  // reply interpreters (#267 PR 3), reported at each workflow's assembly
-  | "reply-interpreter.not-an-interpreter"
+  // channel interpreters (#267 PR 3), reported at each workflow's assembly
   | "reply-interpreter.decision-model"
-  | "reply-interpreter.no-interpret-method"
-  | "di.missing-implementation"
   | "di.ambiguous-implementation"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
   | "judge.wrong-output"

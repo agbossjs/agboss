@@ -5,7 +5,6 @@
  * receivers of a notice.
  */
 import { describe, expect, it, vi } from "vitest";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { effectiveBoundOf } from "../../src/infrastructure/pause-bound.js";
 import {
   answerRecordOf,
@@ -37,7 +36,7 @@ import {
   PauseResolution,
   PauseStatus,
   pauseInputOf,
-  pauseAnswererOf,
+  pauseRespondentOf,
   type PauseRecord,
 } from "../../src/infrastructure/pause-record.js";
 import {
@@ -57,6 +56,7 @@ import {
   seqOfCursor,
 } from "../../src/infrastructure/pause-scans.js";
 import { pauseOf, questionPauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const AT = new Date("2026-11-20T10:00:00.000Z");
 const T9 = "2026-11-20T09:00:00.000Z";
@@ -149,7 +149,7 @@ describe("#1356: the step key of a replacement (#946)", () => {
         {
           action: "reassigned",
           at: T10,
-          target: old.channel,
+          target: old.target,
           channel: old.channel,
           assignees: ["anna"],
           expiresAt: T11,
@@ -353,8 +353,8 @@ describe("#1356: the scans of the pause stores", () => {
     }).toThrow("a pause filter names at least one status");
   });
 
-  it("a pause is what a filter selects by its status, its channel and its deadline, each only when asked", () => {
-    const pause: PauseRecord = { ...pauseOf("p-1"), channel: "refund", expiresAt: T10 };
+  it("a pause is what a filter selects by its status, its target and its deadline, each only when asked", () => {
+    const pause: PauseRecord = { ...pauseOf("p-1"), target: "refund", expiresAt: T10 };
     const filter = (rest: Partial<PauseFilter>): PauseFilter => ({
       statuses: [PauseStatus.Pending],
       ...rest,
@@ -362,14 +362,14 @@ describe("#1356: the scans of the pause stores", () => {
 
     expect(matchesFilter(pause, filter({}))).toBe(true);
     expect(matchesFilter(pause, { statuses: [PauseStatus.Taken] })).toBe(false);
-    expect(matchesFilter(pause, filter({ channel: "refund" }))).toBe(true);
-    expect(matchesFilter(pause, filter({ channel: "other" }))).toBe(false);
+    expect(matchesFilter(pause, filter({ target: "refund" }))).toBe(true);
+    expect(matchesFilter(pause, filter({ target: "other" }))).toBe(false);
     expect(matchesFilter(pause, filter({ expiresBefore: new Date(T11) }))).toBe(true);
     expect(matchesFilter(pause, filter({ expiresBefore: AT }))).toBe(false);
     expect(matchesFilter(pause, filter({ expiresBefore: new Date(T9) }))).toBe(false);
     expect(
       matchesFilter(
-        { ...pauseOf("p-2"), channel: "refund" },
+        { ...pauseOf("p-2"), target: "refund" },
         filter({ expiresBefore: new Date(T11) }),
       ),
     ).toBe(false);
@@ -436,10 +436,11 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
 
     expect(entry).toMatchObject({
       executionId: "run-1",
-      answerer: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
       actor: { id: "manager-1" },
       resolution: PauseResolution.Replied,
-      role: "refund-approval-channel",
+      target: "refund-tool-approval",
+      channel: "refund-approval-channel",
       askedAt: "2026-01-05T09:00:00.000Z",
       resolvedAt: T10,
       decision: { approved: true },
@@ -458,8 +459,8 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
   });
 
   it("names no pause when the channel answers, and the step's own key and attempts when a pause was reassigned", () => {
-    const channels = { ...answered, answerer: PauseAnswerer.Channel };
-    const owner = { ...answered, answerer: PauseAnswerer.ThreadOwner };
+    const channels = { ...answered, respondent: PauseRespondent.Delegate };
+    const owner = { ...answered, respondent: PauseRespondent.Owner };
 
     expect(answerRecordOf(channels, PauseResolution.Replied).pauseId).toBeUndefined();
     expect(answerRecordOf(owner, PauseResolution.Replied).pauseId).toBe("p-1");
@@ -530,16 +531,18 @@ describe("#1356: a pause record's own rules", () => {
       );
   });
 
-  it("who may answer is the answerer — 0.1.0's answeredBy is no alias of it —, else an error (#1307d)", () => {
-    expect(pauseAnswererOf({ answerer: PauseAnswerer.Channel })).toBe(PauseAnswerer.Channel);
+  it("who may answer is the respondent — 0.1.0's answeredBy is no alias of it —, else an error (#1307d)", () => {
+    expect(pauseRespondentOf({ respondent: PauseRespondent.Delegate })).toBe(
+      PauseRespondent.Delegate,
+    );
     expect(
-      pauseAnswererOf({ answerer: PauseAnswerer.ThreadOwner, answeredBy: "channel" } as never),
-    ).toBe(PauseAnswerer.ThreadOwner);
-    expect(() => pauseAnswererOf({ answeredBy: PauseAnswerer.ThreadOwner } as never)).toThrow(
+      pauseRespondentOf({ respondent: PauseRespondent.Owner, answeredBy: "channel" } as never),
+    ).toBe(PauseRespondent.Owner);
+    expect(() => pauseRespondentOf({ answeredBy: PauseRespondent.Owner } as never)).toThrow(
       TypeError,
     );
-    expect(() => pauseAnswererOf({})).toThrow(TypeError);
-    expect(() => pauseAnswererOf({})).toThrow("a pause record names who may answer it");
+    expect(() => pauseRespondentOf({})).toThrow(TypeError);
+    expect(() => pauseRespondentOf({})).toThrow("a pause record names who may answer it");
   });
 });
 

@@ -18,11 +18,10 @@ export default defineConfig({
       // the limits a profile leaves read by the rules: the overlay's carrier, field by field
       "tests/config/workflow-limits-shelf.test.ts",
       "tests/units/timer-caps.test.ts",
-      "tests/channels/{channel-rules-direct,pause-target-rules,working-time-rules-direct,question-*,expiry-rules,remind-before-rules,roles,discovery}.test.ts",
+      "tests/channels/{channel-rules-direct,pause-target-rules,pause-timing-rules,question-*,roles,discovery}.test.ts",
       "tests/calendar/working-calendar-rules.test.ts",
       "tests/graph/count-limit.test.ts",
       "tests/health/{rules,health-rules-direct}.test.ts",
-      "tests/components/tool-expiry-direct.test.ts",
       "tests/storage/*.test.ts",
       "tests/app/tenant-required.test.ts",
     ],

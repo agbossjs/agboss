@@ -28,8 +28,8 @@ import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { contextSources, ragMeta } from "./rag.js";
 import { buildRagRuntime } from "./rag-retrieval.js";
-import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
-import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
+import { externalTaskOf } from "../channels/discovery.js";
+import { targetNameOf, type ExternalTaskOptions } from "../channels/pause-targets.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import { IDEMPOTENCY_OUTSIDE_APPLICATION, Idempotency } from "../app/idempotency.js";
 import { standaloneStorageEntriesOf } from "../storage/standalone-storage.js";
@@ -76,10 +76,8 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     description: meta.description,
     input: schemaOf(meta.input),
     output: schemaOf(meta.output),
-    ...(meta.channel === undefined ? {} : { channel: channelNameOf(meta.channel) }),
-    ...(meta.approval === undefined ? {} : { approval: channelNameOf(meta.approval) }),
+    ...(meta.approval === undefined ? {} : { approval: targetNameOf(meta.approval) }),
     ...(meta.timeout === undefined ? {} : { timeout: meta.timeout }),
-    ...(meta.expiresIn === undefined ? {} : { expiresIn: meta.expiresIn }),
     ...(meta.maxResultSize === undefined ? {} : { maxResultSize: meta.maxResultSize }),
     run: async (input): Promise<unknown> => {
       const output: unknown = await handler.execute(input);
@@ -144,10 +142,10 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
 };
 
 /**
- * A question role as an agent's tool (#712): `@Agent({ tools: [SpendingLimitQuestion] })`. Its
- * model sees a tool named the role's name, described by the role's description, whose input is the
- * role's `ask`; the loop asks the role's channel at the call (the approval step, through the pause
- * seam) and the role's `answer` is the call's result. The tool itself runs nothing: called without
+ * An external task as an agent's tool (#712): `@Agent({ tools: [SpendingLimitExternalTask] })`. Its
+ * model sees a tool named the task's name, described by the task's description, whose input is the
+ * task's `input`; the loop asks the task's channel at the call (the approval step, through the pause
+ * seam) and the task's `output` is the call's result. The tool itself runs nothing: called without
  * a pause seam — an agent loop on its own — it is a tool error its model reads.
  */
 
@@ -156,17 +154,17 @@ const UNASKED =
   "a question is asked only inside its application: its answer comes through the application's pauses";
 
 /** The tool a question role is to the agents that list it. */
-export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
+export function questionToolOf(task: ExternalTaskOptions): AnyTool {
   const tool = defineTool({
-    name: role.name,
-    description: role.description,
+    name: task.name,
+    description: task.description,
     // strict: arguments with a field the ask does not declare are no valid ask (never passed on)
-    input: strictObjectOf(schemaOf(role.ask)),
-    output: schemaOf(role.answer),
-    channel: role.name,
+    input: strictObjectOf(schemaOf(task.input)),
+    output: schemaOf(task.output),
+    approval: task.name,
     run: () => Promise.reject(new Error(UNASKED)),
   });
-  const { ask, answer, maxVisits } = role;
+  const { input: ask, output: answer, maxVisits } = task;
   const question = { ask, answer, ...(maxVisits === undefined ? {} : { maxVisits }) };
   return { ...tool, question };
 }
@@ -189,8 +187,8 @@ export const toolBuilder =
       ),
     );
     const asked = (tools.asked ?? []).flatMap((cls) => {
-      const role = questionRoleOf(cls);
-      return role === undefined ? [] : [questionToolOf(role)];
+      const task = externalTaskOf(cls);
+      return task === undefined ? [] : [questionToolOf(task)];
     });
     return [...instances, ...asked];
   };

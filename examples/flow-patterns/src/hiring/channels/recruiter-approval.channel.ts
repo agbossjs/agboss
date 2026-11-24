@@ -1,11 +1,14 @@
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+import { PauseRespondent } from "@agboss/core";
 import { LetterDelivery } from "../dto/send-offer-letter.dto.js";
+import { ToolApproval } from "../../../../../packages/agboss/src/channels/pause-targets.js";
+import { days } from "../../../../../packages/agboss/src/units/index.js";
 
 /** The role a letter is approved through: the thread's owner — the recruiter — answers. */
-@ChannelRole({
-  name: "recruiter-approval-channel",
+@ToolApproval({
+  name: "recruiter-tool-approval",
   description: "The recruiter approves an offer letter",
-  approves: LetterDelivery,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: LetterDelivery,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class RecruiterApprovalChannel extends ChannelOf<RecruiterApprovalChannel> {}
+export class RecruiterToolApproval {}

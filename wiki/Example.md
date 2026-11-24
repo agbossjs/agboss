@@ -147,7 +147,7 @@ npm test
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
-  (`answerer: PauseAnswerer.ThreadOwner`) implemented by `TerminalPurchaseApprovalChannel`, listed
+  (`answerer: PauseRespondent.Owner`) implemented by `TerminalPurchaseApprovalChannel`, listed
   in `@Application({ channels })`: it prints each question once, with its pause's id, and waits
   (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
   store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>

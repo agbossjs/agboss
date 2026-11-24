@@ -14,6 +14,7 @@ import {
   DeskWorkflow,
   DeskWorkflowStart,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
@@ -39,6 +40,7 @@ export class DeskA2AExpose {}
   workflows: [DeskWorkflow, BatchWorkflow, AuditWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,

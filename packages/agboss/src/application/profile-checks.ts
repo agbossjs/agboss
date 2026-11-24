@@ -1,6 +1,5 @@
-import { channelRoleOf } from "../channels/channel-role.decorator.js";
 import { channelUsesOf } from "../channels/discovery.js";
-import { pauseTargetOf } from "../channels/pause-targets.js";
+import { findPauseTarget } from "../channels/pause-targets.js";
 import type { FoldedConfig } from "../config/fold-config.js";
 import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -14,9 +13,8 @@ export function checkPauseTargets(
 ): void {
   const kinds = new Map<string, string>();
   for (const use of channelUsesOf(assembled.map((workflow) => workflow.graph.type))) {
-    const role = channelRoleOf(use.channel);
-    const kind = role === undefined ? undefined : pauseTargetOf(role.role)?.kind;
-    if (role !== undefined && kind !== undefined) kinds.set(role.options.name, kind);
+    const found = findPauseTarget(use.target);
+    if (found !== undefined) kinds.set(found.options.name, found.declaration.kind);
   }
   const shelves = [
     ["toolApprovals", "tool-approval", "@ToolApproval"],

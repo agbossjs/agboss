@@ -7,17 +7,17 @@ import {
   PauseExpiration,
   PauseExpirationKind,
   type ChannelAsk,
-  type ChannelRoleBaseOptions,
+  type ExternalTaskOptions,
+  type ToolApprovalOptions,
   type DecideExpiration,
   type FailExpiration,
   type ReassignExpiration,
   type PauseExpiryHandler,
-  type QuestionStepOptions,
   type ToolOptions,
 } from "../../src/index.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { hours, type Milliseconds, type WorkingDuration } from "../../src/units/index.js";
-import { ManagerQuestion } from "../flow/fixtures/expiry.fixture.js";
+import { ManagerExternalTask } from "../flow/fixtures/expiry.fixture.js";
 
 describe("#941: PauseExpiration and PauseExpiryHandler", () => {
   it("fail() and decide(answer) are the two kinds", () => {
@@ -30,20 +30,20 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
   });
 
   it("a handler of a role returns the role's expiration: decide checks the role's answer type", () => {
-    class Sync implements PauseExpiryHandler<ManagerQuestion> {
-      onPauseExpired(ask: ChannelAsk<ManagerQuestion>) {
+    class Sync implements PauseExpiryHandler<ManagerExternalTask> {
+      onPauseExpired(ask: ChannelAsk<ManagerExternalTask>) {
         expectTypeOf(ask.input.orderId).toEqualTypeOf<string>();
         return ask.input.orderId === "small"
           ? PauseExpiration.decide({ approved: true, comment: "auto" })
           : PauseExpiration.fail();
       }
     }
-    class Async implements PauseExpiryHandler<ManagerQuestion> {
-      onPauseExpired(): Promise<PauseExpiration<ManagerQuestion>> {
+    class Async implements PauseExpiryHandler<ManagerExternalTask> {
+      onPauseExpired(): Promise<PauseExpiration<ManagerExternalTask>> {
         return Promise.resolve(PauseExpiration.decide({ approved: false }));
       }
     }
-    class Wrong implements PauseExpiryHandler<ManagerQuestion> {
+    class Wrong implements PauseExpiryHandler<ManagerExternalTask> {
       // @ts-expect-error the answer must be the role's: { approved: boolean, comment?: string }
       onPauseExpired() {
         return PauseExpiration.decide({ approved: "yes" });
@@ -55,21 +55,11 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
     expectTypeOf<Wrong["onPauseExpired"]>().toBeFunction();
   });
 
-  it("a role, a tool and a question step take an expiresIn: a duration", () => {
-    expectTypeOf<ChannelRoleBaseOptions["expiresIn"]>().toEqualTypeOf<
-      Milliseconds | WorkingDuration | undefined
-    >();
-    expectTypeOf<ToolOptions<DtoClass, DtoClass, []>["expiresIn"]>().toEqualTypeOf<
-      Milliseconds | WorkingDuration | undefined
-    >();
-    expectTypeOf<QuestionStepOptions["expiresIn"]>().toEqualTypeOf<
-      Milliseconds | WorkingDuration | undefined
-    >();
-    const options: QuestionStepOptions = { expiresIn: hours(4) };
-    // @ts-expect-error a duration (hours(4)), not a number
-    const bad: QuestionStepOptions = { expiresIn: 4 };
-    expectTypeOf(options).toExtend<QuestionStepOptions>();
-    expectTypeOf(bad).toExtend<QuestionStepOptions>();
+  it("a target takes a timeout: a duration; a tool and a step take none (#1307)", () => {
+    expectTypeOf<ToolApprovalOptions["timeout"]>().toEqualTypeOf<Milliseconds | WorkingDuration>();
+    expectTypeOf<ExternalTaskOptions["timeout"]>().toEqualTypeOf<Milliseconds | WorkingDuration>();
+    // @ts-expect-error a tool has no deadline of its own: its approval's timeout is the one
+    expectTypeOf<ToolOptions<DtoClass, DtoClass, []>["expiresIn"]>().toBeUndefined();
   });
 
   it("#1310a: reassign takes assignees, a duration and a reason — and nothing of a person's answer", () => {

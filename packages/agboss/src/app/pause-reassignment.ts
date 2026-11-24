@@ -46,7 +46,7 @@ import type { AnyTenantApp, PauseCallerOptions } from "./types.js";
  * channel fails, between the two leaves it unsent for the re-send look (`pause-resend-look.ts`):
  * `send` is at-least-once, as a step's re-entry after a crash already is. No order is imposed on the
  * channel's two notices (Q12). The new id goes to the channel only: never to the caller, a log or a
- * listener without `allowAnswering`. No lease is taken, no tree moves, the agent does not run again.
+ * listener without `includePauseIds`. No lease is taken, no tree moves, the agent does not run again.
  */
 
 /** What a reassignment needs from the workflow's app. */
@@ -71,8 +71,9 @@ export interface ResendParts {
   readonly decide: ChannelDecision;
 }
 
-/** The pause's channel as its workflow has it now; `undefined`: it is gone. */
+/** The pause's channel as its workflow has it now; `undefined`: it is gone, or none was asked (an owner's pause). */
 function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined {
+  if (pause.channel === undefined) return undefined;
   try {
     return ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
   } catch {
@@ -86,11 +87,11 @@ function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined 
  */
 export async function sendReplacement(parts: ResendParts, pause: PauseRecord): Promise<void> {
   const { deps, clock } = parts;
+  // an owner's pause with no channel: nobody is asked, the replacement just waits (#1307c)
+  if (pause.channel === undefined) return markedSent(parts, pause);
   const channel = channelOf(deps, pause);
   if (channel === undefined)
     throw new TypeError(`no channel ${pause.channel}: a reassigned pause cannot be asked`);
-  // an owner's pause with no channel: nobody is asked, the replacement just waits (#1307c)
-  if (channel.sender === undefined) return markedSent(parts, pause);
   const own = ownDepsOf(deps, pause.workflow);
   const timeout = isApprovalPause(pause)
     ? own.tools(pause.toolCall.tool).timeout
@@ -181,7 +182,7 @@ export const reassignPauseOf =
     const pause = await pauseOf(parts.pauses, request, tenantId);
     const actor = await actorOf(parts, pause, call);
     await assertOpen(parts, pause);
-    if (channelOf(parts.deps, pause) === undefined)
+    if (pause.channel !== undefined && channelOf(parts.deps, pause) === undefined)
       reject([
         { path: ".pauseId", reason: "the pause's channel is no longer in this application" },
       ]);
@@ -211,7 +212,7 @@ export const reassignPauseOf =
     // counted once, by the call whose transaction won: the old pause closed `reassigned`
     pauseTallyOf(parts.deps.pause)?.closed(reassignedPause(pause, replacement.pauseId, at));
     pauseTallyOf(parts.deps.pause)?.reassigned(replacement);
-    await toldReassigned(parts.deps, pause, channelOf(parts.deps, pause), replacement);
+    await toldReassigned(parts.deps, pause, replacement);
     await sentAfter(parts, replacement);
     return { pauseKey: pauseKeyOf(tenantId, replacement.pauseId) };
   };

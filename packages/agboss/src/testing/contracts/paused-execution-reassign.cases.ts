@@ -62,7 +62,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
           {
             action: "reassigned",
             at: MID.toISOString(),
-            target: old.channel,
+            target: old.target,
             channel: old.channel,
             assignees: ["deputy-3"],
             expiresAt: DEADLINE.toISOString(),

@@ -5,7 +5,7 @@
  * the answer-log entry and the kept history record a store parsed. The rows are 0.1.1's.
  */
 import { describe, expect, it } from "vitest";
-import { PauseAnswerer } from "../../src/index.js";
+import { PauseRespondent } from "../../src/index.js";
 import {
   executionHistoryRecordOfJson,
   pauseAnswerRecordOfValue,
@@ -27,8 +27,9 @@ const PAUSE = {
   copyNumber: 1,
   kind: "approval",
   step: "clerk-agent",
+  target: "refund-tool-approval",
   channel: "refund-approval-channel",
-  answerer: "channel",
+  respondent: "delegate",
   input: { orderId: "7" },
   toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
   status: "resolved",
@@ -41,9 +42,9 @@ const PAUSE = {
 };
 
 describe("a store's parsed JSON is read through the core", () => {
-  it("a pause: its answerer is who may answer, the answer's actor is who answered", () => {
+  it("a pause: its respondent is who may answer, the answer's actor is who answered", () => {
     expect(pauseRecordOfJson(PAUSE)).toMatchObject({
-      answerer: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
       answer: { decision: { approved: true }, actor: { id: "manager-17", orgId: "holding-hq" } },
     });
   });
@@ -51,15 +52,15 @@ describe("a store's parsed JSON is read through the core", () => {
   it("a question's input is the role's own", () => {
     const stored = {
       ...PAUSE,
-      answerer: "thread-owner",
-      kind: "question",
+      respondent: "owner",
+      kind: "external-task",
       input: { topic: "free" },
       toolCall: undefined,
       answer: { decision: 1, actor: { id: "alice" } },
     };
 
     expect(pauseRecordOfJson(stored)).toMatchObject({
-      answerer: PauseAnswerer.ThreadOwner,
+      respondent: PauseRespondent.Owner,
       input: { topic: "free" },
       answer: { actor: { id: "alice" } },
     });
@@ -79,9 +80,9 @@ describe("a store's parsed JSON is read through the core", () => {
   });
 
   it.each([
-    ["a pause with no kind of answerer", { answerer: undefined }, "answerer"],
+    ["a pause with no kind of respondent", { respondent: undefined }, "respondent"],
     ["an approval with no tool call", { toolCall: undefined }, "toolCall"],
-    ["a question that names a tool call", { kind: "question" }, "toolCall"],
+    ["a question that names a tool call", { kind: "external-task" }, "toolCall"],
     ["a pause with no chain of custody", { trail: undefined }, "trail"],
     ["a pause with an empty chain of custody", { trail: [] }, "trail"],
     ["an empty list of assignees", { assignees: [] }, "assignees"],
@@ -101,11 +102,11 @@ describe("a store's parsed JSON is read through the core", () => {
 
   it("an answer-log entry and a kept history record are read the same way", () => {
     expect(pauseAnswerRecordOfValue(answerLogEntry)).toMatchObject({
-      answerer: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
       actor: { id: "manager-17" },
     });
     expect(executionHistoryRecordOfJson(historyRecord).children[0]?.pauses[0]).toMatchObject({
-      answerer: PauseAnswerer.ThreadOwner,
+      respondent: PauseRespondent.Owner,
       actor: { id: "alice" },
     });
   });
@@ -126,11 +127,11 @@ describe("0.1.0 is refused, never defaulted", () => {
 
   it.each([
     [
-      "answeredBy as the kind, no answerer",
-      { answerer: undefined, answeredBy: "channel" },
-      "answerer",
+      "answeredBy as the kind, no respondent",
+      { respondent: undefined, answeredBy: "channel" },
+      "respondent",
     ],
-    ["answeredBy beside the answerer", { answeredBy: "channel" }, "answeredBy"],
+    ["answeredBy beside the respondent", { answeredBy: "channel" }, "answeredBy"],
     ["0.1.0's ask", { ask: { topic: "free" } }, "ask"],
     ["0.1.0's one assignee", { assignee: "deputy-3" }, "assignee"],
     [
@@ -142,9 +143,9 @@ describe("0.1.0 is refused, never defaulted", () => {
     ["no copyNumber", { copyNumber: undefined }, "copyNumber"],
     ["no askedAt", { askedAt: undefined }, "askedAt"],
     [
-      "an answer with 0.1.0's answerer",
-      { answer: { decision: 1, answerer: "manager-17" } },
-      "answer.answerer",
+      "an answer with 0.1.0's respondent",
+      { answer: { decision: 1, respondent: "manager-17" } },
+      "answer.respondent",
     ],
   ])("a pause with %s", (_name, change, field) => {
     refused(() => pauseRecordOfJson({ ...PAUSE, ...change }), field);
@@ -162,16 +163,16 @@ describe("0.1.0 is refused, never defaulted", () => {
     refused(() => executionHistoryRecordOfJson(kept), "responder");
   });
 
-  it("a log entry with 0.1.0's answeredBy as the kind and no answerer", () => {
+  it("a log entry with 0.1.0's answeredBy as the kind and no respondent", () => {
     refused(
       () =>
         pauseAnswerRecordOfValue({
           ...answerLogEntry,
-          answerer: undefined,
+          respondent: undefined,
           answeredBy: "channel",
           responder: "manager-17",
         }),
-      "answerer",
+      "respondent",
     );
   });
 });

@@ -11,7 +11,11 @@ import {
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { ApprovalDesk, ChatAppChannel } from "../channels/approval.workflow.js";
+import {
+  ApprovalDesk,
+  ChatAppChannel,
+  ChatAppToolApproval,
+} from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
@@ -25,7 +29,7 @@ export const approvedRecipients: string[] = [];
   description: "Sends an email once approved",
   input: EmailSend,
   output: EmailSent,
-  channel: ChatAppChannel,
+  approval: ChatAppToolApproval,
   deps: [Outbox, ExecutionContext],
 })
 export class SendApprovedEmail {
@@ -81,6 +85,7 @@ export class MailWorkflow {}
   environment: EmptyEnvironment,
   workflows: [MailWorkflow],
   piiPolicies: [ContactPiiPolicy],
+  channels: [ChatAppChannel],
   providers: [SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })

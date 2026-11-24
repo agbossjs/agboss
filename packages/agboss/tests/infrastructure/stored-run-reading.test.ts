@@ -1,6 +1,6 @@
 /**
  * #934: a paused run is read whole by the core (`pausedRunOfValue`). `sqlite/paused-run.json` is a run
- * in the shape 0.1.1 writes it: `turnId`, a pending approval with `step`, `answerer` and `kind`, every
+ * in the shape 0.1.1 writes it: `turnId`, a pending approval with `step`, `respondent` and `kind`, every
  * usage naming its provider, a launch's group by `targets`. A wrong-typed field is refused by name.
  */
 import { inspect } from "node:util";
@@ -18,7 +18,7 @@ describe("a paused run is read whole", () => {
     expect(run.pending[0]).toMatchObject({
       kind: "approval",
       step: "clerk-agent",
-      answerer: "channel",
+      respondent: "delegate",
       toolCall: { tool: "refund" },
       input: {},
     });
@@ -37,9 +37,10 @@ describe("a paused run is read whole", () => {
       pending: [
         {
           pauseId: "p2",
-          kind: "question",
-          answerer: "thread-owner",
+          kind: "external-task",
+          respondent: "owner",
           step: "asker",
+          target: "c-target",
           channel: "c",
           input: { topic: "free" },
           trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "c" }],
@@ -48,7 +49,7 @@ describe("a paused run is read whole", () => {
     });
 
     expect(run).toMatchObject({ turnId: "turn-2", budgetUsd: Infinity });
-    expect(run.pending[0]).toMatchObject({ kind: "question", input: { topic: "free" } });
+    expect(run.pending[0]).toMatchObject({ kind: "external-task", input: { topic: "free" } });
   });
 
   it.each([
@@ -57,7 +58,11 @@ describe("a paused run is read whole", () => {
     ["a pending list of numbers", { pending: [42] }, "pending.0"],
     [
       "a pending pause with no step",
-      { pending: [{ pauseId: "p", channel: "c", answerer: "channel", input: {}, trail: [] }] },
+      {
+        pending: [
+          { pauseId: "p", target: "t", channel: "c", respondent: "delegate", input: {}, trail: [] },
+        ],
+      },
       "pending.0",
     ],
     ["a budget that is a text", { budgetUsd: SECRET }, "budgetUsd"],
@@ -82,8 +87,9 @@ describe("a paused run is read whole", () => {
       {
         pauseId: "p",
         kind: "approval",
-        answerer: "channel",
+        respondent: "delegate",
         step: "clerk-agent",
+        target: "c-target",
         channel: "c",
         input: {},
         toolCall: { callId: "c1", tool: "refund", summary: "s" },
@@ -97,7 +103,7 @@ describe("a paused run is read whole", () => {
     ["ternId, 0.1.0's name of turnId", { ternId: "turn-1" }, "ternId"],
     ["a pending pause with 0.1.0's agent", pending({ agent: "clerk-agent" }), "pending.0.agent"],
     [
-      "a pending pause with 0.1.0's answeredBy beside its answerer, the same kind or another",
+      "a pending pause with 0.1.0's answeredBy beside its respondent, the same kind or another",
       pending({ answeredBy: "channel" }),
       "pending.0.answeredBy",
     ],

@@ -1,24 +1,5 @@
 import { Text } from "../../../src/dto/index.js";
-import {
-  Action,
-  Agent,
-  Channel,
-  ChannelOutcome,
-  ChildPlacement,
-  EmptyEnvironment,
-  ExecutionContext,
-  Observer,
-  listOf,
-  Tool,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  type ChannelAsk,
-  type ExecutionEndEvent,
-  type ExecutionStartEvent,
-  type Tracked,
-  inline,
-} from "../../../src/index.js";
+import { Action, Agent, Channel, ChannelOutcome, ChildPlacement, EmptyEnvironment, ExecutionContext, Observer, listOf, Tool, Workflow, WorkflowFinish, WorkflowStart, type ChannelAsk, type ExecutionEndEvent, type ExecutionStartEvent, type Tracked, inline, ToolApproval } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../../helpers/flow.js";
@@ -29,6 +10,8 @@ import {
   SummaryWorkflowFinish,
   SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { days } from "../../../src/units/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /**
  * #516 — a parent waiting for its `ChildPlacement.AnyWorker` children while another instance's
@@ -135,9 +118,18 @@ export class GatedResultAction {
 }
 
 /** A channel the confirmation names as is: records the pause's id and waits for the answer. */
-@Channel({ name: "recording-channel" })
+/** What RecordingChannel asks for: the approval of the tools that name it. */
+@ToolApproval({
+  name: "recording-tool-approval",
+  description: "Approval of the tools asked through RecordingChannel",
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+})
+export class RecordingToolApproval {}
+
+@Channel({ name: "recording-channel", target: RecordingToolApproval, ttl: days(1) })
 export class RecordingChannel {
-  send(ask: ChannelAsk<RecordingChannel>): Promise<ChannelOutcome<RecordingChannel>> {
+  send(ask: ChannelAsk<RecordingToolApproval>): Promise<ChannelOutcome<RecordingToolApproval>> {
     yieldSeen.pauseIds.push(ask.pauseId);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -151,7 +143,7 @@ export class ItemConfirmDto {
 @Tool({
   name: "confirm-item-tool",
   description: "Confirms an item",
-  channel: RecordingChannel,
+  approval: RecordingToolApproval,
   input: ItemConfirmDto,
   output: ItemConfirmDto,
 })
@@ -306,6 +298,7 @@ export class YieldLog {
   environment: EmptyEnvironment,
   workflows: [YieldOneWorkflow, YieldReviewsWorkflow],
   observers: [YieldLog],
+  channels: [RecordingChannel],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
 })

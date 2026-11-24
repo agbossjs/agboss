@@ -1,5 +1,4 @@
 import type { PauseChange } from "../flow/observers/pause-changes.js";
-import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { AppDeps } from "./app-deps.js";
@@ -21,13 +20,14 @@ function observerOf(deps: AppDeps, pause: PauseRecord): ExecutionObserverManager
 }
 
 /** What both events carry: where the pause waits (a pause nobody is asked about has no channel). */
-function pauseChangeOf(pause: PauseRecord, channel: PauseChannel | undefined): PauseChange {
+function pauseChangeOf(pause: PauseRecord): PauseChange {
   return {
     tenantId: pause.tenantId,
     executionId: pause.rootExecutionId,
     threadId: pause.threadId,
     workflow: pause.workflow,
-    ...(channel?.sender === undefined ? {} : { channel: pause.channel }),
+    target: pause.target,
+    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
   };
 }
 
@@ -45,13 +45,12 @@ async function toldPauseChange(
 export function toldTimeoutChanged(
   deps: AppDeps,
   pause: PauseRecord,
-  channel: PauseChannel | undefined,
   deadlines: { readonly previousExpiresAt: string; readonly expiresAt: string },
 ): Promise<void> {
   const { previousExpiresAt, expiresAt } = deadlines;
   return toldPauseChange(deps, pause, (observer) =>
     observer.onPauseTimeoutChanged({
-      ...pauseChangeOf(pause, channel),
+      ...pauseChangeOf(pause),
       previousExpiresAt: new Date(previousExpiresAt),
       expiresAt: new Date(expiresAt),
     }),
@@ -62,13 +61,12 @@ export function toldTimeoutChanged(
 export function toldReassigned(
   deps: AppDeps,
   pause: PauseRecord,
-  channel: PauseChannel | undefined,
   replacement: PauseRecord,
 ): Promise<void> {
   return toldPauseChange(deps, pause, (observer) =>
     observer.onPauseReassigned({
-      ...pauseChangeOf(pause, channel),
-      ...(channel?.sender === undefined ? {} : { previousChannel: pause.channel }),
+      ...pauseChangeOf(pause),
+      ...(pause.channel === undefined ? {} : { previousChannel: pause.channel }),
       ...(replacement.expiresAt === undefined
         ? {}
         : { expiresAt: new Date(replacement.expiresAt) }),

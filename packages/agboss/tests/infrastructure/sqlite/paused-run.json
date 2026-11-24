@@ -223,8 +223,9 @@
     {
       "pauseId": "p1",
       "kind": "approval",
-      "answerer": "channel",
+      "respondent": "delegate",
       "step": "clerk-agent",
+      "target": "refund-tool-approval",
       "channel": "refund-approval-channel",
       "input": {},
       "toolCall": {
@@ -236,7 +237,7 @@
         {
           "action": "opened",
           "at": "2026-01-05T09:00:00.000Z",
-          "target": "refund-approval-channel",
+          "target": "refund-tool-approval",
           "channel": "refund-approval-channel"
         }
       ]

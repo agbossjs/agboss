@@ -110,6 +110,7 @@ export function applicationWith(
   name: string,
   extra: Partial<WorkflowOptions>,
   agent: Class = Plain,
+  channels: readonly Class[] = [],
 ): Class {
   const workflow = workflowWith(name, extra, agent);
   @Application({
@@ -117,6 +118,7 @@ export function applicationWith(
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],
+    channels,
     budgets: TEST_BUDGETS,
   })
   class BuiltApplication {}

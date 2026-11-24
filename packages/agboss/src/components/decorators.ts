@@ -10,10 +10,10 @@ import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { RagScope } from "../rag/types.js";
 import type { RagSource } from "../rag/rag-source.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
-import { ComponentError, recordComponent } from "./metadata.js";
+import { recordComponent } from "./metadata.js";
 import { recordInjectAs, type InjectAs, type PortInstances } from "./injection.js";
 import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
@@ -31,30 +31,14 @@ export interface ToolHandler<TInput, TOutput> {
 export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
 
 /**
- * A question role an agent asks through its tool loop (#712): a `@ChannelRole({ ask, answer })`
- * class — what its channels `send`; an approval role there fails assembly.
+ * An `@ExternalTask` an agent asks through its tool loop (#712): a class with no `execute` — the
+ * task is what its channel's side does, not code of the class. A class that does have `execute` is a
+ * tool.
  */
-export type QuestionRoleClass = Class<{ send(ask: never): Promise<unknown> }>;
+export type ExternalTaskClass = Class<object>;
 
-/** What an agent's `tools: [...]` takes: `@Tool` classes and question roles (#712). */
-export type AgentToolClass = ToolHandlerClass | QuestionRoleClass;
-
-/**
- * `@Tool({ approval })` is the approval its calls wait for (#1307): recorded as the channel the
- * runtime reads, `approval` kept beside it. Both → a mistake, said once.
- */
-function approvalAsChannel<O extends { readonly channel?: Class; readonly approval?: Class }>(
-  options: O,
-): O {
-  if (options.approval === undefined) return options;
-  if (options.channel !== undefined) {
-    throw new ComponentError({
-      message:
-        "[tool.approval-and-channel] a tool names its approval with approval — channel is its old spelling; give one of them",
-    });
-  }
-  return { ...options, channel: options.approval };
-}
+/** What an agent's `tools: [...]` takes: `@Tool` classes and external tasks (#712). */
+export type AgentToolClass = ToolHandlerClass | ExternalTaskClass;
 
 /** A decorator's options as recorded: `deps` always present. */
 const withDeps = <O extends { readonly deps?: readonly Token[] }>(options: O) => ({
@@ -69,11 +53,7 @@ export interface ToolOptions<
 > {
   readonly name: string;
   readonly description: string;
-  readonly channel?: Class;
-  /**
-   * The `@ToolApproval` this tool's calls wait for (#1307): the new name of `channel`; one of the
-   * two, never both.
-   */
+  /** The `@ToolApproval` this tool's calls wait for (#1307); none: its calls run without a pause. */
   readonly approval?: Class;
   /**
    * Whether the tool only reads (#860): it changes nothing outside — no write, no payment, no
@@ -83,12 +63,6 @@ export interface ToolOptions<
   readonly readOnly?: boolean;
   /** How long one call may run, with units: `timeout: seconds(5)` (default 30 s), at most 24 hours (`[limits.timeout-invalid]`, #1141). */
   readonly timeout?: Milliseconds;
-  /**
-   * How long the approval of one call waits for its answer (#941): `expiresIn: hours(4)`, over its
-   * channel role's; at least `seconds(1)`; `workingHours(4)` counts the calendar's working time (#944). Only with `channel`. At the deadline the channel's
-   * `onPauseExpired` decides, or the agent step fails with `PauseExpiredError`.
-   */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   /**
    * What a model reads of one result at most, in bytes of UTF-8: `maxResultSize: kilobytes(256)`
    * (#336) — longer is cut with a marker; default `defaults.tools.maxResultSize`, else 128 KB.
@@ -119,7 +93,7 @@ export function Tool<
     value: C,
   ): C => {
     recordOptionKeys(value, "Tool", options, TOOL_KEYS);
-    recordComponent(value, { kind: "tool", meta: withDeps(approvalAsChannel(options)) });
+    recordComponent(value, { kind: "tool", meta: withDeps(options) });
     return value;
   };
 }
@@ -225,43 +199,25 @@ export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
   readonly description?: string;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
-  /**
-   * The `@ToolApproval` or `@ExternalTask` this channel serves (#1307) — in place of `extends` the
-   * role. With it, `ttl` is required.
-   */
-  readonly target?: Class;
+  /** The `@ToolApproval` or `@ExternalTask` this channel serves (#1307): its transport. */
+  readonly target: Class;
   /**
    * How long a closed pause of this channel is kept, for duplicate webhook and click detection
-   * (#1307): more than the execution lease (30 s). Required with `target`.
+   * (#1307): more than the execution lease (30 s).
    */
-  readonly ttl?: Milliseconds;
+  readonly ttl: Milliseconds;
   /** How long one call of the channel may run (#1307); default 30 s. */
   readonly timeout?: Milliseconds;
 }
 
-/** `@Channel({ target, ttl })`: a channel bound to its pause target (#1307). */
-export interface TargetChannelOptions<
-  D extends readonly Token[] = readonly Token[],
-> extends ChannelOptions<D> {
-  readonly target: Class;
-  readonly ttl: Milliseconds;
-}
-
 /**
- * A channel (#267): a role's implementation (`extends` a `@ChannelRole` class), or a concrete
- * channel a tool names as is. The container creates it with its `deps`; the execution comes
- * through an injected `ExecutionContext`. One instance per application, shared by all workflows.
+ * A channel (#267, #1307): the transport of one `@ToolApproval` or `@ExternalTask` — it `send`s a
+ * pause to a person or a system, and may hear of what happened to it (`onPause*`). The container
+ * creates it with its `deps`; the execution comes through an injected `ExecutionContext`. One
+ * instance per application, shared by all workflows.
  */
-export function Channel<const D extends readonly Token[] = []>(
-  options: TargetChannelOptions<D>,
-): <C extends new (...args: ResolvedAll<D>) => { send(ask: never): unknown }>(value: C) => C;
-export function Channel<const D extends readonly Token[] = []>(
-  options: ChannelOptions<D> & { readonly target?: never; readonly ttl?: never },
-): <C extends new (...args: ResolvedAll<D>) => { send(ask: never): Promise<unknown> }>(
-  value: C,
-) => C;
 export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>) {
-  // any role's `send` (`ChannelHandler<Role>`): the ask's type is the role's, checked by `implements`
+  // any target's `send` (`ChannelHandler<Target>`): the ask's type is the target's
   return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): unknown }>(
     value: C,
   ): C => {

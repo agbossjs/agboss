@@ -35,8 +35,8 @@ export enum ComponentKind {
   Budget = "budget",
   /** `@Memory` that writes summaries with a model (#1303). */
   Memory = "memory",
-  /** `@ReplyInterpreter` (#267 PR 3). */
-  ReplyInterpreter = "reply-interpreter",
+  /** `@ChannelInterpreter` (#267 PR 3). */
+  ChannelInterpreter = "reply-interpreter",
   /** `@PiiPolicy` that detects with a model (#120). */
   PiiPolicy = "pii-policy",
 }

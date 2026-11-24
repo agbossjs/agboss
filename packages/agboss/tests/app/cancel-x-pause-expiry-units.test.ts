@@ -7,7 +7,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
 import { NoticeTimeoutError } from "../../src/app/pause-notice-call.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import {
   ExpiryProblem,
@@ -20,6 +19,7 @@ import {
 import { RECIPIENTS } from "../../src/testing/contracts/paused-execution-data.js";
 import { DEFAULT_TOOL_TIMEOUT } from "../../src/tools/index.js";
 import { seconds } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const mocks = vi.hoisted(() => ({
   isCancelRequested: vi.fn(),
@@ -57,7 +57,7 @@ const pause = (overrides: Record<string, unknown> = {}) => ({
   channel: "refund-channel",
   status: PauseStatus.Pending,
   kind: PauseKind.Approval,
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
   step: "desk-clerk-agent",
   input: {},
   toolCall: { callId: "c-1", tool: "refund", summary: "refund" },
@@ -194,7 +194,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     const { parts, tools } = partsOf({ sender: { onPauseExpired: () => PauseExpiration.fail() } });
 
     await expirePauses(parts, [
-      pause({ kind: PauseKind.Question, ask: { question: "?" } }) as never,
+      pause({ kind: PauseKind.ExternalTask, ask: { question: "?" } }) as never,
     ]);
 
     expect(tools).not.toHaveBeenCalled();

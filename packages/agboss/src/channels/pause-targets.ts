@@ -4,8 +4,9 @@ import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
-import { PauseAnswerer, recordRole, type StoredChannelRole } from "./channel-role.decorator.js";
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
+import { NodeKind } from "../flow/ast.js";
+import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
+import { PauseRespondent } from "../pause/respondent.js";
 import type { PauseEscalationLimits } from "./pause-contexts.js";
 import { ComponentError, componentOf } from "../components/metadata.js";
 import type { ProviderModule } from "../components/container/registrations.js";
@@ -18,13 +19,7 @@ import type { ProviderModule } from "../components/container/registrations.js";
  * kept beside it (`pauseTargetOf`).
  */
 
-/** Who may answer a pause of a target: required on every one, no default. */
-export enum PauseRespondent {
-  /** The thread's owner (`resume` checks its `ownerId`): a workflow question to the customer. */
-  Owner = "owner",
-  /** The channel's side authenticates who answers (Slack, a ticket system, an automation). */
-  Delegate = "delegate",
-}
+export { PauseRespondent };
 
 /**
  * The optional hooks of a pause target, typed on what a class may declare without `implements`: a
@@ -106,34 +101,75 @@ export interface PauseTargetOverlay {
 /** The overlays of the selected profiles by target `name`, the tool approvals' and the external tasks' together. */
 export type PauseTargetOverrides = ReadonlyMap<string, PauseTargetOverlay>;
 
-/** What a pause target recorded beside its role: its decorator and the options it was given. */
+/** What a pause target recorded: its decorator and the options it was given. */
 export type PauseTargetDeclaration =
   | { readonly kind: "tool-approval"; readonly options: ToolApprovalOptions }
   | { readonly kind: "external-task"; readonly options: ExternalTaskOptions };
+
+/** The options of either target, as the runtime and the rules read them. */
+export type PauseTargetOptions = ToolApprovalOptions | ExternalTaskOptions;
 
 const targets = new WeakMap<Class, PauseTargetDeclaration>();
 
 /** What `@ToolApproval` / `@ExternalTask` recorded on this very class; `undefined` for any other. */
 export const pauseTargetOf = (cls: Class): PauseTargetDeclaration | undefined => targets.get(cls);
 
-const ANSWERERS: Readonly<Record<PauseRespondent, PauseAnswerer>> = {
-  [PauseRespondent.Owner]: PauseAnswerer.ThreadOwner,
-  [PauseRespondent.Delegate]: PauseAnswerer.Channel,
+/** A target class and what it recorded. */
+export interface FoundPauseTarget {
+  readonly target: Class;
+  readonly declaration: PauseTargetDeclaration;
+  readonly options: PauseTargetOptions;
+}
+
+/** The target a class is; `undefined` for any other class. */
+export function findPauseTarget(cls: Class): FoundPauseTarget | undefined {
+  const declaration = targets.get(cls);
+  return declaration === undefined
+    ? undefined
+    : { target: cls, declaration, options: declaration.options };
+}
+
+/** Whether a target is an external task (asked by a flow step, answered with its `output`), not a tool approval. */
+export const isExternalTask = (options: PauseTargetOptions): options is ExternalTaskOptions =>
+  options.output !== undefined;
+
+/** The name a target is known by (`refund-tool-approval`). */
+export const targetNameOf = (cls: Class): string => {
+  const declaration = targets.get(cls);
+  if (declaration === undefined)
+    throw new ComponentError({
+      message: `${cls.name || "(anonymous class)"} is named as a pause target but is neither a @ToolApproval nor an @ExternalTask`,
+    });
+  return declaration.options.name;
 };
 
-/** The options both decorators hand to the role registry, whatever the form. */
-function roleBaseOf(options: PauseTargetBaseOptions) {
-  const { name, description, respondent, timeout, calendar, remindBefore, channelInterpreter } =
-    options;
-  return {
+/**
+ * What an external task's step is as a flow node (#659): its target's name and description, one
+ * input field `ask` of the target's `input` class, the `output` as its output, its `maxVisits`. The flow's
+ * own record, not part of the public surface.
+ */
+export interface QuestionNodeOptions {
+  readonly name: string;
+  readonly description: string;
+  readonly input: { readonly ask: DtoClass };
+  readonly output: DtoClass;
+  readonly maxVisits?: number;
+  /** The target's own options. */
+  readonly target: ExternalTaskOptions;
+}
+
+/** The node an external task's step is (#659). */
+function questionDeclarationOf(options: ExternalTaskOptions, source: string | undefined) {
+  const { name, description, input, output, maxVisits } = options;
+  const node: QuestionNodeOptions = {
     name,
     description,
-    answerer: ANSWERERS[respondent],
-    expiresIn: timeout,
-    ...(remindBefore === undefined ? {} : { remindBefore }),
-    ...(calendar === undefined ? {} : { workingCalendar: calendar as WorkingCalendarSource }),
-    ...(channelInterpreter === undefined ? {} : { replyInterpreter: channelInterpreter }),
+    input: { ask: input },
+    output,
+    ...(maxVisits === undefined ? {} : { maxVisits }),
+    target: options,
   };
+  return declared(NodeKind.Question, node, source);
 }
 
 /** `respondent` of an untyped (JS) caller: the types rule other values out already. */
@@ -157,22 +193,11 @@ export const targetDecoratorOf = (cls: Class): string | undefined => {
 export function ToolApproval<const TDeps extends readonly Token[] = []>(
   options: ToolApprovalOptions<TDeps>,
 ) {
-  const source = callerFile();
   return <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(
     value: TClass,
   ): TClass => {
     recordOptionKeys(value, "ToolApproval", options, TOOL_APPROVAL_KEYS);
     checkRespondent("@ToolApproval", options.name, options.respondent);
-    // no `input`: the approval gates any tool
-    const stored: StoredChannelRole =
-      options.input === undefined
-        ? { ...roleBaseOf(options), answerer: ANSWERERS[options.respondent] }
-        : {
-            ...roleBaseOf(options),
-            approves: options.input,
-            answerer: ANSWERERS[options.respondent],
-          };
-    recordRole(value, stored, source);
     targets.set(value, { kind: "tool-approval", options });
     return value;
   };
@@ -188,15 +213,8 @@ export function ExternalTask<const TDeps extends readonly Token[] = []>(
   ): TClass => {
     recordOptionKeys(value, "ExternalTask", options, EXTERNAL_TASK_KEYS);
     checkRespondent("@ExternalTask", options.name, options.respondent);
-    const stored: StoredChannelRole = {
-      ...roleBaseOf(options),
-      ask: options.input,
-      answer: options.output,
-      ...(options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits }),
-      answerer: ANSWERERS[options.respondent],
-    };
-    recordRole(value, stored, source);
     targets.set(value, { kind: "external-task", options });
+    recordDeclaration(value, questionDeclarationOf(options, source));
     return value;
   };
 }

@@ -1,6 +1,6 @@
 /**
  * #267 PR 3: reply interpreters are checked at assembly, all problems at once —
- * `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` without `@ReplyInterpreter`),
+ * `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` without `@ChannelInterpreter`),
  * `[name.not-kebab-case]`, `[reply-interpreter.no-interpret-method]` (a code
  * one without `interpret`); a decision model reads any role's reply (every role is an approval,
  * #647). A model interpreter's call is traced under the pause's execution: the trace's
@@ -11,19 +11,19 @@ import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { resolvedModelUsesOf } from "../../src/models/resolution.js";
 import { TreasuryApplication } from "../flow/fixtures/replies.fixture.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
-import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
-import { ReplyInterpreter } from "../../src/channels/channel-role.decorator.js";
+import { ChannelInterpreter } from "../../src/channels/channel-interpreter.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { replyInterpreterViolations } from "../../src/channels/discovery.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { Text } from "../../src/dto/index.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { ToolApproval } from "../../src/channels/pause-targets.js";
+import { days } from "../../src/units/index.js";
 
 class WireRequestDto {
   @Text()
@@ -34,40 +34,38 @@ class WireRequestDto {
 @Injectable()
 class PlainReader {}
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "Wire_Reader",
   description: "Reads wire replies",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
 })
 class DecisionModelReader {}
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "wire-jev-reply-interpreter",
   description: "Reads whether a wire reply approves it",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
 })
 class JevReader {}
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "wire-code-reply-interpreter",
   description: "Reads wire replies by code",
-  decidedBy: DecidedBy.Code,
 })
 class MethodlessReader {}
 
 /** A role naming `replyInterpreter`, its use by one tool. */
 function useOf(name: string, replyInterpreter: new () => object) {
-  @ChannelRole({
+  @ToolApproval({
     name,
     description: "Approves wires",
-    approves: WireRequestDto,
-    answerer: PauseAnswerer.Channel,
-    replyInterpreter,
+    input: WireRequestDto,
+    respondent: PauseRespondent.Delegate,
+    timeout: days(365),
+    channelInterpreter: replyInterpreter,
   })
-  abstract class WireApprovalChannel extends ChannelOf<WireApprovalChannel> {}
-  return { tool: "wire", toolInput: WireRequestDto, channel: WireApprovalChannel, workflow: "w" };
+  class WireToolApproval {}
+  return { tool: "wire", toolInput: WireRequestDto, target: WireToolApproval, workflow: "w" };
 }
 
 describe("#267 PR 3: reply interpreters at assembly", () => {
@@ -81,9 +79,9 @@ describe("#267 PR 3: reply interpreters at assembly", () => {
     const found = replyInterpreterViolations(uses).map(({ code, nodes }) => ({ code, nodes }));
 
     expect(found).toEqual([
-      { code: "reply-interpreter.not-an-interpreter", nodes: ["plain-approval-channel"] },
+      { code: "channel-interpreter.not-an-interpreter", nodes: ["plain-approval-channel"] },
       { code: "name.not-kebab-case", nodes: ["Wire_Reader"] },
-      { code: "reply-interpreter.no-interpret-method", nodes: ["wire-code-reply-interpreter"] },
+      { code: "channel-interpreter.no-interpret-method", nodes: ["wire-code-reply-interpreter"] },
     ]);
   });
 });
@@ -136,11 +134,11 @@ describe("#267 AC8: a model interpreter's call is traced", () => {
       .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }));
     const trace = new SeenTrace();
     const interpreter = {
-      channel: "wire-approval-channel",
+      target: "wire-approval-channel",
       interpreter: PlainReader,
       name: "wire-reply-interpreter",
       answer: ToolCallApprovalDecisionDto,
-      approves: WireRequestDto,
+      input: WireRequestDto,
       model: "test/wire-reader",
       instructions: "Read the reply.",
     };

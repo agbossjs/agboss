@@ -118,12 +118,12 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     },
   },
   {
-    name: "findPageByTenantId filters status, channel and expiresBefore, pages once each, never another tenant's",
+    name: "findPageByTenantId filters status, target and expiresBefore, pages once each, never another tenant's",
     run: async ({ first, second }: Instances): Promise<void> => {
       for (const n of [1, 2, 3, 4])
         await first.findOrCreateByStepKey({
           ...dueAt(n),
-          channel: n % 2 === 0 ? "other-channel" : "refund-approval-channel",
+          target: n % 2 === 0 ? "other-tool-approval" : "refund-tool-approval",
         });
       await first.findOrCreateByStepKey(dueAt(5, "acme"));
       await first.decideByTenantIdAndPauseId("default", "p4", DECIDED_ANSWER, NINE);
@@ -136,9 +136,9 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
 
       expect(ids((await page({ statuses: pending })).pauses)).toEqual(["p1", "p2", "p3"]);
       expect(ids((await page({ statuses: [PauseStatus.Taken] })).pauses)).toEqual(["p4"]);
-      expect(ids((await page({ statuses: pending, channel: "other-channel" })).pauses)).toEqual([
-        "p2",
-      ]);
+      expect(
+        ids((await page({ statuses: pending, target: "other-tool-approval" })).pauses),
+      ).toEqual(["p2"]);
       expect(
         ids((await page({ statuses: pending, expiresBefore: new Date(minute(3)) })).pauses),
       ).toEqual(["p1", "p2"]);

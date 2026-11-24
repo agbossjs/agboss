@@ -105,8 +105,6 @@ describe("#1310c: the interpretation and the listener", () => {
     expectTypeOf(
       ChannelInterpretation.notUnderstood("empty"),
     ).toEqualTypeOf<NotUnderstoodChannelInterpretation>();
-    // @ts-expect-error the reason is a string, no longer { reason }
-    ChannelInterpretation.notUnderstood({ reason: "empty" });
     expectTypeOf<UnderstoodChannelInterpretation<number>>().toExtend<
       UnderstoodChannelInterpretation<unknown>
     >();

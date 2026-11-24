@@ -1,11 +1,8 @@
-import {
-  Agent,
+import { Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
-  PauseAnswerer,
+  PauseRespondent,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -13,8 +10,7 @@ import {
   type ChannelAsk,
   type Tracked,
   Action,
-  inline,
-} from "../../../../src/index.js";
+  inline, ToolApproval } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -28,6 +24,7 @@ import {
   UndoRequestDto,
 } from "./undo.workflow.js";
 import { UnwindLog } from "./unwind.workflow.js";
+import { days } from "../../../../src/units/index.js";
 
 /**
  * #340 PR 3 — trees that rest paused when they are cancelled: a room reserved, then an agent that
@@ -35,17 +32,18 @@ import { UnwindLog } from "./unwind.workflow.js";
  * reserved seat — a cancel withdraws the question and undoes both, the child's from its checkpoint.
  */
 
-@ChannelRole({
-  name: "guest-approval-channel",
+@ToolApproval({
+  name: "guest-tool-approval",
   description: "The guest approves the reservation",
-  approves: UndoRequestDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: UndoRequestDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class GuestApprovalChannel extends ChannelOf<GuestApprovalChannel> {}
+export class GuestToolApproval {}
 
-@Channel({ name: "guest-inbox-channel", description: "Asks the guest and waits" })
-export class GuestInboxChannel extends GuestApprovalChannel {
-  send(_ask: ChannelAsk<GuestApprovalChannel>): Promise<ChannelOutcome<GuestApprovalChannel>> {
+@Channel({ name: "guest-inbox-channel", description: "Asks the guest and waits", target: GuestToolApproval, ttl: days(1) })
+export class GuestInboxChannel {
+  send(_ask: ChannelAsk<GuestToolApproval>): Promise<ChannelOutcome<GuestToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -55,7 +53,7 @@ export class GuestInboxChannel extends GuestApprovalChannel {
   description: "Asks the guest to approve",
   input: UndoRequestDto,
   output: UndoRequestDto,
-  channel: GuestApprovalChannel,
+  approval: GuestToolApproval,
 })
 export class AskGuestTool {
   execute(request: UndoRequestDto): Promise<UndoRequestDto> {

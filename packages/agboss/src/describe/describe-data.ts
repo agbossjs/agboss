@@ -79,8 +79,8 @@ export interface DescribedTool {
   readonly kind: "local" | "mcp";
   /** The MCP server it belongs to (`kind: "mcp"`). */
   readonly server?: string;
-  /** The channel it pauses on. */
-  readonly channel?: string;
+  /** The pause target it waits on (a `@ToolApproval`'s name). */
+  readonly approval?: string;
 }
 
 /** A router of a described workflow. */
@@ -167,7 +167,7 @@ export function workflowDataOf(
     description: tool.description,
     kind: isMcpFacade(tool) ? "mcp" : "local",
     ...(isMcpFacade(tool) ? { server: tool.mcp.server } : {}),
-    ...(tool.channel === undefined ? {} : { channel: tool.channel }),
+    ...(tool.approval === undefined ? {} : { approval: tool.approval }),
   }));
   const assigned = new Set(Object.values(c.agents).flatMap((agent) => agent.tools ?? []));
   return {

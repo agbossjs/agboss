@@ -7,7 +7,6 @@ import { usd } from "../../src/units/index.js";
  * deadline is in working time.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
@@ -24,11 +23,12 @@ import {
   PauseWithdrawnError,
   sentBy,
   THREAD_OWNER,
-  type PauseChannel,
 } from "../../src/flow/runtime/pause.js";
 import { hours } from "../../src/units/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const mocks = vi.hoisted(() => ({ interrupt: vi.fn() }));
 vi.mock("@langchain/langgraph", async (importOriginal) => ({
@@ -52,9 +52,9 @@ function setup(
 ) {
   const pauses = new InMemoryPausedExecutionRepository();
   const send = vi.fn(options.send ?? (() => Promise.resolve(ChannelOutcome.awaitReply())));
-  const channel: PauseChannel = {
+  const channel: FlatChannel = {
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     sender: { send },
     ...(options.expiresIn === undefined ? {} : { expiresIn: options.expiresIn as never }),
   };
@@ -65,7 +65,7 @@ function setup(
   const site = {
     pauses,
     answers: { savePauseAnswer },
-    channel,
+    target: targetOfChannel(channel),
     frame,
     signal: options.signal,
     clock,
@@ -99,10 +99,11 @@ async function stored(
     copyNumber: 1,
     kind: question.kind,
     step: question.step,
+    target: "refund-tool-approval",
     channel: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     input: question.input,
-    ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
+    toolCall: question.toolCall,
     trail: [],
     status: PauseStatus.Pending,
     isSent: false,
@@ -116,9 +117,9 @@ beforeEach(() => {
 });
 
 describe("#1366: a channel's send", () => {
-  const channel: PauseChannel = {
+  const channel: FlatChannel = {
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     sender: { send: () => Promise.reject(new Error("the channel failed")) },
   };
   const ask = { pauseId: "p-1", input: question.input, trail: [] } as never;
@@ -363,7 +364,7 @@ describe("#1366: a pause that is no longer pending", () => {
   });
 
   it.each([PauseResolution.Decided, PauseResolution.DecidedOnExpiry])(
-    "the channel decided (%s): its decision, the channel its answerer, its spend counted already",
+    "the channel decided (%s): its decision, the channel its respondent, its spend counted already",
     async (resolution) => {
       const { site, pauses } = setup();
       const made = await stored(pauses, { isSent: true });

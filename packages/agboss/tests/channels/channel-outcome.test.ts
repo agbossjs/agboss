@@ -5,6 +5,9 @@ import { Application } from "../../src/application/application.js";
 import { ChannelOutcome, ChannelOutcomeKind } from "../../src/channels/channel-outcome.js";
 import { AutoApproveChannel, AutoRejectChannel } from "../../src/channels/test-channels.js";
 import { Channel, Tool } from "../../src/components/decorators.js";
+import { ToolApproval } from "../../src/channels/pause-targets.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { days } from "../../src/units/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -49,8 +52,18 @@ function refundScript(amountCents: number): ScriptBook {
   return book;
 }
 
+/** What the refund tool of these applications waits for: its channel is the one the application lists. */
+@ToolApproval({
+  name: "refund-card-tool-approval",
+  description: "Approves card refunds",
+  input: RefundCardInputDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(1),
+})
+class RefundCardToolApproval {}
+
 /** A channel that returns no outcome (a project channel written against the old contract). */
-@Channel({ name: "silent-channel" })
+@Channel({ name: "silent-channel", target: RefundCardToolApproval, ttl: days(1) })
 class SilentChannel {
   send(): Promise<unknown> {
     return Promise.resolve(undefined);
@@ -58,11 +71,11 @@ class SilentChannel {
 }
 
 /** A channel that decides with a decision its role's DTO rejects (a refusal that overrides). */
-@Channel({ name: "careless-channel" })
+@Channel({ name: "careless-channel", target: RefundCardToolApproval, ttl: days(1) })
 class CarelessChannel {
   send(): Promise<unknown> {
-    const overrideArguments = { orderId: "A-2", amountCents: 1 };
-    return Promise.resolve(ChannelOutcome.decided({ approved: false, overrideArguments }));
+    const overrideInput = { orderId: "A-2", amountCents: 1 };
+    return Promise.resolve(ChannelOutcome.decided({ approved: false, overrideInput }));
   }
 }
 
@@ -73,7 +86,7 @@ function applicationWith(name: string, channel: Class): Class {
     description: "Refunds",
     input: RefundCardInputDto,
     output: RefundCardOutputDto,
-    channel,
+    approval: RefundCardToolApproval,
     deps: [RefundDesk],
   })
   class ChannelRefundTool {
@@ -107,6 +120,7 @@ function applicationWith(name: string, channel: Class): Class {
     environment: EmptyEnvironment,
     workflows: [ChannelWorkflow],
     budgets: TEST_BUDGETS,
+    channels: [channel],
   })
   class ChannelApplication {}
   return ChannelApplication;
@@ -194,7 +208,7 @@ describe("#267 AC7 (PR 1 part): a decided decision is validated on the way in", 
   it("a decision its DTO rejects fails the step; the tool does not run", async () => {
     const { app, result, desk } = await refundOn(applicationWith("careless", CarelessChannel), 100);
 
-    expect(String(result)).toContain("overrideArguments only with approved: true");
+    expect(String(result)).toContain("overrideInput only with approved: true");
     expect(result).toBeInstanceOf(Error);
     expect(desk.refunded).toEqual([]);
     await app.close();
@@ -204,7 +218,7 @@ describe("#267 AC7 (PR 1 part): a decided decision is validated on the way in", 
 describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () => {
   it("AutoApproveChannel approves: the tool runs with no pause", async () => {
     const { app, result, desk } = await refundOn(
-      applicationWith("approving", AutoApproveChannel),
+      applicationWith("approving", AutoApproveChannel.for(RefundCardToolApproval)),
       100,
     );
 
@@ -216,7 +230,7 @@ describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () 
 
   it("AutoRejectChannel rejects: the tool does not run, no pause", async () => {
     const { app, result, desk } = await refundOn(
-      applicationWith("rejecting", AutoRejectChannel),
+      applicationWith("rejecting", AutoRejectChannel.for(RefundCardToolApproval)),
       100,
     );
 

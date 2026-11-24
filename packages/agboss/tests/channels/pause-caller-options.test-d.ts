@@ -1,12 +1,12 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type {
   App,
-  ChannelResumeOptions,
+  DelegateResumeOptions,
   PauseActor,
   TenantContextBranded,
   PauseCallerOptions,
   ResumeOptions,
-  ThreadOwnerResumeOptions,
+  OwnerResumeOptions,
 } from "../../src/index.js";
 
 /**
@@ -67,11 +67,11 @@ describe("#942: PauseCallerOptions", () => {
   });
 
   it("app.resume's options are unchanged: the caller fields and the call options", () => {
-    expectTypeOf<ThreadOwnerResumeOptions>().toExtend<{
+    expectTypeOf<OwnerResumeOptions>().toExtend<{
       onStream?: unknown;
       ownerId?: string | undefined;
     }>();
-    expectTypeOf<ChannelResumeOptions>().toExtend<{
+    expectTypeOf<DelegateResumeOptions>().toExtend<{
       record?: boolean | undefined;
       actor: PauseActor;
     }>();

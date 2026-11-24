@@ -137,20 +137,6 @@ export namespace AGBossTypes {
         // (undocumented)
         readonly [notGenerated]?: never;
     }
-    export interface ChannelRoles {
-        // (undocumented)
-        readonly "auto-approve-channel": {
-            readonly ask: ToolCallApprovalAskDto;
-            readonly answer: ToolCallApprovalDecisionDto;
-        };
-        // (undocumented)
-        readonly "auto-reject-channel": {
-            readonly ask: ToolCallApprovalAskDto;
-            readonly answer: ToolCallApprovalDecisionDto;
-        };
-        // (undocumented)
-        readonly [notGenerated]?: never;
-    }
     export interface DtoBrands {
         // (undocumented)
         readonly [notGenerated]?: never;
@@ -316,9 +302,7 @@ export interface AgentOptions {
     // (undocumented)
     readonly temperature?: number;
     readonly toolInterceptors?: readonly Class[];
-    readonly tools?: readonly (Class<ToolHandler<never, unknown>> | Class<{
-        send(ask: never): Promise<unknown>;
-    }>)[];
+    readonly tools?: readonly AgentToolClass[];
 }
 
 // @public
@@ -408,6 +392,9 @@ export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<T
 
 // @public
 export type AgentStartEvent = StartEvent<string>;
+
+// @public
+export type AgentToolClass = ToolHandlerClass | ExternalTaskClass;
 
 // @public
 export type AgentToolNamesOf<TSelf> = GeneratedEntry<AGBossTypes.AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
@@ -546,7 +533,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly toolInterceptors?: readonly Class[];
     readonly version: string;
     readonly workflows: readonly Class[];
-    readonly workingCalendar?: WorkingCalendarSource;
 }
 
 // @public
@@ -990,39 +976,15 @@ export interface CancelOutput {
 }
 
 // @public
-export function Channel<const D extends readonly Token[] = []>(options: TargetChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
+export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): unknown;
 }>(value: C) => C;
 
-// @public (undocumented)
-export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D> & {
-    readonly target?: never;
-    readonly ttl?: never;
-}): <C extends new (...args: ResolvedAll<D>) => {
-    send(ask: never): Promise<unknown>;
-}>(value: C) => C;
-
 // @public
-export type ChannelAnswerOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
-    readonly answer: infer TAnswer;
-} ? TAnswer : MissingGeneratedTypes;
-
-// @public
-export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
-    // (undocumented)
-    readonly answer?: never;
-    readonly approves: DtoClass;
-    // (undocumented)
-    readonly ask?: never;
-    // (undocumented)
-    readonly maxVisits?: never;
-}
-
-// @public
-export interface ChannelAsk<TRole> {
+export interface ChannelAsk<TTarget> {
     readonly assignees?: readonly string[];
     readonly expiresAt?: Date;
-    readonly input: ChannelInputOf<TRole>;
+    readonly input: PauseInputOf<TTarget>;
     readonly pauseId: string;
     readonly replaces?: {
         readonly pauseId: string;
@@ -1035,24 +997,16 @@ export interface ChannelAsk<TRole> {
 export type ChannelEndEvent = EndEvent<unknown>;
 
 // @public
-export interface ChannelHandler<TRole> {
-    readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TRole>) => Promise<void>;
-    readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TRole>) => Promise<void>;
-    readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
-    readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
-    readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
-    readonly onPauseReassigned?: (event: ChannelPauseReassignedEvent<TRole>) => Promise<void>;
-    readonly onPauseTimeoutChanged?: (event: ChannelPauseTimeoutChangedEvent<TRole>) => Promise<void>;
+export interface ChannelHandler<TTarget> {
+    readonly onPauseAnswerNotTaken?: (event: ChannelPauseAnswerNotTakenEvent<TTarget>) => Promise<void>;
+    readonly onPauseClosed?: (event: ChannelPauseClosedEvent<TTarget>) => Promise<void>;
+    readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TTarget>) => Promise<void>;
+    readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TTarget>) => Promise<void>;
+    readonly onPauseReassigned?: (event: ChannelPauseReassignedEvent<TTarget>) => Promise<void>;
+    readonly onPauseTimeoutChanged?: (event: ChannelPauseTimeoutChangedEvent<TTarget>) => Promise<void>;
     // (undocumented)
-    readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
+    readonly send: (ask: ChannelAsk<TTarget>) => Promise<ChannelOutcome<TTarget>>;
 }
-
-// @public
-export type ChannelInputOf<TRole> = ChannelQuestionOf<TRole> extends {
-    readonly callId: string;
-    readonly tool: string;
-    readonly arguments: infer TArguments;
-} ? TArguments : ChannelQuestionOf<TRole>;
 
 // @public
 export type ChannelInterpretation<TOutput = never> = UnderstoodChannelInterpretation<TOutput> | NotUnderstoodChannelInterpretation;
@@ -1062,6 +1016,12 @@ export const ChannelInterpretation: {
     readonly understood: <TOutput>(output: TOutput) => UnderstoodChannelInterpretation<TOutput>;
     readonly notUnderstood: (reason: string) => NotUnderstoodChannelInterpretation;
 };
+
+// @public
+export enum ChannelInterpretationKind {
+    NotUnderstood = "not-understood",
+    Understood = "understood"
+}
 
 // @public
 export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(options?: CodeChannelInterpreterOptions<TDeps>): ChannelInterpreterDecorator<TDeps>;
@@ -1099,25 +1059,68 @@ export enum ChannelInterpreterOutcome {
 
 // @public
 export interface ChannelInterpreterStartEvent extends NodeEvent {
-    readonly channel: string;
     readonly interpreter: string;
     readonly isCode: boolean;
+    readonly target: string;
 }
 
 // @public
 export function ChannelListener<const TDeps extends readonly Token[] = []>(options?: ChannelListenerOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & ChannelListenerHandler>(value: TClass) => TClass;
 
-// @public (undocumented)
-export type ChannelListenerAnswerNotTakenEvent = PauseListenerAnswerNotTakenEvent;
-
-// @public (undocumented)
-export type ChannelListenerClosedEvent = PauseListenerClosedEvent;
+// @public
+export interface ChannelListenerAnswerNotTakenEvent extends ChannelListenerEventBase {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    readonly answer: unknown;
+    // (undocumented)
+    readonly at: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
+}
 
 // @public
-export type ChannelListenerEventBase = PauseListenerEventBase;
+export interface ChannelListenerClosedEvent extends ChannelListenerEventBase {
+    readonly actor?: PauseActor;
+    readonly answer?: unknown;
+    // (undocumented)
+    readonly closedAt: string;
+    // (undocumented)
+    readonly reason: PauseClosedReason;
+}
 
-// @public (undocumented)
-export type ChannelListenerExpiringEvent = PauseListenerExpiringEvent;
+// @public
+export interface ChannelListenerEventBase extends PauseDeliveredEvent {
+    // (undocumented)
+    readonly askedAt: string;
+    readonly assignees?: readonly string[];
+    readonly channel?: string;
+    readonly executionId: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly kind: PauseKind;
+    readonly pauseId?: string;
+    readonly pauseKey: string;
+    readonly respondent: PauseRespondent;
+    // (undocumented)
+    readonly rootExecutionId: string;
+    readonly step: string;
+    readonly target: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailRecord[];
+    readonly workflow: string;
+}
+
+// @public
+export interface ChannelListenerExpiringEvent extends ChannelListenerEventBase {
+    readonly expiresAt: string;
+}
 
 // @public
 export interface ChannelListenerHandler {
@@ -1137,11 +1140,18 @@ export interface ChannelListenerHandler {
     onPauseTimeoutChanged?(event: ChannelListenerTimeoutChangedEvent): void | Promise<void>;
 }
 
-// @public (undocumented)
-export type ChannelListenerJoinFailedEvent = PauseListenerJoinFailedEvent;
+// @public
+export interface ChannelListenerJoinFailedEvent extends ChannelListenerEventBase {
+    // (undocumented)
+    readonly at: string;
+    // (undocumented)
+    readonly errorCode: string;
+    // (undocumented)
+    readonly launch: string;
+}
 
-// @public (undocumented)
-export type ChannelListenerOpenedEvent = PauseListenerOpenedEvent;
+// @public
+export type ChannelListenerOpenedEvent = ChannelListenerEventBase;
 
 // @public
 export interface ChannelListenerOptions<TDeps extends readonly Token[] = readonly Token[]> {
@@ -1153,7 +1163,7 @@ export interface ChannelListenerOptions<TDeps extends readonly Token[] = readonl
 }
 
 // @public
-export interface ChannelListenerReassignedEvent extends PauseListenerEventBase {
+export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase {
     // (undocumented)
     readonly previousAssignees?: readonly string[];
     // (undocumented)
@@ -1169,17 +1179,9 @@ export interface ChannelListenerReassignedEvent extends PauseListenerEventBase {
 }
 
 // @public
-export type ChannelListenerTimeoutChangedEvent = PauseListenerExtendedEvent;
-
-// @public
-export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
-    onPauseAnswerNotTaken(event: ChannelPauseAnswerNotTakenEvent<TRole>): Promise<void>;
-    onPauseClosed(event: ChannelPauseClosedEvent<TRole>): Promise<void>;
-    onPauseExpiring(event: ChannelPauseExpiringEvent<TRole>): Promise<void>;
-    onPauseExtended(event: ChannelPauseExtendedEvent<TRole>): Promise<void>;
-    onPauseJoinFailed(event: ChannelPauseJoinFailedEvent<TRole>): Promise<void>;
-    // (undocumented)
-    abstract send(ask: ChannelAsk<TRole>): Promise<ChannelOutcome<TRole>>;
+export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
+    readonly expiresAt: string;
+    readonly previousExpiresAt: string;
 }
 
 // @public
@@ -1189,13 +1191,13 @@ export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
     readonly description?: string;
     // (undocumented)
     readonly name: string;
-    readonly target?: Class;
+    readonly target: Class;
     readonly timeout?: Milliseconds;
-    readonly ttl?: Milliseconds;
+    readonly ttl: Milliseconds;
 }
 
 // @public
-export type ChannelOutcome<TRole> = AwaitReplyOutcome | DecidedOutcome<ChannelAnswerOf<TRole>>;
+export type ChannelOutcome<TTarget> = AwaitReplyOutcome | DecidedOutcome<PauseOutputOf<TTarget>>;
 
 // @public (undocumented)
 export const ChannelOutcome: {
@@ -1216,12 +1218,12 @@ export interface ChannelOverlay {
 }
 
 // @public
-export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEvent {
+export interface ChannelPauseAnswerNotTakenEvent<TTarget> extends PauseDeliveredEvent {
     readonly actor?: PauseActor;
-    readonly answer: ChannelAnswerOf<TRole>;
+    readonly answer: PauseOutputOf<TTarget>;
     readonly at: string;
     // (undocumented)
-    readonly input: ChannelInputOf<TRole>;
+    readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
     readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
@@ -1230,11 +1232,11 @@ export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEv
 }
 
 // @public
-export interface ChannelPauseClosedEvent<TRole> extends PauseDeliveredEvent {
+export interface ChannelPauseClosedEvent<TTarget> extends PauseDeliveredEvent {
     readonly actor?: PauseActor;
-    readonly answer?: ChannelAnswerOf<TRole>;
+    readonly answer?: PauseOutputOf<TTarget>;
     readonly closedAt: string;
-    readonly input: ChannelInputOf<TRole>;
+    readonly input: PauseInputOf<TTarget>;
     readonly pauseId: string;
     // (undocumented)
     readonly reason: PauseClosedReason;
@@ -1242,29 +1244,19 @@ export interface ChannelPauseClosedEvent<TRole> extends PauseDeliveredEvent {
 }
 
 // @public
-export interface ChannelPauseExpiringEvent<TRole> extends PauseDeliveredEvent {
+export interface ChannelPauseExpiringEvent<TTarget> extends PauseDeliveredEvent {
     readonly expiresAt: string;
-    readonly input: ChannelInputOf<TRole>;
+    readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
     readonly toolCall?: PauseToolCallSummary;
 }
 
 // @public
-export interface ChannelPauseExtendedEvent<TRole> extends PauseDeliveredEvent {
-    readonly expiresAt: string;
-    readonly input: ChannelInputOf<TRole>;
-    // (undocumented)
-    readonly pauseId: string;
-    readonly previousExpiresAt: string;
-    readonly toolCall?: PauseToolCallSummary;
-}
-
-// @public
-export interface ChannelPauseJoinFailedEvent<TRole> extends PauseDeliveredEvent {
+export interface ChannelPauseJoinFailedEvent<TTarget> extends PauseDeliveredEvent {
     readonly at: string;
     readonly errorCode: string;
-    readonly input: ChannelInputOf<TRole>;
+    readonly input: PauseInputOf<TTarget>;
     readonly launch: string;
     // (undocumented)
     readonly pauseId: string;
@@ -1272,19 +1264,10 @@ export interface ChannelPauseJoinFailedEvent<TRole> extends PauseDeliveredEvent 
 }
 
 // @public
-export interface ChannelPauseOptions {
-    readonly actor: PauseActor;
-    // (undocumented)
-    readonly ownerId?: never;
-    // (undocumented)
-    readonly tenantId?: string | undefined;
-}
-
-// @public
 export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEvent {
     // (undocumented)
     readonly channel: string;
-    readonly input: ChannelInputOf<TTarget>;
+    readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
     // (undocumented)
@@ -1297,45 +1280,14 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 }
 
 // @public
-export type ChannelPauseTimeoutChangedEvent<TTarget> = ChannelPauseExtendedEvent<TTarget>;
-
-// @public
-export type ChannelQuestionOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
-    readonly ask: infer TAsk;
-} ? TAsk : MissingGeneratedTypes;
-
-// @public
-export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
-    readonly answer: DtoClass;
+export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDeliveredEvent {
+    readonly expiresAt: string;
+    readonly input: PauseInputOf<TTarget>;
     // (undocumented)
-    readonly approves?: never;
-    readonly ask: DtoClass;
-    readonly maxVisits?: number;
+    readonly pauseId: string;
+    readonly previousExpiresAt: string;
+    readonly toolCall?: PauseToolCallSummary;
 }
-
-// @public
-export interface ChannelResumeOptions extends ChannelPauseOptions, CallOptions {
-}
-
-// @public (undocumented)
-export function ChannelRole(options: ChannelRoleOptions): <TClass extends Class>(value: TClass) => TClass;
-
-// @public
-export interface ChannelRoleBaseOptions {
-    readonly answerer?: PauseAnswerer;
-    // (undocumented)
-    readonly description: string;
-    readonly expiresIn?: Milliseconds | WorkingDuration;
-    readonly name: string;
-    readonly remindBefore?: Milliseconds | WorkingDuration;
-    readonly replyInterpreter?: Class;
-    readonly workingCalendar?: WorkingCalendarSource;
-}
-
-// @public
-export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & {
-    readonly answerer: PauseAnswerer;
-};
 
 // @public
 export interface ChannelSelectContext<TTarget> {
@@ -1652,24 +1604,6 @@ export interface CodeMemoryOptions<TDeps extends readonly Token[] = readonly Tok
 }
 
 // @public
-export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Code;
-    readonly deps?: TDeps;
-    // (undocumented)
-    readonly description?: string;
-    // (undocumented)
-    readonly model?: never;
-    // (undocumented)
-    readonly modelProvider?: never;
-    readonly name?: string;
-    // (undocumented)
-    readonly prompt?: never;
-    // (undocumented)
-    readonly promptVariables?: never;
-}
-
-// @public
 type CodeRouterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => RouteMethod>(value: TClass & RouteChecked<TClass>) => TClass;
 
 // @public
@@ -1880,13 +1814,13 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
+    ChannelInterpreter = "reply-interpreter",
     Guardrail = "guardrail",
     Judge = "judge",
     Memory = "memory",
     PiiPolicy = "pii-policy",
     Question = "question",
     Rag = "rag",
-    ReplyInterpreter = "reply-interpreter",
     Router = "router",
     Tool = "tool",
     Workflow = "workflow",
@@ -2514,6 +2448,19 @@ export function defineConfig(spec: ConfigSpec): ConfigOverlay;
 export function defineEnv<const TSpec extends EnvSpec>(spec: {
     readonly [TKey in keyof TSpec]: TKey extends ReservedEnvKey ? never : TSpec[TKey];
 }): EnvContract<TSpec>;
+
+// @public
+export interface DelegatePauseOptions {
+    readonly actor: PauseActor;
+    // (undocumented)
+    readonly ownerId?: never;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
+}
+
+// @public
+export interface DelegateResumeOptions extends DelegatePauseOptions, CallOptions {
+}
 
 // @public
 export class DepthLimitExceededError extends LimitExceededError {
@@ -3793,6 +3740,9 @@ export interface ExtendPauseRequest {
 
 // @public
 export function ExternalTask<const TDeps extends readonly Token[] = []>(options: ExternalTaskOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(value: TClass) => TClass;
+
+// @public
+export type ExternalTaskClass = Class<object>;
 
 // @public
 export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly Token[]> extends PauseTargetBaseOptions<TDeps> {
@@ -6428,21 +6378,6 @@ export interface ModelProviderOverlay {
 export type ModelProviderRuleCode = "model-provider.fallback-cycle" | "model.incompatible-fallback-provider";
 
 // @public
-export interface ModelReplyInterpreterOptions {
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Model;
-    // (undocumented)
-    readonly deps?: never;
-    // (undocumented)
-    readonly description?: string;
-    readonly model?: string;
-    readonly modelProvider?: Class;
-    readonly name?: string;
-    readonly prompt?: PromptSource;
-    readonly promptVariables?: PromptVariables;
-}
-
-// @public
 type ModelRouterDecorator = <TClass extends new () => object>(value: TClass & NoRouteMethod<TClass>) => TClass;
 
 // @public
@@ -6654,22 +6589,7 @@ export interface NotUnderstoodChannelInterpretation {
     // (undocumented)
     readonly [channelInterpretation]: true;
     // (undocumented)
-    readonly kind: ReplyInterpretationKind.NotUnderstood;
-    // (undocumented)
-    readonly reason: string;
-}
-
-// @public
-export interface NotUnderstoodReply {
-    readonly [replyInterpretation]: true;
-    // (undocumented)
-    readonly kind: ReplyInterpretationKind.NotUnderstood;
-    // (undocumented)
-    readonly reason: string;
-}
-
-// @public
-export interface NotUnderstoodReplyOptions {
+    readonly kind: ChannelInterpretationKind.NotUnderstood;
     // (undocumented)
     readonly reason: string;
 }
@@ -7196,6 +7116,19 @@ export type OverlayPartial<TValue> = TValue extends readonly unknown[] ? TValue 
 } : TValue;
 
 // @public
+export interface OwnerPauseOptions {
+    // (undocumented)
+    readonly actor?: never;
+    readonly ownerId?: string | undefined;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
+}
+
+// @public
+export interface OwnerResumeOptions extends OwnerPauseOptions, CallOptions {
+}
+
+// @public
 export interface Page<TItem> {
     readonly items: readonly TItem[];
     readonly nextCursor?: string;
@@ -7323,17 +7256,11 @@ export interface PauseAnswer {
 }
 
 // @public
-export enum PauseAnswerer {
-    Channel = "channel",
-    ThreadOwner = "thread-owner"
-}
-
-// @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly answerer: PauseAnswerer;
     readonly askedAt: string;
     readonly assignees?: readonly string[];
+    readonly channel?: string;
     readonly decision: unknown;
     readonly executionId: string;
     readonly externalRef?: string;
@@ -7344,14 +7271,15 @@ export interface PauseAnswerRecord {
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
-    readonly role: string;
+    readonly respondent: PauseRespondent;
     readonly step: StepRecord;
+    readonly target: string;
     readonly toolCall?: unknown;
     readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
-export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
+export type PauseCallerOptions = OwnerPauseOptions | DelegatePauseOptions;
 
 // @public
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
@@ -7360,6 +7288,7 @@ export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Canc
 export interface PauseChange {
     readonly channel?: string;
     readonly executionId: string;
+    readonly target: string;
     // (undocumented)
     readonly tenantId: string;
     // (undocumented)
@@ -7572,7 +7501,7 @@ export interface PauseExecutionOptions {
 }
 
 // @public
-export type PauseExpiration<TRole> = FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>> | ReassignExpiration;
+export type PauseExpiration<TTarget> = FailExpiration | DecideExpiration<PauseOutputOf<TTarget>> | ReassignExpiration;
 
 // @public
 export const PauseExpiration: {
@@ -7596,7 +7525,7 @@ export enum PauseExpirationKind {
 export class PauseExpiredError extends StepFailedError {
     constructor(options: PauseExpiredErrorOptions);
     // (undocumented)
-    readonly channel: string;
+    readonly channel: string | undefined;
     // (undocumented)
     static readonly code: "step.pause-expired";
     // (undocumented)
@@ -7611,26 +7540,28 @@ export class PauseExpiredError extends StepFailedError {
     readonly step: string;
     // (undocumented)
     readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
+    // (undocumented)
+    readonly target: string;
 }
 
 // @public
 export interface PauseExpiredErrorOptions {
     // (undocumented)
     readonly cause?: unknown;
-    // (undocumented)
-    readonly channel: string;
+    readonly channel?: string | undefined;
     readonly expiresAt: string;
     // (undocumented)
     readonly kind: PauseKind;
     readonly step: string;
     readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
+    readonly target: string;
     readonly usage: readonly UsageRecord[];
 }
 
 // @public
-export interface PauseExpiryHandler<TRole> {
+export interface PauseExpiryHandler<TTarget> {
     // (undocumented)
-    onPauseExpired(ask: ChannelAsk<TRole>): PauseExpiration<TRole> | Promise<PauseExpiration<TRole>>;
+    onPauseExpired(ask: ChannelAsk<TTarget>): PauseExpiration<TTarget> | Promise<PauseExpiration<TTarget>>;
 }
 
 // @public
@@ -7677,102 +7608,7 @@ export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 // @public
 export enum PauseKind {
     Approval = "approval",
-    Question = "question"
-}
-
-// @public
-export function PauseListener<const TDeps extends readonly Token[] = []>(options: PauseListenerOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => PauseListenerHandler>(value: TClass) => TClass;
-
-// @public
-export interface PauseListenerAnswerNotTakenEvent extends PauseListenerEventBase {
-    // (undocumented)
-    readonly actor?: PauseActor;
-    readonly answer: unknown;
-    // (undocumented)
-    readonly at: string;
-    // (undocumented)
-    readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
-}
-
-// @public
-export interface PauseListenerClosedEvent extends PauseListenerEventBase {
-    readonly actor?: PauseActor;
-    readonly answer?: unknown;
-    // (undocumented)
-    readonly closedAt: string;
-    // (undocumented)
-    readonly reason: PauseClosedReason;
-}
-
-// @public
-export interface PauseListenerEventBase extends PauseDeliveredEvent {
-    readonly answerer: PauseAnswerer;
-    // (undocumented)
-    readonly askedAt: string;
-    readonly assignees?: readonly string[];
-    readonly channel: string;
-    readonly executionId: string;
-    // (undocumented)
-    readonly expiresAt?: string;
-    readonly externalRef?: string;
-    readonly input: Readonly<Record<string, unknown>>;
-    // (undocumented)
-    readonly kind: PauseKind;
-    readonly pauseId?: string;
-    readonly pauseKey: string;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    readonly step: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly threadId: string;
-    readonly toolCall?: PauseToolCallSummary;
-    readonly trail: readonly PauseTrailRecord[];
-    readonly workflow: string;
-}
-
-// @public
-export interface PauseListenerExpiringEvent extends PauseListenerEventBase {
-    readonly expiresAt: string;
-}
-
-// @public
-export interface PauseListenerExtendedEvent extends PauseListenerEventBase {
-    readonly expiresAt: string;
-    readonly previousExpiresAt: string;
-}
-
-// @public
-export interface PauseListenerHandler {
-    onPauseAnswerNotTaken?(event: PauseListenerAnswerNotTakenEvent): Promise<void>;
-    onPauseClosed(event: PauseListenerClosedEvent): Promise<void>;
-    onPauseExpiring?(event: PauseListenerExpiringEvent): Promise<void>;
-    onPauseExtended?(event: PauseListenerExtendedEvent): Promise<void>;
-    onPauseJoinFailed?(event: PauseListenerJoinFailedEvent): Promise<void>;
-    onPauseOpened(event: PauseListenerOpenedEvent): Promise<void>;
-}
-
-// @public
-export interface PauseListenerJoinFailedEvent extends PauseListenerEventBase {
-    // (undocumented)
-    readonly at: string;
-    // (undocumented)
-    readonly errorCode: string;
-    // (undocumented)
-    readonly launch: string;
-}
-
-// @public
-export type PauseListenerOpenedEvent = PauseListenerEventBase;
-
-// @public
-export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly allowAnswering?: boolean;
-    readonly deps?: TDeps;
-    // (undocumented)
-    readonly description?: string;
-    readonly name?: string;
+    ExternalTask = "external-task"
 }
 
 // @public
@@ -7809,11 +7645,10 @@ export interface PauseReassignment {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    readonly answerer: PauseAnswerer;
     readonly askedAt: string;
     readonly assignees?: readonly string[];
     readonly boundAt?: string;
-    readonly channel: string;
+    readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
@@ -7828,9 +7663,11 @@ export interface PauseRecord extends PauseSite {
     readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
+    readonly respondent: PauseRespondent;
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+    readonly target: string;
     readonly toolCall?: PauseToolCallSummary;
     readonly trail: readonly PauseTrailRecord[];
 }
@@ -7903,8 +7740,8 @@ export interface PausesQuery {
     readonly after?: string;
     readonly expiringBefore?: Date;
     readonly limit?: number;
-    readonly role?: string;
     readonly status?: PauseStatus | readonly PauseStatus[];
+    readonly target?: string;
     // (undocumented)
     readonly tenantId: string;
 }
@@ -8035,23 +7872,24 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
-    readonly answerer: PauseAnswerer;
     readonly assignees?: readonly string[];
-    readonly channel: string;
+    readonly channel?: string;
     readonly childExecutionId: string | undefined;
     readonly expiresAt?: string;
     readonly externalRef?: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
+    readonly respondent: PauseRespondent;
     readonly step: string;
+    readonly target: string;
     readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export interface PendingQuestion extends PendingPauseBase {
     // (undocumented)
-    readonly kind: PauseKind.Question;
+    readonly kind: PauseKind.ExternalTask;
 }
 
 // @public
@@ -8473,11 +8311,6 @@ export interface QuestionFailedErrorOptions {
 }
 
 // @public
-export interface QuestionStepOptions {
-    readonly expiresIn?: Milliseconds | WorkingDuration;
-}
-
-// @public
 export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
@@ -8754,36 +8587,6 @@ export interface ReplayRecovery {
 }
 
 // @public
-export type ReplyInterpretation<TDecision> = UnderstoodReply<TDecision> | NotUnderstoodReply;
-
-// @public
-export const ReplyInterpretation: {
-    readonly understood: <TDecision>(decision: TDecision) => UnderstoodReply<TDecision>;
-    readonly notUnderstood: (options: NotUnderstoodReplyOptions) => NotUnderstoodReply;
-};
-
-// @public
-export enum ReplyInterpretationKind {
-    NotUnderstood = "not-understood",
-    Understood = "understood"
-}
-
-// @public
-export function ReplyInterpreter(options: ModelReplyInterpreterOptions): ReplyInterpreterDecorator<[]>;
-
-// @public
-export function ReplyInterpreter<const TDeps extends readonly Token[] = []>(options: CodeReplyInterpreterOptions<TDeps>): ReplyInterpreterDecorator<TDeps>;
-
-// @public
-export type ReplyInterpreterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass) => TClass;
-
-// @public
-export interface ReplyInterpreterHandler<TSelf> {
-    // (undocumented)
-    readonly interpret: (input: InputOf<TSelf>) => ReplyInterpretation<OutputOf<TSelf>> | Promise<ReplyInterpretation<OutputOf<TSelf>>>;
-}
-
-// @public
 export class ReplyInterpreterMissingError extends AGBossError {
     constructor(options: MessageErrorOptions);
     // (undocumented)
@@ -8793,9 +8596,6 @@ export class ReplyInterpreterMissingError extends AGBossError {
     // (undocumented)
     name: string;
 }
-
-// @public
-export type ReplyInterpreterOptions = ModelReplyInterpreterOptions | CodeReplyInterpreterOptions;
 
 // @public
 export interface ReplyResumeRequest {
@@ -8922,7 +8722,7 @@ export enum ResumeDecision {
 }
 
 // @public
-export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
+export type ResumeOptions = OwnerResumeOptions | DelegateResumeOptions;
 
 // @public
 export enum ResumeReason {
@@ -9079,7 +8879,7 @@ export type RouteStep<THead extends PathHead, TRemaining> = [TRemaining] extends
 };
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "launch.join-required" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "arbiter.model-without-arbiter-model" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "dto.ambiguous-one-of" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.max-steps-above-0.1.0-default" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "launch.join-required" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "arbiter.model-without-arbiter-model" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "dto.ambiguous-one-of" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.max-steps-above-0.1.0-default" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "channel-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "pause.remind-before-invalid" | "pause.remind-before-below-tick" | "pause.remind-before-working-without-working-timeout" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "reply-interpreter.decision-model" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -10222,14 +10022,6 @@ export interface TakeFirstOptions {
 }
 
 // @public
-export interface TargetChannelOptions<D extends readonly Token[] = readonly Token[]> extends ChannelOptions<D> {
-    // (undocumented)
-    readonly target: Class;
-    // (undocumented)
-    readonly ttl: Milliseconds;
-}
-
-// @public
 type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
 
 // @public
@@ -10341,19 +10133,6 @@ export class ThreadOwnerError extends AGBossError {
 }
 
 // @public
-export interface ThreadOwnerPauseOptions {
-    // (undocumented)
-    readonly actor?: never;
-    readonly ownerId?: string | undefined;
-    // (undocumented)
-    readonly tenantId?: string | undefined;
-}
-
-// @public
-export interface ThreadOwnerResumeOptions extends ThreadOwnerPauseOptions, CallOptions {
-}
-
-// @public
 export enum ThreadStatus {
     Cancelled = "cancelled",
     Cancelling = "cancelling",
@@ -10436,7 +10215,7 @@ export function toAction<const TClass extends Class>(target: TClass & TargetChec
 export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
@@ -10627,13 +10406,10 @@ export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameO
 // @public (undocumented)
 export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
     readonly approval?: Class;
-    // (undocumented)
-    readonly channel?: Class;
     readonly deps?: D;
     // (undocumented)
     readonly description: string;
     readonly excludeToolInterceptors?: readonly Class[];
-    readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly input: In;
     readonly maxResultSize?: Bytes;
@@ -10688,7 +10464,6 @@ export function toRouter<const TClass extends Class>(target: TClass & TargetChec
 // @public
 export interface ToStep {
     readonly chooses?: readonly ParallelBranchStep[];
-    readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly kind: StepKind.To;
     readonly skip?: readonly ErrorClass[];
@@ -10752,7 +10527,7 @@ export interface Transitions<THead extends PathHead> {
     toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
     toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
-    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
     toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
@@ -10870,18 +10645,9 @@ export type UncompactedTurns = number | TurnLimit;
 export interface UnderstoodChannelInterpretation<out TOutput> {
     readonly [channelInterpretation]: true;
     // (undocumented)
-    readonly kind: ReplyInterpretationKind.Understood;
+    readonly kind: ChannelInterpretationKind.Understood;
     // (undocumented)
     readonly output: TOutput;
-}
-
-// @public
-export interface UnderstoodReply<TDecision> {
-    readonly [replyInterpretation]: true;
-    // (undocumented)
-    readonly decision: TDecision;
-    // (undocumented)
-    readonly kind: ReplyInterpretationKind.Understood;
 }
 
 // @public
@@ -11607,7 +11373,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/calendar/working-week.ts - (ae-undocumented) Missing documentation for "to".
 // src/calendar/working-week.ts - (ae-undocumented) Missing documentation for "days".
 // src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
-// src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "output".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "[channelInterpretation]".
@@ -11626,12 +11391,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "ChannelOutcome".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "ask".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "answer".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "maxVisits".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "approves".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "ChannelRole".
 // src/channels/channel-selector.ts - (ae-undocumented) Missing documentation for "description".
 // src/channels/channel-selector.ts - (ae-undocumented) Missing documentation for "selectChannel".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "message".
@@ -11719,21 +11478,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "input".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "output".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "maxVisits".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "model".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "modelProvider".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptVariables".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decision".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
-// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "interpret".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decision-model.ts - (ae-undocumented) Missing documentation for "decide".
@@ -11741,14 +11485,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "channel".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "input".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "output".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "target".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "ttl".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "Channel".
 // src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "text".
 // src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "files".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
@@ -12371,9 +12111,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
@@ -12511,7 +12248,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "problem".
-// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "cause".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "code".
@@ -12519,6 +12255,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "step".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "stepKind".
+// src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "target".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "channel".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/runtime/pause-expired-error.ts - (ae-undocumented) Missing documentation for "expiresAt".
@@ -13055,11 +12792,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "launch".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "errorCode".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerOpenedEvent".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerClosedEvent".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerAnswerNotTakenEvent".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerExpiringEvent".
-// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerJoinFailedEvent".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousTarget".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousChannel".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousAssignees".
@@ -13071,7 +12803,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousChannel".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "channel".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
-// src/pause/pause-listener.ts - (ae-undocumented) Missing documentation for "description".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "keepFirst".

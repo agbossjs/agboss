@@ -7,7 +7,7 @@
 import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PauseAnswerer, UnknownPauseError } from "../../src/index.js";
+import { PauseRespondent, UnknownPauseError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -38,10 +38,12 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
     const byItem = [...paused.pending].sort((a, b) => (a.itemIndex ?? 0) - (b.itemIndex ?? 0));
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
-        answerer: PauseAnswerer.Channel,
+        respondent: PauseRespondent.Delegate,
         kind: PauseKind.Approval,
         step: "batch-refund-agent",
-        channel: "refund-approval-channel",
+        target: "refund-gate-tool-approval",
+        channel: "finance-desk-refund-approval-channel",
+        expiresAt: expect.any(String),
         childExecutionId: undefined,
         itemIndex: index + 1,
         toolCall: expect.objectContaining({ tool: "refund-tool" }),

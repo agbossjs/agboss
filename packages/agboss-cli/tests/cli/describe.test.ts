@@ -81,14 +81,14 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
           ),
           channels: [
             expect.objectContaining({
-              name: "purchase-approval-channel",
+              name: "purchase-tool-approval",
               question: "PurchaseOrder",
               answer: "ToolCallApprovalDecisionDto",
               implementation: "TerminalPurchaseApprovalChannel",
               tools: ["place-purchase-tool (offsite-booking-workflow)"],
             }),
             expect.objectContaining({
-              name: "recruiter-approval-channel",
+              name: "recruiter-tool-approval",
               implementation: "RecruiterInboxChannel",
               tools: ["send-offer-letter-tool (send-offer-workflow)"],
             }),

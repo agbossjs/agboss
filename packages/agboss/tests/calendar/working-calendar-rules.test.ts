@@ -1,15 +1,14 @@
 /**
  * #944 AC5 (assembly): a calendar with no working time at all is refused when the application
- * starts; a working duration needs a calendar (`[channel.working-time-without-calendar]`); a
+ * starts; a working duration needs a calendar (`[calendar.required-for-working-duration]`); a
  * working reminder before a plain deadline is refused on the role and on every override site
- * (`[channel.remind-before-working-without-working-expiry]`); `[channel.remind-before-invalid]`
+ * (`[pause.remind-before-working-without-working-timeout]`); `[pause.remind-before-invalid]`
  * compares the working amounts when both are working; a working step no longer than the role's
  * working reminder warns; `[name.not-kebab-case]`, `[working-calendar.invalid]` for a class that is no
  * listed `@WorkingCalendar`.
  */
 import { describe, expect, it } from "vitest";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
-import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import type { Class } from "../../src/components/injection.js";
 import { Injectable } from "../../src/components/decorators.js";
@@ -21,8 +20,8 @@ import {
 } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { hours, minutes, workDays, workingHours, workingMinutes } from "../../src/units/index.js";
-import { workingApp, workingToolApp } from "../flow/fixtures/working-time-app.js";
+import { hours, workDays, workingHours, workingMinutes } from "../../src/units/index.js";
+import { workingApp } from "../flow/fixtures/working-time-app.js";
 import { ALL_DAYS, TEL_AVIV, WEEKDAYS } from "./helpers.js";
 
 const assemble = (application: Class) =>
@@ -85,29 +84,29 @@ describe("#944 AC5: a grid with no working time is refused when the application 
   ];
 
   it.each(broken)(
-    "AC5: %s → [working-calendar.invalid] naming the application",
+    "AC5: %s → [working-calendar.invalid] naming the target",
     async (_label, options) => {
       const { application } = workingApp(
         `grid${String(broken.findIndex((one) => one[1] === options))}`,
         {
           role: { expiresIn: workingHours(2) },
-          calendar: WorkingWeek.of(options),
+          calendar: options,
         },
       );
 
       const found = await violationsOf(application);
 
-      // a bad grid may break several rules at once: every violation is this one, naming the application
+      // a bad grid may break several rules at once: every violation is this one, naming the target
       expect(found.length).toBeGreaterThan(0);
       expect(new Set(found.map((one) => one.code))).toEqual(new Set(["working-calendar.invalid"]));
-      expect(found[0]?.message).toContain("-application");
+      expect(found[0]?.message).toContain("-external-task");
     },
   );
 
   it("a valid grid assembles, 24:00 as an end, overlapping breaks aside", async () => {
     const { application } = workingApp("grid-ok", {
       role: { expiresIn: workingHours(2) },
-      calendar: WorkingWeek.of({
+      calendar: {
         timeZone: "America/Havana",
         days: ALL_DAYS,
         hours: [
@@ -115,7 +114,7 @@ describe("#944 AC5: a grid with no working time is refused when the application 
           { from: "22:00", to: "24:00" },
         ],
         holidays: ["2026-12-25"],
-      }),
+      },
     });
     const app = await assemble(application);
     expect(app.warnings.filter((one) => one.includes("working"))).toEqual([]);
@@ -126,7 +125,7 @@ describe("#944 AC5: a grid with no working time is refused when the application 
     const { application } = workingApp("role-grid", {
       role: {
         expiresIn: workingHours(2),
-        workingCalendar: WorkingWeek.of({ ...TEL_AVIV, days: [] }),
+        workingCalendar: { ...TEL_AVIV, days: [] },
       },
     });
     expect(await codesOf(application)).toEqual(["working-calendar.invalid"]);
@@ -238,7 +237,7 @@ describe("#944: a custom calendar class", () => {
   });
 });
 
-describe("#944: [channel.working-time-without-calendar]", () => {
+describe("#944: [calendar.required-for-working-duration]", () => {
   it("a working expiresIn or remindBefore on a role with no calendar anywhere", async () => {
     for (const [index, role] of [
       { expiresIn: workingHours(2) },
@@ -246,24 +245,8 @@ describe("#944: [channel.working-time-without-calendar]", () => {
     ].entries()) {
       const { application } = workingApp(`nocal${String(index)}`, { role });
       const found = await violationsOf(application);
-      expect(found.map((one) => one.code)).toContain("channel.working-time-without-calendar");
+      expect(found.map((one) => one.code)).toContain("calendar.required-for-working-duration");
     }
-  });
-
-  it("a step's working expiresIn over a plain role with no calendar", async () => {
-    const { application } = workingApp("nocal-step", {
-      role: { expiresIn: hours(24) },
-      step: workingHours(4),
-    });
-    expect(await codesOf(application)).toEqual(["channel.working-time-without-calendar"]);
-  });
-
-  it("a tool's working expiresIn with no calendar", async () => {
-    const { application } = workingToolApp("nocal-tool", {
-      role: { expiresIn: hours(24) },
-      toolExpiresIn: workingHours(4),
-    });
-    expect(await codesOf(application)).toEqual(["channel.working-time-without-calendar"]);
   });
 
   it("the application's calendar satisfies it; so does the role's own", async () => {
@@ -289,7 +272,7 @@ describe("#944: [channel.working-time-without-calendar]", () => {
   });
 });
 
-describe("#944: [channel.remind-before-working-without-working-expiry]", () => {
+describe("#944: [pause.remind-before-working-without-working-timeout]", () => {
   it("on the role: working remindBefore with a plain expiresIn", async () => {
     const { application } = workingApp("mixed-role", {
       role: { expiresIn: hours(24), remindBefore: workingHours(1) },
@@ -297,29 +280,7 @@ describe("#944: [channel.remind-before-working-without-working-expiry]", () => {
     });
     const found = await violationsOf(application);
     expect(found).toEqual([
-      expect.objectContaining({ code: "channel.remind-before-working-without-working-expiry" }),
-    ]);
-  });
-
-  it("on a .toQuestion override: plain hours(4) over a role whose remindBefore is working", async () => {
-    const { application } = workingApp("mixed-step", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      step: hours(4),
-      calendar: GRID,
-    });
-    expect(await codesOf(application)).toEqual([
-      "channel.remind-before-working-without-working-expiry",
-    ]);
-  });
-
-  it("on a @Tool override: plain hours(4) over a role whose remindBefore is working", async () => {
-    const { application } = workingToolApp("mixed-tool", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      toolExpiresIn: hours(4),
-      calendar: GRID,
-    });
-    expect(await codesOf(application)).toEqual([
-      "channel.remind-before-working-without-working-expiry",
+      expect.objectContaining({ code: "pause.remind-before-working-without-working-timeout" }),
     ]);
   });
 
@@ -341,7 +302,7 @@ describe("#944: [channel.remind-before-working-without-working-expiry]", () => {
   });
 });
 
-describe("#944: [channel.remind-before-invalid] compares working amounts when both are working", () => {
+describe("#944: [pause.remind-before-invalid] compares working amounts when both are working", () => {
   it("working remindBefore not shorter than the working expiresIn", async () => {
     for (const [index, role] of [
       { expiresIn: workingHours(2), remindBefore: workingHours(2) },
@@ -350,7 +311,7 @@ describe("#944: [channel.remind-before-invalid] compares working amounts when bo
     ].entries()) {
       const { application } = workingApp(`cmp${String(index)}`, { role, calendar: GRID });
       const found = await violationsOf(application);
-      expect(found).toEqual([expect.objectContaining({ code: "channel.remind-before-invalid" })]);
+      expect(found).toEqual([expect.objectContaining({ code: "pause.remind-before-invalid" })]);
       expect(found[0]?.message).toContain("of working time");
     }
   });
@@ -367,63 +328,12 @@ describe("#944: [channel.remind-before-invalid] compares working amounts when bo
     }
   });
 
-  it("a working duration shorter than seconds(1) is [channel.expires-in-invalid] like a plain one", async () => {
+  it("a working duration shorter than seconds(1) is [limits.timeout-invalid] like a plain one", async () => {
     const { application } = workingApp("short", {
       role: { expiresIn: workingMinutes(0.001) },
       calendar: GRID,
     });
-    expect(await codesOf(application)).toEqual(["channel.expires-in-invalid"]);
-  });
-});
-
-describe("#944: [channel.remind-before-exceeds-expiry] in working time", () => {
-  const warningsOf = (workflow: Class, strict = false) => {
-    const checked = checkWorkflow(workflow, { strict });
-    return {
-      errors: checked.errors.map((one) => one.code),
-      warnings: checked.warnings.map((one) => one.code),
-    };
-  };
-
-  it("a step override workingMinutes(30) on a role reminding workingHours(1): a warning, an error under strict", () => {
-    const { workflow } = workingApp("warn-working", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      step: workingMinutes(30),
-      calendar: GRID,
-    });
-    expect(warningsOf(workflow)).toEqual({
-      errors: [],
-      warnings: ["channel.remind-before-exceeds-expiry"],
-    });
-    expect(warningsOf(workflow, true)).toEqual({
-      errors: ["channel.remind-before-exceeds-expiry"],
-      warnings: [],
-    });
-  });
-
-  it("a tool override workingHours(1) on a role reminding workingHours(1): the same warning", () => {
-    const { workflow } = workingToolApp("warn-tool", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      toolExpiresIn: workingMinutes(60),
-      calendar: GRID,
-    });
-    expect(warningsOf(workflow).warnings).toEqual(["channel.remind-before-exceeds-expiry"]);
-  });
-
-  it("a longer working step, or a plain step over working time, is not warned about here", () => {
-    const longer = workingApp("warn-longer", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      step: workingHours(2),
-      calendar: GRID,
-    });
-    expect(warningsOf(longer.workflow, true)).toEqual({ errors: [], warnings: [] });
-    // a plain 30-minute step against a working reminder is the other rule's: an error at assembly
-    const plain = workingApp("warn-plain", {
-      role: { expiresIn: workingHours(8), remindBefore: workingHours(1) },
-      step: minutes(30),
-      calendar: GRID,
-    });
-    expect(warningsOf(plain.workflow, true).warnings).toEqual([]);
+    expect(await codesOf(application)).toEqual(["limits.timeout-invalid"]);
   });
 });
 
@@ -487,33 +397,11 @@ describe("#944: a calendar class is a component like any other", () => {
 });
 
 describe("#944: a span the grid cannot reach in 25 years is refused at start", () => {
-  const sparse = WorkingWeek.of({
+  const sparse = {
     timeZone: "UTC",
     days: [Weekday.Monday],
     hours: [{ from: "09:00", to: "09:01" }],
-  });
-
-  it("on the role, on a step override, on a tool override", async () => {
-    const role = workingApp("reach-role", {
-      role: { expiresIn: workingHours(43_920) },
-      calendar: sparse,
-    });
-    const step = workingApp("reach-step", {
-      role: { expiresIn: hours(24) },
-      step: workingHours(43_920),
-      calendar: sparse,
-    });
-    const tool = workingToolApp("reach-tool", {
-      role: { expiresIn: hours(24) },
-      toolExpiresIn: workingHours(43_920),
-      calendar: sparse,
-    });
-    for (const { application } of [role, step, tool]) {
-      const found = await violationsOf(application);
-      expect(found.map((one) => one.code)).toEqual(["working-calendar.invalid"]);
-      expect(found[0]?.message).toContain("25 years");
-    }
-  });
+  } as const;
 
   it("#1148: the holidays count: a span the bare grid reaches is refused once fifty of its Mondays are holidays", async () => {
     const monday = {
@@ -526,11 +414,11 @@ describe("#944: a span the grid cannot reach in 25 years is refused at start", (
     );
     const bare = workingApp("reach-bare", {
       role: { expiresIn: workingHours(1307) },
-      calendar: WorkingWeek.of(monday),
+      calendar: monday,
     });
     const closed = workingApp("reach-holidays", {
       role: { expiresIn: workingHours(1307) },
-      calendar: WorkingWeek.of({ ...monday, holidays }),
+      calendar: { ...monday, holidays },
     });
 
     await (await assemble(bare.application)).close();
@@ -628,35 +516,15 @@ describe("#1310b: declarative and schedule-resolving calendar classes", () => {
     );
     expect(greedy[0]?.message).toContain("choose one");
   });
-
-  it("[working-calendar.invalid]: an anyOf of none, or of a calendar that is no grid", async () => {
-    const own: WorkingCalendarHandler = { addWorkingTime: () => new Date(0) };
-
-    const none = await violationsOf(
-      workingApp("cal-none", {
-        role: { expiresIn: workingHours(2) },
-        calendar: WorkingWeek.anyOf([]),
-      }).application,
-    );
-    const foreign = await violationsOf(
-      workingApp("cal-foreign", {
-        role: { expiresIn: workingHours(2) },
-        calendar: WorkingWeek.anyOf([own]),
-      }).application,
-    );
-
-    expect(none[0]?.message).toContain("anyOf takes at least one schedule");
-    expect(foreign[0]?.message).toContain("schedule 0 is no WorkingWeek");
-  });
 });
 
 describe("#1310b: a span of working days the grid cannot reach in 25 years is refused at start", () => {
   it("a Monday-only week reaches 1300 Mondays: workDays(1400) is refused, workDays(1000) is not", async () => {
-    const monday = WorkingWeek.of({
+    const monday = {
       timeZone: "UTC",
       days: [Weekday.Monday],
       hours: [{ from: "09:00", to: "10:00" }],
-    });
+    } as const;
 
     const refused = await violationsOf(
       workingApp("cal-days-far", { role: { expiresIn: workDays(1400) }, calendar: monday })

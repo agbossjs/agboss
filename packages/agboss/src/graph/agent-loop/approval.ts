@@ -8,7 +8,7 @@ import type { PauseToolCallSummary } from "../../channels/pause-contexts.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
-import { approvalChannelOf, type AnyTool } from "../../tools/index.js";
+import type { AnyTool } from "../../tools/index.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import type { PauseNotices } from "../../pause/index.js";
@@ -20,7 +20,7 @@ import {
   pauseStep,
   sentBy,
   THREAD_OWNER,
-  type PauseChannel,
+  type PauseTarget,
   type StepAnswer,
 } from "../../flow/runtime/pause.js";
 import {
@@ -29,7 +29,6 @@ import {
   type ApprovalDecision,
 } from "../../channels/decision.js";
 import { systemClock, type Clock } from "../../infrastructure/clock.js";
-import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 
 /**
  * How the loop gets a decision on a tool call before it runs — one call per ask. It is backed by the
@@ -62,9 +61,9 @@ export interface QuestionReply {
   readonly usage: readonly UsageRecord[];
 }
 
-/** Where an ask goes: the channels the tools name, by name (#267), and the record of pauses. */
+/** Where an ask goes: the pause targets the tools name, by name (#267, #1307), and the record of pauses. */
 export interface ApprovalChannels {
-  readonly channelOf?: (channelName: string) => PauseChannel;
+  readonly targetOf?: (targetName: string) => PauseTarget;
   /** The application's pauses; absent for an agent loop run on its own (no records, no ids). */
   readonly pauses?: PausedExecutionRepository;
   /** Where a pause its channel decided at once is logged (with `pauses`). */
@@ -86,11 +85,12 @@ const shownAsk = (ask: ToolCallApprovalAskDto, tool: AnyTool): ToolCallApprovalA
   summary: ask.summary,
 });
 
-/** One ask through the pause seam: its channel, what it shows, how its answer is validated. */
+/** One ask through the pause seam: its target, what it shows, how its answer is validated. */
 interface SeamAsk {
-  /** An approval of the call, or a question role asked through the agent's tool (#712). */
+  /** An approval of the call, or an external task asked through the agent's tool (#712). */
   readonly kind: PauseKind;
-  readonly channel: string;
+  /** The name of the pause target it waits under. */
+  readonly target: string;
   readonly agent: string;
   /** What it asks as a loop on its own is interrupted with: the call as the approver sees it, or the ask. */
   readonly shown: unknown;
@@ -99,10 +99,8 @@ interface SeamAsk {
   /** The tool call an approval waits on. */
   readonly toolCall?: PauseToolCallSummary;
   readonly validate: (decision: unknown) => unknown;
-  /** The record's component when it is not the asking step's own (a question role, #712). */
+  /** The record's component when it is not the asking step's own (an external task, #712). */
   readonly component?: ComponentRecord;
-  /** The tool's own `expiresIn` (#941), over its channel role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
 }
 
 /**
@@ -118,9 +116,12 @@ async function interruptedAnswer(
     const decision = interrupt<unknown, unknown>(ask.shown);
     return { decision, by: THREAD_OWNER, usage: [] };
   } catch (error) {
-    if (!isGraphInterrupt(error) || channels.channelOf === undefined) throw error;
+    if (!isGraphInterrupt(error) || channels.targetOf === undefined) throw error;
+    // a loop on its own has no record: its target's only channel decides at once, or the interrupt stands
+    const [channel] = [...channels.targetOf(ask.target).channels.values()];
+    if (channel === undefined) throw error;
     const outcome = await sentBy(
-      channels.channelOf(ask.channel),
+      channel,
       {
         pauseId: "",
         input: ask.input,
@@ -130,7 +131,7 @@ async function interruptedAnswer(
       signal,
     );
     if (!isChannelOutcome(outcome) || outcome.kind !== ChannelOutcomeKind.Decided) throw error;
-    return { decision: outcome.decision, by: ask.channel, usage: [] };
+    return { decision: outcome.decision, by: channel.name, usage: [] };
   }
 }
 
@@ -140,11 +141,11 @@ async function seamAnswer(
   ask: SeamAsk,
   signal: AbortSignal | undefined,
 ): Promise<StepAnswer> {
-  const { observer, pauses, answers, channelOf } = channels;
+  const { observer, pauses, answers, targetOf } = channels;
   const frame = currentFrame();
   const onSend = (): Promise<void> =>
     reportNodeEvent((base) =>
-      observer?.onChannelStart({ ...base, name: ask.channel, input: ask.input }),
+      observer?.onChannelStart({ ...base, name: ask.target, input: ask.input }),
     );
   const question = {
     kind: ask.kind,
@@ -152,16 +153,15 @@ async function seamAnswer(
     input: ask.input,
     ...(ask.toolCall === undefined ? {} : { toolCall: ask.toolCall }),
     ...(ask.component === undefined ? {} : { component: ask.component }),
-    ...(ask.expiresIn === undefined ? {} : { expiresIn: ask.expiresIn }),
   };
   const answer =
-    pauses === undefined || answers === undefined || frame === undefined || channelOf === undefined
+    pauses === undefined || answers === undefined || frame === undefined || targetOf === undefined
       ? await interruptedAnswer(channels, ask, signal)
       : await pauseStep(
           {
             pauses,
             answers,
-            channel: channelOf(ask.channel),
+            target: targetOf(ask.target),
             frame,
             signal,
             clock: channels.clock ?? systemClock,
@@ -173,7 +173,7 @@ async function seamAnswer(
           question,
         );
   await reportNodeEvent((base) =>
-    observer?.onChannelEnd({ ...base, name: ask.channel, output: answer.decision }),
+    observer?.onChannelEnd({ ...base, name: ask.target, output: answer.decision }),
   );
   return answer;
 }
@@ -184,13 +184,12 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
     requestApproval: async (ask, agent, tool, signal) => {
       const shown = shownAsk(ask, tool);
       const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
-      const channel = approvalChannelOf(tool) ?? "";
+      const target = tool.approval ?? "";
       const toolCall = { callId: shown.callId, tool: shown.tool, summary: shown.summary };
       const input = pauseInputOf(shown.arguments);
       const seam = {
         kind: PauseKind.Approval,
-        ...{ channel, agent, shown, input, toolCall, validate },
-        expiresIn: tool.expiresIn,
+        ...{ target, agent, shown, input, toolCall, validate },
       };
       const answer = await seamAnswer(channels, seam, signal);
       return approvalDecisionOf(answer.decision, tool, answer.by, answer.usage);
@@ -201,10 +200,10 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
       // the question as the channel, the records and the events see it: `sensitive` fields masked
       const shown = pauseInputOf(redactedDto(question.ask, args));
       const answered = (decision: unknown): unknown => validate(question.answer, decision);
-      const channel = tool.channel ?? tool.name;
+      const target = tool.approval ?? tool.name;
       const component = toolRecordOf(tool);
-      const kind = PauseKind.Question;
-      const seam = { kind, channel, agent, shown, input: shown, validate: answered, component };
+      const kind = PauseKind.ExternalTask;
+      const seam = { kind, target, agent, shown, input: shown, validate: answered, component };
       const answer = await seamAnswer(channels, seam, signal);
       return { answer: answered(answer.decision), by: answer.by, usage: answer.usage };
     },

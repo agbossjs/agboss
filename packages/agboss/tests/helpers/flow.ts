@@ -64,7 +64,7 @@ export const execute = (
 
 /**
  * The answer to a paused run's pause (#267): `app.resume(answerOf(paused, decision))` — its
- * `index`-th pending pause, by its id (a `PauseAnswerer.ThreadOwner` pause: the id is listed).
+ * `index`-th pending pause, by its id (a `PauseRespondent.Owner` pause: the id is listed).
  */
 export function answerOf(paused: ExecutionOutput, decision: unknown, index = 0): ResumeRequest {
   const pauseId = paused.pending[index]?.pauseId;

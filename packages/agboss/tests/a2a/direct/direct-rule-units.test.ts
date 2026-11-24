@@ -9,12 +9,8 @@
 import { hours, minutes } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
-import {
-  messageSkillsOf,
-  messageSkillViolations,
-} from "../../../src/a2a/a2a-message-skill-rule.js";
+import { messageSkillViolations } from "../../../src/a2a/a2a-message-skill-rule.js";
 import type { ApplicationOptions } from "../../../src/application/application.js";
-import { componentOf } from "../../../src/components/metadata.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { NodeKind } from "../../../src/flow/ast.js";
@@ -105,7 +101,7 @@ function problemsOf(nodes: readonly Class[], more: Partial<ApplicationOptions> =
 describe("#860: a direct-reply skill's problems, each with its code and text", () => {
   it("an agent's question role and approval tool are pauses; a class of no decorator among its tools is read past", () => {
     expect(problemsOf([AskingAgent])).toEqual([
-      "[a2a.message-skill-pause] asking-agent asks TckInputQuestion (a question role)",
+      "[a2a.message-skill-pause] asking-agent asks TckInputExternalTask (an external task)",
       "[a2a.message-skill-pause] ApprovedReadTool asks for approval",
     ]);
   });

@@ -40,18 +40,18 @@ describe("describe a workflow", () => {
     const paused: AssembledWorkflow = {
       ...greetings,
       tools: [
-        { ...resolvedGreetingsTools[0], channel: "owner-tool-approval" },
+        { ...resolvedGreetingsTools[0], approval: "terminal-tool-approval" },
         ...resolvedGreetingsTools.slice(1),
       ],
     };
 
     expect(
       describeWorkflow(paused).some((l) =>
-        l.includes("· greet-tool (channel:owner-tool-approval, local, uses channel)"),
+        l.includes("· greet-tool (approval:terminal-tool-approval, local, waits for approval)"),
       ),
     ).toBe(true);
     expect(describeWorkflow(paused)).toContain(
-      "pause     on — tools with channel wait for external signal",
+      "pause     on — tools with an approval wait for external signal",
     );
   });
 

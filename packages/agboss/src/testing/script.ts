@@ -5,8 +5,9 @@ import { ModelFailure } from "../models/model-failure.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { millisecondsOf, type ClockDuration } from "./clock.js";
 import { TestSetupError } from "./errors.js";
-import { questionRoleOf } from "../channels/discovery.js";
-import type { ChannelQuestionOf, ToolNameOf } from "../flow/generated-types.js";
+import { externalTaskOf } from "../channels/discovery.js";
+import type { PauseInputOf, ToolNameOf } from "../flow/generated-types.js";
+import type { ExternalTaskClass } from "../components/decorators.js";
 import type {
   AnswerDetails,
   AnswerTurn,
@@ -72,15 +73,15 @@ export type CalledToolArguments<TInstance> = TInstance extends {
   : never;
 
 /**
- * The name an agent's model calls a `@Tool` class by, or a question role's name (#712).
+ * The name an agent's model calls a `@Tool` class by, or an external task's name (#712).
  */
 export function toolNameOf(tool: Class): string {
-  const role = questionRoleOf(tool);
+  const role = externalTaskOf(tool);
   if (role !== undefined) return role.name;
   const meta = componentOf(tool);
   if (meta?.kind !== "tool") {
     throw new TestSetupError({
-      message: `${tool.name} is not a @Tool or question role`,
+      message: `${tool.name} is not a @Tool or an @ExternalTask`,
     });
   }
   return meta.meta.name;
@@ -96,12 +97,12 @@ export function callTool<TTool extends ToolClass<never>>(
   args: NoInfer<CalledToolArguments<InstanceType<TTool>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 /**
- * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
- * the arguments typed by the role's `ask` (the generated `ChannelRoles`), the turn by its name.
+ * An external task the agent asks (#712): `callTool(SpendingLimitExternalTask, { item, priceUsd })` —
+ * the arguments typed by the task's `input` (the generated `PauseTargets`), the turn by its name.
  */
-export function callTool<TRole extends Class<{ send(ask: never): Promise<unknown> }>>(
+export function callTool<TRole extends ExternalTaskClass>(
   role: TRole,
-  args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>,
+  args: NoInfer<PauseInputOf<InstanceType<TRole>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
 export function callTool(tool: Class, args: object): ToolCallTurn {
   return {

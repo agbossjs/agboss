@@ -35,7 +35,7 @@ const examples: readonly (readonly [DtoClass, object])[] = [
       summary: "Adds one job to the shortlist",
     },
   ],
-  [ToolCallApprovalDecisionDto, { approved: true, overrideArguments: { userId: "456" } }],
+  [ToolCallApprovalDecisionDto, { approved: true, overrideInput: { userId: "456" } }],
   [NoInputDto, {}],
   [RagSearchResultDto, { text: "Remote friendly", source: "notes/acme.md", score: 0.82 }],
   [MoneyDto, { amount: "19.99", currency: "USD" }],
@@ -149,11 +149,11 @@ describe("#141 AC3: standard DTOs named by the hierarchy rule", () => {
     );
   });
 
-  it("#267: ToolCallApprovalDecisionDto takes a reason; overrideArguments only with approved: true", () => {
+  it("#267: ToolCallApprovalDecisionDto takes a reason; overrideInput only with approved: true", () => {
     const refusal = { approved: false, reason: "outside the change window" };
     expect(validate(ToolCallApprovalDecisionDto, refusal)).toEqual(refusal);
     expect(rejects(ToolCallApprovalDecisionDto, { approved: true })).toBe(false);
-    const overriding = { approved: false, overrideArguments: { userId: "456" } };
+    const overriding = { approved: false, overrideInput: { userId: "456" } };
     expect(rejects(ToolCallApprovalDecisionDto, overriding)).toBe(true);
   });
 

@@ -36,11 +36,11 @@ class PlacePurchaseOrderDto {
 }
 
 const interpreterOn = (model: string): AssembledReplyInterpreter => ({
-  channel: "purchase-approval-channel",
+  target: "purchase-tool-approval",
   interpreter: PlacePurchaseOrderDto, // its class is not read on this path
   name: "purchase-reply-interpreter",
   answer: ToolCallApprovalDecisionDto,
-  approves: PlacePurchaseOrderDto,
+  input: PlacePurchaseOrderDto,
   model,
   instructions: "Read the approver's reply to the purchase order.",
 });
@@ -120,7 +120,7 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("smoke #688: capped approvals",
             kind: "answered",
             answer: {
               approved: true,
-              overrideArguments: { ...ask.arguments, amountUsd: cap },
+              overrideInput: { ...ask.arguments, amountUsd: cap },
             },
           });
         });
@@ -136,9 +136,8 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("smoke #688: capped approvals",
             return;
           }
           expect(reading).toMatchObject({ kind: "answered", answer: { approved: true } });
-          const answer = (reading as { answer: { overrideArguments?: { amountUsd?: number } } })
-            .answer;
-          const amount = answer.overrideArguments?.amountUsd ?? 1200;
+          const answer = (reading as { answer: { overrideInput?: { amountUsd?: number } } }).answer;
+          const amount = answer.overrideInput?.amountUsd ?? 1200;
           if (amount !== 1200)
             process.stderr.write(
               `[#688 smoke] ${model} read ${JSON.stringify(reply)} as ${String(amount)}\n`,

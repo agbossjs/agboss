@@ -17,6 +17,7 @@ import {
   ConfirmOrderTool,
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   RefundDoneDto,
   RefundRequestDto,
@@ -26,8 +27,8 @@ import {
 
 /**
  * #267 × #263 — pauses inside child workflows: a child whose agent waits on a channel role, alone
- * (the customer confirms: `PauseAnswerer.ThreadOwner`, its id in `result.pending`) or one child per
- * order, several waiting at once (the finance desk: `PauseAnswerer.Channel`, its id sent to the
+ * (the customer confirms: `PauseRespondent.Owner`, its id in `result.pending`) or one child per
+ * order, several waiting at once (the finance desk: `PauseRespondent.Delegate`, its id sent to the
  * desk). Every pause shows in the root's `result.pending` and is resumed by its id.
  */
 
@@ -148,6 +149,7 @@ export class ChildBatchWorkflow {}
   workflows: [SingleChildWorkflow, ChildBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
   ],

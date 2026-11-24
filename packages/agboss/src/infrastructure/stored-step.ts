@@ -4,12 +4,12 @@ import {
   type StoredNamesUnreadableErrorOptions,
   parsedStoredJson,
 } from "../core/stored-json.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { PauseResolution, type PauseTrailRecord } from "./pause-record.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
 
@@ -131,7 +131,7 @@ export function readStored<S extends z.ZodType>(
 }
 
 /**
- * A log entry as JSON stored it (#934): `answerer` the kind, `answeredBy` the person. Parsing it IS
+ * A log entry as JSON stored it (#934): `respondent` the kind, `answeredBy` the person. Parsing it IS
  * reading it (0.1.0's `responder`, the person's alias, is refused: never read, never filled), and an entry
  * of any other shape — a kind that is none, a person that is no text — is refused at its field,
  * wherever it is nested (the history record's pauses and children's too).
@@ -141,8 +141,10 @@ export const PauseAnswerRecordSchema = z
     pauseId: optionalText,
     executionId: z.string(),
     step: StoredStep,
-    role: z.string(),
-    answerer: z.enum(PauseAnswerer),
+    target: z.string(),
+    channel: z.string().optional(),
+    role: z.never().optional(),
+    respondent: z.enum(PauseRespondent),
     actor: StoredActor.optional(),
     // 0.1.0's names of `actor` and `input`: refused, never read
     answeredBy: z.never().optional(),

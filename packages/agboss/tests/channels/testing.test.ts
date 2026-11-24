@@ -5,11 +5,11 @@
  * container with `testWith(App, { services: [AutoApproveChannel.for(Role)] })` (#267 S104).
  * Scripted reply interpreters come with #267 PR 3.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect } from "vitest";
 import { PauseResolution, PauseStatus } from "../../src/index.js";
 import { AutoApproveChannel } from "../../src/testing/index.js";
 import {
-  RefundApprovalChannel,
+  RefundDeskToolApproval,
   RefundCardOutputDto,
   RefundCardTool,
   RefundClerkAgent,
@@ -61,7 +61,7 @@ describe("#267 AC11: AutoApproveChannel decides at once", () => {
 });
 
 const slack = testWith(SlackRefundsApplication, {
-  services: [AutoApproveChannel.for(RefundApprovalChannel)],
+  services: [AutoApproveChannel.for(RefundDeskToolApproval)],
 });
 
 describe("#267 S104: a role replaced by AutoApproveChannel.for(Role)", () => {
