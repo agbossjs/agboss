@@ -7,6 +7,7 @@ import type { ModelInputKind } from "./content.js";
 import { resolveSettings } from "../llm/registry.js";
 import { ModelKind } from "./model-kind.js";
 import { providerOf, purposeOf, type ProviderKinds } from "./use-purpose.js";
+import { interpreterUsesOf, type ModelNamingInterpreter } from "./interpreter-uses.js";
 
 /**
  * Every kind of model use, the first segment of a `ModelUse.key` (#716): the one list a kind of
@@ -90,12 +91,6 @@ const routerUse = (
   const settings = isDecisions ? {} : { settings: resolveSettings(model, config.defaults.models) };
   return { key, model: model.model, purpose, ...providerOf(model.modelProvider), ...settings };
 };
-
-/** A reply interpreter (#267 PR 3): its model, or none for a code one. */
-export interface ModelNamingInterpreter {
-  readonly name: string;
-  readonly model: string | undefined;
-}
 
 /** The components besides routers that name their own model. */
 export interface ModelNamingComponents {
@@ -236,15 +231,13 @@ export function modelUsesOf(
       : [routerUse("defaults.router", config.defaults.router, config, kinds)]),
     ...routers.map(namedUse("routers", kinds)),
     ...arbiters.map(namedUse("arbiters", kinds)),
-    ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
-    ...interpreters.flatMap(({ name, model }): readonly ModelUse[] => {
-      if (model === undefined) return [];
-      const key: ModelUseKey = `replyInterpreters.${name}`;
-      // a decision model reads an approval's yes / no (#267 S124 a)
-      return purposeOf(model) === ModelKind.Decisions
-        ? [{ key, model, purpose: ModelKind.Decisions }]
-        : [chat(key, { model })];
-    }),
+    ...piiDetectors.map((detector) =>
+      chat(`pii.${detector.name}`, {
+        model: detector.model,
+        ...providerOf(detector.modelProvider),
+      }),
+    ),
+    ...interpreterUsesOf(interpreters, chat, kinds),
     ...guardrails.map((guardrail): ModelUse => ({
       key: `guardrails.${guardrail.name}`,
       model: guardrail.model,

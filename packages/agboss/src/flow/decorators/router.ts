@@ -83,8 +83,13 @@ export interface ModelRouterOptions {
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Model;
   readonly routes: readonly [RouterRoute, ...RouterRoute[]];
-  /** A decision model (Jev, …) or a chat model; `defaults.router.model` when absent. */
+  /**
+   * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
+   * out: `defaults.router.model`, else the default model of its provider (#1313).
+   */
   readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** How to choose: inline, and / or files next to the router (read at assembly). */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
@@ -117,6 +122,7 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: TDeps;
   readonly model?: never;
+  readonly modelProvider?: never;
   readonly prompt?: never;
   readonly promptUrls?: never;
   readonly promptVariables?: never;

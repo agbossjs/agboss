@@ -6,6 +6,7 @@
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
 import { isDecisionModel } from "../models/decision-models.js";
+import { ModelKind } from "../models/model-kind.js";
 import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
@@ -28,13 +29,23 @@ async function byModel(
   parts: ReplyReaderParts,
 ): Promise<Interpreted> {
   await call.beforeModelCall();
-  if (isDecisionModel(model)) {
+  // the driver of the provider the cascade resolved says what the model is; else its name does (#1313)
+  const { modelProvider, unpriced } = interpreter;
+  const kind =
+    parts.gateway.kindOf?.(modelProvider) ??
+    (isDecisionModel(model) ? ModelKind.Decisions : ModelKind.Chat);
+  if (kind === ModelKind.Decisions) {
     const caller = replyInterpreterCaller(interpreter.name);
-    const site = { gateway: parts.gateway, model, caller, pii: call.pii };
+    const site = { gateway: parts.gateway, model, modelProvider, caller, pii: call.pii };
     return readByDecision(interpreter, input, site);
   }
   const settings = resolveSettings(
-    { ...parts.chatModelSettings(model), model },
+    {
+      ...parts.chatModelSettings(model),
+      model,
+      ...(modelProvider === undefined ? {} : { modelProvider }),
+      ...(unpriced === undefined ? {} : { unpriced }),
+    },
     parts.chatDefaults,
   );
   const site = { gateway: parts.gateway, settings, callbacks: call.callbacks, pii: call.pii };

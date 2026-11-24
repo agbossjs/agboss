@@ -8,7 +8,6 @@ import { agentMetasOf } from "../flow/runtime/agents.js";
 import { runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { dependencyTree } from "./container/graph-check.js";
 import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
 import {
   mcpOf,
@@ -20,7 +19,7 @@ import {
 import { checkedRagClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
-import { containerPartsOf } from "./assemble-parts.js";
+import { containerPartsOf, toolDependenciesOf } from "./assemble-parts.js";
 import {
   checkComponents,
   checkProviderClasses,
@@ -42,7 +41,12 @@ import {
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
 import { memoriesFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
-import { cascadedConfigOf, workflowModelPartsOf } from "./model-parts.js";
+import {
+  cascadedConfigOf,
+  levelCascadeOf,
+  resolverOf,
+  workflowModelPartsOf,
+} from "./model-parts.js";
 import { settingsOf } from "./workflow-settings.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { AssembledMemories } from "../memory/assembly.js";
@@ -75,7 +79,7 @@ function configOf(
   judges: ReadonlyMap<string, JudgeClass>,
   memories: AssembledMemories & CompactionConfigPart,
 ): AgentsConfigOf<string> {
-  const config: AgentsConfigOf<string> = {
+  return {
     name: bundle.name,
     version: bundle.version,
     defaults: bundle.defaults,
@@ -83,22 +87,7 @@ function configOf(
     ...judgeSettingsOf(judges),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
-  // every model through its cascade: the component's provider, its workflow's, its application's (#1313)
-  return cascadedConfigOf(config, bundle, agents);
 }
-
-/** Each tool's dependency tree by tool name (tools without dependencies are left out). */
-const toolDependenciesOf = (
-  bundle: WorkflowMeta,
-  tools: readonly Class[],
-  names: ReadonlyMap<Class, string>,
-): Record<string, string> =>
-  Object.fromEntries(
-    tools.flatMap((cls) => {
-      const tree = dependencyTree(cls, providerModulesOf(bundle));
-      return tree === "" ? [] : [[names.get(cls) ?? cls.name, tree] as const];
-    }),
-  );
 
 /**
  * The agents' tool classes, and the question roles asked — by the flow's steps (#659) and by the
@@ -128,7 +117,7 @@ function withApplicationDefaults(
   owner: WorkflowOwner | undefined,
 ): WorkflowMeta {
   const { options } = workflowDeclarationOf(workflow);
-  const modelCascade = { workflow: options.modelProvider, application: owner?.modelProvider };
+  const modelCascade = levelCascadeOf(options, owner);
   if (owner === undefined) return { ...bundle, modelCascade };
   const defaults = cascadeDefaults(owner.defaults, options.defaults);
   return {
@@ -144,12 +133,13 @@ function analysedModule(
   owner: WorkflowOwner | undefined,
 ): { readonly bundle: WorkflowMeta; readonly analysis: FlowAnalysis } {
   const applicationDefaults = owner?.defaults;
+  const applicationModelProvider = owner?.modelProvider;
   return {
     bundle: withApplicationDefaults(moduleOf(workflow), workflow, owner),
-    analysis: analyseWorkflow(
-      workflow,
-      applicationDefaults === undefined ? {} : { applicationDefaults },
-    ),
+    analysis: analyseWorkflow(workflow, {
+      ...(applicationDefaults === undefined ? {} : { applicationDefaults }),
+      ...(applicationModelProvider === undefined ? {} : { applicationModelProvider }),
+    }),
   };
 }
 
@@ -179,6 +169,13 @@ function graphOf(analysis: FlowAnalysis, workflow: Class, owner: WorkflowOwner |
   return graph;
 }
 
+/** The workflow's module, its runtime graph and its agents: its paths analysed with the defaults it cascades. */
+function graphedModule(workflow: Class, owner: WorkflowOwner | undefined) {
+  const { bundle, analysis } = analysedModule(workflow, owner);
+  const graph = graphOf(analysis, workflow, owner);
+  return { bundle, graph, agents: agentMetasOf(graph) };
+}
+
 /**
  * Assembles a v2 `@Workflow` class into the workflow the core runs (#272): its paths analysed (every
  * rule, all violations at once — before any model call), router and agent texts loaded, config,
@@ -193,30 +190,27 @@ export async function workflowOf(
   owner?: WorkflowOwner,
   contexts: readonly Token[] = [],
 ): Promise<AssembledWorkflow> {
-  const { bundle, analysis } = analysedModule(workflow, owner);
-  const graph = graphOf(analysis, workflow, owner);
-  const agents = agentMetasOf(graph);
+  const { bundle, graph, agents } = graphedModule(workflow, owner);
   const loader = new PromptLoader(bundle.promptVariables ?? {});
-  const routers = await loadRouters(graph, loader, bundle.defaults.router?.model);
+  const resolver = resolverOf(bundle, agents);
+  const routers = await loadRouters(graph, loader, bundle.defaults.router?.model, resolver);
   const tools = toolClassesOf(bundle, agents, graph);
   const rags = await checkedRagClassesOf(bundle, agents);
   const judges = checkedJudgeClassesOf(bundle, agents);
-  const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
+  const sources = { workflow, bundle, owner, agents, graph, loader };
+  const policies = await policyPartsOf({ ...sources, resolver });
   const memories = await memoriesFor({ bundle, agents, graph, loader });
   const modules = [...providerModulesOf(bundle), ...application];
-  const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader);
+  const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader, resolver);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters, memories);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   const mcp = mcpOf(mcpServerClassesOf(components, modules));
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
-  const files = { owner, workflow, graph, agents, pii: policies.assembled.pii };
-  const config = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
+  const files = { ...sources, pii: policies.assembled.pii };
+  const plain = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
+  const config = cascadedConfigOf(plain, bundle, agents, resolver);
   validateAgentsConfig(config, [...names.values()]);
-  const models = workflowModelPartsOf(
-    { owner, bundle, agents, config, routers, graph },
-    { ...policies.models, replyInterpreters, rags },
-  );
   return {
     config,
     graph,
@@ -224,7 +218,10 @@ export async function workflowOf(
     ...containerPartsOf(bundle),
     ...policies.assembled,
     ...channelPartsOf(bundle, tools, owner?.workingCalendar),
-    ...models,
+    ...workflowModelPartsOf(
+      { owner, bundle, agents, config, routers, graph, resolver },
+      { ...policies.models, replyInterpreters, rags },
+    ),
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
     prompts: await promptsOf(agents, loader),

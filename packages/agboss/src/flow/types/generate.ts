@@ -127,11 +127,14 @@ function checkedWorkflows(
     return listing.length === 1 ? listing[0] : undefined;
   });
   const checks = all.map((workflow, index) => {
-    const defaults = owners[index]?.defaults;
-    return checkWorkflow(
-      workflow,
-      defaults === undefined ? options : { ...options, applicationDefaults: defaults },
-    );
+    const owner = owners[index];
+    return checkWorkflow(workflow, {
+      ...options,
+      ...(owner?.defaults === undefined ? {} : { applicationDefaults: owner.defaults }),
+      ...(owner?.modelProvider === undefined
+        ? {}
+        : { applicationModelProvider: owner.modelProvider }),
+    });
   });
   return { all, owners, checks };
 }

@@ -26,6 +26,8 @@ function priced<T extends ModelSettings>(settings: T, directory: ModelProviderDi
     key: settings.model,
     model: settings.model,
     purpose: ModelKind.Chat,
+    // the provider its cascade resolved, not the one `serves` finds (#1313)
+    ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
   });
   if (resolution.kind === "problem") return settings;
   const { cost } = resolution.provider.options;

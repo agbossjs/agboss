@@ -1,4 +1,4 @@
-import type { ResolvedAll, Token } from "../components/injection.js";
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
 import type { Secret } from "../environments/secret.js";
@@ -77,6 +77,11 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
   readonly rules: readonly [PiiRule, ...PiiRule[]];
   /** A chat model that finds names, street addresses and the other kinds without a format. */
   readonly detectWithModel?: string;
+  /**
+   * The `@ModelProvider` class serving `detectWithModel`; left out: the workflow's, the
+   * application's (#1313).
+   */
+  readonly modelProvider?: Class;
   /**
    * The HMAC key of its `tokenize()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
    * starts; absent → the application's (`@Application({ piiKeyField })`).

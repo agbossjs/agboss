@@ -1,3 +1,4 @@
+import type { Class } from "../../../components/injection.js";
 import type { RuleViolation } from "../../../graph/rule-error.js";
 import type { WorkflowDefaults, WorkflowOptions } from "../../decorators/workflow.js";
 import type { ComponentName } from "../../registry.js";
@@ -27,6 +28,11 @@ export interface AnalyseOptions {
   readonly canCallTools?: ToolCallingCheck;
   /** The defaults of the workflow's `@Application` (#261): the rules read the merged defaults. */
   readonly applicationDefaults?: WorkflowDefaults;
+  /**
+   * The `@Application({ modelProvider })` (#1313): a model component that names no model may take
+   * its provider's default, so `[router.no-model]` is no error where one is set.
+   */
+  readonly applicationModelProvider?: Class;
 }
 
 export interface AnalysisContext {

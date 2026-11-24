@@ -108,8 +108,13 @@ function declarationRules(
     const message = `${router.name} has an empty input — declare what it chooses by: input: { message: XDto }`;
     found.push(violation("router.empty-input", message, [router.name]));
   }
+  // a provider in the cascade supplies the model nothing else names (#1313)
   const hasModel =
-    options.model !== undefined || context.workflow.defaults?.router?.model !== undefined;
+    options.model !== undefined ||
+    context.workflow.defaults?.router?.model !== undefined ||
+    options.modelProvider !== undefined ||
+    context.workflow.modelProvider !== undefined ||
+    context.options.applicationModelProvider !== undefined;
   if (!isCodeRouter(options) && !hasModel) {
     const message = `${router.name} uses DecidedBy.Model but has no model — set model or defaults.router.model`;
     found.push(violation("router.no-model", message, [router.name]));

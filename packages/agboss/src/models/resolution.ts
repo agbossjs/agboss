@@ -15,10 +15,10 @@ import {
 import {
   modelUsesOf,
   type ModelNamingComponents,
-  type ModelNamingInterpreter,
   type ModelNamingRouter,
   type ModelUse,
 } from "./uses.js";
+import type { ModelNamingInterpreter } from "./interpreter-uses.js";
 import type { ProviderKinds } from "./use-purpose.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "./workflow-models.js";
 
@@ -140,6 +140,7 @@ function guardrailUsesOf(
   return modelGuardrailsOf(workflow.guardrails).map((guardrail) => ({
     name: guardrail.name,
     model: guardrail.model,
+    modelProvider: guardrail.modelProvider,
     reads: readers.get(guardrail.name),
   }));
 }

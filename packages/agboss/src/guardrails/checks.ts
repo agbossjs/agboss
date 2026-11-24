@@ -90,8 +90,11 @@ function modelViolations(
   meta: ModelGuardrailMeta,
   defaultModel: string | undefined,
   workflow: string | undefined,
+  hasProvider: boolean,
 ): RuleViolation[] {
   if (guardrailModelOf(meta, defaultModel) !== undefined) return [];
+  // a provider in the cascade names the model nothing else does (#1313)
+  if (hasProvider || meta.modelProvider !== undefined) return [];
   const where = workflow === undefined ? "" : `${workflow}: `;
   const message = `${where}${meta.name} has no model — set model or defaults.guardrail.model`;
   return [violation("guardrail.no-model", message, [cls.name])];
@@ -102,6 +105,7 @@ export function guardrailViolations(
   classes: readonly Class[],
   defaultModel: string | undefined,
   workflow?: string,
+  hasProvider = false,
 ): RuleViolation[] {
   return classes.flatMap((cls) => {
     const meta = guardrailMetaOf(cls);
@@ -111,7 +115,7 @@ export function guardrailViolations(
     return [
       ...common,
       ...questionViolations(cls, meta),
-      ...modelViolations(cls, meta, defaultModel, workflow),
+      ...modelViolations(cls, meta, defaultModel, workflow, hasProvider),
     ];
   });
 }

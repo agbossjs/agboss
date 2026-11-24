@@ -15,6 +15,7 @@ import type { ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import type { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ArbiterClass } from "../flow/ast.js";
+import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { PiiRuntime } from "../pii/runtime.js";
 import type { GuardrailRuntime } from "../guardrails/runtime.js";
@@ -76,6 +77,8 @@ export interface GraphDeps<TName extends string> {
   readonly routerFor: (router: LoadedRouter) => RouterEngine;
   /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
+  /** The model arbiters with their models resolved through the cascade (part of the run's versions). */
+  readonly arbiters?: readonly ModelArbiterUse[];
   /** A model arbiter's model (#279): one yes/no decision per answer; none for a code arbiter. */
   readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
   readonly observer?: ExecutionObserverManager;

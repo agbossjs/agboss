@@ -24,8 +24,12 @@ export interface LoadedModelGuardrail extends LoadedGuardrailBase {
   /** Its question, read and rendered: yes blocks. */
   readonly prompt: string;
   readonly threshold: number;
-  /** Its own model, else `defaults.guardrail.model`. */
+  /** Its own model, else `defaults.guardrail.model`, else its provider's default (#1313). */
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313). */
+  readonly modelProvider?: string;
+  /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true;
   /** Whether `model` is its own (else the default's). */
   readonly isOwnModel: boolean;
 }

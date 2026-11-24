@@ -907,6 +907,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     [
       "src/models/capabilities.ts",
       "src/models/catch-all.ts",
+      "src/models/config-cascade.ts",
       "src/models/connections.ts",
       "src/models/content.ts",
       "src/models/decision-models.ts",
@@ -916,6 +917,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/handler.ts",
       "src/models/index.ts",
       "src/models/input-check.ts",
+      "src/models/interpreter-uses.ts",
       "src/models/jev-alias.ts",
       "src/models/jev.provider.ts",
       "src/models/lazy-chat-model.ts",
@@ -925,6 +927,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/model-kind.ts",
       "src/models/model-list.ts",
       "src/models/model-provider.decorator.ts",
+      "src/models/model-resolver.ts",
       "src/models/openai-compatible.provider.ts",
       "src/models/openrouter-model.provider.ts",
       "src/models/openrouter-routing.ts",

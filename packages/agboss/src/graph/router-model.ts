@@ -9,6 +9,7 @@ import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/
 import { createArbiterModel, type ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
 import type { ArbiterClass } from "../flow/ast.js";
+import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { Class } from "../components/injection.js";
 import type { AssembledGuardrails } from "../guardrails/assembly.js";
 import { guardrailRuntimeOf, type GuardrailRuntime } from "../guardrails/runtime.js";
@@ -27,23 +28,29 @@ export function routerModelOf(
   model: string,
   deps: FlowRouterFactoryDeps,
   modelProvider?: string,
+  unpriced?: true,
 ): RouterModel {
   // the driver of the provider the cascade resolved says what the model is; else its name does (#1313)
   const kind =
     deps.gateway.kindOf?.(modelProvider) ??
     (isDecisionModel(model) ? ModelKind.Decisions : ModelKind.Chat);
   const named = modelProvider === undefined ? {} : { modelProvider };
+  const account = unpriced === undefined ? named : { ...named, unpriced };
   return kind === ModelKind.Decisions
     ? { kind: "jev", model, ...named }
-    : { ...deps.chatModelSettings(model), kind: "llm", model, ...named };
+    : { ...deps.chatModelSettings(model), kind: "llm", model, ...account };
 }
+
+/** A loaded router's model: its provider resolved through the cascade says what it is (#1313). */
+const routerOf = (router: LoadedRouter, deps: FlowRouterFactoryDeps): RouterModel =>
+  routerModelOf(router.model, deps, router.modelProvider, router.unpriced);
 
 /** `FlowRuntime.routerFor` through the existing routers (one route → no call). */
 export function flowRouterFactory(
   deps: FlowRouterFactoryDeps,
 ): (router: LoadedRouter) => RouterEngine {
   return (router) =>
-    createRouter(router.name, routerModelOf(router.model, deps), deps.chatDefaults, deps.gateway);
+    createRouter(router.name, routerOf(router, deps), deps.chatDefaults, deps.gateway);
 }
 
 /** A router's launch decisions (#273 S23) on its own model. */
@@ -51,7 +58,7 @@ export function flowLaunchDeciderFactory(
   deps: FlowRouterFactoryDeps,
 ): (router: LoadedRouter) => LaunchDecider {
   return (router) =>
-    createLaunchDecider(router.name, routerModelOf(router.model, deps), {
+    createLaunchDecider(router.name, routerOf(router, deps), {
       gateway: deps.gateway,
       chatDefaults: deps.chatDefaults,
     });
@@ -60,6 +67,7 @@ export function flowLaunchDeciderFactory(
 /** A model arbiter's model (#279): its own `model`, a decision model or a chat model; none for code. */
 export function flowArbiterModelFactory(
   deps: FlowRouterFactoryDeps,
+  uses: readonly ModelArbiterUse[] = [],
 ): (arbiter: ArbiterClass) => ArbiterModel | undefined {
   const made = new Map<ArbiterClass, ArbiterModel>();
   return (arbiter) => {
@@ -67,10 +75,14 @@ export function flowArbiterModelFactory(
     if (options === undefined || isCodeArbiter(options)) return undefined;
     const found = made.get(arbiter);
     if (found !== undefined) return found;
-    const model = createArbiterModel(options.name, routerModelOf(options.model, deps), {
-      gateway: deps.gateway,
-      chatDefaults: deps.chatDefaults,
-    });
+    // the model the cascade resolved (its provider, #1313); a unit's arbiter its declared one
+    const use = uses.find((candidate) => candidate.name === options.name);
+    const resolved = use ?? { model: options.model ?? "" };
+    const model = createArbiterModel(
+      options.name,
+      routerModelOf(resolved.model, deps, use?.modelProvider, use?.unpriced),
+      { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
+    );
     made.set(arbiter, model);
     return model;
   };
@@ -84,7 +96,8 @@ export function flowGuardrailRuntime(
 ): GuardrailRuntime {
   return guardrailRuntimeOf(assembled, {
     resolve,
-    modelOf: (model) => routerModelOf(model, deps),
+    modelOf: (model, modelProvider, unpriced) =>
+      routerModelOf(model, deps, modelProvider, unpriced),
     deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
   });
 }

@@ -49,6 +49,10 @@ const routerTexts = (routers: readonly LoadedRouter[]) =>
     routes: router.routes.map((route) => ({ ...route, condition: hashedText(route.condition) })),
   }));
 
+/** The model arbiters with their resolved models (#1313); an execution without them reads the declared ones. */
+const arbitersOf = (deps: Pick<AgentExecutionDeps<string>, "arbiters" | "graph">) =>
+  deps.arbiters ?? modelArbitersOf(deps.graph.launches);
+
 /** The model arbiters' texts (#279): their prompt and each agent's criterion, by name. */
 function arbiterTexts(graph: RuntimeGraph) {
   return arbiterClassesOf(graph.launches).flatMap((arbiter) => {
@@ -248,9 +252,7 @@ export function executionVersions<TName extends string>(
     modelVersion: versionOf({
       defaults: deps.config.defaults,
       routers: deps.routers.map(({ name, model }) => ({ name, model })),
-      ...(modelArbitersOf(deps.graph.launches).length === 0
-        ? {}
-        : { arbiters: modelArbitersOf(deps.graph.launches) }),
+      ...(arbitersOf(deps).length === 0 ? {} : { arbiters: arbitersOf(deps) }),
       agents: deps.config.agents,
       ...guardrailModels(guardrails),
     }),

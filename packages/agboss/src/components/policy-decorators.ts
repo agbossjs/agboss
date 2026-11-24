@@ -44,8 +44,13 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
-  /** A decision model (Jev, …) or a chat model; `defaults.guardrail.model` when absent. */
+  /**
+   * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
+   * out: `defaults.guardrail.model`, else the default model of its provider (#1313).
+   */
   readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** Blocks when the model is at least this sure, P(yes) ≥ threshold (0 < threshold ≤ 1). */
   readonly threshold: number;
   /** The text sent instead when it blocks. */
@@ -64,8 +69,13 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
-  /** A decision model (Jev, …) or a chat model; `defaults.guardrail.model` when absent. */
+  /**
+   * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
+   * out: `defaults.guardrail.model`, else the default model of its provider (#1313).
+   */
   readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** Blocks when the model is at least this sure, P(yes) ≥ threshold (0 < threshold ≤ 1). */
   readonly threshold: number;
   readonly refusal?: never;
@@ -86,6 +96,7 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
   readonly prompt?: never;
   readonly promptUrls?: never;
   readonly model?: never;
+  readonly modelProvider?: never;
   readonly threshold?: never;
   /** The text sent when `blocked()` names none. */
   readonly refusal?: string;

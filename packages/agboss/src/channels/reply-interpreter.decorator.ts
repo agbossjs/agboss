@@ -25,9 +25,12 @@ export interface ModelReplyInterpreterOptions {
   /**
    * A chat model (one answer tool), or — for an approval role only — a decision model (one
    * `Decision.boolean("approved")`: approve / refuse, no `reason`, no `overrideArguments`, #267 S124 a);
-   * a decision model for a question role is `[reply-interpreter.decision-model]`.
+   * a decision model for a question role is `[reply-interpreter.decision-model]`. Left out: the
+   * default model of its provider (#1313).
    */
-  readonly model: string;
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** How to read a reply; static — the question and the reply come in the input message. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
@@ -43,6 +46,7 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
   /** Constructor dependencies, in order; compiler-checked. */
   readonly deps?: TDeps;
   readonly model?: never;
+  readonly modelProvider?: never;
   readonly prompt?: never;
   readonly promptUrls?: never;
 }

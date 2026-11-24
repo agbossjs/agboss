@@ -58,7 +58,7 @@ export interface GuardrailRuntime {
 /** What the runtime is built from: the container's instances and the models. */
 export interface GuardrailRuntimeParts {
   readonly resolve: (cls: Class) => unknown;
-  readonly modelOf: (model: string) => RouterModel;
+  readonly modelOf: (model: string, modelProvider?: string, unpriced?: true) => RouterModel;
   readonly deciderDeps: LaunchDeciderDeps;
 }
 

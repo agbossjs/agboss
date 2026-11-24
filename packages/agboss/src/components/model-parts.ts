@@ -1,5 +1,5 @@
 import { hasFileStore, ownFileRedactorOf, ownFileTranscriberOf } from "../files/assemble-files.js";
-import { modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
+import { modelArbitersOf, type ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { LoadedGuardrail } from "../guardrails/assembly.js";
 import { resolvedModelProvidersOf, type WorkflowModels } from "../models/resolution.js";
@@ -8,11 +8,10 @@ import { providerRuleViolations } from "../models/provider-mode-rules.js";
 import type { AssembledPii } from "../pii/assembly.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { AgentsConfigOf } from "../config/types.js";
-import {
-  referencedModelProvidersOf,
-  withModelProviders,
-  type ModelCascade,
-} from "../models/model-cascade.js";
+import { referencedModelProvidersOf, type ModelCascade } from "../models/model-cascade.js";
+import { withModelProviders } from "../models/config-cascade.js";
+import { modelResolverOf, type ModelResolver } from "../models/model-resolver.js";
+import type { WorkflowDefaults, WorkflowOptions } from "../flow/decorators/workflow.js";
 import type { Class, Provider } from "./injection.js";
 import { componentOf } from "./metadata.js";
 import { rerankerModelsOf } from "./rag.js";
@@ -29,7 +28,14 @@ export interface PolicyModels {
 export interface ModelUsers extends PolicyModels {
   readonly replyInterpreters: readonly AssembledReplyInterpreter[];
   /** The knowledge bases' model rerankers (#703). */
-  readonly rerankers: readonly { readonly name: string; readonly model: string }[];
+  readonly rerankers: readonly {
+    readonly name: string;
+    readonly model: string;
+    readonly modelProvider?: string;
+    readonly unpriced?: true;
+  }[];
+  /** The model arbiters with their models resolved (#1313); none given: as declared. */
+  readonly arbiters?: readonly ModelArbiterUse[];
 }
 
 /**
@@ -52,7 +58,7 @@ export function modelPartsOf(
   | "ownFileRedactor"
   | "hasFileStore"
 > {
-  const arbiters = modelArbitersOf(graph.launches);
+  const arbiters = users.arbiters ?? modelArbitersOf(graph.launches);
   const { replyInterpreters, rerankers } = users;
   // a provider only a workflow or a component names is checked like a listed one (#1313)
   const named = providerRuleViolations(models.config.name, referencedModelProvidersOf(cascade));
@@ -98,6 +104,25 @@ export const modelCascadeOf = (
   components: [...agents.map((agent) => agent.modelProvider), ...judgeProvidersOf(agents)],
 });
 
+/** The levels over a component's own provider: the workflow's and its application's, with their default models (#1313). */
+export const levelCascadeOf = (
+  options: Pick<WorkflowOptions, "modelProvider" | "defaults">,
+  owner: { readonly modelProvider?: Class; readonly defaults?: WorkflowDefaults } | undefined,
+): ModelCascade => ({
+  workflow: options.modelProvider,
+  application: owner?.modelProvider,
+  models: {
+    workflow: options.defaults?.models?.model,
+    application: owner?.defaults?.models?.model,
+  },
+});
+
+/** The resolver of a workflow's model cascade: its levels and the providers its agents name. */
+export const resolverOf = (
+  bundle: Pick<WorkflowMeta, "name" | "modelCascade">,
+  agents: readonly AgentMeta[],
+): ModelResolver => modelResolverOf(bundle.name, modelCascadeOf(bundle, agents));
+
 /** What a workflow's models are read from, and the policies' and channels' own. */
 interface WorkflowModelParts {
   readonly owner:
@@ -107,6 +132,8 @@ interface WorkflowModelParts {
   readonly config: WorkflowModels["config"];
   readonly routers: WorkflowModels["routers"];
   readonly graph: RuntimeGraph;
+  /** Resolved every model of the workflow through its cascade so far (#1313). */
+  readonly resolver: ModelResolver;
 }
 
 /** The workflow's model parts: its policies', interpreters' and rerankers' models resolved with its cascade (#1313). */
@@ -114,14 +141,19 @@ export const workflowModelPartsOf = (
   parts: WorkflowModelParts,
   users: Omit<ModelUsers, "rerankers"> & { readonly rags: Parameters<typeof rerankerModelsOf>[0] },
 ): ReturnType<typeof modelPartsOf> => {
-  const { owner, bundle, agents, config, routers, graph } = parts;
+  const { owner, bundle, agents, config, routers, graph, resolver } = parts;
   const { rags, ...rest } = users;
-  const cascade = modelCascadeOf(bundle, agents);
+  // every model through its cascade; a model that resolves to nothing fails the assembly here
+  const arbiters = modelArbitersOf(graph.launches, resolver);
+  resolver.check();
+  const base = modelCascadeOf(bundle, agents);
+  // the providers the components named and the cascade's own are all subject to the provider rules
+  const cascade = { ...base, components: [...(base.components ?? []), ...resolver.providers()] };
   return modelPartsOf(
     owner,
     { config, routers },
     graph,
-    { ...rest, rerankers: rerankerModelsOf(rags) },
+    { ...rest, rerankers: rerankerModelsOf(rags), arbiters },
     cascade,
   );
 };
@@ -131,4 +163,5 @@ export const cascadedConfigOf = (
   config: AgentsConfigOf<string>,
   bundle: Pick<WorkflowMeta, "modelCascade">,
   agents: readonly AgentMeta[],
-): AgentsConfigOf<string> => withModelProviders(config, modelCascadeOf(bundle, agents));
+  resolver: ModelResolver,
+): AgentsConfigOf<string> => withModelProviders(config, modelCascadeOf(bundle, agents), resolver);

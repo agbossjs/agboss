@@ -1729,6 +1729,8 @@ export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly To
     readonly description?: string;
     // (undocumented)
     readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
     readonly name?: string;
     // (undocumented)
     readonly prompt?: never;
@@ -1758,6 +1760,8 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
     readonly description?: string;
     // (undocumented)
     readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
     readonly name?: string;
     // (undocumented)
     readonly prompt?: never;
@@ -1794,6 +1798,8 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
     readonly description?: string;
     // (undocumented)
     readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
     readonly name?: string;
     // (undocumented)
     readonly prompt?: never;
@@ -1819,6 +1825,8 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
     readonly memory?: never;
     // (undocumented)
     readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
     readonly name: string;
     readonly piiPolicies?: readonly Class[];
     // (undocumented)
@@ -2543,6 +2551,7 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
     readonly description?: string;
     readonly detectWithModel?: string;
     readonly files?: PiiFileAction;
+    readonly modelProvider?: Class;
     readonly name?: string;
     readonly pseudonymKey?: Secret;
     // (undocumented)
@@ -4499,6 +4508,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
     // (undocumented)
     readonly description?: string;
     readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name?: string;
     readonly prompt?: PromptValue;
     // (undocumented)
@@ -4619,6 +4629,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
     // (undocumented)
     readonly description?: string;
     readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name?: string;
     readonly prompt?: PromptValue;
     // (undocumented)
@@ -6158,7 +6169,8 @@ export interface ModelArbiterOptions {
     readonly deps?: never;
     // (undocumented)
     readonly description?: string;
-    readonly model: string;
+    readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name?: string;
     readonly prompt: string;
 }
@@ -6215,6 +6227,7 @@ export interface ModelDefaults {
     readonly cache?: CacheSetting;
     // (undocumented)
     readonly maxTokens?: MaxTokens;
+    readonly model?: string;
     // (undocumented)
     readonly reasoning?: Reasoning;
     // (undocumented)
@@ -6346,7 +6359,8 @@ export interface ModelReplyInterpreterOptions {
     readonly deps?: never;
     // (undocumented)
     readonly description?: string;
-    readonly model: string;
+    readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name?: string;
     readonly prompt?: PromptValue;
     // (undocumented)
@@ -6371,6 +6385,7 @@ export interface ModelRouterOptions {
     readonly maxVisits?: number;
     readonly memory?: Class;
     readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name: string;
     readonly piiPolicies?: readonly Class[];
     readonly prompt?: PromptValue;
@@ -11531,6 +11546,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "model".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
@@ -11588,6 +11604,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "model".
+// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "threshold".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "message".
@@ -12118,6 +12135,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/arbiter.ts - (ae-undocumented) Missing documentation for "criteria".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "spawn".
@@ -12139,6 +12157,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "routes".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "model".
+// src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "promptVariables".

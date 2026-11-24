@@ -12,6 +12,7 @@ import { pauseTargetOf } from "./pause-targets.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { kebabNameProblem } from "../flow/names.js";
 import { isDecisionModel } from "../models/decision-models.js";
+import { componentModelOf, type ModelResolver } from "../models/model-resolver.js";
 import {
   channelRoleOf,
   channelRoleOptionsOf,
@@ -152,6 +153,10 @@ export interface AssembledReplyInterpreter {
   readonly approves: DtoClass | undefined;
   /** A model interpreter's model (a chat model, or a decision model for an approval); `undefined` for a code one. */
   readonly model: string | undefined;
+  /** The `name` of the `@ModelProvider` the cascade resolved its model to (#1313). */
+  readonly modelProvider?: string;
+  /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true;
   /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
   readonly instructions: string;
 }
@@ -201,7 +206,12 @@ function declarationViolations({
     return [...found, violation(code, message, [options.name])];
   }
   // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
-  if (!isDecisionModel(options.model) || !isQuestionRole(role.options)) return found;
+  if (
+    options.model === undefined ||
+    !isDecisionModel(options.model) ||
+    !isQuestionRole(role.options)
+  )
+    return found;
   const answer = nameOf(answerOf(role));
   const message = `${options.name}: ${options.model} is a decision model — it answers only yes / no (approved), but channel role ${role.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code (DecidedBy.Code)`;
   return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
@@ -226,18 +236,24 @@ export function replyInterpreterViolations(uses: readonly ChannelUse[]): RuleVio
 export async function assembledOf(
   { role, interpreter, declaration }: InterpretedRole,
   loader: PromptLoader,
+  resolver?: ModelResolver,
 ): Promise<AssembledReplyInterpreter> {
   const { options, source } = declaration;
-  const isCode = isCodeReplyInterpreter(options);
   const label = `@ReplyInterpreter "${options.name}"`;
-  return {
+  const base = {
     channel: role.options.name,
     interpreter,
     name: options.name,
     answer: answerOf(role),
     approves: role.options.approves,
-    model: isCode ? undefined : options.model,
-    instructions: isCode ? "" : await loader.load({ label, options, source }),
+  };
+  if (isCodeReplyInterpreter(options)) return { ...base, model: undefined, instructions: "" };
+  // its model through the cascade: the interpreter's own provider, its workflow's, its application's (#1313)
+  const own = { model: options.model, provider: options.modelProvider, isRequired: true };
+  return {
+    ...base,
+    ...componentModelOf(resolver, `replyInterpreters.${options.name}`, own),
+    instructions: await loader.load({ label, options, source }),
   };
 }
 
@@ -245,9 +261,10 @@ export async function assembledOf(
 export async function replyInterpretersOf(
   workflow: Class,
   loader: PromptLoader,
+  resolver?: ModelResolver,
 ): Promise<readonly AssembledReplyInterpreter[]> {
   const roles = interpretedRolesOf(channelUsesOf([workflow]));
-  return Promise.all(roles.map((role) => assembledOf(role, loader)));
+  return Promise.all(roles.map((role) => assembledOf(role, loader, resolver)));
 }
 
 /** The code interpreters among them: the classes the container creates. */

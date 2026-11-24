@@ -49,7 +49,16 @@ export function piiFor(
     fieldKey: key.key,
     isInstanceKey: key.isInstanceKey,
     detectionOf: (policy, model) => {
-      const settings = resolveSettings({ model }, config.defaults.models);
+      // the model the cascade resolved for the policy (its provider, #1313); else as written
+      const used = bundle.pii?.detectors.find((detector) => detector.name === policy);
+      const settings = resolveSettings(
+        {
+          model: used?.model ?? model,
+          ...(used?.modelProvider === undefined ? {} : { modelProvider: used.modelProvider }),
+          ...(used?.unpriced === undefined ? {} : { unpriced: used.unpriced }),
+        },
+        config.defaults.models,
+      );
       const user = { kind: "pii-policy", policy } as const;
       return modelDetectionOf(
         policy,

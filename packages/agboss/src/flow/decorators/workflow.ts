@@ -9,6 +9,12 @@ import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
 export interface ModelDefaults {
+  /**
+   * The model of every component that names none, a role its provider maps (`"fast"`) or a vendor
+   * name (#1313). It applies only to components that resolve to the provider of the level it is set
+   * on (`@Workflow({ modelProvider })`, else `@Application({ modelProvider })`).
+   */
+  readonly model?: string;
   readonly temperature?: number;
   readonly maxTokens?: MaxTokens;
   readonly reasoning?: Reasoning;

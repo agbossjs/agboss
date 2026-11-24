@@ -16,3 +16,9 @@ issue: 1313
 - **Changed:** `cost`, `retryPolicy` and `circuitBreakerPolicy` are optional on every `@ModelProvider` — omitted: unpriced, no retry, no breaker.
 - **Removed:** the rule `[model-provider.circuit-breaker-required]` and `circuitBreakerPolicyOf`.
 - **Still there (until F2):** `@Agent({ price })`, `RetryPolicy.none()`, `routeTo`.
+
+**`modelProvider` on every model-backed component, and the default model of the levels** (#1313, part c)
+
+- **Added:** `modelProvider?: Class` on a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ReplyInterpreter` and a declarative `@PiiPolicy` (for its `detectWithModel`), resolved through `Component → Workflow → Application` like an agent's; `defaults.models.model` on `@Workflow` and `@Application`, the model of every component that names none (applies only when the component resolves to that level's provider); `ModelArbiterUse`, `LoadedRouter`, `LoadedModelGuardrail`, `PiiDetectorUse` and `AssembledReplyInterpreter` carry the resolved `modelProvider` and `unpriced`; an arbiter's and an interpreter's `model` is optional.
+- **Changed:** a model component that names no model, with no provider in its cascade, is `[model.missing-provider]`; a provider only a component names is subject to the provider rules (timeout, price, breaker, mode) like a listed one.
+- **Not here:** `@Memory` and `@RagReranker` take `modelProvider` with their own tickets (#1303, #1299).

@@ -30,8 +30,13 @@ export interface ModelArbiterOptions {
   readonly name?: string;
   readonly description?: string;
   readonly decidedBy: DecidedBy.Model;
-  /** A decision model (Jev, …) or a chat model. */
-  readonly model: string;
+  /**
+   * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
+   * out: the default model of its provider (#1313).
+   */
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** How to judge; never stands in for a missing criterion. */
   readonly prompt: string;
   /** One per agent of the launch it is attached to. */
@@ -48,6 +53,7 @@ export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly To
   /** Constructor dependencies, in order (`[ExecutionContext]` for the copy / item); compiler-checked. */
   readonly deps?: TDeps;
   readonly model?: never;
+  readonly modelProvider?: never;
   readonly prompt?: never;
   readonly criteria?: never;
 }

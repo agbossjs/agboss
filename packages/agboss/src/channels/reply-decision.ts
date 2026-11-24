@@ -24,6 +24,8 @@ const APPROVAL_THRESHOLD = 0.5;
 export interface ReplyDecisionSite {
   readonly gateway: ModelGateway;
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313). */
+  readonly modelProvider?: string | undefined;
   readonly caller: string;
   readonly pii: ReplyPii;
 }
@@ -46,6 +48,7 @@ export async function readByDecision(
   const outcome = await decide({
     caller: site.caller,
     model: site.model,
+    modelProvider: site.modelProvider,
     request: {
       state: state.text,
       questions: { [APPROVED_QUESTION]: Decision.boolean(instructions) },

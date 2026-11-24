@@ -1137,6 +1137,7 @@ export function goldenFromRecent(turns: TurnRecords, bundle: string, name: strin
 // @public
 export interface GraphDeps<TName extends string> {
     readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+    readonly arbiters?: readonly ModelArbiterUse[];
     readonly branchErrors?: BranchErrors;
     readonly branchScheduler?: BranchScheduler;
     readonly channelNames?: readonly string[];

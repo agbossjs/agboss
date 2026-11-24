@@ -3,7 +3,7 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { Class } from "./injection.js";
 import { judgeNamesOf } from "./judge-parts.js";
 import type { AgentMeta } from "./meta-types.js";
-import { DEFAULT_MODEL_ALIAS } from "../models/model-cascade.js";
+import { OMITTED_MODEL } from "../models/model-cascade.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { windowOfClass } from "../memory/memory.decorator.js";
 import { ragMeta, ragSettings, searchToolName } from "./rag.js";
@@ -29,8 +29,8 @@ export function agentSettings(
   const rag = ragSettings(agent);
   const judges = judgeNamesOf(agent);
   return {
-    // no model named: the role the provider maps (#1313)
-    model: agent.model ?? DEFAULT_MODEL_ALIAS,
+    // no model named: the cascade resolves it to its provider's default (#1313)
+    model: agent.model ?? OMITTED_MODEL,
     ...(agent.modelProvider === undefined
       ? {}
       : { modelProvider: modelProviderOf(agent.modelProvider).name }),

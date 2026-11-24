@@ -12,6 +12,7 @@ import {
   type ToolInterceptorOwners,
 } from "../tool-interceptors/assembly.js";
 import type { Class } from "./injection.js";
+import type { ModelResolver } from "../models/model-resolver.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { PolicyModels } from "./model-parts.js";
 import type { PromptLoader } from "./prompt-render.js";
@@ -53,6 +54,7 @@ export function piiPartsOf(
   owner: PolicyOwner | undefined,
   agents: readonly AgentMeta[],
   graph: RuntimeGraph,
+  resolver?: ModelResolver,
 ): AssembledPii {
   const routers = [...graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router ? [node.declaration.options] : [],
@@ -65,6 +67,7 @@ export function piiPartsOf(
     elements: [...agents, ...routers],
     // what a child inherits on each static way into it (#1150)
     inherited: inheritedPiiOf(owner?.workflows, graph.type),
+    resolver,
   });
   throwIfViolated(violations);
   return pii;
@@ -79,6 +82,8 @@ export interface PolicySources {
   readonly agents: readonly AgentMeta[];
   readonly graph: RuntimeGraph;
   readonly loader: PromptLoader;
+  /** Resolves the models of the workflow's policies through its model cascade (#1313). */
+  readonly resolver?: ModelResolver;
 }
 
 /** The levels above the agents that list tool interceptors: the application's and the workflow's. */
@@ -95,7 +100,7 @@ const interceptorOwnersOf = (
 /** The workflow's PII policies and guardrails (`defaults.guardrail.model` of its cascade). */
 export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts> {
   const { bundle, owner, agents, graph } = sources;
-  const pii = piiPartsOf(bundle, owner, agents, graph);
+  const pii = piiPartsOf(bundle, owner, agents, graph, sources.resolver);
   const { options } = workflowDeclarationOf(sources.workflow);
   const defaults = cascadeDefaults(owner?.defaults, options.defaults);
   const owners = {
@@ -103,6 +108,7 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
     workflow: bundle.guardrails ?? [],
     workflowName: bundle.name,
     defaultModel: defaults?.guardrail?.model,
+    resolver: sources.resolver,
   };
   const guardrails = await guardrailPartsOf(owners, agents, graph, sources.loader);
   const guardrailClasses = guardrails.guardrails.map((guardrail) => guardrail.type);

@@ -3,6 +3,7 @@ import { NodeKind } from "../ast.js";
 import { declarationOf, type Declared } from "../decorators/declaration.js";
 import { isCodeRouter, routesOf, type ModelRouterOptions } from "../decorators/router.js";
 import type { RuntimeGraph } from "./graph-model.js";
+import { componentModelOf, type ModelResolver } from "../../models/model-resolver.js";
 
 /**
  * The model routers of a workflow with their texts loaded (#272): how to choose (`prompt` /
@@ -24,6 +25,10 @@ export interface LoadedRouter {
   readonly name: string;
   readonly description: string;
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313); none: the older providers' `serves`. */
+  readonly modelProvider?: string;
+  /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true;
   readonly maxVisits?: number;
   readonly instructions: string;
   readonly routes: readonly LoadedRoute[];
@@ -38,6 +43,7 @@ export async function loadRouter(
   declaration: ModelRouterDeclaration,
   loader: PromptLoader,
   defaultModel: string | undefined,
+  resolver?: ModelResolver,
 ): Promise<LoadedRouter> {
   const { options, source } = declaration;
   const label = `@Router "${options.name}"`;
@@ -52,7 +58,12 @@ export async function loadRouter(
   return {
     name,
     description: options.description,
-    model: options.model ?? defaultModel ?? "",
+    // the model through the cascade: the router's own provider, its workflow's, its application's (#1313)
+    ...componentModelOf(resolver, `routers.${name}`, {
+      model: options.model,
+      fallback: defaultModel,
+      provider: options.modelProvider,
+    }),
     ...(options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits }),
     instructions: await loader.load({ label, options, source, variables }),
     routes: [...routes].sort(byOption),
@@ -64,6 +75,7 @@ export async function loadRouters(
   graph: RuntimeGraph,
   loader: PromptLoader,
   defaultModel: string | undefined,
+  resolver: ModelResolver,
 ): Promise<readonly LoadedRouter[]> {
   const routers = [...graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
@@ -72,6 +84,8 @@ export async function loadRouters(
     return isCodeRouter(options) ? [] : [{ node, declaration: { ...declaration, options } }];
   });
   return Promise.all(
-    routers.map(({ node, declaration }) => loadRouter(node.id, declaration, loader, defaultModel)),
+    routers.map(({ node, declaration }) =>
+      loadRouter(node.id, declaration, loader, defaultModel, resolver),
+    ),
   );
 }

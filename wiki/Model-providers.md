@@ -389,13 +389,21 @@ export class AppChatModels {}
   `apiKey` and header values are read from the process once, at start; a missing key fails naming its
   variable.
 - **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
-  `@Agent`, `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
+  `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ReplyInterpreter`
+  and `@PiiPolicy` (its `detectWithModel`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
   of the application even when it is not in `providers`, and the provider rules (`timeout`, prices,
   breaker, mode) check it exactly like a listed one, wherever it is named; `agboss describe` lists it as
   "named by modelProvider".
 - **Roles:** a component's `model: "fast"` is the vendor's name `models.fast` maps to; a name that is
-  no role goes to the server as written; a component with no `model` asks for `models.default`, else
-  the provider's `model`.
+  no role goes to the server as written.
+- **The default model:** a component that names no `model` (an `@Arbiter` and a `@ReplyInterpreter`
+  may leave it out) takes, in this order: its profile's override, its own `model`,
+  `@Workflow({ defaults: { models: { model } } })`, `@Application({ defaults: { models: { model } } })`,
+  the provider's `model`, the provider's `models.default`. A level's `defaults.models.model` applies
+  only when the component resolves to that level's provider (the workflow's own, else the
+  application's; the application's): a component that names another provider skips it, so `"fast"` on
+  the application never names a model of a provider that has no such role. A component that names
+  `model: "default"` asks for the provider's default role, not for the levels'.
 - **What a model is** is said by its provider's driver (chat or decisions), not by its name:
   `ModelKind.Chat` / `ModelKind.Decisions`.
 - **Rules:** `[model.missing-provider]` (no provider in the cascade, or the named one is not listed),

@@ -1,4 +1,5 @@
 import type { ArbiterClass, Quorum } from "../../ast.js";
+import { componentModelOf, type ModelResolver } from "../../../models/model-resolver.js";
 import { arbiterOf, isCodeArbiter } from "../../decorators/arbiter.js";
 import {
   EdgeKind,
@@ -111,13 +112,24 @@ export function arbiterClassesOf(launches: readonly RuntimeLaunch[]): readonly A
 export interface ModelArbiterUse {
   readonly name: string;
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313). */
+  readonly modelProvider?: string;
+  /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true;
 }
 
-/** The model arbiters of the graph's launches. */
-export const modelArbitersOf = (launches: readonly RuntimeLaunch[]): readonly ModelArbiterUse[] =>
-  arbiterClassesOf(launches).flatMap((arbiter) => {
+/**
+ * The model arbiters of the graph's launches; with a `resolver`, each model through its cascade
+ * (its own provider, its workflow's, its application's, #1313).
+ */
+export const modelArbitersOf = (
+  launches: readonly RuntimeLaunch[],
+  resolver?: ModelResolver,
+): readonly ModelArbiterUse[] =>
+  arbiterClassesOf(launches).flatMap((arbiter): ModelArbiterUse[] => {
     const options = arbiterOf(arbiter)?.options;
-    return options === undefined || isCodeArbiter(options)
-      ? []
-      : [{ name: options.name, model: options.model }];
+    if (options === undefined || isCodeArbiter(options)) return [];
+    const key = `arbiters.${options.name}`;
+    const own = { model: options.model, provider: options.modelProvider, isRequired: true };
+    return [{ name: options.name, ...componentModelOf(resolver, key, own) }];
   });

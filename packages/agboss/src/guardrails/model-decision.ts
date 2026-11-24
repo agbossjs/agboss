@@ -41,7 +41,7 @@ export function modelDecisionOf(
   parts: GuardrailRuntimeParts,
 ): GuardrailDecision {
   const { name, prompt, threshold } = guardrail;
-  const model = parts.modelOf(guardrail.model);
+  const model = parts.modelOf(guardrail.model, guardrail.modelProvider, guardrail.unpriced);
   const decider: LaunchDecider = createYesNoDecider(voiceOf(name), model, parts.deciderDeps);
   return async (checked, spent) => {
     const outcome = await decider.decide({

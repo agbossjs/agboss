@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import { componentModelOf, type ModelResolver } from "../models/model-resolver.js";
 import {
   guardrailMetaOf,
   GuardrailSide,
@@ -55,6 +56,8 @@ export interface GuardrailOwners {
   readonly workflowName: string;
   /** `defaults.guardrail.model` of the workflow over its application's. */
   readonly defaultModel: string | undefined;
+  /** Resolves a model guardrail's model through the model cascade (#1313); none: as written. */
+  readonly resolver?: ModelResolver | undefined;
 }
 
 /** The agents and routers of the graph, each with what kind of model it has. */
@@ -84,12 +87,15 @@ export async function loadedGuardrailOf(
   cls: Class,
   defaultModel: string | undefined,
   loader: PromptLoader,
+  resolver?: ModelResolver,
 ): Promise<LoadedGuardrail[]> {
   const meta = guardrailMetaOf(cls);
   if (meta === undefined) return [];
   if (isCodeGuardrail(meta)) return [{ ...baseOf(cls, meta), decidedBy: DecidedBy.Code }];
-  const model = guardrailModelOf(meta, defaultModel);
-  if (model === undefined) return [];
+  // a provider in the cascade names the model nothing else does (#1313)
+  const hasProvider = resolver?.isInherited === true || meta.modelProvider !== undefined;
+  if (guardrailModelOf(meta, defaultModel) === undefined && !hasProvider) return [];
+  const own = { model: meta.model, fallback: defaultModel, provider: meta.modelProvider };
   const label = `@${meta.side === GuardrailSide.Input ? "Input" : "Output"}Guardrail "${meta.name}"`;
   const prompt = await loader.load({ label, options: meta, source: meta.source });
   return [
@@ -98,7 +104,7 @@ export async function loadedGuardrailOf(
       decidedBy: DecidedBy.Model,
       prompt,
       threshold: meta.threshold,
-      model,
+      ...componentModelOf(resolver, `guardrails.${meta.name}`, own),
       isOwnModel: meta.model !== undefined,
     },
   ];
@@ -128,11 +134,18 @@ export async function guardrailPartsOf(
   const effective = effectiveGuardrails({ ...owners, elements: elementsOf(agents, graph) });
   throwIfViolated([
     ...effective.violations,
-    ...guardrailViolations(effective.classes, owners.defaultModel, owners.workflowName),
+    ...guardrailViolations(
+      effective.classes,
+      owners.defaultModel,
+      owners.workflowName,
+      owners.resolver?.isInherited === true,
+    ),
   ]);
   const guardrails = (
     await Promise.all(
-      effective.classes.map((cls) => loadedGuardrailOf(cls, owners.defaultModel, loader)),
+      effective.classes.map((cls) =>
+        loadedGuardrailOf(cls, owners.defaultModel, loader, owners.resolver),
+      ),
     )
   ).flat();
   return { byElement: byElementOf(effective.byElement, guardrails), guardrails };

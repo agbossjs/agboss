@@ -18,6 +18,7 @@ import {
   type AssembledReplyInterpreter,
 } from "../channels/discovery.js";
 import type { PromptLoader } from "./prompt-render.js";
+import type { ModelResolver } from "../models/model-resolver.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AssembledMemories } from "../memory/assembly.js";
@@ -102,10 +103,11 @@ export async function checkedChannelsOf(
   modules: readonly ProviderModule[],
   owner: { readonly workingCalendar?: WorkingCalendarSource } | undefined,
   loader: PromptLoader,
+  resolver?: ModelResolver,
 ): Promise<readonly AssembledReplyInterpreter[]> {
   // a workflow on its own is standalone; an application's calendar satisfies a working duration (#944)
   checkChannels(workflow, modules, owner === undefined, owner?.workingCalendar);
-  return replyInterpretersOf(workflow, loader);
+  return replyInterpretersOf(workflow, loader, resolver);
 }
 
 /**

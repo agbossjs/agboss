@@ -173,6 +173,7 @@ export const flowFor = (
   | "routerFor"
   | "launchDecisionFor"
   | "arbiterModelFor"
+  | "arbiters"
   | "branchErrors"
   | "branchScheduler"
 > => {
@@ -187,7 +188,8 @@ export const flowFor = (
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
-    arbiterModelFor: flowArbiterModelFactory(routerDeps),
+    arbiterModelFor: flowArbiterModelFactory(routerDeps, bundle.arbiters),
+    ...(bundle.arbiters === undefined ? {} : { arbiters: bundle.arbiters }),
     // a launch's branch errors, kept across passes (a withdrawal's join rethrows the original)
     branchErrors: new BranchErrors(),
     // a test's schedule of the branches (#262 S33); none in production

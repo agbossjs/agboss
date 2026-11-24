@@ -104,7 +104,8 @@ export function testGuardrail<
     const deps = unitRouterDeps(site.gateway);
     const runtime = runtimeGuardrailOf(loaded, {
       resolve: (cls) => site.instanceOf(cls),
-      modelOf: (model) => routerModelOf(model, deps),
+      modelOf: (model, modelProvider, unpriced) =>
+        routerModelOf(model, deps, modelProvider, unpriced),
       deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
     });
     const frame = {
