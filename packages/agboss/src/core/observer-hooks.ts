@@ -2,6 +2,7 @@ import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+import type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
 import type {
   CompensationEndEvent,
   CompensationStartEvent,
@@ -97,6 +98,8 @@ export interface ExecutionObserver {
   onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
   /** A quorum join decided (#279): once per quorum, before the execution goes on (or into `.onError`). */
   onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
+  /** A model provider's circuit breaker changed state (#1313): opened, opened again after a failed probe, or closed. An event of the application: no `workflows` / `agents` filter lets it through. */
+  onCircuitStateChange?(event: CircuitStateChangeEvent): void | Promise<void>;
   /** A memory starts summarising the turns older than its readers' window (#1303): before a new execution reads its thread, once per memory that has turns due. */
   onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
   /** A memory ended summarising (#1303), with what it spent; a failed compaction fails the execution (`StepError.Memory`) and has no end. */

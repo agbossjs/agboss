@@ -31,6 +31,7 @@ export const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onValuesOutdated: true,
   onLaunchItemsTruncated: true,
   onQuorumDecided: true,
+  onCircuitStateChange: true,
   onCompactionStart: true,
   onCompactionEnd: true,
   onCompensationStart: true,

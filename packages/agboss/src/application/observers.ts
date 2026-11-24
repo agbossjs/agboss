@@ -1,3 +1,4 @@
+import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import {
@@ -79,6 +80,10 @@ export async function observersOf(
   };
   const observer = observerManagerOf(assembled, shared, options, log, seams, builtIn);
   const heldLeases = metrics?.heldLeases;
+  // a provider's breaker changing state is the application's event (#1313)
+  providerCallsOf(infrastructure.rateLimits, infrastructure.clock).observe((provider, change) => {
+    void observer.onCircuitStateChange({ provider, ...change, at: infrastructure.clock.now() });
+  });
   return {
     observer,
     auditLog: auditLogWriterOf(infrastructure, { observer, mask, log, heldLeases }),

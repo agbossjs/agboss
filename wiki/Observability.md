@@ -89,7 +89,8 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onAgentRetry`                            | `AgentRetryEvent` (`agent`, `reason`: `InvalidAnswer`, `InvalidToolInput`, `JudgeRejected`; `attempt`, `maxAttempts`, `feedback`) |
 | `onRouterStart` / `onRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
 | `onToolStart` / `onToolEnd`               | `ToolStartEvent` (`tool`, `agent?`, `input`) / `ToolEndEvent` (`tool`, `agent?`, `output`, `isResultTruncated` — #336) |
-| `onModelStart` / `onModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
+| `onModelStart` / `onModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (`model`, `caller`; the end: `usage` (`TokenUsage`), `costUsd`) |
+| `onCircuitStateChange`                    | `CircuitStateChangeEvent` (`provider`, `from`, `to`: `closed`, `open`, `half-open`; `at`) — the application's, no `workflows` / `agents` filter lets it through |
 | `onRagStart` / `onRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
 | `onActionStart` / `onActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
 | `onGuardrailStart` / `onGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `component` (a `ComponentRecord`), the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`) |

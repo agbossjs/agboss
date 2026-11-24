@@ -968,6 +968,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onChannelStart(event: ChannelStartEvent): Promise<void>;
     // (undocumented)
+    onCircuitStateChange(event: CircuitStateChangeEvent): Promise<void>;
+    // (undocumented)
     onCompactionEnd(event: CompactionEndEvent): Promise<void>;
     // (undocumented)
     onCompactionStart(event: CompactionStartEvent): Promise<void>;
@@ -1862,6 +1864,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCircuitStateChange".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationStart".

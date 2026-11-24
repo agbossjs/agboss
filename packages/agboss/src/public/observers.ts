@@ -6,6 +6,7 @@ export type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 export type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 export type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 export type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+export type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
 export type {
   CompensationEndEvent,
   CompensationStartEvent,

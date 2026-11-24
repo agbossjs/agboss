@@ -1510,6 +1510,16 @@ export interface ChosenRouterRoute {
 }
 
 // @public
+export interface CircuitStateChangeEvent {
+    readonly at: Date;
+    // (undocumented)
+    readonly from: CircuitState;
+    readonly provider: string;
+    // (undocumented)
+    readonly to: CircuitState;
+}
+
+// @public
 type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError ? never : TInput extends MissingGeneratedTypes ? never : typeof agbossDto extends keyof TInput ? TInput : TInput extends object ? {
     [K in keyof TInput]-?: FieldDto<TInput[K]>;
 }[keyof TInput] : never;
@@ -3319,6 +3329,7 @@ export interface ExecutionObserver {
     onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
     // (undocumented)
     onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+    onCircuitStateChange?(event: CircuitStateChangeEvent): void | Promise<void>;
     onCompactionEnd?(event: CompactionEndEvent): void | Promise<void>;
     onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
     onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
@@ -12260,6 +12271,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "attempt".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "scopeKey".
+// src/flow/observers/circuit-state.ts - (ae-undocumented) Missing documentation for "from".
+// src/flow/observers/circuit-state.ts - (ae-undocumented) Missing documentation for "to".
 // src/flow/observers/execution-event.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "PlainDto".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "OneOfError".

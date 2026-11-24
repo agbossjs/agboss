@@ -58,6 +58,8 @@ export class ModelCallError extends AGBossError {
 export interface CircuitBreakerStore {
   readonly rateLimits: RateLimitRepository;
   readonly clock: Clock;
+  /** Told of each state change this breaker made (`onCircuitStateChange`); a throw is no failure of the call. */
+  readonly onTransition?: (transition: CircuitTransition) => void;
 }
 
 /** Where a provider's open breaker is kept in `RateLimitRepository`: a pause under this key. */
@@ -137,6 +139,16 @@ export class CircuitBreaker {
     return slot === undefined ? "refused" : "probe";
   }
 
+  /** A change of state, told to the store's listener — which never fails the call that made it. */
+  #told(transition: CircuitTransition): CircuitTransition {
+    try {
+      this.store.onTransition?.(transition);
+    } catch {
+      // a listener that throws is its own: the breaker's state is already written
+    }
+    return transition;
+  }
+
   /** Opens it: the open number in a row, its length by the policy; the count of failures starts anew. */
   async #trip(): Promise<void> {
     const { rateLimits, clock } = this.store;
@@ -158,7 +170,7 @@ export class CircuitBreaker {
     if ((failures ?? 0) < this.policy.failureThreshold && !isHalfOpen) return undefined;
     if ((await rateLimits.pausedUntil(this.#open)) !== undefined) return undefined;
     await this.#trip();
-    return { from: isHalfOpen ? "half-open" : "closed", to: "open" };
+    return this.#told({ from: isHalfOpen ? "half-open" : "closed", to: "open" });
   }
 
   /** A call that succeeded: the failures counted so far are forgotten; half-open, the breaker closes. */
@@ -169,6 +181,6 @@ export class CircuitBreaker {
     if ((await rateLimits.pausedUntil(this.#open)) !== undefined) return undefined;
     await rateLimits.clearWindow(this.#streak);
     await rateLimits.clearWindow(this.#probes);
-    return { from: "half-open", to: "closed" };
+    return this.#told({ from: "half-open", to: "closed" });
   }
 }

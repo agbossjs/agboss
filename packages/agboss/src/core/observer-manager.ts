@@ -2,6 +2,7 @@ import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+import type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
 import type {
   CompensationEndEvent,
   CompensationStartEvent,
@@ -195,6 +196,9 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
     return this.each("onQuorumDecided", event, (o, e) => o.onQuorumDecided?.(e));
+  }
+  onCircuitStateChange(event: CircuitStateChangeEvent): Promise<void> {
+    return this.each("onCircuitStateChange", event, (o, e) => o.onCircuitStateChange?.(e));
   }
   onCompactionStart(event: CompactionStartEvent): Promise<void> {
     return this.each("onCompactionStart", event, (o, e) => o.onCompactionStart?.(e));
