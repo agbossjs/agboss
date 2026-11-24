@@ -7,6 +7,7 @@ import { kill, resetRecovery } from "../../infrastructure/fixtures/recovery.work
 import {
   ChargedTripWorkflowStart,
   CommitTripWorkflowStart,
+  DeclinedTripWorkflowStart,
   TripBookingDesk,
   TripDesk,
 } from "../fixtures/child-undo.fixture.js";
@@ -50,6 +51,13 @@ describe("#1281b: a crash between a child's finish and its parent's step", () =>
       "declined",
       ["room-1", "seat-1"],
       "failed",
+    ],
+    [
+      "a parent whose failed step an .onError takes undoes each reservation once, before its side path (#1281)",
+      DeclinedTripWorkflowStart,
+      "declined",
+      ["room-1", "seat-1"],
+      "finished trip-not-reserved-workflow-finish",
     ],
     [
       "a parent that finishes commits them: nothing is undone",

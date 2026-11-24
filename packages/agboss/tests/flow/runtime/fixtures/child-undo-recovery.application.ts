@@ -8,7 +8,11 @@ import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { MortalExecutionLeaseRepository } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { ChargedTripWorkflow, CommitTripWorkflow } from "../../fixtures/child-undo.fixture.js";
+import {
+  ChargedTripWorkflow,
+  CommitTripWorkflow,
+  DeclinedTripWorkflow,
+} from "../../fixtures/child-undo.fixture.js";
 
 /**
  * The crash between a child's finish and its parent taking what it moved up: the child's end
@@ -54,7 +58,7 @@ export class ChildEndGate {
   name: "child-undo-recovery-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ChargedTripWorkflow, CommitTripWorkflow],
+  workflows: [ChargedTripWorkflow, CommitTripWorkflow, DeclinedTripWorkflow],
   observers: [ChildEndGate],
   providers: [MortalExecutionLeaseRepository],
   budgets: TEST_BUDGETS,

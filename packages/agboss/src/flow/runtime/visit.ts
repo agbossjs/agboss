@@ -8,17 +8,12 @@ import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { handledErrorFrame } from "./handled-error-frame.js";
 import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
 import { recordsOf, reportingOf, type GraphNode, type NodeRunner } from "./node-runner.js";
-import {
-  compensationsOfHeldVisit,
-  compensationsOfVisit,
-  type CompensationEntry,
-  type HeldUndo,
-} from "../compensation.js";
+import { compensationsOfVisit } from "../compensation.js";
 import type { CompensationParts } from "./compensation/registry.js";
 import type { Class } from "../../components/injection.js";
+import type { GraphDeps } from "../../graph/deps.js";
 import type { StepEntries } from "./step-entries.js";
 import { LimitExceededError } from "../../graph/limits.js";
-import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds } from "../../units/index.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
@@ -27,6 +22,7 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-write.js";
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
+import { handledFailure } from "./visit-handled.js";
 import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
 import { launchEdgeOf, launchFor, nextOfLaunch, type DeadlineSite } from "./launch/launch-exit.js";
 import { launchAttemptOf, type Launched } from "./launch/launch-attempt.js";
@@ -57,32 +53,8 @@ export interface VisitDeps extends StepFrameDeps {
   /** Where an undo action comes from (#675: the owed undo of a held-back visit), and the running steps. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
   readonly stepEntries?: StepEntries | undefined;
-}
-
-/** A failed visit's own entries: a held-back undo action's owed undo run (#675), else its close. */
-function failedCompensations(
-  site: Parameters<typeof compensationsOfVisit>[0],
-  deps: VisitDeps,
-  { isHeldBack, clock }: { readonly isHeldBack: boolean; readonly clock: Clock },
-): ReturnType<typeof compensationsOfHeldVisit> {
-  return isHeldBack
-    ? compensationsOfHeldVisit({ ...site, clock, deps })
-    : compensationsOfVisit(site);
-}
-
-/**
- * A handled failure's update with its entries — a failed child's undone ones first (#340), the
- * visit's own after them — and the owed undo's spend after the visit's own (#675).
- */
-function withOwnCompensations(
-  handled: ExecutionStateUpdate,
-  childEntries: readonly CompensationEntry[],
-  own: HeldUndo,
-): ExecutionStateUpdate {
-  const compensations = [...childEntries, ...(own.compensations ?? [])];
-  const visitUsage = Array.isArray(handled.usage) ? handled.usage : [];
-  const usage = [...visitUsage, ...(own.usage ?? [])];
-  return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
+  /** The deps of the child workflows a node runs (#1281): where a child's held entry is undone. */
+  readonly childDepsOf?: ((workflow: Class) => GraphDeps<string> | undefined) | undefined;
 }
 
 /** A visit that succeeded: its bookkeeping, its way out and what its write did to the scope. */
@@ -218,12 +190,11 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     } catch (error) {
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
       const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);
-      const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
       // #675: a limit thrown before the node ran held the visit back — it ran nothing
       const isHeldBack = !limitsChecked.isDone && error instanceof LimitExceededError;
-      const site = { ...failed, failure: error };
-      const own = await failedCompensations(site, deps, { isHeldBack, clock });
-      return { ...withOwnCompensations(handled, reported.compensations, own), ...kept };
+      const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
+      const site = { ...failed, state, failure: error, isHeldBack, clock, deps, reported };
+      return { ...(await handledFailure(handled, site)), ...kept };
     }
   };
 }

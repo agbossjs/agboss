@@ -11,6 +11,7 @@ import {
   ChargedTripWorkflowStart,
   ChildUndoApplication,
   CommitTripWorkflowStart,
+  DeclinedTripWorkflowStart,
   NestedChargedTripWorkflowStart,
   NestedQuorumTripWorkflowStart,
   QuorumTripWorkflowStart,
@@ -151,5 +152,39 @@ describe("#1281b: a parent that fails after its child finished undoes what the c
     });
     // each once at the join, never again by the failed execution's own unwind
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);
+  });
+});
+
+describe("#1281 (10): a step's failure an .onError takes undoes what the child held, before the side path", () => {
+  test("each reservation is released once, newest first, never committed", async ({
+    app,
+    mockOf,
+  }) => {
+    const released = deskOf(mockOf(TripBookingDesk));
+    mockOf(TripDesk).charge.mockRejectedValue(new Error("the card is declined"));
+
+    const result = await execute(app, DeclinedTripWorkflowStart, GUEST);
+
+    expect(result).toFinishWith(TripNotReservedWorkflowFinish, GUEST);
+    expect(released()).toEqual(["room-1", "seat-1"]);
+    expect(result.compensations.map((record) => record.reason)).toEqual([
+      CompensationReason.StepFailed,
+      CompensationReason.StepFailed,
+    ]);
+    expect(result).toHaveCompensated(BookSeatAction, {
+      by: FreeSeatAction,
+      reason: CompensationReason.StepFailed,
+    });
+  });
+
+  test("a step that succeeds leaves the child's entries to the finish: nothing is undone", async ({
+    app,
+    mockOf,
+  }) => {
+    const released = deskOf(mockOf(TripBookingDesk));
+
+    await execute(app, CommitTripWorkflowStart, GUEST);
+
+    expect(released()).toEqual([]);
   });
 });

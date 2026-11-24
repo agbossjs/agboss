@@ -78,6 +78,7 @@ export function nodeDepsOf(
     compensation: deps.compensation,
     container: deps.container,
     ...(deps.stepEntries === undefined ? {} : { stepEntries: deps.stepEntries }),
+    ...(deps.childDepsOf === undefined ? {} : { childDepsOf: deps.childDepsOf }),
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   return { visitDeps, launchDeps };

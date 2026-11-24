@@ -46,6 +46,10 @@ vi.mock("../../../src/flow/compensation.js", () => ({
   compensationsOfVisit: vi.fn(() => Promise.resolve({})),
   compensationsOfHeldVisit: vi.fn(() => Promise.resolve({})),
 }));
+vi.mock("../../../src/flow/runtime/compensation/step-error-undo.js", () => ({
+  hasHeldEntries: vi.fn(() => false),
+  undoneHeldEntries: vi.fn(),
+}));
 vi.mock("../../../src/flow/runtime/visit-write.js", async (original) => ({
   ...(await original<typeof import("../../../src/flow/runtime/visit-write.js")>()),
   visitWrite: vi.fn(() => ({ update: {}, outdated: [], cascades: [] })),

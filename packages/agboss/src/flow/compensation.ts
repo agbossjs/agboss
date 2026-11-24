@@ -38,6 +38,11 @@ export enum CompensationReason {
   JoinFailed = "join-failed",
   /** A quorum join went on without a branch that had already completed: its undo ran at the join (#1281). */
   QuorumExcluded = "quorum-excluded",
+  /**
+   * A plain step failed and its `.onError` took it: what its finished children left open was undone before
+   * the side path ran (#1281, D8) — the side path cannot name a child's own undo.
+   */
+  StepFailed = "step-failed",
   /** The execution failed without a finish (an uncaught failure or limit). */
   ExecutionFailed = "execution-failed",
   /** The execution was cancelled (`app.cancel`). */

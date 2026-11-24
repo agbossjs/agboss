@@ -156,6 +156,9 @@ export function unwindShard() {
       "src/flow/runtime/compensation/join-unwind.ts",
       // #1281b: a child's undo moved up to its parent, and where it undoes
       "src/flow/runtime/compensation/held-entries.ts",
+      // #1281 (10): a failed step an `.onError` takes undoes what its children held, before the side path
+      "src/flow/runtime/compensation/step-error-undo.ts",
+      "src/flow/runtime/visit-handled.ts",
       "src/flow/runtime/launch/branch-skip.ts",
       "src/flow/runtime/launch/items-limit.ts",
       "src/app/compensation/root-unwind.ts",

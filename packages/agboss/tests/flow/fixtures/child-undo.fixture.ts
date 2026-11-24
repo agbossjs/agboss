@@ -6,6 +6,7 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   QuorumNotReachedError,
+  StepError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -307,6 +308,24 @@ export class ChargedTripWorkflowStart {}
 })
 export class ChargedTripWorkflow {}
 
+@startOf("declined-trip")
+export class DeclinedTripWorkflowStart {}
+
+/** #1281 (10): the charge fails and an `.onError` takes it: the child's reservations are undone first. */
+@Workflow({
+  name: "declined-trip-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(DeclinedTripWorkflowStart)
+      .toWorkflow(TripChildWorkflow)
+      .toAction(ChargeTripAction)
+      .onError(StepError.Action, toFinish(TripNotReservedWorkflowFinish))
+      .toFinish(TripChargedWorkflowFinish),
+  ],
+  providers: [TripDesk],
+})
+export class DeclinedTripWorkflow {}
+
 @startOf("nested-quorum-trip")
 export class NestedQuorumTripWorkflowStart {}
 
@@ -385,6 +404,7 @@ export class RemoteChargedTripWorkflow {}
     RefusedTripWorkflow,
     CommitTripWorkflow,
     ChargedTripWorkflow,
+    DeclinedTripWorkflow,
     NestedQuorumTripWorkflow,
     NestedChargedTripWorkflow,
     RemoteQuorumTripWorkflow,

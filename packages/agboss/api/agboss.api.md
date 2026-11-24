@@ -1888,7 +1888,8 @@ export enum CompensationReason {
     ExecutionFailed = "execution-failed",
     JoinFailed = "join-failed",
     QuorumExcluded = "quorum-excluded",
-    SidePath = "side-path"
+    SidePath = "side-path",
+    StepFailed = "step-failed"
 }
 
 // @public
