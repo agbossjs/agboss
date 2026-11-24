@@ -315,7 +315,7 @@ describe("#633: an execution's budgets", () => {
     };
 
     const chosen = budgetsOfExecution(
-      [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget],
+      { budgets: [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget] },
       OwnWorkflow,
     );
 

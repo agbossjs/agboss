@@ -42,6 +42,13 @@ export const budgetsOfApplication = (application: {
   return [...listed, ...new Set(attached.filter((budget) => !listed.includes(budget)))];
 };
 
+/** The budget classes some workflow of the application attaches with `@Workflow({ budget })`, each once. */
+export const attachedBudgetsOf = (application: {
+  readonly workflows?: readonly Class[] | undefined;
+}): readonly Class[] => [
+  ...new Set((application.workflows ?? []).flatMap((workflow) => attachedBudgetOf(workflow) ?? [])),
+];
+
 /**
  * The execution budget that caps `workflow` among `metas`: the one it attaches or names with
  * `workflow: X` (its own), else the default (no `workflow`, attached by no workflow).
@@ -49,6 +56,7 @@ export const budgetsOfApplication = (application: {
 export function executionBudgetFor(
   metas: readonly BudgetMeta[],
   workflow: Class,
+  attachedByAny: readonly Class[] = [],
 ): { readonly meta: BudgetMeta; readonly isOwn: boolean } | undefined {
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
   const attached = attachedBudgetOf(workflow);
@@ -58,7 +66,8 @@ export function executionBudgetFor(
       ? attachedMeta
       : execution.find((meta) => meta.workflow === workflow);
   if (own !== undefined) return { meta: own, isOwn: true };
-  const fallback = execution.find((meta) => meta.workflow === undefined);
+  const others = new Set(attachedByAny.flatMap((cls) => budgetOf(cls)?.name ?? []));
+  const fallback = execution.find((meta) => meta.workflow === undefined && !others.has(meta.name));
   return fallback === undefined ? undefined : { meta: fallback, isOwn: false };
 }
 

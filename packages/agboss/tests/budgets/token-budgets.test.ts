@@ -102,9 +102,13 @@ describe("#1318a: a token budget counts tokens, and a $0 call is spend", () => {
     const { meter } = await continuedExecutionBudgets(await deps(ledger), [tokenBudget(100)], []);
 
     await meter.record([call(60)]);
-    expect(() => { meter.check([], ["agent"]); }).not.toThrow();
+    expect(() => {
+      meter.check([], ["agent"]);
+    }).not.toThrow();
     await meter.record([call(60)]);
-    const error = breachOf(() => { meter.check([], ["agent"]); });
+    const error = breachOf(() => {
+      meter.check([], ["agent"]);
+    });
 
     expect(error.unit).toBe(BudgetUnit.Tokens);
     expect(error).toMatchObject({ maxTokens: 100, usedTokens: 120, spent: 0 });
@@ -156,12 +160,18 @@ describe("#1318a: a token budget counts tokens, and a $0 call is spend", () => {
       [],
     );
     await dollars.meter.record([call(10, 1.5)]);
-    expect(breachOf(() => { dollars.meter.check([], []); }).unit).toBe(BudgetUnit.Usd);
+    expect(
+      breachOf(() => {
+        dollars.meter.check([], []);
+      }).unit,
+    ).toBe(BudgetUnit.Usd);
 
     const other = new InMemoryCostLedgerRepository();
     const tokens = await continuedExecutionBudgets(await deps(other), [bothBudget(100, 20)], []);
     await tokens.meter.record([call(25, 0.01)]);
-    const error = breachOf(() => { tokens.meter.check([], []); });
+    const error = breachOf(() => {
+      tokens.meter.check([], []);
+    });
     expect(error.unit).toBe(BudgetUnit.Tokens);
     expect(error.maxSpend).toBe(100);
   });
@@ -236,7 +246,11 @@ describe("#1318a: concurrent spends race a cap", () => {
     const counter = counterOf(record("acme"), clock.now());
     expect((await ledger.findUsageByCounter(counter)).tokens).toBe(150);
     for (const { meter } of meters)
-      expect(breachOf(() => { meter.check([], []); }).usedTokens).toBeGreaterThanOrEqual(100);
+      expect(
+        breachOf(() => {
+          meter.check([], []);
+        }).usedTokens,
+      ).toBeGreaterThanOrEqual(100);
   });
 });
 
@@ -262,7 +276,7 @@ const workflowClasses = Array.from({ length: 5 }, (_, index) => {
 describe("#1318a: a shared @Budget has one counter, keyed by the budget", () => {
   it("five workflows that attach it find the same budget, never five", () => {
     for (const workflow of workflowClasses) {
-      const found = budgetsOfExecution([], workflow);
+      const found = budgetsOfExecution({ budgets: [] }, workflow);
       expect(found.map(({ meta }) => meta.name)).toEqual(["tier-budget"]);
     }
   });

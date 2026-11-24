@@ -33,11 +33,13 @@ import {
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
+import type { BudgetListing } from "../app/app-deps.js";
 import { StoreBounds } from "../app/store-bounds.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import { settingsEntriesOf, type ResolvedStorage } from "../storage/settings.js";
 import { resolvedStorageOfOptions } from "../storage/storage-fields.js";
+import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -206,13 +208,15 @@ function listingApplicationOf(bundle: AssembledWorkflow) {
  * The budgets of a workflow run on its own (eval, replay, golden, compare): its application's
  * (#261), so those runs are checked and counted like the application's; none when it stands alone.
  */
-export function standaloneBudgetsOf(
-  bundle: AssembledWorkflow,
-): { readonly budgets: readonly Class[]; readonly applicationName: string } | undefined {
+export function standaloneBudgetsOf(bundle: AssembledWorkflow): BudgetListing | undefined {
   const declaration = listingApplicationOf(bundle);
   if (declaration === undefined) return undefined;
   const { options } = declaration;
-  return { budgets: options.budgets ?? [], applicationName: options.name };
+  return {
+    budgets: budgetsOfApplication(options),
+    attached: attachedBudgetsOf(options),
+    applicationName: options.name,
+  };
 }
 
 /** The providers of the one loaded application that lists the workflow (none: it stands alone). */

@@ -191,7 +191,7 @@ const listedOf = (
   options: ApplicationOptions,
 ): Pick<AssembledApplication, "providers" | "budgets" | "observers" | "healthChecks"> => ({
   providers: options.providers ?? [],
-  budgets: options.budgets ?? [],
+  budgets: budgetsOfApplication(options),
   observers: options.observers ?? [],
   healthChecks: options.healthChecks ?? [],
 });

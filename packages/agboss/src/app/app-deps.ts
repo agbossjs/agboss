@@ -186,7 +186,10 @@ export interface WorkflowDepsParts {
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
 export interface BudgetListing {
+  /** Every budget: the ones listed and the ones workflows attach (#1318). */
   readonly budgets: readonly Class[];
+  /** The ones some workflow attaches: never another workflow's default. */
+  readonly attached?: readonly Class[] | undefined;
   readonly applicationName: string;
 }
 

@@ -128,7 +128,7 @@ async function openBudgets(
   claimed: readonly ExecutionBudgetRecord[],
 ): Promise<readonly ExecutionBudgetRecord[]> {
   const records: ExecutionBudgetRecord[] = [];
-  for (const { type, meta } of budgetsOfExecution(application.budgets, workflow)) {
+  for (const { type, meta } of budgetsOfExecution(application, workflow)) {
     const limit = await limitsOf(application.resolve(type), meta, inFrame);
     records.push({
       budget: { name: meta.name },

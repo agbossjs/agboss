@@ -131,8 +131,10 @@ interface ListedBudget {
 
 /** An application's budgets, as one workflow of it runs them. */
 export interface ApplicationBudgets {
-  /** Every `@Budget` the application lists. */
+  /** Every `@Budget` of the application: the ones it lists and the ones its workflows attach (#1318). */
   readonly budgets: readonly Class[];
+  /** The ones some workflow attaches with `@Workflow({ budget })`: only that workflow's own, never a default. */
+  readonly attached?: readonly Class[] | undefined;
   /** The application's name: the key of its application budgets. */
   readonly applicationName: string;
   /** The budget instance (the container's, or a test's mock). */
@@ -153,7 +155,7 @@ const listed = (budgets: readonly Class[]): readonly ListedBudget[] =>
  * default one), every tenant budget, every application budget — in the order listed.
  */
 export function budgetsOfExecution(
-  budgets: readonly Class[],
+  { budgets, attached: attachedByAny = [] }: Pick<ApplicationBudgets, "budgets" | "attached">,
   workflow: Class,
 ): readonly ListedBudget[] {
   const attachedClass = attachedBudgetOf(workflow);
@@ -162,7 +164,11 @@ export function budgetsOfExecution(
   const execution = all.filter((budget) => budget.meta.scope === BudgetScope.Execution);
   const ownAttached = attached.find((budget) => budget.meta.scope === BudgetScope.Execution);
   const own = ownAttached ?? execution.find((budget) => budget.meta.workflow === workflow);
-  const chosen = own ?? execution.find((budget) => budget.meta.workflow === undefined);
+  const chosen =
+    own ??
+    execution.find(
+      (budget) => budget.meta.workflow === undefined && !attachedByAny.includes(budget.type),
+    );
   const kept = all.filter(
     (budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen,
   );

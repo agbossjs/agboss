@@ -28,6 +28,8 @@ import type { InstanceSeams } from "./instance-seams.js";
 export type { InstanceSeams } from "./instance-seams.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import { observersOf } from "./observers.js";
+import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
+import type { BudgetListing } from "../app/app-deps.js";
 import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
 import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
@@ -126,10 +128,15 @@ async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
 }
 
 /** The budgets every workflow of the application counts against. */
-const budgetsOf = (assembled: AssembledApplication) => ({
-  budgets: assembled.budgets,
-  applicationName: assembled.name,
-});
+export const budgetsOf = (assembled: AssembledApplication): BudgetListing => {
+  // the child workflows a listed one launches count too: a budget one of them attaches is the application's
+  const workflows = assembled.workflows.map((one) => one.graph.type);
+  return {
+    budgets: budgetsOfApplication({ budgets: assembled.budgets, workflows }),
+    attached: attachedBudgetsOf({ workflows }),
+    applicationName: assembled.name,
+  };
+};
 
 /**
  * Builds an assembled application into one instance: one container for the application (its

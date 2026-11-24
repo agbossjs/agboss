@@ -1,4 +1,8 @@
-import { budgetsOfApplication, executionBudgetFor } from "../budgets/budget-rules.js";
+import {
+  attachedBudgetsOf,
+  budgetsOfApplication,
+  executionBudgetFor,
+} from "../budgets/budget-rules.js";
 import { calendarNameOf } from "../calendar/calendar-source.js";
 import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
@@ -88,8 +92,9 @@ function executionBudgetOf(
   budgets: readonly BudgetMeta[],
   workflow: Class,
   name: string,
+  attachedByAny: readonly Class[],
 ): DescribedExecutionBudget {
-  const found = executionBudgetFor(budgets, workflow);
+  const found = executionBudgetFor(budgets, workflow, attachedByAny);
   return found === undefined
     ? { workflow: name, isOwn: false }
     : { workflow: name, name: found.meta.name, isOwn: found.isOwn };
@@ -124,7 +129,12 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
     modelProviders: modelProvidersOfApplication(assembled),
     budgets: budgets.map((meta) => describedBudget(meta, nameOf)),
     executionBudgets: assembled.workflows.map((workflow) =>
-      executionBudgetOf(budgets, workflow.graph.type, workflow.config.name),
+      executionBudgetOf(
+        budgets,
+        workflow.graph.type,
+        workflow.config.name,
+        attachedBudgetsOf({ workflows: assembled.workflows.map((one) => one.graph.type) }),
+      ),
     ),
     observers: assembled.observers.map(tokenName),
     pauseListeners: listenersOf(assembled.providers).flatMap((cls) => {
